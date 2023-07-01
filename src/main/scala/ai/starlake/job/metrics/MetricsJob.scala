@@ -190,9 +190,9 @@ class MetricsJob(
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
           new SinkUtils().sink(
             Map.empty, // Auth info extracted from Env var since run through spark-submit only
-            settings.comet.metrics.sink,
+            settings.comet.audit.sink,
             df,
-            settings.comet.audit.sink.database,
+            settings.comet.audit.database,
             settings.comet.audit.sink.name.getOrElse("audit"),
             table.toString,
             Some("Metrics on tables"),

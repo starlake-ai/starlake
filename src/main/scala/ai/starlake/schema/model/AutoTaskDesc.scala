@@ -37,7 +37,7 @@ case class AutoTaskDesc(
   postsql: List[String] = Nil,
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
-  assertions: Map[String, String] = Map.empty,
+  expectations: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,

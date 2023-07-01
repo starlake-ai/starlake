@@ -637,7 +637,7 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  def buildTasks(
+  private def buildTasks(
     config: TransformConfig
   ): Seq[AutoTask] = {
     val jobDesc =
@@ -663,7 +663,8 @@ class IngestionWorkflow(
     val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
-      val (_, mainSQL, _) = action.buildAllSQLQueries()
+      // TODO Interactive compilation should check table existence
+      val (_, mainSQL, _) = action.buildAllSQLQueries(false)
       mainSQL
     }
     result.foreach { sql =>

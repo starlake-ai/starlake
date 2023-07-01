@@ -1,0 +1,9 @@
+transform:
+  name: kpi
+  engine: ${engine}
+  views:
+    sellers: "${sellers_view}"
+    orders: "${orders_view}"
+  taskRefs:
+    - _byseller
+

@@ -22,7 +22,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.AssertionJob
+import ai.starlake.job.metrics.ExpectationJob
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryJobResult,
@@ -61,8 +61,7 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     schemaHandler: SchemaHandler
   ): Option[String] = {
-    taskDesc.sink
-      .flatMap(_.database) // database defined in sink
+    taskDesc.database
       .orElse(
         schemaHandler.activeEnvRefs().getDatabase(taskDesc.domain, taskDesc.table)
       ) // mapping in envRefs
@@ -167,13 +166,7 @@ case class AutoTask(
   }
 
   def runBQ(): Try[JobResult] = {
-    val start = Timestamp.from(Instant.now())
-    logger.info(s"running BQ Query  start time $start")
     val config = createBigQueryConfig()
-    logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildAllSQLQueries()
-    logger.info(s"Config $config")
-    // We add extra parenthesis required by BQ when using "WITH" keyword
     def bqNativeJob(sql: String) = {
       val toUpperSql = sql.toUpperCase()
       val finalSql =
@@ -183,6 +176,14 @@ case class AutoTask(
           sql
       new BigQueryNativeJob(config, finalSql, udf)
     }
+
+    val start = Timestamp.from(Instant.now())
+    logger.info(s"running BQ Query  start time $start")
+    val tableExists = bqNativeJob("ignore sql").tableExists(taskDesc.domain, taskDesc.table)
+    logger.info(s"running BQ Query with config $config")
+    val (preSql, mainSql, postSql) = buildAllSQLQueries(tableExists)
+    logger.info(s"Config $config")
+    // We add extra parenthesis required by BQ when using "WITH" keyword
 
     val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
@@ -223,12 +224,12 @@ case class AutoTask(
             jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
           jobResultCount.foreach(logAuditSuccess(start, end, _))
           // We execute assertions only on success
-          if (settings.comet.assertions.active) {
-            new AssertionJob(
+          if (settings.comet.expectations.active) {
+            new ExpectationJob(
               authInfo,
               taskDesc.domain,
               taskDesc.table,
-              taskDesc.assertions,
+              taskDesc.expectations,
               UNIT,
               storageHandler,
               schemaHandler,
@@ -296,9 +297,7 @@ case class AutoTask(
           val taskNames = tasksByTable.map(_.name).mkString(",")
           logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
           throw new Exception("Table is present in multiple domains and/or tasks")
-        } else if (nameCountMatch == 0) {
-          throw new Exception(s"Table $table not found in any domain or task")
-        } else { // nameCountMatch == 1
+        } else if (nameCountMatch == 1) {
           val domainName = domainsByFinalName.headOption
             .map(_.name)
             .orElse(tasksByTable.headOption.map(_.domain))
@@ -310,6 +309,9 @@ case class AutoTask(
             .orElse(tasksByTable.headOption.flatMap(_.database))
             .orElse(tasksByName.headOption.flatMap(_.database))
           (databaseName, domainName, table)
+        } else { // nameCountMatch == 0
+          logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
+          (None, "", table)
         }
     }
   }
@@ -352,14 +354,33 @@ case class AutoTask(
     resolvedSQL
   }
 
-  def buildAllSQLQueries(): (List[String], String, List[String]) = {
-    val mainSql = parseJinja(taskDesc.getSql())
+  def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
+    val mergeSql =
+      if (!tableExists)
+        buildSingleSQLQuery(taskDesc.getSql())
+      else {
+        taskDesc.merge match {
+          case Some(options) =>
+            val mergeSql =
+              SQLUtils.buildMergeSql(
+                parseJinja(taskDesc.getSql()),
+                options.key,
+                getDatabase(taskDesc),
+                taskDesc.domain,
+                taskDesc.table,
+                taskDesc.engine.getOrElse(Engine.SPARK)
+              )
+            logger.info(s"Merge SQL: $mergeSql")
+            mergeSql
+          case None =>
+            buildSingleSQLQuery(parseJinja(taskDesc.getSql()))
+        }
+      }
 
-    logger.info(s"Parse Main SQL: $mainSql")
     val preSql = parseJinja(taskDesc.presql)
     val postSql = parseJinja(taskDesc.postsql)
 
-    (preSql, s"(\n$mainSql\n)", postSql)
+    (preSql, s"(\n$mergeSql\n)", postSql)
   }
 
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
@@ -369,9 +390,12 @@ case class AutoTask(
     * @param sqls
     * @return
     */
-  private def parseJinja(sqls: List[String]): List[String] =
-    Utils
+  private def parseJinja(sqls: List[String]): List[String] = {
+    val result = Utils
       .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters)
+    logger.info(s"Parse Jinja result: $result")
+    result
+  }
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(this.coalesce)
@@ -466,7 +490,8 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
-      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries()
+      val tableExists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
+      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries(tableExists)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.engine}")
@@ -500,12 +525,12 @@ case class AutoTask(
             sinkToFS(dataframe, fsSink)
           }
 
-          if (settings.comet.assertions.active) {
-            new AssertionJob(
+          if (settings.comet.expectations.active) {
+            new ExpectationJob(
               authInfo,
               taskDesc.domain,
               taskDesc.table,
-              taskDesc.assertions,
+              taskDesc.expectations,
               Stage.UNIT,
               storageHandler,
               schemaHandler,

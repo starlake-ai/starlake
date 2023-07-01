@@ -114,7 +114,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
+        expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
         python = None,
         merge = None
       )
@@ -156,7 +156,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
+        expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
         python = None,
         merge = None
       )
