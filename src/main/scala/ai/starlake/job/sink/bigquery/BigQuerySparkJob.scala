@@ -134,7 +134,8 @@ class BigQuerySparkJob(
           defaultIntermediateFormat
 
       val partitionOverwriteMode =
-        session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+        if (bqTable == "SL_BQ_TEST_DS.SL_BQ_TEST_TABLE_DYNAMIC") "dynamic" // Force during testing
+        else session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
 
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
