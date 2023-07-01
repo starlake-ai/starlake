@@ -27,7 +27,7 @@ class SqlUtilsSpec extends TestHelper {
         |            amount,
         |            store_id,
         |            seller_id
-        |        FROM `starlake-325712`.`starlake_vs_dbt`.`transactions`
+        |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
         |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
         |    ),
         |    locations AS (
@@ -38,7 +38,7 @@ class SqlUtilsSpec extends TestHelper {
         |            city,
         |            state,
         |            country
-        |        FROM `starlake-325712`.`starlake_vs_dbt`.`locations`
+        |        FROM `starlake-325712`.`starlake_tbl`.`locations`
         |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
         |    ),
         |    sellers AS (
@@ -46,7 +46,7 @@ class SqlUtilsSpec extends TestHelper {
         |            seller_id,
         |            seller_name,
         |            hire_date
-        |        FROM `starlake-325712`.`starlake_vs_dbt`.`sellers`
+        |        FROM `starlake-325712`.`starlake_tbl`.`sellers`
         |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
         |    )
         |
@@ -106,7 +106,7 @@ class SqlUtilsSpec extends TestHelper {
           |            amount,
           |            store_id,
           |            seller_id
-          |        FROM `starlake-325712`.`starlake_vs_dbt`.`transactions`
+          |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
           |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
           |    ),
           |    locations AS (
@@ -117,7 +117,7 @@ class SqlUtilsSpec extends TestHelper {
           |            city,
           |            state,
           |            country
-          |        FROM `starlake-325712`.`starlake_vs_dbt`.`locations`
+          |        FROM `starlake-325712`.`starlake_tbl`.`locations`
           |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
           |    ),
           |    sellers AS (
@@ -125,7 +125,7 @@ class SqlUtilsSpec extends TestHelper {
           |            seller_id,
           |            seller_name,
           |            hire_date
-          |        FROM `starlake-325712`.`starlake_vs_dbt`.`sellers`
+          |        FROM `starlake-325712`.`starlake_tbl`.`sellers`
           |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
           |    )
           |
