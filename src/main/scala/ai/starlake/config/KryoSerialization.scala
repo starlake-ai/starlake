@@ -20,7 +20,7 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[Connection])
     kryo.register(classOf[AccessPolicies])
     kryo.register(classOf[KafkaConfig])
-    kryo.register(classOf[Assertions])
+    kryo.register(classOf[Expectations])
     kryo.register(classOf[Sink])
     kryo.register(classOf[BigQuerySink])
     kryo.register(classOf[EsSink])

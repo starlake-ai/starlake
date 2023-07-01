@@ -8,7 +8,6 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption,
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
-import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -314,7 +313,7 @@ class BigQueryNativeJob(
           Utils.logException(logger, e)
           throw new Exception(e)
         }
-        updateTableDescription(tableId, cliConfig.outputTableDesc.getOrElse(""))
+        updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
         updateColumnsDescription(getFieldsDescriptionSource(sql))
         BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobInfo))
       }
@@ -378,5 +377,3 @@ class BigQueryNativeJob(
     }
   }
 }
-
-object BigQueryNativeJob extends StrictLogging {}

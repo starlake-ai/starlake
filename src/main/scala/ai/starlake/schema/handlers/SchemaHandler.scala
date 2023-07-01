@@ -203,17 +203,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._types
   }
 
-  def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
-    val assertionsPath = new Path(DatasetArea.assertions, filename)
-    logger.info(s"Loading assertions $assertionsPath")
-    if (storage.exists(assertionsPath)) {
+  def loadExpectations(filename: String): Map[String, ExpectationDefinition] = {
+    val expectationsPath = new Path(DatasetArea.expectations, filename)
+    logger.info(s"Loading expectations $expectationsPath")
+    if (storage.exists(expectationsPath)) {
       val content = Utils
-        .parseJinja(storage.read(assertionsPath), activeEnvVars())
+        .parseJinja(storage.read(expectationsPath), activeEnvVars())
       mapper
-        .readValue(content, classOf[AssertionDefinitions])
-        .assertionDefinitions
+        .readValue(content, classOf[ExpectationDefinitions])
+        .expectationDefinitions
     } else
-      Map.empty[String, AssertionDefinition]
+      Map.empty[String, ExpectationDefinition]
   }
 
   def loadExternalSources(filename: String): List[ExternalProject] = {
@@ -233,11 +233,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def externalSources(): List[ExternalProject] = loadExternalSources("default.comet.yml")
 
   @throws[Exception]
-  def assertions(name: String): Map[String, AssertionDefinition] = {
-    val defaultAssertions = loadAssertions("default.comet.yml")
-    val assertions = loadAssertions("assertions.comet.yml")
-    val resAssertions = loadAssertions(name + ".comet.yml")
-    defaultAssertions ++ assertions ++ resAssertions
+  def expectations(name: String): Map[String, ExpectationDefinition] = {
+    val defaultExpectations = loadExpectations("default.comet.yml")
+    val expectations = loadExpectations("expectations.comet.yml")
+    val resExpectations = loadExpectations(name + ".comet.yml")
+    defaultExpectations ++ expectations ++ resExpectations
   }
 
   private def viewName(sqlFile: Path) =
@@ -928,9 +928,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def getDatabase(domain: Domain, schemaName: String)(implicit
     settings: Settings
   ): Option[String] = {
-    domain.metadata
-      .flatMap(_.sink)
-      .flatMap(_.database) // database defined in sink
+    domain.database
       .orElse(
         this
           .activeEnvRefs()
@@ -940,5 +938,4 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     // SL_DATABASE
     // default database
   }
-
 }
