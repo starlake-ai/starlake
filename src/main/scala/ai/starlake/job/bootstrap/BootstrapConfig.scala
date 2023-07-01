@@ -27,7 +27,6 @@ object BootstrapConfig extends CliConfig[BootstrapConfig] {
     )
   }
 
-  // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[BootstrapConfig] =
     OParser.parse(parser, args, BootstrapConfig())
 
