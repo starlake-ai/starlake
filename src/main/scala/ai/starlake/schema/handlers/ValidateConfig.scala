@@ -17,7 +17,9 @@ object ValidateConfig extends CliConfig[ValidateConfig] {
       opt[Unit]("reload")
         .action((x, c) => c.copy(reload = true))
         .optional()
-        .text("Port on which the server is listening")
+        .text(
+          "Reload all files from disk before starting validation. Always true regardless of the value set here."
+        )
     )
   }
 
