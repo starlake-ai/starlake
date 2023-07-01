@@ -297,9 +297,7 @@ case class AutoTask(
           val taskNames = tasksByTable.map(_.name).mkString(",")
           logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
           throw new Exception("Table is present in multiple domains and/or tasks")
-        } else if (nameCountMatch == 0) {
-          throw new Exception(s"Table $table not found in any domain or task")
-        } else { // nameCountMatch == 1
+        } else if (nameCountMatch == 1) {
           val domainName = domainsByFinalName.headOption
             .map(_.name)
             .orElse(tasksByTable.headOption.map(_.domain))
@@ -311,6 +309,9 @@ case class AutoTask(
             .orElse(tasksByTable.headOption.flatMap(_.database))
             .orElse(tasksByName.headOption.flatMap(_.database))
           (databaseName, domainName, table)
+        } else { // nameCountMatch == 0
+          logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
+          (None, "", table)
         }
     }
   }
