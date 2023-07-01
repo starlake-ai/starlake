@@ -1,7 +1,12 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.{ExtractDataConfig, ExtractSchemaConfig, ExtractScriptConfig}
+import ai.starlake.extract.{
+  BigQueryFreshnessConfig,
+  ExtractDataConfig,
+  ExtractSchemaConfig,
+  ExtractScriptConfig
+}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
@@ -10,8 +15,10 @@ import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.generator.{Xls2YmlConfig, Yml2GraphVizConfig, Yml2XlsConfig}
+import ai.starlake.job.transform.{AutoTask2GraphVizConfig, TransformConfig}
+import ai.starlake.schema.generator._
+import ai.starlake.schema.handlers.ValidateConfig
+import ai.starlake.serve.MainServerConfig
 import better.files.File
 
 class CliConfigSpec extends TestHelper {
@@ -29,12 +36,19 @@ class CliConfigSpec extends TestHelper {
         "xls2yml"        -> Xls2YmlConfig,
         "extract-schema" -> ExtractSchemaConfig,
         "extract-data"   -> ExtractDataConfig,
-        "extract"        -> ExtractScriptConfig,
         "transform"      -> TransformConfig,
         "watch"          -> WatchConfig,
         "kafkaload"      -> KafkaJobConfig,
         "yml2xls"        -> Yml2XlsConfig,
-        "yml2gv"         -> Yml2GraphVizConfig
+        "yml2gv"         -> Yml2GraphVizConfig,
+        "jobs2gv"        -> AutoTask2GraphVizConfig,
+        "validate"       -> ValidateConfig,
+        "infer-ddl"      -> Yml2DDLConfig,
+        "extract-script" -> ExtractScriptConfig,
+        "bq-info"        -> BigQueryTablesConfig,
+        "bq-freshness"   -> BigQueryFreshnessConfig,
+        "serve"          -> MainServerConfig // ,
+        // "yml2dag"        -> Yml2DagConfigForMain
       )
       val orderedMap = configMap.toList.sortBy { case (command, config) =>
         command
