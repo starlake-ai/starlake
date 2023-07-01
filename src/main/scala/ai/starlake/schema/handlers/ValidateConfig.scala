@@ -6,7 +6,7 @@ import scopt.OParser
 case class ValidateConfig(reload: Boolean = false)
 
 object ValidateConfig extends CliConfig[ValidateConfig] {
-  val command = "serve"
+  val command = "validate"
   val parser: OParser[Unit, ValidateConfig] = {
     val builder = OParser.builder[ValidateConfig]
     import builder._
