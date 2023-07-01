@@ -1,0 +1,10 @@
+---
+transform:
+  name: "kpi"
+  engine: "BQ"
+  views:
+    sellers: "BQ:select * from hr.sellers"
+    orders: "BQ:select * from sales.orders"
+  area: "business"
+  taskRefs:
+  - "_byseller"

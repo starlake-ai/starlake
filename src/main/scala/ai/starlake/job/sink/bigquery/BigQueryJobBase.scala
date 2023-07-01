@@ -374,6 +374,19 @@ trait BigQueryJobBase extends StrictLogging {
     processWithRetry(bigqueryProcess = bigqueryProcess)
   }
 
+  def tableExists(tableId: TableId)(implicit settings: Settings): Boolean = {
+    try {
+      val table = bigquery().getTable(tableId)
+      table != null && table.exists
+    } catch {
+      case _: BigQueryException =>
+        false
+    }
+  }
+
+  def tableExists(datasetName: String, tableName: String)(implicit settings: Settings): Boolean =
+    tableExists(TableId.of(datasetName, tableName))
+
   /** Get or create a BigQuery dataset
     *
     * @param domainDescription
@@ -429,16 +442,16 @@ trait BigQueryJobBase extends StrictLogging {
       val tryResult = recoverBigqueryException {
 
         val tableDefinition = getTableDefinition(tableInfo, dataFrame)
-        val table = scala
-          .Option(bigquery().getTable(tableId))
-          .getOrElse {
+        val table =
+          if (tableExists(tableId)) {
+            val table = bigquery().getTable(tableId)
+            updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
+          } else {
             val bqTableInfo = BQTableInfo
               .newBuilder(tableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
               .build
-            val result = bigquery().create(
-              bqTableInfo
-            )
+            val result = bigquery().create(bqTableInfo)
             logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
             result
           }
@@ -464,11 +477,10 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  protected def updateTableDescription(idTable: TableId, description: String)(implicit
+  protected def updateTableDescription(bqTable: Table, description: String)(implicit
     settings: Settings
   ): Table = {
     recoverBigqueryException {
-      val bqTable = bigquery().getTable(idTable)
       if (scala.Option(bqTable.getDescription) != scala.Option(description)) {
         // Update dataset description only when description is explicitly set
         logger.info("Table's description has changed")
@@ -544,7 +556,7 @@ trait BigQueryJobBase extends StrictLogging {
     tableIds
       .flatMap(tableId =>
         Try(bigquery().getTable(tableId))
-          .map(table => {
+          .map { table =>
             logger.info(s"Get table source description field : ${table.getTableId.toString}")
             table
               .getDefinition[StandardTableDefinition]
@@ -553,7 +565,7 @@ trait BigQueryJobBase extends StrictLogging {
               .iterator()
               .asScala
               .toList
-          })
+          }
           .getOrElse(Nil)
       )
 
