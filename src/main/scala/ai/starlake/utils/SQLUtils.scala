@@ -9,7 +9,7 @@ import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
 
 object SQLUtils {
-  val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,A-Z0-9`./(]*)".r
+  val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
   val joinRegex = "(?i)\\s+JOIN\\s+([_\\-a-z0-9`./]+)".r
   // val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
 
@@ -135,20 +135,35 @@ object SQLUtils {
     sql: String,
     refMap: List[Option[(Option[String], String, String)]] // (database, domain, table)
   ): String = {
+    def getPrefix(sql: String, start: Int): String = {
+      val substr = sql.substring(start).trim
+      val withFrom = substr.startsWith("FROM")
+      val withJoin = substr.trim.startsWith("JOIN")
+      if (withFrom)
+        " FROM "
+      else if (withJoin)
+        " JOIN "
+      else
+        ""
+    }
+
     val iterator = refMap.iterator
     var result = sql
     def replaceRegexMatches(matches: Iterator[Regex.Match]): Unit = {
       matches.toList.reverse
         .foreach { regex =>
           iterator.next() match {
+            case Some((_, "", table)) =>
+            // do nothing
             case Some((Some(database), domain, table)) =>
+              val prefix: String = getPrefix(result, regex.start)
               result = result.substring(0, regex.start) +
-                s"$database.$domain.$table" +
+                s"$prefix$database.$domain.$table" +
                 result.substring(regex.end)
-
             case Some((None, domain, table)) =>
+              val prefix: String = getPrefix(result, regex.start)
               result = result.substring(0, regex.start) +
-                s"$domain.$table" +
+                s"$prefix$domain.$table" +
                 result.substring(regex.end)
             case None =>
           }
