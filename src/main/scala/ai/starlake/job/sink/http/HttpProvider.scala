@@ -36,16 +36,7 @@ class HttpProvider extends StreamSinkProvider with StreamSourceProvider with Dat
     partitionColumns: Seq[String],
     outputMode: OutputMode
   ): HtttpSink = {
-    val transformer = parameters
-      .get("transformer")
-      .map(Utils.loadInstance[SinkTransformer])
-      .getOrElse(DefaultSinkTransformer)
-
-    val url = parameters("url")
-    val maxMessages = parameters.getOrElse("maxMessages", "1").toInt
-    val numRetries = parameters.getOrElse("numRetries", "3").toInt
-    val retryInterval = parameters.getOrElse("retryInterval", "1000").toInt
-    new HtttpSink(url, maxMessages, numRetries, retryInterval, transformer);
+    new HtttpSink(parameters);
   }
 
   def shortName(): String = "starlake-http"

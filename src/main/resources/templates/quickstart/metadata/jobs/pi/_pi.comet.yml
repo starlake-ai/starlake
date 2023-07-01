@@ -1,0 +1,13 @@
+tasks:
+  - name: pi
+    domain: result
+    table: file
+    write: OVERWRITE
+    sink:
+      type: "FS"
+      options:
+        emptyValue: ""
+        delimiter: "|"
+        ignoreLeadingWhiteSpace: false
+        ignoreTrailingWhiteSpace: false
+

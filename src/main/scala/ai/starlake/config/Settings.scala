@@ -105,11 +105,10 @@ object Settings extends StrictLogging {
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
-    active: Boolean,
-    sink: Sink
+    active: Boolean
   )
 
-  final case class Assertions(
+  final case class Expectations(
     path: String,
     active: Boolean,
     sink: Sink
@@ -118,7 +117,8 @@ object Settings extends StrictLogging {
   final case class Audit(
     path: String,
     sink: Sink,
-    maxErrors: Int
+    maxErrors: Int,
+    database: Option[String]
   )
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -291,7 +291,6 @@ object Settings extends StrictLogging {
     metrics: Metrics,
     validateOnLoad: Boolean,
     audit: Audit,
-    tableInfo: Audit,
     archive: Boolean,
     sinkToFile: Boolean,
     sinkReplayToFile: Boolean,
@@ -325,7 +324,7 @@ object Settings extends StrictLogging {
     fileSystem: String,
     internal: Option[Internal],
     udfs: Option[String],
-    assertions: Assertions,
+    expectations: Expectations,
     kafka: KafkaConfig,
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
