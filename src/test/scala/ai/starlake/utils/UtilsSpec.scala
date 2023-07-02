@@ -84,5 +84,14 @@ class UtilsSpec extends TestHelper {
       import ai.starlake.utils.Formatter._
       assert("${key}_and_${key}".richFormat(Map.empty, Map("key" -> "value")) == "value_and_value")
     }
+
+    "Parse Jinja using env vars" should "match result" in {
+      val result =
+        Utils.parseJinja(
+          "{%if ok %}{{ 'hello' | upper }}{% endif %}",
+          Map("ok" -> true)
+        )
+      assert(result.trim == "HELLO")
+    }
   }
 }

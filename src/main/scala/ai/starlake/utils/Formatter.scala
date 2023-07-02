@@ -16,19 +16,19 @@ trait Formatter {
     */
   implicit class RichFormatter(str: String) {
     def richFormat(
-      activeEnv: Map[String, String],
-      extraEnvVars: Map[String, String]
+      activeEnv: Map[String, Any],
+      extraEnvVars: Map[String, Any]
     )(implicit settings: Settings): String = {
       if (settings.comet.internal.forall(_.substituteVars))
         (activeEnv ++ extraEnvVars).foldLeft(str) { case (res, (key, value)) =>
           res
             .replaceAll(
               settings.comet.sqlParameterPattern.format(key),
-              Regex.quoteReplacement(value)
+              Regex.quoteReplacement(value.toString)
             ) // new syntax
             .replaceAll(
               "\\{\\{\\s*%s\\s*\\}\\}".format(key),
-              Regex.quoteReplacement(value)
+              Regex.quoteReplacement(value.toString)
             ) // old syntax
         }
       else
