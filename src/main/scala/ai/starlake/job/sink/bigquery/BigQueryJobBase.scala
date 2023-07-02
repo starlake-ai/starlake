@@ -384,8 +384,34 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  def tableExists(datasetName: String, tableName: String)(implicit settings: Settings): Boolean =
-    tableExists(TableId.of(datasetName, tableName))
+  def tableExists(databaseName: scala.Option[String], datasetName: String, tableName: String)(
+    implicit settings: Settings
+  ): Boolean =
+    tableExists(getTableId(databaseName, datasetName, tableName))
+
+  def dropTable(databaseName: scala.Option[String], datasetName: String, tableName: String)(implicit
+    settings: Settings
+  ): Boolean = {
+    val tableId = getTableId(databaseName, datasetName, tableName)
+    val success = bigquery().delete(tableId)
+    if (success)
+      logger.info(s"Table $tableId deleted")
+    else
+      logger.info(s"Table $tableId not found")
+    success
+  }
+
+  private def getTableId(
+    databaseName: scala.Option[String],
+    datasetName: String,
+    tableName: String
+  ): TableId = {
+    databaseName match {
+      case Some(dbName) =>
+        TableId.of(dbName, datasetName, tableName)
+      case None => TableId.of(datasetName, tableName)
+    }
+  }
 
   /** Get or create a BigQuery dataset
     *
