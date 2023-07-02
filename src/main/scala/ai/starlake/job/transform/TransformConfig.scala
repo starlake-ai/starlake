@@ -60,11 +60,11 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .text(
           s"Useful for testing. Max number of rows to retrieve. Negative value means the maximum value ${Int.MaxValue}"
         ),
-      opt[Boolean]("truncate")
+      opt[Boolean]("drop")
         .action((x, c) => c.copy(drop = x))
         .optional()
         .text(
-          s"Force target table truncate before insert. Default value is false"
+          s"Force target table drop before insert. Default value is false"
         ),
       opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
