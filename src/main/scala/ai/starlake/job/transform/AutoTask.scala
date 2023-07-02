@@ -236,7 +236,7 @@ case class AutoTask(
               None,
               engine,
               sql =>
-                bqNativeJob(parseJinja(sql))
+                bqNativeJob(parseJinja(sql, Map.empty))
                   .runInteractiveQuery()
                   .map { result =>
                     val bqResult = result.asInstanceOf[BigQueryJobResult]
@@ -316,8 +316,8 @@ case class AutoTask(
     }
   }
 
-  private def buildSingleSQLQuery(j2sql: String): String = {
-    val sql = parseJinja(j2sql)
+  private def buildSingleSQLQuery(j2sql: String, vars: Map[String, Any]): String = {
+    val sql = parseJinja(j2sql, vars)
     val tableRefs = SQLUtils.extractRefsFromSQL(sql)
     val refList = tableRefs.map { tableRef =>
       val tableComponents = tableRef.replaceAll("`", "").split('.').toList
@@ -355,15 +355,16 @@ case class AutoTask(
   }
 
   def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
+    val jinjaVars = Map("merge" -> tableExists)
     val mergeSql =
       if (!tableExists)
-        buildSingleSQLQuery(taskDesc.getSql())
+        buildSingleSQLQuery(taskDesc.getSql(), jinjaVars)
       else {
         taskDesc.merge match {
           case Some(options) =>
             val mergeSql =
               SQLUtils.buildMergeSql(
-                parseJinja(taskDesc.getSql()),
+                parseJinja(taskDesc.getSql(), jinjaVars),
                 options.key,
                 getDatabase(taskDesc),
                 taskDesc.domain,
@@ -373,26 +374,29 @@ case class AutoTask(
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
           case None =>
-            buildSingleSQLQuery(parseJinja(taskDesc.getSql()))
+            buildSingleSQLQuery(taskDesc.getSql(), jinjaVars)
         }
       }
 
-    val preSql = parseJinja(taskDesc.presql)
-    val postSql = parseJinja(taskDesc.postsql)
+    val preSql = parseJinja(taskDesc.presql, jinjaVars)
+    val postSql = parseJinja(taskDesc.postsql, jinjaVars)
 
     (preSql, s"(\n$mergeSql\n)", postSql)
   }
 
-  private def parseJinja(sql: String): String = parseJinja(List(sql)).head
+  private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
+    List(sql),
+    vars
+  ).head
 
   /** All variables defined in the active profile are passed as string parameters to the Jinja
     * parser.
     * @param sqls
     * @return
     */
-  private def parseJinja(sqls: List[String]): List[String] = {
+  private def parseJinja(sqls: List[String], vars: Map[String, Any]): List[String] = {
     val result = Utils
-      .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters)
+      .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters ++ vars)
     logger.info(s"Parse Jinja result: $result")
     result
   }
@@ -587,8 +591,8 @@ case class AutoTask(
       ) ++ pythonParams
     )
 
-    if (session.catalog.tableExists("SL_TABLE"))
-      Some(session.sqlContext.table("SL_TABLE"))
+    if (session.catalog.tableExists("SL_THIS"))
+      Some(session.sqlContext.table("SL_THIS"))
     else
       None
   }
@@ -644,7 +648,7 @@ case class AutoTask(
     logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
 
   def dependencies(): List[String] = {
-    val result = SQLUtils.extractRefsFromSQL(parseJinja(taskDesc.getSql()))
+    val result = SQLUtils.extractRefsFromSQL(parseJinja(taskDesc.getSql(), Map.empty))
     logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
     result
   }
