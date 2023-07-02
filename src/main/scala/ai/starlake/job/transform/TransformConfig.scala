@@ -12,7 +12,8 @@ case class TransformConfig(
   viewsDir: Option[String] = None,
   viewsCount: Int = 1000,
   reload: Boolean = false,
-  authInfo: Map[String, String] = Map.empty
+  authInfo: Map[String, String] = Map.empty,
+  drop: Boolean = false
 )
 
 object TransformConfig extends CliConfig[TransformConfig] {
@@ -58,6 +59,12 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .optional()
         .text(
           s"Useful for testing. Max number of rows to retrieve. Negative value means the maximum value ${Int.MaxValue}"
+        ),
+      opt[Boolean]("truncate")
+        .action((x, c) => c.copy(drop = x))
+        .optional()
+        .text(
+          s"Force target table truncate before insert. Default value is false"
         ),
       opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
