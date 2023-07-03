@@ -17,7 +17,7 @@ module.exports = {
             }
         },
         prism: {
-            additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
+            additionalLanguages: ['java', 'scala', 'sql', 'powershell', 'python'],
             theme: require('prism-react-renderer/themes/github'),
             darkTheme: require('prism-react-renderer/themes/dracula'),
         },
@@ -176,6 +176,7 @@ module.exports = {
                 // ```
                 // When applying `zh` in language, please install `nodejieba` in your project.
             },
+            
         ],
     ]
 };

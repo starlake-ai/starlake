@@ -117,6 +117,7 @@ spark-warehouse/
 docs/_build
 docs/.docusaurus
 docs/package-lock.json
+docs/yarn.lock
 src/test/resources/nps/
 src/main/resources/application.conf
 

@@ -3,6 +3,8 @@ sidebar_position: 3
 title: Databricks on any cloud
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 ## Cluster Setup
 When running on top of Databricks, you can make complete abstraction of the Cloud provider.
@@ -22,7 +24,8 @@ The screenshots below are taken from a Databricks cluster running on Google Clou
 :::
 
 ## Create a service account
-### Google Cloud
+<Tabs groupId="environments">
+<TabItem value="gcp" label="Google Cloud Platform">
 
 Create a bucket and name it for example `starlake-app`. This bucket will have the following purposes:
 - Store Starlake jars
@@ -32,8 +35,8 @@ Create a bucket and name it for example `starlake-app`. This bucket will have th
 Create a service account and assign it the Storage Admin role. 
 
 ![Create Service Account]( /img/databricks/create-service-account.png "create service account")
-
-### Azure
+</TabItem>
+<TabItem value="azure" label="Azure">
 
 Create a storage account and name it for example `starlakestorage` and assigns it to a resource group. In this storage account create a container that you can name `starlake-app` and set its public access level to `Container`. This container will have the following purposes:
 - Store Starlake jars
@@ -43,11 +46,15 @@ Create a storage account and name it for example `starlakestorage` and assigns i
 ![Azure create container]( /img/databricks/azure-container.png "Azure create container")
 
 But you can also distribute these tasks across several containers.
+</TabItem>
+</Tabs>
+
 ## Create a Databricks Cluster
 
 In a Databricks Workspace, create a cluster with the correct Databricks Runtime version : 9.1 LTS (Apache Spark 3.1.2, Scala 2.12).
 
-### Google Cloud
+<Tabs groupId="environments">
+<TabItem value="gcp" label="Google Cloud Platform">
 
 Set the value of the `Service Account` field name to the service account you just create in the step above.
 ![Create Databricks Cluster]( /img/databricks/cluster.png "Create Databricks cluster")
@@ -63,14 +70,17 @@ spark.hadoop.fs.gs.auth.service.account.email|me@dummy.iam.gserviceaccount.com|S
 spark.hadoop.fs.gs.project.id|my-project-id-123456|Project id
 spark.hadoop.fs.gs.auth.service.account.private.key|-----BEGIN PRIVATE KEY----- YOUR PRIVATE KEY GOES HERE-----END PRIVATE KEY-----|Private key as defined in your JSON file by the attribute `private_key`
 spark.hadoop.fs.gs.auth.service.account.private.key.id|df728e47e5e6c14402fafe6d39a3b8792a9967c7|Private key as defined in your JSON file by the attribute `private_key_id`
+</TabItem>
 
-### Azure
+<TabItem value="azure" label="Azure">
 
 In this section you don't have to set service account variables, we will set it when mounting our container. Just copy your storage account access key we will use it later in a notebook.
 
 ![Azure Key]( /img/databricks/azure-key.png "Azure access key")
+</TabItem>
+</Tabs>
 
-### Environment Variables
+## Environment Variables
 
 In the `Advanced Settings / Environment variables`  section set the variables below:
 
@@ -95,27 +105,35 @@ Databricks virtualize the underlying filesystem through DBFS. We first need to e
 
 We now inside a `notebook` mount the cloud storage bucket created above and referenced in the cluster environment variables into DBFS:
 
+<Tabs groupId="environments">
+<TabItem value="gcp" label="Google Cloud Platform">
 
-````python
-# Google Cloud
+```python
 bucket_name = "starlake-app"
 mount_name = "starlake-app"
 dbutils.fs.mount("gs://%s" % bucket_name, "/mnt/%s" % mount_name)
 display(dbutils.fs.ls("/mnt/%s" % mount_name))
+```
 
-# Azure
+</TabItem>
+<TabItem value="azure" label="Azure">
+
+```python
 storage_name= "starlakestorage"
 container_name = "starlake-app"
-storage_acces_key = "<Your access key>"
+storage_acces_key = "Your access key"
 mount_name = "starlake-app"
 dbutils.fs.mount(
-    source="wasbs://%s@%s.blob.core.windows.net" % (container_name, storage_name),
-    mount_point="/mnt/%s" % mount_name,
-    extra_configs={
-        "fs.azure.account.key.%s.blob.core.windows.net" % storage_name: storage_acces_key
-    }
+  source="wasbs://%s@%s.blob.core.windows.net" % (container_name, storage_name),
+  mount_point="/mnt/%s" % mount_name,
+  extra_configs = {
+    "fs.azure.account.key.%s.blob.core.windows.net" % storage_name: storage_acces_key
+  }  
 )
-````
+```
+
+</TabItem>
+</Tabs>
 
 Your storage account is now accessible on Databricks as a folder from Spark as the folder `dbfs:/mnt/starlake-app`
 
@@ -135,14 +153,14 @@ You will need first to write your metadata configuration files from a local envi
 ![metadata container]( /img/databricks/metadata-container.png "metadata container")
 
 If you are working with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.comet.yml`` file: 
-````yaml
+```yaml title="env.comet.yml"
 env:
   root_path: "/mnt/starlake/tmp/quickstart"
   incoming_path: "/mnt/sample-data"
-````
+```
 Then reference your data source by using `{{incoming_path}}` variable in the domains schemas
 
-````yaml
+```yaml title="hr.comet.yml"
 load:
   name: "HR"
   metadata:
@@ -156,7 +174,7 @@ load:
     escape: "\\"
     write: "APPEND"
     directory: "{{incoming_path}}/HR"
-````
+```
 
 Create tasks and reference the two jars you uploaded and are now visible to databricks through the `dbfs:/mnt/starlake-app` mount
 
