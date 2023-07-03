@@ -2,6 +2,7 @@
 # Release notes
 
 # 0.8.0:
+- Databricks on Azure is now fully documented
 - **BREAKING CHANGE** the new database and tenant fields should added to the audit table.
   Please run the following SQL to update your audit table on BigQuery:
 ```
