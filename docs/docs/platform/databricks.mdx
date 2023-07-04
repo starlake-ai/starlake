@@ -143,7 +143,7 @@ To create a starlake job, you first upload the starlake uber jar and the jackson
 
 ![conatiner details Azure]( /img/databricks/jars-azure.png "container details Azure" )
 
-The version of the `jackson-dataformat-yaml`depends follows the version 
+The version of the `jackson-dataformat-yaml` depends follows the version 
 of the others `jackson` components referenced by the databricks runtime. Download the correct version on [Maven Central](https://central.sonatype.com/artifact/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.12.3/versions). Then add the starlake assembly jar that you can find [here](https://central.sonatype.com/artifact/ai.starlake/starlake-spark3_2.12/0.7.4/versions).
 
 Note that only `import`, `watch/load/ingest`, `transform` and `metrics` command lines are designed exclusively for production environments
@@ -187,12 +187,11 @@ Create tasks and reference the two jars you uploaded and are now visible to data
 ![starlake watch]( /img/databricks/watch-task.png "starlake watch")
 
 ## Ingest your data
-Start the `import`task first and then the `watch` task. The execution logs are available through the `runs` tab:
+Start the `import` task first and then the `watch` task. The execution logs are available through the `runs` tab:
 
 ![tasks runs]( /img/databricks/runs.png "tasks runs")
 
-
-Since we set the `SL_HIVE=true` environnment variable, ingested data are also available as tables.
+Since we set the `SL_HIVE=true` environnment variable, ingested data are also available as tables
 
 ![starlake watch]( /img/databricks/database.png "starlake watch")
 
