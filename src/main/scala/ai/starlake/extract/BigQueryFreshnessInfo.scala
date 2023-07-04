@@ -47,16 +47,6 @@ object BigQueryFreshnessInfo {
                 freshness match {
                   case None => Nil
                   case Some(freshness) =>
-                    val warnStatus =
-                      getFreshnessStatus(
-                        schemaHandler.getDatabase(domain, table.finalName).getOrElse(""),
-                        domain.finalName,
-                        tableInfo,
-                        table.finalName,
-                        freshness.warn,
-                        "WARN",
-                        "TABLE"
-                      )
                     val errorStatus =
                       getFreshnessStatus(
                         schemaHandler.getDatabase(domain, table.finalName).getOrElse(""),
@@ -67,7 +57,18 @@ object BigQueryFreshnessInfo {
                         "ERROR",
                         "TABLE"
                       )
-                    List(warnStatus, errorStatus).flatten
+
+                    errorStatus.orElse {
+                      getFreshnessStatus(
+                        schemaHandler.getDatabase(domain, table.finalName).getOrElse(""),
+                        domain.finalName,
+                        tableInfo,
+                        table.finalName,
+                        freshness.warn,
+                        "WARN",
+                        "TABLE"
+                      )
+                    }
                 }
             }
           }
@@ -89,16 +90,6 @@ object BigQueryFreshnessInfo {
               freshness match {
                 case None => Nil
                 case Some(freshness) =>
-                  val warnStatus =
-                    getFreshnessStatus(
-                      task.database.getOrElse(settings.comet.database),
-                      task.domain,
-                      tableInfo,
-                      task.table,
-                      freshness.warn,
-                      "WARN",
-                      "JOB"
-                    )
                   val errorStatus =
                     getFreshnessStatus(
                       task.database.getOrElse(settings.comet.database),
@@ -109,7 +100,18 @@ object BigQueryFreshnessInfo {
                       "ERROR",
                       "JOB"
                     )
-                  List(warnStatus, errorStatus).flatten
+                  errorStatus.orElse {
+                    getFreshnessStatus(
+                      task.database.getOrElse(settings.comet.database),
+                      task.domain,
+                      tableInfo,
+                      task.table,
+                      freshness.warn,
+                      "WARN",
+                      "JOB"
+                    )
+
+                  }
               }
           }
       }

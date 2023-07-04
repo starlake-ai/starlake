@@ -47,9 +47,9 @@ object Engine {
 
   final case class Custom(value: String) extends Engine(value)
 
-  object BQ extends Engine("BQ")
+  final object BQ extends Engine("BQ")
 
-  object SPARK extends Engine("SPARK")
+  final object SPARK extends Engine("SPARK")
 
 }
 

@@ -28,6 +28,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 
 import java.util.regex.Pattern
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -84,58 +85,6 @@ case class Attribute(
     with LazyLogging {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
-
-  /** Bring properties from another attribue. Used in XSD handling Exclude some properties: name,
-    * type, required, array, attributes, position, script
-    * @param imported
-    * @return
-    *   merged attribute
-    */
-  private def importAttributeProperties(imported: Attribute): Attribute = {
-    this.copy(
-      privacy = imported.privacy,
-      comment = imported.comment.orElse(this.comment),
-      rename = imported.rename.orElse(this.rename),
-      metricType = imported.metricType.orElse(this.metricType),
-      default = imported.default.orElse(this.default),
-      tags = if (imported.tags.nonEmpty) imported.tags else this.tags,
-      trim = imported.trim.orElse(this.trim),
-      foreignKey = imported.foreignKey.orElse(this.foreignKey),
-      ignore = imported.ignore.orElse(this.ignore),
-      accessPolicy = imported.accessPolicy.orElse(this.accessPolicy)
-    )
-  }
-
-  def mergeAttrList(ymlAttrs: List[Attribute]): List[Attribute] = {
-    this.attributes.map { xsdAttr =>
-      ymlAttrs.find(_.name == xsdAttr.name) match {
-        case Some(ymlAttr) if xsdAttr.`type` == "struct" =>
-          assert(
-            ymlAttr.`type` == "struct",
-            s"attribute with name ${ymlAttr.name} found with type ${ymlAttr.`type`} where type 'struct' is expected"
-          )
-          xsdAttr.importAttr(ymlAttr)
-        case Some(ymlAttr) =>
-          xsdAttr.importAttributeProperties(ymlAttr)
-        case None =>
-          xsdAttr
-      }
-    }
-  }
-
-  def importAttr(ymlAttr: Attribute): Attribute = {
-    val merged = this.importAttributeProperties(ymlAttr)
-    (ymlAttr.attributes, this.attributes) match {
-      case (Nil, Nil) => merged
-      case (ymlSubAttr :: tail1, xsdSubAttr :: tail2) =>
-        val mergedAttributes = this.mergeAttrList(ymlAttr.attributes)
-        merged.copy(attributes = mergedAttributes)
-      case (_, _) =>
-        throw new Exception(
-          s"XSD and YML sources contradict each other for attributes ${this.name} && ${ymlAttr.name}"
-        )
-    }
-  }
 
   override def toString: String =
     // we pretend the "settings" field does not exist
@@ -417,5 +366,176 @@ object Attribute {
         val tpe = PrimitiveType.from(sparkType)
         new Attribute(fieldName, tpe.toString, Some(isArray), required)
     }
+  }
+
+  /** Compare refAttr with sourceAttr and reject if emptiness of attributes is not the same.
+    */
+  private def checkAttributesEmptinessMismatch(refAttr: Attribute, sourceAttr: Attribute): Unit = {
+    assert(
+      refAttr.attributes.isEmpty == sourceAttr.attributes.isEmpty,
+      s"attribute with name ${sourceAttr.name} has mismatch on attributes emptiness"
+    )
+  }
+
+  /** Compare refAttr with sourceAttr type and reject if containers (struct or array) doesn't match.
+    * Furthermore, if it's an array type, check that nested element are the same container type as
+    * well recursively.
+    */
+  private def checkContainerMismatch(refAttr: Attribute, sourceAttr: Attribute)(implicit
+    schemaHandler: SchemaHandler
+  ): Unit = {
+    @tailrec
+    def matchContainerType(refDataType: DataType, sourceDataType: DataType): Unit = {
+      // check element type
+      (refDataType, sourceDataType) match {
+        case (_: ArrayType, _) | (_, _: ArrayType) =>
+          assert(
+            refDataType.getClass.getSimpleName == sourceDataType.getClass.getSimpleName,
+            s"attribute with name ${sourceAttr.name} is not in array in both schema"
+          )
+        case (_: StructType, _) =>
+          assert(
+            refDataType.getClass.getSimpleName == sourceDataType.getClass.getSimpleName,
+            s"attribute with name ${sourceAttr.name} found with type '${sourceAttr.`type`}' where type '${refAttr.`type`}' is expected"
+          )
+        case _ => // do nothing
+      }
+      (refDataType, sourceDataType) match {
+        case (refArrayType: ArrayType, sourceArrayType: ArrayType) =>
+          // check array element type. Can't have mismatch between type since we've checked element type.
+          matchContainerType(refArrayType.elementType, sourceArrayType.elementType)
+        case _ => // do nothing
+      }
+    }
+
+    val refAttrDataType = refAttr.primitiveSparkType(schemaHandler)
+    val sourceAttrDataType = sourceAttr.primitiveSparkType(schemaHandler)
+    matchContainerType(refAttrDataType, sourceAttrDataType)
+  }
+
+  private def merge(
+    refAttr: Attribute,
+    sourceAttr: Attribute,
+    attributeMergeStrategy: AttributeMergeStrategy
+  )(implicit schemaHandler: SchemaHandler): Attribute = {
+    if (attributeMergeStrategy.failOnContainerMismatch) {
+      checkContainerMismatch(refAttr, sourceAttr)
+    }
+    if (attributeMergeStrategy.failOnAttributesEmptinessMismatch) {
+      checkAttributesEmptinessMismatch(refAttr, sourceAttr)
+    }
+    val refAttrDataType = refAttr.primitiveSparkType(schemaHandler)
+    val sourceAttrDataType = sourceAttr.primitiveSparkType(schemaHandler)
+    val attributes = mergeContainerAttributes(
+      refAttr,
+      sourceAttr,
+      attributeMergeStrategy,
+      refAttrDataType,
+      sourceAttrDataType
+    )
+    val (referenceSource, fallbackSource) =
+      attributeMergeStrategy.attributePropertiesMergeStrategy match {
+        case RefFirst    => refAttr    -> sourceAttr
+        case SourceFirst => sourceAttr -> refAttr
+      }
+    refAttr.copy(
+      privacy =
+        if (referenceSource.privacy != PrivacyLevel.None) referenceSource.privacy
+        else fallbackSource.privacy, // We currently have no way to
+      comment = referenceSource.comment.orElse(fallbackSource.comment),
+      rename = referenceSource.rename.orElse(fallbackSource.rename),
+      metricType = referenceSource.metricType.orElse(fallbackSource.metricType),
+      attributes = attributes,
+      position = referenceSource.position.orElse(fallbackSource.position),
+      default = referenceSource.default.orElse(fallbackSource.default),
+      tags = if (referenceSource.tags.nonEmpty) referenceSource.tags else fallbackSource.tags,
+      trim = referenceSource.trim.orElse(fallbackSource.trim),
+      script = referenceSource.script.orElse(fallbackSource.script),
+      foreignKey = referenceSource.foreignKey.orElse(fallbackSource.foreignKey),
+      ignore = referenceSource.ignore.orElse(fallbackSource.ignore),
+      accessPolicy = referenceSource.accessPolicy.orElse(fallbackSource.accessPolicy)
+    )
+  }
+
+  private def mergeContainerAttributes(
+    refAttr: Attribute,
+    sourceAttr: Attribute,
+    attributeMergeStrategy: AttributeMergeStrategy,
+    refAttrDataType: DataType,
+    sourceAttrDataType: DataType
+  )(implicit schemaHandler: SchemaHandler) = {
+    val attributes = (refAttrDataType, sourceAttrDataType) match {
+      case (_: StructType, _: StructType) =>
+        mergeAll(
+          refAttr.attributes,
+          sourceAttr.attributes,
+          attributeMergeStrategy
+        )
+      case (_: StructType, _) =>
+        // Since we would have already failed on container mismatch, this indicates that we keep all attributes from ref only because we can't merge them.
+        mergeAll(
+          refAttr.attributes,
+          Nil,
+          attributeMergeStrategy
+        )
+      case (refType: ArrayType, sourceType: ArrayType) =>
+        (refType.elementType, sourceType.elementType) match {
+          case (_: StructType, _: StructType) =>
+            mergeAll(
+              refAttr.attributes,
+              sourceAttr.attributes,
+              attributeMergeStrategy
+            )
+          case (_: StructType, _) =>
+            // Since we would have already failed on container mismatch, this indicates that we keep all attributes from ref only because we can't merge them.
+            mergeAll(
+              refAttr.attributes,
+              Nil,
+              attributeMergeStrategy
+            )
+          case _ =>
+            Nil
+        }
+      case (refType: ArrayType, _) =>
+        // Since we would have already failed on container mismatch, this indicates that we keep all attributes from ref only because we can't merge them.
+        refType.elementType match {
+          case _: StructType => mergeAll(refAttr.attributes, Nil, attributeMergeStrategy)
+          case _             => Nil
+        }
+      case _ =>
+        Nil
+    }
+    attributes
+  }
+
+  /** @param refAttrs
+    *   attributes to enrich
+    * @param sourceAttrs
+    *   attributes used to enrich refAttrs
+    * @return
+    */
+  def mergeAll(
+    refAttrs: List[Attribute],
+    sourceAttrs: List[Attribute],
+    attributeMergeStrategy: AttributeMergeStrategy
+  )(implicit schemaHandler: SchemaHandler): List[Attribute] = {
+    val missingAttributes = attributeMergeStrategy.keepSourceDiffAttributesStrategy match {
+      case KeepAllDiff =>
+        val missingAttributeNames = sourceAttrs.map(_.name).diff(refAttrs.map(_.name))
+        missingAttributeNames.flatMap(attrName => sourceAttrs.find(_.name == attrName))
+      case KeepOnlyScriptDiff =>
+        val missingScriptAttributeNames =
+          sourceAttrs.filter(_.script.isDefined).map(_.name).diff(refAttrs.map(_.name))
+        missingScriptAttributeNames.flatMap(attrName => sourceAttrs.find(_.name == attrName))
+      case DropAll => Nil
+    }
+    refAttrs.map { refAttr =>
+      sourceAttrs.find(_.name == refAttr.name) match {
+        case Some(sourceAttr) =>
+          merge(refAttr, sourceAttr, attributeMergeStrategy)
+        case None =>
+          refAttr
+      }
+    } ++ missingAttributes
   }
 }

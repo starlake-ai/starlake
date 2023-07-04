@@ -7,8 +7,11 @@ import com.google.gson.Gson
 
 import scala.collection.JavaConverters._
 
-case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesProcessed: Long)
-    extends JobResult {
+case class BigQueryJobResult(
+  tableResult: scala.Option[TableResult],
+  totalBytesProcessed: Long,
+  job: scala.Option[Job]
+) extends JobResult {
 
   def show(format: String, rootServe: scala.Option[String]): Unit = {
     val output = rootServe.map(File(_, "run.log"))

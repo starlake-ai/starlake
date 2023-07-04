@@ -20,6 +20,10 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
+import ai.starlake.schema.handlers.SchemaHandler
+
+import scala.collection.mutable
 import scala.util.Try
 
 /** A job is a set of transform tasks executed using the specified engine.
@@ -57,7 +61,27 @@ case class AutoJobDesc(
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
-  def checkValidity() = true
+  def checkValidity(
+    schemaHandler: SchemaHandler
+  )(implicit settings: Settings): Either[(List[String], List[String]), Boolean] = {
+    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val warningList: mutable.MutableList[String] = mutable.MutableList.empty
+
+    // Check Domain name validity
+    val forceJobPrefixRegex = settings.comet.forceJobPattern.r
+    // TODO: name doesn't need to respect the pattern because it may be renamed. Restriction is based on target database restriction.
+    // We may check depending on the sink type but we may sink differently for each table.
+    // It would be better to assume a starlake pattern to describe a dataset and the container of the dataset such as the bigquery syntax project:dataset
+    // and then apply this syntax to all databases even if natively they don't accept that.
+    // Therefore, it means that we need to adapt on writing to the database, the target name.
+    // The same applies to table name.
+    if (!forceJobPrefixRegex.pattern.matcher(name).matches())
+      errorList += s"name: Job with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+    if (errorList.nonEmpty)
+      Left(errorList.toList, warningList.toList)
+    else
+      Right(true)
+  }
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 

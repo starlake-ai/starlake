@@ -158,7 +158,9 @@ object Dependencies {
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
 
+  val sqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.sqlParser)
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ atlas
 }

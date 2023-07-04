@@ -1,7 +1,7 @@
 transform:
   tasks:
-    - domain: BQ_TEST_DS
-      table: BQ_TEST_TABLE
+    - domain: SL_BQ_TEST_DS
+      table: SL_BQ_TEST_TABLE_DYNAMIC
       write: OVERWRITE
       sink:
         type: BQ

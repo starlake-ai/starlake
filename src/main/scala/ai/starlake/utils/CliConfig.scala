@@ -4,7 +4,12 @@ import better.files.File
 import org.fusesource.scalate.TemplateEngine
 import scopt.{OParser, OptionDef}
 
-trait CliConfig[T] {
+trait CommandConfig {
+  def command: String
+  def markdown(pageIndex: Int): String
+}
+
+trait CliConfig[T] extends CommandConfig {
   def parser: OParser[Unit, T]
   def usage(): String = OParser.usage(parser)
   def parse(args: Seq[String]): Option[T]
