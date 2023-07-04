@@ -62,5 +62,5 @@ schemas:
         script: "regexp_extract(email,'.+@(.+)', 1)"
         required: false
         privacy: "NONE"
-    assertions:
+    expectations:
         noInvalidEmail: select * from comet_table where email like 'INAVLIDEMAIL'

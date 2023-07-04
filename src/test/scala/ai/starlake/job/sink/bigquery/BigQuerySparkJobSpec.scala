@@ -14,7 +14,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
   private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      bigquery.delete(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
+      bigquery.delete(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
     }
   }
   override def afterAll(): Unit = {
@@ -41,7 +41,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
         new SpecTrait(
           domainOrJobFilename = "tableWithPartitions.comet.yml",
           sourceDomainOrJobPathname = "/sample/bq-integration-tests/tableWithPartitions.comet.yml",
-          datasetDomainName = "BQ_TEST_DS",
+          datasetDomainName = "SL_BQ_TEST_DS",
           sourceDatasetPathName = "",
           isDomain = false
         ) {
@@ -58,8 +58,8 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "",
             Some(query),
             None,
-            "BQ_TEST_DS",
-            "BQ_TEST_TABLE",
+            "SL_BQ_TEST_DS",
+            "SL_BQ_TEST_TABLE_DYNAMIC",
             WriteMode.OVERWRITE,
             sink = Some(BigQuerySink(name = Some("sinktest"), timestamp = Some("DOB"))),
             merge = None
@@ -87,7 +87,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           validator.autoJob(TransformConfig("tableWithPartitions")) shouldBe true
           // check that table is created correctly with the right number of lines
           private val createdTable: Table =
-            bigquery.getTable(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
+            bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
           createdTable.getNumRows.intValue() shouldBe 2
           createdTable
             .getDefinition[StandardTableDefinition]
@@ -96,7 +96,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .shouldBe("DOB")
           validator.autoJob(TransformConfig("addPartitionsWithOverwrite")) shouldBe true
           private val updatedTable: Table =
-            bigquery.getTable(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
+            bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
           // check that table is appended with new partitions
           updatedTable.getNumRows.intValue() shouldBe 4
         }

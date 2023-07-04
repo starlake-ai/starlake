@@ -1,7 +1,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
-import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
+import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryLoadConfig,
@@ -165,7 +165,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
+            case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -245,13 +245,13 @@ trait IngestionJob extends SparkJob {
     else
       extension
 
-  private def runAssertions(acceptedDF: DataFrame) = {
-    if (settings.comet.assertions.active) {
-      new AssertionJob(
+  private def runExpectations(acceptedDF: DataFrame) = {
+    if (settings.comet.expectations.active) {
+      new ExpectationJob(
         Map.empty, // Auth Info from env var since run from spark submit only
         this.domain.finalName,
         this.schema.finalName,
-        this.schema.assertions,
+        this.schema.expectations,
         UNIT,
         storageHandler,
         schemaHandler,
@@ -321,7 +321,7 @@ trait IngestionJob extends SparkJob {
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame =
         computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
-      runAssertions(finalAcceptedDF)
+      runExpectations(finalAcceptedDF)
       runMetrics(finalAcceptedDF)
       val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
 
@@ -991,7 +991,7 @@ trait IngestionJob extends SparkJob {
 
   private def runPostSQL(mergedDF: DataFrame): DataFrame = {
     schema.postsql.foldLeft(mergedDF) { (df, query) =>
-      df.createOrReplaceTempView("SL_TABLE")
+      df.createOrReplaceTempView("SL_THIS")
       df.sparkSession.sql(query.richFormat(schemaHandler.activeEnvVars(), options))
     }
   }
@@ -1101,6 +1101,34 @@ trait IngestionJob extends SparkJob {
         val start = Timestamp.from(Instant.now())
         runPreSql()
         val dataset = loadDataSet()
+        val inputFiles = path.map(_.toString).mkString(",")
+
+        def logFailureInAudit[T](exception: Throwable): Try[T] = {
+          val end = Timestamp.from(Instant.now())
+          val err = Utils.exceptionAsString(exception)
+          Try {
+            val log = AuditLog(
+              applicationId(),
+              inputFiles,
+              domain.name,
+              schema.name,
+              success = false,
+              0,
+              0,
+              0,
+              start,
+              end.getTime - start.getTime,
+              err,
+              Step.LOAD.toString,
+              schemaHandler.getDatabase(domain, schema.finalName),
+              settings.comet.tenant
+            )
+            AuditLog.sink(Map.empty, optionalAuditSession, log)
+          }
+          logger.error(err)
+          Failure(exception)
+        }
+
         dataset match {
           case Success(dataset) =>
             Try {
@@ -1108,7 +1136,6 @@ trait IngestionJob extends SparkJob {
               val inputCount = dataset.count()
               val acceptedCount = acceptedDS.count()
               val rejectedCount = rejectedDS.count()
-              val inputFiles = path.map(_.toString).mkString(",")
               logger.info(
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
@@ -1133,29 +1160,11 @@ trait IngestionJob extends SparkJob {
               AuditLog.sink(Map.empty, optionalAuditSession, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
+            }.recoverWith { case exception =>
+              logFailureInAudit(exception)
             }
           case Failure(exception) =>
-            val end = Timestamp.from(Instant.now())
-            val err = Utils.exceptionAsString(exception)
-            val log = AuditLog(
-              applicationId(),
-              path.map(_.toString).mkString(","),
-              domain.name,
-              schema.name,
-              success = false,
-              0,
-              0,
-              0,
-              start,
-              end.getTime - start.getTime,
-              err,
-              Step.LOAD.toString,
-              schemaHandler.getDatabase(domain, schema.finalName),
-              settings.comet.tenant
-            )
-            AuditLog.sink(Map.empty, optionalAuditSession, log)
-            logger.error(err)
-            Failure(throw exception)
+            logFailureInAudit(exception)
         }
     }
     // After each ingestionjob we explicitely clear the spark cache
@@ -1370,7 +1379,7 @@ object IngestionUtil {
             outputTableId = Some(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
-                  sink.database,
+                  settings.comet.audit.database,
                   sink.name.getOrElse("audit"),
                   "rejected"
                 )
@@ -1383,7 +1392,7 @@ object IngestionUtil {
             None,
             None,
             options = sink.getOptions,
-            outputDatabase = sink.database
+            outputDatabase = settings.comet.audit.database
           )
           new BigQuerySparkJob(
             bqConfig,
@@ -1407,7 +1416,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
+        case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())

@@ -54,6 +54,8 @@ object PrivacyLevel {
 
 class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
 
+  override def getNullValue(ctxt: DeserializationContext): PrivacyLevel = PrivacyLevel.None
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrivacyLevel = {
     val value = jp.readValueAs[String](classOf[String]).toUpperCase()
     val isSQL = value.startsWith("SQL:")

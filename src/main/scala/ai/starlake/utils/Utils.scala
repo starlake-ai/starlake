@@ -252,13 +252,13 @@ object Utils {
 
   private var _jinjava: Jinjava = null
 
-  def parseJinja(str: String, params: Map[String, String])(implicit settings: Settings): String =
+  def parseJinja(str: String, params: Map[String, Any])(implicit settings: Settings): String =
     parseJinja(
       List(str),
       params
     ).head
 
-  def parseJinja(str: List[String], params: Map[String, String])(implicit
+  def parseJinja(str: List[String], params: Map[String, Any])(implicit
     settings: Settings
   ): List[String] = {
     val result = str.map { sql =>
@@ -356,4 +356,5 @@ object Utils {
       output.tail
     }
   }
+
 }
