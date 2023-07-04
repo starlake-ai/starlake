@@ -2,11 +2,14 @@
 # Release notes
 
 # 0.8.0:
+- Databricks on Azure is now fully documented
+
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically. 
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
+
   Please run the following SQL to update your audit table on BigQuery:
 ```
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
