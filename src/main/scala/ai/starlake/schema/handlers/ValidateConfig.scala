@@ -6,7 +6,7 @@ import scopt.OParser
 case class ValidateConfig(reload: Boolean = false)
 
 object ValidateConfig extends CliConfig[ValidateConfig] {
-  val command = "serve"
+  val command = "validate"
   val parser: OParser[Unit, ValidateConfig] = {
     val builder = OParser.builder[ValidateConfig]
     import builder._
@@ -17,7 +17,9 @@ object ValidateConfig extends CliConfig[ValidateConfig] {
       opt[Unit]("reload")
         .action((x, c) => c.copy(reload = true))
         .optional()
-        .text("Port on which the server is listening")
+        .text(
+          "Reload all files from disk before starting validation. Always true regardless of the value set here."
+        )
     )
   }
 

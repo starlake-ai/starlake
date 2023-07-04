@@ -1,6 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
 
 /** Task executed in the context of a job. Each task is executed in its own session.
@@ -37,7 +38,7 @@ case class AutoTaskDesc(
   postsql: List[String] = Nil,
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
-  assertions: Map[String, String] = Map.empty,
+  expectations: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
@@ -80,6 +81,17 @@ case class AutoTaskDesc(
 
   def getHiveDB()(implicit settings: Settings): String = {
     StorageArea.area(domain, None)
+  }
+
+  def getDatabase(implicit
+    settings: Settings,
+    schemaHandler: SchemaHandler
+  ): Option[String] = {
+    database
+      .orElse(
+        schemaHandler.activeEnvRefs().getDatabase(domain, table)
+      ) // mapping in envRefs
+      .orElse(settings.comet.getDatabase()) // database passed in env vars
   }
 
 }

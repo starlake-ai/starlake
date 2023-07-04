@@ -1,0 +1,6 @@
+transform:
+  name: pi
+  coalesce: true
+  format: csv
+  taskRefs:
+    - pi

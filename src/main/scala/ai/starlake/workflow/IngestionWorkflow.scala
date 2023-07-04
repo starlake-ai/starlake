@@ -637,7 +637,7 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  def buildTasks(
+  private def buildTasks(
     config: TransformConfig
   ): Seq[AutoTask] = {
     val jobDesc =
@@ -663,7 +663,8 @@ class IngestionWorkflow(
     val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
-      val (_, mainSQL, _) = action.buildAllSQLQueries()
+      // TODO Interactive compilation should check table existence
+      val (_, mainSQL, _) = action.buildAllSQLQueries(false)
       mainSQL
     }
     result.foreach { sql =>
@@ -691,7 +692,7 @@ class IngestionWorkflow(
         engine match {
           case BQ =>
             logger.info(s"Entering $engine engine")
-            val result = action.runBQ()
+            val result = action.runBQ(transformConfig.drop)
             transformConfig.interactive match {
               case None =>
                 val sink = action.taskDesc.sink
@@ -724,7 +725,7 @@ class IngestionWorkflow(
             result.isSuccess
           case custom =>
             logger.info(s"Entering $custom engine")
-            (action.runSpark(), transformConfig.interactive) match {
+            (action.runSpark(transformConfig.drop), transformConfig.interactive) match {
               case (Success((SparkJobResult(None), _)), _) =>
                 true
               case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>

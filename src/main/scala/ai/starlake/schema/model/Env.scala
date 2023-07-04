@@ -85,6 +85,23 @@ case class EnvRefs(refs: List[RefsRule]) {
       case (None, _)          => (None, None)
     }
   }
+
+  def getDatabaseAndDomainAndTable(
+    components: List[String]
+  ): Option[(Option[String], Option[String], String)] = {
+    components match {
+      case table :: Nil =>
+        val (domain, database) = getDomainAndDatabase(table)
+        Some((database, domain, table))
+      case domain :: table :: Nil =>
+        val database = getDatabase(domain, table)
+        Some((database, Some(domain), table))
+      case database :: domain :: table :: Nil =>
+        Some((Some(database), Some(domain), table))
+      case _ => None
+    }
+
+  }
 }
 
 case class Env(

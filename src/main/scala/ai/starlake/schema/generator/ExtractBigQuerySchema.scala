@@ -72,8 +72,9 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
       tables = schemas.toList,
       comment = Option(dataset.getDescription),
       metadata = Some(
-        Metadata(sink = Some(BigQuerySink(database = Option(dataset.getDatasetId().getProject()))))
-      )
+        Metadata(sink = Some(BigQuerySink()))
+      ),
+      database = Option(dataset.getDatasetId().getProject())
     )
   }
 
