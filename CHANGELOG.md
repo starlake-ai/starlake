@@ -3,17 +3,32 @@
 
 # 0.8.0:
 - Databricks on Azure is now fully documented
-- **BREAKING CHANGE** the new database and tenant fields should added to the audit table.
+
+__Feature__:
+- Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically. 
+
+__Bug Fix__:
+- **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
+
   Please run the following SQL to update your audit table on BigQuery:
 ```
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS tenant STRING;
 ```
+
+__Feature__:
+- extract-schema keep original scripted fields and merge attributes' parameters
+- extract-schema quote catalog, schema and table name. 
+
 __Deprecated__:
 - **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
-- __Bug Fix__:
-- Take into account extensions in domain / metadata attribute
 
+__Fix__:
+- Take into account extensions in domain / metadata attribute
+- Deserialization of privacy level was 'null' instead of its default value PrivacyLevel.None 
+- log failure in audit during ingestion job when unexpected behavior occurs
+- switch audit log and RLS queries as interactive to wait for job output to avoid any async exception and improve job output result accuracy
+- escape string parameters while using native query
 
 # 0.7.4:
 __Deprecated__:

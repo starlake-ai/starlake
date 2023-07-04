@@ -1,9 +1,9 @@
 package ai.starlake.schema.model
 
-/** This tag appears in files and allow import of views and assertions definitions into the current
-  * files.
-  * @param assertions
-  *   : List of assertion definitions to include
+/** This tag appears in files and allow import of views and expectations definitions into the
+  * current files.
+  * @param expectations
+  *   : List of expectation definitions to include
   * @param views:
   *   List of predefined SQL views. useful when views are reused within multiple jobs.
   * @param env

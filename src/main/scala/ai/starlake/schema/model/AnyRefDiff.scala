@@ -163,7 +163,7 @@ case class SchemaDiff(
   postsql: ListDiff[String],
   tags: ListDiff[String],
   rls: ListDiff[Named],
-  assertions: ListDiff[Named],
+  expectations: ListDiff[Named],
   primaryKey: ListDiff[String],
   acl: ListDiff[Named],
   rename: ListDiff[String],

@@ -8,7 +8,6 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption,
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
-import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -72,7 +71,7 @@ class BigQueryNativeJob(
                 case _ =>
                   throw new Exception("Not Supported")
               }
-              BigQueryJobResult(None, stats.getInputBytes)
+              BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
             } else
               throw new Exception(
                 "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus.getError
@@ -178,7 +177,7 @@ class BigQueryNativeJob(
           s"Query large results performed successfully: ${results.getTotalRows} rows returned."
         )
 
-        BigQueryJobResult(Some(results), totalBytesProcessed)
+        BigQueryJobResult(Some(results), totalBytesProcessed, Some(queryJob))
       }
     }
   }
@@ -201,7 +200,7 @@ class BigQueryNativeJob(
     */
   override def run(): Try[JobResult] = {
     if (cliConfig.materializedView) {
-      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L))
+      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
       RunAndSinkAsTable()
     }
@@ -314,14 +313,14 @@ class BigQueryNativeJob(
           Utils.logException(logger, e)
           throw new Exception(e)
         }
-        updateTableDescription(tableId, cliConfig.outputTableDesc.getOrElse(""))
+        updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
         updateColumnsDescription(getFieldsDescriptionSource(sql))
-        BigQueryJobResult(Some(results), totalBytesProcessed)
+        BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobInfo))
       }
     }
   }
 
-  def runBatchQuery(): Try[Job] = {
+  def runBatchQuery(wait: Boolean): Try[Job] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
         val jobId = JobId
@@ -345,8 +344,12 @@ class BigQueryNativeJob(
         )
         if (job == null)
           throw new Exception("Job not executed since it no longer exists.")
-        else
+        else {
+          if (wait) {
+            job.waitFor()
+          }
           job
+        }
       }
     }
   }
@@ -374,5 +377,3 @@ class BigQueryNativeJob(
     }
   }
 }
-
-object BigQueryNativeJob extends StrictLogging {}
