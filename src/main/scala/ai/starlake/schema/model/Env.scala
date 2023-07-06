@@ -46,28 +46,26 @@ case class RefsRule(
 
 case class EnvRefs(refs: List[RefsRule]) {
   def getDatabase(domain: String, table: String): Option[String] = {
-    val matchedRefsRule: Option[RefsRule] = refs.flatMap { refsRule =>
-      val refRule: Option[Ref] = refsRule.ref.find { refRule =>
+    val matchedRefsRule: Option[RefsRule] = refs.find { refsRule =>
+      refsRule.ref.exists { refRule =>
         refRule.domain.matcher(domain).matches() && refRule.table.matcher(table).matches()
       }
-      refRule match {
-        case Some(_) => Some(refsRule)
-        case _       => None
-      }
-    }.headOption
-
-    matchedRefsRule match {
-      case Some(matchedRefsRule) => matchedRefsRule.database
-      case _                     => None
     }
+    matchedRefsRule.flatMap(_.database)
   }
 
   def getDomainAndDatabase(table: String): (Option[String], Option[String]) = {
 
     val matchedRefsRule: Option[RefsRule] = refs.flatMap { refsRule =>
       val refRule: Option[Ref] = refsRule.ref.find { refRule =>
-        refRule.domain.toString == anyRefPattern.toString &&
-        refsRule.domain.isDefined && refRule.table.matcher(table).matches()
+        refsRule.domain match {
+          case None =>
+            refRule.table.matcher(table).matches()
+          case Some(domain) if domain == anyRefPattern.toString =>
+            refRule.table.matcher(table).matches()
+          case _ =>
+            false
+        }
       }
       refRule match {
         case Some(_) => Some(refsRule)
