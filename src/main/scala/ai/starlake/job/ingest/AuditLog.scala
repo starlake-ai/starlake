@@ -276,7 +276,7 @@ object AuditLog extends StrictLogging {
     )
     val bqJob = new BigQueryNativeJob(
       bqConfig,
-      log.asBqInsert(BigQueryJobBase.getBqNativeTable(auditOutputTarget)),
+      log.asBqInsert(BigQueryJobBase.getBqTableForNative(auditOutputTarget)),
       None
     )
     val tableInfo = TableInfo(
