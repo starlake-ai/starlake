@@ -25,11 +25,11 @@ trait Formatter {
             .replaceAll(
               settings.comet.sqlParameterPattern.format(key),
               Regex.quoteReplacement(value.toString)
-            ) // new syntax
+            )
             .replaceAll(
               "\\{\\{\\s*%s\\s*\\}\\}".format(key),
               Regex.quoteReplacement(value.toString)
-            ) // old syntax
+            )
         }
       else
         str

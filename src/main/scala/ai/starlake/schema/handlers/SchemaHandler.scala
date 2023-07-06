@@ -925,15 +925,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def getDatabase(domain: Domain, schemaName: String)(implicit
+  def getDatabase(domain: Domain)(implicit
     settings: Settings
   ): Option[String] = {
     domain.database
-      .orElse(
-        this
-          .activeEnvRefs()
-          .getDatabase(domain.finalName, schemaName) // activeEnvRefs(domain, table)
-      )
       .orElse(settings.comet.getDatabase())
     // SL_DATABASE
     // default database

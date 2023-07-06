@@ -78,7 +78,7 @@ object AutoTask extends StrictLogging {
         taskDesc.sink.orElse(jobDesc.sink),
         interactive,
         authInfo,
-        taskDesc.getDatabase(settings, schemaHandler)
+        taskDesc.getDatabase(settings)
       )(settings, storageHandler, schemaHandler)
     )
   }
@@ -149,7 +149,7 @@ case class AutoTask(
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
       starlakeSchema = Some(Schema.fromTaskDesc(taskDesc)),
-      outputDatabase = taskDesc.getDatabase(settings, schemaHandler)
+      outputDatabase = taskDesc.getDatabase(settings)
     )
   }
 
@@ -169,7 +169,7 @@ case class AutoTask(
     if (drop) {
       logger.info(s"Truncating table ${taskDesc.domain}.${taskDesc.table}")
       bqNativeJob("ignore sql").dropTable(
-        taskDesc.getDatabase(settings, schemaHandler),
+        taskDesc.getDatabase(settings),
         taskDesc.domain,
         taskDesc.table
       )
@@ -177,7 +177,7 @@ case class AutoTask(
     logger.info(s"running BQ Query  start time $start")
     val tableExists =
       bqNativeJob("ignore sql").tableExists(
-        taskDesc.getDatabase(settings, schemaHandler),
+        taskDesc.getDatabase(settings),
         taskDesc.domain,
         taskDesc.table
       )
@@ -259,36 +259,45 @@ case class AutoTask(
   }
 
   private def resolveTableRefInDomainsAndJobs(
-    database: Option[String],
-    domain: Option[String],
-    table: String
-  ): Try[(Option[String], String, String)] = Try {
-    domain match {
-      case Some(dom) => (database, dom, table)
-      case None =>
+    tableComponents: List[String]
+  ): Try[(String, String, String)] = Try {
+    val (database, domain, table): (Option[String], Option[String], String) =
+      tableComponents match {
+        case table :: Nil =>
+          (None, None, table)
+        case domain :: table :: Nil =>
+          (None, Some(domain), table)
+        case database :: domain :: table :: Nil =>
+          (Some(database), Some(domain), table)
+        case _ =>
+          throw new Exception(
+            s"Invalid table reference ${tableComponents.mkString(".")}"
+          )
+      }
+    (database, domain, table) match {
+      case (Some(db), Some(dom), table) =>
+        (db, dom, table)
+      case (None, domainComponent, table) =>
         val domainsByFinalName = schemaHandler
           .domains()
-          .filter { domain =>
-            domain.tables.exists(_.finalName == table)
+          .filter { dom =>
+            val domainOK = domainComponent.forall(_.equalsIgnoreCase(dom.finalName))
+            domainOK && dom.tables.exists(_.finalName.equalsIgnoreCase(table))
           }
         val tasksByTable = schemaHandler
           .jobs()
           .values
           .flatMap { job =>
-            job.tasks.find(_.table == table)
+            job.tasks.find { task =>
+              val domainOK = domainComponent.forall(_.equalsIgnoreCase(task.domain))
+              domainOK && task.table.equalsIgnoreCase(table)
+            }
           }
           .toList
 
-        val tasksByName = schemaHandler
-          .jobs()
-          .values
-          .flatMap { job =>
-            job.tasks.find(_.name == table)
-          }
-          .toList
-
-        val nameCountMatch = domainsByFinalName.length + tasksByTable.length + tasksByName.length
-        if (nameCountMatch > 1) {
+        val nameCountMatch =
+          domainsByFinalName.length + tasksByTable.length
+        val (database, domain) = if (nameCountMatch > 1) {
           val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
           logger.error(s"Table $table is present in domain(s): $domainNames.")
 
@@ -299,22 +308,26 @@ case class AutoTask(
           logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
           throw new Exception("Table is present in multiple domains and/or tasks")
         } else if (nameCountMatch == 1) {
-          val domainName = domainsByFinalName.headOption
-            .map(_.name)
-            .orElse(tasksByTable.headOption.map(_.domain))
-            .getOrElse(tasksByName.head.domain)
-          val databaseName = database
-            .orElse(
-              domainsByFinalName.headOption.flatMap(schemaHandler.getDatabase(_, table))
-            )
-            .orElse(tasksByTable.headOption.flatMap(_.database))
-            .orElse(tasksByName.headOption.flatMap(_.database))
-          (databaseName, domainName, table)
+          domainsByFinalName.headOption
+            .map(dom => (dom.database, dom.finalName))
+            .orElse(tasksByTable.headOption.map { task =>
+              (task.database, task.domain)
+            })
+            .getOrElse((None, ""))
         } else { // nameCountMatch == 0
           logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
-          (None, "", table)
+          (None, "")
         }
+        val databaseName = database
+          .orElse(settings.comet.getDatabase())
+          .getOrElse("")
+        (databaseName, domain, table)
+      case _ =>
+        throw new Exception(
+          s"Invalid table reference ${tableComponents.mkString(".")}"
+        )
     }
+
   }
 
   private def buildSingleSQLQuery(j2sql: String, vars: Map[String, Any]): String = {
@@ -327,27 +340,22 @@ case class AutoTask(
         None
       } else {
         val activeEnvRefs = schemaHandler.activeEnvRefs()
-        val databaseDomainTableRef = activeEnvRefs.getDatabaseAndDomainAndTable(tableComponents)
+        val databaseDomainTableRef =
+          activeEnvRefs.getOutputRef(tableComponents).map(_.asTuple())
         logger.info(
           s"Resolving table reference $tableRef to tableComponents $tableComponents and databaseDomainTableRef $databaseDomainTableRef"
         )
-        val databaseDomainTable = databaseDomainTableRef match {
-          case Some((database, domain, table)) =>
-            Some(resolveTableRefInDomainsAndJobs(database, domain, table))
-          case None => None
+        val databaseDomainTable = databaseDomainTableRef.orElse {
+          resolveTableRefInDomainsAndJobs(tableComponents) match {
+            case Success((database, domain, table)) =>
+              Some((database, domain, table))
+            case Failure(e) =>
+              Utils.logException(logger, e)
+              throw e
+          }
         }
         logger.info(s"Resolved table reference $tableRef to domain/Job table $databaseDomainTable")
-        databaseDomainTable match {
-          case Some(Success((database, domain, table))) =>
-            Some((database, domain, table))
-          case Some(Failure(e)) =>
-            logger.error(s"Error resolving table reference $tableRef: ${e.getMessage}")
-            Utils.logException(logger, e)
-            throw e
-          case None =>
-            logger.warn(s"Could not resolve table reference $tableRef: no match found")
-            None
-        }
+        databaseDomainTable
       }
     }
     logger.info(s"Source SQL: $sql")
@@ -368,7 +376,7 @@ case class AutoTask(
               SQLUtils.buildMergeSql(
                 parseJinja(taskDesc.getSql(), jinjaVars),
                 options.key,
-                taskDesc.getDatabase(settings, schemaHandler),
+                taskDesc.getDatabase(settings),
                 taskDesc.domain,
                 taskDesc.table,
                 taskDesc.engine.getOrElse(Engine.SPARK)
@@ -639,7 +647,7 @@ case class AutoTask(
       end.getTime - start.getTime,
       message,
       Step.TRANSFORM.toString,
-      taskDesc.getDatabase(settings, schemaHandler),
+      taskDesc.getDatabase(settings),
       settings.comet.tenant
     )
     AuditLog.sink(authInfo, optionalAuditSession, log)
