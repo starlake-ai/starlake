@@ -90,6 +90,10 @@ case class Attribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
+  def isNestedOrRepeatedField(): Boolean = {
+    attributes.nonEmpty || array.getOrElse(false)
+  }
+
   /** Check attribute validity An attribute is valid if :
     *   - Its name is a valid identifier
     *   - its type is defined
