@@ -4,6 +4,7 @@ import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
+  BigQueryJobResult,
   BigQueryLoadConfig,
   BigQueryNativeJob,
   BigQuerySparkJob
@@ -30,7 +31,8 @@ import com.google.cloud.bigquery.{
   LegacySQLTypeName,
   Schema => BQSchema,
   StandardTableDefinition,
-  Table
+  Table,
+  TableId
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
@@ -40,6 +42,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
+import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -305,6 +308,7 @@ trait IngestionJob extends SparkJob {
 
       val acceptedPath =
         new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
@@ -314,10 +318,13 @@ trait IngestionJob extends SparkJob {
       val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
         acceptedDfWithScriptFields
       )
+
       val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
+
       val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
         acceptedDfFiltered
       )
+
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame =
         computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
@@ -1003,8 +1010,7 @@ trait IngestionJob extends SparkJob {
       case Some(sink) =>
         sink.getType() == SinkType.BQ
     }
-    val csvOrJsonLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
+    val nativeCandidate: Boolean = isNativeCandidate()
 
     val defaultValidator = mergedMetadata.getFormat() match {
       case Format.DSV | Format.POSITION | Format.GENERIC | Format.SIMPLE_JSON =>
@@ -1016,13 +1022,40 @@ trait IngestionJob extends SparkJob {
 
     val nativeValidator =
       mergedMetadata.validator.getOrElse(defaultValidator).contains("NativeValidator")
-    if (csvOrJsonLines && sinkToBQ && nativeValidator) {
+    if (nativeCandidate && sinkToBQ && nativeValidator) {
       logger.info("Using BQ as ingestion engine")
       Engine.BQ
     } else {
       logger.info("Using Spark as ingestion engine")
       Engine.SPARK
     }
+  }
+
+  private def isNativeCandidate() = {
+    val csvOrJsonLines =
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
+
+    // sink type is bq
+
+    // Temporary table expires after 24h if not deleted explicitly
+    // temporary dataset
+    // POSITION sont convertis en CSV pour BQ avant d'être loadés'
+    // SIMPLE JSON / CSV only
+    // update table set scriptedField = substr(col2), col3=privacy(col3), col4, cast(parse_date(col3) as string)
+    // insert into table (col1, col2, col3, col4) values (col1, col2, col3, col4)
+
+    // overwrite ==> truncate
+    // merge into table using table2 on table.col1 = table2.col1
+    // merge into
+    // when matched
+    // when unmatched
+
+    // 0 scripted fields in V1
+    // Should respect date fprmat: YYYY-MM-DD
+    // Ne pas dépasser 4 Go pour les fichiers compressés
+    // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
+
+    csvOrJsonLines
   }
 
   def run(): Try[JobResult] = {
@@ -1036,38 +1069,33 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+  ///////////////////////////////////////////////////////////////////////////
+  /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////
+
   def runBQ(): Try[JobResult] = {
-    val tableSchema = schema.bqSchemaWithoutIgnoreAndScript(schemaHandler)
+
+    val requireTwoSteps = schema.hasTransformOrIgnoreOrScriptColumns()
 
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
       schema.merge.exists(_.key.nonEmpty)
     )
-    val config = BigQueryLoadConfig(
+
+    val commonConfig = BigQueryLoadConfig(
       None,
       None,
       source = Left(path.map(_.toString).mkString(",")),
-      outputTableId = Some(
-        BigQueryJobBase
-          .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain, schema.finalName),
-            domain.finalName,
-            schema.finalName
-          )
-      ),
+      outputTableId = None,
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       location = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].location),
-      outputPartition = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].timestamp),
-      outputClustering =
-        mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].clustering).getOrElse(Nil),
-      days = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].days),
-      requirePartitionFilter = mergedMetadata
-        .getSink()
-        .flatMap(_.asInstanceOf[BigQuerySink].requirePartitionFilter)
-        .getOrElse(false),
-      rls = schema.rls,
+      outputPartition = None,
+      outputClustering = Nil,
+      days = None,
+      requirePartitionFilter = false,
+      rls = Nil,
       options =
         mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink].getOptions).getOrElse(Map.empty),
       partitionsToUpdate = Nil,
@@ -1076,10 +1104,154 @@ trait IngestionJob extends SparkJob {
       domainDescription = domain.comment,
       outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
     )
-    val res = new BigQueryNativeJob(config, "", None).loadPathsToBQ(tableSchema)
-    res
+
+    val firstStepConfig = commonConfig.copy(
+      outputTableId = Some(
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(
+            schemaHandler.getDatabase(domain, schema.finalName),
+            domain.finalName,
+            "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
+          )
+      ),
+      days = Some(2)
+    )
+
+    val targetConfig = commonConfig.copy(
+      outputTableId = Some(
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(
+            schemaHandler.getDatabase(domain, schema.finalName),
+            domain.finalName,
+            schema.finalName
+          )
+      ),
+      days = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].days),
+      outputPartition = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].timestamp),
+      outputClustering =
+        mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].clustering).getOrElse(Nil),
+      requirePartitionFilter = mergedMetadata
+        .getSink()
+        .flatMap(_.asInstanceOf[BigQuerySink].requirePartitionFilter)
+        .getOrElse(false),
+      rls = schema.rls
+    )
+
+    val result = if (requireTwoSteps) {
+      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "", None)
+      val tempTableSchema = schema.bqSchemaWithIgnoreAndScript(
+        schemaHandler
+      ) // TODO What if type is changed by transform ?
+      val res = firstStepBigqueryJob.loadPathsToBQ(tempTableSchema)
+      res match {
+        case Success(value) =>
+          val targetTableSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
+          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "", None)
+          val firstStepTableId =
+            firstStepConfig.outputTableId.getOrElse(throw new Exception("Should never happen"))
+          val result = applySecondStep(targetBigqueryJob, firstStepTableId, targetTableSchema)
+          targetBigqueryJob.dropTable(firstStepTableId)
+          result
+        case Failure(exception) =>
+          Utils.logException(logger, exception)
+          res
+      }
+    } else {
+      val bigqueryJob = new BigQueryNativeJob(targetConfig, "", None)
+      val targetTableSchema = schema.bqSchema(schemaHandler)
+      bigqueryJob.loadPathsToBQ(targetTableSchema)
+    }
+    result
   }
 
+  def applySecondStepSQL(
+    bigqueryJob: BigQueryNativeJob,
+    firstStepTempTableId: TableId,
+    targetTableId: TableId
+  ): Try[BigQueryJobResult] = {
+    val tempTable =
+      s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
+    val targetTable =
+      s"`${targetTableId.getProject}.${targetTableId.getDataset}.${targetTableId.getTable}`"
+    val sourceUris =
+      bigqueryJob.cliConfig.source.left.getOrElse(throw new Exception("Should never happen"))
+    schema
+      .buildSqlMerge(
+        tempTable,
+        targetTable,
+        sourceUris
+      )
+      .map { sql =>
+        logger.info(s"buildSqlMerge: $sql")
+        bigqueryJob.runInteractiveQuery(Some(sql))
+      }
+      .getOrElse {
+        val sql = schema.buildSqlSelect(
+          tempTable,
+          sourceUris
+        )
+        logger.info(s"buildSqlSelect: $sql")
+        bigqueryJob.RunAndSinkAsTable(Some(sql))
+      }
+  }
+
+  private def applySecondStep(
+    targetBigqueryJob: BigQueryNativeJob,
+    firstStepTempTableId: TableId,
+    incomingTableSchema: BQSchema
+  ): Try[BigQueryJobResult] = {
+    targetBigqueryJob.cliConfig.outputTableId
+      .map { targetTableId =>
+        updateTargetTableSchema(targetBigqueryJob, incomingTableSchema)
+        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId)
+      }
+      .getOrElse(throw new Exception("Should never happen"))
+  }
+
+  private def updateTargetTableSchema(
+    bigqueryJob: BigQueryNativeJob,
+    incomingTableSchema: BQSchema
+  ): Try[StandardTableDefinition] = {
+    val tableId = bigqueryJob.tableId
+    if (bigqueryJob.tableExists(tableId)) {
+      val existingTableSchema = bigqueryJob.getBQSchema(tableId)
+      // detect new columns
+      val newColumns = incomingTableSchema.getFields.asScala
+        .filterNot(field =>
+          existingTableSchema.getFields.asScala.exists(_.getName == field.getName)
+        )
+        .toList
+      // Update target table schema with new columns if any
+      if (newColumns.nonEmpty) {
+        bigqueryJob.updateTableSchema(tableId, incomingTableSchema)
+      } else
+        Try(bigqueryJob.getTableDefinition(tableId))
+    } else {
+      val config = bigqueryJob.cliConfig
+      val partitionField = config.outputPartition.map { partitionField =>
+        FieldPartitionInfo(partitionField, config.days, config.requirePartitionFilter)
+      }
+      val clusteringFields = config.outputClustering match {
+        case Nil    => None
+        case fields => Some(ClusteringInfo(fields.toList))
+      }
+      bigqueryJob.getOrCreateTable(
+        config.domainDescription,
+        TableInfo(
+          tableId,
+          schema.comment,
+          Some(incomingTableSchema),
+          partitionField,
+          clusteringFields
+        ),
+        None
+      ) map { case (table, definition) => definition }
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  /////// SPARK ENGINE ONLY /////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////
   /** Main entry point as required by the Spark Job interface
     *
     * @return
