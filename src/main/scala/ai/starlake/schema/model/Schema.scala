@@ -497,7 +497,7 @@ case class Schema(
       val transform =
         transformField.transform.getOrElse(throw new Exception("Should never happen"))
       if (transform.trim.equalsIgnoreCase("input_file_name()"))
-        s"$inputFilename AS ${transformField.getFinalName()}"
+        s"'$inputFilename' AS ${transformField.getFinalName()}"
       else
         s"$transform AS ${transformField.getFinalName()}"
     }
