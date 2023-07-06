@@ -144,6 +144,7 @@ trait BigQueryJobBase extends StrictLogging {
         )
     policyTagRef
   }
+
   def applyIamPolicyTags(iamPolicyTags: IamPolicyTags)(implicit settings: Settings): Try[Unit] = {
     Try {
       val (location, projectId, taxonomy, taxonomyRef) = getTaxonomy(policyTagClient)
@@ -173,6 +174,7 @@ trait BigQueryJobBase extends StrictLogging {
       }
     }
   }
+
   private def getTaxonomy(
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
@@ -290,7 +292,7 @@ trait BigQueryJobBase extends StrictLogging {
     def revokeAllPrivileges(): String = {
       cliConfig.outputTableId match {
         case Some(outputTableId) =>
-          val outputTable = BigQueryJobBase.getBqNativeTable(outputTableId)
+          val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
           s"DROP ALL ROW ACCESS POLICIES ON `$outputTable`"
         case None =>
           throw new RuntimeException("TableId must be defined in order to revoke privileges")
@@ -315,7 +317,7 @@ trait BigQueryJobBase extends StrictLogging {
 
           val name = rlsRetrieved.name
           val filter = rlsRetrieved.predicate
-          val outputTable = BigQueryJobBase.getBqNativeTable(outputTableId)
+          val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
           s"""
              | CREATE ROW ACCESS POLICY
              |  $name
@@ -340,15 +342,15 @@ trait BigQueryJobBase extends StrictLogging {
     rlsDeleteStatement ++ rlsCreateStatements
   }
 
-  protected lazy val tableId: TableId = {
+  lazy val tableId: TableId = {
     cliConfig.outputTableId.getOrElse(throw new Exception("TableId must be defined"))
   }
 
   protected lazy val datasetId: DatasetId = BigQueryJobBase.getBqDatasetId(tableId)
 
-  protected lazy val bqTable: String = BigQueryJobBase.getBqTable(tableId)
+  protected lazy val bqTable: String = BigQueryJobBase.getBqTableForSpark(tableId)
 
-  protected lazy val bqNativeTable: String = BigQueryJobBase.getBqNativeTable(tableId)
+  protected lazy val bqNativeTable: String = BigQueryJobBase.getBqTableForNative(tableId)
 
   /** Retry on retryable bigquery exception.
     */
@@ -389,16 +391,21 @@ trait BigQueryJobBase extends StrictLogging {
   ): Boolean =
     tableExists(getTableId(databaseName, datasetName, tableName))
 
-  def dropTable(databaseName: scala.Option[String], datasetName: String, tableName: String)(implicit
+  def dropTable(tableId: TableId)(implicit
     settings: Settings
   ): Boolean = {
-    val tableId = getTableId(databaseName, datasetName, tableName)
     val success = bigquery().delete(tableId)
     if (success)
       logger.info(s"Table $tableId deleted")
     else
       logger.info(s"Table $tableId not found")
     success
+  }
+  def dropTable(databaseName: scala.Option[String], datasetName: String, tableName: String)(implicit
+    settings: Settings
+  ): Boolean = {
+    val tableId = getTableId(databaseName, datasetName, tableName)
+    dropTable(tableId)
   }
 
   private def getTableId(
@@ -410,6 +417,23 @@ trait BigQueryJobBase extends StrictLogging {
       case Some(dbName) =>
         TableId.of(dbName, datasetName, tableName)
       case None => TableId.of(datasetName, tableName)
+    }
+  }
+
+  def getBQSchema(tableId: TableId)(implicit settings: Settings): BQSchema = {
+    val table = bigquery().getTable(tableId)
+    assert(table.exists)
+    table.getDefinition[StandardTableDefinition].getSchema
+  }
+
+  def updateTableSchema(tableId: TableId, tableSchema: BQSchema)(implicit
+    settings: Settings
+  ): Try[StandardTableDefinition] = {
+    Try {
+      val table = bigquery().getTable(tableId)
+      val newTableDefinition = StandardTableDefinition.newBuilder().setSchema(tableSchema).build()
+      table.toBuilder.setDefinition(newTableDefinition).build().update()
+      newTableDefinition
     }
   }
 
@@ -467,16 +491,19 @@ trait BigQueryJobBase extends StrictLogging {
     getOrCreateDataset(domainDescription).flatMap { _ =>
       val tryResult = recoverBigqueryException {
 
-        val tableDefinition = getTableDefinition(tableInfo, dataFrame)
         val table =
           if (tableExists(tableId)) {
             val table = bigquery().getTable(tableId)
             updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
           } else {
-            val bqTableInfo = BQTableInfo
+            val tableDefinition = newTableDefinition(tableInfo, dataFrame)
+            val bqTableInfoBuilder = BQTableInfo
               .newBuilder(tableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
-              .build
+//            tableInfo.maybeExpirationInMs.foreach { expirationInMs =>
+//              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + expirationInMs)
+//            }
+            val bqTableInfo = bqTableInfoBuilder.build
             val result = bigquery().create(bqTableInfo)
             logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
             result
@@ -689,7 +716,7 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  private def getTableDefinition(
+  private def newTableDefinition(
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
   ): TableDefinition = {
@@ -769,19 +796,25 @@ trait BigQueryJobBase extends StrictLogging {
     days: scala.Option[Int] = None,
     requirePartitionFilter: Boolean
   ): TimePartitioning.Builder = {
+    val partitionFilter = TimePartitioning
+      .newBuilder(TimePartitioning.Type.DAY)
+      .setRequirePartitionFilter(requirePartitionFilter)
+    val partitioned =
+      if (!Set("_PARTITIONTIME", "_PARTITIONDATE").contains(partitionField.toUpperCase))
+        partitionFilter.setField(partitionField)
+      else
+        partitionFilter
+
     days match {
       case Some(d) =>
-        TimePartitioning
-          .newBuilder(TimePartitioning.Type.DAY)
-          .setField(partitionField)
-          .setExpirationMs(d * 3600 * 24 * 1000L)
-          .setRequirePartitionFilter(requirePartitionFilter)
+        partitioned.setExpirationMs(d * 24 * 3600 * 1000L)
       case _ =>
-        TimePartitioning
-          .newBuilder(TimePartitioning.Type.DAY)
-          .setField(partitionField)
-          .setRequirePartitionFilter(requirePartitionFilter)
+        partitioned
     }
+  }
+
+  def getTableDefinition(tableId: TableId)(implicit settings: Settings): StandardTableDefinition = {
+    bigquery().getTable(tableId).getDefinition[StandardTableDefinition]
   }
 }
 
@@ -793,20 +826,17 @@ object BigQueryJobBase {
       case None    => DatasetId.of(tableId.getDataset)
     }
   }
-  def getBqDataset(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(tableId.getProject, ":")
-    s"${projectId}${tableId.getDataset}"
-  }
-  def getBqNativeDataset(tableId: TableId): String = {
+
+  def getBqDatasetForNative(tableId: TableId): String = {
     val projectId = getProjectIdPrefix(tableId.getProject, ".")
     s"${projectId}${tableId.getDataset}"
   }
 
-  def getBqTable(tableId: TableId): String = {
+  def getBqTableForSpark(tableId: TableId): String = {
     val projectId = getProjectIdPrefix(tableId.getProject, ":")
     s"${projectId}${tableId.getDataset}.${tableId.getTable}"
   }
-  def getBqNativeTable(tableId: TableId): String = {
+  def getBqTableForNative(tableId: TableId): String = {
     val projectId = getProjectIdPrefix(tableId.getProject, ".")
     s"${projectId}${tableId.getDataset}.${tableId.getTable}"
   }
@@ -850,7 +880,7 @@ object BigQueryJobBase {
 
     project
       .map(project => TableId.of(project, dataset, table))
-      .getOrElse(TableId.of(dataset, table))
+      .getOrElse(TableId.of(ServiceOptions.getDefaultProjectId(), dataset, table))
   }
 
   def extractProjectDataset(value: String): DatasetId = {
@@ -863,10 +893,10 @@ object BigQueryJobBase {
 
     project
       .map(project => DatasetId.of(project, dataset))
-      .getOrElse(DatasetId.of(dataset))
+      .getOrElse(DatasetId.of(ServiceOptions.getDefaultProjectId(), dataset))
   }
 
-  private def getProjectIdPrefix(nullableProjectId: String, seperator: String): String = {
-    scala.Option(nullableProjectId).map(_ + seperator).getOrElse("")
+  private def getProjectIdPrefix(nullableProjectId: String, separator: String): String = {
+    scala.Option(nullableProjectId).map(_ + separator).getOrElse("")
   }
 }

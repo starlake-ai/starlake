@@ -30,7 +30,7 @@ class BigQueryNativeJob(
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
         logger.info(s"BigQuery Schema: $bqSchema")
-        val formatOptions: FormatOptions = bqFormatOptions()
+        val formatOptions: FormatOptions = bqLoadFormatOptions()
         cliConfig.source match {
           case Left(sourceURIs) =>
             val loadConfig: LoadJobConfiguration.Builder =
@@ -52,7 +52,7 @@ class BigQueryNativeJob(
               val log = AuditLog(
                 jobResult.getJobId.getJob,
                 sourceURIs,
-                BigQueryJobBase.getBqNativeDataset(tableId),
+                BigQueryJobBase.getBqDatasetForNative(tableId),
                 tableId.getTable,
                 success = success,
                 stats.getOutputRows + stats.getBadRecords,
@@ -126,7 +126,7 @@ class BigQueryNativeJob(
     loadConfig
   }
 
-  private def bqFormatOptions(): FormatOptions = {
+  private def bqLoadFormatOptions(): FormatOptions = {
     val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
         metadata.getFormat() match {
@@ -142,7 +142,7 @@ class BigQueryNativeJob(
             }
             formatOptions.setFieldDelimiter(metadata.getSeparator())
             metadata.quote.map(quote => formatOptions.setQuote(quote))
-
+            formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
           case Format.JSON =>
             FormatOptions.json()
@@ -155,14 +155,15 @@ class BigQueryNativeJob(
     formatOptions
   }
 
-  def runInteractiveQuery(): Try[JobResult] = {
+  def runInteractiveQuery(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
+        val targetSQL = thisSql.getOrElse(sql)
         val queryConfig: QueryJobConfiguration.Builder =
           QueryJobConfiguration
-            .newBuilder(sql)
+            .newBuilder(targetSQL)
             .setAllowLargeResults(true)
-        logger.info(s"Running interactive BQ Query $sql")
+        logger.info(s"Running interactive BQ Query $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
@@ -205,10 +206,12 @@ class BigQueryNativeJob(
       RunAndSinkAsTable()
     }
   }
-  private def RunAndSinkAsMaterializedView(): Try[Table] = {
+
+  def RunAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
-        val materializedViewDefinitionBuilder = MaterializedViewDefinition.newBuilder(sql)
+        val materializedViewDefinitionBuilder =
+          MaterializedViewDefinition.newBuilder(thisSql.getOrElse(sql))
         cliConfig.outputPartition match {
           case Some(partitionField) =>
             // Generating schema from YML to get the descriptions in BQ
@@ -240,12 +243,12 @@ class BigQueryNativeJob(
     }
   }
 
-  private def RunAndSinkAsTable(): Try[BigQueryJobResult] = {
+  def RunAndSinkAsTable(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
     getOrCreateDataset(None).flatMap { targetDataset =>
       Try {
         val queryConfig: QueryJobConfiguration.Builder =
           QueryJobConfiguration
-            .newBuilder(sql)
+            .newBuilder(thisSql.getOrElse(sql))
             .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
             .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
             .setDefaultDataset(targetDataset.getDatasetId)
