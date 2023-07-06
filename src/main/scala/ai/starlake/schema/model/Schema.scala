@@ -157,6 +157,22 @@ case class Schema(
     )
   }
 
+  def scriptAndTransformAttributes(): List[Attribute] = {
+    attributes.filter { attribute =>
+      !attribute.isIgnore() && (attribute.script.nonEmpty || attribute.transform.nonEmpty)
+    }
+  }
+
+  def exceptIgnoreScriptAndTransformAttributes(): List[Attribute] = {
+    attributes.filter { attribute =>
+      !attribute.isIgnore() && attribute.script.isEmpty && attribute.transform.isEmpty
+    }
+  }
+
+  def hasTransformOrIgnoreOrScriptColumns(): Boolean = {
+    attributes.count(attr => attr.isIgnore() || attr.script.nonEmpty || attr.transform.nonEmpty) > 0
+  }
+
   /** This Schema as a Spark Catalyst Schema
     *
     * @return
@@ -194,7 +210,13 @@ case class Schema(
   }
 
   def sparkSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore() && !attr.script.isDefined)
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore() && attr.script.isEmpty)
+
+  def sparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore())
+
+  def sparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _ => true)
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
@@ -202,6 +224,14 @@ case class Schema(
 
   def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkSchemaWithoutIgnoreAndScript(schemaHandler))
+  }
+
+  def bqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaWithoutIgnore(schemaHandler))
+  }
+
+  def bqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaWithIgnoreAndScript(schemaHandler))
   }
 
   /** return the list of renamed attributes
@@ -440,6 +470,78 @@ case class Schema(
       relations
     } else {
       ""
+    }
+  }
+
+  def buildSqlSelect(table: String, inputFilename: String): String = {
+    val scriptAndTranformAttributes = scriptAndTransformAttributes()
+
+    val (scriptAttributes, transformAttributes) =
+      scriptAndTranformAttributes.partition(_.script.nonEmpty)
+
+    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+
+    val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
+      val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
+      if (script.trim.equalsIgnoreCase("input_file_name()"))
+        s"'$inputFilename' AS ${scriptField.getFinalName()}"
+      else
+        s"$script AS ${scriptField.getFinalName()}"
+
+    }
+    val sqlTransforms: List[String] = transformAttributes.map { transformField =>
+      val transform =
+        transformField.transform.getOrElse(throw new Exception("Should never happen"))
+      if (transform.trim.equalsIgnoreCase("input_file_name()"))
+        s"$inputFilename AS ${transformField.getFinalName()}"
+      else
+        s"$transform AS ${transformField.getFinalName()}"
+    }
+
+    val sqlSimple = simpleAttributes.map { field =>
+      s"`${field.getFinalName()}`"
+    }
+
+    s"SELECT ${sqlSimple.mkString(",")}, ${sqlScripts.mkString(",")}, ${sqlTransforms
+        .mkString(",")} FROM $table"
+
+  }
+
+  def buildSqlMerge(
+    sourceTable: String,
+    targetTable: String,
+    inputFilename: String
+  ): Option[String] = {
+    merge.map { mergeOptions =>
+      val inputData = buildSqlSelect(sourceTable, inputFilename)
+
+      val scriptAndTranformAttributes = scriptAndTransformAttributes()
+
+      val (scriptAttributes, transformAttributes) =
+        scriptAndTranformAttributes.partition(_.script.nonEmpty)
+
+      val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+      val allAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
+
+      val matchedSql = allAttributes
+        .map { attribute =>
+          s"${attribute.getFinalName()} = SL_INTERNAL_TABLE.${attribute.getFinalName()}"
+        }
+        .mkString(",")
+
+      val notMatchedColNamesString =
+        allAttributes
+          .map(attribute => s"${attribute.getFinalName()}")
+          .mkString("(", ",", ")")
+      val notMatchedSql = s"""$notMatchedColNamesString VALUES $notMatchedColNamesString"""
+
+      val on =
+        mergeOptions.key.map { key =>
+          s"SL_INTERNAL_TABLE.$key = $targetTable.$key"
+        }
+      s"""MERGE INTO $targetTable USING ($inputData) AS SL_INTERNAL_TABLE ON ${on.mkString(" AND ")}
+       |WHEN MATCHED THEN UPDATE SET $matchedSql
+       |WHEN NOT MATCHED THEN INSERT $notMatchedSql""".stripMargin
     }
   }
 
