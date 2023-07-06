@@ -88,6 +88,10 @@ case class Schema(
     None
   ) // Should never be called. Here for Jackson deserialization only
 
+  def containsRepeatedOrNestedFields(): Boolean = {
+    attributes.exists(_.isNestedOrRepeatedField())
+  }
+
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
     attributes.map { attribute =>
       val isPrimaryKey = primaryKey.contains(attribute.name)
