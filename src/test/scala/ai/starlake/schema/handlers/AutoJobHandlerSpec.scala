@@ -423,7 +423,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           | FILTER USING
           |  (TRUE)
           |""".stripMargin
-      job.prepareRLS() should contain theSameElementsInOrderAs List(delStatement, createStatement)
+      val result = job
+        .prepareRLS()
+        .map(_.replaceAll("`.*`", "`DOMAIN.TABLE`")) // we remove the computed project id
+      result should contain theSameElementsInOrderAs List(delStatement, createStatement)
     }
   }
 }

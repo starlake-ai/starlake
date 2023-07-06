@@ -1,7 +1,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
-import ai.starlake.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
 
 /** Task executed in the context of a job. Each task is executed in its own session.
@@ -83,14 +82,8 @@ case class AutoTaskDesc(
     StorageArea.area(domain, None)
   }
 
-  def getDatabase(implicit
-    settings: Settings,
-    schemaHandler: SchemaHandler
-  ): Option[String] = {
+  def getDatabase(implicit settings: Settings): Option[String] = {
     database
-      .orElse(
-        schemaHandler.activeEnvRefs().getDatabase(domain, table)
-      ) // mapping in envRefs
       .orElse(settings.comet.getDatabase()) // database passed in env vars
   }
 

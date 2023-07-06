@@ -133,7 +133,7 @@ object SQLUtils {
 
   def resolveRefsInSQL(
     sql: String,
-    refMap: List[Option[(Option[String], String, String)]] // (database, domain, table)
+    refMap: List[Option[(String, String, String)]] // (database, domain, table)
   ): String = {
     def getPrefix(sql: String, start: Int): String = {
       val substr = sql.substring(start).trim
@@ -155,15 +155,17 @@ object SQLUtils {
           iterator.next() match {
             case Some((_, "", table)) =>
             // do nothing
-            case Some((Some(database), domain, table)) =>
-              val prefix: String = getPrefix(result, regex.start)
-              result = result.substring(0, regex.start) +
-                s"$prefix$database.$domain.$table" +
-                result.substring(regex.end)
-            case Some((None, domain, table)) =>
+
+            case Some(("", domain, table)) =>
               val prefix: String = getPrefix(result, regex.start)
               result = result.substring(0, regex.start) +
                 s"$prefix$domain.$table" +
+                result.substring(regex.end)
+
+            case Some((database, domain, table)) =>
+              val prefix: String = getPrefix(result, regex.start)
+              result = result.substring(0, regex.start) +
+                s"$prefix$database.$domain.$table" +
                 result.substring(regex.end)
             case None =>
           }

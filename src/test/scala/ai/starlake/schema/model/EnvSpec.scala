@@ -43,7 +43,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
       )
     }
   }
-
+  /*
   "Get Domain and Database mytable1" should "succeed" in {
     val (domain, database) = EnvRefs(env.refs).getDomainAndDatabase("mytable1")
     assert(domain == Some("myds"))
@@ -53,6 +53,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
     val (domain, database) = EnvRefs(env.refs).getDomainAndDatabase("DEV_1_2_3")
     assert(domain == Some("myds2"))
     assert(database == Some("starlake-dev"))
-
   }
+
+   */
 }

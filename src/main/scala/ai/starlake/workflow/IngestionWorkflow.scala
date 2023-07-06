@@ -959,7 +959,7 @@ class IngestionWorkflow(
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain, schema.finalName)
+            val database = schemaHandler.getDatabase(domain)
             val config = BigQueryLoadConfig(
               None,
               None,
