@@ -79,8 +79,6 @@ trait IngestionJob extends SparkJob {
     */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
 
-  protected def loadDataSet(): Try[DataFrame]
-
   /** ingestion algorithm
     *
     * @param dataset
@@ -111,118 +109,6 @@ trait IngestionJob extends SparkJob {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  @nowarn
-  protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
-    import session.implicits._
-    mergedMetadata.ignore.map { ignore =>
-      if (ignore.startsWith("udf:")) {
-        dfIn.filter(
-          !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
-        )
-      } else {
-        dfIn.filter(!($"value" rlike ignore))
-      }
-    } getOrElse dfIn
-  }
-
-  protected def saveRejected(
-    errMessagesDS: Dataset[String],
-    rejectedLinesDS: Dataset[String]
-  ): Try[Path] = {
-    logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
-      errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
-    }
-    val domainName = domain.name
-    val schemaName = schema.name
-
-    val start = Timestamp.from(Instant.now())
-    val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
-
-    if (settings.comet.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
-      val replayArea = DatasetArea.replay(domainName)
-      val targetPath =
-        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
-      rejectedLinesDS
-        .repartition(1)
-        .write
-        .format("text")
-        .save(targetPath.toString)
-      storageHandler.moveSparkPartFile(
-        targetPath,
-        "0000" // When saving as text file, no extension is added.
-      )
-    }
-
-    IngestionUtil.sinkRejected(session, errMessagesDS, domainName, schemaName, now) match {
-      case Success((rejectedDF, rejectedPath)) =>
-        // We sink to a file when running unit tests
-        if (settings.comet.sinkToFile) {
-          sinkToFile(
-            rejectedDF,
-            rejectedPath,
-            APPEND,
-            StorageArea.rejected,
-            merge = false,
-            settings.comet.defaultRejectedWriteFormat
-          )
-        } else {
-          settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
-              sinkToFile(
-                rejectedDF,
-                rejectedPath,
-                WriteMode.APPEND,
-                StorageArea.rejected,
-                merge = false,
-                settings.comet.defaultRejectedWriteFormat
-              )
-            case _ => // do nothing
-          }
-        }
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          rejectedPath.toString,
-          domainName,
-          schemaName,
-          success = true,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          "success",
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, schema.finalName),
-          settings.comet.tenant
-        )
-        AuditLog.sink(Map.empty, optionalAuditSession, log)
-        Success(rejectedPath)
-      case Failure(exception) =>
-        logger.error("Failed to save Rejected", exception)
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          new Path(DatasetArea.rejected(domainName), schemaName).toString,
-          domainName,
-          schemaName,
-          success = false,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          Utils.exceptionAsString(exception),
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, schema.finalName),
-          settings.comet.tenant
-        )
-        AuditLog.sink(Map.empty, optionalAuditSession, log)
-        Failure(exception)
-    }
-  }
-
   private def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
@@ -247,407 +133,6 @@ trait IngestionJob extends SparkJob {
       settings.comet.csvOutputExt
     else
       extension
-
-  private def runExpectations(acceptedDF: DataFrame) = {
-    if (settings.comet.expectations.active) {
-      new ExpectationJob(
-        Map.empty, // Auth Info from env var since run from spark submit only
-        this.domain.finalName,
-        this.schema.finalName,
-        this.schema.expectations,
-        UNIT,
-        storageHandler,
-        schemaHandler,
-        Some(acceptedDF),
-        SPARK,
-        sql => session.sql(sql).count()
-      ).run().getOrElse(throw new Exception("Should never happen"))
-    }
-  }
-
-  private def runMetrics(acceptedDF: DataFrame) = {
-    if (settings.comet.metrics.active) {
-      new MetricsJob(
-        this.domain,
-        this.schema,
-        Stage.UNIT,
-        this.storageHandler,
-        this.schemaHandler
-      )
-        .run(acceptedDF, System.currentTimeMillis())
-    }
-  }
-
-  private def dfWithAttributesRenamed(acceptedDF: DataFrame): DataFrame = {
-    val renamedAttributes = schema.renamedAttributes().toMap
-    logger.whenInfoEnabled {
-      renamedAttributes.foreach { case (name, rename) =>
-        logger.info(s"renaming column $name to $rename")
-      }
-    }
-    val finalDF =
-      renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
-        acc.withColumnRenamed(existingName = name, newName = rename)
-      }
-    finalDF
-  }
-
-  /** Merge new and existing dataset if required Save using overwrite / Append mode
-    *
-    * @param validationResult
-    */
-  protected def saveAccepted(
-    validationResult: ValidationResult
-  ): (DataFrame, Path) = {
-    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty) {
-      val start = Timestamp.from(Instant.now())
-      logger.whenDebugEnabled {
-        logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
-        logger.debug(validationResult.accepted.showString(1000))
-      }
-
-      val acceptedPath =
-        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
-
-      val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
-
-      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
-        acceptedRenamedFields
-      )
-
-      val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
-        acceptedDfWithScriptFields
-      )
-
-      val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
-
-      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
-        acceptedDfFiltered
-      )
-
-      val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
-      val finalAcceptedDF: DataFrame =
-        computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
-      runExpectations(finalAcceptedDF)
-      runMetrics(finalAcceptedDF)
-      val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
-
-      val finalMergedDf: DataFrame = runPostSQL(mergedDF)
-
-      logger.whenInfoEnabled {
-        logger.info("Final Dataframe Schema")
-        logger.info(finalMergedDf.schemaString())
-      }
-
-      // When sinkToFile is set, it means that we want to save to files even if we save somewhere else.
-      val savedInFileDataset =
-        if (settings.comet.sinkToFile)
-          sinkToFile(
-            finalMergedDf,
-            acceptedPath,
-            getWriteMode(),
-            StorageArea.accepted,
-            schema.merge.isDefined,
-            settings.comet.defaultFormat
-          )
-        else
-          finalMergedDf
-
-      val sinkType = mergedMetadata.getSink().map(_.getType())
-      val savedDataset = sinkType.getOrElse(SinkType.None) match {
-        case SinkType.None if !settings.comet.sinkToFile =>
-          // TODO do this inside the sink function below
-          sinkToFile(
-            finalMergedDf,
-            acceptedPath,
-            getWriteMode(),
-            StorageArea.accepted,
-            schema.merge.isDefined,
-            settings.comet.defaultFormat
-          )
-        case _ =>
-          savedInFileDataset
-      }
-      logger.whenInfoEnabled {
-        logger.info("Saved Dataset Schema")
-        logger.info(savedDataset.schemaString())
-      }
-
-      val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
-        case Success(sinkedDF) =>
-          val end = Timestamp.from(Instant.now())
-          val log = AuditLog(
-            applicationId(),
-            acceptedPath.toString,
-            domain.name,
-            schema.name,
-            success = true,
-            -1,
-            -1,
-            -1,
-            start,
-            end.getTime - start.getTime,
-            "success",
-            Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, schema.finalName),
-            settings.comet.tenant
-          )
-          AuditLog.sink(Map.empty, optionalAuditSession, log)
-          sinkedDF
-        case Failure(exception) =>
-          Utils.logException(logger, exception)
-          val end = Timestamp.from(Instant.now())
-          val log = AuditLog(
-            applicationId(),
-            acceptedPath.toString,
-            domain.name,
-            schema.name,
-            success = false,
-            -1,
-            -1,
-            -1,
-            start,
-            end.getTime - start.getTime,
-            Utils.exceptionAsString(exception),
-            Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, schema.finalName),
-            settings.comet.tenant
-          )
-          AuditLog.sink(Map.empty, optionalAuditSession, log)
-          throw exception
-      }
-      (sinkedDF, acceptedPath)
-    } else {
-      (session.emptyDataFrame, new Path("invalid-path"))
-    }
-  }
-
-  private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
-    schema.filter
-      .map { filterExpr =>
-        logger.info(s"Applying data filter: $filterExpr")
-        acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
-      }
-      .getOrElse(acceptedDfWithScriptAndTransformedFields)
-  }
-
-  private def applyMerge(
-    acceptedPath: Path,
-    finalAcceptedDF: DataFrame
-  ): (DataFrame, List[String]) = {
-    val (mergedDF, partitionsToUpdate) =
-      schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
-        mergedMetadata.getSink() match {
-          case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
-          case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
-        }
-      }
-
-    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
-    else (mergedDF, partitionsToUpdate)
-  }
-
-  private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
-    val finalAcceptedDF: DataFrame = if (schema.attributes.exists(_.script.isDefined)) {
-      logger.whenDebugEnabled {
-        logger.debug("Accepted Dataframe schema right after adding computed columns")
-        logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
-      }
-      // adding computed columns can change the order of columns, we must force the order defined in the schema
-      val cols = schema.finalAttributeNames().map(col)
-      val orderedWithScriptFieldsDF = acceptedDfWithoutIgnoredFields.select(cols: _*)
-      logger.whenDebugEnabled {
-        logger.debug("Accepted Dataframe schema after applying the defined schema")
-        logger.debug(orderedWithScriptFieldsDF.schemaString())
-      }
-      orderedWithScriptFieldsDF
-    } else {
-      acceptedDfWithoutIgnoredFields
-    }
-    finalAcceptedDF
-  }
-
-  private def removeIgnoredAttributes(
-    acceptedDfWithScriptAndTransformedFields: DataFrame
-  ): DataFrame = {
-    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
-    val acceptedDfWithoutIgnoredFields =
-      acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
-    acceptedDfWithoutIgnoredFields
-  }
-
-  private def computeTransformedAttributes(acceptedDfWithScriptFields: DataFrame): DataFrame = {
-    val sqlAttributes = schema.attributes.filter(_.getPrivacy().sql).filter(_.transform.isDefined)
-    sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
-      df.withColumn(
-        attr.getFinalName(),
-        expr(
-          attr.transform
-            .getOrElse(throw new Exception("Should never happen"))
-            .richFormat(schemaHandler.activeEnvVars(), options)
-        )
-          .cast(attr.primitiveSparkType(schemaHandler))
-      )
-    }
-  }
-
-  private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
-    schema.attributes
-      .filter(_.script.isDefined)
-      .map(attr => (attr.getFinalName(), attr.sparkType(schemaHandler), attr.script))
-      .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
-        df.withColumn(
-          name,
-          expr(script.getOrElse("").richFormat(schemaHandler.activeEnvVars(), options))
-            .cast(sparkType)
-        )
-      }
-  }
-
-  private def sinkAccepted(
-    mergedDF: DataFrame,
-    partitionsToUpdate: List[String]
-  ): Try[DataFrame] = {
-    Try {
-      val sinkType = mergedMetadata.getSink().map(_.getType())
-      sinkType.getOrElse(SinkType.None) match {
-        case SinkType.ES if settings.comet.elasticsearch.active =>
-          esSink(mergedDF)
-        case SinkType.ES if !settings.comet.elasticsearch.active =>
-          logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-          mergedDF
-        case SinkType.BQ =>
-          bqSink(mergedDF, partitionsToUpdate)
-        case SinkType.KAFKA =>
-          kafkaSink(mergedDF)
-        case SinkType.JDBC | SinkType.SNOWFLAKE =>
-          genericSink(mergedDF)
-
-        case SinkType.FS if !settings.comet.sinkToFile =>
-          val acceptedPath =
-            new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
-          val sinkedDF = sinkToFile(
-            mergedDF,
-            acceptedPath,
-            getWriteMode(),
-            StorageArea.accepted,
-            schema.merge.isDefined,
-            settings.comet.defaultFormat
-          )
-          sinkedDF
-        case SinkType.None | SinkType.FS =>
-          // Done in the caller
-          logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
-          mergedDF
-      }
-    }
-  }
-
-  private def kafkaSink(mergedDF: DataFrame): DataFrame = {
-    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.finalName), mergedDF)
-    }
-    mergedDF
-  }
-
-  private def genericSink(mergedDF: DataFrame): DataFrame = {
-    val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
-
-      val (cd, wd) = Utils.getDBDisposition(
-        mergedMetadata.getWrite(),
-        schema.merge.exists(_.key.nonEmpty)
-      )
-      (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
-    }
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
-    sink.foreach { sink =>
-      val jdbcConfig = ConnectionLoadConfig.fromComet(
-        sink.connection,
-        settings.comet,
-        Right(mergedDF),
-        outputTable = domain.finalName + "." + schema.finalName,
-        createDisposition = createDisposition,
-        writeDisposition = writeDisposition,
-        sinkOptions = sink.getOptions
-      )
-
-      val res = new ConnectionLoadJob(jdbcConfig).run()
-      res match {
-        case Success(_) => ;
-        case Failure(e) =>
-          throw e
-      }
-    }
-    mergedDF
-  }
-
-  private def bqSink(mergedDF: DataFrame, partitionsToUpdate: List[String]): DataFrame = {
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
-    val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(),
-      schema.merge.exists(_.key.nonEmpty)
-    )
-
-    /* We load the schema from the postsql returned dataframe if any */
-    val tableSchema = schema.postsql match {
-      case Nil => Some(schema.bqSchema(schemaHandler))
-      case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-    }
-    val config = BigQueryLoadConfig(
-      None,
-      None,
-      source = Right(mergedDF),
-      outputTableId = Some(
-        BigQueryJobBase
-          .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain, schema.finalName),
-            domain.finalName,
-            schema.finalName
-          )
-      ),
-      sourceFormat = settings.comet.defaultFormat,
-      createDisposition = createDisposition,
-      writeDisposition = writeDisposition,
-      location = sink.flatMap(_.location),
-      outputPartition = sink.flatMap(_.timestamp),
-      outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
-      days = sink.flatMap(_.days),
-      requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
-      rls = schema.rls,
-      options = sink.map(_.getOptions).getOrElse(Map.empty),
-      partitionsToUpdate = partitionsToUpdate,
-      starlakeSchema = Some(schema),
-      domainTags = domain.tags,
-      domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
-    )
-    val res = new BigQuerySparkJob(
-      config,
-      tableSchema,
-      schema.comment
-    ).run()
-    res match {
-      case Success(_) => ;
-      case Failure(e) =>
-        throw e
-    }
-    mergedDF
-  }
-
-  private def esSink(mergedDF: DataFrame): DataFrame = {
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[EsSink])
-    val config = ESLoadConfig(
-      timestamp = sink.flatMap(_.timestamp),
-      id = sink.flatMap(_.id),
-      format = settings.comet.defaultFormat,
-      domain = domain.name,
-      schema = schema.name,
-      dataset = Some(Right(mergedDF)),
-      options = sink.map(_.getOptions).getOrElse(Map.empty)
-    )
-    new ESLoadJob(config, storageHandler, schemaHandler).run()
-    mergedDF
-  }
 
   private def extractHiveTableAcl(): List[String] = {
     if (settings.comet.isHiveCompatible()) {
@@ -710,273 +195,6 @@ trait IngestionJob extends SparkJob {
       if (forceApply || settings.comet.accessPolicies.apply)
         applySql(extractSnowflakeTableAcl())
     }
-
-  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
-    * if analyze is active, also compute basic statistics
-    *
-    * @param dataset
-    *   : dataset to save
-    * @param targetPath
-    *   : absolute path
-    * @param writeMode
-    *   : Append or overwrite
-    * @param area
-    *   : accepted or rejected area
-    */
-  private def sinkToFile(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: StorageArea,
-    merge: Boolean,
-    writeFormat: String
-  ): DataFrame = {
-    val resultDataFrame = if (dataset.columns.length > 0) {
-      val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.finalName, Some(area))
-      val tableName = schema.name
-      val fullTableName = s"$hiveDB.$tableName"
-      if (settings.comet.isHiveCompatible()) {
-        val dbComment = domain.comment.getOrElse("")
-        val tableTagPairs = Utils.extractTags(domain.tags) + ("comment" -> dbComment)
-        val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
-        session.sql(s"CREATE DATABASE IF NOT EXISTS $hiveDB WITH DBPROPERTIES($tagsAsString)")
-        session.sql(s"use $hiveDB")
-        Try {
-          if (writeMode.toSaveMode == SaveMode.Overwrite)
-            session.sql(s"DROP TABLE IF EXISTS $hiveDB.$tableName")
-        } match {
-          case Success(_) => ;
-          case Failure(e) =>
-            logger.warn("Ignore error when hdfs files not found")
-            Utils.logException(logger, e)
-        }
-      }
-
-      val (sinkPartition, nbPartitions, clustering, options) =
-        mergedMetadata.getSink().getOrElse(NoneSink()) match {
-          case _: NoneSink =>
-            (
-              mergedMetadata.partition,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                None
-              ),
-              mergedMetadata.clustering,
-              Map.empty[String, String]
-            )
-          case s: FsSink =>
-            val partitionColumns = s.partition.orElse(mergedMetadata.partition)
-            (
-              partitionColumns,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                partitionColumns
-              ),
-              s.clustering,
-              s.options.getOrElse(Map.empty)
-            )
-          case _ if area == StorageArea.accepted => // sink-to-file is true in application.conf
-            (
-              mergedMetadata.partition,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                None
-              ),
-              mergedMetadata.clustering,
-              Map.empty[String, String]
-            )
-          case _ if area == StorageArea.rejected =>
-            logger.debug("saving in rejected")
-            (
-              None,
-              1,
-              None,
-              Map.empty[String, String]
-            )
-
-        }
-
-      // No need to apply partition on rejected dF
-      val partitionedDFWriter =
-        if (area == StorageArea.rejected)
-          partitionedDatasetWriter(dataset.repartition(nbPartitions), Nil)
-        else
-          partitionedDatasetWriter(
-            dataset.repartition(nbPartitions),
-            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
-          )
-
-      val clusteredDFWriter = clustering match {
-        case None          => partitionedDFWriter
-        case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
-      }
-
-      val mergePath = s"${targetPath.toString}.merge"
-      val (targetDatasetWriter, finalDataset) = if (merge && area != StorageArea.rejected) {
-        logger.info(s"Saving Dataset to merge location $mergePath")
-        clusteredDFWriter
-          .mode(SaveMode.Overwrite)
-          .format(writeFormat)
-          .options(options)
-          .option("path", mergePath)
-          .save()
-        logger.info(s"reading Dataset from merge location $mergePath")
-        val mergedDataset = session.read.format(settings.comet.defaultFormat).load(mergePath)
-        (
-          partitionedDatasetWriter(
-            mergedDataset,
-            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
-          ),
-          mergedDataset
-        )
-      } else
-        (clusteredDFWriter, dataset)
-
-      // We do not output empty datasets
-      if (!finalDataset.isEmpty) {
-        val finalTargetDatasetWriter =
-          if (csvOutput() && area != StorageArea.rejected) {
-            targetDatasetWriter
-              .mode(saveMode)
-              .format("csv")
-              .option("ignoreLeadingWhiteSpace", value = false)
-              .option("ignoreTrailingWhiteSpace", value = false)
-              .option("header", mergedMetadata.withHeader.getOrElse(false))
-              .option("delimiter", mergedMetadata.separator.getOrElse("µ"))
-              .option("path", targetPath.toString)
-          } else
-            targetDatasetWriter
-              .mode(saveMode)
-              .format(writeFormat)
-              .option("path", targetPath.toString)
-
-        logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
-
-        if (settings.comet.isHiveCompatible()) {
-          finalTargetDatasetWriter.saveAsTable(fullTableName)
-          val tableComment = schema.comment.getOrElse("")
-          val tableTagPairs = Utils.extractTags(schema.tags) + ("comment" -> tableComment)
-          val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
-          session.sql(
-            s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
-          )
-          analyze(fullTableName)
-        } else {
-          finalTargetDatasetWriter.save()
-        }
-        if (merge && area != StorageArea.rejected) {
-          // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
-          // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
-          val df = session.createDataFrame(
-            session.read.format(settings.comet.defaultFormat).load(targetPath.toString).rdd,
-            dataset.schema
-          )
-          storageHandler.delete(new Path(mergePath))
-          logger.info(s"deleted merge file $mergePath")
-          df
-        } else
-          finalDataset
-      } else {
-        finalDataset
-      }
-    } else {
-      logger.warn("Empty dataset with no columns won't be saved")
-      session.emptyDataFrame
-    }
-    if (csvOutput() && area != StorageArea.rejected) {
-      val outputList = storageHandler
-        .list(targetPath, ".csv", LocalDateTime.MIN, recursive = false)
-        .filterNot(path => schema.pattern.matcher(path.getName).matches())
-      if (outputList.nonEmpty) {
-        val csvPath = outputList.head
-        val finalCsvPath =
-          if (csvOutputExtension().nonEmpty) {
-            // Explicitily set extension
-            val targetName = path.head.getName
-            val index = targetName.lastIndexOf('.')
-            val finalName = (if (index > 0) targetName.substring(0, index)
-                             else targetName) + csvOutputExtension()
-            new Path(targetPath, finalName)
-          } else
-            new Path(
-              targetPath,
-              path.head.getName
-            )
-        storageHandler.move(csvPath, finalCsvPath)
-      }
-    }
-    // output file should have the same name as input file when applying privacy
-    if (
-      settings.comet.defaultFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
-    ) {
-      val pathsOutput = storageHandler
-        .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
-        .filterNot(path => schema.pattern.matcher(path.getName).matches())
-      if (pathsOutput.nonEmpty) {
-        val txtPath = pathsOutput.head
-        val finalTxtPath = new Path(
-          targetPath,
-          path.head.getName
-        )
-        storageHandler.move(txtPath, finalTxtPath)
-      }
-    }
-    applyHiveTableAcl()
-    resultDataFrame
-  }
-
-  private def nbFsPartitions(
-    dataset: DataFrame,
-    writeFormat: String,
-    targetPath: Path,
-    sinkPartition: Option[Partition]
-  ): Int = {
-    val tmpPath = new Path(s"${targetPath.toString}.tmp")
-    val nbPartitions =
-      sinkPartition.map(_.getSampling()).getOrElse(mergedMetadata.getSamplingStrategy()) match {
-        case 0.0 => // default partitioning
-          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
-            1
-          else
-            dataset.rdd.getNumPartitions
-        case fraction if fraction > 0.0 && fraction < 1.0 =>
-          // Use sample to determine partitioning
-          val count = dataset.count()
-          val minFraction =
-            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
-              fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-              2 / count
-            else
-              0
-
-          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
-          partitionedDatasetWriter(
-            sampledDataset,
-            sinkPartition.map(_.getAttributes()).getOrElse(mergedMetadata.getPartitionAttributes())
-          )
-            .mode(SaveMode.ErrorIfExists)
-            .format(writeFormat)
-            .option("path", tmpPath.toString)
-            .save()
-          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
-          val blocksize = storageHandler.blockSize(tmpPath)
-          storageHandler.delete(tmpPath)
-          Math.max(consumed / blocksize, 1).toInt
-        case count if count >= 1.0 =>
-          count.toInt
-      }
-    nbPartitions
-  }
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
@@ -1470,6 +688,788 @@ trait IngestionJob extends SparkJob {
       table.toBuilder.setDefinition(updatedTableDefinition).build()
     updatedTable.update()
   }
+
+  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
+    * if analyze is active, also compute basic statistics
+    *
+    * @param dataset
+    *   : dataset to save
+    * @param targetPath
+    *   : absolute path
+    * @param writeMode
+    *   : Append or overwrite
+    * @param area
+    *   : accepted or rejected area
+    */
+  private def sinkToFile(
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: StorageArea,
+    merge: Boolean,
+    writeFormat: String
+  ): DataFrame = {
+    val resultDataFrame = if (dataset.columns.length > 0) {
+      val saveMode = writeMode.toSaveMode
+      val hiveDB = StorageArea.area(domain.finalName, Some(area))
+      val tableName = schema.name
+      val fullTableName = s"$hiveDB.$tableName"
+      if (settings.comet.isHiveCompatible()) {
+        val dbComment = domain.comment.getOrElse("")
+        val tableTagPairs = Utils.extractTags(domain.tags) + ("comment" -> dbComment)
+        val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+        session.sql(s"CREATE DATABASE IF NOT EXISTS $hiveDB WITH DBPROPERTIES($tagsAsString)")
+        session.sql(s"use $hiveDB")
+        Try {
+          if (writeMode.toSaveMode == SaveMode.Overwrite)
+            session.sql(s"DROP TABLE IF EXISTS $hiveDB.$tableName")
+        } match {
+          case Success(_) => ;
+          case Failure(e) =>
+            logger.warn("Ignore error when hdfs files not found")
+            Utils.logException(logger, e)
+        }
+      }
+
+      val (sinkPartition, nbPartitions, clustering, options) =
+        mergedMetadata.getSink().getOrElse(NoneSink()) match {
+          case _: NoneSink =>
+            (
+              mergedMetadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              mergedMetadata.clustering,
+              Map.empty[String, String]
+            )
+          case s: FsSink =>
+            val partitionColumns = s.partition.orElse(mergedMetadata.partition)
+            (
+              partitionColumns,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                partitionColumns
+              ),
+              s.clustering,
+              s.options.getOrElse(Map.empty)
+            )
+          case _ if area == StorageArea.accepted => // sink-to-file is true in application.conf
+            (
+              mergedMetadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              mergedMetadata.clustering,
+              Map.empty[String, String]
+            )
+          case _ if area == StorageArea.rejected =>
+            logger.debug("saving in rejected")
+            (
+              None,
+              1,
+              None,
+              Map.empty[String, String]
+            )
+
+        }
+
+      // No need to apply partition on rejected dF
+      val partitionedDFWriter =
+        if (area == StorageArea.rejected)
+          partitionedDatasetWriter(dataset.repartition(nbPartitions), Nil)
+        else
+          partitionedDatasetWriter(
+            dataset.repartition(nbPartitions),
+            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
+          )
+
+      val clusteredDFWriter = clustering match {
+        case None          => partitionedDFWriter
+        case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
+      }
+
+      val mergePath = s"${targetPath.toString}.merge"
+      val (targetDatasetWriter, finalDataset) = if (merge && area != StorageArea.rejected) {
+        logger.info(s"Saving Dataset to merge location $mergePath")
+        clusteredDFWriter
+          .mode(SaveMode.Overwrite)
+          .format(writeFormat)
+          .options(options)
+          .option("path", mergePath)
+          .save()
+        logger.info(s"reading Dataset from merge location $mergePath")
+        val mergedDataset = session.read.format(settings.comet.defaultFormat).load(mergePath)
+        (
+          partitionedDatasetWriter(
+            mergedDataset,
+            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
+          ),
+          mergedDataset
+        )
+      } else
+        (clusteredDFWriter, dataset)
+
+      // We do not output empty datasets
+      if (!finalDataset.isEmpty) {
+        val finalTargetDatasetWriter =
+          if (csvOutput() && area != StorageArea.rejected) {
+            targetDatasetWriter
+              .mode(saveMode)
+              .format("csv")
+              .option("ignoreLeadingWhiteSpace", value = false)
+              .option("ignoreTrailingWhiteSpace", value = false)
+              .option("header", mergedMetadata.withHeader.getOrElse(false))
+              .option("delimiter", mergedMetadata.separator.getOrElse("µ"))
+              .option("path", targetPath.toString)
+          } else
+            targetDatasetWriter
+              .mode(saveMode)
+              .format(writeFormat)
+              .option("path", targetPath.toString)
+
+        logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
+
+        if (settings.comet.isHiveCompatible()) {
+          finalTargetDatasetWriter.saveAsTable(fullTableName)
+          val tableComment = schema.comment.getOrElse("")
+          val tableTagPairs = Utils.extractTags(schema.tags) + ("comment" -> tableComment)
+          val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+          session.sql(
+            s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
+          )
+          analyze(fullTableName)
+        } else {
+          finalTargetDatasetWriter.save()
+        }
+        if (merge && area != StorageArea.rejected) {
+          // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
+          // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
+          val df = session.createDataFrame(
+            session.read.format(settings.comet.defaultFormat).load(targetPath.toString).rdd,
+            dataset.schema
+          )
+          storageHandler.delete(new Path(mergePath))
+          logger.info(s"deleted merge file $mergePath")
+          df
+        } else
+          finalDataset
+      } else {
+        finalDataset
+      }
+    } else {
+      logger.warn("Empty dataset with no columns won't be saved")
+      session.emptyDataFrame
+    }
+    if (csvOutput() && area != StorageArea.rejected) {
+      val outputList = storageHandler
+        .list(targetPath, ".csv", LocalDateTime.MIN, recursive = false)
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
+      if (outputList.nonEmpty) {
+        val csvPath = outputList.head
+        val finalCsvPath =
+          if (csvOutputExtension().nonEmpty) {
+            // Explicitily set extension
+            val targetName = path.head.getName
+            val index = targetName.lastIndexOf('.')
+            val finalName = (if (index > 0) targetName.substring(0, index)
+                             else targetName) + csvOutputExtension()
+            new Path(targetPath, finalName)
+          } else
+            new Path(
+              targetPath,
+              path.head.getName
+            )
+        storageHandler.move(csvPath, finalCsvPath)
+      }
+    }
+    // output file should have the same name as input file when applying privacy
+    if (
+      settings.comet.defaultFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
+    ) {
+      val pathsOutput = storageHandler
+        .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
+      if (pathsOutput.nonEmpty) {
+        val txtPath = pathsOutput.head
+        val finalTxtPath = new Path(
+          targetPath,
+          path.head.getName
+        )
+        storageHandler.move(txtPath, finalTxtPath)
+      }
+    }
+    applyHiveTableAcl()
+    resultDataFrame
+  }
+
+  private def nbFsPartitions(
+    dataset: DataFrame,
+    writeFormat: String,
+    targetPath: Path,
+    sinkPartition: Option[Partition]
+  ): Int = {
+    val tmpPath = new Path(s"${targetPath.toString}.tmp")
+    val nbPartitions =
+      sinkPartition.map(_.getSampling()).getOrElse(mergedMetadata.getSamplingStrategy()) match {
+        case 0.0 => // default partitioning
+          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
+            1
+          else
+            dataset.rdd.getNumPartitions
+        case fraction if fraction > 0.0 && fraction < 1.0 =>
+          // Use sample to determine partitioning
+          val count = dataset.count()
+          val minFraction =
+            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
+              fraction
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+              2 / count
+            else
+              0
+
+          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
+          partitionedDatasetWriter(
+            sampledDataset,
+            sinkPartition.map(_.getAttributes()).getOrElse(mergedMetadata.getPartitionAttributes())
+          )
+            .mode(SaveMode.ErrorIfExists)
+            .format(writeFormat)
+            .option("path", tmpPath.toString)
+            .save()
+          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
+          val blocksize = storageHandler.blockSize(tmpPath)
+          storageHandler.delete(tmpPath)
+          Math.max(consumed / blocksize, 1).toInt
+        case count if count >= 1.0 =>
+          count.toInt
+      }
+    nbPartitions
+  }
+
+  private def runExpectations(acceptedDF: DataFrame) = {
+    if (settings.comet.expectations.active) {
+      new ExpectationJob(
+        Map.empty, // Auth Info from env var since run from spark submit only
+        this.domain.finalName,
+        this.schema.finalName,
+        this.schema.expectations,
+        UNIT,
+        storageHandler,
+        schemaHandler,
+        Some(acceptedDF),
+        SPARK,
+        sql => session.sql(sql).count()
+      ).run().getOrElse(throw new Exception("Should never happen"))
+    }
+  }
+
+  private def runMetrics(acceptedDF: DataFrame) = {
+    if (settings.comet.metrics.active) {
+      new MetricsJob(
+        this.domain,
+        this.schema,
+        Stage.UNIT,
+        this.storageHandler,
+        this.schemaHandler
+      )
+        .run(acceptedDF, System.currentTimeMillis())
+    }
+  }
+
+  private def dfWithAttributesRenamed(acceptedDF: DataFrame): DataFrame = {
+    val renamedAttributes = schema.renamedAttributes().toMap
+    logger.whenInfoEnabled {
+      renamedAttributes.foreach { case (name, rename) =>
+        logger.info(s"renaming column $name to $rename")
+      }
+    }
+    val finalDF =
+      renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
+        acc.withColumnRenamed(existingName = name, newName = rename)
+      }
+    finalDF
+  }
+
+  /** Merge new and existing dataset if required Save using overwrite / Append mode
+    *
+    * @param validationResult
+    */
+  protected def saveAccepted(
+    validationResult: ValidationResult
+  ): (DataFrame, Path) = {
+    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty) {
+      val start = Timestamp.from(Instant.now())
+      logger.whenDebugEnabled {
+        logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
+        logger.debug(validationResult.accepted.showString(1000))
+      }
+
+      val acceptedPath =
+        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+
+      val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
+
+      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
+        acceptedRenamedFields
+      )
+
+      val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
+        acceptedDfWithScriptFields
+      )
+
+      val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
+
+      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
+        acceptedDfFiltered
+      )
+
+      val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
+      val finalAcceptedDF: DataFrame =
+        computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
+      runExpectations(finalAcceptedDF)
+      runMetrics(finalAcceptedDF)
+      val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
+
+      val finalMergedDf: DataFrame = runPostSQL(mergedDF)
+
+      logger.whenInfoEnabled {
+        logger.info("Final Dataframe Schema")
+        logger.info(finalMergedDf.schemaString())
+      }
+
+      // When sinkToFile is set, it means that we want to save to files even if we save somewhere else.
+      val savedInFileDataset =
+        if (settings.comet.sinkToFile)
+          sinkToFile(
+            finalMergedDf,
+            acceptedPath,
+            getWriteMode(),
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultFormat
+          )
+        else
+          finalMergedDf
+
+      val sinkType = mergedMetadata.getSink().map(_.getType())
+      val savedDataset = sinkType.getOrElse(SinkType.None) match {
+        case SinkType.None if !settings.comet.sinkToFile =>
+          // TODO do this inside the sink function below
+          sinkToFile(
+            finalMergedDf,
+            acceptedPath,
+            getWriteMode(),
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultFormat
+          )
+        case _ =>
+          savedInFileDataset
+      }
+      logger.whenInfoEnabled {
+        logger.info("Saved Dataset Schema")
+        logger.info(savedDataset.schemaString())
+      }
+
+      val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
+        case Success(sinkedDF) =>
+          val end = Timestamp.from(Instant.now())
+          val log = AuditLog(
+            applicationId(),
+            acceptedPath.toString,
+            domain.name,
+            schema.name,
+            success = true,
+            -1,
+            -1,
+            -1,
+            start,
+            end.getTime - start.getTime,
+            "success",
+            Step.SINK_ACCEPTED.toString,
+            schemaHandler.getDatabase(domain, schema.finalName),
+            settings.comet.tenant
+          )
+          AuditLog.sink(Map.empty, optionalAuditSession, log)
+          sinkedDF
+        case Failure(exception) =>
+          Utils.logException(logger, exception)
+          val end = Timestamp.from(Instant.now())
+          val log = AuditLog(
+            applicationId(),
+            acceptedPath.toString,
+            domain.name,
+            schema.name,
+            success = false,
+            -1,
+            -1,
+            -1,
+            start,
+            end.getTime - start.getTime,
+            Utils.exceptionAsString(exception),
+            Step.SINK_ACCEPTED.toString,
+            schemaHandler.getDatabase(domain, schema.finalName),
+            settings.comet.tenant
+          )
+          AuditLog.sink(Map.empty, optionalAuditSession, log)
+          throw exception
+      }
+      (sinkedDF, acceptedPath)
+    } else {
+      (session.emptyDataFrame, new Path("invalid-path"))
+    }
+  }
+
+  private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
+    schema.filter
+      .map { filterExpr =>
+        logger.info(s"Applying data filter: $filterExpr")
+        acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
+      }
+      .getOrElse(acceptedDfWithScriptAndTransformedFields)
+  }
+
+  private def applyMerge(
+    acceptedPath: Path,
+    finalAcceptedDF: DataFrame
+  ): (DataFrame, List[String]) = {
+    val (mergedDF, partitionsToUpdate) =
+      schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
+        mergedMetadata.getSink() match {
+          case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
+          case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+        }
+      }
+
+    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
+    else (mergedDF, partitionsToUpdate)
+  }
+
+  private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
+    val finalAcceptedDF: DataFrame = if (schema.attributes.exists(_.script.isDefined)) {
+      logger.whenDebugEnabled {
+        logger.debug("Accepted Dataframe schema right after adding computed columns")
+        logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
+      }
+      // adding computed columns can change the order of columns, we must force the order defined in the schema
+      val cols = schema.finalAttributeNames().map(col)
+      val orderedWithScriptFieldsDF = acceptedDfWithoutIgnoredFields.select(cols: _*)
+      logger.whenDebugEnabled {
+        logger.debug("Accepted Dataframe schema after applying the defined schema")
+        logger.debug(orderedWithScriptFieldsDF.schemaString())
+      }
+      orderedWithScriptFieldsDF
+    } else {
+      acceptedDfWithoutIgnoredFields
+    }
+    finalAcceptedDF
+  }
+
+  private def removeIgnoredAttributes(
+    acceptedDfWithScriptAndTransformedFields: DataFrame
+  ): DataFrame = {
+    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
+    val acceptedDfWithoutIgnoredFields =
+      acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
+    acceptedDfWithoutIgnoredFields
+  }
+
+  private def computeTransformedAttributes(acceptedDfWithScriptFields: DataFrame): DataFrame = {
+    val sqlAttributes = schema.attributes.filter(_.getPrivacy().sql).filter(_.transform.isDefined)
+    sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
+      df.withColumn(
+        attr.getFinalName(),
+        expr(
+          attr.transform
+            .getOrElse(throw new Exception("Should never happen"))
+            .richFormat(schemaHandler.activeEnvVars(), options)
+        )
+          .cast(attr.primitiveSparkType(schemaHandler))
+      )
+    }
+  }
+
+  private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
+    schema.attributes
+      .filter(_.script.isDefined)
+      .map(attr => (attr.getFinalName(), attr.sparkType(schemaHandler), attr.script))
+      .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
+        df.withColumn(
+          name,
+          expr(script.getOrElse("").richFormat(schemaHandler.activeEnvVars(), options))
+            .cast(sparkType)
+        )
+      }
+  }
+
+  private def sinkAccepted(
+    mergedDF: DataFrame,
+    partitionsToUpdate: List[String]
+  ): Try[DataFrame] = {
+    Try {
+      val sinkType = mergedMetadata.getSink().map(_.getType())
+      sinkType.getOrElse(SinkType.None) match {
+        case SinkType.ES if settings.comet.elasticsearch.active =>
+          esSink(mergedDF)
+        case SinkType.ES if !settings.comet.elasticsearch.active =>
+          logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
+          mergedDF
+        case SinkType.BQ =>
+          bqSink(mergedDF, partitionsToUpdate)
+        case SinkType.KAFKA =>
+          kafkaSink(mergedDF)
+        case SinkType.JDBC | SinkType.SNOWFLAKE =>
+          genericSink(mergedDF)
+
+        case SinkType.FS if !settings.comet.sinkToFile =>
+          val acceptedPath =
+            new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+          val sinkedDF = sinkToFile(
+            mergedDF,
+            acceptedPath,
+            getWriteMode(),
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultFormat
+          )
+          sinkedDF
+        case SinkType.None | SinkType.FS =>
+          // Done in the caller
+          logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
+          mergedDF
+      }
+    }
+  }
+
+  private def kafkaSink(mergedDF: DataFrame): DataFrame = {
+    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.finalName), mergedDF)
+    }
+    mergedDF
+  }
+
+  private def genericSink(mergedDF: DataFrame): DataFrame = {
+    val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
+
+      val (cd, wd) = Utils.getDBDisposition(
+        mergedMetadata.getWrite(),
+        schema.merge.exists(_.key.nonEmpty)
+      )
+      (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
+    }
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
+    sink.foreach { sink =>
+      val jdbcConfig = ConnectionLoadConfig.fromComet(
+        sink.connection,
+        settings.comet,
+        Right(mergedDF),
+        outputTable = domain.finalName + "." + schema.finalName,
+        createDisposition = createDisposition,
+        writeDisposition = writeDisposition,
+        sinkOptions = sink.getOptions
+      )
+
+      val res = new ConnectionLoadJob(jdbcConfig).run()
+      res match {
+        case Success(_) => ;
+        case Failure(e) =>
+          throw e
+      }
+    }
+    mergedDF
+  }
+
+  private def bqSink(mergedDF: DataFrame, partitionsToUpdate: List[String]): DataFrame = {
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
+    val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+      mergedMetadata.getWrite(),
+      schema.merge.exists(_.key.nonEmpty)
+    )
+
+    /* We load the schema from the postsql returned dataframe if any */
+    val tableSchema = schema.postsql match {
+      case Nil => Some(schema.bqSchema(schemaHandler))
+      case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
+    }
+    val config = BigQueryLoadConfig(
+      None,
+      None,
+      source = Right(mergedDF),
+      outputTableId = Some(
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(
+            schemaHandler.getDatabase(domain, schema.finalName),
+            domain.finalName,
+            schema.finalName
+          )
+      ),
+      sourceFormat = settings.comet.defaultFormat,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition,
+      location = sink.flatMap(_.location),
+      outputPartition = sink.flatMap(_.timestamp),
+      outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+      days = sink.flatMap(_.days),
+      requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
+      rls = schema.rls,
+      options = sink.map(_.getOptions).getOrElse(Map.empty),
+      partitionsToUpdate = partitionsToUpdate,
+      starlakeSchema = Some(schema),
+      domainTags = domain.tags,
+      domainDescription = domain.comment,
+      outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
+    )
+    val res = new BigQuerySparkJob(
+      config,
+      tableSchema,
+      schema.comment
+    ).run()
+    res match {
+      case Success(_) => ;
+      case Failure(e) =>
+        throw e
+    }
+    mergedDF
+  }
+
+  private def esSink(mergedDF: DataFrame): DataFrame = {
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[EsSink])
+    val config = ESLoadConfig(
+      timestamp = sink.flatMap(_.timestamp),
+      id = sink.flatMap(_.id),
+      format = settings.comet.defaultFormat,
+      domain = domain.name,
+      schema = schema.name,
+      dataset = Some(Right(mergedDF)),
+      options = sink.map(_.getOptions).getOrElse(Map.empty)
+    )
+    new ESLoadJob(config, storageHandler, schemaHandler).run()
+    mergedDF
+  }
+
+  @nowarn
+  protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
+    import session.implicits._
+    mergedMetadata.ignore.map { ignore =>
+      if (ignore.startsWith("udf:")) {
+        dfIn.filter(
+          !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
+        )
+      } else {
+        dfIn.filter(!($"value" rlike ignore))
+      }
+    } getOrElse dfIn
+  }
+
+  protected def loadDataSet(): Try[DataFrame]
+
+  protected def saveRejected(
+    errMessagesDS: Dataset[String],
+    rejectedLinesDS: Dataset[String]
+  ): Try[Path] = {
+    logger.whenDebugEnabled {
+      logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
+      errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
+    }
+    val domainName = domain.name
+    val schemaName = schema.name
+
+    val start = Timestamp.from(Instant.now())
+    val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
+
+    if (settings.comet.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
+      val replayArea = DatasetArea.replay(domainName)
+      val targetPath =
+        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
+      rejectedLinesDS
+        .repartition(1)
+        .write
+        .format("text")
+        .save(targetPath.toString)
+      storageHandler.moveSparkPartFile(
+        targetPath,
+        "0000" // When saving as text file, no extension is added.
+      )
+    }
+
+    IngestionUtil.sinkRejected(session, errMessagesDS, domainName, schemaName, now) match {
+      case Success((rejectedDF, rejectedPath)) =>
+        // We sink to a file when running unit tests
+        if (settings.comet.sinkToFile) {
+          sinkToFile(
+            rejectedDF,
+            rejectedPath,
+            APPEND,
+            StorageArea.rejected,
+            merge = false,
+            settings.comet.defaultRejectedWriteFormat
+          )
+        } else {
+          settings.comet.audit.sink match {
+            case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
+              sinkToFile(
+                rejectedDF,
+                rejectedPath,
+                WriteMode.APPEND,
+                StorageArea.rejected,
+                merge = false,
+                settings.comet.defaultRejectedWriteFormat
+              )
+            case _ => // do nothing
+          }
+        }
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          applicationId(),
+          rejectedPath.toString,
+          domainName,
+          schemaName,
+          success = true,
+          -1,
+          -1,
+          -1,
+          start,
+          end.getTime - start.getTime,
+          "success",
+          Step.SINK_REJECTED.toString,
+          schemaHandler.getDatabase(domain, schema.finalName),
+          settings.comet.tenant
+        )
+        AuditLog.sink(Map.empty, optionalAuditSession, log)
+        Success(rejectedPath)
+      case Failure(exception) =>
+        logger.error("Failed to save Rejected", exception)
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          applicationId(),
+          new Path(DatasetArea.rejected(domainName), schemaName).toString,
+          domainName,
+          schemaName,
+          success = false,
+          -1,
+          -1,
+          -1,
+          start,
+          end.getTime - start.getTime,
+          Utils.exceptionAsString(exception),
+          Step.SINK_REJECTED.toString,
+          schemaHandler.getDatabase(domain, schema.finalName),
+          settings.comet.tenant
+        )
+        AuditLog.sink(Map.empty, optionalAuditSession, log)
+        Failure(exception)
+    }
+  }
 }
 
 object IngestionUtil {
@@ -1662,6 +1662,7 @@ object IngestionUtil {
       sparkValue.orNull
     )
   }
+
 }
 
 object ImprovedDataFrameContext {
