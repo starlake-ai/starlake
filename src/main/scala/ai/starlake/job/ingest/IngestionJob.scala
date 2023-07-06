@@ -1031,31 +1031,11 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def isNativeCandidate() = {
+  private def isNativeCandidate(): Boolean = {
     val csvOrJsonLines =
       !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
-
-    // sink type is bq
-
-    // Temporary table expires after 24h if not deleted explicitly
-    // temporary dataset
-    // POSITION sont convertis en CSV pour BQ avant d'être loadés'
-    // SIMPLE JSON / CSV only
-    // update table set scriptedField = substr(col2), col3=privacy(col3), col4, cast(parse_date(col3) as string)
-    // insert into table (col1, col2, col3, col4) values (col1, col2, col3, col4)
-
-    // overwrite ==> truncate
-    // merge into table using table2 on table.col1 = table2.col1
-    // merge into
-    // when matched
-    // when unmatched
-
-    // 0 scripted fields in V1
-    // Should respect date fprmat: YYYY-MM-DD
-    // Ne pas dépasser 4 Go pour les fichiers compressés
-    // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
-
     csvOrJsonLines
+    // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
   }
 
   def run(): Try[JobResult] = {
