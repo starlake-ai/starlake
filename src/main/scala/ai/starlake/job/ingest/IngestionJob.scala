@@ -200,7 +200,7 @@ trait IngestionJob extends SparkJob {
     val bqConfig = BigQueryLoadConfig(
       None,
       None,
-      outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
+      outputDatabase = schemaHandler.getDatabase(domain)
     )
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.foreach { sql =>
@@ -300,14 +300,14 @@ trait IngestionJob extends SparkJob {
       starlakeSchema = Some(schema.copy(metadata = Some(mergedMetadata))),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
+      outputDatabase = schemaHandler.getDatabase(domain)
     )
 
     val firstStepConfig = commonConfig.copy(
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain, schema.finalName),
+            schemaHandler.getDatabase(domain),
             domain.finalName,
             "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
           )
@@ -319,7 +319,7 @@ trait IngestionJob extends SparkJob {
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain, schema.finalName),
+            schemaHandler.getDatabase(domain),
             domain.finalName,
             schema.finalName
           )
@@ -490,7 +490,7 @@ trait IngestionJob extends SparkJob {
               end.getTime - start.getTime,
               err,
               Step.LOAD.toString,
-              schemaHandler.getDatabase(domain, schema.finalName),
+              schemaHandler.getDatabase(domain),
               settings.comet.tenant
             )
             AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -524,7 +524,7 @@ trait IngestionJob extends SparkJob {
                 end.getTime - start.getTime,
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString,
-                schemaHandler.getDatabase(domain, schema.finalName),
+                schemaHandler.getDatabase(domain),
                 settings.comet.tenant
               )
               AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1097,7 +1097,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             "success",
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, schema.finalName),
+            schemaHandler.getDatabase(domain),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1118,7 +1118,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, schema.finalName),
+            schemaHandler.getDatabase(domain),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1308,7 +1308,7 @@ trait IngestionJob extends SparkJob {
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain, schema.finalName),
+            schemaHandler.getDatabase(domain),
             domain.finalName,
             schema.finalName
           )
@@ -1327,7 +1327,7 @@ trait IngestionJob extends SparkJob {
       starlakeSchema = Some(schema),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain, schema.finalName)
+      outputDatabase = schemaHandler.getDatabase(domain)
     )
     val res = new BigQuerySparkJob(
       config,
@@ -1442,7 +1442,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           "success",
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, schema.finalName),
+          schemaHandler.getDatabase(domain),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1463,7 +1463,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, schema.finalName),
+          schemaHandler.getDatabase(domain),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
