@@ -90,6 +90,7 @@ case class Attribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
+  @JsonIgnore
   def isNestedOrRepeatedField(): Boolean = {
     attributes.nonEmpty || array.getOrElse(false)
   }
