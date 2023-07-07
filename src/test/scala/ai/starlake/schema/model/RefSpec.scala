@@ -26,28 +26,34 @@ import org.scalatest.BeforeAndAfterAll
 
 import java.io.InputStream
 
-class EnvSpec extends TestHelper with BeforeAndAfterAll {
-  var env: Env = _
+class RefSpec extends TestHelper with BeforeAndAfterAll {
+  var refs: Refs = _
 
   override def beforeAll(): Unit = {
     new WithSettings() {
       val stream: InputStream =
-        getClass.getResourceAsStream("/env/env.comet.yml")
+        getClass.getResourceAsStream("/refs/refs.comet.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
         .mkString("\n")
       val content = Utils.parseJinja(lines, Map("PROJECT_ID" -> "starlake-dev"))
-      env = YamlSerializer.mapper.readValue(content, classOf[Env])
+      println(content)
+      refs = YamlSerializer.mapper.readValue(content, classOf[Refs])
     }
   }
   new WithSettings() {
-    "Load connections.comet.yml" should "succeed" in {
-      val str = YamlSerializer.mapper.writeValueAsString(settings.comet.connections)
-      println(str)
-      val str2 = YamlSerializer.mapper.writeValueAsString(settings.comet)
-      println(str2)
-      assert(settings.comet.connections.size == 1)
+    "Get Domain and Database mytable1" should "succeed" in {
+      val (database, domain, table) = refs.getOutputRef("mytable1").get.asTuple()
+      assert(table == "mytable1")
+      assert(domain == "myds")
+      assert(database == "starlake-dev")
+    }
+    "Get Domain and Database DEV" should "succeed" in {
+      val (database, domain, table) = refs.getOutputRef("myds", "mytable1").get.asTuple()
+      assert(table == "mytable1")
+      assert(domain == "myds")
+      assert(database == "starlake-dev_dev")
     }
   }
 

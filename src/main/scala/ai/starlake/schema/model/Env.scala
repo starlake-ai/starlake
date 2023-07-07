@@ -1,6 +1,5 @@
 package ai.starlake.schema.model
 
-import ai.starlake.config.Settings
 import ai.starlake.schema.model.Ref.anyRefPattern
 import com.fasterxml.jackson.annotation.JsonCreator
 
@@ -37,7 +36,10 @@ case class Ref(
     this(InputRef(), OutputRef()) // Should never be called. Here for Jackson deserialization only
 }
 
-case class EnvRefs(refs: List[Ref])(implicit settngs: Settings) {
+case class Refs(refs: List[Ref]) {
+  @JsonCreator
+  def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
+
   private def replace(
     ref: OutputRef,
     thisDatabase: String,
