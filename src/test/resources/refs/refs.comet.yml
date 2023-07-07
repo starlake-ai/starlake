@@ -1,0 +1,15 @@
+refs:
+  # any reference to mytable1 will be replaced by my_table1_original
+  - input:
+      table: mytable1
+    output:
+      table: SL_THIS_TABLE
+      domain: myds
+      database: {{PROJECT_ID}}
+  - input:
+      table: mytabl.*
+      domain: myds
+    output:
+      table: SL_THIS_TABLE
+      domain: SL_THIS_DOMAIN
+      database: {{PROJECT_ID}}_dev
