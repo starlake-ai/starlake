@@ -5,7 +5,10 @@
 - Databricks on Azure is now fully documented
 
 __Feature__:
-- Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically. 
+- Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
+- Use Refs file to configure model references
+- Support native loading of data into BigQuery
+- Define JDBC connections and audit connections in metadata/connections.comet.yml
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.

@@ -339,7 +339,7 @@ case class AutoTask(
         logger.info(s"Resolving parquet reference $tableRef")
         None
       } else {
-        val activeEnvRefs = schemaHandler.activeEnvRefs()
+        val activeEnvRefs = schemaHandler.refs()
         val databaseDomainTableRef =
           activeEnvRefs.getOutputRef(tableComponents).map(_.asTuple())
         logger.info(
