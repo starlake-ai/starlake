@@ -312,7 +312,7 @@ trait IngestionJob extends SparkJob {
             "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
           )
       ),
-      days = Some(2)
+      days = Some(1) // not supported by BQ loadConfig
     )
 
     val targetConfig = commonConfig.copy(
@@ -342,7 +342,8 @@ trait IngestionJob extends SparkJob {
       ) // TODO What if type is changed by transform ?
       val res = firstStepBigqueryJob.loadPathsToBQ(tempTableSchema)
       res match {
-        case Success(value) =>
+        case Success(loadFileResult) =>
+          logger.info(s"First step result: $loadFileResult")
           val targetTableSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
           val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "", None)
           val firstStepTableId =
