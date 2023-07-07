@@ -305,28 +305,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def activeEnv(reload: Boolean = false): (EnvRefs, Map[String, String]) =
-    if (reload) loadActiveEnv() else (_activeEnvRefs, _activeEnvVars)
-
   def activeEnvVars(reload: Boolean = false): Map[String, String] = {
-    if (reload) loadActiveEnv()
+    if (reload) loadActiveEnvVars()
     this._activeEnvVars
   }
 
-  def activeEnvRefs(reload: Boolean = false): EnvRefs = {
-    if (reload) loadActiveEnv()
-    this._activeEnvRefs
+  def refs(reload: Boolean = false): Refs = {
+    if (reload) loadRefs()
+    this._refs
   }
 
-  private var (_activeEnvRefs, _activeEnvVars) = loadActiveEnv()
+  private var _activeEnvVars = loadActiveEnvVars()
+  private var _refs = loadRefs()
 
   @throws[Exception]
-  private def loadActiveEnv(): (EnvRefs, Map[String, String]) = {
+  private def loadActiveEnvVars(): Map[String, String] = {
     def loadEnv(path: Path): Option[Env] =
       if (storage.exists(path))
         Option(mapper.readValue(storage.read(path), classOf[Env]))
       else
         None
+
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
@@ -354,13 +353,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     // Please note below how profile specific vars override default profile vars.
     val activeEnvVars = cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
 
-    val env = globalEnv.getOrElse(Env(Map.empty, Nil))
-    val activeEnvRefs = EnvRefs(env.refs)
-
-    this._activeEnvRefs = activeEnvRefs
     this._activeEnvVars = activeEnvVars
+    this._activeEnvVars
+  }
 
-    (this._activeEnvRefs, this._activeEnvVars)
+  @throws[Exception]
+  private def loadRefs(): Refs = {
+    val refsPath = new Path(DatasetArea.metadata, "refs.comet.yml")
+    val refs = if (settings.storageHandler.exists(refsPath)) {
+      val rawContent = settings.storageHandler.read(refsPath)
+      val content = Utils.parseJinja(rawContent, activeEnvVars())
+      YamlSerializer.mapper.readValue(content, classOf[Refs])
+    } else
+      Refs(Nil)
+    this._refs = refs
+    this._refs
   }
 
   /** Fnd type by name
