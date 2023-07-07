@@ -44,6 +44,13 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   new WithSettings() {
+    "Load connections.comet.yml" should "succeed" in {
+      val str = YamlSerializer.mapper.writeValueAsString(settings.comet.connections)
+      println(str)
+      val str2 = YamlSerializer.mapper.writeValueAsString(settings.comet)
+      println(str2)
+      assert(settings.comet.connections.size == 1)
+    }
     "Get Domain and Database mytable1" should "succeed" in {
       val (database, domain, table) = EnvRefs(env.refs).getOutputRef("mytable1").get.asTuple()
       assert(table == "mytable1")
