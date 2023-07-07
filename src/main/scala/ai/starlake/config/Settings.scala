@@ -148,8 +148,11 @@ object Settings extends StrictLogging {
     engineOverride: Option[String] = None
   ) {
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
+    @JsonIgnore
     def isSnowflake: Boolean = options("url").contains("jdbc:snowflake")
   }
+
+  private case class Connections(connections: Map[String, Connection])
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *
@@ -319,7 +322,6 @@ object Settings extends StrictLogging {
     hadoop: Map[String, String],
     connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
-    atlas: Atlas,
     privacy: Privacy,
     fileSystem: String,
     internal: Option[Internal],
@@ -412,7 +414,7 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
-    val result: Settings = if (settings.storageHandler.exists(applicationConfPath)) {
+    val applicationSettings: Settings = if (settings.storageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.storageHandler.read(applicationConfPath)
       val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
       val effectiveApplicationConfig = applicationConfig
@@ -429,11 +431,20 @@ object Settings extends StrictLogging {
       )
     } else
       settings
-    val jobConf = initSparkConfig(result)
-    result.copy(jobConf = jobConf)
+    val jobConf = initSparkSchedulingConfig(applicationSettings)
+    val withSparkConfig = applicationSettings.copy(jobConf = jobConf)
+    val connectionsPath = new Path(DatasetArea.metadata(settings), "connections.comet.yml")
+    if (settings.storageHandler.exists(connectionsPath)) {
+      val connectionsContent = settings.storageHandler.read(connectionsPath)
+      val connections = YamlSerializer.mapper.readValue(connectionsContent, classOf[Connections])
+      withSparkConfig.copy(comet =
+        withSparkConfig.comet.copy(connections = connections.connections)
+      )
+    } else
+      withSparkConfig
   }
 
-  private def initSparkConfig(settings: Settings): SparkConf = {
+  private def initSparkSchedulingConfig(settings: Settings): SparkConf = {
     val schedulingConfig = schedulingPath(settings)
 
     // When using local Spark with remote BigQuery (useful for testing)

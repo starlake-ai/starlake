@@ -500,9 +500,17 @@ trait BigQueryJobBase extends StrictLogging {
             val bqTableInfoBuilder = BQTableInfo
               .newBuilder(tableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
-//            tableInfo.maybeExpirationInMs.foreach { expirationInMs =>
-//              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + expirationInMs)
-//            }
+
+            if (tableInfo.maybePartition.isEmpty) {
+              cliConfig.days match {
+                case Some(days) =>
+                  bqTableInfoBuilder.setExpirationTime(
+                    System.currentTimeMillis() + days * 24 * 3600 * 1000
+                  )
+                case None =>
+              }
+            }
+
             val bqTableInfo = bqTableInfoBuilder.build
             val result = bigquery().create(bqTableInfo)
             logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
@@ -720,13 +728,14 @@ trait BigQueryJobBase extends StrictLogging {
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
   ): TableDefinition = {
-    val maybeTimePartitioning = tableInfo.maybePartition.map(partitionInfo =>
-      timePartitioning(
-        partitionInfo.field,
-        partitionInfo.expirationDays,
-        partitionInfo.requirePartitionFilter
-      ).build()
-    )
+    val maybeTimePartitioning = tableInfo.maybePartition
+      .map(partitionInfo =>
+        timePartitioning(
+          partitionInfo.field,
+          partitionInfo.expirationDays,
+          partitionInfo.requirePartitionFilter
+        ).build()
+      )
     val withPartitionDefinition = tableInfo.maybeSchema match {
       case Some(schema) =>
         val tableConstraints: TableConstraints = getTableConstraints()
