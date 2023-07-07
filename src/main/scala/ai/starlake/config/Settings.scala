@@ -27,6 +27,7 @@ import ai.starlake.schema.handlers.{
   HdfsStorageHandler,
   LaunchHandler,
   LocalStorageHandler,
+  SchemaHandler,
   SimpleLauncher,
   StorageHandler
 }
@@ -413,6 +414,13 @@ object Settings extends StrictLogging {
     logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
+    val applicationSettings = loadApplicationConf(effectiveConfig, settings)
+    val jobConf = initSparkSchedulingConfig(applicationSettings)
+    val withSparkConfig = applicationSettings.copy(jobConf = jobConf)
+    loadConnections(withSparkConfig)
+  }
+
+  private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Settings = {
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     val applicationSettings: Settings = if (settings.storageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.storageHandler.read(applicationConfPath)
@@ -431,17 +439,20 @@ object Settings extends StrictLogging {
       )
     } else
       settings
-    val jobConf = initSparkSchedulingConfig(applicationSettings)
-    val withSparkConfig = applicationSettings.copy(jobConf = jobConf)
+    applicationSettings
+  }
+
+  private def loadConnections(settings: Settings): Settings = {
+    val schemaHandler = new SchemaHandler(settings.storageHandler)(settings)
     val connectionsPath = new Path(DatasetArea.metadata(settings), "connections.comet.yml")
     if (settings.storageHandler.exists(connectionsPath)) {
-      val connectionsContent = settings.storageHandler.read(connectionsPath)
-      val connections = YamlSerializer.mapper.readValue(connectionsContent, classOf[Connections])
-      withSparkConfig.copy(comet =
-        withSparkConfig.comet.copy(connections = connections.connections)
-      )
+      val rawContent = settings.storageHandler.read(connectionsPath)
+      val content =
+        Utils.parseJinja(rawContent, schemaHandler.activeEnvVars())(settings)
+      val connections = YamlSerializer.mapper.readValue(content, classOf[Connections])
+      settings.copy(comet = settings.comet.copy(connections = connections.connections))
     } else
-      withSparkConfig
+      settings
   }
 
   private def initSparkSchedulingConfig(settings: Settings): SparkConf = {
