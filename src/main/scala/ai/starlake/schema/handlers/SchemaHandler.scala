@@ -355,7 +355,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val activeEnvVars = cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
 
     val env = globalEnv.getOrElse(Env(Map.empty, Nil))
-    val activeEnvRefs = EnvRefs(env.refs.map(_.richFormat(sys.env, activeEnvVars)))
+    val activeEnvRefs = EnvRefs(env.refs)
 
     this._activeEnvRefs = activeEnvRefs
     this._activeEnvVars = activeEnvVars
