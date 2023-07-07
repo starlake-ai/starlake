@@ -1,5 +1,6 @@
-package ai.starlake.config
+package ai.starlake.serve
 
+import ai.starlake.config.Settings
 import better.files.File
 import com.typesafe.config.ConfigFactory
 
