@@ -1,6 +1,5 @@
 package ai.starlake.serve
 
-import ai.starlake.config.SettingsManager
 import ai.starlake.job.Main
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
