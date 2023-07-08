@@ -15,8 +15,7 @@ import scala.util.{Failure, Success, Try}
 class SinkUtils()(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
   def sink(
-    authInfo: Map[String, String],
-    sinkType: Sink,
+    sink: Sink,
     dataframe: DataFrame,
     database: Option[String],
     domain: String,
@@ -39,12 +38,12 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           session,
           dataframe,
           savePath,
-          sinkType.name.getOrElse(table),
+          sink.name.getOrElse(table),
           table
         )
       }
     }
-    sinkType match {
+    sink match {
       case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
@@ -55,7 +54,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               session,
               dataframe,
               savePath,
-              sinkType.name.getOrElse(table),
+              sink.name.getOrElse(table),
               table
             )
           }
@@ -69,12 +68,12 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       case sink: BigQuerySink =>
         Try {
           sinkToBigQuery(
-            authInfo,
             dataframe,
             database,
             sink.name.getOrElse(table),
             table,
             maybeTableDescription,
+            sink.name,
             sink.getOptions
           )
         }
@@ -97,18 +96,17 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
   }
 
   private def sinkToBigQuery(
-    authInfo: Map[String, String],
     dataframe: DataFrame,
     bqDatabase: Option[String],
     bqDataset: String,
     bqTable: String,
     maybeTableDescription: Option[String],
+    connection: Option[String] = None,
     options: Map[String, String]
   ): Unit = {
     if (dataframe.count() > 0) {
       val config = BigQueryLoadConfig(
-        authInfo.get("gcpProjectId"),
-        authInfo.get("gcpSAJsonKey"),
+        connection,
         Right(dataframe),
         outputTableId =
           Some(BigQueryJobBase.extractProjectDatasetAndTable(bqDatabase, bqDataset, bqTable)),

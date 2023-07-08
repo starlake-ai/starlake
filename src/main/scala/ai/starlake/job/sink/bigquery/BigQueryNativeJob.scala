@@ -67,7 +67,7 @@ class BigQueryNativeJob(
               )
               settings.comet.audit.sink match {
                 case sink: BigQuerySink =>
-                  AuditLog.sinkToBigQuery(Map.empty, log, sink)
+                  AuditLog.sinkToBigQuery(log, sink)
                 case _ =>
                   throw new Exception("Not Supported")
               }
@@ -331,7 +331,7 @@ class BigQueryNativeJob(
           .setJob(
             UUID.randomUUID.toString
           ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(cliConfig.getLocation())
+          .setLocation(connectionOptions.flatMap(_.get("location")).getOrElse("EU"))
           .build()
         val queryConfig =
           QueryJobConfiguration

@@ -107,13 +107,12 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean
-  )
+  ) // sinked to audit
 
   final case class Expectations(
     path: String,
-    active: Boolean,
-    sink: Sink
-  )
+    active: Boolean
+  ) // sinked to audit
 
   final case class Audit(
     path: String,
@@ -363,6 +362,13 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     def isHiveCompatible(): Boolean = hive || Utils.isRunningInDatabricks()
+
+    @JsonIgnore
+    def connection(name: String): Option[Connection] = connections.get(name)
+
+    @JsonIgnore
+    def connectionOptions(name: String): Map[String, String] =
+      connections(name).options
 
   }
 

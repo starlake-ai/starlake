@@ -20,6 +20,7 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -97,6 +98,9 @@ sealed abstract class Sink(val `type`: String, val write: Option[WriteMode] = No
   def name: Option[String]
   def options: Option[Map[String, String]]
   def getOptions: Map[String, String] = options.getOrElse(Map.empty)
+  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
+    name.flatMap(settings.comet.connections.get(_).map(_.options))
+
 }
 
 /*trait SinkTrait extends Sink{
@@ -125,7 +129,7 @@ final case class BigQuerySink(
   requirePartitionFilter: Option[Boolean] = None,
   options: Option[Map[String, String]] = None,
   materializedView: Option[Boolean] = None
-) extends Sink(SinkType.BQ.value)
+) extends Sink(SinkType.BQ.value) {}
 
 /** When the sink *type* field is set to ES, the options below should be provided. Elasticsearch
   * options are specified in the application.conf file.
