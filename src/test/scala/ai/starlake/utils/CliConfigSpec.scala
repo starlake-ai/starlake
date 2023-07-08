@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.TestHelper
 import ai.starlake.extract.{
-  BigQueryFreshnessConfig,
+  BigQueryTablesConfig,
   ExtractDataConfig,
   ExtractSchemaConfig,
   ExtractScriptConfig
@@ -46,7 +46,7 @@ class CliConfigSpec extends TestHelper {
         "infer-ddl"      -> Yml2DDLConfig,
         "extract-script" -> ExtractScriptConfig,
         "bq-info"        -> BigQueryTablesConfig,
-        "bq-freshness"   -> BigQueryFreshnessConfig,
+        "bq-freshness"   -> BigQueryTablesConfig,
         "serve"          -> MainServerConfig // ,
         // "yml2dag"        -> Yml2DagConfigForMain
       )

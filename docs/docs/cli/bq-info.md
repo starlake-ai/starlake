@@ -15,9 +15,9 @@ title: bq2yml or bq-info
 
 Parameter|Cardinality|Description
 ---|---|---
---gcpProjectId:`<value>`|*Optional*|gcpProjectId
---gcpSAJsonKey:`<value>`|*Optional*|gcpSAJsonKey
 --write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
---location:`<value>`|*Optional*|location
+--connection:`<value>`|*Optional*|Connection to use
 --tables:`<value>`|*Optional*|List of datasetName.tableName1,datasetName.tableName2 ...
+--persist:`<value>`|*Optional*|Persist results ?
+--jobs:`<value>`|*Optional*|List of job names
 

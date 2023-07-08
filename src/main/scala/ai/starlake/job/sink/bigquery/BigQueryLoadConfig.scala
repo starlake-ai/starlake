@@ -1,6 +1,5 @@
 package ai.starlake.job.sink.bigquery
 
-import ai.starlake.config.GcpConnectionConfig
 import ai.starlake.schema.model.{
   AccessControlEntry,
   AttributeDesc,
@@ -14,8 +13,7 @@ import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class BigQueryLoadConfig(
-  gcpProjectId: Option[String],
-  gcpSAJsonKey: Option[String],
+  connection: Option[String],
   source: Either[String, DataFrame] = Left(""),
   outputTableId: Option[TableId] = None,
   outputPartition: Option[String] = None,
@@ -39,7 +37,7 @@ case class BigQueryLoadConfig(
   sqlSource: Option[String] = None,
   attributesDesc: List[AttributeDesc] = Nil,
   outputDatabase: Option[String]
-) extends GcpConnectionConfig
+)
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
   val command = "bqload"
@@ -109,5 +107,5 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
 
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[BigQueryLoadCliConfig] =
-    OParser.parse(parser, args, BigQueryLoadCliConfig(None, None))
+    OParser.parse(parser, args, BigQueryLoadCliConfig())
 }

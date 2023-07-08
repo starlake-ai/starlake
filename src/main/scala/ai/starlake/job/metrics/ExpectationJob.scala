@@ -40,7 +40,6 @@ case class ExpectationReport(
   *   : Storage Handler
   */
 class ExpectationJob(
-  authInfo: Map[String, String],
   domainName: String,
   schemaName: String,
   expectations: Map[String, String],
@@ -137,12 +136,11 @@ class ExpectationJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       new SinkUtils().sink(
-        authInfo,
-        settings.comet.expectations.sink,
+        settings.comet.audit.sink,
         expectationsDF,
         settings.comet.audit.database,
         settings.comet.audit.sink.name.getOrElse("audit"),
-        settings.comet.expectations.sink.name.getOrElse("expectations"),
+        "expectations",
         Some("Expectation results"),
         DatasetArea.expectations(domainName, schemaName),
         lockPath(settings.comet.expectations.path),

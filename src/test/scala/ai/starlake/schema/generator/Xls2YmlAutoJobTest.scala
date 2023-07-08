@@ -32,7 +32,10 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.table shouldBe "dataset"
       job.write shouldBe WriteMode.OVERWRITE
       job.sink shouldBe Some(
-        BigQuerySink(timestamp = Some("partitionCol"), requirePartitionFilter = Some(true))
+        BigQuerySink(
+          timestamp = Some("partitionCol"),
+          requirePartitionFilter = Some(true)
+        )
       )
       job.engine shouldBe Some(Engine.BQ)
       job.comment shouldBe Some("jointure source1 et source2")
@@ -83,9 +86,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.domain shouldBe "someDomain"
       job.table shouldBe "dataset"
       job.write shouldBe WriteMode.OVERWRITE
-      job.sink shouldBe Some(
-        BigQuerySink()
-      )
+      job.sink shouldBe Some(BigQuerySink())
       job.engine shouldBe None
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0

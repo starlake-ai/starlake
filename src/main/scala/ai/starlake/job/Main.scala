@@ -67,7 +67,6 @@ class Main() extends StrictLogging {
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,
     BootstrapConfig,
-    BigQueryFreshnessConfig,
     BigQueryLoadConfig,
     BigQueryTablesConfig,
     ProjectCompareConfig,

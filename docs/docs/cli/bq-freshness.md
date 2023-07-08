@@ -1,12 +1,12 @@
 ---
 sidebar_position: 10
-title: bq-freshness
+title: bq2yml or bq-info
 ---
 
 
 ## Synopsis
 
-**starlake bq-freshness [options]**
+**starlake bq2yml or bq-info [options]**
 
 ## Description
 
@@ -15,11 +15,9 @@ title: bq-freshness
 
 Parameter|Cardinality|Description
 ---|---|---
---gcpProjectId:`<value>`|*Optional*|gcpProjectId
---gcpSAJsonKey:`<value>`|*Optional*|gcpSAJsonKey
---location:`<value>`|*Optional*|location
---persist:`<value>`|*Optional*|Persist results ?
 --write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+--connection:`<value>`|*Optional*|Connection to use
 --tables:`<value>`|*Optional*|List of datasetName.tableName1,datasetName.tableName2 ...
+--persist:`<value>`|*Optional*|Persist results ?
 --jobs:`<value>`|*Optional*|List of job names
 

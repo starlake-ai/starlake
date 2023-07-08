@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
@@ -14,11 +15,11 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
+  val implicitSettings = settings
   val bqJob = new BigQueryJobBase {
+    val settings = implicitSettings
     override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
-      gcpProjectId = config.gcpProjectId,
-      gcpSAJsonKey = config.gcpSAJsonKey,
-      location = config.location,
+      connection = config.connection,
       outputDatabase = None
     )
   }
@@ -72,7 +73,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
       tables = schemas.toList,
       comment = Option(dataset.getDescription),
       metadata = Some(
-        Metadata(sink = Some(BigQuerySink()))
+        Metadata(sink = Some(BigQuerySink(name = config.connection)))
       ),
       database = Option(dataset.getDatasetId().getProject())
     )
@@ -98,7 +99,7 @@ object ExtractBigQuerySchema {
     val externalSources = schemaHandler.externalSources()
     externalSources.map { external =>
       val config =
-        BigQueryTablesConfig(gcpProjectId = Some(external.project), tables = external.toMap())
+        BigQueryTablesConfig(tables = external.toMap())
       val extractor = new ExtractBigQuerySchema(config)
       external.project -> extractor.extractDatasets()
     }.toMap

@@ -83,7 +83,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
             write = writeOpt.getOrElse(WriteMode.OVERWRITE),
             sink = Some(sinkOpt match {
               case Some(sink) =>
-                BigQuerySink(timestamp = Some(sink), requirePartitionFilter = Some(true))
+                BigQuerySink(
+                  timestamp = Some(sink),
+                  requirePartitionFilter = Some(true)
+                )
               case _ => BigQuerySink()
             }),
             rls = rls,
