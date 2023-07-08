@@ -10,7 +10,6 @@ import scala.util.{Failure, Success}
 
 object BigQuerySparkWriter extends StrictLogging {
   def sink(
-    authInfo: Map[String, String],
     df: DataFrame,
     tableName: String,
     maybeTableDescription: Option[String],
@@ -26,8 +25,7 @@ object BigQuerySparkWriter extends StrictLogging {
         }
         val bqLoadConfig =
           BigQueryLoadConfig(
-            authInfo.get("gcpProjectId"),
-            authInfo.get("gcpSAJsonKey"),
+            connection = settings.comet.audit.sink.name,
             source = source,
             outputTableId = Some(
               BigQueryJobBase

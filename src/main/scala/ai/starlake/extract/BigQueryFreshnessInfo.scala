@@ -24,10 +24,10 @@ case class FreshnessStatus(
 
 object BigQueryFreshnessInfo {
   def freshness(
-    config: BigQueryFreshnessConfig
+    config: BigQueryTablesConfig
   )(implicit settings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
-      BigQueryTableInfo.extractTableInfos(config, config.tables)
+      BigQueryTableInfo.extractTableInfos(config)
     import settings.storageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
     val domains = schemaHandler.domains()
@@ -49,7 +49,7 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val errorStatus =
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain).getOrElse(""),
+                        schemaHandler.getDatabase(domain, config.connection).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -60,7 +60,7 @@ object BigQueryFreshnessInfo {
 
                     errorStatus.orElse {
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain).getOrElse(""),
+                        schemaHandler.getDatabase(domain, config.connection).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -122,7 +122,6 @@ object BigQueryFreshnessInfo {
       val session = new SparkEnv("BigQueryFreshnessInfo-" + UUID.randomUUID().toString).session
       val dfDataset = session.createDataFrame(statuses)
       BigQuerySparkWriter.sink(
-        config.authInfo(),
         dfDataset,
         "freshness_info",
         Some("Information related to table freshness"),
@@ -168,7 +167,7 @@ object BigQueryFreshnessInfo {
   def run(args: Array[String]): List[FreshnessStatus] = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val config =
-      BigQueryFreshnessConfig
+      BigQueryTablesConfig
         .parse(args)
         .getOrElse(throw new Exception("Could not parse arguments"))
     freshness(config)

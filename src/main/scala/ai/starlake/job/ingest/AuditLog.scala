@@ -235,7 +235,7 @@ object AuditLog extends StrictLogging {
         new ConnectionLoadJob(jdbcConfig).run()
 
       case sink: BigQuerySink =>
-        val res = sinkToBigQuery(authInfo, log, sink)
+        val res = sinkToBigQuery(log, sink)
         Utils.logFailure(res, logger)
       case _: EsSink =>
         // TODO Sink Audit Log to ES
@@ -251,7 +251,6 @@ object AuditLog extends StrictLogging {
     settings.comet.getDatabase()
 
   def sinkToBigQuery(
-    authInfo: Map[String, String],
     log: AuditLog,
     sink: BigQuerySink
   )(implicit
@@ -260,8 +259,7 @@ object AuditLog extends StrictLogging {
     val auditOutputTarget =
       BigQueryJobBase.extractProjectDatasetAndTable(sink.name.getOrElse("audit") + "." + "audit")
     val bqConfig = BigQueryLoadConfig(
-      authInfo.get("gcpProjectId"),
-      authInfo.get("gcpSAJsonKey"),
+      sink.name,
       Left("ignore"),
       outputTableId = Some(auditOutputTarget),
       None,

@@ -5,7 +5,6 @@ import ai.starlake.config.Settings
 import ai.starlake.extract._
 import ai.starlake.job.ingest.WatchConfig
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.generator.BigQueryTablesConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model._
 import ai.starlake.utils.JsonSerializer
@@ -102,7 +101,9 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             "bqtest",
             "jobresult",
             WriteMode.OVERWRITE,
-            sink = Some(BigQuerySink(name = Some("sinktest"), location = Some("EU"))),
+            sink = Some(
+              BigQuerySink(name = Some("sinktest"), location = Some("EU"))
+            ),
             engine = Some(Engine.BQ),
             python = None,
             merge = None
@@ -142,7 +143,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     new WithSettings() {
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
-      val infos = BigQueryInfo.extractInfo(BigQueryConnectionConfig())
+      val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())
       val end = System.currentTimeMillis()
       println((end - start) / 1000)
       val datasetInfos = infos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
@@ -167,7 +168,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val config = BigQueryFreshnessConfig(tables = Map("bqtest" -> List("account")))
+          val config = BigQueryTablesConfig(tables = Map("bqtest" -> List("account")))
           val result = BigQueryFreshnessInfo.freshness(config)
           val json = JsonSerializer.serializeObject(result)
           println(json)

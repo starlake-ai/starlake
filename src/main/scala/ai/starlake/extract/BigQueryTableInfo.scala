@@ -20,9 +20,8 @@
 
 package ai.starlake.extract
 
-import ai.starlake.config.{GcpConnectionConfig, Settings, SparkEnv}
+import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
-import ai.starlake.schema.generator.BigQueryTablesConfig
 import ai.starlake.schema.model._
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
 import com.typesafe.config.ConfigFactory
@@ -98,13 +97,12 @@ object BigQueryTableInfo {
   def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val selectedInfos: List[(Dataset, List[Table])] =
-      extractTableInfos(config, config.tables)
+      extractTableInfos(config)
 
     val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
     val session = new SparkEnv("BigQueryTablesInfo-" + UUID.randomUUID().toString).session
     val dfDataset = session.createDataFrame(datasetInfos)
     BigQuerySparkWriter.sink(
-      config.authInfo(),
       dfDataset,
       "dataset_info",
       Some("Information related to datasets"),
@@ -113,7 +111,6 @@ object BigQueryTableInfo {
     val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
     val dfTable = session.createDataFrame(tableInfos)
     BigQuerySparkWriter.sink(
-      config.authInfo(),
       dfTable,
       "table_info",
       Some("Information related to tables"),
@@ -121,20 +118,20 @@ object BigQueryTableInfo {
     )
   }
 
-  def extractTableInfos(config: GcpConnectionConfig, tables: Map[String, List[String]])(implicit
+  def extractTableInfos(config: BigQueryTablesConfig)(implicit
     settings: Settings
   ): List[(Dataset, List[Table])] = {
     val infos = BigQueryInfo.extractInfo(config)
     val selectedInfos =
-      if (tables.isEmpty)
+      if (config.tables.isEmpty)
         infos
       else {
         infos.flatMap { case (dsInfo, tableInfos) =>
-          val key = tables.keys.find(_.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
+          val key = config.tables.keys.find(_.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
           key match {
             case None => None
             case Some(key) =>
-              val configTables = tables(key)
+              val configTables = config.tables(key)
               val selectedTables =
                 tableInfos.filter(tableInfo => configTables.contains(tableInfo.getTableId.getTable))
               Some((dsInfo, selectedTables))

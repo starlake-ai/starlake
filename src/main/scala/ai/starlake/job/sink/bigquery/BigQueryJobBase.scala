@@ -27,16 +27,44 @@ import scala.util.{Failure, Success, Try}
 /** Base class for BigQuery jobs
   */
 trait BigQueryJobBase extends StrictLogging {
+
+  def settings: Settings
   def cliConfig: BigQueryLoadConfig
 
-  def projectId: String =
+  val connectionOptions =
+    cliConfig.connection.map(name => settings.comet.connections(name).options)
+
+  def projectId: String = {
     cliConfig.outputDatabase
-      .orElse(cliConfig.gcpProjectId)
+      .orElse(connectionOptions.flatMap(_.get("database")))
       .orElse(getPropertyOrEnv("SL_DATABASE"))
       .orElse(getPropertyOrEnv("GCP_PROJECT"))
       .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
       .orElse(scala.Option(ServiceOptions.getDefaultProjectId()))
       .getOrElse(throw new Exception("GCP Project ID must be defined"))
+  }
+
+  private def getCredentials()(implicit
+    settings: Settings
+  ): scala.Option[ServiceAccountCredentials] = {
+    val connectionOptions =
+      cliConfig.connection.map(name => settings.comet.connections(name).options)
+    connectionOptions.flatMap(_.get("serviceAccountKey")).map { gcpSAJsonKey =>
+      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
+        val path = new Path(gcpSAJsonKey)
+        if (settings.storageHandler.exists(path)) {
+          settings.storageHandler.read(path)
+        } else {
+          throw new Exception(s"Invalid GCP SA KEY Path: $path")
+        }
+      } else
+        gcpSAJsonKey
+      val credentialsStream = new java.io.ByteArrayInputStream(
+        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
+      )
+      ServiceAccountCredentials.fromStream(credentialsStream)
+    }
+  }
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   private lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
@@ -65,26 +93,6 @@ trait BigQueryJobBase extends StrictLogging {
         bqService
       case Some(bqService) =>
         bqService
-    }
-  }
-
-  private def getCredentials()(implicit
-    settings: Settings
-  ): scala.Option[ServiceAccountCredentials] = {
-    cliConfig.gcpSAJsonKey.map { gcpSAJsonKey =>
-      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
-        val path = new Path(gcpSAJsonKey)
-        if (settings.storageHandler.exists(path)) {
-          settings.storageHandler.read(path)
-        } else {
-          throw new Exception(s"Invalid GCP SA KEY Path: $path")
-        }
-      } else
-        gcpSAJsonKey
-      val credentialsStream = new java.io.ByteArrayInputStream(
-        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
-      )
-      ServiceAccountCredentials.fromStream(credentialsStream)
     }
   }
 
@@ -456,7 +464,7 @@ trait BigQueryJobBase extends StrictLogging {
         case None =>
           val datasetInfo = DatasetInfo
             .newBuilder(datasetId)
-            .setLocation(cliConfig.getLocation())
+            .setLocation(connectionOptions.flatMap(_.get("location")).getOrElse("EU"))
             .setDescription(domainDescription.orNull)
             .setLabels(labels.asJava)
             .build

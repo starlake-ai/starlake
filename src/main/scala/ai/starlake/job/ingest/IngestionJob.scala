@@ -2,13 +2,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
-import ai.starlake.job.sink.bigquery.{
-  BigQueryJobBase,
-  BigQueryJobResult,
-  BigQueryLoadConfig,
-  BigQueryNativeJob,
-  BigQuerySparkJob
-}
+import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
@@ -198,9 +192,8 @@ trait IngestionJob extends SparkJob {
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
-      None,
-      None,
-      outputDatabase = schemaHandler.getDatabase(domain)
+      connection = mergedMetadata.getSink().flatMap(_.name),
+      outputDatabase = schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name))
     )
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.foreach { sql =>
@@ -280,15 +273,16 @@ trait IngestionJob extends SparkJob {
       schema.merge.exists(_.key.nonEmpty)
     )
 
+    val bqSink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
+    val connectionLocation = bqSink.flatMap(_.connectionsOptions().flatMap(_.get("location")))
     val commonConfig = BigQueryLoadConfig(
-      None,
-      None,
+      connection = mergedMetadata.getSink().flatMap(_.name),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      location = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].location),
+      location = bqSink.flatMap(_.location).orElse(connectionLocation),
       outputPartition = None,
       outputClustering = Nil,
       days = None,
@@ -300,14 +294,14 @@ trait IngestionJob extends SparkJob {
       starlakeSchema = Some(schema.copy(metadata = Some(mergedMetadata))),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain)
+      outputDatabase = schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name))
     )
 
     val firstStepConfig = commonConfig.copy(
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain),
+            schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name)),
             domain.finalName,
             "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
           )
@@ -319,7 +313,7 @@ trait IngestionJob extends SparkJob {
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain),
+            schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name)),
             domain.finalName,
             schema.finalName
           )
@@ -491,7 +485,7 @@ trait IngestionJob extends SparkJob {
               end.getTime - start.getTime,
               err,
               Step.LOAD.toString,
-              schemaHandler.getDatabase(domain),
+              schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
               settings.comet.tenant
             )
             AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -525,7 +519,7 @@ trait IngestionJob extends SparkJob {
                 end.getTime - start.getTime,
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString,
-                schemaHandler.getDatabase(domain),
+                schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
                 settings.comet.tenant
               )
               AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -960,7 +954,6 @@ trait IngestionJob extends SparkJob {
   private def runExpectations(acceptedDF: DataFrame) = {
     if (settings.comet.expectations.active) {
       new ExpectationJob(
-        Map.empty, // Auth Info from env var since run from spark submit only
         this.domain.finalName,
         this.schema.finalName,
         this.schema.expectations,
@@ -1098,7 +1091,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             "success",
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain),
+            schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1119,7 +1112,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain),
+            schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1303,13 +1296,12 @@ trait IngestionJob extends SparkJob {
       case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
     }
     val config = BigQueryLoadConfig(
-      None,
-      None,
+      connection = mergedMetadata.getSink().flatMap(_.name),
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain),
+            schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name)),
             domain.finalName,
             schema.finalName
           )
@@ -1328,7 +1320,7 @@ trait IngestionJob extends SparkJob {
       starlakeSchema = Some(schema),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain)
+      outputDatabase = schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.name))
     )
     val res = new BigQuerySparkJob(
       config,
@@ -1443,7 +1435,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           "success",
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
+          schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1464,7 +1456,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
+          schemaHandler.getDatabase(domain, settings.comet.audit.sink.name),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1526,8 +1518,7 @@ object IngestionUtil {
       settings.comet.audit.sink match {
         case sink: BigQuerySink =>
           val bqConfig = BigQueryLoadConfig(
-            None,
-            None,
+            sink.name,
             Right(rejectedDF),
             outputTableId = Some(
               BigQueryJobBase
