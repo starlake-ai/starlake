@@ -124,10 +124,9 @@ case class AutoTask(
     val bqSink =
       taskDesc.sink
         .map(sink => sink.asInstanceOf[BigQuerySink])
-        .getOrElse(BigQuerySink())
+        .getOrElse(BigQuerySink(name = sink.flatMap(_.name)))
     BigQueryLoadConfig(
-      gcpProjectId = authInfo.get("gcpProjectId"),
-      gcpSAJsonKey = authInfo.get("gcpSAJsonKey"),
+      connection = sink.flatMap(_.name),
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
@@ -227,7 +226,6 @@ case class AutoTask(
           // We execute assertions only on success
           if (settings.comet.expectations.active) {
             new ExpectationJob(
-              authInfo,
               taskDesc.domain,
               taskDesc.table,
               taskDesc.expectations,
@@ -543,7 +541,6 @@ case class AutoTask(
 
           if (settings.comet.expectations.active) {
             new ExpectationJob(
-              authInfo,
               taskDesc.domain,
               taskDesc.table,
               taskDesc.expectations,

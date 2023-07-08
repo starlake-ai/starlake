@@ -1,12 +1,10 @@
 package ai.starlake.job.sink.bigquery
 
-import ai.starlake.config.GcpConnectionConfig
 import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
 import org.apache.spark.sql.DataFrame
 
 case class BigQueryLoadCliConfig(
-  gcpProjectId: Option[String],
-  gcpSAJsonKey: Option[String],
+  connection: Option[String] = None,
   source: Either[String, DataFrame] = Left(""),
   outputDatabase: Option[String] = None,
   outputDataset: Option[String] = None,
@@ -28,10 +26,9 @@ case class BigQueryLoadCliConfig(
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
   materializedView: Boolean = false
-) extends GcpConnectionConfig {
+) {
   def asBigqueryLoadConfig() = BigQueryLoadConfig(
-    gcpProjectId = gcpProjectId,
-    gcpSAJsonKey = gcpSAJsonKey,
+    connection = connection,
     source = source,
     outputTableId = Some(
       BigQueryJobBase.extractProjectDatasetAndTable(

@@ -1,31 +1,20 @@
 package ai.starlake.extract
 
-import ai.starlake.config.{GcpConnectionConfig, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import com.google.cloud.bigquery.{Dataset, Table}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
-case class BigQueryConnectionConfig(
-  gcpProjectId: Option[String] = None,
-  gcpSAJsonKey: Option[String] = None,
-  location: Option[String] = None
-) extends GcpConnectionConfig
-
 object BigQueryInfo {
   def extractInfo(
-    authConfig: GcpConnectionConfig
+    config: BigQueryTablesConfig
   )(implicit settings: Settings): List[(Dataset, List[Table])] = {
-    val config = BigQueryConnectionConfig(
-      authConfig.gcpProjectId,
-      authConfig.gcpSAJsonKey,
-      authConfig.location
-    )
+    val implicitSettings = settings
     val bqJob = new BigQueryJobBase {
+      val settings = implicitSettings
       override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
-        gcpProjectId = authConfig.gcpProjectId,
-        gcpSAJsonKey = authConfig.gcpSAJsonKey,
-        location = authConfig.location,
+        connection = config.connection,
         outputDatabase = None
       )
     }

@@ -1,7 +1,8 @@
 package ai.starlake.config
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.generator.{BigQueryTablesConfig, ExtractBigQuerySchema}
+import ai.starlake.extract.BigQueryTablesConfig
+import ai.starlake.schema.generator.ExtractBigQuerySchema
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import org.scalatest.BeforeAndAfterAll
 

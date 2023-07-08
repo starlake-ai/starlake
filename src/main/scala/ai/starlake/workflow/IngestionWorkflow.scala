@@ -754,8 +754,7 @@ class IngestionWorkflow(
                         }
                         val bqLoadConfig =
                           BigQueryLoadConfig(
-                            transformConfig.authInfo.get("gcpProjectId"),
-                            transformConfig.authInfo.get("gcpSAJsonKey"),
+                            connection = bqSink.name,
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
@@ -914,8 +913,7 @@ class IngestionWorkflow(
   }
   def applyIamPolicies(): Boolean = {
     val ignore = BigQueryLoadConfig(
-      None,
-      None,
+      connection = None,
       outputDatabase = None
     )
     schemaHandler
@@ -959,10 +957,9 @@ class IngestionWorkflow(
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain)
+            val database = schemaHandler.getDatabase(domain, sink.name)
             val config = BigQueryLoadConfig(
-              None,
-              None,
+              connection = metadata.sink.flatMap(_.name),
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
