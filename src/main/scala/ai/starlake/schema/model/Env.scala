@@ -19,12 +19,23 @@ case class InputRef(
     this(anyRefPattern, None, None) // Should never be called. Here for Jackson deserialization only
 }
 
-case class OutputRef(table: String = "", domain: String = "", database: String = "") {
+case class OutputRef(database: String = "", domain: String = "", table: String = "") {
   @JsonCreator
   def this() = this("", "", "") // Should never be called. Here for Jackson deserialization only
 
   def asTuple(): (String, String, String) = (database, domain, table)
-  def toBigQueryString() = s"`$database.$domain.$table`"
+  def toBigQueryString() = s"`${toSimpleString()}`"
+  def toSimpleString() = {
+    if (database.isEmpty) {
+      if (domain.isEmpty) {
+        table
+      } else {
+        s"$domain.$table"
+      }
+    } else {
+      s"$database.$domain.$table"
+    }
+  }
 }
 
 case class Ref(

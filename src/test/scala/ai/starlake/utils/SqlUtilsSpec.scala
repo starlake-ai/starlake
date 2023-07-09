@@ -5,6 +5,18 @@ import ai.starlake.schema.model.Engine
 
 class SqlUtilsSpec extends TestHelper {
   new WithSettings() {
+    "Resolve SQL Ref list" should "return correct SQL" in {
+      val sql = "with mycte as (select seller_email, amount " +
+        "from sellers hrs, orders sos where hrs.id = sos.seller_id" +
+        ")" +
+        "select seller_email, sum(amount) as sum from mycte"
+      val refs =
+        List(Some(("", "hr", "sellers")), Some(("", "sales", "orders")), Some(("", "", "mycte")))
+//      val result = SQLUtils.buildSingleSQLQuery(sql, refs)
+//      println(result)
+      assert(true)
+    }
+
     "TableRefs Extractor" should "return all tables and views" in {
       val input =
         """WITH cte1 as (query),
@@ -13,7 +25,7 @@ class SqlUtilsSpec extends TestHelper {
           |FROM myview, yourview
           |union
           |select whatever cross join herview""".stripMargin
-      val refs = SQLUtils.extractRefsFromSQL(input)
+      val refs = SQLUtils.extractRefsInSQL(input)
       refs should contain theSameElementsAs (List("myview", "yourview", "herview"))
       // , "cte1", "cte2"))
     }

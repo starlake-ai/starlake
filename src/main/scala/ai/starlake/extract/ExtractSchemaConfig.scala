@@ -17,10 +17,6 @@ object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note(""),
-      opt[String]("mapping")
-        .action((x, c) => c.copy(extractConfig = x))
-        .optional()
-        .text("Deprecated. Use config instead"),
       opt[String]("config")
         .action((x, c) => c.copy(extractConfig = x))
         .required()

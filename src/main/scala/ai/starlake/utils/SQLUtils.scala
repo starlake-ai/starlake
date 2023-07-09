@@ -1,14 +1,17 @@
 package ai.starlake.utils
 
-import ai.starlake.schema.model.Engine
+import ai.starlake.config.Settings
+import ai.starlake.schema.model.{AutoJobDesc, Domain, Engine, Refs}
+import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.StatementVisitorAdapter
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
 
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
+import scala.util.{Failure, Success, Try}
 
-object SQLUtils {
+object SQLUtils extends StrictLogging {
   val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
   val joinRegex = "(?i)\\s+JOIN\\s+([_\\-a-z0-9`./]+)".r
   // val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
@@ -26,7 +29,7 @@ object SQLUtils {
     * JOIN identifier
     */
   //
-  def extractRefsFromSQL(sql: String): List[String] = {
+  def extractRefsInSQL(sql: String): List[String] = {
     val froms =
       fromsRegex
         .findAllMatchIn(sql)
@@ -131,53 +134,172 @@ object SQLUtils {
     }
   }
 
-  def resolveRefsInSQL(
-    sql: String,
-    refMap: List[Option[(String, String, String)]] // (database, domain, table)
+  def buildSingleSQLQuery(
+    j2sql: String,
+    vars: Map[String, Any],
+    refs: Refs,
+    domains: List[Domain],
+    jobs: Map[String, AutoJobDesc]
+  )(implicit
+    settings: Settings
   ): String = {
-    def getPrefix(sql: String, start: Int): String = {
-      val substr = sql.substring(start).trim
-      val withFrom = substr.toUpperCase.startsWith("FROM")
-      val withJoin = substr.toUpperCase.trim.startsWith("JOIN")
-      if (withFrom)
-        " FROM "
-      else if (withJoin)
-        " JOIN "
-      else
-        ""
-    }
-
-    val iterator = refMap.iterator
-    var result = sql
-    def replaceRegexMatches(matches: Iterator[Regex.Match]): Unit = {
-      matches.toList.reverse
-        .foreach { regex =>
-          iterator.next() match {
-            case Some((_, "", table)) =>
-            // do nothing
-
-            case Some(("", domain, table)) =>
-              val prefix: String = getPrefix(result, regex.start)
-              result = result.substring(0, regex.start) +
-                s"$prefix$domain.$table" +
-                result.substring(regex.end)
-
-            case Some((database, domain, table)) =>
-              val prefix: String = getPrefix(result, regex.start)
-              result = result.substring(0, regex.start) +
-                s"$prefix$database.$domain.$table" +
-                result.substring(regex.end)
-            case None =>
-          }
-        }
-    }
-
-    val fromMatches = fromsRegex
-      .findAllMatchIn(sql)
-    replaceRegexMatches(fromMatches)
-    val joinMatches: Iterator[Regex.Match] = joinRegex
-      .findAllMatchIn(result)
-    replaceRegexMatches(joinMatches)
-    result
+    logger.info(s"Source J2SQL: $j2sql")
+    val sql = Utils.parseJinja(j2sql, vars)
+    val fromResolved =
+      buildSingleSQLQueryForRegex(sql, vars, refs, domains, jobs, SQLUtils.fromsRegex, "FROM")
+    val joinAndFromResolved =
+      buildSingleSQLQueryForRegex(
+        fromResolved,
+        vars,
+        refs,
+        domains,
+        jobs,
+        SQLUtils.joinRegex,
+        "JOIN"
+      )
+    joinAndFromResolved
   }
+
+  def buildSingleSQLQueryForRegex(
+    sql: String,
+    vars: Map[String, Any],
+    refs: Refs,
+    domains: List[Domain],
+    jobs: Map[String, AutoJobDesc],
+    regex: Regex,
+    keyword: String
+  )(implicit
+    settings: Settings
+  ): String = {
+    logger.info(s"Source SQL: $sql")
+    var resolvedSQL = ""
+    var startIndex = 0
+    val fromMatches = regex
+      .findAllMatchIn(sql)
+      .toList
+    if (fromMatches.isEmpty) {
+      sql
+    } else {
+      def ltrim(s: String) = s.replaceAll("^\\s+", "")
+      fromMatches
+        .foreach { regex =>
+          val source = ltrim(regex.source.toString.substring(regex.start, regex.end))
+          val tablesAndAlias = source.substring(keyword.length).split(",")
+          val tableAndAliasFinalNames = tablesAndAlias.map { tableAndAlias =>
+            resolveTableNameInSql(tableAndAlias, refs, domains, jobs)
+          }
+          val newSource = tableAndAliasFinalNames.mkString(", ")
+          val newFrom = s" $keyword $newSource"
+          resolvedSQL += sql.substring(startIndex, regex.start) + newFrom
+          startIndex = regex.end
+        }
+      resolvedSQL = resolvedSQL + sql.substring(startIndex)
+      logger.info(s"Resolved SQL: $resolvedSQL")
+      resolvedSQL
+    }
+  }
+
+  private def resolveTableNameInSql(
+    tableAndAlias: String,
+    refs: Refs,
+    domains: List[Domain],
+    jobs: Map[String, AutoJobDesc]
+  )(implicit
+    settings: Settings
+  ): String = {
+    val tableAndAliasArray = tableAndAlias.trim.split("\\s")
+    val tableName = tableAndAliasArray.head
+    val tableTuple = tableName.replaceAll("`", "").split("\\.").toList
+    if (tableName.contains("/") || tableName.contains("(")) {
+      // this is a parquet reference with Spark syntax
+      // or a function: from date(...)
+      tableAndAlias
+    } else {
+      val activeEnvRefs = refs
+      val databaseDomainTableRef =
+        activeEnvRefs.getOutputRef(tableTuple).map(_.toSimpleString())
+      val resolvedTableName = databaseDomainTableRef.getOrElse {
+        resolveTableRefInDomainsAndJobs(tableTuple, domains, jobs) match {
+          case Success((database, domain, table)) =>
+            ai.starlake.schema.model.OutputRef(database, domain, table).toSimpleString()
+          case Failure(e) =>
+            Utils.logException(logger, e)
+            throw e
+        }
+      }
+      resolvedTableName + " " + tableAndAliasArray.tail.mkString(" ")
+    }
+  }
+
+  private def resolveTableRefInDomainsAndJobs(
+    tableComponents: List[String],
+    domains: List[Domain],
+    jobs: Map[String, AutoJobDesc]
+  )(implicit
+    settings: Settings
+  ): Try[(String, String, String)] = Try {
+    val (database, domain, table): (Option[String], Option[String], String) =
+      tableComponents match {
+        case table :: Nil =>
+          (None, None, table)
+        case domain :: table :: Nil =>
+          (None, Some(domain), table)
+        case database :: domain :: table :: Nil =>
+          (Some(database), Some(domain), table)
+        case _ =>
+          throw new Exception(
+            s"Invalid table reference ${tableComponents.mkString(".")}"
+          )
+      }
+    (database, domain, table) match {
+      case (Some(db), Some(dom), table) =>
+        (db, dom, table)
+      case (None, domainComponent, table) =>
+        val domainsByFinalName = domains
+          .filter { dom =>
+            val domainOK = domainComponent.forall(_.equalsIgnoreCase(dom.finalName))
+            domainOK && dom.tables.exists(_.finalName.equalsIgnoreCase(table))
+          }
+        val tasksByTable = jobs.values.flatMap { job =>
+          job.tasks.find { task =>
+            val domainOK = domainComponent.forall(_.equalsIgnoreCase(task.domain))
+            domainOK && task.table.equalsIgnoreCase(table)
+          }
+        }.toList
+
+        val nameCountMatch =
+          domainsByFinalName.length + tasksByTable.length
+        val (database, domain) = if (nameCountMatch > 1) {
+          val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
+          logger.error(s"Table $table is present in domain(s): $domainNames.")
+
+          val taskNamesByTable = tasksByTable.map(_.table).mkString(",")
+          logger.error(s"Table $table is present as a table in tasks(s): $taskNamesByTable.")
+
+          val taskNames = tasksByTable.map(_.name).mkString(",")
+          logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
+          throw new Exception("Table is present in multiple domains and/or tasks")
+        } else if (nameCountMatch == 1) {
+          domainsByFinalName.headOption
+            .map(dom => (dom.database, dom.finalName))
+            .orElse(tasksByTable.headOption.map { task =>
+              (task.database, task.domain)
+            })
+            .getOrElse((None, ""))
+        } else { // nameCountMatch == 0
+          logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
+          (None, "")
+        }
+        val databaseName = database
+          .orElse(settings.comet.getDatabase())
+          .getOrElse("")
+        (databaseName, domain, table)
+      case _ =>
+        throw new Exception(
+          s"Invalid table reference ${tableComponents.mkString(".")}"
+        )
+    }
+
+  }
+
 }

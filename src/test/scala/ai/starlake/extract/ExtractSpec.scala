@@ -495,7 +495,6 @@ class ExtractSpec extends TestHelper {
     val expected =
       """
         |Usage: starlake extract-schema [options]
-        |  --mapping <value>     Deprecated. Use config instead
         |  --config <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
         |""".stripMargin
