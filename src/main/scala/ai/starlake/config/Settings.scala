@@ -147,12 +147,14 @@ object Settings extends StrictLogging {
     options: Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
+    def this() = this("jdbc", None, Map.empty, None)
+
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
     @JsonIgnore
     def isSnowflake: Boolean = options("url").contains("jdbc:snowflake")
   }
 
-  private case class Connections(connections: Map[String, Connection])
+  final case class Connections(connections: Map[String, Connection] = Map.empty)
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *

@@ -3,6 +3,7 @@
 
 # 0.8.0:
 - Databricks on Azure is now fully documented
+- **BREAKING CHANGE** extract-schema command line option 'mapping' replaced by 'config'
 
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.

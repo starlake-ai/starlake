@@ -256,117 +256,19 @@ case class AutoTask(
     }
   }
 
-  private def resolveTableRefInDomainsAndJobs(
-    tableComponents: List[String]
-  ): Try[(String, String, String)] = Try {
-    val (database, domain, table): (Option[String], Option[String], String) =
-      tableComponents match {
-        case table :: Nil =>
-          (None, None, table)
-        case domain :: table :: Nil =>
-          (None, Some(domain), table)
-        case database :: domain :: table :: Nil =>
-          (Some(database), Some(domain), table)
-        case _ =>
-          throw new Exception(
-            s"Invalid table reference ${tableComponents.mkString(".")}"
-          )
-      }
-    (database, domain, table) match {
-      case (Some(db), Some(dom), table) =>
-        (db, dom, table)
-      case (None, domainComponent, table) =>
-        val domainsByFinalName = schemaHandler
-          .domains()
-          .filter { dom =>
-            val domainOK = domainComponent.forall(_.equalsIgnoreCase(dom.finalName))
-            domainOK && dom.tables.exists(_.finalName.equalsIgnoreCase(table))
-          }
-        val tasksByTable = schemaHandler
-          .jobs()
-          .values
-          .flatMap { job =>
-            job.tasks.find { task =>
-              val domainOK = domainComponent.forall(_.equalsIgnoreCase(task.domain))
-              domainOK && task.table.equalsIgnoreCase(table)
-            }
-          }
-          .toList
-
-        val nameCountMatch =
-          domainsByFinalName.length + tasksByTable.length
-        val (database, domain) = if (nameCountMatch > 1) {
-          val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
-          logger.error(s"Table $table is present in domain(s): $domainNames.")
-
-          val taskNamesByTable = tasksByTable.map(_.table).mkString(",")
-          logger.error(s"Table $table is present as a table in tasks(s): $taskNamesByTable.")
-
-          val taskNames = tasksByTable.map(_.name).mkString(",")
-          logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
-          throw new Exception("Table is present in multiple domains and/or tasks")
-        } else if (nameCountMatch == 1) {
-          domainsByFinalName.headOption
-            .map(dom => (dom.database, dom.finalName))
-            .orElse(tasksByTable.headOption.map { task =>
-              (task.database, task.domain)
-            })
-            .getOrElse((None, ""))
-        } else { // nameCountMatch == 0
-          logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
-          (None, "")
-        }
-        val databaseName = database
-          .orElse(settings.comet.getDatabase())
-          .getOrElse("")
-        (databaseName, domain, table)
-      case _ =>
-        throw new Exception(
-          s"Invalid table reference ${tableComponents.mkString(".")}"
-        )
-    }
-
-  }
-
-  private def buildSingleSQLQuery(j2sql: String, vars: Map[String, Any]): String = {
-    val sql = parseJinja(j2sql, vars)
-    val tableRefs = SQLUtils.extractRefsFromSQL(sql)
-    val refList = tableRefs.map { tableRef =>
-      val tableComponents = tableRef.replaceAll("`", "").split('.').toList
-      if (tableRef.contains("/")) { // this is a parquet reference with Spark syntax
-        logger.info(s"Resolving parquet reference $tableRef")
-        None
-      } else {
-        val activeEnvRefs = schemaHandler.refs()
-        val databaseDomainTableRef =
-          activeEnvRefs.getOutputRef(tableComponents).map(_.asTuple())
-        logger.info(
-          s"Resolving table reference $tableRef to tableComponents $tableComponents and databaseDomainTableRef $databaseDomainTableRef"
-        )
-        val databaseDomainTable = databaseDomainTableRef.orElse {
-          resolveTableRefInDomainsAndJobs(tableComponents) match {
-            case Success((database, domain, table)) =>
-              Some((database, domain, table))
-            case Failure(e) =>
-              Utils.logException(logger, e)
-              throw e
-          }
-        }
-        logger.info(s"Resolved table reference $tableRef to domain/Job table $databaseDomainTable")
-        databaseDomainTable
-      }
-    }
-    logger.info(s"Source SQL: $sql")
-    val resolvedSQL = SQLUtils.resolveRefsInSQL(sql, refList)
-    logger.info(s"Resolved SQL: $resolvedSQL")
-    resolvedSQL
-  }
-
   def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
+    // available jinja variables to build sql query depending on
+    // whether the table exists or not.
     val jinjaVars = Map("merge" -> tableExists)
     val mergeSql =
       if (!tableExists)
-        buildSingleSQLQuery(taskDesc.getSql(), jinjaVars)
+        SQLUtils.buildSingleSQLQuery(
+          taskDesc.getSql(),
+          schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
+          schemaHandler.refs(),
+          schemaHandler.domains(),
+          schemaHandler.jobs()
+        )
       else {
         taskDesc.merge match {
           case Some(options) =>
@@ -382,7 +284,13 @@ case class AutoTask(
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
           case None =>
-            buildSingleSQLQuery(taskDesc.getSql(), jinjaVars)
+            SQLUtils.buildSingleSQLQuery(
+              taskDesc.getSql(),
+              schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
+              schemaHandler.refs(),
+              schemaHandler.domains(),
+              schemaHandler.jobs()
+            )
         }
       }
 
@@ -657,7 +565,7 @@ case class AutoTask(
     logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
 
   def dependencies(): List[String] = {
-    val result = SQLUtils.extractRefsFromSQL(parseJinja(taskDesc.getSql(), Map.empty))
+    val result = SQLUtils.extractRefsInSQL(parseJinja(taskDesc.getSql(), Map.empty))
     logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
     result
   }
