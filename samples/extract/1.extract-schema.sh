@@ -53,11 +53,11 @@ SQL=`cat $PWD/createdb.sql`
 echo Loading data from file $PWD/createdb.sql
 java -classpath drivers/h2*.jar org.h2.tools.Shell -url jdbc:h2:file:$PWD/H2SLDB -sql "$SQL"
 
-awk -v h2db="$PWD/H2SLDB" '{gsub("H2_DB", h2db)}1' application-template.conf >$SL_ROOT/metadata/application.conf
+awk -v h2db="$PWD/H2SLDB" '{gsub("H2_DB", h2db)}1' connections-template.comet.yml >$SL_ROOT/metadata/connections.comet.yml
 
 #SL_LIBS="--jars drivers/$H2_JAR"
 cp drivers/$H2_JAR ../../distrib/bin/spark/jars/
-../../distrib/starlake.sh extract-schema --mapping ddl2yml --output-dir $SL_ROOT/metadata/domains
+../../distrib/starlake.sh extract-schema --config ddl2yml --output-dir $SL_ROOT/metadata/domains
 
 H2PID=`ps -ef | grep "[t]cpPort $H2_PORT" | awk '{print $2}'`
 
