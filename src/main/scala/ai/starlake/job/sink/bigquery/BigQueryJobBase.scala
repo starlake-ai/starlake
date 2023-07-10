@@ -31,12 +31,12 @@ trait BigQueryJobBase extends StrictLogging {
   def settings: Settings
   def cliConfig: BigQueryLoadConfig
 
-  val connectionOptions =
-    cliConfig.connection.map(name => settings.comet.connections(name).options)
+  val connectionOptions: Map[String, String] =
+    cliConfig.connection.map(name => settings.comet.connections(name).options).getOrElse(Map.empty)
 
   def projectId: String = {
     cliConfig.outputDatabase
-      .orElse(connectionOptions.flatMap(_.get("database")))
+      .orElse(connectionOptions.get("database"))
       .orElse(getPropertyOrEnv("SL_DATABASE"))
       .orElse(getPropertyOrEnv("GCP_PROJECT"))
       .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
@@ -464,7 +464,7 @@ trait BigQueryJobBase extends StrictLogging {
         case None =>
           val datasetInfo = DatasetInfo
             .newBuilder(datasetId)
-            .setLocation(connectionOptions.flatMap(_.get("location")).getOrElse("EU"))
+            .setLocation(connectionOptions.getOrElse("location", "EU"))
             .setDescription(domainDescription.orNull)
             .setLabels(labels.asJava)
             .build
