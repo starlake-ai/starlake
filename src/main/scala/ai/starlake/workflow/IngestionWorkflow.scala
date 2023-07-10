@@ -754,7 +754,7 @@ class IngestionWorkflow(
                         }
                         val bqLoadConfig =
                           BigQueryLoadConfig(
-                            connectionRef = bqSink.connectionRef,
+                            connectionRef = bqSink.getConnectionRef(),
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
@@ -786,7 +786,8 @@ class IngestionWorkflow(
 
                       case jdbcSink: JdbcSink =>
                         val jdbcName =
-                          jdbcSink.connectionRef
+                          jdbcSink
+                            .getConnectionRef()
                             .getOrElse(
                               throw new Exception("JdbcSink requires a connectionRef")
                             )
@@ -964,9 +965,9 @@ class IngestionWorkflow(
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain, sink.connectionRef)
+            val database = schemaHandler.getDatabase(domain, sink.getConnectionRef())
             val config = BigQueryLoadConfig(
-              connectionRef = metadata.sink.flatMap(_.connectionRef),
+              connectionRef = metadata.sink.flatMap(_.getConnectionRef()),
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(database, domain.name, schema.finalName)

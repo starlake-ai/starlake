@@ -74,7 +74,6 @@ class Main() extends StrictLogging {
     ESLoadConfig,
     ExtractDataConfig,
     ExtractSchemaConfig,
-    ExtractScriptConfig,
     FileSplitterConfig,
     ImportConfig,
     InferSchemaConfig,
@@ -335,8 +334,6 @@ class Main() extends StrictLogging {
             println(AutoTask2GraphVizConfig.usage())
         }
         true
-      case "extract-script" =>
-        new ExtractScript(schemaHandler).run(args.drop(1))
       case "extract-schema" =>
         new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
         true

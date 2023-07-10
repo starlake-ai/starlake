@@ -297,7 +297,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
                      |  active = true
                      |  sink {
                      |    type = "JdbcSink"
-                     |    connectionRef = "test-h2"
+                     |    write = "Append"
+                     |    connectionRef = "audit"
                      |    options = {
                      |      allowFieldAddition: "false"
                      |      allowFieldRelaxation: "true"

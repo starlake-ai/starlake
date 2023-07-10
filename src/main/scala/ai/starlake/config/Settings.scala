@@ -22,17 +22,10 @@ package ai.starlake.config
 
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.privacy.PrivacyEngine
-import ai.starlake.schema.handlers.{
-  AirflowLauncher,
-  HdfsStorageHandler,
-  LaunchHandler,
-  LocalStorageHandler,
-  SchemaHandler,
-  SimpleLauncher,
-  StorageHandler
-}
+import ai.starlake.schema.handlers._
 import ai.starlake.schema.model.{PrivacyLevel, Sink}
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
@@ -46,7 +39,6 @@ import pureconfig.ConvertHelpers._
 import pureconfig._
 import pureconfig.generic.FieldCoproductHint
 import pureconfig.generic.auto._
-import com.fasterxml.jackson.annotation.JsonIgnore
 
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
