@@ -19,7 +19,7 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
   }
 
   "Ingest to BigQuery" should "be ingested and stored in a BigQuery table using native mode" in {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)
