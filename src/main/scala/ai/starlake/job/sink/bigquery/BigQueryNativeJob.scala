@@ -163,6 +163,13 @@ class BigQueryNativeJob(
           QueryJobConfiguration
             .newBuilder(targetSQL)
             .setAllowLargeResults(true)
+            .setJobTimeoutMs(
+              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+            )
+            .setMaximumBytesBilled(
+              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+            )
+
         logger.info(s"Running interactive BQ Query $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
@@ -253,6 +260,12 @@ class BigQueryNativeJob(
             .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
             .setDefaultDataset(targetDataset.getDatasetId)
             .setPriority(Priority.INTERACTIVE)
+            .setJobTimeoutMs(
+              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+            )
+            .setMaximumBytesBilled(
+              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+            )
             .setUseLegacySql(false)
             .setAllowLargeResults(true)
 
@@ -331,13 +344,19 @@ class BigQueryNativeJob(
           .setJob(
             UUID.randomUUID.toString
           ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(connectionOptions.flatMap(_.get("location")).getOrElse("EU"))
+          .setLocation(connectionOptions.getOrElse("location", "EU"))
           .build()
         val queryConfig =
           QueryJobConfiguration
             .newBuilder(sql)
             .setPriority(Priority.BATCH)
             .setUseLegacySql(false)
+            .setJobTimeoutMs(
+              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+            )
+            .setMaximumBytesBilled(
+              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+            )
             .build()
         logger.info(s"Executing BQ Query $sql")
         val job =
