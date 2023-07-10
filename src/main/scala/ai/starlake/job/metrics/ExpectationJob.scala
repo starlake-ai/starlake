@@ -139,7 +139,7 @@ class ExpectationJob(
         settings.comet.audit.sink,
         expectationsDF,
         settings.comet.audit.database,
-        settings.comet.audit.sink.connectionRef.getOrElse("audit"),
+        settings.comet.audit.sink.getConnectionRef().getOrElse("audit"),
         "expectations",
         Some("Expectation results"),
         DatasetArea.expectations(domainName, schemaName),

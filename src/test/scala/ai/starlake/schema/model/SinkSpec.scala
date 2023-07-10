@@ -128,7 +128,6 @@ class SinkSpec extends TestHelper {
         """
           |connectionRef: "sink"
           |type: "JDBC"
-          |connectionRef: "connection"
           |options:
           |  anyOption: "true"
           |  partitions: 3

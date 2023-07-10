@@ -38,7 +38,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           session,
           dataframe,
           savePath,
-          sink.connectionRef.getOrElse(table),
+          sink.getConnectionRef().getOrElse(table),
           table
         )
       }
@@ -54,7 +54,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               session,
               dataframe,
               savePath,
-              sink.connectionRef.getOrElse(table),
+              sink.getConnectionRef().getOrElse(table),
               table
             )
           }
@@ -70,10 +70,10 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           sinkToBigQuery(
             dataframe,
             database,
-            sink.connectionRef.getOrElse(table),
+            sink.getConnectionRef().getOrElse(table),
             table,
             maybeTableDescription,
-            sink.connectionRef,
+            sink.getConnectionRef(),
             sink.getOptions
           )
         }
@@ -81,7 +81,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       case sink: JdbcSink =>
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            sink.connectionRef
+            sink
+              .getConnectionRef()
               .getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
             settings.comet,
             Right(dataframe),

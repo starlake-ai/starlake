@@ -1,12 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.{
-  BigQueryTablesConfig,
-  ExtractDataConfig,
-  ExtractSchemaConfig,
-  ExtractScriptConfig
-}
+import ai.starlake.extract.{BigQueryTablesConfig, ExtractDataConfig, ExtractSchemaConfig}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
@@ -44,7 +39,6 @@ class CliConfigSpec extends TestHelper {
         "jobs2gv"        -> AutoTask2GraphVizConfig,
         "validate"       -> ValidateConfig,
         "infer-ddl"      -> Yml2DDLConfig,
-        "extract-script" -> ExtractScriptConfig,
         "bq-info"        -> BigQueryTablesConfig,
         "bq-freshness"   -> BigQueryTablesConfig,
         "serve"          -> MainServerConfig // ,
