@@ -6,7 +6,7 @@ load:
     format: "JSON"
     sink:
       type: {{sink_type}}
-      connection: {{sink_connection}}
+      connectionRef: {{sink_connection}}
   schemas:
     - name: "sellers"
       pattern: "sellers-.*.json"

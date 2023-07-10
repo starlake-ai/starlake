@@ -18,6 +18,6 @@ Parameter|Cardinality|Description
 --output-dir:`<value>`|*Optional*|Where to save the generated dot file ? Output to the console by default
 --all:`<value>`|*Optional*|Should we include all attributes in the dot file or only the primary and foreign keys ? true by default
 --reload:`<value>`|*Optional*|Should we reload the domains first ?
---acl:`<value>`|*Optional*|Should we include all attributes in the dot file or only the primary and foreign keys ? true by default
---domains:`<value>`|*Optional*|Should we include all attributes in the dot file or only the primary and foreign keys ? true by default
+--acl:`<value>`|*Optional*|Should we include ACLs in the dot file ? false by default
+--domains:`<value>`|*Optional*|Should we include entity relations in the dot file ? false by default
 

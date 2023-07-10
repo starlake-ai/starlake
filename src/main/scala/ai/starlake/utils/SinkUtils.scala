@@ -38,7 +38,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           session,
           dataframe,
           savePath,
-          sink.name.getOrElse(table),
+          sink.connectionRef.getOrElse(table),
           table
         )
       }
@@ -54,7 +54,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               session,
               dataframe,
               savePath,
-              sink.name.getOrElse(table),
+              sink.connectionRef.getOrElse(table),
               table
             )
           }
@@ -70,10 +70,10 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           sinkToBigQuery(
             dataframe,
             database,
-            sink.name.getOrElse(table),
+            sink.connectionRef.getOrElse(table),
             table,
             maybeTableDescription,
-            sink.name,
+            sink.connectionRef,
             sink.getOptions
           )
         }
@@ -81,7 +81,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       case sink: JdbcSink =>
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            sink.connection,
+            sink.connectionRef
+              .getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
             settings.comet,
             Right(dataframe),
             domain + "." + table,
@@ -101,12 +102,12 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     bqDataset: String,
     bqTable: String,
     maybeTableDescription: Option[String],
-    connection: Option[String] = None,
+    connectionRef: Option[String] = None,
     options: Map[String, String]
   ): Unit = {
     if (dataframe.count() > 0) {
       val config = BigQueryLoadConfig(
-        connection,
+        connectionRef,
         Right(dataframe),
         outputTableId =
           Some(BigQueryJobBase.extractProjectDatasetAndTable(bqDatabase, bqDataset, bqTable)),

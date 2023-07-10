@@ -192,7 +192,7 @@ class MetricsJob(
             settings.comet.audit.sink,
             df,
             settings.comet.audit.database,
-            settings.comet.audit.sink.name.getOrElse("audit"),
+            settings.comet.audit.sink.connectionRef.getOrElse("audit"),
             table.toString,
             Some("Metrics on tables"),
             new Path(savePath, table.toString),

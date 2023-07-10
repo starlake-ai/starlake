@@ -183,7 +183,7 @@ object AuditLog extends StrictLogging {
       val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
       logger.info(s"Saving audit to path $auditPath")
       if (settings.comet.hive) {
-        val hiveDB = settings.comet.audit.sink.name.getOrElse("audit")
+        val hiveDB = settings.comet.audit.sink.connectionRef.getOrElse("audit")
         val tableName = "audit"
         val fullTableName = s"$hiveDB.$tableName"
         session.sql(s"create database if not exists $hiveDB")
@@ -226,10 +226,12 @@ object AuditLog extends StrictLogging {
           )
           .toDF(auditCols.map { case (name, _, _) => name }: _*)
         val jdbcConfig = ConnectionLoadConfig.fromComet(
-          sink.connection,
+          // throw new Exception("JdbcSink requires a connectionRef")
+          sink.connectionRef
+            .getOrElse("audit"),
           settings.comet,
           Right(auditDF),
-          settings.comet.audit.sink.name.getOrElse("audit") + "." + "audit",
+          settings.comet.audit.sink.connectionRef.getOrElse("audit") + "." + "audit",
           sinkOptions = sink.getOptions
         )
         new ConnectionLoadJob(jdbcConfig).run()
@@ -257,9 +259,11 @@ object AuditLog extends StrictLogging {
     settings: Settings
   ): Try[JobResult] = {
     val auditOutputTarget =
-      BigQueryJobBase.extractProjectDatasetAndTable(sink.name.getOrElse("audit") + "." + "audit")
+      BigQueryJobBase.extractProjectDatasetAndTable(
+        sink.connectionRef.getOrElse("audit") + "." + "audit"
+      )
     val bqConfig = BigQueryLoadConfig(
-      sink.name,
+      sink.connectionRef,
       Left("ignore"),
       outputTableId = Some(auditOutputTarget),
       None,
