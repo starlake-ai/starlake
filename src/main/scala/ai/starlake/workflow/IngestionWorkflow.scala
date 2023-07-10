@@ -754,7 +754,7 @@ class IngestionWorkflow(
                         }
                         val bqLoadConfig =
                           BigQueryLoadConfig(
-                            connection = bqSink.name,
+                            connectionRef = bqSink.connectionRef,
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
@@ -785,7 +785,11 @@ class IngestionWorkflow(
                         result.isSuccess
 
                       case jdbcSink: JdbcSink =>
-                        val jdbcName = jdbcSink.connection
+                        val jdbcName =
+                          jdbcSink.connectionRef
+                            .getOrElse(
+                              throw new Exception("JdbcSink requires a connectionRef")
+                            )
                         val source = maybeDataFrame
                           .map(df => Right(df))
                           .getOrElse(Left(action.taskDesc.getTargetPath().toString))
@@ -913,7 +917,7 @@ class IngestionWorkflow(
   }
   def applyIamPolicies(): Boolean = {
     val ignore = BigQueryLoadConfig(
-      connection = None,
+      connectionRef = None,
       outputDatabase = None
     )
     schemaHandler
@@ -950,16 +954,19 @@ class IngestionWorkflow(
           val isJdbcSink =
             sink.isInstanceOf[JdbcSink]
           if (isJdbcSink) {
-            val connectionName = sink.asInstanceOf[JdbcSink].connection
+            val connectionName = sink
+              .asInstanceOf[JdbcSink]
+              .connectionRef
+              .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
             val connection = settings.comet.connections(connectionName)
             if (connection.isSnowflake)
               dummyIngestionJob.applySnowflakeTableAcl()
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain, sink.name)
+            val database = schemaHandler.getDatabase(domain, sink.connectionRef)
             val config = BigQueryLoadConfig(
-              connection = metadata.sink.flatMap(_.name),
+              connectionRef = metadata.sink.flatMap(_.connectionRef),
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(database, domain.name, schema.finalName)

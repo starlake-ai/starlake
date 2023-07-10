@@ -27,33 +27,33 @@ class SinkSpec extends TestHelper {
     "parsing any sink without options" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "None"
           |""".stripMargin,
         classOf[Sink]
-      ) shouldBe NoneSink(name = Some("sink"))
+      ) shouldBe NoneSink(connectionRef = Some("sink"))
     }
 
     "parsing any sink with options" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "None"
           |options:
           |  anyOption: "true"
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe NoneSink(
-        name = Some("sink"),
+        connectionRef = Some("sink"),
         options = Some(Map("anyOption" -> "true"))
       )
     }
 
     "writing any sink without options" should "succeed" in {
       mapper.writeValueAsString(
-        NoneSink(name = Some("sink"))
+        NoneSink(connectionRef = Some("sink"))
       ) shouldBe """--- !<None>
-                         |name: "sink"
+                         |connectionRef: "sink"
                          |type: "None"
                          |""".stripMargin
     }
@@ -61,11 +61,11 @@ class SinkSpec extends TestHelper {
     "writing any sink with options" should "succeed" in {
       mapper.writeValueAsString(
         NoneSink(
-          name = Some("sink"),
+          connectionRef = Some("sink"),
           options = Some(Map("anyOption" -> "true"))
         )
       ) shouldBe """--- !<None>
-                         |name: "sink"
+                         |connectionRef: "sink"
                          |options:
                          |  anyOption: "true"
                          |type: "None"
@@ -75,7 +75,7 @@ class SinkSpec extends TestHelper {
     "parsing BQ sink" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "BQ"
           |timestamp: "timestamp"
           |options:
@@ -83,7 +83,7 @@ class SinkSpec extends TestHelper {
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe BigQuerySink(
-        name = Some("sink"),
+        connectionRef = Some("sink"),
         timestamp = Some("timestamp"),
         options = Some(Map("anyOption" -> "true"))
       )
@@ -92,7 +92,7 @@ class SinkSpec extends TestHelper {
     "parsing FS sink" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "FS"
           |extension: "extension"
           |options:
@@ -100,7 +100,7 @@ class SinkSpec extends TestHelper {
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe FsSink(
-        name = Some("sink"),
+        connectionRef = Some("sink"),
         extension = Some("extension"),
         options = Some(Map("anyOption" -> "true"))
       )
@@ -109,7 +109,7 @@ class SinkSpec extends TestHelper {
     "parsing ES sink" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "ES"
           |timestamp: "timestamp"
           |options:
@@ -117,7 +117,7 @@ class SinkSpec extends TestHelper {
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe EsSink(
-        name = Some("sink"),
+        connectionRef = Some("sink"),
         timestamp = Some("timestamp"),
         options = Some(Map("anyOption" -> "true"))
       )
@@ -126,17 +126,16 @@ class SinkSpec extends TestHelper {
     "parsing JDBC sink" should "succeed" in {
       mapper.readValue(
         """
-          |name: "sink"
+          |connectionRef: "sink"
           |type: "JDBC"
-          |connection: "connection"
+          |connectionRef: "connection"
           |options:
           |  anyOption: "true"
           |  partitions: 3
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe JdbcSink(
-        name = Some("sink"),
-        connection = "connection",
+        connectionRef = Some("sink"),
         options = Some(Map("anyOption" -> "true", "partitions" -> "3"))
       )
     }

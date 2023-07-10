@@ -3,7 +3,7 @@ transform:
   engine: ${engine}
   sink:
     type: {{sink_type}}
-    connection: {{sink_connection}}
+    connectionRef: {{sink_connection}}
   tasks:
     - name: byseller
       engine: ${engine}

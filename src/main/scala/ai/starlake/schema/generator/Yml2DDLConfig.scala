@@ -25,7 +25,7 @@ import scopt.OParser
 case class Yml2DDLConfig(
   datawarehouse: String = "",
   outputPath: Option[String] = None,
-  connection: Option[String] = None,
+  connectionRef: Option[String] = None,
   domain: Option[String] = None,
   schemas: Option[Seq[String]] = None,
   catalog: Option[String] = None,
@@ -46,7 +46,7 @@ object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
         .required()
         .text("target datawarehouse name (ddl mapping key in types.yml"),
       opt[String]("connection")
-        .action((x, c) => c.copy(connection = Some(x)))
+        .action((x, c) => c.copy(connectionRef = Some(x)))
         .optional()
         .text("JDBC connection name with at least read write on database schema"),
       opt[String]("output")

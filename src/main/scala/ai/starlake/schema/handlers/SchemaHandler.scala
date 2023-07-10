@@ -932,12 +932,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def getDatabase(domain: Domain, connection: Option[String])(implicit
+  def getDatabase(domain: Domain, connectionRef: Option[String])(implicit
     settings: Settings
   ): Option[String] = {
 
     domain.database
-      .orElse(connection.flatMap { conn =>
+      .orElse(connectionRef.flatMap { conn =>
         val options = settings.comet.connections.get(conn)
         options.flatMap(_.options.get("database"))
       })
