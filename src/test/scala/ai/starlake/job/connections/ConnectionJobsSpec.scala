@@ -35,7 +35,7 @@ class ConnectionJobsSpec extends TestHelper {
         "users",
         "userout",
         WriteMode.OVERWRITE,
-        sink = Some(JdbcSink(connection = connection)),
+        sink = Some(JdbcSink(connectionRef = Some(connection))),
         python = None,
         merge = None
       )

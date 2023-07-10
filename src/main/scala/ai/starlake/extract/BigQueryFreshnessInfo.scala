@@ -49,7 +49,7 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val errorStatus =
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain, config.connection).getOrElse(""),
+                        schemaHandler.getDatabase(domain, config.connectionRef).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -60,7 +60,7 @@ object BigQueryFreshnessInfo {
 
                     errorStatus.orElse {
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain, config.connection).getOrElse(""),
+                        schemaHandler.getDatabase(domain, config.connectionRef).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,

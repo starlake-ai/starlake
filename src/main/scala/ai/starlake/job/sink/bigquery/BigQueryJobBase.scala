@@ -32,7 +32,9 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
 
   val connectionOptions: Map[String, String] =
-    cliConfig.connection.map(name => settings.comet.connections(name).options).getOrElse(Map.empty)
+    cliConfig.connectionRef
+      .map(name => settings.comet.connections(name).options)
+      .getOrElse(Map.empty)
 
   def projectId: String = {
     cliConfig.outputDatabase
@@ -48,7 +50,7 @@ trait BigQueryJobBase extends StrictLogging {
     settings: Settings
   ): scala.Option[ServiceAccountCredentials] = {
     val connectionOptions =
-      cliConfig.connection.map(name => settings.comet.connections(name).options)
+      cliConfig.connectionRef.map(name => settings.comet.connections(name).options)
     connectionOptions.flatMap(_.get("serviceAccountKey")).map { gcpSAJsonKey =>
       val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
         val path = new Path(gcpSAJsonKey)

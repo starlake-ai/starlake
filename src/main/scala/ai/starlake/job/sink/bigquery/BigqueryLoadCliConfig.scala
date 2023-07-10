@@ -4,7 +4,7 @@ import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, S
 import org.apache.spark.sql.DataFrame
 
 case class BigQueryLoadCliConfig(
-  connection: Option[String] = None,
+  connectionRef: Option[String] = None,
   source: Either[String, DataFrame] = Left(""),
   outputDatabase: Option[String] = None,
   outputDataset: Option[String] = None,
@@ -28,7 +28,7 @@ case class BigQueryLoadCliConfig(
   materializedView: Boolean = false
 ) {
   def asBigqueryLoadConfig() = BigQueryLoadConfig(
-    connection = connection,
+    connectionRef = connectionRef,
     source = source,
     outputTableId = Some(
       BigQueryJobBase.extractProjectDatasetAndTable(

@@ -14,7 +14,7 @@ object BigQueryInfo {
     val bqJob = new BigQueryJobBase {
       val settings = implicitSettings
       override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
-        connection = config.connection,
+        connectionRef = config.connectionRef,
         outputDatabase = None
       )
     }

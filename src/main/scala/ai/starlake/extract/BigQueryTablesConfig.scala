@@ -6,7 +6,7 @@ import scopt.OParser
 
 case class BigQueryTablesConfig(
   writeMode: Option[WriteMode] = None,
-  connection: Option[String] = None,
+  connectionRef: Option[String] = None,
   tables: Map[String, List[String]] = Map.empty,
   jobs: Seq[String] = Seq.empty,
   persist: Boolean = true
@@ -27,7 +27,7 @@ object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
         .text(s"One of ${WriteMode.writes}")
         .optional(),
       opt[String]("connection")
-        .action((x, c) => c.copy(connection = Some(x)))
+        .action((x, c) => c.copy(connectionRef = Some(x)))
         .text(s"Connection to use")
         .optional(),
       opt[Seq[String]]("tables")

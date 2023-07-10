@@ -103,7 +103,7 @@ class GenericIngestionJob(
 
   class LastExportDateRequest(domainName: String, schemaName: String)
       extends SQlRequest[java.sql.Timestamp] {
-    val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
+    val auditSchema = settings.comet.audit.sink.connectionRef.getOrElse("audit")
     val queryString =
       s"SELECT max(timestamp) FROM $auditSchema.SL_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
     def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
@@ -150,7 +150,7 @@ class GenericIngestionJob(
     row: DeltaRow
   ): Try[PreparedStatement] = {
     Try {
-      val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
+      val auditSchema = settings.comet.audit.sink.connectionRef.getOrElse("audit")
       val sqlInsert =
         s"insert into $auditSchema.SL_LAST_EXPORT(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
       val preparedStatement = conn.prepareStatement(sqlInsert)
