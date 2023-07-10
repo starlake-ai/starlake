@@ -413,7 +413,8 @@ case class AutoTask(
 
   def registerFSViews() = {
     val acceptedPath = DatasetArea.accepted(".")
-    val domains = storageHandler.listDirectories(acceptedPath)
+    val domains =
+      if (storageHandler.exists(acceptedPath)) storageHandler.listDirectories(acceptedPath) else Nil
     domains.flatMap { domain =>
       val domainName = domain.getName
       val tables = storageHandler.listDirectories(domain)
