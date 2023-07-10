@@ -25,13 +25,13 @@ object BigQuerySparkWriter extends StrictLogging {
         }
         val bqLoadConfig =
           BigQueryLoadConfig(
-            connectionRef = settings.comet.audit.sink.connectionRef,
+            connectionRef = settings.comet.audit.sink.getConnectionRef(),
             source = source,
             outputTableId = Some(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
                   settings.comet.audit.database,
-                  sink.connectionRef.getOrElse("audit"),
+                  sink.getConnectionRef().getOrElse("audit"),
                   tableName
                 )
             ),
