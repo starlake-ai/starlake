@@ -1,11 +1,8 @@
 transform:
   name: kpi
-  engine: ${engine}
+  engine: {{engine}}
   sink:
-    type: BQ
-  views:
-    sellers: "${sellers_view}"
-    orders: "${orders_view}"
+    type: {{sink_type}}
   tasks:
     - name: byseller
       domain: sales_kpi

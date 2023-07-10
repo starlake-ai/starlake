@@ -41,13 +41,13 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
         .action((x, c) => c.copy(acl = true))
         .optional()
         .text(
-          "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"
+          "Should we include ACLs in the dot file ? false by default"
         ),
       opt[Unit]("domains")
         .action((x, c) => c.copy(domains = true))
         .optional()
         .text(
-          "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"
+          "Should we include entity relations in the dot file ? false by default"
         )
     )
   }

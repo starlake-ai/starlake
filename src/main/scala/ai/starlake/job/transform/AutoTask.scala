@@ -20,7 +20,7 @@
 
 package ai.starlake.job.transform
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.ExpectationJob
 import ai.starlake.job.sink.bigquery.{
@@ -181,7 +181,7 @@ case class AutoTask(
         taskDesc.table
       )
     logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildAllSQLQueries(tableExists)
+    val (preSql, mainSql, postSql) = buildAllSQLQueries(tableExists, Nil)
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
 
@@ -256,7 +256,10 @@ case class AutoTask(
     }
   }
 
-  def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
+  def buildAllSQLQueries(
+    tableExists: Boolean,
+    localViews: List[String]
+  ): (List[String], String, List[String]) = {
     // available jinja variables to build sql query depending on
     // whether the table exists or not.
     val jinjaVars = Map("merge" -> tableExists)
@@ -267,7 +270,8 @@ case class AutoTask(
           schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
           schemaHandler.refs(),
           schemaHandler.domains(),
-          schemaHandler.jobs()
+          schemaHandler.jobs(),
+          localViews
         )
       else {
         taskDesc.merge match {
@@ -289,7 +293,8 @@ case class AutoTask(
               schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
               schemaHandler.refs(),
               schemaHandler.domains(),
-              schemaHandler.jobs()
+              schemaHandler.jobs(),
+              localViews
             )
         }
       }
@@ -406,14 +411,42 @@ case class AutoTask(
     true
   }
 
+  def registerFSViews() = {
+    val acceptedPath = DatasetArea.accepted(".")
+    val domains = storageHandler.listDirectories(acceptedPath)
+    domains.flatMap { domain =>
+      val domainName = domain.getName
+      val tables = storageHandler.listDirectories(domain)
+      tables.flatMap { table =>
+        Try {
+          val tableName = table.getName
+          logger.info(s"registering view for $domainName.$tableName with path $table")
+          val tableDF = session.read
+            .format(settings.comet.defaultFormat)
+            .load(table.toString)
+          tableDF.createOrReplaceTempView(tableName)
+          tableName
+        }.toOption
+      }
+    }
+  }
+
   def runSpark(drop: Boolean): Try[(SparkJobResult, String)] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
+      val localViews =
+        if (sink.exists(_.isInstanceOf[FsSink]) && settings.comet.fileSystem.startsWith("file:")) {
+          // we are in local development mode
+          registerFSViews()
+        } else {
+          Nil
+        }
 
       val tableExists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
 
-      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries(tableExists)
+      val (preSql, sqlWithParameters, postSql) =
+        buildAllSQLQueries(tableExists, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.engine}")
