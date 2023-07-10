@@ -25,13 +25,13 @@ object BigQuerySparkWriter extends StrictLogging {
         }
         val bqLoadConfig =
           BigQueryLoadConfig(
-            connection = settings.comet.audit.sink.name,
+            connectionRef = settings.comet.audit.sink.connectionRef,
             source = source,
             outputTableId = Some(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
                   settings.comet.audit.database,
-                  sink.name.getOrElse("audit"),
+                  sink.connectionRef.getOrElse("audit"),
                   tableName
                 )
             ),
@@ -61,7 +61,8 @@ object BigQuerySparkWriter extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
+      case _: NoneSink =>
+      case _: FsSink   =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
       case _ =>
     }

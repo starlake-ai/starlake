@@ -13,7 +13,7 @@ import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class BigQueryLoadConfig(
-  connection: Option[String],
+  connectionRef: Option[String],
   source: Either[String, DataFrame] = Left(""),
   outputTableId: Option[TableId] = None,
   outputPartition: Option[String] = None,

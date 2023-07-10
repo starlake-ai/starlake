@@ -286,26 +286,29 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     }
   }
 
-  val jdbcConfiguration: Config =
-    ConfigFactory
+  val jdbcConfiguration: Config = {
+    val config = ConfigFactory
       .parseString("""
                      |metrics {
                      |  active = true
-                     |  sink {
-                     |    type = "JdbcSink"
-                     |    connection = "test-h2"
-                     |  }
                      |}
                      |
                      |audit {
                      |  active = true
                      |  sink {
                      |    type = "JdbcSink"
-                     |    connection = "test-h2"
+                     |    connectionRef = "test-h2"
+                     |    options = {
+                     |      allowFieldAddition: "false"
+                     |      allowFieldRelaxation: "true"
+                     |    }
                      |  }
                      |}
                      |""".stripMargin)
-      .withFallback(super.testConfiguration)
+    val result = config.withFallback(super.testConfiguration)
+    result
+
+  }
 
   private def expectedMetricRecords(implicit
     settings: Settings

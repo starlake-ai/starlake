@@ -82,25 +82,29 @@ trait TestHelper
   lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
 
   def testConfiguration: Config = {
-    val rootConfig = ConfigFactory.parseString(
+    val baseConfigString =
       s"""
-        |SL_ASSERTIONS_ACTIVE=true
-        |SL_ROOT="${cometTestRoot}"
-        |SL_TEST_ID="${cometTestId}"
-        |SL_DATASETS="${cometDatasetsPath}"
-        |SL_METADATA="${cometMetadataPath}"
-        |SL_TMPDIR="${cometTestRoot}/tmp"
-        |SL_LOCK_PATH="${cometTestRoot}/locks"
-        |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
-        |SL_AUDIT_PATH="${cometTestRoot}/audit"
-        |SL_UDFS="ai.starlake.udf.TestUdf"
-        |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
-        |SL_ACCESS_POLICIES_LOCATION="eu"
-        |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
-        |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
+         |SL_ASSERTIONS_ACTIVE=true
+         |SL_ROOT="${cometTestRoot}"
+         |SL_TEST_ID="${cometTestId}"
+         |SL_DATASETS="${cometDatasetsPath}"
+         |SL_METADATA="${cometMetadataPath}"
+         |SL_TMPDIR="${cometTestRoot}/tmp"
+         |SL_LOCK_PATH="${cometTestRoot}/locks"
+         |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
+         |SL_AUDIT_PATH="${cometTestRoot}/audit"
+         |SL_UDFS="ai.starlake.udf.TestUdf"
+         |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
+         |SL_ACCESS_POLICIES_LOCATION="eu"
+         |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
+         |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
           .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
-        |include required("application-test.conf")
-        |""".stripMargin,
+         |include required("application-test.conf")
+         |
+         |""".stripMargin
+
+    val rootConfig = ConfigFactory.parseString(
+      baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)
     )
     val testConfig =

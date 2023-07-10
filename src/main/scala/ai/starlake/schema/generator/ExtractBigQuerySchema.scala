@@ -19,7 +19,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   val bqJob = new BigQueryJobBase {
     val settings = implicitSettings
     override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
-      connection = config.connection,
+      connectionRef = config.connectionRef,
       outputDatabase = None
     )
   }
@@ -73,7 +73,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
       tables = schemas.toList,
       comment = Option(dataset.getDescription),
       metadata = Some(
-        Metadata(sink = Some(BigQuerySink(name = config.connection)))
+        Metadata(sink = Some(BigQuerySink(connectionRef = config.connectionRef)))
       ),
       database = Option(dataset.getDatasetId().getProject())
     )

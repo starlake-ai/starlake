@@ -10,7 +10,7 @@ load:
     write: "APPEND"
     sink:
       type: {{sink_type}}
-      connection: {{sink_connection}}
+      connectionRef: {{sink_connection}}
   schemas:
     - name: "customers"
       pattern: "customers-.*.psv"
