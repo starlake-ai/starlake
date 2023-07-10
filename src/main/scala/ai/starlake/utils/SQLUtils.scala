@@ -7,6 +7,7 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.StatementVisitorAdapter
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
 
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -14,7 +15,7 @@ import scala.util.{Failure, Success, Try}
 object SQLUtils extends StrictLogging {
   val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
   val joinRegex = "(?i)\\s+JOIN\\s+([_\\-a-z0-9`./]+)".r
-  // val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
+  val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
 
   /** Syntax parser
     *
@@ -54,7 +55,6 @@ object SQLUtils extends StrictLogging {
   }
 
   def extractCTEsFromSQL(sql: String): List[String] = {
-    val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
     val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
     ctes.map(_.replaceAll("`", ""))
   }
@@ -76,6 +76,20 @@ object SQLUtils extends StrictLogging {
     val select = CCJSqlParserUtil.parse(sql)
     select.accept(statementVisitor)
     result
+  }
+
+  def extractCTENames(sql: String): List[String] = {
+    var result: ListBuffer[String] = ListBuffer()
+    val statementVisitor = new StatementVisitorAdapter() {
+      override def visit(select: Select): Unit = {
+        select.getWithItemsList().asScala.foreach { withItem =>
+          result :+ withItem.getName()
+        }
+      }
+    }
+    val select = CCJSqlParserUtil.parse(sql)
+    select.accept(statementVisitor)
+    result.toList
   }
 
   private def buildWhenNotMatchedInsert(sql: String): String = {
@@ -139,14 +153,24 @@ object SQLUtils extends StrictLogging {
     vars: Map[String, Any],
     refs: Refs,
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc]
+    jobs: Map[String, AutoJobDesc],
+    localViews: List[String]
   )(implicit
     settings: Settings
   ): String = {
     logger.info(s"Source J2SQL: $j2sql")
     val sql = Utils.parseJinja(j2sql, vars)
     val fromResolved =
-      buildSingleSQLQueryForRegex(sql, vars, refs, domains, jobs, SQLUtils.fromsRegex, "FROM")
+      buildSingleSQLQueryForRegex(
+        sql,
+        vars,
+        refs,
+        domains,
+        jobs,
+        localViews,
+        SQLUtils.fromsRegex,
+        "FROM"
+      )
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
@@ -154,6 +178,7 @@ object SQLUtils extends StrictLogging {
         refs,
         domains,
         jobs,
+        localViews,
         SQLUtils.joinRegex,
         "JOIN"
       )
@@ -166,12 +191,14 @@ object SQLUtils extends StrictLogging {
     refs: Refs,
     domains: List[Domain],
     jobs: Map[String, AutoJobDesc],
+    localViews: List[String],
     regex: Regex,
     keyword: String
   )(implicit
     settings: Settings
   ): String = {
     logger.info(s"Source SQL: $sql")
+    val ctes = SQLUtils.extractCTEsFromSQL(sql) ++ localViews
     var resolvedSQL = ""
     var startIndex = 0
     val fromMatches = regex
@@ -186,7 +213,7 @@ object SQLUtils extends StrictLogging {
           val source = ltrim(regex.source.toString.substring(regex.start, regex.end))
           val tablesAndAlias = source.substring(keyword.length).split(",")
           val tableAndAliasFinalNames = tablesAndAlias.map { tableAndAlias =>
-            resolveTableNameInSql(tableAndAlias, refs, domains, jobs)
+            resolveTableNameInSql(tableAndAlias, refs, domains, jobs, ctes)
           }
           val newSource = tableAndAliasFinalNames.mkString(", ")
           val newFrom = s" $keyword $newSource"
@@ -203,16 +230,20 @@ object SQLUtils extends StrictLogging {
     tableAndAlias: String,
     refs: Refs,
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc]
+    jobs: Map[String, AutoJobDesc],
+    ctes: List[String]
   )(implicit
     settings: Settings
   ): String = {
+    def cteContains(table: String): Boolean = ctes.exists(cte => cte.equalsIgnoreCase(table))
+
     val tableAndAliasArray = tableAndAlias.trim.split("\\s")
     val tableName = tableAndAliasArray.head
     val tableTuple = tableName.replaceAll("`", "").split("\\.").toList
-    if (tableName.contains("/") || tableName.contains("(")) {
+    if (cteContains(tableName) || tableName.contains("/") || tableName.contains("(")) {
       // this is a parquet reference with Spark syntax
       // or a function: from date(...)
+      // or a CTE reference
       tableAndAlias
     } else {
       val activeEnvRefs = refs

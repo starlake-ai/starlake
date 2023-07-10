@@ -664,7 +664,7 @@ class IngestionWorkflow(
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
       // TODO Interactive compilation should check table existence
-      val (_, mainSQL, _) = action.buildAllSQLQueries(false)
+      val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
       mainSQL
     }
     result.foreach { sql =>

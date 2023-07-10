@@ -97,6 +97,15 @@ class SqlUtilsSpec extends TestHelper {
       ))
     }
 
+    "Extract CTE from select" should "return all CTE names" in {
+      val refs = SQLUtils.extractCTEsFromSQL(selectWithCTEs)
+      refs should contain theSameElementsAs (List(
+        "transactions",
+        "locations",
+        "sellers"
+      ))
+    }
+
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
       val sqlMerge =
         SQLUtils.buildMergeSql(
