@@ -62,7 +62,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             WriteMode.OVERWRITE,
             sink = Some(
-              BigQuerySink(name = Some("sinktest"), timestamp = Some("DOB"))
+              BigQuerySink(name = None, timestamp = Some("DOB"))
             ),
             merge = None
           )
