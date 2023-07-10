@@ -102,7 +102,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             "jobresult",
             WriteMode.OVERWRITE,
             sink = Some(
-              BigQuerySink(name = Some("sinktest"), location = Some("EU"))
+              BigQuerySink(name = None, location = Some("EU"))
             ),
             engine = Some(Engine.BQ),
             python = None,
