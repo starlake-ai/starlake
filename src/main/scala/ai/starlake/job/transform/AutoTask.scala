@@ -124,9 +124,9 @@ case class AutoTask(
     val bqSink =
       taskDesc.sink
         .map(sink => sink.asInstanceOf[BigQuerySink])
-        .getOrElse(BigQuerySink(connectionRef = sink.flatMap(_.connectionRef)))
+        .getOrElse(BigQuerySink(connectionRef = sink.flatMap(_.getConnectionRef())))
     BigQueryLoadConfig(
-      connectionRef = sink.flatMap(_.connectionRef),
+      connectionRef = sink.flatMap(_.getConnectionRef()),
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)

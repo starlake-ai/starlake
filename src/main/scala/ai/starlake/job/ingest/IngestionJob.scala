@@ -192,9 +192,9 @@ trait IngestionJob extends SparkJob {
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getSink().flatMap(_.connectionRef),
+      connectionRef = mergedMetadata.getSink().flatMap(_.getConnectionRef()),
       outputDatabase =
-        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef))
+        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef()))
     )
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.foreach { sql =>
@@ -275,9 +275,9 @@ trait IngestionJob extends SparkJob {
     )
 
     val bqSink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
-    val connectionLocation = bqSink.flatMap(_.connectionsOptions().flatMap(_.get("location")))
+    val connectionLocation = bqSink.flatMap(_.connectionRefOptions().flatMap(_.get("location")))
     val commonConfig = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getSink().flatMap(_.connectionRef),
+      connectionRef = mergedMetadata.getSink().flatMap(_.getConnectionRef()),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
       sourceFormat = settings.comet.defaultFormat,
@@ -296,7 +296,7 @@ trait IngestionJob extends SparkJob {
       domainTags = domain.tags,
       domainDescription = domain.comment,
       outputDatabase =
-        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef))
+        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef()))
     )
 
     val firstStepConfig = commonConfig.copy(
@@ -304,7 +304,7 @@ trait IngestionJob extends SparkJob {
         BigQueryJobBase
           .extractProjectDatasetAndTable(
             schemaHandler
-              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef)),
+              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef())),
             domain.finalName,
             "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
           )
@@ -317,7 +317,7 @@ trait IngestionJob extends SparkJob {
         BigQueryJobBase
           .extractProjectDatasetAndTable(
             schemaHandler
-              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef)),
+              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef())),
             domain.finalName,
             schema.finalName
           )
@@ -489,7 +489,7 @@ trait IngestionJob extends SparkJob {
               end.getTime - start.getTime,
               err,
               Step.LOAD.toString,
-              schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+              schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
               settings.comet.tenant
             )
             AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -523,7 +523,7 @@ trait IngestionJob extends SparkJob {
                 end.getTime - start.getTime,
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString,
-                schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+                schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
                 settings.comet.tenant
               )
               AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1095,7 +1095,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             "success",
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+            schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1116,7 +1116,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+            schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1268,7 +1268,7 @@ trait IngestionJob extends SparkJob {
     val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
     sink.foreach { sink =>
       val jdbcConfig = ConnectionLoadConfig.fromComet(
-        sink.connectionRef.getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
+        sink.getConnectionRef().getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
         settings.comet,
         Right(mergedDF),
         outputTable = domain.finalName + "." + schema.finalName,
@@ -1300,13 +1300,13 @@ trait IngestionJob extends SparkJob {
       case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
     }
     val config = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getSink().flatMap(_.connectionRef),
+      connectionRef = mergedMetadata.getSink().flatMap(_.getConnectionRef()),
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(
             schemaHandler
-              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef)),
+              .getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef())),
             domain.finalName,
             schema.finalName
           )
@@ -1326,7 +1326,7 @@ trait IngestionJob extends SparkJob {
       domainTags = domain.tags,
       domainDescription = domain.comment,
       outputDatabase =
-        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.connectionRef))
+        schemaHandler.getDatabase(domain, mergedMetadata.getSink().flatMap(_.getConnectionRef()))
     )
     val res = new BigQuerySparkJob(
       config,
@@ -1441,7 +1441,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           "success",
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+          schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1462,7 +1462,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain, settings.comet.audit.sink.connectionRef),
+          schemaHandler.getDatabase(domain, settings.comet.audit.sink.getConnectionRef()),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1524,13 +1524,13 @@ object IngestionUtil {
       settings.comet.audit.sink match {
         case sink: BigQuerySink =>
           val bqConfig = BigQueryLoadConfig(
-            sink.connectionRef,
+            sink.getConnectionRef(),
             Right(rejectedDF),
             outputTableId = Some(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
                   settings.comet.audit.database,
-                  sink.connectionRef.getOrElse("audit"),
+                  sink.getConnectionRef().getOrElse("audit"),
                   "rejected"
                 )
             ),
@@ -1554,12 +1554,12 @@ object IngestionUtil {
 
         case sink: JdbcSink =>
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            // throw new Exception("JdbcSink requires a connectionRef")
-            sink.connectionRef
-              .getOrElse("audit"),
+            sink
+              .getConnectionRef()
+              .getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
             settings.comet,
             Right(rejectedDF),
-            settings.comet.audit.sink.connectionRef.getOrElse("audit") + "." + "rejected",
+            settings.comet.audit.sink.getConnectionRef().getOrElse("audit") + "." + "rejected",
             sinkOptions = sink.getOptions
           )
 

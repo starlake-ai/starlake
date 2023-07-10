@@ -95,12 +95,16 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 )
 sealed abstract class Sink(
   val `type`: String,
-  val write: Option[WriteMode] = None
+  val write: Option[WriteMode] = None,
+  val options: Option[Map[String, String]] = None,
+  val connectionRef: Option[String] = None
 ) {
-  def getConnectionRef(): Option[String]
+  def getConnectionRef(): Option[String] = connectionRef
   def getType(): SinkType = SinkType.fromString(`type`)
-  def getOptions: Map[String, String]
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]]
+  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
+  def connectionRefOptions()(implicit settings: Settings): Option[Map[String, String]] =
+    getConnectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
+
 }
 
 /*trait SinkTrait extends Sink{
@@ -121,20 +125,15 @@ sealed abstract class Sink(
   */
 @JsonTypeName("BQ")
 final case class BigQuerySink(
-  connectionRef: Option[String] = None,
+  override val connectionRef: Option[String] = None,
   location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  options: Option[Map[String, String]] = None,
+  override val options: Option[Map[String, String]] = None,
   materializedView: Option[Boolean] = None
-) extends Sink(SinkType.BQ.value) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    connectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
-}
+) extends Sink(SinkType.BQ.value)
 
 /** When the sink *type* field is set to ES, the options below should be provided. Elasticsearch
   * options are specified in the application.conf file.
@@ -145,45 +144,30 @@ final case class BigQuerySink(
   */
 @JsonTypeName("ES")
 final case class EsSink(
-  connectionRef: Option[String] = None,
+  override val connectionRef: Option[String] = None,
   id: Option[String] = None,
   timestamp: Option[String] = None,
-  options: Option[Map[String, String]] = None
-) extends Sink(SinkType.ES.value) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    connectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
-}
+  override val options: Option[Map[String, String]] = None
+) extends Sink(SinkType.ES.value)
 
 @JsonTypeName("None")
 final case class NoneSink(
-  connectionRef: Option[String] = None,
-  options: Option[Map[String, String]] = None
-) extends Sink(SinkType.None.value) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    connectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
-}
+  override val connectionRef: Option[String] = None,
+  override val options: Option[Map[String, String]] = None
+) extends Sink(SinkType.None.value)
 
 // We had to set format and extension outside options because of the bug below
 // https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
 @JsonTypeName("FS")
 final case class FsSink(
-  connectionRef: Option[String] = None,
+  override val connectionRef: Option[String] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
-  options: Option[Map[String, String]] = None,
+  override val options: Option[Map[String, String]] = None,
   coalesce: Option[Boolean] = None
-) extends Sink(SinkType.FS.value) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    connectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
-}
+) extends Sink(SinkType.FS.value)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connectionRef:
@@ -195,14 +179,9 @@ final case class FsSink(
   */
 @JsonTypeName("JDBC")
 final case class JdbcSink(
-  connectionRef: Option[String] = None,
-  options: Option[Map[String, String]] = None
-) extends Sink(SinkType.JDBC.value) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionsOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    connectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
-}
+  override val connectionRef: Option[String] = None,
+  override val options: Option[Map[String, String]] = None
+) extends Sink(SinkType.JDBC.value)
 
 object Sink {
 
