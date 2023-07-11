@@ -840,24 +840,35 @@ trait BigQueryJobBase extends StrictLogging {
 object BigQueryJobBase {
 
   private def getBqDatasetId(tableId: TableId): DatasetId = {
-    scala.Option(tableId.getProject) match {
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), "")
+    scala.Option(projectId) match {
       case Some(_) => DatasetId.of(tableId.getProject, tableId.getDataset)
       case None    => DatasetId.of(tableId.getDataset)
     }
   }
 
   def getBqDatasetForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(tableId.getProject, ".")
-    s"${projectId}${tableId.getDataset}"
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
+    projectId match {
+      case None            => tableId.getDataset
+      case Some(projectId) => s"${projectId}${tableId.getDataset}"
+    }
   }
 
   def getBqTableForSpark(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(tableId.getProject, ":")
-    s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ":")
+    projectId match {
+      case None            => s"${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+    }
   }
+
   def getBqTableForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(tableId.getProject, ".")
-    s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
+    projectId match {
+      case None            => s"${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+    }
   }
 
   def extractProjectDatasetAndTable(
@@ -865,7 +876,7 @@ object BigQueryJobBase {
     datasetId: String,
     tableId: String
   ): TableId = {
-    databaseId match {
+    databaseId.filter(_.nonEmpty) match {
       case Some(dbId) =>
         BigQueryJobBase.extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId)
       case None =>
@@ -915,7 +926,9 @@ object BigQueryJobBase {
       .getOrElse(DatasetId.of(ServiceOptions.getDefaultProjectId(), dataset))
   }
 
-  private def getProjectIdPrefix(nullableProjectId: String, separator: String): String = {
-    scala.Option(nullableProjectId).map(_ + separator).getOrElse("")
-  }
+  private def getProjectIdPrefix(
+    projectId: scala.Option[String],
+    separator: String
+  ): scala.Option[String] =
+    projectId.filter(_.trim.nonEmpty).map(_ + separator)
 }
