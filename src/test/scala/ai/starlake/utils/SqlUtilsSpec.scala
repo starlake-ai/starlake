@@ -118,7 +118,7 @@ class SqlUtilsSpec extends TestHelper {
         )
       sqlMerge.replaceAll("\\s", "") should be("""
           |MERGE INTO
-          |`starlake-project-id`.`dataset3`.`transactions_v3` as SL_INTERNAL_SINK
+          |`starlake-project-id.dataset3.transactions_v3` as SL_INTERNAL_SINK
           |USING(WITH
           |    transactions AS (
           |        SELECT
