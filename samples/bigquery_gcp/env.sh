@@ -21,8 +21,8 @@ fi
 
 export SL_BIN_DIR="$PWD/../../distrib"
 export SL_ENV=BQ
-export SPARK_DRIVER_MEMORY=4G
 export SL_FS="gs://$GCP_BUCKET_NAME"
+export SPARK_DRIVER_MEMORY=4G
 export SL_ROOT="/mnt/starlake-app/quickstart"
 export SL_METRICS_ACTIVE=true
 export SL_ASSERTIONS_ACTIVE=true

@@ -16,6 +16,7 @@ SKIP_INSTALL=1
 export SL_ENV="${SL_ENV:-FS}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export SL_FS="${SL_FS:-file://}"
+export SL_STORAGE_FS="${SL_STORAGE_FS:-$SL_FS}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
 
@@ -158,7 +159,7 @@ then
                   fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
                   fs.default.name=$SL_FS,
                   fs.defaultFS=$SL_FS"
-elif [[ $SL_FS = gs:* ]]
+elif [[ $SL_FS = gs:* ]] || [[ $SL_STORAGE_FS = gs:* ]]
 then
   if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]] && [[ -z "$SL_STORAGE_CONF" ]]
   then
@@ -170,8 +171,8 @@ then
                   google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
                   fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
                   google.cloud.auth.service.account.enable=true,
-                  fs.default.name=$SL_FS,
-                  fs.defaultFS=$SL_FS"
+                  fs.default.name=$SL_STORAGE_FS,
+                  fs.defaultFS=$SL_STORAGE_FS"
 elif [[ $SL_FS = hdfs:* ]]
 then
   if [[ -z "$HDFS_URI" ]]

@@ -202,7 +202,7 @@ class Main() extends StrictLogging {
             println(WatchConfig.usage())
             false
         }
-      case "watch" =>
+      case "watch" | "loadall" =>
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
