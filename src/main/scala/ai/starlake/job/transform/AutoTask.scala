@@ -271,7 +271,8 @@ case class AutoTask(
           schemaHandler.refs(),
           schemaHandler.domains(),
           schemaHandler.jobs(),
-          localViews
+          localViews,
+          taskDesc.engine.getOrElse(Engine.SPARK)
         )
       else {
         taskDesc.merge match {
@@ -294,7 +295,8 @@ case class AutoTask(
               schemaHandler.refs(),
               schemaHandler.domains(),
               schemaHandler.jobs(),
-              localViews
+              localViews,
+              taskDesc.engine.getOrElse(Engine.SPARK)
             )
         }
       }

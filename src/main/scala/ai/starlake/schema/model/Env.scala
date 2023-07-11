@@ -24,16 +24,23 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
   def this() = this("", "", "") // Should never be called. Here for Jackson deserialization only
 
   def asTuple(): (String, String, String) = (database, domain, table)
-  def toBigQueryString() = s"`${toSimpleString()}`"
-  def toSimpleString() = {
+
+  val tableNamingQuotes = Map(
+    Engine.SPARK.toString -> "`",
+    "SNOWFLAKE"           -> "\"",
+    Engine.BQ.toString    -> "`"
+  )
+
+  def toSQLString(engine: Engine) = {
+    val quote = tableNamingQuotes.getOrElse(engine.toString, "")
     if (database.isEmpty) {
       if (domain.isEmpty) {
         table
       } else {
-        s"$domain.$table"
+        s"$quote$domain.$table$quote"
       }
     } else {
-      s"$database.$domain.$table"
+      s"$quote$database.$domain.$table$quote"
     }
   }
 }
