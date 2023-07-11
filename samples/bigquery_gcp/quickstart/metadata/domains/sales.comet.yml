@@ -2,6 +2,7 @@ load:
   name: "sales"
   directory: "${root_path}/incoming/sales"
   metadata:
+    validator: ai.starlake.job.validator.NativeValidator
     mode: "FILE"
     format: "DSV"
     withHeader: true
@@ -10,7 +11,6 @@ load:
     write: "APPEND"
     sink:
       type: ${sink_type}
-      #timestamp: signup
   schemas:
     - name: "customers"
       pattern: "customers-.*.psv"
@@ -22,7 +22,7 @@ load:
       merge:
         # for BQ only
         #queryFilter: date(signup) in last(4)
-        #timestamp: signup
+        timestamp: signup
         key:
           - id
       primaryKey:
