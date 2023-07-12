@@ -735,9 +735,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           Some(jobTaskPath)
         else
           None
-      } else {
+      } else if (storage.exists(jobPath))
         Some(jobPath)
-      }
+      else None
 
     }
     val sqlTaskFile = getTaskPath(taskName, "sql")
