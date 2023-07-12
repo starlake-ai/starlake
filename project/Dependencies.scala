@@ -22,7 +22,7 @@ import sbt.{ExclusionRule, _}
 
 object Dependencies {
 
-  def scalaReflection(scalaVersion: String) =
+  def scalaReflection(scalaVersion: String): Seq[ModuleID] =
     Seq(
       "org.scala-lang" % "scala-reflect" % scalaVersion
     )
@@ -150,6 +150,8 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
+  val bigQueue = Seq("com.leansoft" % "bigqueue" % Versions.bigQueue)
+
   val jna_apple_arm_testcontainers = Seq(
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
@@ -162,5 +164,5 @@ object Dependencies {
 
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue // ++ atlas
 }

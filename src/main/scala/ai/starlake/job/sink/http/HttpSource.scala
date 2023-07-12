@@ -5,11 +5,11 @@ import ai.starlake.utils.Utils
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.sql.ai.starlake.http.HttpSourceProxy
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.{LongOffset, Offset, SerializedOffset, Source}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.net.InetSocketAddress
@@ -27,6 +27,10 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
     with StrictLogging {
 
   private val port = parameters.getOrElse("port", "8080").toInt
+
+  // private val bigqueueDir = "/tmp/bigqueue"
+  // val bigQueue = new BigQueueImpl(bigqueueDir, "simple_test")
+
   private val transformers = parameters
     .getOrElse("transformers", "ai.starlake.job.sink.IdentityDataFrameTransformer")
     .split('|')

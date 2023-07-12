@@ -179,7 +179,7 @@ object YamlSerializer extends LazyLogging {
       case node if node.isMissingNode => // do nothing
       case sinkNode =>
         sinkNode.path("type") match {
-          case node if node.isMissingNode => // do thing
+          case node if node.isMissingNode => // do nothing
           case node =>
             val textNode = node.asInstanceOf[TextNode]
             val sinkType = textNode.textValue().replaceAll("\"", "").toUpperCase()
