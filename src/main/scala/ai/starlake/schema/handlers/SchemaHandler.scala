@@ -717,35 +717,34 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private def taskCommandPath(path: Path, taskName: String): Option[Path] = {
     val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
-    val sqlTaskFile =
+    val basePath = path.getParent()
+    val jobFilename = path.getName()
+    val jobName = jobFilename.substring(0, jobFilename.length - ".comet.yml".length)
+    def getTaskPath(taskName: String, extension: String): Option[Path] = {
+      val _taskPath = new Path(basePath, s"_$taskName.$extension")
+      val taskPath = new Path(basePath, s"$taskName.$extension")
+      val jobTaskPath = new Path(basePath, s"$jobName.$taskName.$extension")
+      val jobPath = new Path(basePath, s"$sqlFilePrefix.$extension")
+
       if (taskName.nonEmpty) {
-        new Path(s"$sqlFilePrefix.$taskName.sql")
+        if (storage.exists(_taskPath))
+          Some(_taskPath)
+        else if (storage.exists(taskPath))
+          Some(taskPath)
+        else if (storage.exists(jobTaskPath))
+          Some(jobTaskPath)
+        else
+          None
       } else {
-        new Path(s"$sqlFilePrefix.sql")
+        Some(jobPath)
       }
 
-    val j2TaskFile =
-      if (taskName.nonEmpty) {
-        new Path(s"$sqlFilePrefix.$taskName.sql.j2")
-      } else {
-        new Path(s"$sqlFilePrefix.sql.j2")
-      }
+    }
+    val sqlTaskFile = getTaskPath(taskName, "sql")
+    val j2TaskFile = getTaskPath(taskName, "sql.j2")
+    val pythonTaskFile = getTaskPath(taskName, "py")
 
-    val pythonTaskFile =
-      if (taskName.nonEmpty) {
-        new Path(s"$sqlFilePrefix.$taskName.py")
-      } else {
-        new Path(s"$sqlFilePrefix.py")
-      }
-
-    if (storage.exists(pythonTaskFile))
-      Some(pythonTaskFile)
-    else if (storage.exists(j2TaskFile))
-      Some(j2TaskFile)
-    else if (storage.exists(sqlTaskFile))
-      Some(sqlTaskFile)
-    else
-      None
+    sqlTaskFile.orElse(j2TaskFile).orElse(pythonTaskFile)
   }
 
   /** To be deprecated soon
