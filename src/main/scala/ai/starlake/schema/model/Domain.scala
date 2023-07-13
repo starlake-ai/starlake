@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
@@ -115,27 +115,6 @@ import scala.util.Try
       None
   }
 
-  /** List of file extensions to scan for in the domain directory
-    *
-    * @param defaultFileExtensions
-    *   List of comma separated accepted file extensions
-    * @return
-    *   the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
-    */
-  def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
-    def toList(extensions: String) = extensions.split(',').map(_.trim).toList
-    val allExtensions = resolveExtensions() match {
-      case Nil  => toList(defaultFileExtensions) ++ toList(forceFileExtensions)
-      case list => list
-    }
-    allExtensions.distinct.map { extension =>
-      if (extension.startsWith(".") || extension.isEmpty)
-        extension
-      else
-        "." + extension
-    }
-  }
-
   /** Resolve method are here to handle backward compatibility
     * @return
     */
@@ -169,11 +148,6 @@ import scala.util.Try
     }
   }
 
-  @nowarn def resolveExtensions(): List[String] = {
-    val ext = metadata.map(m => m.extensions).filter(_.nonEmpty)
-    ext.getOrElse(this.extensions)
-  }
-
   /** Ack file should be present for each file to ingest.
     *
     * @return
@@ -193,10 +167,9 @@ import scala.util.Try
   def checkValidity(
     schemaHandler: SchemaHandler,
     directorySeverity: Severity
-  )(implicit settings: Settings): Either[(List[String], List[String]), Boolean] = {
+  )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
 
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-    val warningList: mutable.MutableList[String] = mutable.MutableList.empty
+    val messageList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r
@@ -207,48 +180,57 @@ import scala.util.Try
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
     if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
-      errorList += s"name: Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
+      messageList += ValidationMessage(
+        Error,
+        "Domain",
+        s"name: Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
+      )
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
-    val directoryresExpectationOpt = resolveDirectoryOpt() match {
-      case Some(_) => None
-      case None    =>
+    resolveDirectoryOpt() match {
+      case Some(_) =>
+      // do nothin
+      case None =>
         // TODO Check in metadata
-        Some(
-          s"metadata: directory: Domain with name $name should define the directory attribute (used in the 'import' command)"
-        )
-    }
-    directorySeverity match {
-      case Error =>
-        errorList ++= directoryresExpectationOpt
-      case Warning => warningList ++= directoryresExpectationOpt
-      case _       => // do nothing even if directory is not resolved
+        directorySeverity match {
+          case Disabled =>
+          // do nothing even if directory is not resolved
+          case _ =>
+            messageList += ValidationMessage(
+              directorySeverity,
+              "Domain",
+              s"metadata: directory: Domain with name $name should define the directory attribute (used in the 'import' command)"
+            )
+
+        }
     }
 
     // Check Schemas validity
     tables.foreach { schema =>
       for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
-        errorList ++= errors.map(s"tables: table ${schema.name}:" + _)
+        messageList ++= errors
       }
     }
 
     // Check Metadata validity
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {
-        errorList ++= errors.map(s"metadata:" + _)
+        messageList ++= errors
       }
     }
 
     val duplicatesErrorMessage =
       "Schema %s defined %d times. A schema can only be defined once."
-    for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
-      errorList ++= errors.map(s"tables:" + _)
+    for (
+      errors <- Utils.duplicates("Table name", tables.map(_.name), duplicatesErrorMessage).left
+    ) {
+      messageList ++= errors
     }
 
     // TODO Check partition columns
-    if (errorList.nonEmpty)
-      Left(errorList.toList, warningList.toList)
+    if (messageList.nonEmpty)
+      Left(messageList.toList)
     else
       Right(true)
   }
@@ -282,6 +264,91 @@ import scala.util.Try
 }
 
 object Domain {
+  def checkFilenamesValidity()(implicit
+    storage: StorageHandler,
+    settings: Settings
+  ): List[Either[List[ValidationMessage], Boolean]] = {
+    val domainRootFiles = storage.list(DatasetArea.domains, recursive = false, exclude = None)
+    val domainRootDirectories = storage.listDirectories(DatasetArea.domains)
+    val diff = domainRootFiles.diff(domainRootDirectories)
+    val extraFileWarnings = if (diff.nonEmpty) {
+      List(
+        Left(
+          List(
+            ValidationMessage(
+              Warning,
+              "Domain",
+              s"Domain root directory should only contain directories. Found ${diff.mkString(",")}"
+            )
+          )
+        )
+      )
+    } else {
+      List(Right(true))
+    }
+    val allWarnings = domainRootDirectories.flatMap { domainRootDirectory =>
+      val domainName = domainRootDirectory.getName()
+      val domainDirectory = new Path(domainRootDirectory, domainName)
+      val expectedDomainYmlName = s"$domainName.comet.yml"
+      val expectedDomainYmlPath = new Path(domainDirectory, expectedDomainYmlName)
+      val domainYmlExists = storage.exists(expectedDomainYmlPath)
+      val domainYmlWarnings = if (domainYmlExists) {
+        Nil
+      } else {
+        List(
+          Left(
+            List(
+              ValidationMessage(
+                Warning,
+                "Domain",
+                s"Domain directory should contain a $domainName.comet.yml file"
+              )
+            )
+          )
+        )
+      }
+      val domainFiles = storage.list(domainDirectory, recursive = false, exclude = None)
+      val extensionWarnings = domainFiles.flatMap { path =>
+        val domainFilename = path.getName()
+        val invalidExtensionWarning =
+          if (!domainFilename.endsWith(".comet.yml")) // x.yml or x.yaml are ignored
+            Some(
+              Left(
+                List(
+                  ValidationMessage(
+                    Warning,
+                    "Domain",
+                    s"Domain directory should only contain yaml files with the extension .comet.yml. Found ${domainFilename} ignored"
+                  )
+                )
+              )
+            )
+          else
+            None
+        val invalidMultiDomainYmlWarning =
+          if (
+            !domainFilename.startsWith("_") && expectedDomainYmlName != domainFilename
+          ) // Only one domain file per domain folder is allowed and it should be named after the directory name.
+            Some(
+              Left(
+                List(
+                  ValidationMessage(
+                    Warning,
+                    "Domain",
+                    s"Only one domain definition is allowed and it should be named after the directory name. Found ${domainFilename}, expecting $expectedDomainYmlName ignored"
+                  )
+                )
+              )
+            )
+          else
+            None
+        List(invalidExtensionWarning, invalidMultiDomainYmlWarning).flatten
+      }
+      List(extraFileWarnings, domainYmlWarnings, extensionWarnings).flatten
+    }
+    allWarnings
+  }
+
   def compare(existing: Domain, incoming: Domain): Try[DomainDiff] = {
     Try {
       val (addedTables, deletedTables, existingCommonTables) =

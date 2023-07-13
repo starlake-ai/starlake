@@ -325,8 +325,6 @@ object Settings extends StrictLogging {
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
     rejectMaxRecords: Int,
-    defaultFileExtensions: String,
-    forceFileExtensions: String,
     accessPolicies: AccessPolicies,
     scheduling: JobScheduling,
     maxParCopy: Int,

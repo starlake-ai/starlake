@@ -48,7 +48,9 @@ class SchemaSpec extends TestHelper {
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(
-        List("primitiveType: Invalid Type invalid-type")
+        List(
+          ValidationMessage(Error, "Attribute.primitiveType", "Invalid Type invalid-type")
+        )
       )
     }
 
@@ -79,7 +81,11 @@ class SchemaSpec extends TestHelper {
         attributes = List[Attribute]()
       )
       val expectedErrors = List(
-        "primitiveType: Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
+        ValidationMessage(
+          Error,
+          "Attribute.primitiveType",
+          "Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
+        )
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)
@@ -102,7 +108,11 @@ class SchemaSpec extends TestHelper {
         Attribute("requiredAttribute", "long", required = true, default = Some("10"))
       requiredAttribute.checkValidity(schemaHandler) shouldBe Left(
         List(
-          s"default: attribute with name ${requiredAttribute.name} - default value valid for optional fields only"
+          ValidationMessage(
+            Error,
+            "Attribute.default",
+            s"attribute with name ${requiredAttribute.name} - default value valid for optional fields only"
+          )
         )
       )
 
@@ -127,7 +137,9 @@ class SchemaSpec extends TestHelper {
         Some(".*")
       )
 
-      meta.checkValidity(schemaHandler).isInstanceOf[Left[List[String], Boolean]] shouldBe true
+      meta
+        .checkValidity(schemaHandler)
+        .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
     }
     "Ignore attribute " should "on DSV should be UDF" in {
       val meta = new Metadata(
@@ -146,7 +158,9 @@ class SchemaSpec extends TestHelper {
         Some(".*")
       )
       val res = meta.checkValidity(schemaHandler)
-      meta.checkValidity(schemaHandler).isInstanceOf[Left[List[String], Boolean]] shouldBe true
+      meta
+        .checkValidity(schemaHandler)
+        .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
     }
   }
 }

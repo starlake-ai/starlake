@@ -60,6 +60,7 @@ import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
 import java.util.concurrent.ForkJoinPool
+import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -113,6 +114,7 @@ class IngestionWorkflow(
     * file. "ack" is the default ack extension searched for but you may specify a different one in
     * the domain YML file.
     */
+
   def loadLanding(config: ImportConfig): Unit = {
     val filteredDomains = config.includes match {
       case Nil => domains
@@ -126,121 +128,151 @@ class IngestionWorkflow(
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
-        storageHandler
-          .list(inputDir, domain.getAck(), recursive = false)
+        val domainFolderContent = storageHandler
+          .list(inputDir, "", recursive = false)
           .filterNot(_.getName().startsWith(".")) // ignore files starting with '.' aka .DS_Store
-          .foreach { path =>
-            val (filesToLoad, tmpDir) = {
-              val fileName = path.getName
-              val pathWithoutLastExt = new Path(
-                path.getParent,
-                (domain.getAck(), fileName.lastIndexOf('.')) match {
-                  case ("", -1) => fileName
-                  case ("", i)  => fileName.substring(0, i)
-                  case (ack, _) => fileName.stripSuffix(ack)
-                }
+
+        val tablesPattern = domain.tables.map(_.pattern)
+        val tableExtensions = listExtensionsMatchesInFolder(domainFolderContent, tablesPattern)
+
+        val filesToScan =
+          if (domain.getAck().nonEmpty)
+            domainFolderContent.filter(_.getName.endsWith(domain.getAck()))
+          else
+            domainFolderContent
+
+        filesToScan.foreach { path =>
+          val (filesToLoad, tmpDir) = {
+            val fileName = path.getName
+            val pathWithoutLastExt = new Path(
+              path.getParent,
+              (domain.getAck(), fileName.lastIndexOf('.')) match {
+                case ("", -1) => fileName
+                case ("", i)  => fileName.substring(0, i)
+                case (ack, _) => fileName.stripSuffix(ack)
+              }
+            )
+
+            val zipExtensions = List(".gz", ".tgz", ".zip")
+            val (existingRawFile, existingArchiveFile) = {
+              val findPathWithExt = if (domain.getAck().isEmpty) {
+                // the file is always the one being iterated over, we just need to check the extension
+                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
+              } else {
+                // for each extension, look if there exists a file near the .ack one
+                (extensions: List[String]) =>
+                  extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
+              }
+              (
+                findPathWithExt(
+                  tableExtensions
+                ),
+                findPathWithExt(zipExtensions)
               )
+            }
 
-              val zipExtensions = List(".gz", ".tgz", ".zip")
-              val (existingRawFile, existingArchiveFile) = {
-                val findPathWithExt = if (domain.getAck().isEmpty) {
-                  // the file is always the one being iterated over, we just need to check the extension
-                  (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
-                } else {
-                  // for each extension, look if there exists a file near the .ack one
-                  (extensions: List[String]) =>
-                    extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
+            if (domain.getAck().nonEmpty)
+              storageHandler.delete(path)
+
+            (existingArchiveFile, existingRawFile, storageHandler.getScheme()) match {
+              case (Some(zipPath), _, "file") =>
+                logger.info(s"Found compressed file $zipPath")
+                storageHandler.mkdirs(pathWithoutLastExt)
+
+                // We use Java nio to handle archive files
+
+                // Java nio FileSystems are only registered based on the system the JVM is based on
+                // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
+                // As long as the user provide this app classpath with the appropriate FileSystem implementations,
+                // we can virtually handle anything
+                def asBetterFile(path: Path): File = {
+                  Try {
+                    LocalStorageHandler.localFile(path) // try once
+                  } match {
+                    case Success(file) => file
+                    // There is no FileSystem registered that can handle this URI
+                    case Failure(_: ProviderNotFoundException) =>
+                      FileSystems
+                        .newFileSystem(
+                          path.toUri,
+                          Collections.emptyMap[String, Any](),
+                          getClass.getClassLoader
+                        )
+                      // Try to install one from the classpath
+                      File(path.toUri) // retry
+                    case Failure(exception) => throw exception
+                  }
                 }
-                (
-                  findPathWithExt(
-                    domain.getExtensions(
-                      settings.comet.defaultFileExtensions,
-                      settings.comet.forceFileExtensions
-                    )
-                  ),
-                  findPathWithExt(zipExtensions)
-                )
-              }
 
-              if (domain.getAck().nonEmpty)
-                storageHandler.delete(path)
-
-              (existingArchiveFile, existingRawFile, storageHandler.getScheme()) match {
-                case (Some(zipPath), _, "file") =>
-                  logger.info(s"Found compressed file $zipPath")
-                  storageHandler.mkdirs(pathWithoutLastExt)
-
-                  // We use Java nio to handle archive files
-
-                  // Java nio FileSystems are only registered based on the system the JVM is based on
-                  // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
-                  // As long as the user provide this app classpath with the appropriate FileSystem implementations,
-                  // we can virtually handle anything
-                  def asBetterFile(path: Path): File = {
-                    Try {
-                      LocalStorageHandler.localFile(path) // try once
-                    } match {
-                      case Success(file) => file
-                      // There is no FileSystem registered that can handle this URI
-                      case Failure(_: ProviderNotFoundException) =>
-                        FileSystems
-                          .newFileSystem(
-                            path.toUri,
-                            Collections.emptyMap[String, Any](),
-                            getClass.getClassLoader
-                          )
-                        // Try to install one from the classpath
-                        File(path.toUri) // retry
-                      case Failure(exception) => throw exception
-                    }
-                  }
-
-                  // File is a proxy to java.nio.Path / working with Uri
-                  val tmpDir = asBetterFile(pathWithoutLastExt)
-                  val zipFile = asBetterFile(zipPath)
-                  zipFile.extension() match {
-                    case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
-                    case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
-                    case Some(".zip") => zipFile.unzipTo(tmpDir)
-                    case _            => logger.error(s"Unsupported archive type for $zipFile")
-                  }
-                  storageHandler.delete(zipPath)
-
-                  (
+                // File is a proxy to java.nio.Path / working with Uri
+                val tmpDir = asBetterFile(pathWithoutLastExt)
+                val zipFile = asBetterFile(zipPath)
+                zipFile.extension() match {
+                  case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
+                  case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
+                  case Some(".zip") => zipFile.unzipTo(tmpDir)
+                  case _            => logger.error(s"Unsupported archive type for $zipFile")
+                }
+                storageHandler.delete(zipPath)
+                val inZipExtensions =
+                  listExtensionsMatchesInFolder(
                     storageHandler
-                      .list(pathWithoutLastExt, recursive = false)
-                      .filter(path =>
-                        domain
-                          .getExtensions(
-                            settings.comet.defaultFileExtensions,
-                            settings.comet.forceFileExtensions
-                          )
-                          .exists(path.getName.endsWith)
-                      ),
-                    Some(pathWithoutLastExt)
+                      .list(pathWithoutLastExt, recursive = false),
+                    tablesPattern
                   )
-                case (_, Some(filePath), _) =>
-                  logger.info(s"Found raw file $filePath")
-                  (List(filePath), None)
-                case (_, _, _) =>
-                  logger.info(s"Ignoring file for path $path")
-                  (List.empty, None)
-              }
+                (
+                  storageHandler
+                    .list(pathWithoutLastExt, recursive = false)
+                    .filter(path =>
+                      inZipExtensions
+                        .exists(path.getName.endsWith)
+                    ),
+                  Some(pathWithoutLastExt)
+                )
+              case (_, Some(filePath), _) =>
+                logger.info(s"Found raw file $filePath")
+                (List(filePath), None)
+              case (_, _, _) =>
+                logger.warn(s"Ignoring file for path $path")
+                (List.empty, None)
             }
-
-            val destFolder = DatasetArea.pending(domain.name)
-            filesToLoad.foreach { file =>
-              logger.info(s"Importing $file")
-              val destFile = new Path(destFolder, file.getName)
-              storageHandler.moveFromLocal(file, destFile)
-            }
-
-            tmpDir.foreach(storageHandler.delete)
           }
+
+          val destFolder = DatasetArea.pending(domain.name)
+          filesToLoad.foreach { file =>
+            logger.info(s"Importing $file")
+            val destFile = new Path(destFolder, file.getName)
+            storageHandler.moveFromLocal(file, destFile)
+          }
+
+          tmpDir.foreach(storageHandler.delete)
+        }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
       }
     }
+  }
+
+  private def listExtensionsMatchesInFolder(
+    domainFolderContent: List[Path],
+    tablesPattern: List[Pattern]
+  ): List[String] = {
+    val tableExtensions: List[String] = tablesPattern.flatMap { pattern =>
+      domainFolderContent.flatMap { path =>
+        val fileName = path.getName
+        if (pattern.matcher(fileName).matches()) {
+          val res: Option[String] = fileName.lastIndexOf('.') match {
+            case -1 => None
+            case i  => Some(fileName.substring(i + 1))
+          }
+          res
+        } else {
+          None
+        }
+      }
+    }.distinct
+    logger.info(s"Found extensions : $tableExtensions")
+    tableExtensions.map(ext => if (ext.startsWith(".") || ext.isEmpty) ext else s".$ext")
   }
 
   /** Split files into resolved and unresolved datasets. A file is unresolved if a corresponding
