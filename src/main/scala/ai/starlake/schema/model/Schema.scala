@@ -263,21 +263,25 @@ case class Schema(
   def checkValidity(
     domainMetaData: Option[Metadata],
     schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
     if (!forceTablePrefixRegex.pattern.matcher(name).matches())
-      errorList += s"name: Table with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
+      errorList += ValidationMessage(
+        Error,
+        "Table",
+        s"name: Table with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
+      )
 
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {
-        errorList ++= errors.map("metadata: " + _)
+        errorList ++= errors
       }
     }
 
     attributes.foreach { attribute =>
       for (errors <- attribute.checkValidity(schemaHandler).left) {
-        errorList ++= errors.map("attribute: " + _)
+        errorList ++= errors
       }
     }
 
@@ -285,13 +289,21 @@ case class Schema(
     val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(_.script.isEmpty)
     if (firstScriptedFiedlIndex >= 0 && firstScriptedFiedlIndex < lastNonScriptedFiedlIndex) {
       errorList +=
-        s"""attributes: Scripted fields can only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
+        ValidationMessage(
+          Error,
+          "Table attributes",
+          s"""Scripted fields can only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
+        )
     }
 
     val duplicateErrorMessage =
       "%s is defined %d times. An attribute can only be defined once."
-    for (errors <- Utils.duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
-      errorList ++= errors.map("attributes: " + _)
+    for (
+      errors <- Utils
+        .duplicates("Table attribute name", attributes.map(_.name), duplicateErrorMessage)
+        .left
+    ) {
+      errorList ++= errors
     }
 
     if (errorList.nonEmpty)

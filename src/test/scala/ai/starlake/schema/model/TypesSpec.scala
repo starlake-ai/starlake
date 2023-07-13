@@ -51,9 +51,14 @@ class TypesSpec extends TestHelper {
 
       val types = mapper.readValue(lines, classOf[Types])
       types.checkValidity() shouldBe Left(
-        List("long is defined 2 times. A type can only be defined once.")
+        List(
+          ValidationMessage(
+            Error,
+            "Type name",
+            "long is defined 2 times. A type can only be defined once."
+          )
+        )
       )
-
     }
 
     "Money Zone" should "be valid" in {

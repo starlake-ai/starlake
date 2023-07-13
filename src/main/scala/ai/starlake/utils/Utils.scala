@@ -21,7 +21,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{Attribute, WriteMode}
+import ai.starlake.schema.model.{Attribute, ValidationMessage, WriteMode}
 import ai.starlake.utils.Formatter._
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
@@ -183,13 +183,21 @@ object Utils {
     * @return
     *   List of tuples contains for ea ch duplicate the number of occurrences
     */
-  def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  def duplicates(
+    target: String,
+    values: List[String],
+    errorMessage: String
+  ): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
     val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
       size > 1
     }
     duplicates.foreach { case (key, size) =>
-      errorList += errorMessage.format(key, size)
+      errorList += ValidationMessage(
+        ai.starlake.schema.model.Error,
+        target,
+        errorMessage.format(key, size)
+      )
     }
     if (errorList.nonEmpty)
       Left(errorList.toList)
@@ -198,9 +206,9 @@ object Utils {
   }
 
   def combine(
-    errors1: Either[List[String], Boolean],
-    errors2: Either[List[String], Boolean]*
-  ): Either[List[String], Boolean] = {
+    errors1: Either[List[ValidationMessage], Boolean],
+    errors2: Either[List[ValidationMessage], Boolean]*
+  ): Either[List[ValidationMessage], Boolean] = {
     val allErrors = errors1 :: List(errors2: _*)
     val errors = allErrors.collect { case Left(err) =>
       err

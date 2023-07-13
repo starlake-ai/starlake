@@ -39,11 +39,16 @@ import scala.util.Try
 case class Types(types: List[Type]) {
   def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
 
-  def checkValidity(): Either[List[String], Boolean] = {
+  def checkValidity(): Either[List[ValidationMessage], Boolean] = {
     val typeNames = types.map(_.name)
-    val dup: Either[List[String], Boolean] =
-      Utils.duplicates(typeNames, s"%s is defined %d times. A type can only be defined once.")
-    Utils.combine(dup, types.map(_.checkValidity()): _*)
+    val dup: Either[List[ValidationMessage], Boolean] =
+      Utils.duplicates(
+        "Type name",
+        typeNames,
+        "%s is defined %d times. A type can only be defined once."
+      )
+    val result = Utils.combine(dup, types.map(_.checkValidity()): _*)
+    result
   }
 }
 
@@ -152,8 +157,8 @@ case class Type(
       .withComment(comment.getOrElse(""))
   }
 
-  def checkValidity(): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  def checkValidity(): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     val patternIsValid = Try {
       primitiveType match {
@@ -186,12 +191,20 @@ case class Type(
       }
     }
     if (patternIsValid.isFailure)
-      errorList += s"pattern: Type $name - invalid Pattern $pattern"
+      errorList += ValidationMessage(
+        Error,
+        "Type.pattern",
+        s"Type $name - invalid Pattern $pattern"
+      )
     val ok = sample.forall { sample =>
       this.matches(sample)
     }
     if (!ok)
-      errorList += s"sample: Type $name - sample $sample does not match pattern $pattern"
+      errorList += ValidationMessage(
+        Error,
+        "Type.sample",
+        s"Type $name - sample $sample does not match pattern $pattern"
+      )
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else

@@ -503,7 +503,6 @@ object JDBCUtils extends LazyLogging {
       .orElse(
         if (normalizedDomainName != jdbcSchema.schema) Some(normalizedDomainName) else None
       )
-    val extensions = domainTemplate.map(_.resolveExtensions()).getOrElse(Nil)
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
@@ -511,7 +510,7 @@ object JDBCUtils extends LazyLogging {
       rename = rename,
       metadata = domainTemplate
         .flatMap(_.metadata)
-        .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
+        .map(_.copy(directory = Some(incomingDir), ack = ack)),
       tableRefs = Nil,
       tables = cometSchema.toList,
       comment = None,

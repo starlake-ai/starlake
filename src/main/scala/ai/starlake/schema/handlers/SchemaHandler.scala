@@ -62,19 +62,16 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def checkValidity(
     directorySeverity: Severity,
     reload: Boolean = false
-  ): List[String] = {
-    def toWarning(warnings: List[String]) = {
-      warnings.map("Warning: " + _)
-    }
+  )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
+    val domainStructureValidity = Domain.checkFilenamesValidity()(storage, settings)
     val typesValidity = this.types(reload).map(_.checkValidity())
     val loadedDomains = this.domains(reload)
-    val domainsValidity = loadedDomains.map(_.checkValidity(this, directorySeverity)).map {
-      case Left((errors, warnings)) => Left(errors ++ toWarning(warnings))
-      case Right(right)             => Right(right)
-    }
+    val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this, directorySeverity))
+    val domainsValidity =
+      domainStructureValidity ++ loadedDomainsValidity
     val domainsVarsValidity = checkDomainsVars()
-    val jobsVarsValidity = toWarning(checkJobsVars()) // job vars may be defined at runtime.
+    val jobsVarsValidity = checkJobsVars() // job vars may be defined at runtime.
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
@@ -84,7 +81,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     errs ++ domainsVarsValidity ++ jobsVarsValidity
   }
 
-  private def checkDomainsVars(): List[String] = {
+  private def checkDomainsVars(): List[ValidationMessage] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
@@ -94,7 +91,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     paths.flatMap(checkVarsAreDefined)
   }
 
-  def checkJobsVars(): List[String] = {
+  def checkJobsVars(): List[ValidationMessage] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
       val ymlWarnings = checkVarsAreDefined(path)
@@ -108,17 +105,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     config: ValidateConfig = ValidateConfig()
   ): Unit = {
     val validityErrorsAndWarnings =
-      checkValidity(directorySeverity = Warning, reload = config.reload)
+      checkValidity(directorySeverity = Warning, reload = config.reload)(storage)
     val deserErrors = deserializedDomains(DatasetArea.domains)
       .filter { case (path, res) =>
         res.isFailure
       } map { case (path, err) =>
-      s"${path.toString} could not be deserialized"
+      ValidationMessage(
+        severity = Error,
+        target = path.toString,
+        message = s"${path.toString} could not be deserialized"
+      )
     }
 
     val allErrorsAndWarnings =
       validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
-    val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
+    val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
 
@@ -134,8 +135,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
       logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
       allErrorsAndWarnings.foreach { err =>
-        logger.error(err)
-        output.foreach(_.appendLine(err))
+        logger.error(err.message)
+        output.foreach(_.appendLine(err.message))
       }
       logger.error(s"END VALIDATION RESULTS")
       output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
@@ -146,8 +147,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def checkViewsValidity(): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  def checkViewsValidity(): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
     val viewsPath = DatasetArea.views
     val sqlFiles =
       storage.list(viewsPath, extension = ".sql", recursive = true) ++
@@ -158,12 +159,16 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     sqlFiles.foreach { sqlFile =>
       val name = viewName(sqlFile)
       if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
-        errorList += s"View with name $name should respect the pattern ${forceViewPrefixRegex.regex}"
+        errorList += ValidationMessage(
+          Error,
+          "View",
+          s"View with name $name should respect the pattern ${forceViewPrefixRegex.regex}"
+        )
       }
     }
 
     duplicates.foreach { duplicate =>
-      errorList += s"Found duplicate views => $duplicate"
+      errorList += ValidationMessage(Error, "View", s"Found duplicate views => $duplicate")
     }
 
     if (errorList.nonEmpty)
@@ -437,13 +442,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private var (_domainErrors, _domains): (List[String], List[Domain]) = loadDomains()
+  private var (_domainErrors, _domains): (List[ValidationMessage], List[Domain]) = loadDomains()
 
-  def loadDomains(raw: Boolean = false): (List[String], List[Domain]) = {
+  def loadDomains(raw: Boolean = false): (List[ValidationMessage], List[Domain]) = {
     loadDomainsFromArea(DatasetArea.domains, raw)
   }
 
-  def loadExternals(): (List[String], List[Domain]) = {
+  def loadExternals(): (List[ValidationMessage], List[Domain]) = {
     loadDomainsFromArea(DatasetArea.external)
   }
 
@@ -474,7 +479,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def loadDomainsFromArea(
     area: Path,
     raw: Boolean = false
-  ): (List[String], List[Domain]) = {
+  ): (List[ValidationMessage], List[Domain]) = {
     val (validDomainsFile, invalidDomainsFiles) = loadFullDomains(area, raw)
 
     val domains = validDomainsFile
@@ -482,6 +487,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map(domain => this.fromXSD(domain))
 
     val nameErrors = Utils.duplicates(
+      "Domain name",
       domains.map(_.name),
       s"%s is defined %d times. A domain can only be defined once."
     ) match {
@@ -491,6 +497,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val renameErrors = Utils.duplicates(
+      "Domain rename",
       domains.map(d => d.rename.getOrElse(d.name)),
       s"renamed domain %s is defined %d times. It can only appear once."
     ) match {
@@ -500,6 +507,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val directoryErrors = Utils.duplicates(
+      "Domain directory",
       domains.flatMap(_.resolveDirectoryOpt()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
@@ -519,7 +527,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Success(_) => // ignore
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
-    this._domainErrors.foreach(logger.error(_))
+    this._domainErrors.foreach(err => logger.error(err.toString()))
     (this._domainErrors, domains)
   }
 
@@ -573,16 +581,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (validDomainsFile, invalidDomainsFiles)
   }
 
-  private def checkVarsAreDefined(path: Path): Set[String] = {
+  private def checkVarsAreDefined(path: Path): Set[ValidationMessage] = {
     val content = storage.read(path)
     checkVarsAreDefined(path, content)
   }
 
-  private def checkVarsAreDefined(path: Path, content: String): Set[String] = {
+  private def checkVarsAreDefined(path: Path, content: String): Set[ValidationMessage] = {
     val vars = content.extractVars()
     val envVars = activeEnvVars().keySet
     val undefinedVars = vars.diff(envVars)
-    undefinedVars.map(undefVar => s"""${path.getName} contains undefined var: ${undefVar}""")
+    undefinedVars.map(undefVar =>
+      ValidationMessage(
+        Warning,
+        "Variable",
+        s"""${path.getName} contains undefined var: ${undefVar}"""
+      )
+    )
   }
 
   def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
@@ -799,12 +813,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def job(jobName: String): Option[AutoJobDesc] = jobs().get(jobName)
 
-  private var (_jobErrors, _jobs): (List[String], Map[String, AutoJobDesc]) = loadJobs()
+  private var (_jobErrors, _jobs): (List[ValidationMessage], Map[String, AutoJobDesc]) = loadJobs()
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadJobs(): (List[String], Map[String, AutoJobDesc]) = {
+  private def loadJobs(): (List[ValidationMessage], Map[String, AutoJobDesc]) = {
     val jobs = storage.list(
       DatasetArea.jobs,
       ".yml",
@@ -812,6 +826,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       exclude = Some(Pattern.compile("_.*"))
     )
     val filenameErrors = Utils.duplicates(
+      "Job filename",
       jobs.map(_.getName()),
       s"%s is defined %d times. A job can only be defined once."
     ) match {
@@ -839,6 +854,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .collect { case Success(job) => job }
 
     val nameErrors = Utils.duplicates(
+      "Job name",
       validJobs.map(_.name),
       s"%s is defined %d times. A job can only be defined once."
     ) match {
@@ -849,7 +865,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val namePatternErrors = validJobs.map(_.name).flatMap { name =>
       if (!forceJobPrefixRegex.pattern.matcher(name).matches())
-        Some(s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}")
+        Some(
+          ValidationMessage(
+            Error,
+            "View",
+            s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+          )
+        )
       else
         None
     }
@@ -857,7 +879,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val taskNamePatternErrors =
       validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.name)).flatMap { name =>
         if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
-          Some(s"View with name $name should respect the pattern ${forceTaskPrefixRegex.regex}")
+          Some(
+            ValidationMessage(
+              Error,
+              "View",
+              s"View with name $name should respect the pattern ${forceTaskPrefixRegex.regex}"
+            )
+          )
         else
           None
       }

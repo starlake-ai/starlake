@@ -461,8 +461,8 @@ trait IngestionJob extends SparkJob {
     )
 
     val jobResult = domain.checkValidity(schemaHandler, directorySeverity = Disabled) match {
-      case Left((errors, _)) =>
-        val errs = errors.reduce { (errs, err) =>
+      case Left(errors) =>
+        val errs = errors.map(_.toString()).reduce { (errs, err) =>
           errs + "\n" + err
         }
         Failure(throw new Exception(s"-- Domain $name --\n" + errs))

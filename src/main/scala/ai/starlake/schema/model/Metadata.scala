@@ -285,7 +285,6 @@ case class Metadata(
       ignore = if (parent.ignore != this.ignore) this.ignore else None,
       xml = if (parent.xml != this.xml) this.xml else None,
       directory = if (parent.directory != this.directory) this.directory else None,
-      extensions = if (parent.extensions != this.extensions) this.extensions else Nil,
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
       validator = if (parent.validator != this.validator) this.validator else None,
@@ -304,7 +303,7 @@ case class Metadata(
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
       partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
-      extensions.nonEmpty || ack.nonEmpty || options.nonEmpty || validator.nonEmpty || dag.nonEmpty ||
+      ack.nonEmpty || options.nonEmpty || validator.nonEmpty || dag.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )
       Some(this)
@@ -314,24 +313,32 @@ case class Metadata(
 
   def checkValidity(
     schemaHandler: SchemaHandler
-  ): Either[List[String], Boolean] = {
+  ): Either[List[ValidationMessage], Boolean] = {
     def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
-      errorList += "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+      errorList += ValidationMessage(
+        Error,
+        "Table metadata",
+        "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+      )
 
     import Format._
     if (
       ignore.isDefined &&
       !List(DSV, SIMPLE_JSON, POSITION).contains(getFormat())
     )
-      errorList += s"ignore: ignore not yet supported for format ${getFormat()}"
+      errorList += ValidationMessage(
+        Error,
+        "Table metadata",
+        s"ignore: ignore not yet supported for format ${getFormat()}"
+      )
 
     val freshnessValidity = freshness.map(_.checkValidity()).getOrElse(Right(true))
     freshnessValidity match {
       case Left(freshnessErrors) =>
-        freshnessErrors.foreach(errorList += "freshness: " + _)
+        errorList ++= freshnessErrors
       case Right(_) =>
     }
     if (errorList.nonEmpty)

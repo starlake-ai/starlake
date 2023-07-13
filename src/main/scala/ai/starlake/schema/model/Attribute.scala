@@ -103,51 +103,88 @@ case class Attribute(
     * @return
     *   true if attribute is valid
     */
-  def checkValidity(schemaHandler: SchemaHandler): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  def checkValidity(schemaHandler: SchemaHandler): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
     if (`type` == null)
-      errorList += s"type: $this : unspecified type"
+      errorList +=
+        ValidationMessage(Error, "Attribute.type", s"$this : unspecified type")
 
     val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
     // We do not check if the name is valid. We only need to check that once renamed, the name is valid.
     if (!rename.forall(colNamePattern.matcher(_).matches()))
-      errorList += s"rename: renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
+      errorList += ValidationMessage(
+        Error,
+        "Attribute.rename",
+        s"rename: renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
+      )
 
     val primitiveType = `type`(schemaHandler).map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
         if (tpe == PrimitiveType.struct && attributes.isEmpty)
-          errorList += s"primitiveType: Attribute $this : Struct types must have at least one attribute."
+          errorList += ValidationMessage(
+            Error,
+            "Attribute.primitiveType",
+            s"Attribute $this : Struct types must have at least one attribute."
+          )
         if (tpe != PrimitiveType.struct && attributes.nonEmpty)
-          errorList += s"AprimitiveType: ttribute $this : Simple attributes cannot have sub-attributes"
-      case None if attributes.isEmpty => errorList += s"primitiveType: Invalid Type ${`type`}"
-      case _                          => // good boy
+          errorList += ValidationMessage(
+            Error,
+            "Attribute.primitiveType",
+            s" $this : Simple attributes cannot have sub-attributes"
+          )
+      case None if attributes.isEmpty =>
+        errorList +=
+          ValidationMessage(
+            Error,
+            "Attribute.primitiveType",
+            s"Invalid Type ${`type`}"
+          )
+      case _ => // good boy
     }
 
     default.foreach { default =>
       if (required)
-        errorList += s"default: attribute with name $name - default value valid for optional fields only"
+        errorList += ValidationMessage(
+          Error,
+          "Attribute.default",
+          s"attribute with name $name - default value valid for optional fields only"
+        )
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
-          errorList += s"default: attribute with name $name - default value not valid for struct type fields"
+          errorList += ValidationMessage(
+            Error,
+            "Attribute.default",
+            s"attribute with name $name - default value not valid for struct type fields"
+          )
         `type`(schemaHandler).foreach { someTpe =>
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
-              errorList += s"default: attribute with name $name - Invalid default value for this attribute type ${e.getMessage()}"
+              errorList += ValidationMessage(
+                Error,
+                "Attribute.default",
+                s"attribute with name $name - Invalid default value for this attribute type ${e.getMessage()}"
+              )
           }
         }
       }
       array.foreach { isArray =>
         if (isArray)
-          errorList += s"array: attribute with name $name: default value not valid for array fields"
+          errorList += ValidationMessage(
+            Error,
+            "Attribute.array",
+            s"attribute with name $name: default value not valid for array fields"
+          )
       }
     }
 
     (script, required) match {
       case (Some(_), true) =>
-        logger.warn(
+        ValidationMessage(
+          Warning,
+          "Attribute.script",
           s"script: Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
         )
       case (_, _) =>

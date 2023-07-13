@@ -10,14 +10,19 @@ case class Freshness(
   warn: Option[String] = None,
   error: Option[String] = None
 ) {
-  def checkValidity(): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  def checkValidity(): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     def checkDuration(duration: Option[String]): Unit = {
       Try {
         duration.map(Duration(_).toSeconds)
       } match {
-        case Failure(_) => errorList += s"duration: $duration could not be parsed as a duration"
+        case Failure(_) =>
+          errorList += ValidationMessage(
+            Error,
+            "Freshness",
+            s"duration: $duration could not be parsed as a duration"
+          )
         case Success(_) =>
       }
     }
@@ -26,7 +31,11 @@ case class Freshness(
     checkDuration(error)
     timestamp match {
       case Some(_) if warn.isEmpty && error.isEmpty =>
-        errorList += "timestamp: When freshness timestamp is present, warn and/or error duration should be defined"
+        errorList += ValidationMessage(
+          Error,
+          "freshness",
+          "timestamp: When freshness timestamp is present, warn and/or error duration should be defined"
+        )
       case _ =>
     }
     if (errorList.isEmpty)
