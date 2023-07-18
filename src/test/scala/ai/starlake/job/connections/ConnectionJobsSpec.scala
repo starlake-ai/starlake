@@ -15,8 +15,8 @@ class ConnectionJobsSpec extends TestHelper {
     "JDBC 2 JDBC Connection" should "succeed" in {
       pending
       val connection = "test-h2"
-
-      import sparkSession.implicits._
+      val session = sparkSession
+      import session.implicits._
       val usersDF = Seq(
         ("John", "Doe", 10),
         ("Sam", "Hal", 20),
@@ -56,7 +56,7 @@ class ConnectionJobsSpec extends TestHelper {
 
       storageHandler.write(businessJobDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(metadataStorageHandler, Map("age" -> "10"))
+      val schemaHandler = new SchemaHandler(storageHandler, Map("age" -> "10"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())

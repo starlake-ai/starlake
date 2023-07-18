@@ -24,7 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoJobDesc, Domain}
-import ai.starlake.utils.{CometObjectMapper, Utils}
+import ai.starlake.utils.{CometObjectMapper, JobResult, SparkJob, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
@@ -205,8 +205,7 @@ trait TestHelper
 
     implicit def withSettings: WithSettings = this
 
-    def metadataStorageHandler = settings.storageHandler
-    def storageHandler = settings.storageHandler
+    def storageHandler = settings.storageHandler()
 
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
@@ -269,7 +268,7 @@ trait TestHelper
           case Some(folder) =>
             DatasetArea.mapping.toString + "/" + folder
         }
-        metadataStorageHandler.mkdirs(new Path(path))
+        storageHandler.mkdirs(new Path(path))
         val mappingPath = new Path(path, mappingToImport.name)
         deliverTestFile(mappingToImport.path, mappingPath)
       }
@@ -292,7 +291,7 @@ trait TestHelper
 
   private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
-  lazy val sparkSession = sparkSessionInterest.get
+  def sparkSession(implicit settings: Settings) = sparkSessionInterest.get(settings)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -307,8 +306,7 @@ trait TestHelper
   )(implicit withSettings: WithSettings) {
     implicit def settings: Settings = withSettings.settings
 
-    def storageHandler: StorageHandler = settings.storageHandler
-    def metadataStorageHandler: StorageHandler = settings.storageHandler
+    def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.domains
     val jobMetadataRootPath: Path = DatasetArea.jobs
 
@@ -349,10 +347,10 @@ trait TestHelper
 
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
-      val schemaHandler = new SchemaHandler(settings.storageHandler)
+      val schemaHandler = new SchemaHandler(settings.storageHandler())
       schemaHandler.fullValidation()
 
-      DatasetArea.initMetadata(metadataStorageHandler)
+      DatasetArea.initMetadata(storageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -375,28 +373,28 @@ trait TestHelper
     }
 
     def getJobs(): Map[String, AutoJobDesc] = {
-      new SchemaHandler(settings.storageHandler).jobs()
+      new SchemaHandler(settings.storageHandler()).jobs()
     }
 
     def getDomains(): List[Domain] = {
-      new SchemaHandler(settings.storageHandler).domains()
+      new SchemaHandler(settings.storageHandler()).domains()
     }
 
     def getDomain(domainName: String): Option[Domain] = {
-      new SchemaHandler(settings.storageHandler).getDomain(domainName)
+      new SchemaHandler(settings.storageHandler()).getDomain(domainName)
     }
 
     def landingPath: String =
-      new SchemaHandler(settings.storageHandler)
+      new SchemaHandler(settings.storageHandler())
         .getDomain(datasetDomainName)
         .map(_.resolveDirectory())
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
     def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
 
-      val schemaHandler = new SchemaHandler(settings.storageHandler)
+      val schemaHandler = new SchemaHandler(settings.storageHandler())
 
-      DatasetArea.initMetadata(metadataStorageHandler)
+      DatasetArea.initMetadata(storageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       // Get incoming directory from Domain descriptor
@@ -464,7 +462,7 @@ object TestHelper {
 
     TestSparkSession.acquire()
 
-    def get: SparkSession = TestSparkSession.get
+    def get(settings: Settings): SparkSession = TestSparkSession.get(settings)
 
     def close(): Unit =
       if (!closed.getAndSet(true)) TestSparkSession.release()
@@ -493,7 +491,7 @@ object TestHelper {
     sealed abstract class State {
       def references: Int
       def acquire: State
-      def get: (SparkSession, State)
+      def get(settings: Settings): (SparkSession, State)
       def release: State
     }
 
@@ -509,7 +507,7 @@ object TestHelper {
             "cannot release a Global Spark Session that was never started"
           )
 
-        override def get: (SparkSession, State) =
+        override def get(settings: Settings): (SparkSession, State) =
           throw new IllegalStateException(
             "cannot get global SparkSession without first acquiring a lease to it"
           ) // can we avoid this?
@@ -519,18 +517,22 @@ object TestHelper {
         def acquire: Latent = Latent(references + 1)
         def release: State = if (references > 1) Latent(references - 1) else Empty
 
-        def get: (SparkSession, Running) = {
-          val session =
-            SparkSession.builder
-              .master("local[*]")
-              .getOrCreate
+        def get(isettings: Settings): (SparkSession, Running) = {
+          val job = new SparkJob {
+            override def name: String = s"test-${UUID.randomUUID()}"
 
+            override implicit def settings: Settings = isettings
+
+            override def run(): Try[JobResult] =
+              ??? // we just create a dummy job to get a valid Spark session
+          }
+          val session = job.session
           (session, Running(references, session))
         }
       }
 
       final case class Running(references: Int, session: SparkSession) extends State {
-        override def get: (SparkSession, State) = (session, this)
+        override def get(settings: Settings): (SparkSession, State) = (session, this)
 
         override def acquire: State = Running(references + 1, session)
 
@@ -546,7 +548,7 @@ object TestHelper {
       case object Terminated extends State {
         override def references: Int = 0
 
-        override def get: (SparkSession, State) =
+        override def get(settings: Settings): (SparkSession, State) =
           throw new IllegalStateException(
             "cannot get new global SparkSession after one was created then closed"
           )
@@ -570,9 +572,9 @@ object TestHelper {
 
     private var state: State = State.Empty
 
-    def get: SparkSession =
+    def get(settings: Settings): SparkSession =
       this.synchronized {
-        val (session, nstate) = state.get
+        val (session, nstate) = state.get(settings)
         state = nstate
         logger.trace(s"handing out SparkSession instance, now state=${nstate}")
         session

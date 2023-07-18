@@ -5,7 +5,8 @@
 - Databricks on Azure is now fully documented
 - **BREAKING CHANGE** extract-schema command line option 'mapping' replaced by 'config'
 - **BREAKING CHANGE** Sinks "name" attribute renamed to "connectionRef"
-- **BREAKING CHANGE** extensions no more used in file detection. STable patterns are directly applied to detect correct extensions 
+- **BREAKING CHANGE** extensions no more used in file detection. STable patterns are directly applied to detect correct extensions
+- **BREAKING CHANGE** Ingestion engine is defined at the top level using the engine configuration or SL_ENGINE env var
 
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.

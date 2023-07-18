@@ -94,21 +94,7 @@ trait StorageHandler extends StrictLogging {
 
   def getScheme(): String
 
+  def loadExtraConf(): Map[String, String] = Map.empty[String, String]
   // conf passed as env variable
-  val extraConf: Map[String, String] = sys.env
-    .get("SL_STORAGE_CONF")
-    .map { value =>
-      value
-        .split(',')
-        .map { x =>
-          val i = x.indexOf('=')
-          val key = x.substring(0, i)
-          val value = x.substring(i + 1)
-          // We do not do that because the value may contain the '=' sign (base64 azure key for example)
-          key.trim -> value.trim
-        }
-        .toMap
-    }
-    .getOrElse(Map.empty)
-
+  val extraConf: Map[String, String] = loadExtraConf()
 }

@@ -21,8 +21,8 @@ class KafkaJob(
 )(implicit val settings: Settings)
     extends SparkJob {
   import settings.storageHandler
-  DatasetArea.initMetadata(storageHandler)
-  val schemaHandler = new SchemaHandler(storageHandler)
+  DatasetArea.initMetadata(storageHandler())
+  val schemaHandler = new SchemaHandler(storageHandler())
 
   private val topicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.topicConfigName.map(settings.comet.kafka.topics)
@@ -197,7 +197,8 @@ class KafkaJob(
     (kafkaJobConfig.coalesce, finalWritePath) match {
       case (Some(1), Some(path)) =>
         val targetPath = new Path(path)
-        val singleFile = settings.storageHandler
+        val singleFile = settings
+          .storageHandler()
           .list(
             targetPath,
             recursive = false
@@ -205,9 +206,9 @@ class KafkaJob(
           .filter(_.getName.startsWith("part-"))
           .head
         val tmpPath = new Path(targetPath.toString + ".tmp")
-        if (settings.storageHandler.move(singleFile, tmpPath)) {
-          settings.storageHandler.delete(targetPath)
-          settings.storageHandler.move(tmpPath, targetPath)
+        if (settings.storageHandler().move(singleFile, tmpPath)) {
+          settings.storageHandler().delete(targetPath)
+          settings.storageHandler().move(tmpPath, targetPath)
         }
       case (None, _) =>
       case (_, _) =>

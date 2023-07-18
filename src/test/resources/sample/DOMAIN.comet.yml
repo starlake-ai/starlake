@@ -16,7 +16,7 @@ load:
         - comet_month
         - comet_day
     sink:
-      type: ES
+      type: FS
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -120,7 +120,7 @@ load:
           privacy: None
           required: false
       postsql:
-        - "Select name from COMET_TABLE"
+        - "Select name from SL_THIS"
       metadata:
         mode: "FILE"
         format: "DSV"
@@ -129,7 +129,7 @@ load:
         partition:
           attributes: []
         sink:
-          type: None
+          type: FS
     - name: "complexUser"
       pattern: "SCHEMA-.*.dsv"
       attributes:

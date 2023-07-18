@@ -44,7 +44,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    val content = settings.storageHandler
+    val content = settings
+      .storageHandler()
       .read(mappingPath(config.extractConfig))
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
@@ -54,7 +55,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       .getOrElse(jdbcSchemas.connection)
     jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
       val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
-        val content = settings.storageHandler
+        val content = settings
+          .storageHandler()
           .read(mappingPath(ymlTemplate))
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>

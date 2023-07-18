@@ -368,8 +368,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   @throws[Exception]
   private def loadRefs(): Refs = {
     val refsPath = new Path(DatasetArea.metadata, "refs.comet.yml")
-    val refs = if (settings.storageHandler.exists(refsPath)) {
-      val rawContent = settings.storageHandler.read(refsPath)
+    val refs = if (storage.exists(refsPath)) {
+      val rawContent = storage.read(refsPath)
       val content = Utils.parseJinja(rawContent, activeEnvVars())
       YamlSerializer.mapper.readValue(content, classOf[Refs])
     } else
@@ -962,17 +962,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def getDatabase(domain: Domain, connectionRef: Option[String])(implicit
-    settings: Settings
-  ): Option[String] = {
-
-    domain.database
-      .orElse(connectionRef.flatMap { conn =>
-        val options = settings.comet.connections.get(conn)
-        options.flatMap(_.options.get("database"))
-      })
-      .orElse(settings.comet.getDatabase())
-    // SL_DATABASE
-    // default database
-  }
+  def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
+    domain.database.orElse(settings.comet.getDefaultDatabase())
+  // SL_DATABASE
+  // default database
 }

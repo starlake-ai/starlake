@@ -129,4 +129,4 @@ schemas:
       partition:
         attributes: []
       sink:
-        type: None
+        type: Default

@@ -255,7 +255,7 @@ object DatasetArea extends StrictLogging {
       }
     }
 
-    initMetadata(settings.storageHandler)
+    initMetadata(settings.storageHandler())
     List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
       val root = File(settings.comet.metadata).parent
       File(root.pathAsString, folder.split('/'): _*).createDirectories()

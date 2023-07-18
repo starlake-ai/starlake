@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo, JsonTypeName}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonSubTypes, JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -43,7 +43,7 @@ object SinkType {
 
   def fromString(value: String): SinkType = {
     value.toUpperCase match {
-      case "NONE" | "NONESINK"                => SinkType.None
+      case "DEFAULT" | "DEFAULTSINK"          => SinkType.Default
       case "FS" | "FSSINK"                    => SinkType.FS
       case "GENERIC" | "JDBC" | "JDBCSINK"    => SinkType.JDBC
       case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => SinkType.BQ
@@ -53,7 +53,7 @@ object SinkType {
     }
   }
 
-  object None extends SinkType("None")
+  object Default extends SinkType("Default")
   object FS extends SinkType("FS")
   object BQ extends SinkType("BQ")
   object ES extends SinkType("ES")
@@ -61,7 +61,7 @@ object SinkType {
   object JDBC extends SinkType("JDBC")
   object SNOWFLAKE extends SinkType("SNOWFLAKE")
 
-  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, KAFKA, JDBC, SNOWFLAKE)
+  val sinks: Set[SinkType] = Set(Default, FS, BQ, ES, KAFKA, JDBC, SNOWFLAKE)
 }
 
 class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
@@ -87,30 +87,32 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 @JsonSubTypes(
   Array(
     new JsonSubTypes.Type(value = classOf[FsSink], name = "FS"),
-    new JsonSubTypes.Type(value = classOf[NoneSink], name = "None"),
+    new JsonSubTypes.Type(value = classOf[DefaultSink], name = "Default"),
     new JsonSubTypes.Type(value = classOf[BigQuerySink], name = "BQ"),
     new JsonSubTypes.Type(value = classOf[EsSink], name = "ES"),
-    new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
+    new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC"),
+    new JsonSubTypes.Type(value = classOf[JdbcSink], name = "SNOWFLAKE")
   )
 )
 sealed abstract class Sink(
   val `type`: String,
   val write: Option[WriteMode] = None,
-  val options: Option[Map[String, String]] = None,
   val connectionRef: Option[String] = None
 ) {
-  def getConnectionRef(): Option[String] = connectionRef
-  def getType(): SinkType = SinkType.fromString(`type`)
-  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
-  def connectionRefOptions()(implicit settings: Settings): Option[Map[String, String]] =
-    getConnectionRef.flatMap(settings.comet.connections.get(_).map(_.options))
+  def getConnectionRef(defaultConnectioName: String): String =
+    connectionRef.getOrElse(defaultConnectioName)
 
+  def getType(): SinkType = SinkType.fromString(`type`)
+  @JsonIgnore
+  def connectionRefOptions(defaultConnectionName: String)(implicit
+    settings: Settings
+  ): Map[String, String] =
+    settings.comet.connections
+      .get(getConnectionRef(defaultConnectionName))
+      .map(_.options)
+      .getOrElse(Map.empty)
 }
 
-/*trait SinkTrait extends Sink{
-  @JsonIgnore
-  def getOptions:Map[String, String] = if(options==null) Map.empty else options
-}*/
 /** When the sink *type* field is set to BQ, the options below should be provided.
   * @param location
   *   : Database location (EU, US, ...)
@@ -131,8 +133,9 @@ final case class BigQuerySink(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  override val options: Option[Map[String, String]] = None,
-  materializedView: Option[Boolean] = None
+  materializedView: Option[Boolean] = None,
+  enableRefresh: Option[Boolean] = None,
+  refreshIntervalMs: Option[Long] = None
 ) extends Sink(SinkType.BQ.value)
 
 /** When the sink *type* field is set to ES, the options below should be provided. Elasticsearch
@@ -147,14 +150,15 @@ final case class EsSink(
   override val connectionRef: Option[String] = None,
   id: Option[String] = None,
   timestamp: Option[String] = None,
-  override val options: Option[Map[String, String]] = None
-) extends Sink(SinkType.ES.value)
+  options: Option[Map[String, String]] = None
+) extends Sink(SinkType.ES.value) {
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+}
 
-@JsonTypeName("None")
-final case class NoneSink(
-  override val connectionRef: Option[String] = None,
-  override val options: Option[Map[String, String]] = None
-) extends Sink(SinkType.None.value)
+@JsonTypeName("Default")
+final case class DefaultSink(
+  override val connectionRef: Option[String] = None
+) extends Sink(SinkType.Default.value)
 
 // We had to set format and extension outside options because of the bug below
 // https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
@@ -165,9 +169,11 @@ final case class FsSink(
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
-  override val options: Option[Map[String, String]] = None,
-  coalesce: Option[Boolean] = None
-) extends Sink(SinkType.FS.value)
+  coalesce: Option[Boolean] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink(SinkType.FS.value) {
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+}
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connectionRef:
@@ -179,8 +185,7 @@ final case class FsSink(
   */
 @JsonTypeName("JDBC")
 final case class JdbcSink(
-  override val connectionRef: Option[String] = None,
-  override val options: Option[Map[String, String]] = None
+  override val connectionRef: Option[String] = None
 ) extends Sink(SinkType.JDBC.value)
 
 object Sink {
@@ -188,11 +193,11 @@ object Sink {
   def fromType(sinkTypeStr: String): Sink = {
     val sinkType = SinkType.fromString(sinkTypeStr)
     sinkType match {
-      case SinkType.None => NoneSink()
-      case SinkType.FS   => FsSink()
-      case SinkType.BQ   => BigQuerySink()
-      case SinkType.ES   => EsSink()
-      case _             => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
+      case SinkType.Default => DefaultSink()
+      case SinkType.FS      => FsSink()
+      case SinkType.BQ      => BigQuerySink()
+      case SinkType.ES      => EsSink()
+      case _ => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
     }
   }
 }

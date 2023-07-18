@@ -126,7 +126,7 @@ class BigQueryUtilsSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         val schema = schemaHandler
           .domains()

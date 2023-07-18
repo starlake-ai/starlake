@@ -26,7 +26,6 @@ case class BigQueryLoadConfig(
   rls: List[RowLevelSecurity] = Nil,
   requirePartitionFilter: Boolean = false,
   engine: Engine = Engine.SPARK,
-  options: Map[String, String] = Map.empty,
   partitionsToUpdate: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   starlakeSchema: Option[Schema] = None,
@@ -36,7 +35,9 @@ case class BigQueryLoadConfig(
   outputTableDesc: Option[String] = None,
   sqlSource: Option[String] = None,
   attributesDesc: List[AttributeDesc] = Nil,
-  outputDatabase: Option[String]
+  outputDatabase: Option[String],
+  enableRefresh: Option[Boolean] = None,
+  refreshIntervalMs: Option[Long] = None
 )
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
@@ -77,10 +78,9 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
         .action((x, c) => c.copy(outputClustering = x))
         .text("BigQuery Clustering Fields")
         .optional(),
-      opt[Map[String, String]]("options")
-        .valueName("k1=v1,k2=v2...")
-        .action((x, c) => c.copy(options = x))
-        .text("BigQuery Sink Options")
+      opt[String]("connectionRef")
+        .action((x, c) => c.copy(connectionRef = Some(x)))
+        .text("BigQuery Connector")
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))

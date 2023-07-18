@@ -34,8 +34,8 @@ object Yml2DagTemplateLoader extends LazyLogging {
     template: Yml2DagTemplate
   )(implicit settings: Settings): Try[String] = {
     val templatePath = new Path(template.path)
-    if (settings.storageHandler.exists(templatePath)) {
-      Success(settings.storageHandler.read(templatePath))
+    if (settings.storageHandler().exists(templatePath)) {
+      Success(settings.storageHandler().read(templatePath))
     } else {
       Failure(new RuntimeException(s"No absolute template found for ${templatePath}."))
     }
@@ -50,16 +50,17 @@ object Yml2DagTemplateLoader extends LazyLogging {
       case DomainTemplate(path) => path
     }
     val domainInDagPath = new Path(DatasetArea.dags, DOMAIN_TEMPLATE_FOLDER + "/" + pathToResolve)
-    if (settings.storageHandler.exists(domainInDagPath)) {
-      Success(settings.storageHandler.read(domainInDagPath))
+    if (settings.storageHandler().exists(domainInDagPath)) {
+      Success(settings.storageHandler().read(domainInDagPath))
     } else {
       Failure(new RuntimeException(s"No relative template found for ${domainInDagPath}."))
     }
   }
 
   def listTemplateFromDagPath()(implicit settings: Settings): List[DomainTemplate] = {
-    if (settings.storageHandler.exists(DatasetArea.dags))
-      settings.storageHandler
+    if (settings.storageHandler().exists(DatasetArea.dags))
+      settings
+        .storageHandler()
         .list(
           DatasetArea.dags,
           JINJA_EXTENSION,

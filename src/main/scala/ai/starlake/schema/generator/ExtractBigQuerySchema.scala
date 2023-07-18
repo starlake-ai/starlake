@@ -113,9 +113,9 @@ object ExtractBigQuerySchema {
     val domains = new ExtractBigQuerySchema(config).extractDatasets()
     domains.foreach { domain =>
       val domainYaml = YamlSerializer.serialize(domain)
-      if (settings.storageHandler.exists(DatasetArea.external))
-        settings.storageHandler.delete(DatasetArea.external)
-      settings.storageHandler.write(domainYaml, DatasetArea.external)
+      if (settings.storageHandler().exists(DatasetArea.external))
+        settings.storageHandler().delete(DatasetArea.external)
+      settings.storageHandler().write(domainYaml, DatasetArea.external)
     }
   }
 }

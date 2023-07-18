@@ -17,7 +17,7 @@ class AutoTaskSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
         workflow.autoJob(TransformConfig(name = "csvOutputJob"))
 
@@ -43,7 +43,7 @@ class AutoTaskSpec extends TestHelper {
             "/sample/job/python/piJob.pi.py",
             new Path(this.jobMetadataRootPath, "piJob.pi.py")
           )
-          val schemaHandler = new SchemaHandler(settings.storageHandler)
+          val schemaHandler = new SchemaHandler(settings.storageHandler())
           val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
           workflow.autoJob(TransformConfig(name = "piJob"))
 

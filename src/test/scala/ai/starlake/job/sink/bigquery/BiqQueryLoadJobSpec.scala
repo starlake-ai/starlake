@@ -23,8 +23,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |                           Require Partition Filter
           |  --output_clustering col1,col2...
           |                           BigQuery Clustering Fields
-          |  --options k1=v1,k2=v2...
-          |                           BigQuery Sink Options
+          |  --connectionRef <value>
+          |                           BigQueryConnector
           |  --source_format <value>
           |                           Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time
           |  --create_disposition <value>

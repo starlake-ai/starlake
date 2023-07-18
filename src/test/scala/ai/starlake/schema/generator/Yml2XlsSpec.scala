@@ -16,7 +16,7 @@ class Yml2XlsSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
         val domain = reader.getDomain()
@@ -45,7 +45,7 @@ class Yml2XlsSpec extends TestHelper {
         val yamlDomain = YamlSerializer
           .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
         val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")
         val complexReader =

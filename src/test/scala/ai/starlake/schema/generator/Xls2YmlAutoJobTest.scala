@@ -22,7 +22,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFile.exists() shouldBe true
       result.name shouldBe "someJob"
       result.tasks.size shouldBe 1
-      result.engine shouldBe Some(Engine.SPARK)
+      result.engine shouldBe None
     }
 
     it should "have table specification sqlEngine BQ" in {
@@ -59,7 +59,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFile2.exists() shouldBe true
       result2.name shouldBe "someJob2"
       result2.tasks.size shouldBe 1
-      result2.engine shouldBe Some(Engine.SPARK)
+      result2.engine shouldBe None
       result2.tasks.head.engine shouldBe Some(Engine.BQ)
     }
 

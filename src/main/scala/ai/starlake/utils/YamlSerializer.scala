@@ -13,11 +13,12 @@ import ai.starlake.schema.model.{
   SchemaRefs
 }
 import better.files.File
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
+import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.{Failure, Success, Try}
 
 object YamlSerializer extends LazyLogging {
@@ -124,6 +125,7 @@ object YamlSerializer extends LazyLogging {
           loadNode.asInstanceOf[ObjectNode]
       renameField(domainNode, "schemas", "tables")
       renameField(domainNode, "schemaRefs", "tableRefs")
+      YamlSerializer.deepChangeFieldValues(rootNode, "type", "None", "Default")
       val domain = mapper.treeToValue(domainNode, classOf[Domain])
       if (domainNode == rootNode)
         logger.warn(
@@ -223,12 +225,28 @@ object YamlSerializer extends LazyLogging {
     }
   }
 
-  def renameField(node: ObjectNode, oldName: String, newName: String): Any = {
+  def renameField(node: ObjectNode, oldName: String, newName: String): Unit = {
     val oldNode = node.path(oldName)
     val newNode = node.path(newName)
     if ((newNode.isNull || newNode.isMissingNode) && !(oldNode.isNull || oldNode.isMissingNode)) {
       node.set(newName, oldNode)
       node.remove(oldName)
+    }
+  }
+
+  def deepChangeFieldValues(
+    node: JsonNode,
+    propertyName: String,
+    oldValue: String,
+    newValue: String
+  ): Any = {
+    val nodes = node.findParents(propertyName).asScala
+    nodes.foreach { node =>
+      val parentNode = node.asInstanceOf[ObjectNode]
+      val propertyNode = parentNode.get(propertyName)
+      if (propertyNode.asText() == oldValue) {
+        parentNode.put(propertyName, newValue)
+      }
     }
   }
 }

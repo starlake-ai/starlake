@@ -16,7 +16,7 @@ SKIP_INSTALL=1
 export SL_ENV="${SL_ENV:-FS}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export SL_FS="${SL_FS:-file://}"
-export SL_STORAGE_FS="${SL_STORAGE_FS:-$SL_FS}"
+export SL_SINK_FS="${SL_SINK_FS:-$SL_FS}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
 
@@ -159,7 +159,7 @@ then
                   fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
                   fs.default.name=$SL_FS,
                   fs.defaultFS=$SL_FS"
-elif [[ $SL_FS = gs:* ]] || [[ $SL_STORAGE_FS = gs:* ]]
+elif [[ $SL_FS = gs:* ]] || [[ $SL_SINK_FS = gs:* ]]
 then
   if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]] && [[ -z "$SL_STORAGE_CONF" ]]
   then
@@ -171,8 +171,8 @@ then
                   google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
                   fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
                   google.cloud.auth.service.account.enable=true,
-                  fs.default.name=$SL_STORAGE_FS,
-                  fs.defaultFS=$SL_STORAGE_FS"
+                  fs.default.name=$SL_SINK_FS,
+                  fs.defaultFS=$SL_SINK_FS"
 elif [[ $SL_FS = hdfs:* ]]
 then
   if [[ -z "$HDFS_URI" ]]
@@ -189,7 +189,7 @@ then
   SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
 else
   case $SL_AUDIT_SINK_TYPE in
-      BigQuerySink|NoneSink)
+      BigQuerySink|DefaultSink)
         SL_ROOT=$SL_ROOT java \
                             --add-opens=java.base/java.lang=ALL-UNNAMED \
                             --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
@@ -209,7 +209,7 @@ else
                             -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
       ;;
       *)
-        echo "SL_AUDIT_SINK_TYPE env var must be set ot BigQuerySink or NoneSink"
+        echo "SL_AUDIT_SINK_TYPE env var must be set ot BigQuerySink or DefaultSink"
       ;;
   esac
 fi

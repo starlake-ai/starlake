@@ -84,7 +84,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathJob =
             new Path(cometMetadataPath + "/jobs/addPartitionsWithOverwrite.comet.yml")
           storageHandler.write(businessJobDef, pathJob)
-          val schemaHandler = new SchemaHandler(metadataStorageHandler)
+          val schemaHandler = new SchemaHandler(storageHandler)
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
           validator.autoJob(TransformConfig("tableWithPartitions")) shouldBe true
           // check that table is created correctly with the right number of lines

@@ -21,7 +21,7 @@ class Yml2DDLSpec extends TestHelper {
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
-        val schemaHandler = new SchemaHandler(metadataStorageHandler)
+        val schemaHandler = new SchemaHandler(storageHandler)
         cleanMetadata
         cleanDatasets
         val config = Yml2DDLConfig("bigquery")

@@ -1,6 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
 /** Task executed in the context of a job. Each task is executed in its own session.
@@ -74,19 +75,20 @@ case class AutoTaskDesc(
   /** Return a Path only if a storage area s defined
     * @return
     */
+  @JsonIgnore
   def getTargetPath()(implicit settings: Settings): Path = {
     new Path(DatasetArea.path(domain), table)
   }
 
+  @JsonIgnore
   def getHiveDB()(implicit settings: Settings): String = {
     StorageArea.area(domain, None)
   }
 
   def getDatabase(implicit settings: Settings): Option[String] = {
     database
-      .orElse(settings.comet.getDatabase()) // database passed in env vars
+      .orElse(settings.comet.getDefaultDatabase()) // database passed in env vars
   }
-
 }
 
 object AutoTaskDesc {

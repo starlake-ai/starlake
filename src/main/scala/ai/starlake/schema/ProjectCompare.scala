@@ -22,7 +22,7 @@ object ProjectCompare {
       case None =>
         println(result)
       case Some(output) =>
-        settings.storageHandler.write(result, new Path(output))
+        settings.storageHandler().write(result, new Path(output))
     }
   }
 
@@ -37,7 +37,7 @@ object ProjectCompare {
         val templateContent = scala.io.Source.fromInputStream(stream).mkString
         ("/scalate/project-compare.ssp", templateContent)
       case Some(path) =>
-        val templateContent = settings.storageHandler.read(new Path(path))
+        val templateContent = settings.storageHandler().read(new Path(path))
         (path, templateContent)
     }
     engine.layout(

@@ -20,15 +20,18 @@
 
 package ai.starlake.extract
 
-import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.schema.model._
+import ai.starlake.utils.repackaged.BigQuerySchemaConverters
+import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import java.time.Instant
-import java.util.UUID
+import scala.util.Try
 
 case class BigQueryDatasetInfo(
   project: String,
@@ -75,7 +78,7 @@ case class BigQueryTableInfo(
   tenant: String
 )
 
-object BigQueryTableInfo {
+object BigQueryTableInfo extends StrictLogging {
   def apply(info: TableInfo, logTime: java.sql.Timestamp)(implicit
     settings: Settings
   ): BigQueryTableInfo =
@@ -94,28 +97,53 @@ object BigQueryTableInfo {
       logTime,
       settings.comet.tenant
     )
-  def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
+  def sink(config: BigQueryTablesConfig)(implicit iSettings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val selectedInfos: List[(Dataset, List[Table])] =
       extractTableInfos(config)
 
-    val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
-    val session = new SparkEnv("BigQueryTablesInfo-" + UUID.randomUUID().toString).session
-    val dfDataset = session.createDataFrame(datasetInfos)
-    BigQuerySparkWriter.sink(
-      dfDataset,
-      "dataset_info",
-      Some("Information related to datasets"),
-      config.writeMode.getOrElse(WriteMode.OVERWRITE)
-    )
-    val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
-    val dfTable = session.createDataFrame(tableInfos)
-    BigQuerySparkWriter.sink(
-      dfTable,
-      "table_info",
-      Some("Information related to tables"),
-      config.writeMode.getOrElse(WriteMode.OVERWRITE)
-    )
+    val job = new SparkJob {
+      override def name: String = "BigQueryTablesInfo"
+
+      override implicit def settings: Settings = iSettings
+
+      /** Just to force any job to implement its entry point using within the "run" method
+        *
+        * @return
+        *   : Spark Dataframe for Spark Jobs None otherwise
+        */
+      override def run(): Try[JobResult] = Try {
+        val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime)(settings))
+        val df = session.createDataFrame(datasetInfos)
+        SparkJobResult(Option(df))
+      }
+    }
+
+    val jobResult = job.run()
+    jobResult match {
+      case scala.util.Success(SparkJobResult(Some(dfDataset))) =>
+        BigQuerySparkWriter.sinkInAudit(
+          dfDataset,
+          "dataset_info",
+          Some("Information related to datasets"),
+          Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
+          config.writeMode.getOrElse(WriteMode.APPEND)
+        )
+
+        val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
+        val dfTable = job.session.createDataFrame(tableInfos)
+        BigQuerySparkWriter.sinkInAudit(
+          dfTable,
+          "table_info",
+          Some("Information related to tables"),
+          Some(BigQuerySchemaConverters.toBigQuerySchema(dfTable.schema)),
+          config.writeMode.getOrElse(WriteMode.APPEND)
+        )
+      case scala.util.Success(_) =>
+        logger.warn("Could not extract BigQuery tables info")
+      case scala.util.Failure(exception) =>
+        throw new Exception("Could not extract BigQuery tables info", exception)
+    }
   }
 
   def extractTableInfos(config: BigQueryTablesConfig)(implicit

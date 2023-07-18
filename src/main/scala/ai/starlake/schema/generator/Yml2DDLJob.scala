@@ -304,6 +304,6 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
     )
   }
   private def writeScript(sqlScript: String, output: String): Try[Unit] = {
-    Try(settings.storageHandler.write(sqlScript, new StoragePath(output)))
+    Try(settings.storageHandler().write(sqlScript, new StoragePath(output)))
   }
 }

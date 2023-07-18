@@ -5,6 +5,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQu
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
+import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -14,11 +15,9 @@ import scala.util.{Failure, Success, Try}
 
 class SinkUtils()(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
-  def sink(
-    sink: Sink,
+  def sinkInAudit(
+    sinkType: SinkType,
     dataframe: DataFrame,
-    database: Option[String],
-    domain: String,
     table: String,
     maybeTableDescription: Option[String],
     /* arguments below used for filesink only */
@@ -29,22 +28,10 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     session: SparkSession
   ): Try[Unit] = {
     // We sink to a file when running unit tests
-    if (settings.comet.sinkToFile && engine == Engine.SPARK) {
-      val waitTimeMillis = settings.comet.lock.timeout
-      val locker = new FileLock(lockPath, storageHandler)
-      locker.tryExclusively(waitTimeMillis) {
-        appendToFile(
-          storageHandler,
-          session,
-          dataframe,
-          savePath,
-          sink.getConnectionRef().getOrElse(table),
-          table
-        )
-      }
-    }
-    sink match {
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
+    sinkType match {
+      case SinkType.Default =>
+        Success(())
+      case SinkType.FS =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
@@ -54,46 +41,47 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               session,
               dataframe,
               savePath,
-              sink.getConnectionRef().getOrElse(table),
+              settings.comet.audit.domain.getOrElse("audit"),
               table
             )
           }
         } else
           Success(())
 
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
-        // Do nothing dataset already sinked to file. Forced at the reference.conf level
-        Success(())
-
-      case sink: BigQuerySink =>
+      case SinkType.BQ =>
         Try {
           sinkToBigQuery(
             dataframe,
-            database,
-            sink.getConnectionRef().getOrElse(table),
+            settings.comet.audit.database,
+            settings.comet.audit.domain.getOrElse("audit"),
             table,
             maybeTableDescription,
-            sink.getConnectionRef(),
-            sink.getOptions
+            Some(
+              settings.comet.audit
+                .getSink(settings)
+                .getConnectionRef(settings.comet.getEngine().toString)
+            )
           )
         }
 
-      case sink: JdbcSink =>
+      case SinkType.ES =>
+        // TODO Sink Expectations & Metrics to ES
+        throw new Exception("Sinking Expectations & Metrics to Elasticsearch not yet supported")
+      case SinkType.KAFKA =>
+        // TODO Sink Expectations & Metrics to Kafka
+        throw new Exception("Sinking Expectations & Metrics to Kafka not yet supported")
+      case _ => // including SinkType.JDBC | SinkType.SNOWFLAKE | SinkType.REDSHIFT ect ...
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            sink
-              .getConnectionRef()
-              .getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
+            settings.comet.audit
+              .getSink(settings)
+              .getConnectionRef(settings.comet.getEngine().toString),
             settings.comet,
             Right(dataframe),
-            domain + "." + table,
-            sinkOptions = sink.getOptions
+            settings.comet.audit.domain.getOrElse("audit") + "." + table
           )
           sinkToJdbc(jdbcConfig)
         }
-      case _: EsSink =>
-        // TODO Sink Expectations & Metrics to ES
-        throw new Exception("Sinking Expectations & Metrics to Elasticsearch not yet supported")
     }
   }
 
@@ -103,8 +91,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     bqDataset: String,
     bqTable: String,
     maybeTableDescription: Option[String],
-    connectionRef: Option[String] = None,
-    options: Map[String, String]
+    connectionRef: Option[String] = None
   ): Unit = {
     if (dataframe.count() > 0) {
       val config = BigQueryLoadConfig(
@@ -119,15 +106,11 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         "WRITE_APPEND",
         None,
         None,
-        options = options,
         outputDatabase = bqDatabase
       )
-      // Do not pass the schema here. Not that we do not compute the schema correctly
-      // But since we are having a record of repeated field BQ does not like
-      // the way we pass the schema. BQ needs an extra "list" subfield for repeated fields
-      // So let him determine teh schema by himself or risk tonot to be able to append the metrics
       val res = new BigQuerySparkJob(
         config,
+        maybeSchema = Some(BigQuerySchemaConverters.toBigQuerySchema(dataframe.schema)),
         maybeTableDescription = maybeTableDescription
       ).run()
       res match {
@@ -156,6 +139,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
           .option("dbtable", cliConfig.outputTable)
 
+        logger.info(s"JDBC save done to table ${cliConfig.outputTable} at $cliConfig")
+
         dfw
           .options(cliConfig.options)
           .mode(SaveMode.Append)
@@ -174,7 +159,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     * @param path
     *   : Path to save the file at
     */
-  protected def appendToFile(
+  private def appendToFile(
     storageHandler: StorageHandler,
     session: SparkSession,
     dataToSave: DataFrame,

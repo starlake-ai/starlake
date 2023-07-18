@@ -39,7 +39,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
 
         loadPending
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         val schema = schemaHandler.getSchema("jsonmultiline", "sample_json").get
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
@@ -50,7 +50,8 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
           )
 
         logger.info(resultDf.showString(truncate = 0))
-        import sparkSession.implicits._
+        val session = sparkSession
+        import session.implicits._
         resultDf
           .select($"email")
           .map(_.getString(0))

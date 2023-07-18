@@ -43,11 +43,13 @@ class ConnectionLoadJob(
             .option("dbtable", cliConfig.outputTable)
         else
           dfw
-
+      sourceDF.show(false)
       finalDfw
         .mode(cliConfig.mode.getOrElse(writeMode.toString))
         .options(cliConfig.options)
         .save()
+
+      logger.info(s"JDBC save done to table ${cliConfig.outputTable} at ${cliConfig.options}")
       SparkJobResult(None)
     }
   }

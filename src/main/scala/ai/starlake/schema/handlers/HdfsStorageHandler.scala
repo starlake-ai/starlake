@@ -40,18 +40,118 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
 
-  val conf = new Configuration()
-  // configuration options may be passed using env var in the form
-  /*
-  export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,
-                  google.cloud.auth.type=SERVICE_ACCOUNT_JSON_KEYFILE,
-                  google.cloud.auth.service.account.json.keyfile=mykeys/starlake-me.json,
-                  fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
-                  google.cloud.auth.service.account.enable=true,
-                  fs.default.name=gs://starlake-app,
-                  fs.defaultFS=gs://starlake-app"
-   */
+  private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val bucket = connectionOptions.getOrElse(
+      "gcsBucket",
+      throw new Exception("bucket attribute is required for Google Storage")
+    )
+    val index = bucket.indexOf("://")
+    val scheme = if (index > 0) bucket.substring(0, index) else "gs"
+    val bucketName = if (index > 0) bucket.substring(index + 3) else bucket
+    val tempBucketName = connectionOptions.get("temporaryGcsBucket") match {
+      case Some(tempBucket) =>
+        val index = tempBucket.indexOf("://")
+        if (index > 0) tempBucket.substring(index + 3) else tempBucket
+      case None =>
+        logger.warn(
+          s"temporaryGcsBucket is not set, using $bucket as temporary bucket. " +
+          s"Please set temporaryGcsBucket to a different bucket if you want to use a different one."
+        )
+        bucketName
+    }
+    val authType = connectionOptions.getOrElse("authType", "APPLICATION_DEFAULT")
+    val authConf = authType match {
+      case "APPLICATION_DEFAULT" =>
+        Map(
+          "google.cloud.auth.type"                   -> "APPLICATION_DEFAULT",
+          "google.cloud.auth.service.account.enable" -> "true"
+        )
+      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+        val jsonKeyfile = connectionOptions.getOrElse(
+          "jsonKeyfile",
+          throw new Exception("jsonKeyfile attribute is required for SERVICE_ACCOUNT_JSON_KEYFILE")
+        )
+        Map(
+          "google.cloud.auth.type"                         -> "SERVICE_ACCOUNT_JSON_KEYFILE",
+          "google.cloud.auth.service.account.enable"       -> "true",
+          "google.cloud.auth.service.account.json.keyfile" -> jsonKeyfile
+        )
+      case "USER_CREDENTIALS" =>
+        val clientId = connectionOptions.getOrElse(
+          "clientId",
+          throw new Exception("clientId attribute is required for USER_CREDENTIALS")
+        )
+        val clientSecret = connectionOptions.getOrElse(
+          "clientSecret",
+          throw new Exception("clientSecret attribute is required for USER_CREDENTIALS")
+        )
+        val refreshToken = connectionOptions.getOrElse(
+          "refreshToken",
+          throw new Exception("refreshToken attribute is required for USER_CREDENTIALS")
+        )
+        Map(
+          "google.cloud.auth.type"                   -> "USER_CREDENTIALS",
+          "google.cloud.auth.service.account.enable" -> "true",
+          "google.cloud.auth.client.id"              -> clientId,
+          "google.cloud.auth.client.secret"          -> clientSecret,
+          "google.cloud.auth.refresh.token"          -> refreshToken
+        )
+      case _ =>
+        Map.empty
+    }
+    Map(
+      "fs.defaultFS"                  -> bucket,
+      "fs.default.name"               -> bucket,
+      "temporaryGcsBucket"            -> tempBucketName,
+      "fs.AbstractFileSystem.gs.impl" -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
+      "fs.gs.impl"                    -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"
+    ) ++ authConf
+  }
 
+  private def loadAzureExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val azureStorageContainer = connectionOptions.getOrElse(
+      "azureStorageContainer",
+      throw new Exception("azureStorageContainer attribute is required for Azure Storage")
+    )
+    val azureStorageAccount = connectionOptions.getOrElse(
+      "azureStorageAccount",
+      throw new Exception("azureStorageAccount attribute is required for Azure Storage")
+    )
+    val azureStorageKey = connectionOptions.getOrElse(
+      "azureStorageKey",
+      throw new Exception("azureStorageKey attribute is required for Azure Storage")
+    )
+    Map(
+      "fs.defaultFS"    -> azureStorageContainer,
+      "fs.default.name" -> azureStorageContainer,
+      s"fs.azure.account.auth.type.$azureStorageAccount.blob.core.windows.net" -> "SharedKey",
+      s"fs.azure.account.key.$azureStorageAccount.blob.core.windows.net"       -> azureStorageKey
+    )
+  }
+
+  private def loadS3ExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    throw new Exception("S3 credentials Not yet released")
+  }
+
+  override def loadExtraConf(): Map[String, String] = {
+
+    val options = settings.comet.connections
+      .get(settings.comet.getEngine().toString)
+      .map(_.options)
+      .getOrElse(Map.empty)
+
+    if (options.contains("gcsBucket"))
+      loadGCPExtraConf(options)
+    else if (options.contains("s3Bucket"))
+      loadS3ExtraConf(options)
+    else if (options.contains("azureStorageContainer"))
+      loadAzureExtraConf(options)
+    else
+      Map.empty[String, String]
+
+  }
+
+  val conf = new Configuration()
   this.extraConf.foreach { case (k, v) => conf.set(k, v) }
 
   settings.comet.hadoop.foreach { case (k, v) =>

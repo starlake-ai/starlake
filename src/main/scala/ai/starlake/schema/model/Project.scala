@@ -20,8 +20,8 @@ object Project {
         settings.comet.copy(metadata = new Path(project2Path, "metadata").toString)
       )
 
-    val schemaHandler1 = new SchemaHandler(settings1.storageHandler)(settings1)
-    val schemaHandler2 = new SchemaHandler(settings1.storageHandler)(settings2)
+    val schemaHandler1 = new SchemaHandler(settings1.storageHandler())(settings1)
+    val schemaHandler2 = new SchemaHandler(settings1.storageHandler())(settings2)
 
     ProjectDiff(
       project1Path.toString,
