@@ -66,7 +66,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           val outputPath =
             Path.mergePaths(DatasetArea.dags, new Path(s"/generated/domains/$effectiveDagName.py"))
           logger.info(s"Writing dag to $outputPath")
-          settings.storageHandler.write(dag, outputPath)(StandardCharsets.UTF_8)
+          settings.storageHandler().write(dag, outputPath)(StandardCharsets.UTF_8)
         }
       }
       logger.info("Successfully generated dags")

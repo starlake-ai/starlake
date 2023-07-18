@@ -8,7 +8,10 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption,
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
+import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{BlobId, BlobInfo, Storage}
+import org.apache.hadoop.fs.Path
 
+import java.nio.file.Paths
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
@@ -26,6 +29,35 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
+  private def uploadFilesToGCS(sourceURIs: String): List[Path] = {
+    val temporrayGcsBucket = settings.comet.internal
+      .flatMap(_.temporaryGcsBucket)
+      .getOrElse(
+        throw new Exception("Temporary GCS Bucket not defined. Please env var TEMPORARY_GCS_BUCKET")
+      )
+
+    val folderId = UUID.randomUUID().toString
+    val gcsPath =
+      new Path(s"gs://${temporrayGcsBucket}/$folderId")
+    sourceURIs
+      .split(",")
+      .map { sourceUri =>
+        val sourcePath = new Path(sourceUri)
+        val targetPathWithScheme = new Path(gcsPath, sourcePath.getName())
+        val targetPath =
+          Path.getPathWithoutSchemeAndAuthority(targetPathWithScheme)
+        val targetObject = s"$folderId/${sourcePath.getName()}"
+        val blobId = BlobId.of(temporrayGcsBucket, targetObject)
+        val blobInfo = BlobInfo.newBuilder(blobId).build()
+        val precondition: Storage.BlobWriteOption = Storage.BlobWriteOption.doesNotExist()
+        val targetUri = Paths.get(sourcePath.toUri)
+
+        this.gcsStorage().createFrom(blobInfo, targetUri, precondition)
+        logger.info(s"Uploaded $sourcePath to $targetPathWithScheme")
+        targetPathWithScheme
+      }
+      .toList
+  }
   def loadPathsToBQ(bqSchema: BQSchema): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
@@ -33,12 +65,31 @@ class BigQueryNativeJob(
         val formatOptions: FormatOptions = bqLoadFormatOptions()
         cliConfig.source match {
           case Left(sourceURIs) =>
-            val loadConfig: LoadJobConfiguration.Builder =
-              bqLoadConfig(bqSchema, formatOptions, sourceURIs)
+            val uri = sourceURIs.split(",").head
+
+            // We upload local files first.
+            val localFiles = uri.startsWith("file:")
+            val gcsUris =
+              if (localFiles)
+                uploadFilesToGCS(sourceURIs).mkString(",")
+              else
+                sourceURIs
+
+            val loadConfig: LoadJobConfiguration =
+              bqLoadConfig(bqSchema, formatOptions, gcsUris)
             // Load data from a GCS CSV file into the table
-            val job = bigquery().create(JobInfo.of(loadConfig.build))
+            val job = bigquery().create(JobInfo.of(loadConfig))
             // Blocks until this load table job completes its execution, either failing or succeeding.
             val jobResult = job.waitFor()
+
+            // We delete any updated local file
+            if (localFiles) {
+              gcsUris.split(",").foreach { uri =>
+                val path = new Path(uri)
+                settings.storageHandler().delete(path)
+                logger.info(s"Deleted $path")
+              }
+            }
             if (jobResult.isDone) {
               val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
               applyRLSAndCLS().recover { case e =>
@@ -65,7 +116,7 @@ class BigQueryNativeJob(
                 cliConfig.outputDatabase,
                 settings.comet.tenant
               )
-              settings.comet.audit.sink match {
+              settings.comet.audit.getSink(settings) match {
                 case sink: BigQuerySink =>
                   AuditLog.sinkToBigQuery(log, sink)
                 case _ =>
@@ -88,7 +139,7 @@ class BigQueryNativeJob(
     bqSchema: BQSchema,
     formatOptions: FormatOptions,
     sourceURIs: String
-  ): LoadJobConfiguration.Builder = {
+  ): LoadJobConfiguration = {
     val loadConfig =
       LoadJobConfiguration
         .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
@@ -123,7 +174,7 @@ class BigQueryNativeJob(
         val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
         loadConfig.setClustering(clustering)
     }
-    loadConfig
+    loadConfig.build()
   }
 
   private def bqLoadFormatOptions(): FormatOptions = {
@@ -234,11 +285,12 @@ class BigQueryNativeJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             materializedViewDefinitionBuilder.setClustering(clustering)
         }
-        cliConfig.options.get("enableRefresh") match {
-          case Some(x) => materializedViewDefinitionBuilder.setEnableRefresh(x.toBoolean)
+
+        cliConfig.enableRefresh match {
+          case Some(x) => materializedViewDefinitionBuilder.setEnableRefresh(x)
           case None    =>
         }
-        cliConfig.options.get("refreshIntervalMs") match {
+        cliConfig.refreshIntervalMs match {
           case Some(x) => materializedViewDefinitionBuilder.setRefreshIntervalMs(x.toLong)
           case None    =>
         }

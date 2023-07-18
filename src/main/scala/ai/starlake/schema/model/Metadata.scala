@@ -27,8 +27,8 @@ import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
-
 import DagGenerationConfig.dagGenerationConfigMerger
+import ai.starlake.config.Settings
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
@@ -103,7 +103,8 @@ case class Metadata(
   dag: Option[DagGenerationConfig] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
-  fillWithDefaultValue: Boolean = true
+  fillWithDefaultValue: Boolean = true,
+  engine: Option[Engine] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -131,7 +132,12 @@ case class Metadata(
        |freshness:${freshness}
        |nullValue:${nullValue}
        |emptyIsNull:${emptyIsNull}
-       |""".stripMargin
+       |engine:${engine}
+       |       |""".stripMargin
+
+  @JsonIgnore
+  def getEngine()(implicit settings: Settings): Engine =
+    engine.getOrElse(settings.comet.getEngine())
 
   def getMode(): Mode = getFinalValue(mode, FILE)
 
@@ -189,6 +195,10 @@ case class Metadata(
   def isFillWithDefaultValue(): Boolean = {
     fillWithDefaultValue
   }
+
+  @JsonIgnore
+  def getConnectionRef(implicit settings: Settings): Option[String] =
+    getSink().map(_.getConnectionRef(this.getEngine().toString))
 
   private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {
     if (fillWithDefaultValue)

@@ -30,8 +30,9 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     *   : Application configuration file
     */
   def run(config: ExtractDataConfig)(implicit settings: Settings): Unit = {
-    val schemaHandler = new SchemaHandler(settings.storageHandler)
-    val content = settings.storageHandler
+    val schemaHandler = new SchemaHandler(settings.storageHandler())
+    val content = settings
+      .storageHandler()
       .read(mappingPath(config.extractConfig))
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =

@@ -4,6 +4,8 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
+
+import com.google.common.io.BaseEncoding
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -18,6 +20,7 @@ import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{Row, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
+import java.nio.charset.StandardCharsets
 import scala.util.Try
 
 class BigQuerySparkJob(
@@ -28,8 +31,8 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  val connectorOptions: Map[String, String] =
-    cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
+  lazy val connectorOptions =
+    connectionOptions -- List("allowFieldAddition", "allowFieldRelaxation")
 
   override def name: String = s"bqload-${bqTable}"
 
@@ -41,13 +44,15 @@ class BigQuerySparkJob(
   /** Prepare the configuration for the BigQuery connector
     */
   def prepareConf(): Configuration = {
-    val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
     // fs.default.name
-    val bucketFromExtraConf = settings.storageHandler.extraConf
+
+    val bucketFromExtraConf = settings
+      .storageHandler()
+      .extraConf
       .get("temporaryGcsBucket")
-      .orElse(settings.storageHandler.extraConf.get("fs.gs.system.bucket"))
-      .orElse(settings.storageHandler.extraConf.get("fs.default.name"))
+      .orElse(settings.storageHandler().extraConf.get("fs.gs.system.bucket"))
+      .orElse(settings.storageHandler().extraConf.get("fs.default.name"))
 
     val bucket: Option[String] =
       bucketFromExtraConf
@@ -72,6 +77,25 @@ class BigQuerySparkJob(
       BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey(),
       cliConfig.createDisposition
     )
+    // Authentication
+    connectionOptions("authType") match {
+      case "APPLICATION_DEFAULT" =>
+        logger.info("Using Application Default for Spark BQ Credentials")
+      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+        logger.info("Using Service Account Key for BQ Credentials")
+        val jsonKeyContent = getJsonKeyContent(settings)
+        val jsonKeyInBase64 =
+          BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
+        session.conf.set("credentials", jsonKeyInBase64)
+      case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
+        logger.info("Using Service Account Key for BQ Credentials")
+        val jsonKeyInBase64 = connectionOptions("jsonKeyBase64")
+        session.conf.set("credentials", jsonKeyInBase64)
+      case "ACCESS_TOKEN" =>
+        logger.info("Using Access Token for BQ Credentials")
+        val accessToken = connectionOptions("gcpAccessToken")
+        session.conf.set("gcpAccessToken", accessToken)
+    }
     conf
   }
 
@@ -116,7 +140,7 @@ class BigQuerySparkJob(
           .getTable(table.getTableId)
           .getDefinition[StandardTableDefinition]
       logger.info(
-        s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
+        s"BigQuery Saving to  ${table.getTableId} which contained ${stdTableDefinition.getNumRows} rows"
       )
 
       cliConfig.starlakeSchema.map { schema =>
@@ -238,7 +262,9 @@ class BigQuerySparkJob(
                 connectorOptions
               )
           }
-
+          logger.whenDebugEnabled {
+            sourceDF.show()
+          }
           val finalDF = sourceDF.write
             .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
@@ -247,7 +273,6 @@ class BigQuerySparkJob(
             .options(withFieldRelaxationOptions)
           finalDF.save()
       }
-
       val stdTableDefinitionAfter =
         bigquery()
           .getTable(table.getTableId)
@@ -259,21 +284,23 @@ class BigQuerySparkJob(
         Utils.logException(logger, e)
         throw e
       }
-      val fieldsDescription: Map[String, String] = (cliConfig.sqlSource, maybeSchema) match {
+      (cliConfig.sqlSource, maybeSchema) match {
         case (Some(sql), None) => getFieldsDescriptionSource(sql) // case of a Transformation (Job)
         // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
         case (None, Some(bqSchema)) => // case of Load (Ingestion)
-          BigQuerySchemaConverters
+          val fieldsDescription = BigQuerySchemaConverters
             .toSpark(bqSchema)
             .fields
             .map(f => f.name -> f.getComment().getOrElse(""))
             .toMap[String, String]
-        case (_, _) =>
+          updateColumnsDescription(fieldsDescription)
+        case (Some(_), Some(_)) =>
           throw new Exception(
             "Should never happen, SqlSource or TableSchema should be set exclusively"
           )
+        case (None, None) =>
+        // Do nothing
       }
-      updateColumnsDescription(fieldsDescription)
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
       updateTableDescription(table, maybeTableDescription.getOrElse(""))
       SparkJobResult(None)

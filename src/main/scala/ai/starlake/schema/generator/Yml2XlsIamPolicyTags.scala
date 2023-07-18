@@ -18,7 +18,7 @@ object Yml2XlsIamPolicyTags extends LazyLogging with XlsModel {
           .map(new Path(_)) getOrElse (DatasetArea.iamPolicyTags())
 
         val iamPolicyTags =
-          YamlSerializer.deserializeIamPolicyTags(settings.storageHandler.read(inputPath))
+          YamlSerializer.deserializeIamPolicyTags(settings.storageHandler().read(inputPath))
         writeXls(iamPolicyTags, config.xlsDirectory)
       case _ =>
         println(Yml2XlsConfig.usage())

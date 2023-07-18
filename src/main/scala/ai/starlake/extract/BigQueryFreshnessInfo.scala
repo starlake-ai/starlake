@@ -1,15 +1,18 @@
 package ai.starlake.extract
 
-import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.WriteMode
+import ai.starlake.utils.repackaged.BigQuerySchemaConverters
+import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, Table}
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
-import java.util.UUID
 import scala.concurrent.duration.Duration
+import scala.util.Try
 
 case class FreshnessStatus(
   domain: String,
@@ -22,14 +25,14 @@ case class FreshnessStatus(
   tenant: String
 )
 
-object BigQueryFreshnessInfo {
+object BigQueryFreshnessInfo extends StrictLogging {
   def freshness(
     config: BigQueryTablesConfig
-  )(implicit settings: Settings): List[FreshnessStatus] = {
+  )(implicit isettings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
       BigQueryTableInfo.extractTableInfos(config)
-    import settings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler)
+    import isettings.storageHandler
+    val schemaHandler = new SchemaHandler(storageHandler())
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
       val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
@@ -49,7 +52,7 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val errorStatus =
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain, config.connectionRef).getOrElse(""),
+                        schemaHandler.getDatabase(domain).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -60,7 +63,7 @@ object BigQueryFreshnessInfo {
 
                     errorStatus.orElse {
                       getFreshnessStatus(
-                        schemaHandler.getDatabase(domain, config.connectionRef).getOrElse(""),
+                        schemaHandler.getDatabase(domain).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -92,7 +95,7 @@ object BigQueryFreshnessInfo {
                 case Some(freshness) =>
                   val errorStatus =
                     getFreshnessStatus(
-                      task.database.getOrElse(settings.comet.database),
+                      task.database.getOrElse(isettings.comet.database),
                       task.domain,
                       tableInfo,
                       task.table,
@@ -102,7 +105,7 @@ object BigQueryFreshnessInfo {
                     )
                   errorStatus.orElse {
                     getFreshnessStatus(
-                      task.database.getOrElse(settings.comet.database),
+                      task.database.getOrElse(isettings.comet.database),
                       task.domain,
                       tableInfo,
                       task.table,
@@ -119,14 +122,38 @@ object BigQueryFreshnessInfo {
     val statuses = tablesFreshnessStatuses ++ jobsFreshnessStatuses
 
     if (config.persist) {
-      val session = new SparkEnv("BigQueryFreshnessInfo-" + UUID.randomUUID().toString).session
-      val dfDataset = session.createDataFrame(statuses)
-      BigQuerySparkWriter.sink(
-        dfDataset,
-        "freshness_info",
-        Some("Information related to table freshness"),
-        config.writeMode.getOrElse(WriteMode.OVERWRITE)
-      )
+      val job = new SparkJob {
+        override def name: String = "BigQueryFreshnessInfo"
+
+        override implicit def settings: Settings = isettings
+
+        /** Just to force any job to implement its entry point using within the "run" method
+          *
+          * @return
+          *   : Spark Dataframe for Spark Jobs None otherwise
+          */
+        override def run(): Try[JobResult] = Try {
+          val dfDataset = session.createDataFrame(statuses)
+          SparkJobResult(Option(dfDataset))
+        }
+      }
+
+      val jobResult = job.run()
+      jobResult match {
+        case scala.util.Success(SparkJobResult(Some(dfDataset))) =>
+          BigQuerySparkWriter.sinkInAudit(
+            dfDataset,
+            "freshness_info",
+            Some("Information related to table freshness"),
+            Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
+            config.writeMode.getOrElse(WriteMode.APPEND)
+          )
+        case scala.util.Success(_) =>
+          logger.warn("Could not extract BigQuery tables info")
+        case scala.util.Failure(exception) =>
+          throw new Exception("Could not extract BigQuery tables info", exception)
+      }
+
     }
     statuses
   }

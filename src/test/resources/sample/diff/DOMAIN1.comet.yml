@@ -16,7 +16,7 @@ load:
         - comet_month
         - comet_day
     sink:
-      type: ES
+      type: Default
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -129,4 +129,4 @@ load:
         partition:
           attributes: []
         sink:
-          type: None
+          type: Default

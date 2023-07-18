@@ -121,12 +121,13 @@ case class AutoTask(
     Utils.getDBDisposition(taskDesc.write, hasMergeKeyDefined = false)
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
+    val connectionRef = sink.map(_.getConnectionRef(this.engine.toString))
     val bqSink =
       taskDesc.sink
-        .map(sink => sink.asInstanceOf[BigQuerySink])
-        .getOrElse(BigQuerySink(connectionRef = sink.flatMap(_.getConnectionRef())))
+        .getOrElse(BigQuerySink(connectionRef = connectionRef))
+        .asInstanceOf[BigQuerySink]
     BigQueryLoadConfig(
-      connectionRef = sink.flatMap(_.getConnectionRef()),
+      connectionRef = connectionRef,
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
@@ -140,11 +141,12 @@ case class AutoTask(
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = taskDesc.rls,
       engine = Engine.BQ,
-      options = bqSink.getOptions,
       acl = taskDesc.acl,
       materializedView = taskDesc.sink.exists(sink =>
         sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
       ),
+      enableRefresh = bqSink.enableRefresh,
+      refreshIntervalMs = bqSink.refreshIntervalMs,
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
       starlakeSchema = Some(Schema.fromTaskDesc(taskDesc)),
@@ -234,8 +236,8 @@ case class AutoTask(
               schemaHandler,
               None,
               engine,
-              sql =>
-                bqNativeJob(parseJinja(sql, Map.empty))
+              expectationSql =>
+                bqNativeJob(parseJinja(expectationSql, Map.empty))
                   .runInteractiveQuery()
                   .map { result =>
                     val bqResult = result.asInstanceOf[BigQueryJobResult]
@@ -272,7 +274,7 @@ case class AutoTask(
           schemaHandler.domains(),
           schemaHandler.jobs(),
           localViews,
-          taskDesc.engine.getOrElse(Engine.SPARK)
+          engine
         )
       else {
         taskDesc.merge match {
@@ -284,7 +286,7 @@ case class AutoTask(
                 taskDesc.getDatabase(settings),
                 taskDesc.domain,
                 taskDesc.table,
-                taskDesc.engine.getOrElse(Engine.SPARK)
+                engine
               )
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
@@ -296,7 +298,7 @@ case class AutoTask(
               schemaHandler.domains(),
               schemaHandler.jobs(),
               localViews,
-              taskDesc.engine.getOrElse(Engine.SPARK)
+              engine
             )
         }
       }
@@ -366,9 +368,8 @@ case class AutoTask(
     val finalDataset = clusteredDFWriter
       .mode(taskDesc.write.toSaveMode)
       .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
-      .options(sink.getOptions)
+      .options(sink.getOptions())
       .option("path", targetPath.toString)
-      .options(sink.getOptions)
 
     if (settings.comet.isHiveCompatible()) {
       val tableName = taskDesc.table
@@ -413,10 +414,11 @@ case class AutoTask(
     true
   }
 
-  def registerFSViews() = {
+  private def registerFSViews(): List[String] = {
     val acceptedPath = DatasetArea.accepted(".")
     val domains =
-      if (storageHandler.exists(acceptedPath)) storageHandler.listDirectories(acceptedPath) else Nil
+      if (storageHandler.exists(acceptedPath)) storageHandler.listDirectories(acceptedPath)
+      else Nil
     domains.flatMap { domain =>
       val domainName = domain.getName
       val tables = storageHandler.listDirectories(domain)
@@ -471,7 +473,7 @@ case class AutoTask(
         case None =>
           (SparkJobResult(None), sqlWithParameters)
         case Some(dataframe) =>
-          if (settings.comet.isHiveCompatible() || settings.comet.sinkToFile) {
+          if (settings.comet.isHiveCompatible()) {
             val fsSink = sink match {
               case Some(sink) =>
                 sink match {

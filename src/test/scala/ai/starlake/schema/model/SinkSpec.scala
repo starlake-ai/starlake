@@ -28,47 +28,39 @@ class SinkSpec extends TestHelper {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "None"
+          |type: "Default"
           |""".stripMargin,
         classOf[Sink]
-      ) shouldBe NoneSink(connectionRef = Some("sink"))
+      ) shouldBe DefaultSink(connectionRef = Some("sink"))
     }
 
     "parsing any sink with options" should "succeed" in {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "None"
-          |options:
-          |  anyOption: "true"
+          |type: "Default"
           |""".stripMargin,
         classOf[Sink]
-      ) shouldBe NoneSink(
-        connectionRef = Some("sink"),
-        options = Some(Map("anyOption" -> "true"))
+      ) shouldBe DefaultSink(
+        connectionRef = Some("sink")
       )
     }
 
     "writing any sink without options" should "succeed" in {
       mapper.writeValueAsString(
-        NoneSink(connectionRef = Some("sink"))
-      ) shouldBe """--- !<None>
+        DefaultSink(connectionRef = Some("sink"))
+      ) shouldBe """--- !<Default>
                          |connectionRef: "sink"
-                         |type: "None"
+                         |type: "Default"
                          |""".stripMargin
     }
 
     "writing any sink with options" should "succeed" in {
       mapper.writeValueAsString(
-        NoneSink(
-          connectionRef = Some("sink"),
-          options = Some(Map("anyOption" -> "true"))
-        )
-      ) shouldBe """--- !<None>
+        DefaultSink(connectionRef = Some("sink"))
+      ) shouldBe """--- !<Default>
                          |connectionRef: "sink"
-                         |options:
-                         |  anyOption: "true"
-                         |type: "None"
+                         |type: "Default"
                          |""".stripMargin
     }
 
@@ -78,15 +70,10 @@ class SinkSpec extends TestHelper {
           |connectionRef: "sink"
           |type: "BQ"
           |timestamp: "timestamp"
-          |options:
-          |  anyOption: "true"
           |""".stripMargin,
         classOf[Sink]
-      ) shouldBe BigQuerySink(
-        connectionRef = Some("sink"),
-        timestamp = Some("timestamp"),
-        options = Some(Map("anyOption" -> "true"))
-      )
+      ) shouldBe BigQuerySink(connectionRef = Some("sink"), timestamp = Some("timestamp"))
+
     }
 
     "parsing FS sink" should "succeed" in {
@@ -128,15 +115,9 @@ class SinkSpec extends TestHelper {
         """
           |connectionRef: "sink"
           |type: "JDBC"
-          |options:
-          |  anyOption: "true"
-          |  partitions: 3
           |""".stripMargin,
         classOf[Sink]
-      ) shouldBe JdbcSink(
-        connectionRef = Some("sink"),
-        options = Some(Map("anyOption" -> "true", "partitions" -> "3"))
-      )
+      ) shouldBe JdbcSink(connectionRef = Some("sink"))
     }
 
     "parsing KAFKA sink" should "fail" in {

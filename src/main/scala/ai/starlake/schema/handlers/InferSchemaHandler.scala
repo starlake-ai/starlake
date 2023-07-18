@@ -195,7 +195,7 @@ object InferSchemaHandler {
     if (savePath.exists) {
 
       val existingDomain = YamlSerializer.deserializeDomain(
-        settings.storageHandler.read(new Path(savePath.pathAsString)),
+        settings.storageHandler().read(new Path(savePath.pathAsString)),
         savePath.pathAsString
       )
       existingDomain match {

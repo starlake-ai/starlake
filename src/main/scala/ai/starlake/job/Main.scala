@@ -138,7 +138,7 @@ class Main() extends StrictLogging {
     checkPrerequisites(argList)
 
     import settings.{launcherService, storageHandler}
-    DatasetArea.initMetadata(storageHandler)
+    DatasetArea.initMetadata(storageHandler())
 
     // extract any env var passed as --options argument
     val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
@@ -146,7 +146,7 @@ class Main() extends StrictLogging {
       case None      => Map.empty[String, String]
     }
 
-    val schemaHandler = new SchemaHandler(storageHandler, cliEnv)
+    val schemaHandler = new SchemaHandler(storageHandler(), cliEnv)
 
     // handle non existing project commands
     argList.head match {
@@ -166,9 +166,9 @@ class Main() extends StrictLogging {
     if (settings.comet.validateOnLoad)
       schemaHandler.fullValidation()
 
-    DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
+    DatasetArea.initDomains(storageHandler(), schemaHandler.domains().map(_.name))
     val workflow =
-      new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
+      new IngestionWorkflow(storageHandler(), schemaHandler, launcherService)
 
     logger.info(s"Running Starlake $argList")
     val result = argList.head match {
@@ -294,7 +294,7 @@ class Main() extends StrictLogging {
       case "parquet2csv" =>
         Parquet2CSVConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new Parquet2CSV(config, storageHandler).run().isSuccess
+            new Parquet2CSV(config, storageHandler()).run().isSuccess
           case _ =>
             println(Parquet2CSVConfig.usage())
             false
@@ -329,7 +329,7 @@ class Main() extends StrictLogging {
       case "jobs2gv" =>
         AutoTask2GraphVizConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new AutoTaskToGraphViz(settings, schemaHandler, storageHandler).run(config)
+            new AutoTaskToGraphViz(settings, schemaHandler, storageHandler()).run(config)
           case None =>
             println(AutoTask2GraphVizConfig.usage())
         }

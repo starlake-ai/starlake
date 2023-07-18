@@ -177,13 +177,13 @@ object AuditLog extends StrictLogging {
     val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
     import session.implicits._
     val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
-    val locker = new FileLock(lockPath, settings.storageHandler)
+    val locker = new FileLock(lockPath, settings.storageHandler())
     locker.doExclusively() {
       val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
       val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
       logger.info(s"Saving audit to path $auditPath")
       if (settings.comet.hive) {
-        val hiveDB = settings.comet.audit.sink.getConnectionRef().getOrElse("audit")
+        val hiveDB = settings.comet.audit.domain.getOrElse("audit")
         val tableName = "audit"
         val fullTableName = s"$hiveDB.$tableName"
         session.sql(s"create database if not exists $hiveDB")
@@ -206,11 +206,7 @@ object AuditLog extends StrictLogging {
     settings: Settings
   ): Any = {
     // We sink to a file when running unit tests
-    if (settings.comet.sinkToFile) {
-      sinkToFile(log, sessionOpt, settings)
-    }
-
-    settings.comet.audit.sink match {
+    settings.comet.audit.getSink(settings) match {
       case sink: JdbcSink =>
         val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
         val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
@@ -227,12 +223,10 @@ object AuditLog extends StrictLogging {
           .toDF(auditCols.map { case (name, _, _) => name }: _*)
         val jdbcConfig = ConnectionLoadConfig.fromComet(
           sink
-            .getConnectionRef()
-            .getOrElse(throw new Exception("JdbcSink requires a connectionRef")),
+            .getConnectionRef(settings.comet.getEngine().toString),
           settings.comet,
           Right(auditDF),
-          settings.comet.audit.sink.getConnectionRef().getOrElse("audit") + "." + "audit",
-          sinkOptions = sink.getOptions
+          settings.comet.audit.domain.getOrElse("audit") + ".audit"
         )
         new ConnectionLoadJob(jdbcConfig).run()
 
@@ -242,15 +236,14 @@ object AuditLog extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
+      case _: FsSink =>
         sinkToFile(log, sessionOpt, settings)
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
-      // Do nothing dataset already sinked to file. Forced at the reference.conf level
+      case _: DefaultSink =>
     }
   }
 
   private def getDatabase()(implicit settings: Settings): Option[String] =
-    settings.comet.getDatabase()
+    settings.comet.getDefaultDatabase()
 
   def sinkToBigQuery(
     log: AuditLog,
@@ -260,12 +253,12 @@ object AuditLog extends StrictLogging {
   ): Try[JobResult] = {
     val auditOutputTarget =
       BigQueryJobBase.extractProjectDatasetAndTable(
-        sink.getConnectionRef().getOrElse("audit") + "." + "audit"
+        settings.comet.audit.domain.getOrElse("audit") + ".audit"
       )
     val bqConfig = BigQueryLoadConfig(
-      sink.getConnectionRef(),
+      Some(sink.getConnectionRef(settings.comet.getEngine().toString)),
       Left("ignore"),
-      outputTableId = Some(auditOutputTarget),
+      Some(auditOutputTarget),
       None,
       Nil,
       settings.comet.defaultFormat,
@@ -273,7 +266,6 @@ object AuditLog extends StrictLogging {
       "WRITE_APPEND",
       None,
       None,
-      options = sink.getOptions,
       outputDatabase = getDatabase()
     )
     val bqJob = new BigQueryNativeJob(

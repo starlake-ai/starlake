@@ -47,6 +47,9 @@ trait SparkJob extends JobBase {
     // Moreover, since we handle schema validaty through the YAML file, we manage these settings automatically
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
+    settings.storageHandler().extraConf.foreach { case (k, v) =>
+      sourceConfig.set("spark.hadoop." + k, v)
+    }
 
     val thisConf = sourceConfig.setAppName(appName).set("spark.app.id", appName)
     logger.whenDebugEnabled {
@@ -75,8 +78,12 @@ trait SparkJob extends JobBase {
     sparkEnv.session
   }
 
-  lazy val optionalAuditSession: Option[SparkSession] =
-    if (settings.comet.audit.sink.getType() == SinkType.BQ) None else Some(session)
+  lazy val optionalAuditSession: Option[SparkSession] = {
+
+    if (settings.comet.audit.getSink(settings).getType() == SinkType.BQ)
+      None
+    else Some(session)
+  }
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist

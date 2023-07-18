@@ -124,7 +124,7 @@ class IngestionWorkflow(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
     )
     filteredDomains.foreach { domain =>
-      val storageHandler = settings.storageHandler
+      val storageHandler = settings.storageHandler()
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
@@ -374,7 +374,7 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  private def domainsToWatch(config: WatchConfig) = {
+  private def domainsToWatch(config: WatchConfig): List[Domain] = {
     val includedDomains = (config.includes, config.excludes) match {
       case (Nil, Nil) =>
         domains
@@ -401,7 +401,7 @@ class IngestionWorkflow(
     logger.info(s"List files in $pendingArea")
     val files = Utils
       .loadInstance[LoadStrategy](settings.comet.loadStrategyClass)
-      .list(settings.storageHandler, pendingArea, recursive = false)
+      .list(settings.storageHandler(), pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
@@ -774,7 +774,7 @@ class IngestionWorkflow(
                     sink match {
                       case _: EsSink if settings.comet.elasticsearch.active =>
                         saveToES(action)
-                      case fsSink: FsSink if !settings.comet.sinkToFile =>
+                      case fsSink: FsSink =>
                         maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
 
                       case bqSink: BigQuerySink =>
@@ -786,7 +786,7 @@ class IngestionWorkflow(
                         }
                         val bqLoadConfig =
                           BigQueryLoadConfig(
-                            connectionRef = bqSink.getConnectionRef(),
+                            connectionRef = Some(bqSink.getConnectionRef(action.engine.toString)),
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
@@ -804,7 +804,6 @@ class IngestionWorkflow(
                             days = bqSink.days,
                             requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                             rls = action.taskDesc.rls,
-                            options = bqSink.getOptions,
                             acl = action.taskDesc.acl,
                             starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
                             // outputTableDesc = action.taskDesc.comment.getOrElse(""),
@@ -818,11 +817,7 @@ class IngestionWorkflow(
 
                       case jdbcSink: JdbcSink =>
                         val jdbcName =
-                          jdbcSink
-                            .getConnectionRef()
-                            .getOrElse(
-                              throw new Exception("JdbcSink requires a connectionRef")
-                            )
+                          jdbcSink.getConnectionRef(action.engine.toString)
                         val source = maybeDataFrame
                           .map(df => Right(df))
                           .getOrElse(Left(action.taskDesc.getTargetPath().toString))
@@ -836,8 +831,7 @@ class IngestionWorkflow(
                           outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
                           createDisposition = CreateDisposition.valueOf(createDisposition),
                           writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                          createTableIfAbsent = false,
-                          sinkOptions = jdbcSink.getOptions
+                          createTableIfAbsent = false
                         )
 
                         val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -845,7 +839,7 @@ class IngestionWorkflow(
                           case Success(_) => true
                           case Failure(e) => logger.error("JDBCLoad Failed", e); false
                         }
-                      case _: NoneSink =>
+                      case _: DefaultSink =>
                         maybeDataFrame.foreach { dataframe =>
                           dataframe.write.format("console").save()
                         }
@@ -887,7 +881,7 @@ class IngestionWorkflow(
         domain = action.taskDesc.domain,
         schema = action.taskDesc.table,
         dataset = Some(Left(targetPath)),
-        options = sink.getOptions
+        options = sink.getOptions()
       )
     )
   }
@@ -997,9 +991,9 @@ class IngestionWorkflow(
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain, sink.getConnectionRef())
+            val database = schemaHandler.getDatabase(domain)
             val config = BigQueryLoadConfig(
-              connectionRef = metadata.sink.flatMap(_.getConnectionRef()),
+              connectionRef = metadata.getConnectionRef(settings),
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(database, domain.name, schema.finalName)

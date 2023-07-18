@@ -93,7 +93,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       new SpecTrait(
         domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
@@ -111,7 +111,6 @@ class SchemaHandlerSpec extends TestHelper {
         )
 
         // Check rejected
-
         val rejectedDf = sparkSession.read
           .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
 
@@ -123,25 +122,18 @@ class SchemaHandlerSpec extends TestHelper {
         expectedRejectedF.except(rejectedDf).count() shouldBe 1
 
         // Accepted should have the same data as input
-        val acceptedDf = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/User/$getTodayPartitionPath")
-
-        printDF(acceptedDf, "acceptedDf")
-        val expectedAccepted =
-          sparkSession.read
-            .schema(acceptedDf.schema)
-            .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
-
-        printDF(expectedAccepted, "expectedAccepted")
-        acceptedDf
-          .select("firstname")
-          .except(expectedAccepted.select("firstname"))
-          .count() shouldBe 0
-
+        val client = HttpClients.createDefault
+        val acceptedUri = s"http://${esContainer.httpHostAddress}/domain.user/_search?pretty"
+        val acceptedgetRequest = new HttpGet(acceptedUri)
+        acceptedgetRequest.setHeader("Content-Type", "application/json")
+        val acceptedResponse = client.execute(acceptedgetRequest)
+        val responseString: String = EntityUtils.toString(acceptedResponse.getEntity, "UTF-8")
+        assert(responseString.indexOf(""""age" : 121""") > 0)
+        assert(responseString.indexOf(""""age" : 122""") > 0)
+        println(responseString)
         val countUri = s"http://${esContainer.httpHostAddress}/domain.user/_count"
         val getRequest = new HttpGet(countUri)
         getRequest.setHeader("Content-Type", "application/json")
-        val client = HttpClients.createDefault
         val response = client.execute(getRequest)
 
         response.getStatusLine.getStatusCode should be <= 299
@@ -578,7 +570,9 @@ class SchemaHandlerSpec extends TestHelper {
             cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
 
-        import sparkSession.implicits._
+        val session = sparkSession
+        import session.implicits._
+
         val (seconds, millis) =
           acceptedDf
             .select($"seconds", $"millis")
@@ -622,7 +616,9 @@ class SchemaHandlerSpec extends TestHelper {
             cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
 
-        import sparkSession.implicits._
+        val session = sparkSession
+        import session.implicits._
+
         val (seconds, millis) =
           acceptedDf
             .select($"seconds", $"millis")
@@ -863,7 +859,7 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         new Yml2GraphViz(schemaHandler).run(Array.empty)
 
@@ -907,7 +903,7 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         new Yml2GraphViz(schemaHandler).run(Array("--acl"))
 
@@ -994,7 +990,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/schema-refs/_users.comet.yml",
           new Path(domainMetadataRootPath, "_users.comet.yml")
         )
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         schemaHandler
           .getDomain("WITH_REF")
           .map(_.tables.map(_.name))

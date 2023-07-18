@@ -514,7 +514,6 @@ object JDBCUtils extends LazyLogging {
       tableRefs = Nil,
       tables = cometSchema.toList,
       comment = None,
-      extensions = Nil,
       ack = None
     )
   }
@@ -1402,7 +1401,7 @@ object LastExportUtils extends LazyLogging {
     colQuote: Char,
     fullExport: Boolean
   )(apply: ResultSet => Option[T])(implicit settings: Settings): Option[T] = {
-    val auditSchema = settings.comet.audit.sink.getConnectionRef().getOrElse("audit")
+    val auditSchema = settings.comet.audit.domain.getOrElse("audit")
     if (fullExport) {
       None
     } else {
@@ -1439,7 +1438,7 @@ object LastExportUtils extends LazyLogging {
     schema: String,
     colNameQuote: Char
   )(implicit settings: Settings): Option[Timestamp] = {
-    val auditSchema = settings.comet.audit.sink.getConnectionRef().getOrElse("audit")
+    val auditSchema = settings.comet.audit.domain.getOrElse("audit")
     val lastExtractionSQL =
       s"""
          |select max(${colNameQuote}start_ts${colNameQuote})
@@ -1479,7 +1478,7 @@ object LastExportUtils extends LazyLogging {
       "message",
       "step"
     ).map(col => colStart + col + colEnd).mkString(",")
-    val auditSchema = settings.comet.audit.sink.getConnectionRef().getOrElse("audit")
+    val auditSchema = settings.comet.audit.domain.getOrElse("audit")
     val fullReport =
       s"""insert into $auditSchema.SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     val sqlInsert =
@@ -1498,7 +1497,7 @@ object LastExportUtils extends LazyLogging {
                 s"type $partitionColumnType not supported for partition columnToDistribute"
               )
           }
-          val auditSchema = settings.comet.audit.sink.getConnectionRef().getOrElse("audit")
+          val auditSchema = settings.comet.audit.domain.getOrElse("audit")
           s"""insert into $auditSchema.SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
 

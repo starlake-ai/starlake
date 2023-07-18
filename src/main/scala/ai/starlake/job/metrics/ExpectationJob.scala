@@ -135,11 +135,9 @@ class ExpectationJob(
         .withColumn("cometTime", lit(System.currentTimeMillis()))
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
-      new SinkUtils().sink(
-        settings.comet.audit.sink,
+      new SinkUtils().sinkInAudit(
+        settings.comet.audit.getSink(settings).getType(),
         expectationsDF,
-        settings.comet.audit.database,
-        settings.comet.audit.sink.getConnectionRef().getOrElse("audit"),
         "expectations",
         Some("Expectation results"),
         DatasetArea.expectations(domainName, schemaName),

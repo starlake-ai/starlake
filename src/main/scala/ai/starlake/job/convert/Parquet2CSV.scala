@@ -80,7 +80,7 @@ object Parquet2CSV {
     import settings.storageHandler
     Parquet2CSVConfig.parse(args) match {
       case Some(config) =>
-        new Parquet2CSV(config, storageHandler).run()
+        new Parquet2CSV(config, storageHandler()).run()
       case _ =>
         println(Parquet2CSVConfig.usage())
     }

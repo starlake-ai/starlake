@@ -4,13 +4,22 @@ import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
-import com.google.auth.oauth2.ServiceAccountCredentials
+import com.google.auth.Credentials
+import com.google.auth.oauth2.{GoogleCredentials, ServiceAccountCredentials, UserCredentials}
 import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
   PolicyTagManagerClient
 }
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
+  GoogleCredentials => GcsGoogleCredentials,
+  ServiceAccountCredentials => GcsServiceAccountCredentials,
+  UserCredentials => GcsUserCredentials
+}
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.{Credentials => GcsCredentials}
+
+import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
@@ -18,6 +27,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
+import java.io.ByteArrayInputStream
 import java.security.SecureRandom
 import java.util
 import scala.collection.JavaConverters._
@@ -30,15 +40,18 @@ trait BigQueryJobBase extends StrictLogging {
 
   def settings: Settings
   def cliConfig: BigQueryLoadConfig
+  logger.info(s"cliConfig=$cliConfig")
+  lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
+    .orElse(Some(settings.comet.getEngine().toString))
 
-  val connectionOptions: Map[String, String] =
-    cliConfig.connectionRef
-      .map(name => settings.comet.connections(name).options)
-      .getOrElse(Map.empty)
+  lazy val connectionRef: scala.Option[Settings.Connection] =
+    connectionName.flatMap(name => settings.comet.connections.get(name))
+
+  lazy val connectionOptions: Map[String, String] =
+    connectionRef.map(_.options).getOrElse(Map.empty)
 
   def projectId: String = {
     cliConfig.outputDatabase
-      .orElse(connectionOptions.get("database"))
       .orElse(getPropertyOrEnv("SL_DATABASE"))
       .orElse(getPropertyOrEnv("GCP_PROJECT"))
       .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
@@ -46,26 +59,76 @@ trait BigQueryJobBase extends StrictLogging {
       .getOrElse(throw new Exception("GCP Project ID must be defined"))
   }
 
-  private def getCredentials()(implicit
+  private def bigQueryCredentials()(implicit
     settings: Settings
-  ): scala.Option[ServiceAccountCredentials] = {
-    val connectionOptions =
-      cliConfig.connectionRef.map(name => settings.comet.connections(name).options)
-    connectionOptions.flatMap(_.get("serviceAccountKey")).map { gcpSAJsonKey =>
-      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
-        val path = new Path(gcpSAJsonKey)
-        if (settings.storageHandler.exists(path)) {
-          settings.storageHandler.read(path)
-        } else {
-          throw new Exception(s"Invalid GCP SA KEY Path: $path")
-        }
-      } else
-        gcpSAJsonKey
-      val credentialsStream = new java.io.ByteArrayInputStream(
-        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
-      )
-      ServiceAccountCredentials.fromStream(credentialsStream)
+  ): Credentials = {
+    connectionOptions("authType") match {
+      case "APPLICATION_DEFAULT" =>
+        logger.info("Using Application Default for BQ Credentials")
+        GoogleCredentials.getApplicationDefault()
+      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+        logger.info("Using Service Account Key for BQ Credentials")
+        val credentialsStream = getJsonKeyStream()
+        ServiceAccountCredentials.fromStream(credentialsStream)
+      case "USER_CREDENTIALS" =>
+        logger.info("Using User Credentials for BQ Credentials")
+        val clientId = connectionOptions("clientId")
+        val clientSecret = connectionOptions("clientSecret")
+        val refreshToken = connectionOptions("refreshToken")
+        UserCredentials
+          .newBuilder()
+          .setClientId(clientId)
+          .setClientSecret(clientSecret)
+          .setRefreshToken(refreshToken)
+          .build()
     }
+  }
+
+  private def gcsCredentials()(implicit
+    settings: Settings
+  ): GcsCredentials = {
+    connectionOptions("authType") match {
+      case "APPLICATION_DEFAULT" =>
+        logger.info("Using Application Default Credentials fro GCS")
+        GcsGoogleCredentials.getApplicationDefault()
+      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+        logger.info("Using Service Account Key for GCS")
+        val credentialsStream = getJsonKeyStream()
+        GcsServiceAccountCredentials.fromStream(credentialsStream)
+      case "USER_CREDENTIALS" =>
+        logger.info("Using User Credentials for GCS")
+        val clientId = connectionOptions("clientId")
+        val clientSecret = connectionOptions("clientSecret")
+        val refreshToken = connectionOptions("refreshToken")
+        GcsUserCredentials
+          .newBuilder()
+          .setClientId(clientId)
+          .setClientSecret(clientSecret)
+          .setRefreshToken(refreshToken)
+          .build()
+    }
+  }
+
+  private def getJsonKeyStream()(implicit
+    settings: Settings
+  ): ByteArrayInputStream = {
+    val gcpSAJsonKeyAsString: String = getJsonKeyContent(settings)
+    val credentialsStream = new ByteArrayInputStream(
+      gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
+    )
+    credentialsStream
+
+  }
+
+  protected def getJsonKeyContent(settings: Settings): String = {
+    val gcpSAJsonKey = connectionOptions("jsonKeyfile")
+    val path = new Path(gcpSAJsonKey)
+    val gcpSAJsonKeyAsString = if (settings.storageHandler().exists(path)) {
+      settings.storageHandler().read(path)
+    } else {
+      throw new Exception(s"Invalid GCP SA KEY Path: $path")
+    }
+    gcpSAJsonKeyAsString
   }
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
@@ -81,20 +144,39 @@ trait BigQueryJobBase extends StrictLogging {
   def bigquery()(implicit settings: Settings): BigQuery = {
     _bigquery match {
       case None =>
+        logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
         val bqOptionsBuilder = BigQueryOptions.newBuilder()
-        val credentials = getCredentials()
+        val credentials = bigQueryCredentials()
         val bqOptions = bqOptionsBuilder.setProjectId(projectId)
-        val bqService = credentials
-          .map(bqOptions.setCredentials)
-          .getOrElse(
-            bqOptions
-          ) // GOOGLE_APPLICATION_CREDENTIALS should reference the service account in the path
+        val bqService = bqOptions
+          .setCredentials(credentials)
           .build()
           .getService()
         _bigquery = Some(bqService)
         bqService
       case Some(bqService) =>
         bqService
+    }
+  }
+
+  private var _gcsStorage: scala.Option[Storage] = None
+
+  def gcsStorage()(implicit settings: Settings): Storage = {
+    _gcsStorage match {
+      case None =>
+        logger.info(s"Getting GCS credentials for connection $connectionName -> ${connectionRef}")
+        StorageOptions.newBuilder.setProjectId(projectId).build.getService
+        val gcsOptionsBuilder = StorageOptions.newBuilder()
+        val credentials = gcsCredentials()
+        val gcsOptions = gcsOptionsBuilder.setProjectId(projectId)
+        val gcsService = gcsOptions
+          .setCredentials(credentials)
+          .build()
+          .getService()
+        _gcsStorage = Some(gcsService)
+        gcsService
+      case Some(gcsService) =>
+        gcsService
     }
   }
 
@@ -279,6 +361,7 @@ trait BigQueryJobBase extends StrictLogging {
                         else {
                           Field
                             .newBuilder(field.getName, field.getType, field.getSubFields)
+                            .setMode(field.getMode)
                             .setPolicyTags(
                               PolicyTags.newBuilder().setNames(List(policyTagId).asJava).build()
                             )

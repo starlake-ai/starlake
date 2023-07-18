@@ -44,7 +44,6 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
   ("Ingest Complex JSON " + variant) should "be ingested from pending to accepted, and archived " in {
     new WithSettings(configuration) {
-
       new SpecTrait(
         domainOrJobFilename = "json.comet.yml",
         sourceDomainOrJobPathname = "/sample/json/json.comet.yml",
@@ -64,7 +63,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
           s"/sample/json/$jsonData"
         )
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schemaHandler = new SchemaHandler(settings.storageHandler())
         val schema = schemaHandler.getSchema("json", "sample_json").get
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
@@ -91,7 +90,8 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
           )
           .count() shouldBe 0
 
-        import sparkSession.implicits._
+        val session = sparkSession
+        import session.implicits._
         val (seconds, millis) =
           resultDf.select(col("seconds"), col("millis")).as[(String, String)].head()
         seconds shouldBe millis
@@ -186,7 +186,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.getDatabase(),
+      settings.comet.getDefaultDatabase(),
       settings.comet.tenant
     ) :: Nil
 
@@ -219,10 +219,9 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
                      |}
                      |
                      |audit {
-                     |  active = true
                      |  sink {
                      |    type = "JdbcSink"
-                     |    connectionRef = "test-h2"
+                     |    connection-ref = "test-h2"
                      |  }
                      |}
                      |""".stripMargin)
@@ -244,7 +243,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.getDatabase(),
+      settings.comet.getDefaultDatabase(),
       settings.comet.tenant
     ) :: Nil
 

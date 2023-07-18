@@ -83,7 +83,8 @@ case class AutoJobDesc(
       Right(true)
   }
 
-  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
+  def getEngine()(implicit settings: Settings): Engine =
+    engine.getOrElse(settings.comet.getEngine())
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.acl.nonEmpty

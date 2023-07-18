@@ -31,19 +31,21 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   lazy val metadataPath = new Path(cometMetadataPath)
 
   override def beforeAll(): Unit = {
-    sparkSession.read
-      .option("inferSchema", "true")
-      .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
-      .write
-      .mode("overwrite")
-      .parquet(pathUserAccepted.toString)
+    new WithSettings() {
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathUserAccepted.toString)
 
-    sparkSession.read
-      .option("inferSchema", "true")
-      .json(getResPath("/expected/datasets/accepted/DOMAIN/graduateProgram.json"))
-      .write
-      .mode("overwrite")
-      .parquet(pathGraduateProgramAccepted.toString)
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/graduateProgram.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathGraduateProgramAccepted.toString)
+    }
   }
 
   new WithSettings() {
@@ -60,7 +62,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
-        merge = None
+        merge = None,
+        sink = Some(FsSink())
       )
       val businessJob =
         AutoJobDesc(
@@ -79,7 +82,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val schemaHandler =
-        new SchemaHandler(metadataStorageHandler, Map("age" -> "40"))
+        new SchemaHandler(storageHandler, Map("age" -> "40"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -158,7 +161,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         write = WriteMode.OVERWRITE,
         expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
         python = None,
-        merge = None
+        merge = None,
+        sink = Some(FsSink())
       )
       val businessJob =
         AutoJobDesc(
@@ -213,7 +217,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
-        merge = None
+        merge = None,
+        sink = Some(FsSink())
       )
       val businessJob =
         AutoJobDesc(
@@ -263,7 +268,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
-        merge = None
+        merge = None,
+        sink = Some(FsSink())
       )
       val businessJob =
         AutoJobDesc(
@@ -273,7 +279,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           None,
           Some("parquet"),
           Some(false),
-          udf = Some("ai.starlake.udf.TestUdf")
+          udf = Some("ai.starlake.udf.TestUdf"),
+          sink = Some(FsSink())
         )
 
       val businessJobDef = mapper
@@ -322,7 +329,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |""".stripMargin
         ),
         python = None,
-        merge = None
+        merge = None,
+        sink = Some(FsSink())
       )
       val businessJob =
         AutoJobDesc(

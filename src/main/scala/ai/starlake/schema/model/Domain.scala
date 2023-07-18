@@ -55,9 +55,6 @@ import scala.util.Try
   *   details.
   * @param comment
   *   : Domain Description (free text)
-  * @param extensions
-  *   : recognized filename extensions. json, csv, dsv, psv are recognized by default Only files
-  *   with these extensions will be moved to the pending folder.
   * @param ack
   *   : Ack extension used for each file. ".ack" if not specified. Files are moved to the pending
   *   folder only once a file with the same name as the source file and with this extension is
@@ -71,7 +68,6 @@ import scala.util.Try
   tableRefs: List[String] = Nil,
   tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
   comment: Option[String] = None,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None,
@@ -109,8 +105,8 @@ import scala.util.Try
     schema: Schema
   )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (settings.storageHandler.exists(template))
-      Some(settings.storageHandler.read(template))
+    if (settings.storageHandler().exists(template))
+      Some(settings.storageHandler().read(template))
     else
       None
   }
@@ -398,13 +394,13 @@ object Domain {
     val mustache = new Path(rootPath, s"$ddlType.mustache")
     val ssp = new Path(rootPath, s"$ddlType.ssp")
     val template =
-      if (settings.storageHandler.exists(mustache))
+      if (settings.storageHandler().exists(mustache))
         mustache
-      else if (settings.storageHandler.exists(ssp))
+      else if (settings.storageHandler().exists(ssp))
         ssp
       else
         throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
-    template -> settings.storageHandler.read(template)
+    template -> settings.storageHandler().read(template)
   }
 
 }

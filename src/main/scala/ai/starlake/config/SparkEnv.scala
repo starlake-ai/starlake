@@ -48,6 +48,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       else {
         SparkSession.builder.config(config).getOrCreate()
       }
+
     logger.info("Spark Version -> " + session.version)
     logger.info(session.conf.getAll.mkString("\n"))
     session

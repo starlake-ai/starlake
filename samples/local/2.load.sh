@@ -6,7 +6,7 @@ export SL_ENV="${SL_ENV:-LOCAL}"
 
 
 case $SL_ENV in
-    LOCAL|HDFS|SNOWFLAKE) echo "Running  in $SL_ENV env";;
+    LOCAL|HDFS|BQ|SNOWFLAKE) echo "Running  in $SL_ENV env";;
     *)             echo "$SL_ENV for SL_ENV unknown"; exit 1;;
 esac
 

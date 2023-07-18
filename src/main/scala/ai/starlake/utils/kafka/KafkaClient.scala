@@ -46,8 +46,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
         Map("cleanup.policy" -> "compact")
       )
     case Mode.FILE =>
-      if (!settings.storageHandler.exists(new Path(cometOffsetsConfig.topicName)))
-        settings.storageHandler.mkdirs(new Path(cometOffsetsConfig.topicName))
+      if (!settings.storageHandler().exists(new Path(cometOffsetsConfig.topicName)))
+        settings.storageHandler().mkdirs(new Path(cometOffsetsConfig.topicName))
     case _ =>
       throw new Exception("Should never happen")
   }
@@ -140,12 +140,14 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
         cometOffsetsLock(topicConfigName).doExclusively() {
           val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
           logger.info(s"Saving comet offsets to path $cometOffsetsPath")
-          settings.storageHandler.write(
-            YamlSerializer.serializeObject(offsets.map { case (partition, offset) =>
-              partition.toString + "," + offset.toString
-            }),
-            cometOffsetsPath
-          )
+          settings
+            .storageHandler()
+            .write(
+              YamlSerializer.serializeObject(offsets.map { case (partition, offset) =>
+                partition.toString + "," + offset.toString
+              }),
+              cometOffsetsPath
+            )
         }
       case _ =>
         throw new Exception("Should never happen")
@@ -196,17 +198,17 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
   private def cometOffsetsLock(topicConfigName: String): FileLock = {
     val lockPath = new Path(settings.comet.lock.path, s"comet_offsets_$topicConfigName.lock")
-    new FileLock(lockPath, settings.storageHandler)
+    new FileLock(lockPath, settings.storageHandler())
   }
 
   private def topicCurrentOffsetsFromFile(topicConfigName: String): Option[List[(Int, Long)]] = {
     cometOffsetsLock(topicConfigName).doExclusively() {
       val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
-      if (settings.storageHandler.exists(cometOffsetsPath)) {
+      if (settings.storageHandler().exists(cometOffsetsPath)) {
         logger.info(s"Loading comet offsets to path $cometOffsetsPath")
         val res = YamlSerializer.mapper
           .readValue(
-            settings.storageHandler.read(cometOffsetsPath),
+            settings.storageHandler().read(cometOffsetsPath),
             classOf[List[String]]
           )
           .map { str =>
