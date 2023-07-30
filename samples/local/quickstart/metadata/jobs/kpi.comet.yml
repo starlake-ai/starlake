@@ -1,8 +1,5 @@
 transform:
   name: kpi
-  engine: {{engine}}
-  sink:
-    type: {{sink_type}}
   tasks:
     - name: byseller
       domain: sales_kpi

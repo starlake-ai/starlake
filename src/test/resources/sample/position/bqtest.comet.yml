@@ -5,9 +5,6 @@ load:
   ack: ""
   tags: ["datasetkey=value", "datasetkeynovalue"]
   metadata:
-    sink:
-      type: BQ
-      location: EU
     mode: "FILE"
     format: "POSITION"
     withHeader: false

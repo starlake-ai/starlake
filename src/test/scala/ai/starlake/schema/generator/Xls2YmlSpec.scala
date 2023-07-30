@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
+import ai.starlake.schema.model.{Domain, Format, FsSink}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
@@ -40,7 +40,7 @@ class Xls2YmlSpec extends TestHelper {
         sink     <- metadata.sink
       } yield sink
 
-      sink shouldBe Some(BigQuerySink())
+      sink.map(_.getSink()) shouldBe Some(FsSink())
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {

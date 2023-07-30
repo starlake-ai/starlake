@@ -27,7 +27,6 @@ import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
-import DagGenerationConfig.dagGenerationConfigMerger
 import ai.starlake.config.Settings
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
@@ -90,7 +89,7 @@ case class Metadata(
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
-  sink: Option[Sink] = None,
+  sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   xml: Option[Map[String, String]] = None,
@@ -103,10 +102,11 @@ case class Metadata(
   dag: Option[DagGenerationConfig] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
-  fillWithDefaultValue: Boolean = true,
-  engine: Option[Engine] = None
+  fillWithDefaultValue: Boolean = true
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
+
+  def getSink(implicit settings: Settings): Option[Sink] = sink.map(_.getSink())
 
   override def toString: String =
     s"""
@@ -119,9 +119,9 @@ case class Metadata(
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${getWrite()}
+       |write:${write}
        |partition:${getPartitionAttributes()}
-       |sink:${getSink()}
+       |sink:${sink}
        |xml:${xml}
        |directory:${directory}
        |extensions:${extensions}
@@ -131,13 +131,7 @@ case class Metadata(
        |dag:${dag}
        |freshness:${freshness}
        |nullValue:${nullValue}
-       |emptyIsNull:${emptyIsNull}
-       |engine:${engine}
-       |       |""".stripMargin
-
-  @JsonIgnore
-  def getEngine()(implicit settings: Settings): Engine =
-    engine.getOrElse(settings.comet.getEngine())
+       |emptyIsNull:${emptyIsNull}""".stripMargin
 
   def getMode(): Mode = getFinalValue(mode, FILE)
 
@@ -161,7 +155,8 @@ case class Metadata(
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite(): WriteMode = getFinalValue(this.getSink().flatMap(_.write).orElse(write), APPEND)
+  def getWrite(implicit settings: Settings): WriteMode =
+    getFinalValue(this.getSink(settings).flatMap(_.write).orElse(write), APPEND)
 
   @JsonIgnore
   // scalastyle:off null
@@ -176,8 +171,6 @@ case class Metadata(
 
   @JsonIgnore
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
-
-  def getSink(): Option[Sink] = sink
 
   @JsonIgnore
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
@@ -197,8 +190,17 @@ case class Metadata(
   }
 
   @JsonIgnore
-  def getConnectionRef(implicit settings: Settings): Option[String] =
-    getSink().map(_.getConnectionRef(this.getEngine().toString))
+  def getConnectionRef(implicit settings: Settings): String =
+    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+
+  @JsonIgnore
+  def getEngine(implicit settings: Settings): Engine = {
+    val connectionRef =
+      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+    val connection = settings.comet.connections(connectionRef)
+    connection.getEngine()
+
+  }
 
   private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {
     if (fillWithDefaultValue)
@@ -267,7 +269,9 @@ case class Metadata(
       dag = typeMerge(this.dag, child.dag),
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
-      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
+      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
+      clustering = merge(this.clustering, child.clustering)
+      // fillWithDefaultValue = merge(this.fillWithDefaultValue, child.fillWithDefaultValue)
     )
   }
 
@@ -301,7 +305,9 @@ case class Metadata(
       dag = if (parent.dag != this.dag) this.dag else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
-      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
+      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None,
+      clustering = if (parent.clustering != this.clustering) this.clustering else None
+      // fillWithDefaultValue = if (parent.fillWithDefaultValue != this.fillWithDefaultValue) this.fillWithDefaultValue else None
     )
   }
 

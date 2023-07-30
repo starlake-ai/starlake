@@ -114,8 +114,9 @@ object SQLUtils extends StrictLogging {
     database: Option[String],
     domain: String,
     table: String,
-    engine: Engine
-  ): String = {
+    engine: Engine,
+    isFilesystem: Boolean
+  )(implicit settings: Settings): String = {
 
     key match {
       case Nil => sql
@@ -127,8 +128,10 @@ object SQLUtils extends StrictLogging {
           .mkString(" AND ")
 
         val fullTableName = database match {
-          case Some(db) => OutputRef(db, domain, table).toSQLString(engine)
-          case None     => OutputRef("", domain, table).toSQLString(engine)
+          case Some(db) =>
+            OutputRef(db, domain, table).toSQLString(engine, isFilesystem)
+          case None =>
+            OutputRef("", domain, table).toSQLString(engine, isFilesystem)
         }
         s"""MERGE INTO
            |$fullTableName as SL_INTERNAL_SINK
@@ -211,7 +214,15 @@ object SQLUtils extends StrictLogging {
           val source = ltrim(regex.source.toString.substring(regex.start, regex.end))
           val tablesAndAlias = source.substring(keyword.length).split(",")
           val tableAndAliasFinalNames = tablesAndAlias.map { tableAndAlias =>
-            resolveTableNameInSql(tableAndAlias, refs, domains, jobs, ctes, engine)
+            resolveTableNameInSql(
+              tableAndAlias,
+              refs,
+              domains,
+              jobs,
+              ctes,
+              engine,
+              localViews.nonEmpty
+            )
           }
           val newSource = tableAndAliasFinalNames.mkString(", ")
           val newFrom = s" $keyword $newSource"
@@ -230,7 +241,8 @@ object SQLUtils extends StrictLogging {
     domains: List[Domain],
     jobs: Map[String, AutoJobDesc],
     ctes: List[String],
-    engine: Engine
+    engine: Engine,
+    isFilesystem: Boolean
   )(implicit
     settings: Settings
   ): String = {
@@ -247,11 +259,15 @@ object SQLUtils extends StrictLogging {
     } else {
       val activeEnvRefs = refs
       val databaseDomainTableRef =
-        activeEnvRefs.getOutputRef(tableTuple).map(_.toSQLString(engine))
+        activeEnvRefs
+          .getOutputRef(tableTuple)
+          .map(_.toSQLString(engine, isFilesystem))
       val resolvedTableName = databaseDomainTableRef.getOrElse {
         resolveTableRefInDomainsAndJobs(tableTuple, domains, jobs) match {
           case Success((database, domain, table)) =>
-            ai.starlake.schema.model.OutputRef(database, domain, table).toSQLString(engine)
+            ai.starlake.schema.model
+              .OutputRef(database, domain, table)
+              .toSQLString(engine, isFilesystem)
           case Failure(e) =>
             Utils.logException(logger, e)
             throw e

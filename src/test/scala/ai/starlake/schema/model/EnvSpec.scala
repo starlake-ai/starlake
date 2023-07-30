@@ -47,7 +47,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
       println(str)
       val str2 = YamlSerializer.mapper.writeValueAsString(settings.comet)
       println(str2)
-      assert(settings.comet.connections.size == 2)
+      assert(settings.comet.connections.size == 4)
     }
   }
 

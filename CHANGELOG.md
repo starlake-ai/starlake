@@ -3,10 +3,18 @@
 
 # 0.8.0:
 - Databricks on Azure is now fully documented
-- **BREAKING CHANGE** extract-schema command line option 'mapping' replaced by 'config'
-- **BREAKING CHANGE** Sinks "name" attribute renamed to "connectionRef"
-- **BREAKING CHANGE** extensions no more used in file detection. STable patterns are directly applied to detect correct extensions
-- **BREAKING CHANGE** Ingestion engine is defined at the top level using the engine configuration or SL_ENGINE env var
+- **BREAKING CHANGE** 
+  - extract-schema command line option 'mapping' replaced by 'config' 
+  - kafkaload takes now a connection ref parameter
+  - application.conf replaced with application.comet.yml or application.yml in metadata folder
+  - SL_FS no more used. Set SL_ROOT to an absolute path instead
+  - SL_ENGINE no more used. engine is derived from connection
+  - format renamed to sparkFormat in connections.
+  - COMET_* env vars replaced definitely with SL_*
+  - 
+  - Sinks "name" attribute renamed to "connectionRef"
+  - extensions no more used in file detection. STable patterns are directly applied to detect correct extensions 
+  - Ingestion engine is defined at the top level using the engine configuration or SL_ENGINE env var
 
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.

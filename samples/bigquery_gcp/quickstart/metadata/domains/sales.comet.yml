@@ -2,16 +2,15 @@ load:
   name: "sales"
   directory: "${root_path}/incoming/sales"
   metadata:
-    validator: ai.starlake.job.validator.NativeValidator
+    #validator: ai.starlake.job.validator.NativeValidator
     mode: "FILE"
     format: "DSV"
+    engine: BQ
     withHeader: true
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    sink:
-      type: ${sink_type}
-  schemas:
+  tables:
     - name: "customers"
       pattern: "customers-.*.psv"
       metadata:
@@ -65,7 +64,7 @@ load:
         - name: "customer_id"
           type: "customerid"
           required: false
-          foreignKey: customers
+          foreignKey: customers.id
         - name: "amount"
           type: "decimal"
           required: false

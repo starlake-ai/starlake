@@ -7,7 +7,7 @@ transform:
       table: file
       write: OVERWRITE
       sink:
-        type: "FS"
+        connectionRef: spark
         options:
           emptyValue: ""
           delimiter: "|"

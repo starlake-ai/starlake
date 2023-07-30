@@ -21,9 +21,8 @@ fi
 
 export SL_BIN_DIR="$PWD/../../distrib"
 export SL_ENV=BQ
-export SL_FS="gs://$GCP_BUCKET_NAME"
 export SPARK_DRIVER_MEMORY=4G
-export SL_ROOT="/mnt/starlake-app/quickstart"
+export SL_ROOT="gs://$GCP_BUCKET_NAME/mnt/starlake-app/quickstart"
 export SL_METRICS_ACTIVE=true
 export SL_ASSERTIONS_ACTIVE=true
 export SL_AUDIT_SINK_TYPE=BigQuerySink
@@ -32,4 +31,4 @@ export SL_ANALYZE=false
 export SL_HIVE=false
 export SL_GROUPED=false
 export SL_MAIN=ai.starlake.job.Main
-export SL_METRICS_PATH="/mnt/starlake-app/quickstart/metrics/{domain}"
+export SL_CONNECTION_REF=bigquery

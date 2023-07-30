@@ -2,10 +2,8 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
+import ai.starlake.utils._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
-
-import com.google.common.io.BaseEncoding
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -15,6 +13,7 @@ import com.google.cloud.bigquery.{
   Table
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{Row, SaveMode}
@@ -81,9 +80,12 @@ class BigQuerySparkJob(
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         logger.info("Using Application Default for Spark BQ Credentials")
+        val gcpAccessToken =
+          GcpUtils.getCredentialUsingWellKnownFile().refreshAccessToken().getTokenValue
+        session.conf.set("gcpAccessToken", gcpAccessToken)
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         logger.info("Using Service Account Key for BQ Credentials")
-        val jsonKeyContent = getJsonKeyContent(settings)
+        val jsonKeyContent = getJsonKeyContent()
         val jsonKeyInBase64 =
           BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
         session.conf.set("credentials", jsonKeyInBase64)

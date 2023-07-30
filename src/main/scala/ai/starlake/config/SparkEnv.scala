@@ -53,4 +53,16 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     logger.info(session.conf.getAll.mkString("\n"))
     session
   }
+  def newSession: SparkSession = {
+    val session =
+      if (settings.comet.isHiveCompatible())
+        SparkSession.builder.config(config).enableHiveSupport().getOrCreate().newSession()
+      else {
+        SparkSession.builder.config(config).getOrCreate().newSession()
+      }
+
+    logger.info("Spark Version -> " + session.version)
+    logger.info(session.conf.getAll.mkString("\n"))
+    session
+  }
 }

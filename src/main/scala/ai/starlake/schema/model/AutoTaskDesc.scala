@@ -36,7 +36,7 @@ case class AutoTaskDesc(
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
-  sink: Option[Sink] = None,
+  sink: Option[AllSinks] = None,
   rls: List[RowLevelSecurity] = Nil,
   expectations: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
@@ -77,7 +77,7 @@ case class AutoTaskDesc(
     */
   @JsonIgnore
   def getTargetPath()(implicit settings: Settings): Path = {
-    new Path(DatasetArea.path(domain), table)
+    new Path(DatasetArea.business(domain), table)
   }
 
   @JsonIgnore
@@ -88,6 +88,15 @@ case class AutoTaskDesc(
   def getDatabase(implicit settings: Settings): Option[String] = {
     database
       .orElse(settings.comet.getDefaultDatabase()) // database passed in env vars
+  }
+
+  def getEngine(implicit settings: Settings): Engine = {
+    val connectionRef =
+      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.comet.connectionRef)
+    val connection = settings.comet
+      .connection(connectionRef)
+      .getOrElse(throw new Exception("Connection not found"))
+    connection.getEngine()
   }
 }
 

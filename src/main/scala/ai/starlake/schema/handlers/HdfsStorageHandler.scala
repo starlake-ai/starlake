@@ -63,9 +63,21 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     val authConf = authType match {
       case "APPLICATION_DEFAULT" =>
         Map(
-          "google.cloud.auth.type"                   -> "APPLICATION_DEFAULT",
-          "google.cloud.auth.service.account.enable" -> "true"
+          "google.cloud.auth.type" -> "APPLICATION_DEFAULT"
         )
+      /*
+          val gcpAccessToken =
+            GcpUtils.getCredentialUsingWellKnownFile().asInstanceOf[UserCredentials]
+
+          Map(
+            "google.cloud.auth.type"                   -> "USER_CREDENTIALS",
+            "google.cloud.auth.service.account.enable" -> "true",
+            "google.cloud.auth.client.id"              -> gcpAccessToken.getClientId,
+            "google.cloud.auth.client.secret"          -> gcpAccessToken.getClientSecret,
+            "google.cloud.auth.refresh.token"          -> gcpAccessToken.getRefreshToken
+          )
+
+       */
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val jsonKeyfile = connectionOptions.getOrElse(
           "jsonKeyfile",
@@ -136,7 +148,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   override def loadExtraConf(): Map[String, String] = {
 
     val options = settings.comet.connections
-      .get(settings.comet.getEngine().toString)
+      .get(settings.comet.connectionRef)
       .map(_.options)
       .getOrElse(Map.empty)
 
@@ -151,12 +163,15 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   }
 
-  val conf = new Configuration()
-  this.extraConf.foreach { case (k, v) => conf.set(k, v) }
-
-  settings.comet.hadoop.foreach { case (k, v) =>
-    conf.set(k, v)
+  lazy val conf = {
+    val conf = new Configuration()
+    this.extraConf.foreach { case (k, v) => conf.set(k, v) }
+    settings.comet.hadoop.foreach { case (k, v) =>
+      conf.set(k, v)
+    }
+    conf
   }
+
   val GCSUriRegEx = "(.*)://(.*?)/(.*)".r
 
   private def extracSchemeAndBucketAndFilePath(uri: String): (String, Option[String], String) =

@@ -1,0 +1,27 @@
+audit:
+  sink:
+    connectionRef: {{ connection_ref }}
+
+
+accessPolicies:
+  apply: true
+  location: EU
+  taxonomy: RGPD
+
+
+connections:
+  bigquery:
+    type: "bigquery"
+    options:
+      #authType: APPLICATION_DEFAULT
+      authType: SERVICE_ACCOUNT_JSON_KEYFILE
+      gcsBucket: "starlake-app"
+      jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
+  spark:
+    type: "fs"
+
+
+spark:
+  datasource:
+    bigquery:
+      materializationDataset: "BQ_TEST_DS"

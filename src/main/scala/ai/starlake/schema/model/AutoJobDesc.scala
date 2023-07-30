@@ -54,9 +54,8 @@ case class AutoJobDesc(
   format: Option[String] = None,
   coalesce: Option[Boolean] = None,
   udf: Option[String] = None,
-  engine: Option[Engine] = None,
   schedule: Map[String, String] = Map.empty,
-  sink: Option[Sink] = None,
+  sink: Option[AllSinks] = None,
   tags: Set[String] = Set.empty
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
@@ -83,8 +82,14 @@ case class AutoJobDesc(
       Right(true)
   }
 
-  def getEngine()(implicit settings: Settings): Engine =
-    engine.getOrElse(settings.comet.getEngine())
+  def getEngine(implicit settings: Settings): Engine = {
+    val connectionRef =
+      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.comet.connectionRef)
+    val connection = settings.comet
+      .connection(connectionRef)
+      .getOrElse(throw new Exception("Connection not found"))
+    connection.getEngine()
+  }
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.acl.nonEmpty
@@ -152,7 +157,6 @@ object AutoJobDesc {
         incoming.coalesce.map(_.toString)
       )
       val udfDiff = AnyRefDiff.diffOptionString("udf", existing.udf, incoming.udf)
-      val engineDiff = AnyRefDiff.diffOptionAnyRef("engine", existing.engine, incoming.engine)
       val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
       JobDiff(
         existing.name,
@@ -161,7 +165,6 @@ object AutoJobDesc {
         formatDiff,
         coalesceDiff,
         udfDiff,
-        engineDiff,
         scheduleDiff
       )
     }

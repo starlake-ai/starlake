@@ -31,16 +31,20 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
     Engine.BQ.toString    -> ("`", ".")
   )
 
-  def toSQLString(engine: Engine) = {
+  def toSQLString(engine: Engine, isFilesystem: Boolean) = {
     val (quote, separator) = tableNamingQuotes.getOrElse(engine.toString, "")
-    if (database.isEmpty) {
-      if (domain.isEmpty) {
-        table
+    if (!isFilesystem) {
+      if (database.isEmpty) {
+        if (domain.isEmpty) {
+          table
+        } else {
+          s"$quote$domain.$table$quote"
+        }
       } else {
-        s"$quote$domain.$table$quote"
+        s"$quote$database$separator$domain.$table$quote"
       }
     } else {
-      s"$quote$database$separator$domain.$table$quote"
+      table
     }
   }
 }

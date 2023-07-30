@@ -24,54 +24,13 @@ import ai.starlake.TestHelper
 
 class SinkSpec extends TestHelper {
   new WithSettings() {
-    "parsing any sink without options" should "succeed" in {
-      mapper.readValue(
-        """
-          |connectionRef: "sink"
-          |type: "Default"
-          |""".stripMargin,
-        classOf[Sink]
-      ) shouldBe DefaultSink(connectionRef = Some("sink"))
-    }
-
-    "parsing any sink with options" should "succeed" in {
-      mapper.readValue(
-        """
-          |connectionRef: "sink"
-          |type: "Default"
-          |""".stripMargin,
-        classOf[Sink]
-      ) shouldBe DefaultSink(
-        connectionRef = Some("sink")
-      )
-    }
-
-    "writing any sink without options" should "succeed" in {
-      mapper.writeValueAsString(
-        DefaultSink(connectionRef = Some("sink"))
-      ) shouldBe """--- !<Default>
-                         |connectionRef: "sink"
-                         |type: "Default"
-                         |""".stripMargin
-    }
-
-    "writing any sink with options" should "succeed" in {
-      mapper.writeValueAsString(
-        DefaultSink(connectionRef = Some("sink"))
-      ) shouldBe """--- !<Default>
-                         |connectionRef: "sink"
-                         |type: "Default"
-                         |""".stripMargin
-    }
-
     "parsing BQ sink" should "succeed" in {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "BQ"
           |timestamp: "timestamp"
           |""".stripMargin,
-        classOf[Sink]
+        classOf[BigQuerySink]
       ) shouldBe BigQuerySink(connectionRef = Some("sink"), timestamp = Some("timestamp"))
 
     }
@@ -80,12 +39,11 @@ class SinkSpec extends TestHelper {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "FS"
           |extension: "extension"
           |options:
           |  anyOption: "true"
           |""".stripMargin,
-        classOf[Sink]
+        classOf[FsSink]
       ) shouldBe FsSink(
         connectionRef = Some("sink"),
         extension = Some("extension"),
@@ -97,12 +55,11 @@ class SinkSpec extends TestHelper {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "ES"
           |timestamp: "timestamp"
           |options:
           |  anyOption: "true"
           |""".stripMargin,
-        classOf[Sink]
+        classOf[EsSink]
       ) shouldBe EsSink(
         connectionRef = Some("sink"),
         timestamp = Some("timestamp"),
@@ -114,9 +71,8 @@ class SinkSpec extends TestHelper {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |type: "JDBC"
           |""".stripMargin,
-        classOf[Sink]
+        classOf[JdbcSink]
       ) shouldBe JdbcSink(connectionRef = Some("sink"))
     }
 

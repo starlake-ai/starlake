@@ -34,17 +34,17 @@ class KafkaJobSpec extends TestHelper {
   def kafkaConfig(cometOffsetsMode: String, cometOffsetTopicName: String) = ConfigFactory
     .parseString(s"""
          |kafka {
-         |  server-options = {
+         |  serverOptions = {
          |      "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |  }
-         |  comet-offsets-mode = "$cometOffsetsMode"
+         |  cometOffsetsMode = "$cometOffsetsMode"
          |  topics {
          |    "test_offload": {
-         |      topic-name: "test_offload"
-         |      max-read = 0
+         |      topicName: "test_offload"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -56,10 +56,10 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "test_offload_kafka_to_kafka": {
-         |      topic-name: "test_offload_kafka_to_kafka"
-         |      max-read = 0
+         |      topicName: "test_offload_kafka_to_kafka"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      access-options = {
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -71,10 +71,10 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "test_offload_http_to_kafka": {
-         |      topic-name: "test_offload_http_to_kafka"
-         |      max-read = 0
+         |      topicName: "test_offload_http_to_kafka"
+         |      maxRead = 0
          |      fields = ["cast(value as STRING)"]
-         |      access-options = {
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -86,11 +86,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "test_offload_kafka_to_http": {
-         |      topic-name: "test_offload_kafka_to_http"
-         |      max-read = 0
+         |      topicName: "test_offload_kafka_to_http"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -102,11 +102,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "test_load": {
-         |      topic-name: "test_load"
-         |      max-read = 0
+         |      topicName: "test_load"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -117,11 +117,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "kafka_to_es": {
-         |      topic-name: "kafka_to_es"
-         |      max-read = 0
+         |      topicName: "kafka_to_es"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -132,11 +132,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "topic_sink_config": {
-         |      topic-name: "topic_sink"
-         |      max-read = 0
+         |      topicName: "topic_sink"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -147,11 +147,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "stream_kafka_to_es": {
-         |      topic-name: "stream_kafka_to_es"
-         |      max-read = 0
+         |      topicName: "stream_kafka_to_es"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -162,11 +162,11 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "stream_kafka_to_table": {
-         |      topic-name: "stream_kafka_to_table"
-         |      max-read = 0
+         |      topicName: "stream_kafka_to_table"
+         |      maxRead = 0
          |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
-         |      write-format = "parquet"
-         |      access-options = {
+         |      writeFormat = "parquet"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
@@ -177,15 +177,15 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "comet_offsets": {
-         |      topic-name: "$cometOffsetTopicName"
-         |      max-read = 0
+         |      topicName: "$cometOffsetTopicName"
+         |      maxRead = 0
          |      partitions = 1
          |      replication-factor = 1
-         |      write-format = "parquet"
-         |      create-potions {
+         |      writeFormat = "parquet"
+         |      createOptions {
          |        "cleanup.policy": "compact"
          |      }
-         |      access-options = {
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "auto.offset.reset": "earliest"
          |        "auto.commit.enable": "false"
@@ -198,8 +198,10 @@ class KafkaJobSpec extends TestHelper {
          |    }
          |  }
          |}
-         |elasticsearch {
-         |  active = true
+         |connections.elasticsearch {
+         |  type="elasticsearch"
+         |  format = "elasticsearch"
+         |  mode = "Append"
          |  options = {
          |    "es.nodes.wan.only": "true"
          |    "es.index.auto.create": "true"
@@ -395,7 +397,7 @@ class KafkaJobSpec extends TestHelper {
               writeFormat = "org.elasticsearch.spark.sql",
               writeMode = SaveMode.Overwrite.toString,
               writePath = Some("test/_doc"),
-              writeOptions = settings.comet.elasticsearch.options
+              writeOptions = settings.comet.connectionOptions("elasticsearch")
             )
           )
         kafkaJobToEs.run()
@@ -442,7 +444,7 @@ class KafkaJobSpec extends TestHelper {
               writeFormat = "org.elasticsearch.spark.sql",
               writeMode = SaveMode.Overwrite.toString,
               writePath = Some("test/_doc"),
-              writeOptions = settings.comet.elasticsearch.options
+              writeOptions = settings.comet.connectionOptions("elasticsearch")
             )
           )
         kafkaJobToEs.run()

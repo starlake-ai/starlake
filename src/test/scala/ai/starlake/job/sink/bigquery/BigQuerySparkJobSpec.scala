@@ -7,6 +7,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, BigQuerySink, WriteMode}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
@@ -37,7 +38,24 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
       tableMetadata.table.get.getTableId.getTable shouldBe "my-table"
     }*/
     it should "overwrite partitions dynamically" in {
-      new WithSettings() {
+
+      val bigQueryConfiguration: Config = {
+        val config = ConfigFactory.parseString("""
+            |connections.spark {
+            |  sparkFormat = "bigquery"
+            |  type = "bigquery"
+            |  options {
+            |    gcsBucket: starlake-app
+            |    authType: APPLICATION_DEFAULT
+            |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+            |    #jsonKeyfile: "/Users/hayssams/.gcloud/keys/my-key.json"
+            |  }
+            |}
+            |""".stripMargin)
+        val result = config.withFallback(super.testConfiguration)
+        result
+      }
+      new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
           domainOrJobFilename = "tableWithPartitions.comet.yml",
           sourceDomainOrJobPathname = "/sample/bq-integration-tests/tableWithPartitions.comet.yml",
@@ -62,7 +80,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             WriteMode.OVERWRITE,
             sink = Some(
-              BigQuerySink(connectionRef = None, timestamp = Some("DOB"))
+              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
             ),
             merge = None
           )

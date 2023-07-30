@@ -206,7 +206,7 @@ object AuditLog extends StrictLogging {
     settings: Settings
   ): Any = {
     // We sink to a file when running unit tests
-    settings.comet.audit.getSink(settings) match {
+    settings.comet.audit.sink.getSink() match {
       case sink: JdbcSink =>
         val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
         val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
@@ -222,8 +222,7 @@ object AuditLog extends StrictLogging {
           )
           .toDF(auditCols.map { case (name, _, _) => name }: _*)
         val jdbcConfig = ConnectionLoadConfig.fromComet(
-          sink
-            .getConnectionRef(settings.comet.getEngine().toString),
+          sink.connectionRef.getOrElse(settings.comet.connectionRef),
           settings.comet,
           Right(auditDF),
           settings.comet.audit.domain.getOrElse("audit") + ".audit"
@@ -238,7 +237,8 @@ object AuditLog extends StrictLogging {
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
       case _: FsSink =>
         sinkToFile(log, sessionOpt, settings)
-      case _: DefaultSink =>
+      case sink =>
+        throw new Exception(s"Sink $sink not supported for AuditLog")
     }
   }
 
@@ -256,7 +256,7 @@ object AuditLog extends StrictLogging {
         settings.comet.audit.domain.getOrElse("audit") + ".audit"
       )
     val bqConfig = BigQueryLoadConfig(
-      Some(sink.getConnectionRef(settings.comet.getEngine().toString)),
+      Some(sink.connectionRef.getOrElse(settings.comet.connectionRef)),
       Left("ignore"),
       Some(auditOutputTarget),
       None,

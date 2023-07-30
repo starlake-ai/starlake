@@ -116,7 +116,7 @@ class BigQueryNativeJob(
                 cliConfig.outputDatabase,
                 settings.comet.tenant
               )
-              settings.comet.audit.getSink(settings) match {
+              settings.comet.audit.sink.getSink() match {
                 case sink: BigQuerySink =>
                   AuditLog.sinkToBigQuery(log, sink)
                 case _ =>

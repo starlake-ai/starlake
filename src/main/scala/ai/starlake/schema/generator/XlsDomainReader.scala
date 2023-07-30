@@ -190,7 +190,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   )
                 )
             },
-            sink = sinkColumnsOpt.map(Sink.fromType).map {
+            sink = sinkColumnsOpt.map(Sink.fromConnectionType).map {
               case bqSink: BigQuerySink =>
                 val partitionBqSink = partitionColumns match {
                   case ts :: Nil => bqSink.copy(timestamp = Some(ts))
@@ -201,13 +201,15 @@ class XlsDomainReader(input: Input) extends XlsModel {
                     partitionBqSink.copy(clustering = Some(cluster))
                   case _ => partitionBqSink
                 }
-                clusteredBqSink
+                clusteredBqSink.toAllSinks()
+              case fsSink: FsSink =>
+                val clusteredFsSink = clusteringOpt match {
+                  case Some(cluster) => fsSink.copy(clustering = Some(cluster))
+                  case None          => fsSink
+                }
+                clusteredFsSink.toAllSinks()
               case sink =>
-                sink
-            },
-            clustering = clusteringOpt match {
-              case Some(cluster) => Some(cluster)
-              case None          => None
+                sink.toAllSinks()
             }
           )
 

@@ -1,6 +1,5 @@
 transform:
   coalesce: true
-  format: csv
   tasks:
     - name: pi
       domain: result
@@ -9,7 +8,8 @@ transform:
       sql: |
         select '  Name' as name,'Last Name   ' as lastName, '' as emptColumn
       sink:
-        type: "FS"
+        format: csv
+        connectedRef: "spark"
         options:
           emptyValue: ""
           delimiter: "|"

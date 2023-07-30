@@ -1,7 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Engine, WriteMode}
+import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
 import ai.starlake.utils.YamlSerializer
 
 class YamlSerializerSpec extends TestHelper {
@@ -54,8 +54,7 @@ class YamlSerializerSpec extends TestHelper {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          engine = Some(Engine.fromString("BQ"))
+          Some(false)
         )
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
@@ -69,8 +68,7 @@ class YamlSerializerSpec extends TestHelper {
           )
         ),
         "format"   -> "parquet",
-        "coalesce" -> false,
-        "engine"   -> "BQ"
+        "coalesce" -> false
       )
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
@@ -86,15 +84,7 @@ class YamlSerializerSpec extends TestHelper {
         merge = None
       )
       val job =
-        AutoJobDesc(
-          "user",
-          List(task),
-          Nil,
-          None,
-          Some("parquet"),
-          Some(false),
-          engine = Some(Engine.fromString("SPARK"))
-        )
+        AutoJobDesc("user", List(task), Nil, None, Some("parquet"), Some(false))
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
         "name" -> "user",

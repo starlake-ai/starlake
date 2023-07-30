@@ -5,7 +5,7 @@ fi
 export SL_ENV="${SL_ENV:-LOCAL}"
 
 case $SL_ENV in
-    LOCAL|HDFS)
+    LOCAL|HDFS|BQ)
       echo "Running  in $SL_ENV env"
       rm quickstart/metadata/application.conf 2>/dev/null
       ;;

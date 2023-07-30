@@ -11,6 +11,7 @@ import scopt.OParser
   */
 
 case class KafkaJobConfig(
+  connectionRef: Option[String] = None,
   topicConfigName: Option[String] = None,
   format: String = "parquet",
   path: Option[String] = None,
@@ -63,6 +64,10 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
       opt[String]("config")
         .action((x, c) => c.copy(topicConfigName = Some(x)))
         .text("Topic Name declared in reference.conf file")
+        .optional(),
+      opt[String]("connectionRef")
+        .action((x, c) => c.copy(connectionRef = Some(x)))
+        .text("Connection to any specific sink")
         .optional(),
       opt[String]("format")
         .action((x, c) => c.copy(format = x))
