@@ -1,4 +1,5 @@
 transform:
+  name: tableWithPartitions
   tasks:
     - domain: SL_BQ_TEST_DS
       table: SL_BQ_TEST_TABLE_DYNAMIC
@@ -7,9 +8,9 @@ transform:
         type: BQ
         timestamp: DOB
       sql: |
-        WITH _table as (
+        WITH tbl as (
           select "joe" as name,Date("2022-01-01") as dob
           union all
           select "sam" as name, Date("2023-02-01") as dob
         )
-        select * from _table
+        select * from tbl
