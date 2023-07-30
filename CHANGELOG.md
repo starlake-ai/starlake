@@ -10,11 +10,10 @@
   - SL_FS no more used. Set SL_ROOT to an absolute path instead
   - SL_ENGINE no more used. engine is derived from connection
   - format renamed to sparkFormat in connections.
-  - COMET_* env vars replaced definitely with SL_*
-  - 
+  - COMET_* env vars replaced definitely with SL_* 
   - Sinks "name" attribute renamed to "connectionRef"
-  - extensions no more used in file detection. STable patterns are directly applied to detect correct extensions 
-  - Ingestion engine is defined at the top level using the engine configuration or SL_ENGINE env var
+  - extensions no more used in file detection. Table patterns are directly applied to detect correct extensions 
+  - Default connection ref may be defined in the application.yml file
 
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
