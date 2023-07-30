@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkstarlake_docs=self.webpackChunkstarlake_docs||[]).push([[9163],{2409:a=>{a.exports=JSON.parse('{"label":"Dataproc","permalink":"/starlake/blog/tags/dataproc","allTagsPath":"/starlake/blog/tags","count":2}')}}]);
