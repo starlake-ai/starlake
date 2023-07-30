@@ -18,11 +18,13 @@ import ai.starlake.schema.generator.yml2dag.config.Yml2DagConfigForMain
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
-import ai.starlake.utils.{CliConfig, CliEnvConfig, DeprecatedChecks, JsonSerializer}
+import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+
+import scala.annotation.nowarn
 
 /** The root of all things.
   *   - importing from landing
@@ -53,6 +55,7 @@ object Main extends StrictLogging {
     *   - call "starlake metrics --domain domain-name --schema schema-name " to compute all metrics
     *     on specific schema in a specific domain
     */
+  @nowarn
   def main(args: Array[String]): Unit = {
     DeprecatedChecks.cometEnvVars()
     val settings: Settings = Settings(ConfigFactory.load())

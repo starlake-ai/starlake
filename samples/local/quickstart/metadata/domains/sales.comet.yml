@@ -8,10 +8,8 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    sink:
-      type: ${sink_type}
       #timestamp: signup
-  schemas:
+  tables:
     - name: "customers"
       pattern: "customers-.*.psv"
       metadata:

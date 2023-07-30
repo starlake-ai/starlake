@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
 class SinkUtils()(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
   def sinkInAudit(
-    sinkType: SinkType,
+    sinkType: ConnectionType,
     dataframe: DataFrame,
     table: String,
     maybeTableDescription: Option[String],
@@ -29,9 +29,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
   ): Try[Unit] = {
     // We sink to a file when running unit tests
     sinkType match {
-      case SinkType.Default =>
-        Success(())
-      case SinkType.FS =>
+      case ConnectionType.FS =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
@@ -48,7 +46,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         } else
           Success(())
 
-      case SinkType.BQ =>
+      case ConnectionType.BQ =>
         Try {
           sinkToBigQuery(
             dataframe,
@@ -57,25 +55,27 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
             table,
             maybeTableDescription,
             Some(
-              settings.comet.audit
-                .getSink(settings)
-                .getConnectionRef(settings.comet.getEngine().toString)
+              settings.comet.audit.sink
+                .getSink()
+                .connectionRef
+                .getOrElse(settings.comet.connectionRef)
             )
           )
         }
 
-      case SinkType.ES =>
+      case ConnectionType.ES =>
         // TODO Sink Expectations & Metrics to ES
         throw new Exception("Sinking Expectations & Metrics to Elasticsearch not yet supported")
-      case SinkType.KAFKA =>
+      case ConnectionType.KAFKA =>
         // TODO Sink Expectations & Metrics to Kafka
         throw new Exception("Sinking Expectations & Metrics to Kafka not yet supported")
       case _ => // including SinkType.JDBC | SinkType.SNOWFLAKE | SinkType.REDSHIFT ect ...
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            settings.comet.audit
-              .getSink(settings)
-              .getConnectionRef(settings.comet.getEngine().toString),
+            settings.comet.audit.sink
+              .getSink()
+              .connectionRef
+              .getOrElse(settings.comet.connectionRef),
             settings.comet,
             Right(dataframe),
             settings.comet.audit.domain.getOrElse("audit") + "." + table

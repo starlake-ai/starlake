@@ -72,10 +72,13 @@ object AutoTask extends StrictLogging {
         taskDesc.format.orElse(jobDesc.format),
         taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
-        taskDesc.engine.getOrElse(jobDesc.getEngine()),
+        taskDesc.engine.getOrElse(jobDesc.getEngine(settings)),
         taskDesc,
         configOptions,
-        taskDesc.sink.orElse(jobDesc.sink),
+        taskDesc.sink
+          .map(_.getSink())
+          .orElse(jobDesc.sink.map(_.getSink()))
+          .orElse(Some(AllSinks().getSink())),
         interactive,
         authInfo,
         taskDesc.getDatabase(settings)
@@ -121,13 +124,14 @@ case class AutoTask(
     Utils.getDBDisposition(taskDesc.write, hasMergeKeyDefined = false)
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
-    val connectionRef = sink.map(_.getConnectionRef(this.engine.toString))
+    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
     val bqSink =
       taskDesc.sink
-        .getOrElse(BigQuerySink(connectionRef = connectionRef))
+        .map(_.getSink())
+        .getOrElse(BigQuerySink(connectionRef = Some(connectionRef)))
         .asInstanceOf[BigQuerySink]
     BigQueryLoadConfig(
-      connectionRef = connectionRef,
+      connectionRef = Some(connectionRef),
       outputTableId = Some(
         BigQueryJobBase
           .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
@@ -142,9 +146,9 @@ case class AutoTask(
       rls = taskDesc.rls,
       engine = Engine.BQ,
       acl = taskDesc.acl,
-      materializedView = taskDesc.sink.exists(sink =>
-        sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
-      ),
+      materializedView = taskDesc.sink
+        .map(_.getSink())
+        .exists(sink => sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)),
       enableRefresh = bqSink.enableRefresh,
       refreshIntervalMs = bqSink.refreshIntervalMs,
       attributesDesc = taskDesc.attributesDesc,
@@ -286,7 +290,8 @@ case class AutoTask(
                 taskDesc.getDatabase(settings),
                 taskDesc.domain,
                 taskDesc.table,
-                engine
+                engine,
+                localViews.nonEmpty
               )
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
@@ -454,10 +459,10 @@ case class AutoTask(
         buildAllSQLQueries(tableExists, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${taskDesc.engine}")
+      logger.info(s"running sql request using ${taskDesc.getEngine(settings)}")
       val dataframe = (taskDesc.sql, taskDesc.python) match {
         case (Some(sql), None) =>
-          Some(loadQuery(sqlWithParameters))
+          Some(loadSparkQuery(sqlWithParameters))
         case (None, Some(pythonFile)) =>
           runPySpark(pythonFile)
         case (None, None) =>
@@ -473,17 +478,17 @@ case class AutoTask(
         case None =>
           (SparkJobResult(None), sqlWithParameters)
         case Some(dataframe) =>
-          if (settings.comet.isHiveCompatible()) {
-            val fsSink = sink match {
-              case Some(sink) =>
-                sink match {
-                  case fsSink: FsSink => fsSink
-                  case _              => FsSink()
-                }
-              case _ => FsSink()
-            }
-            sinkToFS(dataframe, fsSink)
-          }
+//          if (settings.comet.isHiveCompatible()) {
+//            val fsSink = sink match {
+//              case Some(sink) =>
+//                sink match {
+//                  case fsSink: FsSink => fsSink
+//                  case _ => FsSink()
+//                }
+//              case _ => FsSink()
+//            }
+//            sinkToFS(dataframe, fsSink)
+//          }
 
           if (settings.comet.expectations.active) {
             new ExpectationJob(
@@ -552,20 +557,17 @@ case class AutoTask(
       None
   }
 
-  private def loadQuery(sqlWithParameters: String): DataFrame = {
-    taskDesc.engine.getOrElse(Engine.SPARK) match {
-      case Engine.BQ =>
+  private def loadSparkQuery(sqlWithParameters: String): DataFrame = {
+    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+    val connection = settings.comet.connections(connectionRef)
+    connection.getType() match {
+      case ConnectionType.FS =>
+        session.sql(sqlWithParameters)
+      case _ =>
         session.read
-          .format("com.google.cloud.spark.bigquery")
+          .format(connection.getSparkFormat())
           .option("query", sqlWithParameters)
-          .load()
-      case Engine.SPARK => session.sql(sqlWithParameters)
-      case custom =>
-        val connectionOptions = settings.comet.connections(custom.toString)
-        session.read
-          .format(connectionOptions.format)
-          .option("query", sqlWithParameters)
-          .options(connectionOptions.options)
+          .options(connection.options)
           .load()
     }
   }

@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
-import ai.starlake.schema.model.{Metadata, SinkType}
+import ai.starlake.schema.model.{ConnectionType, Metadata}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -70,6 +70,15 @@ trait SparkJob extends JobBase {
     udfInstance.register(sparkEnv.session)
   }
 
+  def newSession: SparkSession = {
+    val udfs = settings.comet.udfs.map { udfs =>
+      udfs.split(',').toList
+    } getOrElse Nil
+    udfs.foreach(registerUdf)
+    sparkEnv.newSession
+
+  }
+
   lazy val session: SparkSession = {
     val udfs = settings.comet.udfs.map { udfs =>
       udfs.split(',').toList
@@ -80,7 +89,7 @@ trait SparkJob extends JobBase {
 
   lazy val optionalAuditSession: Option[SparkSession] = {
 
-    if (settings.comet.audit.getSink(settings).getType() == SinkType.BQ)
+    if (settings.comet.audit.sink.getSink().getConnectionType(settings) == ConnectionType.BQ)
       None
     else Some(session)
   }

@@ -32,7 +32,7 @@ object BigQuerySparkWriter extends StrictLogging {
     settings: Settings
   ): Try[Unit] = {
     Try {
-      settings.comet.audit.getSink(settings) match {
+      settings.comet.audit.sink.getSink() match {
         case sink: BigQuerySink =>
           val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
           val (createDisposition, writeDisposition) = {
@@ -75,8 +75,7 @@ object BigQuerySparkWriter extends StrictLogging {
         case _: EsSink =>
           // TODO Sink Audit Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: DefaultSink =>
-        case _: FsSink      =>
+        case _: FsSink =>
         // Do nothing dataset already sinked to file. Forced at the reference.conf level
         case _ =>
       }

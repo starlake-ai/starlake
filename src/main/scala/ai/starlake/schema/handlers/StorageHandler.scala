@@ -96,5 +96,5 @@ trait StorageHandler extends StrictLogging {
 
   def loadExtraConf(): Map[String, String] = Map.empty[String, String]
   // conf passed as env variable
-  val extraConf: Map[String, String] = loadExtraConf()
+  lazy val extraConf: Map[String, String] = loadExtraConf()
 }

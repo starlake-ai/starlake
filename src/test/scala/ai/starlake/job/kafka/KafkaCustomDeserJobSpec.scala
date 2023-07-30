@@ -27,20 +27,20 @@ class KafkaCustomDeserJobSpec extends TestHelper {
   def kafkaConfig(cometOffsetsMode: String, cometOffsetTopicName: String) = ConfigFactory
     .parseString(s"""
          |kafka {
-         |  custom-deserializer = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
-         |  #custom-deserializer = "org.apache.kafka.common.serialization.StringDeserializer"
-         |  server-options = {
+         |  customDeserializer = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
+         |  #customDeserializer = "org.apache.kafka.common.serialization.StringDeserializer"
+         |  serverOptions = {
          |      "bootstrap.servers": "localhost:9092"
          |      "schema.registry.url": "http://localhost:8081"
          |  }
-         |  comet-offsets-mode = "$cometOffsetsMode"
+         |  cometOffsets-mode = "$cometOffsetsMode"
          |  topics {
          |    "avro_offload": {
-         |      topic-name: "users"
-         |      max-read = 0
+         |      topicName: "users"
+         |      maxRead = 0
          |      fields = ["key", "deserialize(value) as value", "timestamp"]
-         |      write-format = "json"
-         |      access-options = {
+         |      writeFormat = "json"
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "localhost:9092"
          |        "schema.registry.url": "http://localhost:8081"
          |        "bootstrap.servers": "localhost:9092"
@@ -49,15 +49,15 @@ class KafkaCustomDeserJobSpec extends TestHelper {
          |      }
          |    },
          |    "comet_offsets": {
-         |      topic-name: "$cometOffsetTopicName"
-         |      max-read = 0
+         |      topicName: "$cometOffsetTopicName"
+         |      maxRead = 0
          |      partitions = 1
          |      replication-factor = 1
-         |      write-format = "parquet"
-         |      create-potions {
+         |      writeFormat = "parquet"
+         |      createOptions {
          |        "cleanup.policy": "compact"
          |      }
-         |      access-options = {
+         |      accessOptions = {
          |        "kafka.bootstrap.servers": "localhost:9092"
          |        "schema.registry.url": "localhost:8081"
          |        "auto.offset.reset": "earliest"

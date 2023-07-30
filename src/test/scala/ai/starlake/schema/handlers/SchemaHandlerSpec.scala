@@ -60,34 +60,41 @@ class SchemaHandlerSpec extends TestHelper {
     )
   )
 
-  val configuration: Config =
+  lazy val esConfiguration: Config = {
+    val port = esContainer.httpHostAddress.substring(
+      esContainer.httpHostAddress.lastIndexOf(':') + 1
+    )
+    println(s"--------------------$port-------------------")
     ConfigFactory
       .parseString(s"""
-                     |elasticsearch {
-                     |  active = true
-                     |  options = {
-                     |    "es.nodes.wan.only": "true"
-                     |    "es.nodes": "localhost"
-                     |    "es.port": "${esContainer.httpHostAddress.substring(
-                       esContainer.httpHostAddress.lastIndexOf(':') + 1
-                     )}",
-                     |
-                     |    #  net.http.auth.user = ""
-                     |    #  net.http.auth.pass = ""
-                     |
-                     |    "es.net.ssl": "false"
-                     |    "es.net.ssl.cert.allow.self.signed": "false"
-                     |
-                     |    "es.batch.size.entries": "1000"
-                     |    "es.batch.size.bytes": "1mb"
-                     |    "es.batch.write.retry.count": "3"
-                     |    "es.batch.write.retry.wait": "10s"
-                     |  }
-                     |}
-                     |""".stripMargin)
-      .withFallback(super.testConfiguration)
+                    |connectionRef = "elasticsearch"
+                    |audit.sink.connectionRef = "spark"
+                    |connections.elasticsearch {
+                    |  type = "elasticsearch"
+                    |  sparkFormat = "elasticsearch"
+                    |  mode = "Append"
+                    |  options = {
+                    |    "es.nodes.wan.only": "true"
+                    |    "es.nodes": "localhost"
+                    |    "es.port": $port,
 
-  new WithSettings(configuration) {
+                    |    #  net.http.auth.user = ""
+                    |    #  net.http.auth.pass = ""
+                    |
+                    |    "es.net.ssl": "false"
+                    |    "es.net.ssl.cert.allow.self.signed": "false"
+                    |
+                    |    "es.batch.size.entries": "1000"
+                    |    "es.batch.size.bytes": "1mb"
+                    |    "es.batch.write.retry.count": "3"
+                    |    "es.batch.write.retry.wait": "10s"
+                    |  }
+                    |}
+                    |""".stripMargin)
+      .withFallback(super.testConfiguration)
+  }
+
+  new WithSettings(esConfiguration) {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
 
@@ -101,7 +108,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
 
-        loadPending
+        assert(loadPending)
 
         // Check Archived
         readFileContent(
@@ -142,6 +149,34 @@ class SchemaHandlerSpec extends TestHelper {
 
       }
     }
+    "load to elasticsearch" should "work" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        // loadPending
+        val validator = loadWorkflow()
+        val result = validator.esLoad(
+          ESLoadConfig(
+            domain = "DOMAIN",
+            schema = "",
+            format = "json",
+            dataset = Some(
+              Left(new Path(cometDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
+            ),
+            options = settings.comet.connectionOptions("elasticsearch")
+          )
+        )
+        result.isSuccess shouldBe true
+      }
+    }
+
+  }
+  new WithSettings() {
     "Ingest empty file with DSV schema" should "be ok " in {
       new WithSettings() {
         new SpecTrait(
@@ -192,33 +227,6 @@ class SchemaHandlerSpec extends TestHelper {
               List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
             result should contain theSameElementsAs expected
           }
-        }
-      }
-    }
-
-    "load to elasticsearch" should "work" in {
-      new WithSettings(configuration) {
-        new SpecTrait(
-          domainOrJobFilename = "locations.comet.yml",
-          sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
-          datasetDomainName = "locations",
-          sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
-        ) {
-          cleanMetadata
-          cleanDatasets
-          // loadPending
-          val validator = loadWorkflow()
-          val result = validator.esLoad(
-            ESLoadConfig(
-              domain = "DOMAIN",
-              schema = "",
-              format = "json",
-              dataset = Some(
-                Left(new Path(cometDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
-              )
-            )
-          )
-          result.isSuccess shouldBe true
         }
       }
     }
@@ -846,7 +854,7 @@ class SchemaHandlerSpec extends TestHelper {
         format = Some(ai.starlake.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
-        sink = Some(BigQuerySink(timestamp = Some("_PARTITIONTIME"))),
+        sink = Some(BigQuerySink(timestamp = Some("_PARTITIONTIME")).toAllSinks()),
         write = Some(WriteMode.OVERWRITE)
       )
     }

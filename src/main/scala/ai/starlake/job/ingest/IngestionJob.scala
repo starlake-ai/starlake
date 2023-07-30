@@ -41,7 +41,6 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
-
   protected val treeRowValidator: GenericRowValidator = Utils
     .loadInstance[GenericRowValidator](
       mergedMetadata.validator.getOrElse(settings.comet.treeValidatorClass)
@@ -105,31 +104,42 @@ trait IngestionJob extends SparkJob {
   private def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
-      .getOrElse(mergedMetadata.getWrite())
+      .getOrElse(mergedMetadata.getWrite(settings))
 
-  def getSinkType(): SinkType = {
-    mergedMetadata.getSink().map(_.getType()).getOrElse(settings.comet.getSinkTypeFromEngine())
+  def getConnectionType(): ConnectionType = {
+    val connectionRef =
+      mergedMetadata
+        .getSink(settings)
+        .flatMap(_.connectionRef)
+        .getOrElse(settings.comet.connectionRef)
+    settings.comet.connections(connectionRef).getType()
   }
 
-  lazy val (format, extension) = mergedMetadata.sink
-    .map {
-      case sink: FsSink =>
-        (sink.format.getOrElse(""), sink.extension.getOrElse(""))
+  private def csvOutput(): Boolean = {
+    val sinkOpt = mergedMetadata.getSink(settings)
+    sinkOpt match {
+      case Some(sink) if sink.isInstanceOf[FsSink] =>
+        val fsSink = sink.asInstanceOf[FsSink]
+        val format = fsSink.format.getOrElse("")
+        (settings.comet.csvOutput || format == "csv") &&
+        !settings.comet.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
       case _ =>
-        ("", "")
+        false
     }
-    .getOrElse(("", ""))
+  }
 
-  private def csvOutput(): Boolean =
-    (settings.comet.csvOutput || format == "csv") &&
-    !settings.comet.grouped &&
-    mergedMetadata.partition.isEmpty && path.nonEmpty
+  /** This function is called only if csvOutput is true This means we are sure that sink is an
+    * FsSink
+    * @return
+    */
+  private def csvOutputExtension(): String = {
 
-  private def csvOutputExtension(): String =
     if (settings.comet.csvOutputExt.nonEmpty)
       settings.comet.csvOutputExt
-    else
-      extension
+    else {
+      mergedMetadata.sink.map(_.getSink()).asInstanceOf[FsSink].extension.getOrElse("")
+    }
+  }
 
   private def extractHiveTableAcl(): List[String] = {
     if (settings.comet.isHiveCompatible()) {
@@ -195,14 +205,15 @@ trait IngestionJob extends SparkJob {
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getConnectionRef(settings),
+      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
       outputDatabase = schemaHandler.getDatabase(domain)
     )
-    def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
+    def bqNativeJob(sql: String)(implicit settings: Settings) =
+      new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
-      getSinkType() match {
-        case SinkType.BQ =>
+      mergedMetadata.getEngine(settings) match {
+        case Engine.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
         case _ =>
           session.sql(compiledSql)
@@ -218,19 +229,11 @@ trait IngestionJob extends SparkJob {
   }
 
   private def selectEngine(): Engine = {
-    val sinkToBQ = getSinkType() == SinkType.BQ
     val nativeCandidate: Boolean = isNativeCandidate()
 
-    val defaultValidator = mergedMetadata.getFormat() match {
-      case Format.DSV | Format.POSITION | Format.GENERIC | Format.SIMPLE_JSON =>
-        settings.comet.rowValidatorClass
-      case Format.JSON | Format.PARQUET | Format.XML | Format.KAFKA | Format.KAFKASTREAM =>
-        settings.comet.treeValidatorClass
-      case _ => ""
-    }
-    val engine = mergedMetadata.getEngine()
+    val engine = mergedMetadata.getEngine(settings)
 
-    if (nativeCandidate && sinkToBQ && engine == Engine.BQ) {
+    if (nativeCandidate && engine == Engine.BQ) {
       logger.info("Using BQ as ingestion engine")
       Engine.BQ
     } else {
@@ -266,17 +269,17 @@ trait IngestionJob extends SparkJob {
     val requireTwoSteps = schema.hasTransformOrIgnoreOrScriptColumns()
 
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(),
+      mergedMetadata.getWrite(settings),
       schema.merge.exists(_.key.nonEmpty)
     )
 
-    val bqSink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
+    val bqSink = mergedMetadata.getSink(settings).map(_.asInstanceOf[BigQuerySink])
     val connectionLocation =
       bqSink.flatMap(
-        _.connectionRefOptions(mergedMetadata.getEngine().toString).get("location")
+        _.connectionRefOptions(mergedMetadata.getEngine(settings).toString).get("location")
       )
     val commonConfig = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getConnectionRef(settings),
+      connectionRef = bqSink.flatMap(_.connectionRef).orElse(Some(settings.comet.connectionRef)),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
       sourceFormat = settings.comet.defaultFormat,
@@ -317,12 +320,15 @@ trait IngestionJob extends SparkJob {
             schema.finalName
           )
       ),
-      days = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].days),
-      outputPartition = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].timestamp),
-      outputClustering =
-        mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].clustering).getOrElse(Nil),
+      days = mergedMetadata.getSink(settings).flatMap(_.asInstanceOf[BigQuerySink].days),
+      outputPartition =
+        mergedMetadata.getSink(settings).flatMap(_.asInstanceOf[BigQuerySink].timestamp),
+      outputClustering = mergedMetadata
+        .getSink(settings)
+        .flatMap(_.asInstanceOf[BigQuerySink].clustering)
+        .getOrElse(Nil),
       requirePartitionFilter = mergedMetadata
-        .getSink()
+        .getSink(settings)
         .flatMap(_.asInstanceOf[BigQuerySink].requirePartitionFilter)
         .getOrElse(false),
       rls = schema.rls
@@ -725,22 +731,16 @@ trait IngestionJob extends SparkJob {
         }
       }
 
+      val sinkOpt = mergedMetadata.getSink(settings)
       val (sinkPartition, nbPartitions, clustering, options) =
-        mergedMetadata.getSink().getOrElse(DefaultSink()) match {
-          case _: DefaultSink =>
-            (
-              mergedMetadata.partition,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                None
-              ),
-              mergedMetadata.clustering,
-              Map.empty[String, String]
-            )
-          case s: FsSink =>
-            val partitionColumns = s.partition.orElse(mergedMetadata.partition)
+        sinkOpt match {
+          case Some(sink) if sink.isInstanceOf[FsSink] =>
+            val fsSink = sink.asInstanceOf[FsSink]
+            val partitionColumns = fsSink.partition
+              .orElse(mergedMetadata.partition)
+
+            val sinkClustering = fsSink.clustering.orElse(None)
+            val sinkOptions = fsSink.options.orElse(None)
             (
               partitionColumns,
               nbFsPartitions(
@@ -749,30 +749,21 @@ trait IngestionJob extends SparkJob {
                 targetPath,
                 partitionColumns
               ),
-              s.clustering,
-              s.options.getOrElse(Map.empty)
+              sinkClustering,
+              sinkOptions.getOrElse(Map.empty)
             )
-          case _ if area == StorageArea.accepted => // sink-to-file is true in application.conf
+          case _ =>
             (
               mergedMetadata.partition,
               nbFsPartitions(
                 dataset,
                 writeFormat,
                 targetPath,
-                None
+                mergedMetadata.partition
               ),
               mergedMetadata.clustering,
               Map.empty[String, String]
             )
-          case _ if area == StorageArea.rejected =>
-            logger.debug("saving in rejected")
-            (
-              None,
-              1,
-              None,
-              Map.empty[String, String]
-            )
-
         }
 
       // No need to apply partition on rejected dF
@@ -1104,7 +1095,7 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, List[String]) = {
     val (mergedDF, partitionsToUpdate) =
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
-        mergedMetadata.getSink() match {
+        mergedMetadata.getSink(settings) match {
           case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
@@ -1172,7 +1163,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def esSink(mergedDF: DataFrame): DataFrame = {
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[EsSink])
+    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[EsSink])
     val config = ESLoadConfig(
       timestamp = sink.flatMap(_.timestamp),
       id = sink.flatMap(_.id),
@@ -1180,8 +1171,9 @@ trait IngestionJob extends SparkJob {
       domain = domain.name,
       schema = schema.name,
       dataset = Some(Right(mergedDF)),
-      options =
-        sink.map(_.connectionRefOptions(settings.comet.getEngine().toString)).getOrElse(Map.empty)
+      options = sink
+        .map(_.connectionRefOptions(settings.comet.connectionRef))
+        .getOrElse(Map.empty)
     )
     new ESLoadJob(config, storageHandler, schemaHandler).run()
     mergedDF
@@ -1192,23 +1184,20 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate: List[String]
   ): Try[DataFrame] = {
     Try {
-      val sinkType = getSinkType()
+      val sinkType = getConnectionType()
       sinkType match {
-        case SinkType.ES =>
-          if (settings.comet.elasticsearch.active)
-            esSink(mergedDF)
-          else {
-            logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-            mergedDF
-          }
-        case SinkType.BQ =>
+        case ConnectionType.ES =>
+          esSink(mergedDF)
+        case ConnectionType.BQ =>
           bqSink(mergedDF, partitionsToUpdate)
-        case SinkType.KAFKA =>
+
+        case ConnectionType.KAFKA =>
           kafkaSink(mergedDF)
-        case SinkType.JDBC | SinkType.SNOWFLAKE =>
+
+        case ConnectionType.JDBC =>
           genericSink(mergedDF)
 
-        case SinkType.FS =>
+        case ConnectionType.FS =>
           val acceptedPath =
             new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
           val sinkedDF = sinkToFile(
@@ -1220,11 +1209,7 @@ trait IngestionJob extends SparkJob {
             settings.comet.defaultFormat
           )
           sinkedDF
-        case SinkType.Default =>
-          // Done in the caller
-          logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
-          mergedDF
-        case st: SinkType =>
+        case st: ConnectionType =>
           logger.trace(s"Unsupported Sink $st")
           mergedDF
 
@@ -1243,15 +1228,15 @@ trait IngestionJob extends SparkJob {
     val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
       val (cd, wd) = Utils.getDBDisposition(
-        mergedMetadata.getWrite(),
+        mergedMetadata.getWrite(settings),
         schema.merge.exists(_.key.nonEmpty)
       )
       (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
     }
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
+    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[JdbcSink])
     sink.foreach { sink =>
       val jdbcConfig = ConnectionLoadConfig.fromComet(
-        sink.getConnectionRef(mergedMetadata.getEngine().toString),
+        sink.connectionRef.getOrElse(settings.comet.connectionRef),
         settings.comet,
         Right(mergedDF),
         outputTable = domain.finalName + "." + schema.finalName,
@@ -1270,9 +1255,9 @@ trait IngestionJob extends SparkJob {
   }
 
   private def bqSink(mergedDF: DataFrame, partitionsToUpdate: List[String]): DataFrame = {
-    val sink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
+    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[BigQuerySink])
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(),
+      mergedMetadata.getWrite(settings),
       schema.merge.exists(_.key.nonEmpty)
     )
 
@@ -1282,7 +1267,7 @@ trait IngestionJob extends SparkJob {
       case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
     }
     val config = BigQueryLoadConfig(
-      connectionRef = mergedMetadata.getConnectionRef(settings),
+      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
@@ -1374,8 +1359,7 @@ trait IngestionJob extends SparkJob {
       mergedMetadata
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
-        settings.comet.audit.getSink(settings) match {
-          case _: DefaultSink =>
+        settings.comet.audit.sink.getSink() match {
           case _: FsSink =>
             sinkToFile(
               rejectedDF,
@@ -1482,7 +1466,7 @@ object IngestionUtil {
       .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
 
     val res =
-      settings.comet.audit.getSink(settings) match {
+      settings.comet.audit.sink.getSink() match {
         case _: BigQuerySink =>
           BigQuerySparkWriter.sinkInAudit(
             rejectedDF,
@@ -1507,12 +1491,17 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: DefaultSink =>
-          Success(())
+
         case _: FsSink =>
           // We save in the caller
           // TODO rewrite this one
           Success(())
+        case _ =>
+          Failure(
+            new Exception(
+              s"Sink ${settings.comet.audit.sink.getSink().getClass.getSimpleName} not supported"
+            )
+          )
       }
     res match {
       case Success(_) => Success(rejectedDF, rejectedPath)

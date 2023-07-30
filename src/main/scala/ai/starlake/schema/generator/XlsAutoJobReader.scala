@@ -72,7 +72,6 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
       AutoJobDesc(
         name = jobNameOpt.getOrElse(""),
-        engine = if (isPartition) None else Some(Engine.BQ),
         tasks = List(
           AutoTaskDesc(
             name = "",
@@ -86,8 +85,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                 BigQuerySink(
                   timestamp = Some(sink),
                   requirePartitionFilter = Some(true)
-                )
-              case _ => BigQuerySink()
+                ).toAllSinks()
+              case _ => BigQuerySink().toAllSinks()
             }),
             rls = rls,
             engine = if (isPartition) Some(Engine.BQ) else None,

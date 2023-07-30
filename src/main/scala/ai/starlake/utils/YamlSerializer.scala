@@ -220,7 +220,7 @@ object YamlSerializer extends LazyLogging {
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        logger.error(s"Invalid job file: $path(${exception.getMessage})")
+        exception.printStackTrace()
         Failure(exception)
     }
   }

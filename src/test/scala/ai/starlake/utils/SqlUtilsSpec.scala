@@ -114,7 +114,8 @@ class SqlUtilsSpec extends TestHelper {
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",
-          Engine.BQ
+          Engine.BQ,
+          false
         )
       sqlMerge.replaceAll("\\s", "") should be("""
           |MERGE INTO

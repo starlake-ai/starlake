@@ -34,7 +34,7 @@ import java.time.Instant
 import scala.util.Try
 
 case class BigQueryDatasetInfo(
-  project: String,
+  database: String,
   dataset: String,
   creationTime: java.sql.Timestamp,
   lastModifiedTime: java.sql.Timestamp,
@@ -63,7 +63,7 @@ object BigQueryDatasetInfo {
 }
 
 case class BigQueryTableInfo(
-  project: String,
+  database: String,
   dataset: String,
   table: String,
   creationTime: java.sql.Timestamp,

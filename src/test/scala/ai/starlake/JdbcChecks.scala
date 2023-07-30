@@ -59,7 +59,6 @@ trait JdbcChecks {
   )(rowToEntity: ResultSet => T)(implicit settings: Settings): Assertion = {
 
     val jdbcOptions = settings.comet.connections(jdbcName)
-    val engine = settings.comet.jdbcEngines(jdbcOptions.engine)
 
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),

@@ -221,7 +221,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
                      |audit {
                      |  sink {
                      |    type = "JdbcSink"
-                     |    connection-ref = "test-h2"
+                     |    connectionRef = "test-h2"
                      |  }
                      |}
                      |""".stripMargin)

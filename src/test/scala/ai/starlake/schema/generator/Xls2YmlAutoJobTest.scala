@@ -5,15 +5,27 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{AutoJobDesc, BigQuerySink, Engine, WriteMode}
 import ai.starlake.utils.YamlSerializer
+import com.typesafe.config.{Config, ConfigFactory}
 
 class Xls2YmlAutoJobTest extends TestHelper {
-  new WithSettings() {
+
+  val bqConfiguration: Config = {
+    val config = ConfigFactory
+      .parseString("""
+          |connectionRef = "bigquery"
+          |""".stripMargin)
+    val result = config.withFallback(super.testConfiguration)
+    result
+  }
+
+  new WithSettings(bqConfiguration) {
     Xls2YmlAutoJob.generateSchema(
       getClass.getResource("/sample/SomeJobTemplate.xls").getPath,
       Some(getClass.getResource("/sample/SomePolicies.xls").getPath)
     )
     val outputFile = File(DatasetArea.jobs.toString + "/someJob.comet.yml")
 
+    println(outputFile.contentAsString)
     val result: AutoJobDesc = YamlSerializer
       .deserializeJob(outputFile.contentAsString, outputFile.pathAsString)
       .getOrElse(throw new Exception(s"Invalid file name $outputFile"))
@@ -22,7 +34,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFile.exists() shouldBe true
       result.name shouldBe "someJob"
       result.tasks.size shouldBe 1
-      result.engine shouldBe None
     }
 
     it should "have table specification sqlEngine BQ" in {
@@ -31,7 +42,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.domain shouldBe "someDomain"
       job.table shouldBe "dataset"
       job.write shouldBe WriteMode.OVERWRITE
-      job.sink shouldBe Some(
+      job.sink.map(_.getSink()) shouldBe Some(
         BigQuerySink(
           timestamp = Some("partitionCol"),
           requirePartitionFilter = Some(true)
@@ -59,7 +70,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFile2.exists() shouldBe true
       result2.name shouldBe "someJob2"
       result2.tasks.size shouldBe 1
-      result2.engine shouldBe None
       result2.tasks.head.engine shouldBe Some(Engine.BQ)
     }
 
@@ -77,7 +87,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFileBQ.exists() shouldBe true
       resultBQ.name shouldBe "someJobBQ"
       resultBQ.tasks.size shouldBe 1
-      resultBQ.engine shouldBe Some(Engine.BQ)
     }
 
     it should "have table specification engine bq" in {
@@ -86,7 +95,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.domain shouldBe "someDomain"
       job.table shouldBe "dataset"
       job.write shouldBe WriteMode.OVERWRITE
-      job.sink shouldBe Some(BigQuerySink())
+      job.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
       job.engine shouldBe None
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0

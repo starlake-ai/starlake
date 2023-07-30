@@ -189,7 +189,7 @@ class MetricsJob(
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
           new SinkUtils().sinkInAudit(
-            settings.comet.audit.getSink(settings).getType(),
+            settings.comet.audit.sink.getSink().getConnectionType(settings),
             df,
             table.toString,
             Some("Metrics on tables"),

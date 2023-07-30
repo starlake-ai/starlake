@@ -122,9 +122,9 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         .createCell(11)
         .setCellValue(metadata.partition.map(_.getSampling().toString).getOrElse(""))
 
-      val partitionColumns = metadata.getSink() match {
-        case Some(bq: BigQuerySink) =>
-          bq.timestamp
+      val partitionColumns = metadata.sink match {
+        case Some(sink) =>
+          sink.timestamp
             .map(timestamp => Some(Partition(None, List(timestamp))))
             .getOrElse(metadata.partition)
         case _ => metadata.partition
@@ -134,7 +134,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         .setCellValue(partitionColumns.map(_.getAttributes().mkString(",")).getOrElse(""))
       schemaRow
         .createCell(13)
-        .setCellValue(metadata.getSink().map(_.`type`).getOrElse(""))
+        .setCellValue("FS")
       schemaRow
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))

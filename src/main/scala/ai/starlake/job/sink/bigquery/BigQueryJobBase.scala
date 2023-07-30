@@ -4,12 +4,14 @@ import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
+import better.files.File
 import com.google.auth.Credentials
 import com.google.auth.oauth2.{GoogleCredentials, ServiceAccountCredentials, UserCredentials}
 import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
+  LocationName,
   PolicyTagManagerClient
 }
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
@@ -18,18 +20,17 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
   UserCredentials => GcsUserCredentials
 }
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.{Credentials => GcsCredentials}
-
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
 import java.io.ByteArrayInputStream
 import java.security.SecureRandom
 import java.util
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -42,7 +43,7 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
   logger.info(s"cliConfig=$cliConfig")
   lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
-    .orElse(Some(settings.comet.getEngine().toString))
+    .orElse(Some(settings.comet.connectionRef))
 
   lazy val connectionRef: scala.Option[Settings.Connection] =
     connectionName.flatMap(name => settings.comet.connections.get(name))
@@ -59,9 +60,7 @@ trait BigQueryJobBase extends StrictLogging {
       .getOrElse(throw new Exception("GCP Project ID must be defined"))
   }
 
-  private def bigQueryCredentials()(implicit
-    settings: Settings
-  ): Credentials = {
+  private def bigQueryCredentials(): Credentials = {
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         logger.info("Using Application Default for BQ Credentials")
@@ -84,9 +83,8 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  private def gcsCredentials()(implicit
-    settings: Settings
-  ): GcsCredentials = {
+  @nowarn
+  private def gcsCredentials(): GcsCredentials = {
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         logger.info("Using Application Default Credentials fro GCS")
@@ -109,10 +107,8 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  private def getJsonKeyStream()(implicit
-    settings: Settings
-  ): ByteArrayInputStream = {
-    val gcpSAJsonKeyAsString: String = getJsonKeyContent(settings)
+  private def getJsonKeyStream(): ByteArrayInputStream = {
+    val gcpSAJsonKeyAsString: String = getJsonKeyContent()
     val credentialsStream = new ByteArrayInputStream(
       gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
     )
@@ -120,11 +116,11 @@ trait BigQueryJobBase extends StrictLogging {
 
   }
 
-  protected def getJsonKeyContent(settings: Settings): String = {
+  protected def getJsonKeyContent(): String = {
     val gcpSAJsonKey = connectionOptions("jsonKeyfile")
-    val path = new Path(gcpSAJsonKey)
-    val gcpSAJsonKeyAsString = if (settings.storageHandler().exists(path)) {
-      settings.storageHandler().read(path)
+    val path = File(gcpSAJsonKey)
+    val gcpSAJsonKeyAsString = if (path.exists()) {
+      path.contentAsString
     } else {
       throw new Exception(s"Invalid GCP SA KEY Path: $path")
     }
@@ -284,10 +280,11 @@ trait BigQueryJobBase extends StrictLogging {
       throw new Exception("accessPolicies.projectId not set")
     if (taxonomy == "invalid_taxonomy")
       throw new Exception("accessPolicies.taxonomy not set")
+
     val taxonomyListRequest =
       ListTaxonomiesRequest
         .newBuilder()
-        .setParent(s"projects/$taxonomyProjectId/locations/$location")
+        .setParent(LocationName.of(taxonomyProjectId, location).toString)
         .setPageSize(1000)
         .build()
     val taxonomyList = client.listTaxonomies(taxonomyListRequest)
@@ -871,20 +868,38 @@ trait BigQueryJobBase extends StrictLogging {
         val fkComponents = starlakeSchema.attributes.flatMap { attr =>
           starlakeSchema.fkComponents(attr, datasetId.getDataset)
         }
-        val foreignKeys = fkComponents.map { case (attr, domain, table, referencedColumn) =>
-          val columnReference =
-            ColumnReference.newBuilder
-              .setReferencingColumn(attr.getFinalName())
-              .setReferencedColumn(referencedColumn)
-              .build
+        val foreignKeys = fkComponents.flatMap { case (attr, domain, table, referencedColumn) =>
+          if (datasetId.getDataset.equalsIgnoreCase(domain)) {
+            logger.info(
+              s"Adding foreign key constraint on ${datasetId.getDataset}.${tableId.getTable}.${attr
+                  .getFinalName()} referencing $domain.$table.$referencedColumn"
+            )
+            val columnReference =
+              ColumnReference.newBuilder
+                .setReferencingColumn(attr.getFinalName())
+                .setReferencedColumn(referencedColumn)
+                .build
 
-          val tableIdPk =
-            TableId.of(cliConfig.outputDatabase.getOrElse(this.projectId), domain, table)
-          ForeignKey.newBuilder
-            .setName("foreign_key")
-            .setColumnReferences(List(columnReference).asJava)
-            .setReferencedTable(tableIdPk)
-            .build
+            val tableIdPk =
+              TableId.of(cliConfig.outputDatabase.getOrElse(this.projectId), domain, table)
+            val tableName =
+              tableIdPk.getDataset.toUpperCase() + "_" + tableIdPk.getTable.toUpperCase()
+            val fk = ForeignKey.newBuilder
+              .setName(
+                s"FK_${datasetId.getDataset.toUpperCase()}_${tableId.getTable().toUpperCase()}_${attr.getFinalName().toUpperCase()}"
+              )
+              .setColumnReferences(List(columnReference).asJava)
+              .setReferencedTable(tableIdPk)
+              .build
+            Some(fk)
+          } else {
+            logger.warn(s"""Foreign key constraint
+                 |${datasetId.getDataset}.${tableId.getTable}.${attr.getFinalName()}
+                 |referencing
+                 |$domain.$table.$referencedColumn
+                 |not added because the referenced table is not in the same dataset""".stripMargin)
+            None
+          }
         }
         pkTableConstraints.setForeignKeys(foreignKeys.asJava)
       case None =>

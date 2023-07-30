@@ -7,6 +7,7 @@ import ai.starlake.job.transform.{AutoTask, TaskViewDependency, TransformConfig}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
@@ -58,12 +59,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}}"
         ),
         database = None,
-        domain = "business/user",
+        domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
         merge = None,
-        sink = Some(FsSink())
+        sink = Some(FsSink().toAllSinks())
       )
       val businessJob =
         AutoJobDesc(
@@ -156,13 +157,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
         database = None,
-        domain = "business/user",
+        domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
         expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
         python = None,
         merge = None,
-        sink = Some(FsSink())
+        sink = Some(FsSink().toAllSinks())
       )
       val businessJob =
         AutoJobDesc(
@@ -213,12 +214,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view"
         ),
         database = None,
-        domain = "business/user",
+        domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
         merge = None,
-        sink = Some(FsSink())
+        sink = Some(FsSink().toAllSinks())
       )
       val businessJob =
         AutoJobDesc(
@@ -264,12 +265,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"with user_view as (select * from parquet.`$userView`) select concatWithSpace(firstname, lastname) as fullName from user_View"
         ),
         database = None,
-        domain = "business/user",
+        domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
         python = None,
         merge = None,
-        sink = Some(FsSink())
+        sink = Some(FsSink().toAllSinks())
       )
       val businessJob =
         AutoJobDesc(
@@ -280,7 +281,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
-          sink = Some(FsSink())
+          sink = Some(FsSink().toAllSinks())
         )
 
       val businessJobDef = mapper
@@ -316,7 +317,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"SELECT * FROM graduate_agg_view"
         ),
         database = None,
-        domain = "business/graduateProgram",
+        domain = "graduateProgram",
         table = "output",
         write = WriteMode.OVERWRITE,
         presql = List(
@@ -330,7 +331,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ),
         python = None,
         merge = None,
-        sink = Some(FsSink())
+        sink = Some(FsSink().toAllSinks())
       )
       val businessJob =
         AutoJobDesc(
@@ -368,8 +369,19 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
 
     }
+  }
 
-    "BQ Business Job Definition" should "Prepare correctly against BQ" in {
+  "BQ Business Job Definition" should "Prepare correctly against BQ" in {
+    val bqConfiguration: Config = {
+      val config = ConfigFactory
+        .parseString("""
+            |connectionRef = "bigquery"
+            |""".stripMargin)
+      val result = config.withFallback(super.testConfiguration)
+      result
+    }
+
+    new WithSettings(bqConfiguration) {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select * from domain"),

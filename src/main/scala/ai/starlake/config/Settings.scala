@@ -23,15 +23,7 @@ package ai.starlake.config
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
-import ai.starlake.schema.model.{
-  BigQuerySink,
-  Engine,
-  FsSink,
-  JdbcSink,
-  PrivacyLevel,
-  Sink,
-  SinkType
-}
+import ai.starlake.schema.model._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -45,7 +37,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
 import pureconfig._
-import pureconfig.generic.FieldCoproductHint
+import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import pureconfig.generic.auto._
 
 import java.io.ObjectStreamException
@@ -116,36 +108,20 @@ object Settings extends StrictLogging {
 
   final case class Audit(
     path: String,
-    sink: Sink,
+    sink: AllSinks,
     maxErrors: Int,
     database: Option[String],
     domain: Option[String]
   ) {
     def getConnectionRef(implicit settings: Settings): String =
-      this.getSink(settings).getConnectionRef(settings.comet.getEngine().toString)
+      this.sink.connectionRef.getOrElse(settings.comet.connectionRef)
 
-    @JsonIgnore
-    def getSink(implicit settings: Settings) = {
-      sink.getType() match {
-        case SinkType.Default =>
-          settings.comet.getSinkTypeFromEngine() match {
-            case SinkType.JDBC      => JdbcSink()
-            case SinkType.SNOWFLAKE => JdbcSink()
-            case SinkType.BQ        => BigQuerySink()
-            case SinkType.FS        => FsSink()
-            case _ =>
-              throw new Exception(
-                "Invalid Sink Type . Please use (JDBC, SNOWFLAKE, BQ or FS[Spark]"
-              )
-          }
-        case _: SinkType => sink
-      }
-    }
+    def getSink(implicit settings: Settings) = this.sink.getSink()
   }
 
   /** Describes a connection to a JDBC-accessible database engine
     *
-    * @param format
+    * @param sparkFormat
     *   source / sink format (jdbc by default). Cf spark.format possible values
     * @param mode
     *   Spark SaveMode to use. If not present, the save mode will be computed from the write
@@ -164,18 +140,75 @@ object Settings extends StrictLogging {
     *   underlying engine.
     */
   final case class Connection(
-    format: String = "jdbc",
+    `type`: Option[String],
+    sparkFormat: Option[String] = None,
     mode: Option[String] = None,
-    options: Map[String, String] = Map.empty,
-    engineOverride: Option[String] = None
+    options: Map[String, String] = Map.empty
   ) {
-    def this() = this("jdbc", None, Map.empty, None)
+    def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
 
-    lazy val datawareOptions = options.filterKeys(!Connection.allstorageOptions.contains(_))
+    def getSparkFormat(): String = {
+      this.getType() match {
+        case ConnectionType.JDBC =>
+          sparkFormat
+            .orElse {
+              val engineName = getJdbcEngineName()
+              engineName.map { name =>
+                name.toLowerCase() match {
+                  case "snowflake" | "redshift" => name
+                  case _                        => "jdbc"
+                }
+              }
+            }
+            .getOrElse("jdbc")
+        case ConnectionType.ES    => sparkFormat.getOrElse("elasticsearch")
+        case ConnectionType.BQ    => sparkFormat.getOrElse("bigquery")
+        case ConnectionType.KAFKA => sparkFormat.getOrElse("kafka")
+        case ConnectionType.FS    => sparkFormat.getOrElse("parquet")
+        case _                    => sparkFormat.getOrElse("")
 
-    def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
-    @JsonIgnore
-    def isSnowflake: Boolean = options("url").contains("jdbc:snowflake")
+      }
+    }
+
+    /** The engine is Spark when sparkFormat is defined or when the connection type is not bigquery
+      * @return
+      *   the engine Spark or Bigquery only
+      */
+    def getEngine(): Engine = {
+      if (sparkFormat.isDefined) Engine.SPARK
+      else {
+        val tpe = getType()
+        tpe match {
+          case ConnectionType.BQ => Engine.BQ
+          case _                 => Engine.SPARK
+        }
+      }
+    }
+
+    def getType(): ConnectionType = {
+      val tpe = `type`
+        .orElse {
+          val isJDBC = options.get("url").exists(_.startsWith("jdbc:"))
+          if (isJDBC) Some("jdbc") else None
+        }
+        .getOrElse {
+          throw new Exception(s"Connection type not found for options $options")
+        }
+      ConnectionType.fromString(tpe)
+    }
+
+    def datawareOptions(): Map[String, String] =
+      options.filterKeys(!Connection.allstorageOptions.contains(_))
+
+    def authOptions(): Map[String, String] =
+      options.filterKeys(Connection.allstorageOptions.contains(_))
+
+    def getJdbcEngineName(): Option[String] = {
+      val url = options.get("url")
+      url.flatMap { url => if (url.startsWith("jdbc:")) Some(url.split(':')(1)) else None }
+    }
+
+    def isSnowflake: Boolean = getJdbcEngineName().contains("snowflake")
   }
 
   object Connection {
@@ -362,7 +395,6 @@ object Settings extends StrictLogging {
     mergeOptimizePartitionWrite: Boolean,
     area: Area,
     airflow: Airflow,
-    elasticsearch: Elasticsearch,
     hadoop: Map[String, String],
     connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
@@ -389,7 +421,8 @@ object Settings extends StrictLogging {
     sessionDurationServe: Long,
     database: String,
     tenant: String,
-    engine: String
+    engine: String,
+    connectionRef: String
   ) extends Serializable {
     def getEngine() = Engine.fromString(engine.toUpperCase())
 
@@ -399,35 +432,37 @@ object Settings extends StrictLogging {
       if (index < 0)
         "file://"
       else {
-        val fs = root.substring(0, index + 1)
-        s"$fs//"
+        val fs = root.substring(0, index)
+        // get bucket name
+        val endIndex = root.indexOf("/", index + 3)
+        val bucketName = root.substring(index + 3, endIndex)
+        s"$fs://$bucketName"
       }
     }
     @JsonIgnore
-    def getSinkTypeFromEngine(): SinkType = {
-      engine.toUpperCase() match {
-        case "BQ" | "BIGQUERY" => SinkType.BQ
+    def getSinkTypeFromEngine(): ConnectionType = {
+      connectionRef.toUpperCase() match {
+        case "BQ" | "BIGQUERY" => ConnectionType.BQ
         case "SPARK" =>
           val sparkConnection = this.connections("SPARK")
-          sparkConnection.format.toUpperCase() match {
-            case "KAFKA" | "KAFKASINK"              => SinkType.KAFKA
-            case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => SinkType.BQ
-            case "SNOWFLAKE"                        => SinkType.SNOWFLAKE
-            case "JDBC"                             => SinkType.JDBC
-            case "FS" | "FSSINK"                    => SinkType.FS
+          sparkConnection.getSparkFormat().toUpperCase() match {
+            case "KAFKA" | "KAFKASINK"              => ConnectionType.KAFKA
+            case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => ConnectionType.BQ
+            case "JDBC"                             => ConnectionType.JDBC
+            case "FS" | "FSSINK"                    => ConnectionType.FS
+            case "ES" | "ELASTICSEARCH"             => ConnectionType.ES
             case _ =>
               if (
                 sparkConnection.options
                   .contains("url") && sparkConnection.options("url").startsWith("jdbc:")
               ) {
-                SinkType.JDBC
+                ConnectionType.JDBC
               } else
-                SinkType.FS
+                ConnectionType.FS
           }
-        case "JDBC"      => SinkType.JDBC
-        case "SNOWFLAKE" => SinkType.SNOWFLAKE
-        case "KAFKA"     => SinkType.KAFKA
-        case _           => throw new Exception(s"Unknown engine $engine")
+        case "JDBC"  => ConnectionType.JDBC
+        case "KAFKA" => ConnectionType.KAFKA
+        case _       => throw new Exception(s"Unknown engine $engine")
       }
     }
 
@@ -484,15 +519,17 @@ object Settings extends StrictLogging {
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
   def apply(config: Config): Settings = {
-
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
       config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     // Load reference.conf
-    val loaded = ConfigSource
-      .fromConfig(effectiveConfig)
-      .loadOrThrow[Comet]
+    val loaded = {
+      implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
+      ConfigSource
+        .fromConfig(effectiveConfig)
+        .loadOrThrow[Comet]
+    }
 
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("COMET_ROOT")).getOrElse(System.getenv("SL_ROOT"))
@@ -502,56 +539,59 @@ object Settings extends StrictLogging {
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
     // Load application.conf
-    val applicationSettings = loadApplicationConf(effectiveConfig, settings)
-
+    val applicationConfSettings = loadApplicationConf(effectiveConfig, settings)
     // Load fairscheduler.xml
-    val jobConf = initSparkSchedulingConfig(applicationSettings)
-    val withSparkConfig = applicationSettings.copy(jobConf = jobConf)
-
-    // load connections.comet.yml
-    loadConnections(withSparkConfig)
+    val jobConf = initSparkSchedulingConfig(applicationConfSettings)
+    val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
+    withSparkConfig
   }
 
   private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Settings = {
-    val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
-    val applicationSettings: Settings = if (settings.storageHandler().exists(applicationConfPath)) {
-      val applicationConfContent = settings.storageHandler().read(applicationConfPath)
-      val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
-      val effectiveApplicationConfig = applicationConfig
-        .withFallback(effectiveConfig)
-      logger.debug(effectiveApplicationConfig.toString)
-      val mergedSettings = ConfigSource
-        .fromConfig(effectiveApplicationConfig)
-        .loadOrThrow[Comet]
+    val applicationYml = List("application.comet.yml", "application.yml").find { filename =>
+      val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
+      settings.storageHandler().exists(applicationConfPath)
+    }
+    val applicationYmlConfig = applicationYml match {
+      case Some(filename) =>
+        val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
+        val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
+        val applicationConfContent = settings.storageHandler().read(applicationConfPath)
+        val content =
+          Utils.parseJinja(applicationConfContent, schemaHandler.activeEnvVars())(settings)
+        val jsonNode = YamlSerializer.mapper.readTree(content)
+        val jsonString = Utils.newJsonMapper().writeValueAsString(jsonNode)
+        val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
+        Some(applicationConfig)
+      case None =>
+        None
+    }
 
-      Settings(
-        mergedSettings,
-        effectiveApplicationConfig.getConfig("spark"),
-        effectiveApplicationConfig.getConfig("extra")
-      )
-    } else
-      settings
+    val applicationSettings = applicationYmlConfig match {
+      case Some(applicationConfig) =>
+        val effectiveApplicationConfig = applicationConfig
+          .withFallback(effectiveConfig)
+        logger.debug(effectiveApplicationConfig.toString)
+
+        val mergedSettings = {
+          implicit def hint[A]: ProductHint[A] =
+            ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
+          ConfigSource
+            .fromConfig(effectiveApplicationConfig)
+            .loadOrThrow[Comet]
+        }
+
+        val applicationSettings = Settings(
+          mergedSettings,
+          effectiveApplicationConfig.getConfig("spark"),
+          effectiveApplicationConfig.getConfig("extra")
+        )
+        applicationSettings
+      case None =>
+        settings
+    }
+
     applicationSettings.storageHandler(true) // Reload with the authentication settings
     applicationSettings
-  }
-
-  /** @param storageHandler
-    *   We pass this because we may be loading the connections before the storage handler is
-    *   initialized (cf confStorageHandler
-    * @param settings
-    * @return
-    */
-  private def loadConnections(settings: Settings): Settings = {
-    val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
-    val connectionsPath = new Path(DatasetArea.metadata(settings), "connections.comet.yml")
-    if (settings.storageHandler().exists(connectionsPath)) {
-      val rawContent = settings.storageHandler().read(connectionsPath)
-      val content =
-        Utils.parseJinja(rawContent, schemaHandler.activeEnvVars())(settings)
-      val connections = YamlSerializer.mapper.readValue(content, classOf[Connections])
-      settings.copy(comet = settings.comet.copy(connections = connections.connections))
-    } else
-      settings
   }
 
   private def initSparkSchedulingConfig(settings: Settings): SparkConf = {

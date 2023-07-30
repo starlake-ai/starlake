@@ -28,7 +28,10 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     jdbcEngine: Settings.JdbcEngine,
     outputTable: String
   ): Unit = {
-    assert(jdbcOptions.format == "jdbc")
+    assert(
+      jdbcOptions.getSparkFormat() == "jdbc",
+      s"Only JDBC connections are supported ${jdbcOptions.getSparkFormat()}"
+    )
     val table = jdbcEngine.tables.get(outputTable)
     table.foreach { table =>
       val conn = DriverManager.getConnection(
@@ -56,7 +59,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
   }
 
   def fromComet(
-    jdbcName: String,
+    connectionRef: String,
     comet: Settings.Comet,
     sourceFile: Either[String, DataFrame],
     outputTable: String,
@@ -66,13 +69,13 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
   ): ConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
-    val jdbcOptions = comet.connections(jdbcName)
-    val isJDBC = jdbcOptions.format == "jdbc"
-
-    if (createTableIfAbsent && isJDBC) {
-      comet.jdbcEngines.get(jdbcOptions.engine).foreach { jdbcEngine =>
-        checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
-      }
+    val jdbcOptions = comet.connections(connectionRef)
+    val jdbcEngineName = jdbcOptions.getJdbcEngineName()
+    jdbcEngineName.foreach { jdbcEngineName =>
+      if (createTableIfAbsent)
+        comet.jdbcEngines.get(jdbcEngineName).foreach { jdbcEngine =>
+          checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
+        }
     }
 
     ConnectionLoadConfig(
@@ -80,7 +83,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       outputTable = outputTable,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      jdbcOptions.format,
+      jdbcOptions.getSparkFormat(),
       jdbcOptions.mode,
       jdbcOptions.options
     )

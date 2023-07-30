@@ -10,6 +10,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.JsonSerializer
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
@@ -30,14 +31,30 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
-  "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      import org.slf4j.impl.StaticLoggerBinder
-      val binder = StaticLoggerBinder.getSingleton
-      logger.debug(binder.getLoggerFactory.toString)
-      logger.debug(binder.getLoggerFactoryClassStr)
+  val bigQueryConfiguration: Config = {
+    val config = ConfigFactory.parseString("""
+        |connections.spark {
+        |  sparkFormat = "bigquery"
+        |  type = "bigquery"
+        |  options {
+        |    gcsBucket: starlake-app
+        |    authType: APPLICATION_DEFAULT
+        |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        |    #jsonKeyfile: "/Users/hayssams/.gcloud/keys/my-key.json"
+        |  }
+        |}
+        |""".stripMargin)
+    val result = config.withFallback(super.testConfiguration)
+    result
+  }
+  new WithSettings(bigQueryConfiguration) {
+    "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
+      if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+        import org.slf4j.impl.StaticLoggerBinder
+        val binder = StaticLoggerBinder.getSingleton
+        logger.debug(binder.getLoggerFactory.toString)
+        logger.debug(binder.getLoggerFactoryClassStr)
 
-      new WithSettings() {
         new SpecTrait(
           domainOrJobFilename = "bqtest.comet.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
@@ -56,15 +73,13 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       tableFound should be(true)
 
     }
-  }
-  "Secure BigQuery Tables" should "should set policies in tables" in {
-    if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      import org.slf4j.impl.StaticLoggerBinder
-      val binder = StaticLoggerBinder.getSingleton
-      logger.debug(binder.getLoggerFactory.toString)
-      logger.debug(binder.getLoggerFactoryClassStr)
+    "Secure BigQuery Tables" should "should set policies in tables" in {
+      if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+        import org.slf4j.impl.StaticLoggerBinder
+        val binder = StaticLoggerBinder.getSingleton
+        logger.debug(binder.getLoggerFactory.toString)
+        logger.debug(binder.getLoggerFactoryClassStr)
 
-      new WithSettings() {
         new SpecTrait(
           domainOrJobFilename = "bqtest.comet.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
@@ -77,17 +92,15 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           logger.info(settings.comet.datasets)
           secure(WatchConfig())
         }
+        val tableFound =
+          Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+        tableFound should be(true)
+
       }
-      val tableFound =
-        Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
-      tableFound should be(true)
-
     }
-  }
 
-  "Native BigQuery AutoJob" should "succeed" in {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      new WithSettings() {
+    "Native BigQuery AutoJob" should "succeed" in {
+      if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
         new SpecTrait(
           domainOrJobFilename = "bqtest.comet.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
@@ -102,7 +115,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             "jobresult",
             WriteMode.OVERWRITE,
             sink = Some(
-              BigQuerySink(connectionRef = None, location = Some("EU"))
+              BigQuerySink(connectionRef = None, location = Some("EU")).toAllSinks()
             ),
             engine = Some(Engine.BQ),
             python = None,
@@ -115,8 +128,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
               Nil,
               None,
               None,
-              None,
-              engine = Some(Engine.BQ)
+              None
             )
 
           val businessJobDef = mapper
@@ -138,9 +150,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         }
       }
     }
-  }
-  "Extract Table infos" should "succeed" in {
-    new WithSettings() {
+    "Extract Table infos" should "succeed" in {
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
       val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())
@@ -153,15 +163,13 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       val config = BigQueryTablesConfig()
       BigQueryTableInfo.sink(config)
     }
-  }
-  "Freshness of Table" should "return list of warning & errors" in {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      import org.slf4j.impl.StaticLoggerBinder
-      val binder = StaticLoggerBinder.getSingleton
-      logger.debug(binder.getLoggerFactory.toString)
-      logger.debug(binder.getLoggerFactoryClassStr)
+    "Freshness of Table" should "return list of warning & errors" in {
+      if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+        import org.slf4j.impl.StaticLoggerBinder
+        val binder = StaticLoggerBinder.getSingleton
+        logger.debug(binder.getLoggerFactory.toString)
+        logger.debug(binder.getLoggerFactoryClassStr)
 
-      new WithSettings() {
         new SpecTrait(
           domainOrJobFilename = "bqtest.comet.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",

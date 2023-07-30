@@ -727,10 +727,10 @@ class IngestionWorkflow(
             val result = action.runBQ(transformConfig.drop)
             transformConfig.interactive match {
               case None =>
-                val sink = action.taskDesc.sink
+                val sink = action.taskDesc.sink.map(_.getSink())
                 logger.info(s"BQ Job succeeded. sinking data to $sink")
                 sink match {
-                  case Some(sink) if sink.getType() == SinkType.BQ =>
+                  case Some(sink) if sink.getConnectionType(settings) == ConnectionType.BQ =>
                     logger.info("Sinking to BQ done")
                   case _ =>
                     // TODO Sinking not supported
@@ -772,7 +772,7 @@ class IngestionWorkflow(
                 sinkOption match {
                   case Some(sink) =>
                     sink match {
-                      case _: EsSink if settings.comet.elasticsearch.active =>
+                      case _: EsSink =>
                         saveToES(action)
                       case fsSink: FsSink =>
                         maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
@@ -786,7 +786,8 @@ class IngestionWorkflow(
                         }
                         val bqLoadConfig =
                           BigQueryLoadConfig(
-                            connectionRef = Some(bqSink.getConnectionRef(action.engine.toString)),
+                            connectionRef =
+                              Some(bqSink.connectionRef.getOrElse(settings.comet.connectionRef)),
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
@@ -817,7 +818,7 @@ class IngestionWorkflow(
 
                       case jdbcSink: JdbcSink =>
                         val jdbcName =
-                          jdbcSink.getConnectionRef(action.engine.toString)
+                          jdbcSink.connectionRef.getOrElse(settings.comet.connectionRef)
                         val source = maybeDataFrame
                           .map(df => Right(df))
                           .getOrElse(Left(action.taskDesc.getTargetPath().toString))
@@ -839,13 +840,11 @@ class IngestionWorkflow(
                           case Success(_) => true
                           case Failure(e) => logger.error("JDBCLoad Failed", e); false
                         }
-                      case _: DefaultSink =>
+                      case _ =>
+                        logger.warn(s"No supported Sink is activated for this job $sink")
                         maybeDataFrame.foreach { dataframe =>
                           dataframe.write.format("console").save()
                         }
-                        true
-                      case _ =>
-                        logger.warn(s"No supported Sink is activated for this job $sink")
                         true
                     }
                   case None =>
@@ -868,6 +867,7 @@ class IngestionWorkflow(
     val targetPath =
       new Path(DatasetArea.path(action.taskDesc.domain), action.taskDesc.table)
     val sink: EsSink = action.taskDesc.sink
+      .map(_.getSink())
       .map(_.asInstanceOf[EsSink])
       .getOrElse(
         throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
@@ -977,41 +977,40 @@ class IngestionWorkflow(
           dummyIngestionJob.applyHiveTableAcl()
         } else {
           val sink = metadata.sink
+            .map(_.getSink())
             .getOrElse(throw new Exception("Sink required"))
-          val isJdbcSink =
-            sink.isInstanceOf[JdbcSink]
-          if (isJdbcSink) {
-            val connectionName = sink
-              .asInstanceOf[JdbcSink]
-              .connectionRef
-              .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
-            val connection = settings.comet.connections(connectionName)
-            if (connection.isSnowflake)
-              dummyIngestionJob.applySnowflakeTableAcl()
-            else
-              Success(true) // ignore other jdbc connection types
-          } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
-            val database = schemaHandler.getDatabase(domain)
-            val config = BigQueryLoadConfig(
-              connectionRef = metadata.getConnectionRef(settings),
-              outputTableId = Some(
-                BigQueryJobBase
-                  .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
-              ),
-              sourceFormat = settings.comet.defaultFormat,
-              rls = schema.rls,
-              acl = schema.acl,
-              starlakeSchema = Some(schema),
-              outputDatabase = database
-            )
-            val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
-            res.recover { case e =>
-              Utils.logException(logger, e)
-              throw e
-            }
 
-          } else {
-            Success(true) // unknown sink, just ignore.
+          sink match {
+            case jdbcSink: JdbcSink =>
+              val connectionName = jdbcSink.connectionRef
+                .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
+              val connection = settings.comet.connections(connectionName)
+              if (connection.isSnowflake)
+                dummyIngestionJob.applySnowflakeTableAcl()
+              else
+                Success(true) // ignore other jdbc connection types
+            case _: BigQuerySink =>
+              val database = schemaHandler.getDatabase(domain)
+              val config = BigQueryLoadConfig(
+                connectionRef = Some(metadata.getConnectionRef(settings)),
+                outputTableId = Some(
+                  BigQueryJobBase
+                    .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
+                ),
+                sourceFormat = settings.comet.defaultFormat,
+                rls = schema.rls,
+                acl = schema.acl,
+                starlakeSchema = Some(schema),
+                outputDatabase = database
+              )
+              val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+              res.recover { case e =>
+                Utils.logException(logger, e)
+                throw e
+              }
+
+            case _ =>
+              Success(true) // unknown sink, just ignore.
           }
         }
       }
