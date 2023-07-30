@@ -65,12 +65,12 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
         ) {
           private val query: String =
             """
-              |WITH _table as (
+              |WITH tbl as (
               |  select "sam" as name,Date("1990-01-01") as dob
               |  union all
               |  select "joe" as name, Date("1992-02-01") as dob
               |)
-              |select * from _table
+              |select * from tbl
               |""".stripMargin
           private val businessTask1 = AutoTaskDesc(
             "",

@@ -67,11 +67,11 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           logger.info(settings.comet.datasets)
           loadPending
         }
-      }
-      val tableFound =
-        Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
-      tableFound should be(true)
+        val tableFound =
+          Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+        tableFound should be(true)
 
+      }
     }
     "Secure BigQuery Tables" should "should set policies in tables" in {
       if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
