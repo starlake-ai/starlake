@@ -41,15 +41,21 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
-  protected val treeRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](
-      mergedMetadata.validator.getOrElse(settings.comet.treeValidatorClass)
-    )
+  private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
+    val validator = mergedMetadata.validator.getOrElse(settings.comet.defaultValidator)
+    val validatorClassName = validator.toLowerCase() match {
+      case "spark" => validatorClass
+      case _       => throw new Exception(s"Unexpected '$validator' validator !!!")
+    }
+    Utils.loadInstance[GenericRowValidator](validatorClassName)
+  }
 
-  protected val flatRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](
-      mergedMetadata.validator.getOrElse(settings.comet.rowValidatorClass)
-    )
+  protected lazy val treeRowValidator: GenericRowValidator = {
+    loadGenericValidator(settings.comet.treeValidatorClass)
+  }
+
+  protected lazy val flatRowValidator: GenericRowValidator =
+    loadGenericValidator(settings.comet.rowValidatorClass)
 
   def domain: Domain
 
@@ -245,8 +251,11 @@ trait IngestionJob extends SparkJob {
   private def isNativeCandidate(): Boolean = {
     val csvOrJsonLines =
       !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
-    csvOrJsonLines
+
+    val nativeValidator =
+      mergedMetadata.validator.getOrElse("Non Native").toLowerCase().equals("native")
     // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
+    csvOrJsonLines && nativeValidator
   }
 
   def run(): Try[JobResult] = {

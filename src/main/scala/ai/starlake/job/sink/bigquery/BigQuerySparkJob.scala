@@ -46,12 +46,19 @@ class BigQuerySparkJob(
     logger.info(s"BigQuery Config $cliConfig")
     // fs.default.name
 
-    val bucketFromExtraConf = settings
-      .storageHandler()
-      .extraConf
-      .get("temporaryGcsBucket")
-      .orElse(settings.storageHandler().extraConf.get("fs.gs.system.bucket"))
-      .orElse(settings.storageHandler().extraConf.get("fs.default.name"))
+    val bucketFromExtraConf = {
+      connectorOptions
+        .get("temporaryGcsBucket")
+        .orElse(
+          settings
+            .storageHandler()
+            .extraConf
+            .get("temporaryGcsBucket")
+        )
+        .orElse(connectorOptions.get("gcsBucket"))
+        .orElse(settings.storageHandler().extraConf.get("fs.gs.system.bucket"))
+        .orElse(settings.storageHandler().extraConf.get("fs.default.name"))
+    }
 
     val bucket: Option[String] =
       bucketFromExtraConf
