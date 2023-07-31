@@ -243,7 +243,7 @@ object AuditLog extends StrictLogging {
   }
 
   private def getDatabase()(implicit settings: Settings): Option[String] =
-    settings.comet.getDefaultDatabase()
+    settings.comet.audit.database.orElse(settings.comet.getDefaultDatabase())
 
   def sinkToBigQuery(
     log: AuditLog,
