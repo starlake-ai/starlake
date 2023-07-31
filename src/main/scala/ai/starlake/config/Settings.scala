@@ -117,6 +117,9 @@ object Settings extends StrictLogging {
       this.sink.connectionRef.getOrElse(settings.comet.connectionRef)
 
     def getSink(implicit settings: Settings) = this.sink.getSink()
+
+    def getDatabase(implicit settings: Settings): Option[String] =
+      this.database.orElse(settings.comet.getDefaultDatabase())
   }
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -384,7 +387,7 @@ object Settings extends StrictLogging {
     launcher: String,
     chewerPrefix: String,
     emptyIsNull: Boolean,
-    defaultValidator: String,
+    validator: String,
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,

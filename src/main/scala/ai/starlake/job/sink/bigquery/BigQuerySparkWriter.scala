@@ -45,7 +45,7 @@ object BigQuerySparkWriter extends StrictLogging {
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(
-                    settings.comet.audit.database,
+                    settings.comet.audit.getDatabase(settings),
                     settings.comet.audit.domain.getOrElse("audit"),
                     tableName
                   )
@@ -60,7 +60,7 @@ object BigQuerySparkWriter extends StrictLogging {
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
               rls = Nil,
               acl = Nil,
-              outputDatabase = settings.comet.audit.database
+              outputDatabase = settings.comet.audit.getDatabase(settings)
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,
