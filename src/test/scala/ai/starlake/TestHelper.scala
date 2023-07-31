@@ -109,7 +109,7 @@ trait TestHelper
     )
     val testConfig =
       ConfigFactory
-        .load(rootConfig, ConfigResolveOptions.noSystem())
+        .load(rootConfig) // , ConfigResolveOptions.noSystem())
         .withValue(
           "lock.poll-time",
           ConfigValueFactory.fromAnyRef("5 ms")

@@ -119,6 +119,10 @@ trait BigQueryJobBase extends StrictLogging {
   protected def getJsonKeyContent(): String = {
     val gcpSAJsonKey = connectionOptions("jsonKeyfile")
     val path = File(gcpSAJsonKey)
+    getJsonKeyContent(path)
+  }
+
+  protected def getJsonKeyContent(path: File): String = {
     val gcpSAJsonKeyAsString = if (path.exists()) {
       path.contentAsString
     } else {
