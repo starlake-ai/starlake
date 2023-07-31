@@ -9,6 +9,9 @@ accessPolicies:
   taxonomy: RGPD
 
 
+connectionRef: {{ connection_ref }}
+
+
 connections:
   bigquery:
     type: "bigquery"
@@ -17,9 +20,9 @@ connections:
       authType: SERVICE_ACCOUNT_JSON_KEYFILE
       gcsBucket: "starlake-app"
       jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
-  spark:
-    type: "fs"
 
+  sparkLocal:
+    type: "fs"
 
 spark:
   datasource:

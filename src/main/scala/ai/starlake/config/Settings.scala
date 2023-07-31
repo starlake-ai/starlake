@@ -273,7 +273,7 @@ object Settings extends StrictLogging {
 
   final case class Internal(
     cacheStorageLevel: StorageLevel,
-    intermediateBigqueryFormat: String = "orc",
+    intermediateBigqueryFormat: String,
     temporaryGcsBucket: Option[String],
     substituteVars: Boolean = true
   )
@@ -384,6 +384,7 @@ object Settings extends StrictLogging {
     launcher: String,
     chewerPrefix: String,
     emptyIsNull: Boolean,
+    defaultValidator: String,
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,

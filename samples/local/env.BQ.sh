@@ -1,5 +1,5 @@
 export SL_BIN_DIR="$(pwd)/../../distrib"
-export SL_ENV=SNOWFLAKE
+export SL_ENV=BQ
 export SPARK_DRIVER_MEMORY=4G
 export SL_ROOT="$(pwd)/quickstart"
 export SL_METRICS_ACTIVE=true

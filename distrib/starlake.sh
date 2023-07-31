@@ -3,9 +3,9 @@
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 SL_ROOT="${SL_ROOT:-`pwd`}"
 SCALA_VERSION=2.12
-SPARK_VERSION="${SPARK_VERSION:-3.3.2}"
+SPARK_VERSION="${SPARK_VERSION:-3.4.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
-SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.30.0}"
+SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.32.0}"
 SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
@@ -15,8 +15,6 @@ SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
 SKIP_INSTALL=1
 export SL_ENV="${SL_ENV:-FS}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
-export SL_FS="${SL_FS:-file://}"
-export SL_SINK_FS="${SL_SINK_FS:-$SL_FS}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
 
@@ -134,84 +132,54 @@ echo Launching starlake.
 echo "- JAVA_HOME=$JAVA_HOME"
 echo "- SL_ROOT=$SL_ROOT"
 echo "- SL_ENV=$SL_ENV"
-echo "- SL_FS=$SL_FS"
 echo "- SL_MAIN=$SL_MAIN"
 echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
 echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
 echo Make sure your java home path does not contain space
 
+
+#if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
+#then
+#  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
+#  then
+#    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
+#    exit 1
+#  fi
+#  if [[ -z "$AZURE_STORAGE_KEY" ]]
+#  then
+#    echo "AZURE_STORAGE_KEY should reference the storage account key"
+#    exit 1
+#  fi
+#  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
+#                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
+#                  fs.default.name=$SL_FS,
+#                  fs.defaultFS=$SL_FS"
+#fi
+
 SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
-#export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
-
-if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
+export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+if [[ "$SL_DEFAULT_VALIDATOR" == "native" ]]
 then
-  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
-  then
-    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
-    exit 1
-  fi
-  if [[ -z "$AZURE_STORAGE_KEY" ]]
-  then
-    echo "AZURE_STORAGE_KEY should reference the storage account key"
-    exit 1
-  fi
-  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
-                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
-                  fs.default.name=$SL_FS,
-                  fs.defaultFS=$SL_FS"
-elif [[ $SL_FS = gs:* ]] || [[ $SL_SINK_FS = gs:* ]]
-then
-  if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]] && [[ -z "$SL_STORAGE_CONF" ]]
-  then
-    echo "GOOGLE_APPLICATION_CREDENTIALS should reference the service account json file"
-    exit 1
-  fi
-  export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,
-                  google.cloud.auth.type=SERVICE_ACCOUNT_JSON_KEYFILE,
-                  google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
-                  fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
-                  google.cloud.auth.service.account.enable=true,
-                  fs.default.name=$SL_SINK_FS,
-                  fs.defaultFS=$SL_SINK_FS"
-elif [[ $SL_FS = hdfs:* ]]
-then
-  if [[ -z "$HDFS_URI" ]]
-  then
-    echo "HDFS_URI should reference a valid hdfs cluster"
-    exit 1
-  fi
-  export SL_STORAGE_CONF="fs.default.name=$HDFS_URI"
-fi
-
-if [[ -z "$SL_BQ_NATIVE" ]]
-then
+  SL_ROOT=$SL_ROOT java \
+                      --add-opens=java.base/java.lang=ALL-UNNAMED \
+                      --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                      --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                      --add-opens=java.base/java.io=ALL-UNNAMED \
+                      --add-opens=java.base/java.net=ALL-UNNAMED \
+                      --add-opens=java.base/java.nio=ALL-UNNAMED \
+                      --add-opens=java.base/java.util=ALL-UNNAMED \
+                      --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                      --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                      --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                      --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                      --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                      --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                      --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+                      -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties \
+                      -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
+else
   SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
   SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
-else
-  case $SL_AUDIT_SINK_TYPE in
-      BigQuerySink|DefaultSink)
-        SL_ROOT=$SL_ROOT java \
-                            --add-opens=java.base/java.lang=ALL-UNNAMED \
-                            --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
-                            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-                            --add-opens=java.base/java.io=ALL-UNNAMED \
-                            --add-opens=java.base/java.net=ALL-UNNAMED \
-                            --add-opens=java.base/java.nio=ALL-UNNAMED \
-                            --add-opens=java.base/java.util=ALL-UNNAMED \
-                            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-                            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-                            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-                            --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
-                            --add-opens=java.base/sun.security.action=ALL-UNNAMED \
-                            --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
-                            --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-                            -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties \
-                            -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
-      ;;
-      *)
-        echo "SL_AUDIT_SINK_TYPE env var must be set ot BigQuerySink or DefaultSink"
-      ;;
-  esac
 fi
 
 
