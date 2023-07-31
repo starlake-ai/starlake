@@ -7,6 +7,7 @@ import ai.starlake.job.transform.{AutoTask, TaskViewDependency, TransformConfig}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -118,7 +119,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
+        expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
         python = None,
         merge = None
       )
@@ -160,7 +161,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        expectations = Map("uniqFirstname" -> "isUnique(firstname)"),
+        expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
         python = None,
         merge = None,
         sink = Some(FsSink().toAllSinks())
@@ -380,6 +381,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val result = config.withFallback(super.testConfiguration)
       result
     }
+    val credentials: GoogleCredentials = GoogleCredentials.getApplicationDefault()
 
     new WithSettings(bqConfiguration) {
       val businessTask1 = AutoTaskDesc(

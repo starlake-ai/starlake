@@ -21,7 +21,7 @@ object GcpUtils {
   }
   @throws[IOException]
   def getCredentialUsingWellKnownFile(): GoogleCredentials = {
-    val wellKnownFileLocation = getWellKnownCredentialsFile
+    val wellKnownFileLocation = getWellKnownCredentialsFile()
     var credentialsStream: InputStream = null
     try {
       credentialsStream = new FileInputStream(wellKnownFileLocation)
@@ -38,7 +38,7 @@ object GcpUtils {
     } finally if (credentialsStream != null) credentialsStream.close()
   }
 
-  private def getWellKnownCredentialsFile: java.io.File = {
+  private def getWellKnownCredentialsFile(): java.io.File = {
     var cloudConfigPath: File = null
     val os = System.getProperty("os.name", "").toLowerCase(Locale.US)
     if (os.indexOf("windows") >= 0) {
