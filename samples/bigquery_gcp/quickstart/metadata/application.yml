@@ -28,5 +28,5 @@ connections:
     type: "fs"
 
 
-# defaultValidator: "spark" # "spark" or "native"
+# validator: "spark" # "spark" or "native"
 connectionRef: {{ connection_ref }}
