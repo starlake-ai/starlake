@@ -291,6 +291,7 @@ trait BigQueryJobBase extends StrictLogging {
         .setParent(LocationName.of(taxonomyProjectId, location).toString)
         .setPageSize(1000)
         .build()
+    logger.info(s"Getting Taxonomy $taxonomy in project $taxonomyProjectId in location $location")
     val taxonomyList = client.listTaxonomies(taxonomyListRequest)
     val taxonomyRef = taxonomyList
       .iterateAll()
@@ -303,6 +304,7 @@ trait BigQueryJobBase extends StrictLogging {
           s"Taxonomy $taxonomy not found in project $taxonomyProjectId in location $location"
         )
       )
+    logger.info(s"Taxonomy $taxonomy found in project $taxonomyProjectId in location $location")
     (location, taxonomyProjectId, taxonomy, taxonomyRef)
   }
 
