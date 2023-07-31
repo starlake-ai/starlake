@@ -42,7 +42,7 @@ import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val validator = mergedMetadata.validator.getOrElse(settings.comet.defaultValidator)
+    val validator = mergedMetadata.validator.getOrElse(settings.comet.validator)
     val validatorClassName = validator.toLowerCase() match {
       case "spark" => validatorClass
       case _       => throw new Exception(s"Unexpected '$validator' validator !!!")
