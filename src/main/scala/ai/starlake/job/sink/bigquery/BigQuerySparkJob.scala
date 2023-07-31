@@ -13,7 +13,6 @@ import com.google.cloud.bigquery.{
   Table
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
@@ -81,14 +80,13 @@ class BigQuerySparkJob(
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         logger.info("Getting Application Default for Spark BQ Credentials")
-        // val gcpAccessToken = GcpUtils.getCredentialUsingWellKnownFile()
-        val credentials = GoogleCredentials.getApplicationDefault()
-        val gcpAccessToken =
-          credentials.refreshAccessToken().getTokenValue
-
-        logger.info(s"Using credentials ${credentials.toString}")
-
-        session.conf.set("gcpAccessToken", gcpAccessToken)
+        val jsonFile = GcpUtils
+          .getApplicationDefaultFile()
+          .getOrElse(throw new Exception("No Application Default Credentials Found"))
+        val jsonContent = getJsonKeyContent(jsonFile)
+        val jsonKeyInBase64 =
+          BaseEncoding.base64.encode(jsonContent.getBytes(StandardCharsets.UTF_8))
+        session.conf.set("credentials", jsonKeyInBase64)
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         logger.info("Using Service Account Key for BQ Credentials")
         val jsonKeyContent = getJsonKeyContent()
