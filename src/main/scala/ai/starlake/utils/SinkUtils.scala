@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -71,14 +71,14 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         throw new Exception("Sinking Expectations & Metrics to Kafka not yet supported")
       case _ => // including SinkType.JDBC | SinkType.SNOWFLAKE | SinkType.REDSHIFT ect ...
         Try {
-          val jdbcConfig = ConnectionLoadConfig.fromComet(
+          val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
             settings.comet.audit.sink
               .getSink()
               .connectionRef
               .getOrElse(settings.comet.connectionRef),
             settings.comet,
             Right(dataframe),
-            settings.comet.audit.domain.getOrElse("audit") + "." + table
+            (settings.comet.audit.domain.getOrElse("audit") + "." + table).toUpperCase()
           )
           sinkToJdbc(jdbcConfig)
         }
@@ -122,7 +122,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
   }
 
   private def sinkToJdbc(
-    cliConfig: ConnectionLoadConfig
+    cliConfig: JdbcConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
       case Left(_) =>

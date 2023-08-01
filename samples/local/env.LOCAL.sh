@@ -10,5 +10,4 @@ export SL_METRICS_PATH="/tmp/metrics/{domain}"
 export SL_MAIN=ai.starlake.job.Main
 
 export SL_ENV=LOCAL
-export SL_ENGINE=spark
 export SL_CONNECTION_REF=spark

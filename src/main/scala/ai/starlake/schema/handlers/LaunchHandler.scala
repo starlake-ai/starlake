@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryLoadCliConfig
 import ai.starlake.job.sink.es.ESLoadConfig
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.{AirflowJobResult, JobResult, Utils}
 import ai.starlake.workflow.IngestionWorkflow
@@ -102,7 +102,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  def jdbcload(workflow: IngestionWorkflow, config: JdbcConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean
 }
@@ -164,7 +164,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
@@ -280,7 +280,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint

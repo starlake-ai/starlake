@@ -8,7 +8,7 @@ import org.apache.spark.sql.SaveMode
 import scala.util.Try
 
 class ConnectionLoadJob(
-  cliConfig: ConnectionLoadConfig
+  cliConfig: JdbcConnectionLoadConfig
 )(implicit val settings: Settings)
     extends SparkJob {
 

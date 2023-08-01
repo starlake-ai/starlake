@@ -35,7 +35,7 @@ The main advantages of the Starlake Data Pipeline project are :
 * Expose data ingestion metrics and history
 * Transform text files to strongly typed records
 * Support semantic types
-* Force privacy on specific fields (RGPD)
+* Force privacy on specific fields (GDPR)
 * very, very simple piece of software to administer
 
 ## How it works

@@ -14,7 +14,7 @@ load:
     write: "OVERWRITE"
     partition:
       attributes:
-        - comet_date
+        - date
   tables:
     - name: "TEST_EMTPY"
       pattern: "empty_position"
@@ -34,6 +34,14 @@ load:
           position:
             first: 1
             last: 1
+        - name: "date"
+          type: "date"
+          script: "current_date()"
+          privacy: None
+          required: true
+          position:
+            first: 0
+            last: 0
       metadata:
         partition:
           sampling: 0
@@ -142,6 +150,14 @@ load:
         - name: "fileName"
           type: "string"
           script: "comet_input_file_name"
+          privacy: None
+          required: true
+          position:
+            first: 0
+            last: 0
+        - name: "date"
+          type: "date"
+          script: "current_date()"
           privacy: None
           required: true
           position:

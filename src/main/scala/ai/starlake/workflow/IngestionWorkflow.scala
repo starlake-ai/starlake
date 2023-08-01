@@ -33,7 +33,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQuerySparkJob
 }
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
@@ -825,7 +825,7 @@ class IngestionWorkflow(
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
-                        val jdbcConfig = ConnectionLoadConfig.fromComet(
+                        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
                           jdbcName,
                           settings.comet,
                           source,
@@ -904,7 +904,7 @@ class IngestionWorkflow(
     Utils.logFailure(res, logger)
   }
 
-  def jdbcload(config: ConnectionLoadConfig): Try[JobResult] = {
+  def jdbcload(config: JdbcConnectionLoadConfig): Try[JobResult] = {
     val loadJob = new ConnectionLoadJob(config)
     val res = loadJob.run()
     Utils.logFailure(res, logger)
