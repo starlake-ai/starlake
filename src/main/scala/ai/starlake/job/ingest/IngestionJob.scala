@@ -4,7 +4,7 @@ import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -1244,7 +1244,7 @@ trait IngestionJob extends SparkJob {
     }
     val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[JdbcSink])
     sink.foreach { sink =>
-      val jdbcConfig = ConnectionLoadConfig.fromComet(
+      val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
         sink.connectionRef.getOrElse(settings.comet.connectionRef),
         settings.comet,
         Right(mergedDF),
@@ -1488,7 +1488,7 @@ object IngestionUtil {
           )
 
         case _: JdbcSink =>
-          val jdbcConfig = ConnectionLoadConfig.fromComet(
+          val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
             settings.comet.audit.getConnectionRef(settings),
             settings.comet,
             Right(rejectedDF),

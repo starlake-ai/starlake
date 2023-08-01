@@ -359,7 +359,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .mapValues(_.richFormat(sys.env, globalEnvVars ++ cometDateVars))
 
     // Please note below how profile specific vars override default profile vars.
-    val activeEnvVars = cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
+    val activeEnvVars = sys.env ++ cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
 
     this._activeEnvVars = activeEnvVars
     this._activeEnvVars

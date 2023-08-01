@@ -1,16 +1,9 @@
 export SL_BIN_DIR="$(pwd)/../../distrib"
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G
-export SL_FS=file://
 export SL_ROOT="$(pwd)/quickstart"
-export SL_AUDIT_SINK_TYPE=JdbcSink
 export SL_METRICS_ACTIVE=true
 export SL_ASSERTIONS_ACTIVE=true
-export SL_SINK_TO_FILE=false
-export SL_ANALYZE=false
-export SL_HIVE=false
-export SL_GROUPED=false
-export SL_METRICS_PATH="/tmp/metrics/{domain}"
 export SL_MAIN=ai.starlake.job.Main
 export SF_TIMEZONE=TIMESTAMP_LTZ
 

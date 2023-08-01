@@ -22,7 +22,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, JobResult, Utils}
 import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
@@ -221,7 +221,7 @@ object AuditLog extends StrictLogging {
             )
           )
           .toDF(auditCols.map { case (name, _, _) => name }: _*)
-        val jdbcConfig = ConnectionLoadConfig.fromComet(
+        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
           sink.connectionRef.getOrElse(settings.comet.connectionRef),
           settings.comet,
           Right(auditDF),

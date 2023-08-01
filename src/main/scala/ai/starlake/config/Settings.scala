@@ -158,8 +158,9 @@ object Settings extends StrictLogging {
               val engineName = getJdbcEngineName()
               engineName.map { name =>
                 name.toLowerCase() match {
-                  case "snowflake" | "redshift" => name
-                  case _                        => "jdbc"
+                  case "snowflake" => "jdbc"
+                  case "redshift"  => name
+                  case _           => "jdbc"
                 }
               }
             }

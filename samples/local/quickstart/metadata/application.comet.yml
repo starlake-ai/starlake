@@ -16,10 +16,10 @@ connections:
   bigquery:
     type: "bigquery"
     options:
-      #authType: APPLICATION_DEFAULT
-      authType: SERVICE_ACCOUNT_JSON_KEYFILE
       gcsBucket: "starlake-app"
-      jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
+      authType: APPLICATION_DEFAULT
+      #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+      #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
 
   sparkLocal:
     type: "fs"

@@ -5,7 +5,7 @@ import ai.starlake.TestHelper
 class ConnectionLoadJobSpec extends TestHelper {
   new WithSettings() {
     "All CnxLoad Config" should "be known and taken  into account" in {
-      val rendered = ConnectionLoadConfig.usage()
+      val rendered = JdbcConnectionLoadConfig.usage()
       val expected =
         """
           |Usage: starlake cnxload [options]

@@ -3,7 +3,7 @@ package ai.starlake.job.metrics
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
@@ -389,7 +389,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         cleanDatasets
         assert(loadPending)
 
-        val jdbcConfig = ConnectionLoadConfig.fromComet(
+        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
           settings.comet.audit.getConnectionRef(settings),
           settings.comet,
           Left("ignore"),
@@ -403,7 +403,11 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           .load()
 
         logger.info(discreteMetricsDf.showString(truncate = 0))
-        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsJDBCSchema
+        val upperCaseFields =
+          expectedDiscreteMetricsJDBCSchema.fields.map(f => f.copy(name = f.name.toUpperCase))
+        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsJDBCSchema.copy(fields =
+          upperCaseFields
+        )
 
         val session = sparkSession
         import session.implicits._

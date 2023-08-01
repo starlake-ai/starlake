@@ -5,6 +5,7 @@ import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
 import better.files.File
+import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.Credentials
 import com.google.auth.oauth2.{GoogleCredentials, ServiceAccountCredentials, UserCredentials}
 import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
@@ -12,7 +13,8 @@ import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
   LocationName,
-  PolicyTagManagerClient
+  PolicyTagManagerClient,
+  PolicyTagManagerSettings
 }
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
   GoogleCredentials => GcsGoogleCredentials,
@@ -132,7 +134,13 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
-  private lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
+
+  private lazy val policyTagClient: PolicyTagManagerClient = {
+    val credentialsProvider = FixedCredentialsProvider.create(bigQueryCredentials())
+    val policySettings =
+      PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
+    PolicyTagManagerClient.create(policySettings)
+  }
 
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
     for {

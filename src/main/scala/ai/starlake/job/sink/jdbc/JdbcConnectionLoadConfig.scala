@@ -10,7 +10,7 @@ import scopt.OParser
 import java.sql.{DriverManager, SQLException}
 import scala.util.{Failure, Success, Try}
 
-case class ConnectionLoadConfig(
+case class JdbcConnectionLoadConfig(
   sourceFile: Either[String, DataFrame] = Left(""),
   outputTable: String = "",
   createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
@@ -21,7 +21,7 @@ case class ConnectionLoadConfig(
   rls: Option[List[RowLevelSecurity]] = None
 )
 
-object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
+object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
   val command = "cnxload"
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
@@ -66,7 +66,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
     writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
     createTableIfAbsent: Boolean = true
-  ): ConnectionLoadConfig = {
+  ): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.connections(connectionRef)
@@ -78,9 +78,17 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
         }
     }
 
-    ConnectionLoadConfig(
-      sourceFile = sourceFile,
-      outputTable = outputTable,
+    // This is to make sure that the column names are uppercase on JDBC databases
+    // TODO: Once spark 3.3 is not supported anymore, switch to withColumnsRenamed(colsMap: Map[String, String])
+    val dfWithUppercaseColumns = sourceFile.map { df =>
+      df.columns.foldLeft(df) { case (df, colName) =>
+        df.withColumnRenamed(colName, colName.toUpperCase())
+      }
+    }
+
+    JdbcConnectionLoadConfig(
+      sourceFile = dfWithUppercaseColumns,
+      outputTable = outputTable.toUpperCase(),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       jdbcOptions.getSparkFormat(),
@@ -89,8 +97,8 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     )
   }
 
-  val parser: OParser[Unit, ConnectionLoadConfig] = {
-    val builder = OParser.builder[ConnectionLoadConfig]
+  val parser: OParser[Unit, JdbcConnectionLoadConfig] = {
+    val builder = OParser.builder[JdbcConnectionLoadConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -126,6 +134,6 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
 
   // comet bqload  --source_file xxx --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   //               --partitions 1  --batch_size 1000 --user username --password pwd -- url jdbcurl
-  def parse(args: Seq[String]): Option[ConnectionLoadConfig] =
-    OParser.parse(parser, args, ConnectionLoadConfig())
+  def parse(args: Seq[String]): Option[JdbcConnectionLoadConfig] =
+    OParser.parse(parser, args, JdbcConnectionLoadConfig())
 }

@@ -10,7 +10,7 @@ import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
@@ -73,7 +73,7 @@ class Main() extends StrictLogging {
     BigQueryLoadConfig,
     BigQueryTablesConfig,
     ProjectCompareConfig,
-    ConnectionLoadConfig,
+    JdbcConnectionLoadConfig,
     ESLoadConfig,
     ExtractDataConfig,
     ExtractSchemaConfig,
@@ -261,11 +261,11 @@ class Main() extends StrictLogging {
         }
 
       case "cnxload" =>
-        ConnectionLoadConfig.parse(args.drop(1)) match {
+        JdbcConnectionLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.jdbcload(config).isSuccess
           case _ =>
-            println(ConnectionLoadConfig.usage())
+            println(JdbcConnectionLoadConfig.usage())
             false
         }
 
