@@ -160,13 +160,11 @@ class AnyRefDiffSpec extends TestHelper {
     val metadata1 = Metadata(
       mode = Some(Mode.STREAM),
       quote = Some("::"),
-      clustering = Some(List("col1", "col2")),
       directory = Some("/{{domain}}/{{schema}}")
     )
     val metadata2 = Metadata(
       mode = Some(Mode.FILE),
       quote = Some("::"),
-      clustering = Some(List("col1", "col2")),
       directory = Some("/{{domain}}/{{schema}}")
     )
 

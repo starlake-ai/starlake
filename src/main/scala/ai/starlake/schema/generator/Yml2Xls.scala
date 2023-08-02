@@ -129,6 +129,11 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
             .getOrElse(metadata.partition)
         case _ => metadata.partition
       }
+      val clusteringColumns = metadata.sink match {
+        case Some(sink) =>
+          sink.clustering.getOrElse(Nil)
+        case _ => Nil
+      }
       schemaRow
         .createCell(12)
         .setCellValue(partitionColumns.map(_.getAttributes().mkString(",")).getOrElse(""))
@@ -137,7 +142,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         .setCellValue("FS")
       schemaRow
         .createCell(14)
-        .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(clusteringColumns.mkString(","))
       schemaRow
         .createCell(16)
         .setCellValue(schema.presql.mkString("###"))

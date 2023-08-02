@@ -70,8 +70,6 @@ import ai.starlake.config.Settings
   *   : should the dataset be indexed in elasticsearch after ingestion ?
   * @param ignore
   *   : Pattern to ignore or UDF to apply to ignore some lines
-  * @param clustering
-  *   : List of attributes to use for clustering
   * @param xml
   *   : com.databricks.spark.xml options to use (eq. rowTag)
   * @param fillWithDefaultValue:
@@ -91,7 +89,6 @@ case class Metadata(
   partition: Option[Partition] = None,
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
-  clustering: Option[Seq[String]] = None,
   xml: Option[Map[String, String]] = None,
   directory: Option[String] = None,
   extensions: List[String] = Nil,
@@ -107,6 +104,8 @@ case class Metadata(
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
   def getSink(implicit settings: Settings): Option[Sink] = sink.map(_.getSink())
+
+  def getClustering(): Option[Seq[String]] = sink.map(_.clustering.getOrElse(Nil))
 
   override def toString: String =
     s"""
@@ -156,7 +155,7 @@ case class Metadata(
   def getEscape(): String = getFinalValue(escape, "\\")
 
   def getWrite(implicit settings: Settings): WriteMode =
-    getFinalValue(this.getSink(settings).flatMap(_.write).orElse(write), APPEND)
+    getFinalValue(write, APPEND)
 
   @JsonIgnore
   // scalastyle:off null
@@ -269,8 +268,7 @@ case class Metadata(
       dag = typeMerge(this.dag, child.dag),
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
-      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
-      clustering = merge(this.clustering, child.clustering)
+      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
       // fillWithDefaultValue = merge(this.fillWithDefaultValue, child.fillWithDefaultValue)
     )
   }
@@ -305,8 +303,7 @@ case class Metadata(
       dag = if (parent.dag != this.dag) this.dag else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
-      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None,
-      clustering = if (parent.clustering != this.clustering) this.clustering else None
+      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
       // fillWithDefaultValue = if (parent.fillWithDefaultValue != this.fillWithDefaultValue) this.fillWithDefaultValue else None
     )
   }
