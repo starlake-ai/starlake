@@ -50,7 +50,6 @@ case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
   taskRefs: List[String] = Nil,
-  comment: Option[String] = None,
   format: Option[String] = None,
   coalesce: Option[Boolean] = None,
   udf: Option[String] = None,

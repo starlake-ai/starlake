@@ -44,7 +44,6 @@ class ConnectionJobsSpec extends TestHelper {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
