@@ -215,7 +215,7 @@ trait IngestionJob extends SparkJob {
       outputDatabase = schemaHandler.getDatabase(domain)
     )
     def bqNativeJob(sql: String)(implicit settings: Settings) =
-      new BigQueryNativeJob(bqConfig, sql, None)
+      new BigQueryNativeJob(bqConfig, sql)
     schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
       mergedMetadata.getEngine(settings) match {
@@ -294,7 +294,6 @@ trait IngestionJob extends SparkJob {
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      location = bqSink.flatMap(_.location).orElse(connectionLocation),
       outputPartition = None,
       outputClustering = Nil,
       days = None,
@@ -344,7 +343,7 @@ trait IngestionJob extends SparkJob {
     )
 
     val result = if (requireTwoSteps) {
-      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "", None)
+      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
       val tempTableSchema = schema.bqSchemaWithIgnoreAndScript(
         schemaHandler
       ) // TODO What if type is changed by transform ?
@@ -353,7 +352,7 @@ trait IngestionJob extends SparkJob {
         case Success(loadFileResult) =>
           logger.info(s"First step result: $loadFileResult")
           val targetTableSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
-          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "", None)
+          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
           val firstStepTableId =
             firstStepConfig.outputTableId.getOrElse(throw new Exception("Should never happen"))
           val result = applySecondStep(targetBigqueryJob, firstStepTableId, targetTableSchema)
@@ -364,7 +363,7 @@ trait IngestionJob extends SparkJob {
           res
       }
     } else {
-      val bigqueryJob = new BigQueryNativeJob(targetConfig, "", None)
+      val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
       val targetTableSchema = schema.bqSchema(schemaHandler)
       bigqueryJob.loadPathsToBQ(targetTableSchema)
     }
@@ -1289,7 +1288,6 @@ trait IngestionJob extends SparkJob {
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      location = sink.flatMap(_.location),
       outputPartition = sink.flatMap(_.timestamp),
       outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
       days = sink.flatMap(_.days),

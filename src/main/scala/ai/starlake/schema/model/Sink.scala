@@ -115,7 +115,6 @@ case class AllSinks(
   // All sinks
   connectionRef: Option[String] = None,
   // BigQuery
-  location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -137,6 +136,25 @@ case class AllSinks(
   options: Option[Map[String, String]] = None
   // JDBC
 ) {
+
+  def merge(child: AllSinks): AllSinks = {
+    AllSinks(
+      child.connectionRef.orElse(this.connectionRef),
+      child.timestamp.orElse(this.timestamp),
+      child.clustering.orElse(this.clustering),
+      child.days.orElse(this.days),
+      child.requirePartitionFilter.orElse(this.requirePartitionFilter),
+      child.materializedView.orElse(this.materializedView),
+      child.enableRefresh.orElse(this.enableRefresh),
+      child.refreshIntervalMs.orElse(this.refreshIntervalMs),
+      child.id.orElse(this.id),
+      child.format.orElse(this.format),
+      child.extension.orElse(this.extension),
+      child.partition.orElse(this.partition),
+      child.coalesce.orElse(this.coalesce),
+      child.options.orElse(this.options)
+    )
+  }
   def toAllSinks(): AllSinks = this
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.comet.connectionRef)
@@ -167,7 +185,6 @@ case class AllSinks(
 @JsonTypeName("BQ")
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -179,7 +196,6 @@ final case class BigQuerySink(
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef,
-      location,
       timestamp,
       clustering,
       days,
@@ -195,7 +211,6 @@ object BigQuerySink {
   def fromAllSinks(allSinks: AllSinks): BigQuerySink = {
     BigQuerySink(
       connectionRef = allSinks.connectionRef,
-      location = allSinks.location,
       timestamp = allSinks.timestamp,
       clustering = allSinks.clustering,
       days = allSinks.days,

@@ -799,7 +799,6 @@ class IngestionWorkflow(
                             sourceFormat = settings.comet.defaultFormat,
                             createDisposition = createDisposition,
                             writeDisposition = writeDisposition,
-                            location = bqSink.location,
                             outputPartition = bqSink.timestamp,
                             outputClustering = bqSink.clustering.getOrElse(Nil),
                             days = bqSink.days,

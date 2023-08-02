@@ -53,7 +53,6 @@ object BigQuerySparkWriter extends StrictLogging {
               sourceFormat = settings.comet.defaultFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              location = sink.location,
               outputPartition = sink.timestamp,
               outputClustering = sink.clustering.getOrElse(Nil),
               days = sink.days,

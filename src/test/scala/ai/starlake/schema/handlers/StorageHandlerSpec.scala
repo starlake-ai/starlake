@@ -157,9 +157,7 @@ class StorageHandlerSpec extends TestHelper {
         AutoJobDesc(
           "business1",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(true)
+          Nil
         )
 
       val businessJobDef = mapper

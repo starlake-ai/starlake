@@ -105,7 +105,6 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",
         None,
-        None,
         outputDatabase = bqDatabase
       )
       val res = new BigQuerySparkJob(

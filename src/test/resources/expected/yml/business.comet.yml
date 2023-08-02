@@ -16,7 +16,5 @@ tasks:
       predicate: "TRUE"
       grants:
       - "user:hayssam.saleh@ebiznext.com"
-format: "parquet"
-coalesce: true
 udf: null
 views: null

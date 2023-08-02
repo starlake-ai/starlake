@@ -431,6 +431,11 @@ object Settings extends StrictLogging {
   ) extends Serializable {
     def getEngine() = Engine.fromString(engine.toUpperCase())
 
+    def getUdfs(): Seq[String] =
+      udfs.map { udfs =>
+        udfs.split(',').toList
+      } getOrElse Nil
+
     @JsonIgnore
     lazy val fileSystem: String = {
       val index = root.indexOf(":")

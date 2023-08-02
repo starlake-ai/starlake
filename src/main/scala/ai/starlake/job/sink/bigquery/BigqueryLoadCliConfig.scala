@@ -41,7 +41,6 @@ case class BigQueryLoadCliConfig(
     sourceFormat = sourceFormat,
     createDisposition = createDisposition,
     writeDisposition = writeDisposition,
-    location = location,
     days = days,
     rls = rls,
     requirePartitionFilter = requirePartitionFilter,

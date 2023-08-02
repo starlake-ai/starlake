@@ -50,12 +50,8 @@ case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
   taskRefs: List[String] = Nil,
-  format: Option[String] = None,
-  coalesce: Option[Boolean] = None,
-  udf: Option[String] = None,
   schedule: Map[String, String] = Map.empty,
-  sink: Option[AllSinks] = None,
-  tags: Set[String] = Set.empty
+  sink: Option[AllSinks] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
@@ -149,21 +145,11 @@ object AutoJobDesc {
       }
       val taskRefsDiff =
         AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
-      val formatDiff = AnyRefDiff.diffOptionString("format", existing.format, incoming.format)
-      val coalesceDiff = AnyRefDiff.diffOptionString(
-        "coalesce",
-        existing.coalesce.map(_.toString),
-        incoming.coalesce.map(_.toString)
-      )
-      val udfDiff = AnyRefDiff.diffOptionString("udf", existing.udf, incoming.udf)
       val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
       JobDiff(
         existing.name,
         TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff),
         taskRefsDiff,
-        formatDiff,
-        coalesceDiff,
-        udfDiff,
         scheduleDiff
       )
     }
