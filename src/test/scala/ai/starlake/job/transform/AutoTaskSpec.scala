@@ -53,6 +53,5 @@ class AutoTaskSpec extends TestHelper {
         }
       }
     }
-
   }
 }

@@ -39,14 +39,14 @@ case class AutoTaskDesc(
   sink: Option[AllSinks] = None,
   rls: List[RowLevelSecurity] = Nil,
   expectations: Map[String, String] = Map.empty,
-  engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   freshness: Option[Freshness] = None,
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
-  merge: Option[MergeOptions]
+  merge: Option[MergeOptions] = None,
+  schedulerRef: Option[String] = None
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {

@@ -69,12 +69,10 @@ object AutoTask extends StrictLogging {
     jobDesc.tasks.map(taskDesc =>
       AutoTask(
         jobDesc.name,
-        taskDesc.engine.getOrElse(jobDesc.getEngine(settings)),
         taskDesc,
         configOptions,
         taskDesc.sink
           .map(_.getSink())
-          .orElse(jobDesc.sink.map(_.getSink()))
           .orElse(Some(AllSinks().getSink())),
         interactive,
         authInfo,
@@ -98,7 +96,6 @@ object AutoTask extends StrictLogging {
   */
 case class AutoTask(
   override val name: String, // this is the job name. the task name is stored in the taskDesc field
-  engine: Engine,
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
   sink: Option[Sink],
@@ -232,7 +229,7 @@ case class AutoTask(
               storageHandler,
               schemaHandler,
               None,
-              engine,
+              taskDesc.getEngine(settings),
               expectationSql =>
                 bqNativeJob(parseJinja(expectationSql, Map.empty))
                   .runInteractiveQuery()
@@ -271,7 +268,7 @@ case class AutoTask(
           schemaHandler.domains(),
           schemaHandler.jobs(),
           localViews,
-          engine
+          taskDesc.getEngine(settings)
         )
       else {
         taskDesc.merge match {
@@ -283,7 +280,7 @@ case class AutoTask(
                 taskDesc.getDatabase(settings),
                 taskDesc.domain,
                 taskDesc.table,
-                engine,
+                taskDesc.getEngine(settings),
                 localViews.nonEmpty
               )
             logger.info(s"Merge SQL: $mergeSql")
@@ -296,7 +293,7 @@ case class AutoTask(
               schemaHandler.domains(),
               schemaHandler.jobs(),
               localViews,
-              engine
+              taskDesc.getEngine(settings)
             )
         }
       }
@@ -491,7 +488,7 @@ case class AutoTask(
               storageHandler,
               schemaHandler,
               Some(dataframe),
-              engine,
+              taskDesc.getEngine(settings),
               sql => session.sql(sql).count()
             ).run()
           }

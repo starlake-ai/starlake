@@ -427,14 +427,18 @@ object Settings extends StrictLogging {
     database: String,
     tenant: String,
     engine: String,
-    connectionRef: String
+    connectionRef: String,
+    schedule: Map[String, Map[String, String]]
   ) extends Serializable {
     def getEngine() = Engine.fromString(engine.toUpperCase())
 
     def getUdfs(): Seq[String] =
-      udfs.map { udfs =>
-        udfs.split(',').toList
-      } getOrElse Nil
+      udfs
+        .map { udfs =>
+          udfs.split(',').toList
+        }
+        .getOrElse(Nil)
+        .filter(_.nonEmpty)
 
     @JsonIgnore
     lazy val fileSystem: String = {

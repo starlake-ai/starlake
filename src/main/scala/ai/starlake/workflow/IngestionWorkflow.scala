@@ -693,8 +693,6 @@ class IngestionWorkflow(
     val job = schemaHandler.jobs(config.reload)
     logger.info(job.toString)
     val result = buildTasks(config).map { action =>
-      val engine = action.engine
-      logger.info(s"running with -> $engine engine")
       // TODO Interactive compilation should check table existence
       val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
       mainSQL
@@ -718,7 +716,7 @@ class IngestionWorkflow(
     logger.info(job.toString)
     val result: Seq[Boolean] =
       buildTasks(transformConfig).map { action =>
-        val engine = action.engine
+        val engine = action.taskDesc.getEngine(settings)
         logger.info(s"running with config $transformConfig")
 
         engine match {

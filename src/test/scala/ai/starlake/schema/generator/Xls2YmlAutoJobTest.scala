@@ -1,10 +1,10 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoJobDesc, BigQuerySink, Engine, WriteMode}
+import ai.starlake.schema.model.{AutoJobDesc, BigQuerySink, WriteMode}
 import ai.starlake.utils.YamlSerializer
+import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 
 class Xls2YmlAutoJobTest extends TestHelper {
@@ -48,7 +48,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
           requirePartitionFilter = Some(true)
         )
       )
-      job.engine shouldBe Some(Engine.BQ)
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0
       job.acl.size shouldBe 1
@@ -70,7 +69,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
       outputFile2.exists() shouldBe true
       result2.name shouldBe "someJob2"
       result2.tasks.size shouldBe 1
-      result2.tasks.head.engine shouldBe Some(Engine.BQ)
     }
 
     Xls2YmlAutoJob.generateSchema(
@@ -96,7 +94,6 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.table shouldBe "dataset"
       job.write shouldBe WriteMode.OVERWRITE
       job.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
-      job.engine shouldBe None
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0
       job.acl.size shouldBe 0

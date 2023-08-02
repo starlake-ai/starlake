@@ -49,9 +49,7 @@ import scala.util.Try
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  taskRefs: List[String] = Nil,
-  schedule: Map[String, String] = Map.empty,
-  sink: Option[AllSinks] = None
+  taskRefs: List[String] = Nil
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
@@ -75,15 +73,6 @@ case class AutoJobDesc(
       Left(errorList.toList, warningList.toList)
     else
       Right(true)
-  }
-
-  def getEngine(implicit settings: Settings): Engine = {
-    val connectionRef =
-      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet
-      .connection(connectionRef)
-      .getOrElse(throw new Exception("Connection not found"))
-    connection.getEngine()
   }
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
@@ -145,12 +134,10 @@ object AutoJobDesc {
       }
       val taskRefsDiff =
         AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
-      val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
       JobDiff(
         existing.name,
         TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff),
-        taskRefsDiff,
-        scheduleDiff
+        taskRefsDiff
       )
     }
   }
