@@ -78,7 +78,6 @@ class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
   */
 
 sealed abstract class Sink {
-  def write: Option[WriteMode]
   def connectionRef: Option[String]
   def toAllSinks(): AllSinks
   def getConnectionType(implicit
@@ -114,7 +113,6 @@ object Sink {
 
 case class AllSinks(
   // All sinks
-  write: Option[String] = None,
   connectionRef: Option[String] = None,
   // BigQuery
   location: Option[String] = None,
@@ -168,7 +166,6 @@ case class AllSinks(
   */
 @JsonTypeName("BQ")
 final case class BigQuerySink(
-  write: Option[WriteMode] = None,
   connectionRef: Option[String] = None,
   location: Option[String] = None,
   timestamp: Option[String] = None,
@@ -181,7 +178,6 @@ final case class BigQuerySink(
 ) extends Sink {
   def toAllSinks(): AllSinks = {
     AllSinks(
-      write = write.map(_.toString),
       connectionRef,
       location,
       timestamp,
@@ -198,7 +194,6 @@ final case class BigQuerySink(
 object BigQuerySink {
   def fromAllSinks(allSinks: AllSinks): BigQuerySink = {
     BigQuerySink(
-      write = allSinks.write.map(WriteMode.fromString),
       connectionRef = allSinks.connectionRef,
       location = allSinks.location,
       timestamp = allSinks.timestamp,
@@ -221,7 +216,6 @@ object BigQuerySink {
   */
 @JsonTypeName("ES")
 case class EsSink(
-  write: Option[WriteMode] = None,
   connectionRef: Option[String] = None,
   id: Option[String] = None,
   timestamp: Option[String] = None,
@@ -230,7 +224,6 @@ case class EsSink(
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
   def toAllSinks(): AllSinks = {
     AllSinks(
-      write = write.map(_.toString),
       connectionRef = connectionRef,
       timestamp = timestamp,
       id = id,
@@ -242,7 +235,6 @@ case class EsSink(
 object EsSink {
   def fromAllSinks(allSinks: AllSinks): EsSink = {
     EsSink(
-      write = allSinks.write.map(WriteMode.fromString),
       allSinks.connectionRef,
       allSinks.id,
       allSinks.timestamp,
@@ -254,7 +246,6 @@ object EsSink {
 // https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
 @JsonTypeName("FS")
 case class FsSink(
-  write: Option[WriteMode] = None,
   connectionRef: Option[String] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
@@ -266,7 +257,6 @@ case class FsSink(
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
   def toAllSinks(): AllSinks = {
     AllSinks(
-      write = write.map(_.toString),
       connectionRef = connectionRef,
       format = format,
       extension = extension,
@@ -281,7 +271,6 @@ case class FsSink(
 object FsSink {
   def fromAllSinks(allSinks: AllSinks): FsSink = {
     FsSink(
-      write = allSinks.write.map(WriteMode.fromString),
       allSinks.connectionRef,
       allSinks.format,
       allSinks.extension,
@@ -302,11 +291,9 @@ object FsSink {
   *   Batch size of each JDBC bulk insert
   */
 @JsonTypeName("JDBC")
-case class JdbcSink(write: Option[WriteMode] = None, connectionRef: Option[String] = None)
-    extends Sink {
+case class JdbcSink(connectionRef: Option[String] = None) extends Sink {
   def toAllSinks(): AllSinks = {
     AllSinks(
-      write = write.map(_.toString),
       connectionRef = connectionRef
     )
   }
@@ -315,7 +302,6 @@ case class JdbcSink(write: Option[WriteMode] = None, connectionRef: Option[Strin
 object JdbcSink {
   def fromAllSinks(allSinks: AllSinks): JdbcSink = {
     JdbcSink(
-      write = allSinks.write.map(WriteMode.fromString),
       allSinks.connectionRef
     )
   }

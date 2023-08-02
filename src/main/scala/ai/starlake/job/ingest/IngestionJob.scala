@@ -770,7 +770,7 @@ trait IngestionJob extends SparkJob {
                 targetPath,
                 mergedMetadata.partition
               ),
-              mergedMetadata.clustering,
+              mergedMetadata.getClustering(),
               Map.empty[String, String]
             )
         }
