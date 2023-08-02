@@ -72,7 +72,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
@@ -128,7 +127,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
@@ -171,7 +169,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
@@ -227,7 +224,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
@@ -278,7 +274,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
@@ -339,7 +334,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "graduateProgram",
           List(businessTask1),
           Nil,
-          None,
           Some("parquet"),
           Some(false)
         )
