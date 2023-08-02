@@ -603,6 +603,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     Try {
       val fileContent = storage.read(jobPath)
       val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
+      val jobFilename = jobPath.getName()
+      val jobParentPath = jobPath.getParent()
+      val tableNameFromFilename = jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
+      val domainNameFromFoldername = {
+        val parentName = jobParentPath.getName()
+        val grandParentName = jobParentPath.getParent().getName()
+        if (grandParentName == "metadata" && parentName == "jobs")
+          settings.comet.domain
+        else
+          parentName
+      }
 
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
@@ -638,17 +649,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
         val task = taskCommandFile
           .map { taskFile =>
+            val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
+            val domainName =
+              if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
             if (taskFile.toString.endsWith(".py"))
               taskDesc.copy(
-                domain = Option(taskDesc.domain).getOrElse(""),
-                table = taskDesc.table,
+                domain = domainName,
+                table = tableName,
                 python = Some(taskFile)
               )
             else {
               val sqlTask = SqlTaskExtractor(storage.read(taskFile))
               taskDesc.copy(
-                domain = Option(taskDesc.domain).getOrElse(""),
-                table = taskDesc.table,
+                domain = domainName,
+                table = tableName,
                 presql = sqlTask.presql,
                 sql = Option(sqlTask.sql),
                 postsql = sqlTask.postsql
@@ -889,7 +903,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         else
           None
       }
-
     this._jobs = validJobs.map(job => job.name -> job).toMap
     this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
     (_jobErrors, _jobs)

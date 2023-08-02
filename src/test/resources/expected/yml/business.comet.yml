@@ -1,20 +1,19 @@
 ---
-name: "business1"
-#engine: "SPARK"
-tasks:
-- sql: "select * from domain"
-  domain: "DOMAIN"
-  table: "ANALYSE"
-  write: "OVERWRITE"
-  partition:
-  - "comet_year"
-  - "comet_month"
-  presql: null
-  postsql: null
-  rls:
-    - name: "myrls"
-      predicate: "TRUE"
-      grants:
-      - "user:hayssam.saleh@ebiznext.com"
-udf: null
-views: null
+transform:
+  name: "business1"
+  #engine: "SPARK"
+  tasks:
+    - sql: "select * from domain"
+      domain: "DOMAIN"
+      table: "ANALYSE"
+      write: "OVERWRITE"
+      partition:
+        - "comet_year"
+        - "comet_month"
+      presql: null
+      postsql: null
+      rls:
+        - name: "myrls"
+          predicate: "TRUE"
+          grants:
+            - "user:hayssam.saleh@ebiznext.com"
