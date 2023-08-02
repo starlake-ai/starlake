@@ -30,12 +30,12 @@ object TaskViewDependency extends StrictLogging {
     case _             => "Unknown"
   }
   case class SimpleEntry(name: String, typ: String, parentRefs: List[String])
-  def jobDependencies(jobName: String, tasks: List[AutoTask])(implicit
+  def taskDependencies(taskName: String, tasks: List[AutoTask])(implicit
     schemaHandler: SchemaHandler
   ): List[TaskViewDependency] = {
     val deps = dependencies(tasks)
     var result = scala.collection.mutable.ListBuffer[TaskViewDependency]()
-    val roots = deps.filter(t => t.name == jobName && t.typ == TASK_TYPE)
+    val roots = deps.filter(t => t.name == taskName && t.typ == TASK_TYPE)
     result ++= roots
     getHierarchy(roots, deps, result)
     result.toList.distinct

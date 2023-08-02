@@ -9,8 +9,8 @@ class AutoTaskSpec extends TestHelper {
   new WithSettings() {
     "File Sink Spark Options in SQL job description " should "be applied to resulting file" in {
       new SpecTrait(
-        domainOrJobFilename = "csvOutputJob.comet.yml",
-        sourceDomainOrJobPathname = "/sample/job/sql/csvOutputJob.comet.yml",
+        domainOrJobFilename = "_config.csvOutputJob.comet.yml",
+        sourceDomainOrJobPathname = "/sample/job/sql/_config.csvOutputJob.comet.yml",
         datasetDomainName = "file",
         sourceDatasetPathName = "",
         isDomain = false
@@ -19,7 +19,7 @@ class AutoTaskSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-        workflow.autoJob(TransformConfig(name = "csvOutputJob"))
+        workflow.autoJob(TransformConfig(name = "result.file"))
 
         readFileContent(
           new Path(cometDatasetsPath + "/business/result/file/file.csv")

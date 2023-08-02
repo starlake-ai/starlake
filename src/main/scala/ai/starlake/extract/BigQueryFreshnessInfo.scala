@@ -77,9 +77,8 @@ object BigQueryFreshnessInfo extends StrictLogging {
           }
       }
     }
-    val jobs = schemaHandler.jobs()
+    val tasks = schemaHandler.tasks()
     val jobsFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
-      val tasks = jobs.flatMap(_._2.tasks)
       val task = tasks
         .find(_.domain.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
       task match {

@@ -682,7 +682,7 @@ class SchemaHandlerSpec extends TestHelper {
           val tasks = job.tasks
           tasks.length shouldBe 3
           tasks.map(_.name) should contain theSameElementsInOrderAs (List(
-            "", // tasks are handled before task refs
+            "dream2.client2", // tasks are handled before task refs
             "task1",
             "task2"
           ))

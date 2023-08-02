@@ -75,13 +75,6 @@ case class AutoJobDesc(
       Right(true)
   }
 
-  def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.acl.nonEmpty
-  }
-
-  def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.rls.nonEmpty
-  }
 }
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes

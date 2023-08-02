@@ -50,14 +50,12 @@ object AutoTask extends StrictLogging {
     schemaHandler: SchemaHandler
   ): List[AutoTask] = {
     schemaHandler
-      .jobs(reload)
-      .values
-      .flatMap(jobDesc => tasks(jobDesc, Map.empty, None, Map.empty))
-      .toList
+      .tasks(reload)
+      .map(task(_, Map.empty, None, Map.empty))
   }
 
-  def tasks(
-    jobDesc: AutoJobDesc,
+  def task(
+    taskDesc: AutoTaskDesc,
     configOptions: Map[String, String],
     interactive: Option[String],
     authInfo: Map[String, String]
@@ -65,19 +63,16 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): List[AutoTask] = {
-    jobDesc.tasks.map(taskDesc =>
-      AutoTask(
-        jobDesc.name,
-        taskDesc,
-        configOptions,
-        taskDesc.sink
-          .map(_.getSink())
-          .orElse(Some(AllSinks().getSink())),
-        interactive,
-        authInfo,
-        taskDesc.getDatabase(settings)
-      )(settings, storageHandler, schemaHandler)
+  ): AutoTask = {
+    AutoTask(
+      taskDesc,
+      configOptions,
+      taskDesc.sink
+        .map(_.getSink())
+        .orElse(Some(AllSinks().getSink())),
+      interactive,
+      authInfo,
+      taskDesc.getDatabase(settings)
     )
   }
 }
@@ -95,7 +90,6 @@ object AutoTask extends StrictLogging {
   *   : Sql Parameters to pass to SQL statements
   */
 case class AutoTask(
-  override val name: String, // this is the job name. the task name is stored in the taskDesc field
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
   sink: Option[Sink],
@@ -104,9 +98,7 @@ case class AutoTask(
   database: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
-
-  // for clarity purpose. the task name is stored in the taskDesc field
-  def jobName(): String = this.name
+  override def name: String = taskDesc.name
   override def run(): Try[JobResult] = {
     throw new Exception("Should never happen !!! Call runBQ or runSpark directly")
   }
@@ -266,7 +258,7 @@ case class AutoTask(
           schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
           schemaHandler.refs(),
           schemaHandler.domains(),
-          schemaHandler.jobs(),
+          schemaHandler.tasks(),
           localViews,
           taskDesc.getEngine(settings)
         )
@@ -291,7 +283,7 @@ case class AutoTask(
               schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
               schemaHandler.refs(),
               schemaHandler.domains(),
-              schemaHandler.jobs(),
+              schemaHandler.tasks(),
               localViews,
               taskDesc.getEngine(settings)
             )
@@ -598,4 +590,5 @@ case class AutoTask(
     logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
     result
   }
+
 }
