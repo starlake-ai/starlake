@@ -69,9 +69,6 @@ object AutoTask extends StrictLogging {
     jobDesc.tasks.map(taskDesc =>
       AutoTask(
         jobDesc.name,
-        taskDesc.format.orElse(jobDesc.format),
-        taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
-        jobDesc.udf,
         taskDesc.engine.getOrElse(jobDesc.getEngine(settings)),
         taskDesc,
         configOptions,
@@ -101,9 +98,6 @@ object AutoTask extends StrictLogging {
   */
 case class AutoTask(
   override val name: String, // this is the job name. the task name is stored in the taskDesc field
-  format: scala.Option[String],
-  coalesce: Boolean,
-  udf: scala.Option[String],
   engine: Engine,
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
@@ -138,7 +132,6 @@ case class AutoTask(
       ),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      location = bqSink.location,
       outputPartition = bqSink.timestamp,
       outputClustering = bqSink.clustering.getOrElse(Nil),
       days = bqSink.days,
@@ -167,7 +160,7 @@ case class AutoTask(
           "(" + sql + ")"
         else
           sql
-      new BigQueryNativeJob(config, finalSql, udf)
+      new BigQueryNativeJob(config, finalSql)
     }
 
     val start = Timestamp.from(Instant.now())
@@ -332,7 +325,7 @@ case class AutoTask(
   }
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
-    val coalesce = sink.coalesce.getOrElse(this.coalesce)
+    val coalesce = sink.coalesce.getOrElse(false)
     val targetPath = taskDesc.getTargetPath()
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
@@ -372,7 +365,7 @@ case class AutoTask(
 
     val finalDataset = clusteredDFWriter
       .mode(taskDesc.write.toSaveMode)
-      .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
+      .format(sink.format.getOrElse(settings.comet.defaultFormat))
       .options(sink.getOptions())
       .option("path", targetPath.toString)
 
@@ -407,7 +400,7 @@ case class AutoTask(
       if (coalesce) {
         val extension =
           sink.extension.getOrElse(
-            sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
+            sink.format.getOrElse(settings.comet.defaultFormat)
           )
         val csvPath = storageHandler
           .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
@@ -444,7 +437,6 @@ case class AutoTask(
   def runSpark(drop: Boolean): Try[(SparkJobResult, String)] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
-      udf.foreach { udf => registerUdf(udf) }
       val localViews =
         if (sink.exists(_.isInstanceOf[FsSink]) && settings.comet.fileSystem.startsWith("file:")) {
           // we are in local development mode

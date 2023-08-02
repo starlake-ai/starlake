@@ -43,9 +43,7 @@ class ConnectionJobsSpec extends TestHelper {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper

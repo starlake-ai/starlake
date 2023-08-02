@@ -18,12 +18,9 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-class BigQueryNativeJob(
-  override val cliConfig: BigQueryLoadConfig,
-  sql: String,
-  udf: scala.Option[String]
-)(implicit val settings: Settings)
-    extends JobBase
+class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)(implicit
+  val settings: Settings
+) extends JobBase
     with BigQueryJobBase {
   override def name: String = s"bqload-${bqNativeTable}"
 
@@ -244,12 +241,12 @@ class BigQueryNativeJob(
   private def addUDFToQueryConfig(
     queryConfig: QueryJobConfiguration.Builder
   ): QueryJobConfiguration.Builder = {
-    val queryConfigWithUDF = udf
-      .map { udf =>
+    settings.comet
+      .getUdfs()
+      .foreach { udf =>
         queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
       }
-      .getOrElse(queryConfig)
-    queryConfigWithUDF
+    queryConfig
   }
 
   /** Just to force any spark job to implement its entry point within the "run" method

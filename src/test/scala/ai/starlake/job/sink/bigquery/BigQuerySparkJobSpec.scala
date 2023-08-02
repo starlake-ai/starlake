@@ -88,10 +88,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             AutoJobDesc(
               "addPartitionsWithOverwrite",
               List(businessTask1),
-              Nil,
-              None,
-              None,
-              None
+              Nil
             )
           private val businessJobDef = mapper
             .writer()

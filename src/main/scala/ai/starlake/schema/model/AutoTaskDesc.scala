@@ -42,8 +42,6 @@ case class AutoTaskDesc(
   engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
-  format: Option[String] = None,
-  coalesce: Option[Boolean] = None,
   freshness: Option[Freshness] = None,
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,

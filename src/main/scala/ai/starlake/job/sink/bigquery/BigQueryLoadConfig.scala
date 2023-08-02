@@ -21,7 +21,6 @@ case class BigQueryLoadConfig(
   sourceFormat: String = "",
   createDisposition: String = "",
   writeDisposition: String = "",
-  location: Option[String] = None,
   days: Option[Int] = None,
   rls: List[RowLevelSecurity] = Nil,
   requirePartitionFilter: Boolean = false,

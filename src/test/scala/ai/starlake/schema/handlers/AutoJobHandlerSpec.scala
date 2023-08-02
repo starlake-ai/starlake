@@ -71,9 +71,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper
@@ -126,9 +124,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper
@@ -168,9 +164,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper
@@ -223,9 +217,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper
@@ -274,9 +266,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
-          Some("parquet"),
-          Some(false),
-          udf = Some("ai.starlake.udf.TestUdf"),
           sink = Some(FsSink().toAllSinks())
         )
 
@@ -333,9 +322,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "graduateProgram",
           List(businessTask1),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
 
       val businessJobDef = mapper
@@ -408,7 +395,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        location = sink.flatMap(_.location),
         outputPartition = sink.flatMap(_.timestamp),
         outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
         days = sink.flatMap(_.days),

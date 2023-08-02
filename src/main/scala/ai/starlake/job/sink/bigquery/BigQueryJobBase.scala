@@ -203,7 +203,7 @@ trait BigQueryJobBase extends StrictLogging {
         }
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
-          new BigQueryNativeJob(cliConfig, rlsStatement, None).runInteractiveQuery() match {
+          new BigQueryNativeJob(cliConfig, rlsStatement).runInteractiveQuery() match {
             case Failure(e) =>
               throw e
             case Success(BigQueryJobResult(_, _, Some(job)))

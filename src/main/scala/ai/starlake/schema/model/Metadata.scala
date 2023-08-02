@@ -218,7 +218,7 @@ case class Metadata(
     *   attribute if merge, the domain attribute otherwise.
     */
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
-    if (child.isDefined) child else parent
+    child.orElse(parent)
 
   protected def merge[T, U](parent: Map[T, U], child: Map[T, U]): Map[T, U] =
     parent ++ child

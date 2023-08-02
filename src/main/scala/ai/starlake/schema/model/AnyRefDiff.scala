@@ -220,15 +220,9 @@ case class JobDiff(
   name: String,
   tasks: TasksDiff,
   taskRefs: ListDiff[String],
-  format: ListDiff[String],
-  coalesce: ListDiff[String],
-  udf: ListDiff[String],
   schedule: ListDiff[Named]
 ) {
   def isEmpty() =
     taskRefs.isEmpty() &&
-    format.isEmpty() &&
-    coalesce.isEmpty() &&
-    udf.isEmpty() &&
     schedule.isEmpty()
 }

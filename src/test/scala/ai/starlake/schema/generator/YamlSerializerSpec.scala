@@ -18,7 +18,7 @@ class YamlSerializerSpec extends TestHelper {
         merge = None
       )
       val job =
-        AutoJobDesc("user", List(task), Nil, Some("parquet"), Some(false))
+        AutoJobDesc("user", List(task), Nil)
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
         "name" -> "user",
@@ -51,9 +51,7 @@ class YamlSerializerSpec extends TestHelper {
         AutoJobDesc(
           "user",
           List(task),
-          Nil,
-          Some("parquet"),
-          Some(false)
+          Nil
         )
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
@@ -83,7 +81,7 @@ class YamlSerializerSpec extends TestHelper {
         merge = None
       )
       val job =
-        AutoJobDesc("user", List(task), Nil, Some("parquet"), Some(false))
+        AutoJobDesc("user", List(task), Nil)
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
         "name" -> "user",
