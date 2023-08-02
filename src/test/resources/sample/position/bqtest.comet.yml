@@ -12,6 +12,8 @@ load:
     quote: "\""
     escape: "\\"
     write: "OVERWRITE"
+    sink:
+      connectionRef: bqtest
     partition:
       attributes:
         - date

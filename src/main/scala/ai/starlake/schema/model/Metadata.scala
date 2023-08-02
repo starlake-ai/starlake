@@ -105,7 +105,7 @@ case class Metadata(
 
   def getSink(implicit settings: Settings): Option[Sink] = sink.map(_.getSink())
 
-  def getClustering(): Option[Seq[String]] = sink.map(_.clustering.getOrElse(Nil))
+  def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
 
   override def toString: String =
     s"""

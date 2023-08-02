@@ -219,10 +219,7 @@ case class TasksDiff(
 case class JobDiff(
   name: String,
   tasks: TasksDiff,
-  taskRefs: ListDiff[String],
-  schedule: ListDiff[Named]
+  taskRefs: ListDiff[String]
 ) {
-  def isEmpty() =
-    taskRefs.isEmpty() &&
-    schedule.isEmpty()
+  def isEmpty() = taskRefs.isEmpty()
 }

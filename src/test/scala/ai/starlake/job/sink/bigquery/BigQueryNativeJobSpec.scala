@@ -33,8 +33,10 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
   val bigQueryConfiguration: Config = {
     val config = ConfigFactory.parseString("""
-        |connections.spark {
-        |  sparkFormat = "bigquery"
+        |udfs: ""
+        |
+        |connectionRef: bqtest
+        |connections.bqtest {
         |  type = "bigquery"
         |  options {
         |    gcsBucket: starlake-app
@@ -117,7 +119,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             sink = Some(
               BigQuerySink(connectionRef = None).toAllSinks()
             ),
-            engine = Some(Engine.BQ),
             python = None,
             merge = None
           )

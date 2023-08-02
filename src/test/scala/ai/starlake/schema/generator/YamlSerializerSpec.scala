@@ -63,9 +63,7 @@ class YamlSerializerSpec extends TestHelper {
             "table"  -> "user",
             "write"  -> "OVERWRITE"
           )
-        ),
-        "format"   -> "parquet",
-        "coalesce" -> false
+        )
       )
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
@@ -92,9 +90,7 @@ class YamlSerializerSpec extends TestHelper {
             "table"  -> "user",
             "write"  -> "OVERWRITE"
           )
-        ),
-        "format"   -> "parquet",
-        "coalesce" -> false
+        )
       )
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }

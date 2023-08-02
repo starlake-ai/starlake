@@ -265,8 +265,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
-          Nil,
-          sink = Some(FsSink().toAllSinks())
+          Nil
         )
 
       val businessJobDef = mapper
