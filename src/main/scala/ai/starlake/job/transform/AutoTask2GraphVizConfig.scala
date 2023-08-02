@@ -5,7 +5,7 @@ import scopt.OParser
 
 case class AutoTask2GraphVizConfig(
   outputDir: Option[String] = None,
-  job: Option[String] = None,
+  task: Option[String] = None,
   reload: Boolean = false,
   verbose: Boolean = false,
   objects: Seq[String] = Seq("task", "table")
@@ -25,8 +25,8 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Option[String]]("jobs")
-        .action((x, c) => c.copy(job = x))
+      opt[Option[String]]("task")
+        .action((x, c) => c.copy(task = x))
         .optional()
         .text("Compute dependencies of this job only. If not specified, compute all jobs."),
       opt[Unit]("reload")

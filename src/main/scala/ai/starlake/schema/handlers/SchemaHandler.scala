@@ -647,22 +647,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val tasks = jobDescWithRefs.tasks.map { taskDesc =>
         val taskCommandFile: Option[Path] = taskCommandPath(jobPath, taskDesc.name)
 
-        val task = taskCommandFile
+        val taskWithCommand = taskCommandFile
           .map { taskFile =>
-            val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
-            val domainName =
-              if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
             if (taskFile.toString.endsWith(".py"))
               taskDesc.copy(
-                domain = domainName,
-                table = tableName,
                 python = Some(taskFile)
               )
             else {
               val sqlTask = SqlTaskExtractor(storage.read(taskFile))
               taskDesc.copy(
-                domain = domainName,
-                table = tableName,
                 presql = sqlTask.presql,
                 sql = Option(sqlTask.sql),
                 postsql = sqlTask.postsql
@@ -670,6 +663,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             }
           }
           .getOrElse(taskDesc)
+        val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
+        val domainName =
+          if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
+        val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else s"${domainName}.${tableName}"
+        val task = taskWithCommand.copy(
+          domain = domainName,
+          table = tableName,
+          name = taskName
+        )
         // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
         task.copy(
           rls = task.rls.map(rls => {
@@ -701,23 +703,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         storage
           .list(folder, extension = ".comet.yml", recursive = true)
           .map(_.getName())
-          .filter(_.startsWith("_"))
+          .filter(!_.startsWith("_config."))
           .map { ref =>
-            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            val startIndex = if (ref.startsWith("_")) 1 else 0
+            val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
+
             (taskName, ref)
           }
       case _ =>
         jobDesc.taskRefs.map { ref =>
-          if (!ref.startsWith("_"))
-            throw new Exception(
-              s"reference to a job should start with '_' in task $ref in $path for job ${jobDesc.name}"
-            )
+          val startIndex = if (ref.startsWith("_")) 1 else 0
           if (ref.endsWith(".comet.yml")) {
-            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
             (taskName, ref)
 
           } else {
-            (ref.substring(1), ref + ".comet.yml")
+            (ref.substring(startIndex), ref + ".comet.yml")
           }
         }
     }
@@ -786,9 +787,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def finalDomainOrJobName(path: Path, name: String) =
     if (path.getName != s"$name.comet.yml") {
       val newJobName = path.getName.substring(0, path.getName.length - ".comet.yml".length)
-      logger.error(
-        s"deprecated: Please set the job name of ${path.getName} to reflect the filename. Job renamed to $newJobName. This feature will be removed soon"
-      )
+      if (name.nonEmpty)
+        logger.error(
+          s"deprecated: Please set the job name of ${path.getName} to reflect the filename. Job renamed to $newJobName. This feature will be removed soon"
+        )
       newJobName
     } else {
       name
@@ -812,9 +814,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     paths.zip(jobs)
   }
 
-  def jobs(reload: Boolean = false): Map[String, AutoJobDesc] = {
+  def jobs(reload: Boolean = false): List[AutoJobDesc] = {
     if (reload) loadJobs()
     _jobs
+  }
+
+  def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
+    if (reload) loadJobs()
+    jobs().flatMap(_.tasks)
   }
 
   def iamPolicyTags(): Option[IamPolicyTags] = {
@@ -825,19 +832,30 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       None
   }
 
-  def job(jobName: String): Option[AutoJobDesc] = jobs().get(jobName)
+  def task(jobName: String): Option[AutoTaskDesc] = {
+    val tab = jobName.split('.')
+    val tasks = jobs().flatMap(_.tasks)
+    if (tab.length == 1) {
+      val taskName = tab(0)
+      tasks.find(t => t.name == taskName)
+    } else if (tab.length == 2) {
+      val domainName = tab(0)
+      val tableName = tab(1)
+      tasks.find(t => t.table == tableName && t.domain == domainName)
+    } else None
+  }
 
-  private var (_jobErrors, _jobs): (List[ValidationMessage], Map[String, AutoJobDesc]) = loadJobs()
+  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = loadJobs()
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadJobs(): (List[ValidationMessage], Map[String, AutoJobDesc]) = {
+  private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
     val jobs = storage.list(
       DatasetArea.jobs,
       ".yml",
       recursive = true,
-      exclude = Some(Pattern.compile("_.*"))
+      exclude = Some(Pattern.compile("^(?!_config\\.).*$"))
     )
     val filenameErrors = Utils.duplicates(
       "Job filename",
@@ -903,7 +921,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         else
           None
       }
-    this._jobs = validJobs.map(job => job.name -> job).toMap
+    this._jobs = validJobs
     this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
     (_jobErrors, _jobs)
   }

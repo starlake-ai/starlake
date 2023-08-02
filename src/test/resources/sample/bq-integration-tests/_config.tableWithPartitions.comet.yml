@@ -1,7 +1,7 @@
 transform:
-  name: tableWithPartitions
   tasks:
     - domain: SL_BQ_TEST_DS
+      name: tableWithPartitions
       table: SL_BQ_TEST_TABLE_DYNAMIC
       write: OVERWRITE
       sink:

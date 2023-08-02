@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{AutoJobDesc, Domain, Engine, OutputRef, Refs}
+import ai.starlake.schema.model.{AutoTaskDesc, Domain, Engine, OutputRef, Refs}
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.StatementVisitorAdapter
@@ -150,7 +150,7 @@ object SQLUtils extends StrictLogging {
     vars: Map[String, Any],
     refs: Refs,
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc],
+    tasks: List[AutoTaskDesc],
     localViews: List[String],
     engine: Engine
   )(implicit
@@ -164,7 +164,7 @@ object SQLUtils extends StrictLogging {
         vars,
         refs,
         domains,
-        jobs,
+        tasks,
         localViews,
         SQLUtils.fromsRegex,
         "FROM",
@@ -176,7 +176,7 @@ object SQLUtils extends StrictLogging {
         vars,
         refs,
         domains,
-        jobs,
+        tasks,
         localViews,
         SQLUtils.joinRegex,
         "JOIN",
@@ -190,7 +190,7 @@ object SQLUtils extends StrictLogging {
     vars: Map[String, Any],
     refs: Refs,
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc],
+    tasks: List[AutoTaskDesc],
     localViews: List[String],
     regex: Regex,
     keyword: String,
@@ -218,7 +218,7 @@ object SQLUtils extends StrictLogging {
               tableAndAlias,
               refs,
               domains,
-              jobs,
+              tasks,
               ctes,
               engine,
               localViews.nonEmpty
@@ -239,7 +239,7 @@ object SQLUtils extends StrictLogging {
     tableAndAlias: String,
     refs: Refs,
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc],
+    tasks: List[AutoTaskDesc],
     ctes: List[String],
     engine: Engine,
     isFilesystem: Boolean
@@ -263,7 +263,7 @@ object SQLUtils extends StrictLogging {
           .getOutputRef(tableTuple)
           .map(_.toSQLString(engine, isFilesystem))
       val resolvedTableName = databaseDomainTableRef.getOrElse {
-        resolveTableRefInDomainsAndJobs(tableTuple, domains, jobs) match {
+        resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
           case Success((database, domain, table)) =>
             ai.starlake.schema.model
               .OutputRef(database, domain, table)
@@ -280,7 +280,7 @@ object SQLUtils extends StrictLogging {
   private def resolveTableRefInDomainsAndJobs(
     tableComponents: List[String],
     domains: List[Domain],
-    jobs: Map[String, AutoJobDesc]
+    tasks: List[AutoTaskDesc]
   )(implicit
     settings: Settings
   ): Try[(String, String, String)] = Try {
@@ -306,12 +306,11 @@ object SQLUtils extends StrictLogging {
             val domainOK = domainComponent.forall(_.equalsIgnoreCase(dom.finalName))
             domainOK && dom.tables.exists(_.finalName.equalsIgnoreCase(table))
           }
-        val tasksByTable = jobs.values.flatMap { job =>
-          job.tasks.find { task =>
+        val tasksByTable =
+          tasks.find { task =>
             val domainOK = domainComponent.forall(_.equalsIgnoreCase(task.domain))
             domainOK && task.table.equalsIgnoreCase(table)
-          }
-        }.toList
+          }.toList
 
         val nameCountMatch =
           domainsByFinalName.length + tasksByTable.length

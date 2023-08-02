@@ -1,7 +1,6 @@
 transform:
   tasks:
-    - name: pi
-      domain: result
+    - domain: result
       table: file
       write: OVERWRITE
       sql: |

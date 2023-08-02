@@ -34,6 +34,7 @@ class StorageHandlerSpec extends TestHelper {
   lazy val pathType = new Path(cometTestRoot + "/types.comet.yml")
 
   lazy val pathBusiness = new Path(cometTestRoot + "/business.comet.yml")
+  lazy val pathConfigBusiness = new Path(cometTestRoot + "/_config.comet.yml")
 
   new WithSettings() {
     "Domain Case Class" should "be written as yaml and read correctly" in {
@@ -153,21 +154,27 @@ class StorageHandlerSpec extends TestHelper {
         python = None,
         merge = None
       )
-      val businessJob =
-        AutoJobDesc(
-          "business1",
-          List(businessTask1),
-          Nil
-        )
-
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
+        .writeValueAsString(businessTask1)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user.user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val expected = mapper
         .readValue(loadTextFile("/expected/yml/business.comet.yml"), classOf[AutoJobDesc])
-      storageHandler.write(businessJobDef, pathBusiness)
       logger.info(readFileContent(pathBusiness))
       val actual = mapper
         .readValue(readFileContent(pathBusiness), classOf[AutoJobDesc])

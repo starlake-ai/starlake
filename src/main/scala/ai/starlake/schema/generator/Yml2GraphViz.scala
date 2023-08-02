@@ -56,8 +56,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTableGrants =
       rlsTables().values.flatten.flatMap(_._2).flatMap(_.grants).map(_.toLowerCase()).toSet
 
-    val aclTasks = schemaHandler.jobs().values.flatMap(_.aclTasks())
-    val rlsTasks = schemaHandler.jobs().values.flatMap(_.rlsTasks())
+    val aclTasks = schemaHandler.tasks().filter(_.acl.nonEmpty)
+    val rlsTasks = schemaHandler.tasks().filter(_.rls.nonEmpty)
 
     val aclTaskGrants =
       aclTasks
@@ -136,11 +136,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def jobsAsDot(): String = {
-    val allJobs = schemaHandler
-      .jobs()
-      .values
-
-    val rlsAclTasks = allJobs.flatMap(_.aclTasks()) ++ allJobs.flatMap(_.rlsTasks()).toList
+    val allTasks = schemaHandler.tasks()
+    val rlsAclTasks = allTasks.filter(_.acl.nonEmpty) ++ allTasks.filter(_.rls.nonEmpty)
 
     val rlsAclTaskNames = rlsAclTasks
       .map { case desc =>
@@ -229,12 +226,9 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
       }
     }
 
-    val allJobs = schemaHandler
-      .jobs()
-      .values
-
-    val aclAclTasks = allJobs.flatMap(_.aclTasks()) ++ allJobs.flatMap(_.rlsTasks()).toList
-    val aclTaskRelations = aclAclTasks.toList.flatMap { desc =>
+    val allTasks = schemaHandler.tasks()
+    val aclAclTasks = allTasks.filter(_.acl.nonEmpty) ++ allTasks.filter(_.rls.nonEmpty)
+    val aclTaskRelations = aclAclTasks.flatMap { desc =>
       desc.acl.flatMap { ace =>
         ace.grants.map(userName => (userName, ace.role, desc.table, desc.domain))
       }
@@ -282,7 +276,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
       }
     }
 
-    val rlsTasks = schemaHandler.jobs().values.flatMap(_.rlsTasks())
+    val allTasks = schemaHandler.tasks()
+    val rlsTasks = allTasks.filter(_.rls.nonEmpty)
 
     val rlsTaskRelations = rlsTasks.flatMap { rlsTask =>
       rlsTask.rls

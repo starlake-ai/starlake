@@ -669,16 +669,16 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  private def buildTasks(
+  private def buildTask(
     config: TransformConfig
-  ): Seq[AutoTask] = {
-    val jobDesc =
+  ): AutoTask = {
+    val taskDesc =
       schemaHandler
-        .job(config.name)
-        .getOrElse(throw new Exception(s"Invalid job name ${config.name}"))
-    logger.info(jobDesc.toString)
-    AutoTask.tasks(
-      jobDesc,
+        .task(config.name)
+        .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
+    logger.info(taskDesc.toString)
+    AutoTask.task(
+      taskDesc,
       config.options,
       config.interactive,
       config.authInfo
@@ -689,20 +689,13 @@ class IngestionWorkflow(
     )
   }
 
-  def compileAutoJob(config: TransformConfig): Seq[String] = {
-    val job = schemaHandler.jobs(config.reload)
-    logger.info(job.toString)
-    val result = buildTasks(config).map { action =>
-      // TODO Interactive compilation should check table existence
-      val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
-      mainSQL
-    }
-    result.foreach { sql =>
-      val output = settings.comet.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
-      output.foreach(_.overwrite(s"""START COMPILE SQL $sql END COMPILE SQL"""))
-      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""")
-    }
-    result
+  def compileAutoJob(config: TransformConfig): Unit = {
+    val action = buildTask(config)
+    // TODO Interactive compilation should check table existence
+    val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
+    val output = settings.comet.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
+    output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
+    logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
   }
 
   /** Successively run each task of a job
@@ -712,152 +705,151 @@ class IngestionWorkflow(
     */
   // scalastyle:off println
   def autoJob(transformConfig: TransformConfig): Boolean = {
-    val job = schemaHandler.jobs(transformConfig.reload)(transformConfig.name)
-    logger.info(job.toString)
-    val result: Seq[Boolean] =
-      buildTasks(transformConfig).map { action =>
-        val engine = action.taskDesc.getEngine(settings)
-        logger.info(s"running with config $transformConfig")
+    schemaHandler.jobs(transformConfig.reload)
+    val result: Boolean = {
+      val action = buildTask(transformConfig)
+      val engine = action.taskDesc.getEngine(settings)
+      logger.info(s"running with config $transformConfig")
 
-        engine match {
-          case BQ =>
-            logger.info(s"Entering $engine engine")
-            val result = action.runBQ(transformConfig.drop)
-            transformConfig.interactive match {
-              case None =>
-                val sink = action.taskDesc.sink.map(_.getSink())
-                logger.info(s"BQ Job succeeded. sinking data to $sink")
-                sink match {
-                  case Some(sink) if sink.getConnectionType(settings) == ConnectionType.BQ =>
-                    logger.info("Sinking to BQ done")
-                  case _ =>
-                    // TODO Sinking not supported
-                    logger.info(s"Sinking defaulted to BQ.")
-                }
-              case Some(format) =>
-                result.map { result =>
-                  val bqJobResult = result.asInstanceOf[BigQueryJobResult]
-                  logger.info("START INTERACTIVE SQL")
-                  bqJobResult.show(format, settings.comet.rootServe)
-                  logger.info("END INTERACTIVE SQL")
-                }
-              // No sink on interactive queries. Results displayed in console output
-            }
-            Utils.logFailure(result, logger)
-            result match {
-              case Success(res) =>
-              case Failure(e) =>
-                val output =
-                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "transform.log"))
-                output.foreach(_.overwrite(Utils.exceptionAsString(e)))
-            }
+      engine match {
+        case BQ =>
+          logger.info(s"Entering $engine engine")
+          val result = action.runBQ(transformConfig.drop)
+          transformConfig.interactive match {
+            case None =>
+              val sink = action.taskDesc.sink.map(_.getSink())
+              logger.info(s"BQ Job succeeded. sinking data to $sink")
+              sink match {
+                case Some(sink) if sink.getConnectionType(settings) == ConnectionType.BQ =>
+                  logger.info("Sinking to BQ done")
+                case _ =>
+                  // TODO Sinking not supported
+                  logger.info(s"Sinking defaulted to BQ.")
+              }
+            case Some(format) =>
+              result.map { result =>
+                val bqJobResult = result.asInstanceOf[BigQueryJobResult]
+                logger.info("START INTERACTIVE SQL")
+                bqJobResult.show(format, settings.comet.rootServe)
+                logger.info("END INTERACTIVE SQL")
+              }
+            // No sink on interactive queries. Results displayed in console output
+          }
+          Utils.logFailure(result, logger)
+          result match {
+            case Success(res) =>
+            case Failure(e) =>
+              val output =
+                settings.comet.rootServe.map(rootServe => File(File(rootServe), "transform.log"))
+              output.foreach(_.overwrite(Utils.exceptionAsString(e)))
+          }
 
-            result.isSuccess
-          case custom =>
-            logger.info(s"Entering $custom engine")
-            (action.runSpark(transformConfig.drop), transformConfig.interactive) match {
-              case (Success((SparkJobResult(None), _)), _) =>
-                true
-              case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>
-                // For interactive display. Used by the VSCode plugin
-                logger.info("""START QUERY SQL""")
-                dataFrame.show(false)
-                logger.info("""END QUERY SQL""")
-                true
-              case (Success((SparkJobResult(maybeDataFrame), sqlSource)), None) =>
-                val sinkOption = action.sink
-                logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
-                sinkOption match {
-                  case Some(sink) =>
-                    sink match {
-                      case _: EsSink =>
-                        saveToES(action)
-                      case fsSink: FsSink =>
-                        maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
+          result.isSuccess
+        case custom =>
+          logger.info(s"Entering $custom engine")
+          (action.runSpark(transformConfig.drop), transformConfig.interactive) match {
+            case (Success((SparkJobResult(None), _)), _) =>
+              true
+            case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>
+              // For interactive display. Used by the VSCode plugin
+              logger.info("""START QUERY SQL""")
+              dataFrame.show(false)
+              logger.info("""END QUERY SQL""")
+              true
+            case (Success((SparkJobResult(maybeDataFrame), sqlSource)), None) =>
+              val sinkOption = action.sink
+              logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
+              sinkOption match {
+                case Some(sink) =>
+                  sink match {
+                    case _: EsSink =>
+                      saveToES(action)
+                    case fsSink: FsSink =>
+                      maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
 
-                      case bqSink: BigQuerySink =>
-                        val source = maybeDataFrame
-                          .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
-                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
-                        val (createDisposition, writeDisposition) = {
-                          Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
-                        }
-                        val bqLoadConfig =
-                          BigQueryLoadConfig(
-                            connectionRef =
-                              Some(bqSink.connectionRef.getOrElse(settings.comet.connectionRef)),
-                            source = source,
-                            outputTableId = Some(
-                              BigQueryJobBase.extractProjectDatasetAndTable(
-                                action.taskDesc.database,
-                                action.taskDesc.domain,
-                                action.taskDesc.table
-                              )
-                            ),
-                            sourceFormat = settings.comet.defaultFormat,
-                            createDisposition = createDisposition,
-                            writeDisposition = writeDisposition,
-                            outputPartition = bqSink.timestamp,
-                            outputClustering = bqSink.clustering.getOrElse(Nil),
-                            days = bqSink.days,
-                            requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                            rls = action.taskDesc.rls,
-                            acl = action.taskDesc.acl,
-                            starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
-                            // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                            sqlSource = Some(sqlSource),
-                            attributesDesc = action.taskDesc.attributesDesc,
-                            outputDatabase = action.taskDesc.database
-                          )
-                        val result =
-                          new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()
-                        result.isSuccess
-
-                      case jdbcSink: JdbcSink =>
-                        val jdbcName =
-                          jdbcSink.connectionRef.getOrElse(settings.comet.connectionRef)
-                        val source = maybeDataFrame
-                          .map(df => Right(df))
-                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
-                        val (createDisposition, writeDisposition) = {
-                          Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
-                        }
-                        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-                          jdbcName,
-                          settings.comet,
-                          source,
-                          outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
-                          createDisposition = CreateDisposition.valueOf(createDisposition),
-                          writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                          createTableIfAbsent = false
+                    case bqSink: BigQuerySink =>
+                      val source = maybeDataFrame
+                        .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
+                        .getOrElse(Left(action.taskDesc.getTargetPath().toString))
+                      val (createDisposition, writeDisposition) = {
+                        Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
+                      }
+                      val bqLoadConfig =
+                        BigQueryLoadConfig(
+                          connectionRef =
+                            Some(bqSink.connectionRef.getOrElse(settings.comet.connectionRef)),
+                          source = source,
+                          outputTableId = Some(
+                            BigQueryJobBase.extractProjectDatasetAndTable(
+                              action.taskDesc.database,
+                              action.taskDesc.domain,
+                              action.taskDesc.table
+                            )
+                          ),
+                          sourceFormat = settings.comet.defaultFormat,
+                          createDisposition = createDisposition,
+                          writeDisposition = writeDisposition,
+                          outputPartition = bqSink.timestamp,
+                          outputClustering = bqSink.clustering.getOrElse(Nil),
+                          days = bqSink.days,
+                          requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                          rls = action.taskDesc.rls,
+                          acl = action.taskDesc.acl,
+                          starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
+                          // outputTableDesc = action.taskDesc.comment.getOrElse(""),
+                          sqlSource = Some(sqlSource),
+                          attributesDesc = action.taskDesc.attributesDesc,
+                          outputDatabase = action.taskDesc.database
                         )
+                      val result =
+                        new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()
+                      result.isSuccess
 
-                        val res = new ConnectionLoadJob(jdbcConfig).run()
-                        res match {
-                          case Success(_) => true
-                          case Failure(e) => logger.error("JDBCLoad Failed", e); false
-                        }
-                      case _ =>
-                        logger.warn(s"No supported Sink is activated for this job $sink")
-                        maybeDataFrame.foreach { dataframe =>
-                          dataframe.write.format("console").save()
-                        }
-                        true
-                    }
-                  case None =>
-                    logger.warn("Sink is not activated for this job")
-                    true
-                }
-              case (Failure(exception), _) =>
-                val output =
-                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "run.log"))
-                output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
-                exception.printStackTrace()
-                false
-            }
-        }
+                    case jdbcSink: JdbcSink =>
+                      val jdbcName =
+                        jdbcSink.connectionRef.getOrElse(settings.comet.connectionRef)
+                      val source = maybeDataFrame
+                        .map(df => Right(df))
+                        .getOrElse(Left(action.taskDesc.getTargetPath().toString))
+                      val (createDisposition, writeDisposition) = {
+                        Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
+                      }
+                      val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+                        jdbcName,
+                        settings.comet,
+                        source,
+                        outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
+                        createDisposition = CreateDisposition.valueOf(createDisposition),
+                        writeDisposition = WriteDisposition.valueOf(writeDisposition),
+                        createTableIfAbsent = false
+                      )
+
+                      val res = new ConnectionLoadJob(jdbcConfig).run()
+                      res match {
+                        case Success(_) => true
+                        case Failure(e) => logger.error("JDBCLoad Failed", e); false
+                      }
+                    case _ =>
+                      logger.warn(s"No supported Sink is activated for this job $sink")
+                      maybeDataFrame.foreach { dataframe =>
+                        dataframe.write.format("console").save()
+                      }
+                      true
+                  }
+                case None =>
+                  logger.warn("Sink is not activated for this job")
+                  true
+              }
+            case (Failure(exception), _) =>
+              val output =
+                settings.comet.rootServe.map(rootServe => File(File(rootServe), "run.log"))
+              output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
+              exception.printStackTrace()
+              false
+          }
       }
-    result.forall(_ == true)
+    }
+    result
   }
 
   private def saveToES(action: AutoTask): Boolean = {

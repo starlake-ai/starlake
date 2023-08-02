@@ -122,19 +122,26 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             python = None,
             merge = None
           )
-          val businessJob =
-            AutoJobDesc(
-              "bqjobtest",
-              List(businessTask1),
-              Nil
-            )
-
           val businessJobDef = mapper
             .writer()
             .withAttribute(classOf[Settings], settings)
-            .writeValueAsString(businessJob)
+            .writeValueAsString(businessTask1)
           val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
           storageHandler.write(businessJobDef, pathBusiness)
+
+          val configJob =
+            AutoJobDesc(
+              "",
+              Nil,
+              List("bqjobtest")
+            )
+
+          val configJobDef = mapper
+            .writer()
+            .withAttribute(classOf[Settings], settings)
+            .writeValueAsString(configJob)
+          val pathConfigBusiness = new Path(cometMetadataPath + "/jobs/_config.comet.yml")
+          storageHandler.write(configJobDef, pathConfigBusiness)
 
           val schemaHandler = new SchemaHandler(storageHandler)
 

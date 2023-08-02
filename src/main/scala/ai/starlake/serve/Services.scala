@@ -13,7 +13,7 @@ object Services {
 
   def jobs()(implicit settings: Settings): List[AutoJobDesc] = {
     val schemaHandler = new SchemaHandler(settings.storageHandler())
-    schemaHandler.jobs(true).values.toList
+    schemaHandler.jobs(true)
   }
 
   def types()(implicit settings: Settings): List[Type] = {

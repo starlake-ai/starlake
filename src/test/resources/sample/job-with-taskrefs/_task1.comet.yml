@@ -1,8 +1,9 @@
-sql: "select * from table1"
-name: task1
-domain: "myjob"
-table: "table1"
-write: "OVERWRITE"
-partition:
-  - "year"
-  - "month"
+task:
+  sql: "select * from table1"
+  name: task1
+  domain: "myjob"
+  table: "table1"
+  write: "OVERWRITE"
+  partition:
+    - "year"
+    - "month"

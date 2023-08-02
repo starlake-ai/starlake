@@ -372,7 +372,7 @@ trait TestHelper
       validator.load(config)
     }
 
-    def getJobs(): Map[String, AutoJobDesc] = {
+    def getJobs(): List[AutoJobDesc] = {
       new SchemaHandler(settings.storageHandler()).jobs()
     }
 

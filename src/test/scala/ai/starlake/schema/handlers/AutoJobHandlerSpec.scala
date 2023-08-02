@@ -16,6 +16,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
 
+  lazy val pathConfigBusiness = new Path(
+    cometMetadataPath + "/jobs/_config.comet.yml"
+  )
+
   lazy val pathGraduateProgramBusiness = new Path(
     cometMetadataPath + "/jobs/graduateProgram.comet.yml"
   )
@@ -67,18 +71,25 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         merge = None,
         sink = Some(FsSink().toAllSinks())
       )
-      val businessJob =
-        AutoJobDesc(
-          "user",
-          List(businessTask1),
-          Nil
-        )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
+        .writeValueAsString(businessTask1)
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler =
         new SchemaHandler(storageHandler, Map("age" -> "40"))
@@ -86,7 +97,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("user"))
+      workflow.autoJob(TransformConfig("user.user"))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -108,7 +119,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val userView = s"${settings.comet.datasets}/accepted/user"
       logger.info("************userView:" + userView)
       val businessTask1 = AutoTaskDesc(
-        name = "",
+        name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -120,18 +131,24 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         python = None,
         merge = None
       )
-      val businessJob =
-        AutoJobDesc(
-          "user",
-          List(businessTask1),
-          Nil
-        )
-
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
+        .writeValueAsString(businessTask1)
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
 
@@ -147,7 +164,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
-        name = "",
+        name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -160,18 +177,24 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         merge = None,
         sink = Some(FsSink().toAllSinks())
       )
-      val businessJob =
-        AutoJobDesc(
-          "user",
-          List(businessTask1),
-          Nil
-        )
-
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
+        .writeValueAsString(businessTask1)
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(
         storageHandler,
@@ -201,7 +224,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
-        name = "",
+        name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view"
         ),
@@ -213,20 +236,27 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         merge = None,
         sink = Some(FsSink().toAllSinks())
       )
-      val businessJob =
-        AutoJobDesc(
-          "user",
-          List(businessTask1),
-          Nil
-        )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
+        .writeValueAsString(businessTask1)
       storageHandler.write(businessJobDef, pathBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -249,7 +279,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
-        name = "",
+        name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select concatWithSpace(firstname, lastname) as fullName from user_View"
         ),
@@ -261,19 +291,25 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         merge = None,
         sink = Some(FsSink().toAllSinks())
       )
-      val businessJob =
-        AutoJobDesc(
-          "user",
-          List(businessTask1),
-          Nil
-        )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
-
+        .writeValueAsString(businessTask1)
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil,
+          List("user")
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
 
@@ -296,7 +332,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
       val businessTask1 = AutoTaskDesc(
-        name = "",
+        name = "graduateProgram",
         sql = Some(
           s"SELECT * FROM graduate_agg_view"
         ),
@@ -317,18 +353,24 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         merge = None,
         sink = Some(FsSink().toAllSinks())
       )
-      val businessJob =
+      val configJob =
         AutoJobDesc(
-          "graduateProgram",
-          List(businessTask1),
-          Nil
+          "",
+          Nil,
+          List("graduateProgram")
         )
 
-      val businessJobDef = mapper
+      val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
-      storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
+        .writeValueAsString(configJob)
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val businessTaskDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessTask1)
+      storageHandler.write(businessTaskDef, pathGraduateProgramBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
       val workflow =

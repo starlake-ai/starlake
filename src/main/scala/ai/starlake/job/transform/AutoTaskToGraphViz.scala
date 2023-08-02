@@ -42,19 +42,17 @@ class AutoTaskToGraphViz(
     val depsMap =
       if (config.verbose) {
         schemaHandler
-          .jobs()
-          .keys
-          .map { jobName =>
-            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
-          }
-          .toList :+ ("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+          .tasks()
+          .map { task =>
+            (task.name, TaskViewDependency.taskDependencies(task.name, tasks)(schemaHandler))
+          } :+ ("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
       } else {
-        val (jobName, deps) = config.job
-          .map(jobName =>
-            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
+        val (taskName, deps) = config.task
+          .map(taskName =>
+            (taskName, TaskViewDependency.taskDependencies(taskName, tasks)(schemaHandler))
           )
           .getOrElse("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
-        List(jobName -> deps)
+        List(taskName -> deps)
       }
     val mapper = Utils.newJsonMapper().writerWithDefaultPrettyPrinter()
 
@@ -97,61 +95,5 @@ class AutoTaskToGraphViz(
         }
         results
     }
-  }
-
-  def oldJobAsDot(config: AutoTask2GraphVizConfig): List[(String, String)] = {
-    val tasks =
-      AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
-    val depsMap =
-      if (config.verbose) {
-        schemaHandler
-          .jobs()
-          .keys
-          .map { jobName =>
-            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
-          }
-          .toList :+ ("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
-      } else {
-        val (jobName, deps) = config.job
-          .map(jobName =>
-            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
-          )
-          .getOrElse("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
-        List(jobName -> deps)
-      }
-    val mapper = Utils.newJsonMapper().writerWithDefaultPrettyPrinter()
-
-    val results = depsMap.map { case (jobName, allDeps) =>
-      val deps =
-        allDeps.filter(dep => config.objects.contains("all") || config.objects.contains(dep.typ))
-      val dedupEntities = deps.groupBy(_.name).mapValues(_.head).values.toList
-      val relations = deps
-        .filter(dep => config.objects.contains(dep.parentTyp))
-      println(s"----------jobName:$jobName")
-      println("----------relations------")
-      mapper.writeValue(System.out, relations)
-      val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")
-      val relationsAsDot = relations
-        .flatMap(dep => dep.relationAsDot())
-        .distinct
-        .mkString("\n")
-      (jobName, List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n"))
-    }
-    config.outputDir match {
-      case Some(outputDir) =>
-        val dir = File(outputDir)
-        dir.createDirectoryIfNotExists(createParents = true)
-        results map { case (jobName, result) =>
-          val file = File(outputDir, s"$jobName.dot")
-          file.overwrite(result)
-        }
-        results
-      case None =>
-        results.foreach { case (jobName, result) =>
-          println(result)
-        }
-        results
-    }
-
   }
 }
