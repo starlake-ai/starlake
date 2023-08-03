@@ -329,7 +329,8 @@ trait TestHelper
       }
 
     def deliverSourceDomain(): Unit = {
-      val domainPath = new Path(domainMetadataRootPath, domainOrJobFilename)
+      val domainPath = new Path(domainMetadataRootPath, "_config.comet.yml")
+
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }
 

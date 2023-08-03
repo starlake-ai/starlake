@@ -285,7 +285,7 @@ object Domain {
     val allWarnings = domainRootDirectories.flatMap { domainRootDirectory =>
       val domainName = domainRootDirectory.getName()
       val domainDirectory = new Path(domainRootDirectory, domainName)
-      val expectedDomainYmlName = s"$domainName.comet.yml"
+      val expectedDomainYmlName = s"_config.comet.yml"
       val expectedDomainYmlPath = new Path(domainDirectory, expectedDomainYmlName)
       val domainYmlExists = storage.exists(expectedDomainYmlPath)
       val domainYmlWarnings = if (domainYmlExists) {
@@ -297,50 +297,13 @@ object Domain {
               ValidationMessage(
                 Warning,
                 "Domain",
-                s"Domain directory should contain a $domainName.comet.yml file"
+                s"Domain directory for $domainName should contain a _config.comet.yml file"
               )
             )
           )
         )
       }
-      val domainFiles = storage.list(domainDirectory, recursive = false, exclude = None)
-      val extensionWarnings = domainFiles.flatMap { path =>
-        val domainFilename = path.getName()
-        val invalidExtensionWarning =
-          if (!domainFilename.endsWith(".comet.yml")) // x.yml or x.yaml are ignored
-            Some(
-              Left(
-                List(
-                  ValidationMessage(
-                    Warning,
-                    "Domain",
-                    s"Domain directory should only contain yaml files with the extension .comet.yml. Found ${domainFilename} ignored"
-                  )
-                )
-              )
-            )
-          else
-            None
-        val invalidMultiDomainYmlWarning =
-          if (
-            !domainFilename.startsWith("_") && expectedDomainYmlName != domainFilename
-          ) // Only one domain file per domain folder is allowed and it should be named after the directory name.
-            Some(
-              Left(
-                List(
-                  ValidationMessage(
-                    Warning,
-                    "Domain",
-                    s"Only one domain definition is allowed and it should be named after the directory name. Found ${domainFilename}, expecting $expectedDomainYmlName ignored"
-                  )
-                )
-              )
-            )
-          else
-            None
-        List(invalidExtensionWarning, invalidMultiDomainYmlWarning).flatten
-      }
-      List(extraFileWarnings, domainYmlWarnings, extensionWarnings).flatten
+      List(extraFileWarnings, domainYmlWarnings).flatten
     }
     allWarnings
   }

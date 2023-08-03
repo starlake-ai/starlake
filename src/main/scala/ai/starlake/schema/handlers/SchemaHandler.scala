@@ -411,7 +411,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       domainPath,
       extension = ".yml",
       recursive = true,
-      exclude = Some(Pattern.compile("_.*"))
+      exclude = Some(Pattern.compile("^(?!_config\\.).*$"))
     )
 
     val domains = paths
@@ -444,7 +444,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 // object is not available in the Metadata object
                 val enrichedMetadata = metadata
                   .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
-                domain.copy(tables = tables, metadata = Some(enrichedMetadata))
+
+                // set domain name
+                val domainName = if (domain.name == "") path.getParent().getName() else domain.name
+                domain.copy(name = domainName, tables = tables, metadata = Some(enrichedMetadata))
               }
             }
           }
@@ -559,16 +562,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val tableRefNames = domain.tableRefs match {
             case "*" :: Nil =>
               storage
-                .list(folder, extension = ".yml", recursive = true)
+                .list(folder, extension = ".comet.yml", recursive = true)
                 .map(_.getName())
-                .filter(_.startsWith("_"))
+                .filter(!_.startsWith("_config."))
             case _ =>
               domain.tableRefs.map { ref =>
-                if (!ref.startsWith("_"))
-                  throw new Exception(
-                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
-                  )
-                if (ref.endsWith(".comet.yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+                if (ref.endsWith(".comet.yml")) ref else ref + ".comet.yml"
               }
           }
 
