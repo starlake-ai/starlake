@@ -104,7 +104,7 @@ case class AutoTask(
   }
 
   val (createDisposition, writeDisposition) =
-    Utils.getDBDisposition(taskDesc.write, hasMergeKeyDefined = false)
+    Utils.getDBDisposition(taskDesc.getWrite(), hasMergeKeyDefined = false)
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
     val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
@@ -353,7 +353,7 @@ case class AutoTask(
     }
 
     val finalDataset = clusteredDFWriter
-      .mode(taskDesc.write.toSaveMode)
+      .mode(taskDesc.getWrite().toSaveMode)
       .format(sink.format.getOrElse(settings.comet.defaultFormat))
       .options(sink.getOptions())
       .option("path", targetPath.toString)
@@ -364,7 +364,7 @@ case class AutoTask(
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
-      if (taskDesc.write.toSaveMode == SaveMode.Overwrite)
+      if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite)
         session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
       val tableTagPairs =

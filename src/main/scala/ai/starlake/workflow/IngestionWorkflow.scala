@@ -705,7 +705,7 @@ class IngestionWorkflow(
     */
   // scalastyle:off println
   def autoJob(transformConfig: TransformConfig): Boolean = {
-    schemaHandler.jobs(transformConfig.reload)
+    schemaHandler.tasks(transformConfig.reload)
     val result: Boolean = {
       val action = buildTask(transformConfig)
       val engine = action.taskDesc.getEngine(settings)
@@ -772,7 +772,10 @@ class IngestionWorkflow(
                         .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
                         .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                       val (createDisposition, writeDisposition) = {
-                        Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
+                        Utils.getDBDisposition(
+                          action.taskDesc.getWrite(),
+                          hasMergeKeyDefined = false
+                        )
                       }
                       val bqLoadConfig =
                         BigQueryLoadConfig(
@@ -812,7 +815,10 @@ class IngestionWorkflow(
                         .map(df => Right(df))
                         .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                       val (createDisposition, writeDisposition) = {
-                        Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
+                        Utils.getDBDisposition(
+                          action.taskDesc.getWrite(),
+                          hasMergeKeyDefined = false
+                        )
                       }
                       val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
                         jdbcName,

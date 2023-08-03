@@ -66,7 +66,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None,
         sink = Some(FsSink().toAllSinks())
@@ -126,7 +126,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
         python = None,
         merge = None
@@ -171,7 +171,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
         python = None,
         merge = None,
@@ -204,7 +204,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       workflow.autoJob(
-        TransformConfig("user")
+        TransformConfig("user.user")
       )
 
       val result = sparkSession.read
@@ -231,7 +231,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None,
         sink = Some(FsSink().toAllSinks())
@@ -261,7 +261,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("user"))
+      workflow.autoJob(TransformConfig("user.user"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -286,7 +286,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None,
         sink = Some(FsSink().toAllSinks())
@@ -316,7 +316,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("user"))
+      workflow.autoJob(TransformConfig("user.user"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -339,7 +339,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "graduateProgram",
         table = "output",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         presql = List(
           s"""
             |create or replace temporary view graduate_agg_view as
@@ -376,7 +376,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("graduateProgram"))
+      workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
 
       val result = sparkSession.read
         .load(pathGraduateDatasetProgramBusiness.toString)
@@ -412,7 +412,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "DOMAIN",
         table = "TABLE",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         partition = List("comet_year", "comet_month"),
         presql = Nil,
         postsql = Nil,

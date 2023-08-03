@@ -115,19 +115,19 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "bqtest",
             "jobresult",
-            WriteMode.OVERWRITE,
+            Some(WriteMode.OVERWRITE),
             sink = Some(
               BigQuerySink(connectionRef = None).toAllSinks()
             ),
             python = None,
             merge = None
           )
-          val businessJobDef = mapper
+          val businessTaskDef = mapper
             .writer()
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(businessTask1)
           val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
-          storageHandler.write(businessJobDef, pathBusiness)
+          storageHandler.write(businessTaskDef, pathBusiness)
 
           val configJob =
             AutoJobDesc(
@@ -147,7 +147,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-          val config = TransformConfig("bqjobtest")
+          val config = TransformConfig("bqtest.bqjobtest")
           workflow.autoJob(config) should be(true)
           workflow.autoJob(config.copy(interactive = Some("json"))) should be(true)
           workflow.autoJob(config.copy(interactive = Some("csv"))) should be(true)
