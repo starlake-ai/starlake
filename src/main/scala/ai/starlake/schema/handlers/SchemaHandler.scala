@@ -624,17 +624,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
       // Load task refs and inject them in the job
       val folder = jobPath.getParent()
+
       val autoTasksRefs = loadTaskRefs(jobPath, jobDesc, folder)
 
       logger.info(s"Successfully loaded job  in $jobPath")
-      val jobDescWithRefs: AutoJobDesc =
+      val jobDescWithTaskRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
       // set task name / domain / table and load sql/py file if any
-      val tasks = jobDescWithRefs.tasks.map { taskDesc =>
+      val tasks = jobDescWithTaskRefs.tasks.map { taskDesc =>
         val jobFilename = jobPath.getName()
         val jobParentPath = jobPath.getParent()
-        val tableNameFromFilename = jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
+        val tableNameFromFilename =
+          if (taskDesc.name.isEmpty) jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
+          else taskDesc.name
         val domainNameFromFoldername = {
           val parentName = jobParentPath.getName()
           val grandParentName = jobParentPath.getParent().getName()
@@ -658,7 +661,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         val filenamePrefix =
           if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
         // task name is set explicitly and we always prefix it with the domain name except if it is already prefixed.
-        val task = taskDesc.copy(
+        val taskWithName = taskDesc.copy(
           domain = domainName,
           table = tableName,
           name = s"${domainName}.${taskName}",
@@ -666,32 +669,32 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
 
         val taskCommandFile: Option[Path] =
-          taskCommandPath(jobPath.getParent(), task._filenamePrefix)
+          taskCommandPath(jobPath.getParent(), taskWithName._filenamePrefix)
 
         val taskWithCommand = taskCommandFile
           .map { taskFile =>
             if (taskFile.toString.endsWith(".py"))
-              taskDesc.copy(
+              taskWithName.copy(
                 python = Some(taskFile)
               )
             else {
               val sqlTask = SqlTaskExtractor(storage.read(taskFile))
-              taskDesc.copy(
+              taskWithName.copy(
                 presql = sqlTask.presql,
                 sql = Option(sqlTask.sql),
                 postsql = sqlTask.postsql
               )
             }
           }
-          .getOrElse(task)
+          .getOrElse(taskWithName)
 
         // grants list can be set to a comma separated list in YAML , and transformed to a list while parsing
         taskWithCommand.copy(
-          rls = task.rls.map(rls => {
+          rls = taskWithName.rls.map(rls => {
             val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
             rls.copy(grants = grants)
           }),
-          acl = task.acl.map(acl => {
+          acl = taskWithName.acl.map(acl => {
             val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
             acl.copy(grants = grants)
           })
@@ -801,26 +804,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         }
     }
 
-    val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTaskFilename, extension) =>
+    val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
       extension match {
         case "comet.yml" =>
-          val taskPath = new Path(folder, autoTaskFilename)
+          val taskPath = new Path(folder, taskFilename)
           val taskNode = loadTaskRefNode(
             Utils
               .parseJinja(storage.read(taskPath), activeEnvVars())
           )
           YamlSerializer.upgradeTaskNode(taskNode)
-          val taskDesc = YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskName)
-          taskDesc.copy(_filenamePrefix = taskName)
+          val taskDesc = YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskFilePrefix)
+          val taskName = if (taskDesc.name.isEmpty) taskDesc.name else taskFilePrefix
+          taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
         case _ =>
           AutoTaskDesc(
-            name = taskName,
+            name = taskFilePrefix,
             sql = None,
             database = None,
             domain = "",
             table = "",
             write = Some(WriteMode.OVERWRITE),
-            _filenamePrefix = taskName
+            _filenamePrefix = taskFilePrefix
           )
       }
     }
