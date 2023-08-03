@@ -145,7 +145,7 @@ class StorageHandlerSpec extends TestHelper {
         database = None,
         domain = "DOMAIN",
         table = "ANALYSE",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         partition = List("comet_year", "comet_month"),
         presql = Nil,
         postsql = Nil,

@@ -49,7 +49,8 @@ import scala.util.Try
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  taskRefs: List[String] = Nil
+  taskRefs: List[String] = Nil,
+  default: Option[AutoTaskDesc] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO

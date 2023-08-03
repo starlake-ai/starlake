@@ -93,12 +93,31 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def checkJobsVars(): List[ValidationMessage] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
-    paths.flatMap { path =>
-      val ymlWarnings = checkVarsAreDefined(path)
-      val sqlPath = taskCommandPath(path, "")
-      val sqlWarnings = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
-      ymlWarnings ++ sqlWarnings
+    val ymlWarnings = paths.flatMap(checkVarsAreDefined)
+    val sqlPaths =
+      storage.list(DatasetArea.jobs, ".sql.j2", recursive = true) ++ storage.list(
+        DatasetArea.jobs,
+        ".sql",
+        recursive = true
+      ) ++ storage.list(
+        DatasetArea.jobs,
+        ".py",
+        recursive = true
+      )
+    val sqlWarnings = sqlPaths.flatMap { path =>
+      val filename = path.getName()
+      val prefix = if (filename.endsWith(".sql.j2")) {
+        filename.dropRight(7)
+      } else if (filename.endsWith(".sql")) {
+        filename.dropRight(4)
+      } else { // .py
+        filename.dropRight(3)
+      }
+      val sqlPath = taskCommandPath(path.getParent(), prefix)
+      sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
     }
+
+    ymlWarnings ++ sqlWarnings
   }
 
   def fullValidation(
@@ -601,42 +620,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
     Try {
-      val fileContent = storage.read(jobPath)
-      val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
-      val jobFilename = jobPath.getName()
-      val jobParentPath = jobPath.getParent()
-      val tableNameFromFilename = jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
-      val domainNameFromFoldername = {
-        val parentName = jobParentPath.getName()
-        val grandParentName = jobParentPath.getParent().getName()
-        if (grandParentName == "metadata" && parentName == "jobs")
-          settings.comet.domain
-        else
-          parentName
-      }
 
-      val rootNode = mapper.readTree(rootContent)
-      val tranformNode = rootNode.path("transform")
-      val autojobNode =
-        if (tranformNode.isNull() || tranformNode.isMissingNode) {
-          logger.warn(
-            s"Defining an autojob outside a transform node is now deprecated. Please update definition $jobPath"
-          )
-          rootNode
-        } else
-          tranformNode
-      val taskPathNode = autojobNode.path("tasks")
-      if (!taskPathNode.isMissingNode) {
-        val tasksNode = taskPathNode.asInstanceOf[ArrayNode]
-        for (i <- 0 until tasksNode.size()) {
-          val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
-          YamlSerializer.upgradeTaskNode(taskNode)
-        }
-      }
-      // Now load any sql file related to this JOB
-      // for file job.comet.yml containing a single unnamed task, we search for job.sql
-      // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
-      val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      val jobDesc = loadJobDesc(jobPath)
+
+      // Load task refs and inject them in the job
       val folder = jobPath.getParent()
       val autoTasksRefs = loadTaskRefs(jobPath, jobDesc, folder)
 
@@ -644,8 +631,43 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val jobDescWithRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
+      // set task name / domain / table and load sql/py file if any
       val tasks = jobDescWithRefs.tasks.map { taskDesc =>
-        val taskCommandFile: Option[Path] = taskCommandPath(jobPath, taskDesc.name)
+        val jobFilename = jobPath.getName()
+        val jobParentPath = jobPath.getParent()
+        val tableNameFromFilename = jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
+        val domainNameFromFoldername = {
+          val parentName = jobParentPath.getName()
+          val grandParentName = jobParentPath.getParent().getName()
+          if (grandParentName == "metadata" && parentName == "jobs")
+            settings.comet.domain
+          else
+            parentName
+        }
+
+        val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
+        // Domain name may be set explicitly or else we use the folder name
+        val domainName =
+          if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
+
+        val taskName =
+          if (taskDesc.name.nonEmpty)
+            taskDesc.name
+          else
+            tableName
+
+        val filenamePrefix =
+          if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
+        // task name is set explicitly and we always prefix it with the domain name except if it is already prefixed.
+        val task = taskDesc.copy(
+          domain = domainName,
+          table = tableName,
+          name = s"${domainName}.${taskName}",
+          _filenamePrefix = filenamePrefix
+        )
+
+        val taskCommandFile: Option[Path] =
+          taskCommandPath(jobPath.getParent(), task._filenamePrefix)
 
         val taskWithCommand = taskCommandFile
           .map { taskFile =>
@@ -662,18 +684,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             }
           }
-          .getOrElse(taskDesc)
-        val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
-        val domainName =
-          if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
-        val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else s"${domainName}.${tableName}"
-        val task = taskWithCommand.copy(
-          domain = domainName,
-          table = tableName,
-          name = taskName
-        )
-        // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
-        task.copy(
+          .getOrElse(task)
+
+        // grants list can be set to a comma separated list in YAML , and transformed to a list while parsing
+        taskWithCommand.copy(
           rls = task.rls.map(rls => {
             val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
             rls.copy(grants = grants)
@@ -686,10 +700,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
       val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
       // We do not check if task has a sql file associated with it, as it can be a python task
-      jobDesc.copy(
+
+      listOrphanCommandFiles(jobPath.getParent())
+
+      val mergedTasks = jobDesc.default match {
+        case Some(defaultTask) =>
+          tasks.map { task =>
+            defaultTask.merge(task)
+          }
+        case None =>
+          tasks
+      }
+      AutoJobDesc(
         name = jobName,
-        tasks = tasks,
-        taskRefs = Nil
+        tasks = mergedTasks,
+        taskRefs = Nil,
+        default = None
       )
     } match {
       case Success(value) => Success(value)
@@ -697,40 +723,107 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         Failure(new Exception(s"Invalid Job file: $jobPath(${exception.getMessage})", exception))
     }
 
+  private def loadJobDesc(jobPath: Path): AutoJobDesc = {
+    val fileContent = storage.read(jobPath)
+    val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
+    val rootNode = mapper.readTree(rootContent)
+    val tranformNode = rootNode.path("transform")
+    val autojobNode =
+      if (tranformNode.isNull() || tranformNode.isMissingNode) {
+        logger.warn(
+          s"Defining an autojob outside a transform node is now deprecated. Please update definition $jobPath"
+        )
+        rootNode
+      } else
+        tranformNode
+    val taskPathNode = autojobNode.path("tasks")
+    if (!taskPathNode.isMissingNode) {
+      val tasksNode = taskPathNode.asInstanceOf[ArrayNode]
+      for (i <- 0 until tasksNode.size()) {
+        val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+        YamlSerializer.upgradeTaskNode(taskNode)
+      }
+    }
+    val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+    jobDesc
+  }
+
+  private def listOrphanCommandFiles(path: Path): List[Path] = {
+    val ymlFiles = storage.list(path, extension = ".comet.yml", recursive = false)
+    val commandFiles = storage.list(path, extension = ".sql", recursive = false) ++
+      storage.list(path, extension = ".sql.j2", recursive = true) ++
+      storage.list(path, extension = ".py", recursive = true)
+    val orphanFiles = commandFiles.filterNot { commandFile =>
+      ymlFiles.exists { jobFile =>
+        val ymlName = jobFile.getName().substring(0, jobFile.getName().indexOf(".comet.yml"))
+        val commandName = {
+          val commandName = commandFile.getName()
+          if (commandName.endsWith(".sql.j2"))
+            commandName.substring(0, commandName.indexOf(".sql.j2"))
+          else if (commandName.endsWith(".sql"))
+            commandName.substring(0, commandName.indexOf(".sql"))
+          else // (commandName.endsWith(".py"))
+            commandName.substring(0, commandName.indexOf(".py"))
+        }
+        ymlName == commandName
+      }
+    }
+    orphanFiles
+  }
+
   private def loadTaskRefs(path: Path, jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
-    val autoTasksRefNames = jobDesc.taskRefs match {
+    // (prefix, name, extension)
+    val autoTasksRefNames: List[(String, String, String)] = jobDesc.taskRefs match {
       case "*" :: Nil =>
         storage
           .list(folder, extension = ".comet.yml", recursive = true)
           .map(_.getName())
-          .filter(!_.startsWith("_config."))
+          .filter(name => !name.startsWith("_config."))
           .map { ref =>
             val startIndex = if (ref.startsWith("_")) 1 else 0
             val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
-
-            (taskName, ref)
+            (taskName, ref, "comet.yml")
           }
       case _ =>
         jobDesc.taskRefs.map { ref =>
           val startIndex = if (ref.startsWith("_")) 1 else 0
           if (ref.endsWith(".comet.yml")) {
             val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
-            (taskName, ref)
-
+            (taskName, ref, "comet.yml")
           } else {
-            (ref.substring(startIndex), ref + ".comet.yml")
+            val itemDetails = anyItemDetails(folder, ref)
+            itemDetails
+              .map { case (path, prefix, extension) =>
+                val name = path.getName()
+                (prefix, name, extension)
+              }
+              .getOrElse(throw new Exception(s"Invalid task ref $ref in $path"))
           }
         }
     }
 
-    val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTasksRefName) =>
-      val taskPath = new Path(folder, autoTasksRefName)
-      val taskNode = loadTaskRefNode(
-        Utils
-          .parseJinja(storage.read(taskPath), activeEnvVars())
-      )
-      YamlSerializer.upgradeTaskNode(taskNode)
-      YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskName)
+    val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTaskFilename, extension) =>
+      extension match {
+        case "comet.yml" =>
+          val taskPath = new Path(folder, autoTaskFilename)
+          val taskNode = loadTaskRefNode(
+            Utils
+              .parseJinja(storage.read(taskPath), activeEnvVars())
+          )
+          YamlSerializer.upgradeTaskNode(taskNode)
+          val taskDesc = YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskName)
+          taskDesc.copy(_filenamePrefix = taskName)
+        case _ =>
+          AutoTaskDesc(
+            name = taskName,
+            sql = None,
+            database = None,
+            domain = "",
+            table = "",
+            write = Some(WriteMode.OVERWRITE),
+            _filenamePrefix = taskName
+          )
+      }
     }
     autoTasksRefs
   }
@@ -744,36 +837,51 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       taskNode.asInstanceOf[ObjectNode]
   }
 
-  private def taskCommandPath(path: Path, taskName: String): Option[Path] = {
-    val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
-    val basePath = path.getParent()
-    val jobFilename = path.getName()
-    val jobName = jobFilename.substring(0, jobFilename.length - ".comet.yml".length)
-    def getTaskPath(taskName: String, extension: String): Option[Path] = {
-      val _taskPath = new Path(basePath, s"_$taskName.$extension")
-      val taskPath = new Path(basePath, s"$taskName.$extension")
-      val jobTaskPath = new Path(basePath, s"$jobName.$taskName.$extension")
-      val jobPath = new Path(basePath, s"$sqlFilePrefix.$extension")
+  /** @param basePath
+    * @param filePrefix
+    * @param extensions
+    * @return
+    *   (path, prefix, extension)
+    */
+  def getTaskPathDetails(
+    basePath: Path,
+    filePrefix: String,
+    extensions: List[String]
+  ): Option[(Path, String, String)] = {
+    extensions.flatMap { extension =>
+      val path = new Path(basePath, s"$filePrefix.$extension")
+      if (storage.exists(path)) {
+        val prefix = path.getName.substring(0, path.getName.length - s".$extension".length)
+        Some(path, prefix, extension)
+      } else
+        None
+    }.headOption
+  }
 
-      if (taskName.nonEmpty) {
-        if (storage.exists(_taskPath))
-          Some(_taskPath)
-        else if (storage.exists(taskPath))
-          Some(taskPath)
-        else if (storage.exists(jobTaskPath))
-          Some(jobTaskPath)
-        else
-          None
-      } else if (storage.exists(jobPath))
-        Some(jobPath)
-      else None
-
+  /** @param basePath
+    * @param sqlFilePrefix
+    * @return
+    *   (path, prefix, extension)
+    */
+  private def taskCommandPath(
+    basePath: Path,
+    sqlFilePrefix: String
+  ): Option[(Path)] = {
+    getTaskPathDetails(basePath, sqlFilePrefix, List("sql", "sql.j2", "py")).map {
+      case (path, prefix, extension) => path
     }
-    val sqlTaskFile = getTaskPath(taskName, "sql")
-    val j2TaskFile = getTaskPath(taskName, "sql.j2")
-    val pythonTaskFile = getTaskPath(taskName, "py")
+  }
 
-    sqlTaskFile.orElse(j2TaskFile).orElse(pythonTaskFile)
+  /** @param basePath
+    * @param sqlFilePrefix
+    * @return
+    *   (path, prefix, extension)
+    */
+  private def anyItemDetails(
+    basePath: Path,
+    sqlFilePrefix: String
+  ): Option[(Path, String, String)] = {
+    getTaskPathDetails(basePath, sqlFilePrefix, List("comet.yml", "sql", "sql.j2", "py"))
   }
 
   /** To be deprecated soon
@@ -832,17 +940,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       None
   }
 
-  def task(jobName: String): Option[AutoTaskDesc] = {
-    val tab = jobName.split('.')
-    val tasks = jobs().flatMap(_.tasks)
-    if (tab.length == 1) {
-      val taskName = tab(0)
-      tasks.find(t => t.name == taskName)
-    } else if (tab.length == 2) {
-      val domainName = tab(0)
-      val tableName = tab(1)
-      tasks.find(t => t.table == tableName && t.domain == domainName)
-    } else None
+  def task(taskName: String): Option[AutoTaskDesc] = {
+    val allTasks = tasks()
+    allTasks.find(t => t.name == taskName)
   }
 
   private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = loadJobs()
@@ -851,24 +951,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
-    val jobs = storage.list(
+    val configs = storage.list(
       DatasetArea.jobs,
-      ".yml",
+      ".comet.yml",
       recursive = true,
       exclude = Some(Pattern.compile("^(?!_config\\.).*$"))
     )
-    val filenameErrors = Utils.duplicates(
-      "Job filename",
-      jobs.map(_.getName()),
-      s"%s is defined %d times. A job can only be defined once."
-    ) match {
-      case Right(_) => Nil
-      case Left(errors) =>
-        errors
-    }
-
     val (validJobsFile, invalidJobsFile) =
-      jobs
+      configs
         .map { path =>
           val result = loadJobFromFile(path)
           result match {
@@ -887,7 +977,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val nameErrors = Utils.duplicates(
       "Job name",
-      validJobs.map(_.name),
+      validJobs.filter(_.name.nonEmpty).map(_.name),
       s"%s is defined %d times. A job can only be defined once."
     ) match {
       case Right(_) => Nil
@@ -895,7 +985,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         errors
     }
 
-    val namePatternErrors = validJobs.map(_.name).flatMap { name =>
+    val namePatternErrors = validJobs.filter(_.name.nonEmpty).map(_.name).flatMap { name =>
       if (!forceJobPrefixRegex.pattern.matcher(name).matches())
         Some(
           ValidationMessage(
@@ -922,7 +1012,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           None
       }
     this._jobs = validJobs
-    this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
+    this._jobErrors = nameErrors ++ namePatternErrors ++ taskNamePatternErrors
     (_jobErrors, _jobs)
   }
 

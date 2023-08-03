@@ -72,6 +72,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
       AutoJobDesc(
         name = jobNameOpt.getOrElse(""),
+        default = None,
         tasks = List(
           AutoTaskDesc(
             name = "",
@@ -79,7 +80,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
             database = databaseOpt,
             domain = domainOpt.getOrElse("Default"),
             table = schemaOpt.getOrElse("Table"),
-            write = writeOpt.getOrElse(WriteMode.OVERWRITE),
+            write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
             sink = Some(sinkOpt match {
               case Some(sink) =>
                 BigQuerySink(

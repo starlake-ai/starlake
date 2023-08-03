@@ -683,8 +683,8 @@ class SchemaHandlerSpec extends TestHelper {
           tasks.length shouldBe 3
           tasks.map(_.name) should contain theSameElementsInOrderAs (List(
             "dream2.client2", // tasks are handled before task refs
-            "task1",
-            "task2"
+            "myjob.task1",
+            "myjob.task2"
           ))
         case Failure(e) =>
           throw e

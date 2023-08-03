@@ -2,8 +2,8 @@
 transform:
   name: "my-job"
   taskRefs:
-    - _task1
-    - _task2.comet.yml
+    - task1
+    - task2.comet.yml
   tasks:
     - sql: "select * from dream_working.client"
       domain: "dream2"

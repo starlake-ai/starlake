@@ -13,7 +13,7 @@ class YamlSerializerSpec extends TestHelper {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None
       )
@@ -43,7 +43,7 @@ class YamlSerializerSpec extends TestHelper {
         None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None
       )
@@ -74,7 +74,7 @@ class YamlSerializerSpec extends TestHelper {
         database = None,
         domain = "user",
         table = "user",
-        write = WriteMode.OVERWRITE,
+        write = Some(WriteMode.OVERWRITE),
         python = None,
         merge = None
       )

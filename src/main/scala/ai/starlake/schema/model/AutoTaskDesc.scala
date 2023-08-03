@@ -32,7 +32,7 @@ case class AutoTaskDesc(
   database: Option[String],
   domain: String,
   table: String,
-  write: WriteMode,
+  write: Option[WriteMode],
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -46,8 +46,37 @@ case class AutoTaskDesc(
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
   merge: Option[MergeOptions] = None,
-  schedulerRef: Option[String] = None
+  schedulerRef: Option[String] = None,
+  _filenamePrefix: String = "" // for internal use. prefix of sql / py file
 ) extends Named {
+
+  def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
+
+  def merge(child: AutoTaskDesc): AutoTaskDesc = {
+    AutoTaskDesc(
+      name = child.name,
+      sql = child.sql,
+      database = child.database.orElse(database),
+      domain = if (child.domain.isEmpty) domain else child.domain,
+      table = if (child.table.isEmpty) table else child.table,
+      write = child.write.orElse(write),
+      partition = if (child.partition.isEmpty) partition else child.partition,
+      presql = presql ++ child.presql,
+      postsql = postsql ++ child.postsql,
+      sink = sink.map(_.merge(child.sink.getOrElse(AllSinks()))),
+      rls = rls ++ child.rls,
+      expectations = expectations ++ child.expectations,
+      acl = acl ++ child.acl,
+      comment = child.comment,
+      freshness = freshness.orElse(child.freshness),
+      attributesDesc = child.attributesDesc,
+      python = child.python,
+      tags = tags ++ child.tags,
+      merge = child.merge.orElse(merge),
+      schedulerRef = child.schedulerRef.orElse(schedulerRef),
+      _filenamePrefix = child._filenamePrefix
+    )
+  }
 
   def checkValidity(): Either[List[String], Boolean] = {
     freshness.map(_.checkValidity()).getOrElse(Right(true)).left.map { errors =>
@@ -63,7 +92,7 @@ case class AutoTaskDesc(
     database = None,
     domain = "",
     table = "",
-    write = WriteMode.OVERWRITE,
+    write = Some(WriteMode.OVERWRITE),
     python = None,
     merge = None
   ) // Should never be called. Here for Jackson deserialization only
