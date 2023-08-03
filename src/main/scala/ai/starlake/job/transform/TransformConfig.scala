@@ -29,7 +29,7 @@ object TransformConfig extends CliConfig[TransformConfig] {
       opt[String]("name")
         .action((x, c) => c.copy(name = x))
         .required()
-        .text("Job Name"),
+        .text("Task Name"),
       opt[Unit]("compile")
         .action((x, c) => c.copy(compile = true))
         .optional()
