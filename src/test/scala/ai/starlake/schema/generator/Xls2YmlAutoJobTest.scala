@@ -41,7 +41,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
 
       job.domain shouldBe "someDomain"
       job.table shouldBe "dataset"
-      job.write shouldBe WriteMode.OVERWRITE
+      job.write shouldBe Some(WriteMode.OVERWRITE)
       job.sink.map(_.getSink()) shouldBe Some(
         BigQuerySink(
           timestamp = Some("partitionCol"),
@@ -92,7 +92,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
 
       job.domain shouldBe "someDomain"
       job.table shouldBe "dataset"
-      job.write shouldBe WriteMode.OVERWRITE
+      job.write shouldBe Some(WriteMode.OVERWRITE)
       job.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0
