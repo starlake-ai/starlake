@@ -1,6 +1,12 @@
-transform:
-  name: pi
-  coalesce: true
-  format: csv
-  taskRefs:
-    - pi
+task:
+  write: OVERWRITE
+  sink:
+    connectionRef: "Filesystem"
+    options:
+      emptyValue: ""
+      coalesce: true
+      format: csv
+      delimiter: "|"
+      ignoreLeadingWhiteSpace: false
+      ignoreTrailingWhiteSpace: false
+

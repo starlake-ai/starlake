@@ -271,12 +271,12 @@ object DatasetArea extends StrictLogging {
     template.getOrElse("quickstart") match {
       case "bigquery" =>
         val metadataResources = List(
-          "domains/hr/hr.comet.yml",
-          "domains/hr/_sellers.comet.yml",
-          "domains/hr/_locations.comet.yml",
-          "domains/sales/sales.comet.yml",
-          "domains/sales/_customers.comet.yml",
-          "domains/sales/_orders.comet.yml",
+          "domains/hr/_config.comet.yml",
+          "domains/hr/sellers.comet.yml",
+          "domains/hr/locations.comet.yml",
+          "domains/sales/_config.comet.yml",
+          "domains/sales/customers.comet.yml",
+          "domains/sales/orders.comet.yml",
           "jobs/kpi/kpi.comet.yml",
           "jobs/kpi/kpi.byseller.sql.j2",
           "types/default.comet.yml",
@@ -285,24 +285,20 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
         val rootResources = List(
-          "incoming/hr/locations-2018-01-01.ack",
           "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.ack",
           "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.ack",
           "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.ack",
           "incoming/sales/orders-2018-01-01.csv"
         )
         copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
       case "userguide" =>
         val metadataResources = List(
-          "domains/hr/hr.comet.yml",
-          "domains/hr/_sellers.comet.yml",
-          "domains/hr/_locations.comet.yml",
-          "domains/sales/sales.comet.yml",
-          "domains/sales/_customers.comet.yml",
-          "domains/sales/_orders.comet.yml",
+          "domains/hr/_config.comet.yml",
+          "domains/hr/sellers.comet.yml",
+          "domains/hr/locations.comet.yml",
+          "domains/sales/_config.comet.yml",
+          "domains/sales/customers.comet.yml",
+          "domains/sales/orders.comet.yml",
           "jobs/kpi/kpi.comet.yml",
           "jobs/kpi/kpi.byseller.sql.j2",
           "types/default.comet.yml",
@@ -313,13 +309,9 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
         val rootResources = List(
-          "incoming/hr/locations-2018-01-01.ack",
           "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.ack",
           "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.ack",
           "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.ack",
           "incoming/sales/orders-2018-01-01.csv"
         )
         copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
