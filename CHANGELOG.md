@@ -14,8 +14,10 @@
   - Sinks "name" attribute renamed to "connectionRef"
   - extensions no more used in file detection. Table patterns are directly applied to detect correct extensions 
   - Default connection ref may be defined in the application.yml file
+  - Sink name in XLs files is now transleted to aconnection ref name
+
 - ** DEPRECATED **
-  - All date time releated varaibles are now deprecated aka; comet_date, comet_year ... 
+  - All date time related variables are now deprecated aka; comet_date, comet_year ... 
 
 __Feature__:
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
