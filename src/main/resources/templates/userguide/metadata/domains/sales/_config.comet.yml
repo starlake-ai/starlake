@@ -2,15 +2,11 @@ load:
   name: "sales"
   metadata:
     directory: "${root_path}/incoming/sales"
-    mode: "FILE"
     format: "DSV"
     withHeader: true
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    sink:
-      type: ${sink_type}
-      #timestamp: signup
   tableRefs:
     - "_customers"
     - "_orders"

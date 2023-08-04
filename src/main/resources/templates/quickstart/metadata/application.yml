@@ -1,0 +1,4 @@
+connections:
+  Filesystem:
+  sparkFormat: "parquet"
+  type: "fs"

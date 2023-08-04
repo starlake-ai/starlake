@@ -407,6 +407,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
   def deserializedDomains(domainPath: Path, raw: Boolean = false): List[(Path, Try[Domain])] = {
+    // we load only files starting with _config.
     val paths = storage.list(
       domainPath,
       extension = ".yml",
