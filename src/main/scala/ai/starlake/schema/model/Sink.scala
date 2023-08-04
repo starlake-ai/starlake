@@ -78,7 +78,7 @@ class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
   */
 
 sealed abstract class Sink {
-  def connectionRef: Option[String]
+  val connectionRef: Option[String]
   def toAllSinks(): AllSinks
   def getConnectionType(implicit
     settings: Settings
@@ -100,12 +100,12 @@ sealed abstract class Sink {
 }
 
 object Sink {
-  def fromConnectionType(sinkTypeStr: String): Sink = {
+  def xlsfromConnectionType(sinkTypeStr: String): Sink = {
     val sinkType = ConnectionType.fromString(sinkTypeStr)
     sinkType match {
-      case ConnectionType.FS => FsSink()
-      case ConnectionType.BQ => BigQuerySink()
-      case ConnectionType.ES => EsSink()
+      case ConnectionType.FS => FsSink(connectionRef = Some(sinkTypeStr))
+      case ConnectionType.BQ => BigQuerySink(connectionRef = Some(sinkTypeStr))
+      case ConnectionType.ES => EsSink(connectionRef = Some(sinkTypeStr))
       case _ => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
     }
   }

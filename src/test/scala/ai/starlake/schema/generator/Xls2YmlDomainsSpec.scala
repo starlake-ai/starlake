@@ -2,18 +2,20 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{Domain, Format, FsSink}
+import ai.starlake.schema.model.{BigQuerySink, Domain, Format, Schema}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
 import scala.util.{Failure, Success}
 
-class Xls2YmlSpec extends TestHelper {
+class Xls2YmlDomainsSpec extends TestHelper {
   new WithSettings() {
     Xls2YmlDomains.writeDomainsAsYaml(
       File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
     )
-    val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
+    val outputPath = File(DatasetArea.domains.toString + "/someDomain/_config.comet.yml")
+    val schema1Path = File(DatasetArea.domains.toString + "/someDomain/SCHEMA1.comet.yml")
+    val schema2Path = File(DatasetArea.domains.toString + "/someDomain/SCHEMA2.comet.yml")
 
     val result: Domain = YamlSerializer
       .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
@@ -21,30 +23,41 @@ class Xls2YmlSpec extends TestHelper {
       case Failure(exception) => throw exception
     }
 
+    val schema1: Schema = YamlSerializer
+      .deserializeSchemaRefs(schema1Path.contentAsString, schema1Path.pathAsString)
+      .tables
+      .head
+
+    val schema2: Schema = YamlSerializer
+      .deserializeSchemaRefs(schema2Path.contentAsString, schema2Path.pathAsString)
+      .tables
+      .head
+
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputPath.exists shouldBe true
       result.name shouldBe "someDomain"
-      result.tables.size shouldBe 2
+      result.tableRefs.size shouldBe 2
     }
 
     it should "trim leading of trailing spaces in cells contents" in {
-      result.tables.map(_.name) should contain(
+      result.tableRefs should contain(
         "SCHEMA1"
       ) // while it is "SCHEMA1 " in the excel file
     }
 
     it should "take into account the index col of a schema" in {
       val sink = for {
-        schema   <- result.tables.find(_.name == "SCHEMA1")
+        schema   <- Some(schema1)
         metadata <- schema.metadata
         sink     <- metadata.sink
       } yield sink
 
-      sink.map(_.getSink()) shouldBe Some(FsSink())
+      sink.map(_.getSink()) shouldBe Some(
+        BigQuerySink(Some("BQ"), None, None, None, None, None, None, None)
+      )
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
-      val schema1 = result.tables.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       schema1.attributes.size shouldBe 19
@@ -60,7 +73,6 @@ class Xls2YmlSpec extends TestHelper {
         .flatMap(_.sampling)
         .get shouldEqual 10.0
 
-      val schema2 = result.tables.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
       schema2.attributes.size shouldBe 19

@@ -190,27 +190,30 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   )
                 )
             },
-            sink = sinkColumnsOpt.map(Sink.fromConnectionType).map {
-              case bqSink: BigQuerySink =>
-                val partitionBqSink = partitionColumns match {
-                  case ts :: Nil => bqSink.copy(timestamp = Some(ts))
-                  case _         => bqSink
-                }
-                val clusteredBqSink = clusteringOpt match {
-                  case Some(cluster) =>
-                    partitionBqSink.copy(clustering = Some(cluster))
-                  case _ => partitionBqSink
-                }
-                clusteredBqSink.toAllSinks()
-              case fsSink: FsSink =>
-                val clusteredFsSink = clusteringOpt match {
-                  case Some(cluster) => fsSink.copy(clustering = Some(cluster))
-                  case None          => fsSink
-                }
-                clusteredFsSink.toAllSinks()
-              case sink =>
-                sink.toAllSinks()
-            }
+            sink = sinkColumnsOpt
+              .map(Sink.xlsfromConnectionType)
+              .map {
+                case bqSink: BigQuerySink =>
+                  val partitionBqSink = partitionColumns match {
+                    case ts :: Nil =>
+                      bqSink.copy(timestamp = Some(ts)) // only one column allowed for BigQuery
+                    case _ => bqSink
+                  }
+                  val clusteredBqSink = clusteringOpt match {
+                    case Some(cluster) =>
+                      partitionBqSink.copy(clustering = Some(cluster))
+                    case _ => partitionBqSink
+                  }
+                  clusteredBqSink.toAllSinks()
+                case fsSink: FsSink =>
+                  val clusteredFsSink = clusteringOpt match {
+                    case Some(cluster) => fsSink.copy(clustering = Some(cluster))
+                    case None          => fsSink
+                  }
+                  clusteredFsSink.toAllSinks()
+                case sink =>
+                  sink.toAllSinks()
+              }
           )
 
           val mergeOptions: Option[MergeOptions] =

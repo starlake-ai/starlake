@@ -15,7 +15,7 @@ title: transform
 
 Parameter|Cardinality|Description
 ---|---|---
---name:`<value>`|*Required*|Job Name
+--name:`<value>`|*Required*|Task Name
 --compile:`<value>`|*Optional*|Return final query only
 --interactive:`<value>`|*Optional*|Run query without 
 --no-sink:`<value>`|*Optional*|Just run the query and return rows
