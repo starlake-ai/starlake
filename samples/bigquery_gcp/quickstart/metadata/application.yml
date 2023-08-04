@@ -1,6 +1,6 @@
 audit:
   sink:
-    connectionRef: {{ connection_ref }}
+    connectionRef: {{ myConnection }}
 
 
 accessPolicies:
@@ -21,12 +21,15 @@ connections:
     options:
       gcsBucket: "starlake-app"
       authType: "APPLICATION_DEFAULT"
+      authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
       #authType: SERVICE_ACCOUNT_JSON_KEYFILE
       #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
 
+      #authType: "ACCESS_TOKEN"
+      #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   sparkLocal:
     type: "fs"
 
 
 # validator: "spark" # "spark" or "native"
-connectionRef: {{ connection_ref }}
+connectionRef: {{ myConnection }}

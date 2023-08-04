@@ -13,6 +13,7 @@ import com.google.cloud.bigquery.{
   Table
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
@@ -84,28 +85,27 @@ class BigQuerySparkJob(
       cliConfig.createDisposition
     )
     // Authentication
+    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
-        logger.info("Getting Application Default for Spark BQ Credentials")
-        val jsonFile = GcpUtils
-          .getApplicationDefaultFile()
-          .getOrElse(throw new Exception("No Application Default Credentials Found"))
-        val jsonContent = getJsonKeyContent(jsonFile)
-        val jsonKeyInBase64 =
-          BaseEncoding.base64.encode(jsonContent.getBytes(StandardCharsets.UTF_8))
-        session.conf.set("credentials", jsonKeyInBase64)
+        val scopes = connectionOptions
+          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+          .split(',')
+        val cred = GoogleCredentials
+          .getApplicationDefault()
+          .createScoped(scopes: _*)
+        cred.refresh()
+        val accessToken = cred.getAccessToken()
+        session.conf.set("gcpAccessToken", accessToken.getTokenValue())
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        logger.info("Using Service Account Key for BQ Credentials")
         val jsonKeyContent = getJsonKeyContent()
         val jsonKeyInBase64 =
           BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
         session.conf.set("credentials", jsonKeyInBase64)
       case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
-        logger.info("Using Service Account Key for BQ Credentials")
         val jsonKeyInBase64 = connectionOptions("jsonKeyBase64")
         session.conf.set("credentials", jsonKeyInBase64)
       case "ACCESS_TOKEN" =>
-        logger.info("Using Access Token for BQ Credentials")
         val accessToken = connectionOptions("gcpAccessToken")
         session.conf.set("gcpAccessToken", accessToken)
     }

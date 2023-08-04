@@ -7,7 +7,12 @@ import ai.starlake.utils.{SQLUtils, Utils}
 import better.files.File
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.Credentials
-import com.google.auth.oauth2.{GoogleCredentials, ServiceAccountCredentials, UserCredentials}
+import com.google.auth.oauth2.{
+  AccessToken,
+  GoogleCredentials,
+  ServiceAccountCredentials,
+  UserCredentials
+}
 import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
@@ -63,16 +68,21 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   private def bigQueryCredentials(): Credentials = {
+    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
-        logger.info("Using Application Default for BQ Credentials")
-        GoogleCredentials.getApplicationDefault()
+        val scopes = connectionOptions
+          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+          .split(',')
+        val cred = GoogleCredentials
+          .getApplicationDefault()
+          .createScoped(scopes: _*)
+        cred.refresh()
+        cred
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        logger.info("Using Service Account Key for BQ Credentials")
         val credentialsStream = getJsonKeyStream()
         ServiceAccountCredentials.fromStream(credentialsStream)
       case "USER_CREDENTIALS" =>
-        logger.info("Using User Credentials for BQ Credentials")
         val clientId = connectionOptions("clientId")
         val clientSecret = connectionOptions("clientSecret")
         val refreshToken = connectionOptions("refreshToken")
@@ -82,21 +92,29 @@ trait BigQueryJobBase extends StrictLogging {
           .setClientSecret(clientSecret)
           .setRefreshToken(refreshToken)
           .build()
+      case "ACCESS_TOKEN" =>
+        val accessToken = connectionOptions("gcpAccessToken")
+        GoogleCredentials.create(new AccessToken(accessToken, null))
     }
   }
 
   @nowarn
   private def gcsCredentials(): GcsCredentials = {
+    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
-        logger.info("Using Application Default Credentials fro GCS")
-        GcsGoogleCredentials.getApplicationDefault()
+        val scopes = connectionOptions
+          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+          .split(',')
+        val cred = GcsGoogleCredentials
+          .getApplicationDefault()
+          .createScoped(scopes: _*)
+        cred.refresh()
+        cred
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        logger.info("Using Service Account Key for GCS")
         val credentialsStream = getJsonKeyStream()
         GcsServiceAccountCredentials.fromStream(credentialsStream)
       case "USER_CREDENTIALS" =>
-        logger.info("Using User Credentials for GCS")
         val clientId = connectionOptions("clientId")
         val clientSecret = connectionOptions("clientSecret")
         val refreshToken = connectionOptions("refreshToken")
@@ -106,6 +124,14 @@ trait BigQueryJobBase extends StrictLogging {
           .setClientSecret(clientSecret)
           .setRefreshToken(refreshToken)
           .build()
+      case "ACCESS_TOKEN" =>
+        val accessToken = connectionOptions("gcpAccessToken")
+        GcsGoogleCredentials.create(
+          new com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.AccessToken(
+            accessToken,
+            null
+          )
+        )
     }
   }
 

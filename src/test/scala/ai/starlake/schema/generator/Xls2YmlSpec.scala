@@ -10,7 +10,7 @@ import scala.util.{Failure, Success}
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
-    Xls2Yml.generateSchema(
+    Xls2YmlDomains.writeDomainsAsYaml(
       File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
     )
     val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
@@ -105,16 +105,16 @@ class Xls2YmlSpec extends TestHelper {
 
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.tables.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
     "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.tables.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
       preEncrypt.tables.map(_.merge).forall(m => m.isEmpty) shouldBe true
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, None, Nil)
+      val postEncrypt = Xls2YmlDomains.genPostEncryptionDomain(domainOpt.get, None, Nil)
       postEncrypt.tables
         .flatMap(_.metadata.map(_.partition))
         .forall(p => p.isDefined) shouldBe true
@@ -134,21 +134,21 @@ class Xls2YmlSpec extends TestHelper {
 
     "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 0)
       validCount(preEncrypt, "SHA1", 1)
     }
     "All privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, Nil)
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 2)
       validCount(preEncrypt, "SHA1", 1)
     }
     "In prestep Attributes" should "not be renamed" in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, Nil)
       val schemaOpt = preEncrypt.tables.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
@@ -158,7 +158,7 @@ class Xls2YmlSpec extends TestHelper {
 
     "In poststep Attributes" should "keep renaming strategy" in {
       domainOpt shouldBe defined
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val postEncrypt = Xls2YmlDomains.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       val schemaOpt = postEncrypt.tables.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
@@ -169,7 +169,7 @@ class Xls2YmlSpec extends TestHelper {
     }
     "No privacy policies" should "be applied in the post-encrypt step " in {
       domainOpt shouldBe defined
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val postEncrypt = Xls2YmlDomains.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       validCount(postEncrypt, "HIDE", 0)
       validCount(postEncrypt, "MD5", 0)
       validCount(postEncrypt, "SHA1", 0)
@@ -177,7 +177,7 @@ class Xls2YmlSpec extends TestHelper {
 
     "a preEncryption domain" should " not have required attributes" in {
       domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2YmlDomains.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.tables.flatMap(_.attributes).filter(_.required) shouldBe empty
     }
 
@@ -187,7 +187,7 @@ class Xls2YmlSpec extends TestHelper {
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
       val postEncrypt =
-        Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
+        Xls2YmlDomains.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
       postEncrypt.tables
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
@@ -200,7 +200,7 @@ class Xls2YmlSpec extends TestHelper {
       domainOpt.get.tables
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
+      val postEncrypt = Xls2YmlDomains.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
       postEncrypt.tables
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
