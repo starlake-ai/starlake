@@ -5,8 +5,6 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 case class Freshness(
-  partitionFilter: Option[String] = None,
-  timestamp: Option[String] = None,
   warn: Option[String] = None,
   error: Option[String] = None
 ) {
@@ -29,15 +27,6 @@ case class Freshness(
 
     checkDuration(warn)
     checkDuration(error)
-    timestamp match {
-      case Some(_) if warn.isEmpty && error.isEmpty =>
-        errorList += ValidationMessage(
-          Error,
-          "freshness",
-          "timestamp: When freshness timestamp is present, warn and/or error duration should be defined"
-        )
-      case _ =>
-    }
     if (errorList.isEmpty)
       Right(true)
     else

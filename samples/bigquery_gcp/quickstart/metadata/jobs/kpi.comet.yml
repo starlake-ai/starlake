@@ -1,8 +1,0 @@
-transform:
-  name: kpi
-  tasks:
-    - name: byseller
-      domain: sales_kpi
-      table: byseller_kpi
-      write: OVERWRITE
-

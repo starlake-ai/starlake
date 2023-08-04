@@ -1,13 +1,14 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
+import ai.starlake.utils.YamlSerializer._
+import better.files.File
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import ai.starlake.utils.YamlSerializer._
 
-object Xls2Yml extends LazyLogging {
+object Xls2YmlDomains extends LazyLogging {
 
   /** Encryption of a data source is done by running a specific ingestion job that aims only to
     * apply Privacy rules on the concerned attributes. To apply the Encryption process on the data
@@ -121,22 +122,29 @@ object Xls2Yml extends LazyLogging {
     postEncryptDomain
   }
 
-  def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
+  def writeDomainsAsYaml(inputPath: String, outputPath: Option[String] = None)(implicit
     settings: Settings
   ): Unit = {
     val reader = new XlsDomainReader(InputPath(inputPath))
     reader.getDomain().foreach { domain =>
-      writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
+      writeDomainAsYaml(domain, File(outputPath.getOrElse(DatasetArea.domains.toString)))
     }
   }
 
-  def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
+  def writeDomainAsYaml(domain: Domain, basePath: File): Unit = {
     logger.info(s"""Generated schemas:
          |${serialize(domain)}""".stripMargin)
-    serializeToFile(File(outputPath, s"${fileName}.comet.yml"), domain)
+    val folder = File(basePath, domain.name)
+    folder.createIfNotExists(asDirectory = true, createParents = true)
+    domain.tables foreach { schema =>
+      serializeToFile(File(folder, s"${schema.name}.comet.yml"), schema)
+    }
+    val tableRefs = domain.tables.map(_.name)
+    val domainDataOnly = domain.copy(tables = Nil, tableRefs = tableRefs)
+    serializeToFile(File(folder, s"_config.comet.yml"), domainDataOnly)
   }
 
-  def writeIamPolicyTagsYaml(
+  def writeIamPolicyTagsAsYaml(
     iamPolicyTags: IamPolicyTags,
     outputPath: String,
     fileName: String
@@ -159,20 +167,18 @@ object Xls2Yml extends LazyLogging {
                 domain <- new XlsDomainReader(InputPath(file)).getDomain()
               } yield {
                 val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-                writeDomainYaml(
+                writeDomainAsYaml(
                   preEncrypt,
-                  config.outputPath.getOrElse(defaultOutputPath),
-                  "pre-encrypt-" + preEncrypt.name
+                  File(config.outputPath.getOrElse(defaultOutputPath), "pre-encrypt")
                 )
                 val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-                writeDomainYaml(
+                writeDomainAsYaml(
                   postEncrypt,
-                  config.outputPath.getOrElse(defaultOutputPath),
-                  "post-encrypt-" + domain.name
+                  File(config.outputPath.getOrElse(defaultOutputPath), "post-encrypt")
                 )
               }
             } else {
-              config.files.foreach(generateSchema(_, config.outputPath))
+              config.files.foreach(writeDomainsAsYaml(_, config.outputPath))
             }
           case true =>
             config.files.foreach(
@@ -182,7 +188,7 @@ object Xls2Yml extends LazyLogging {
         config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
           val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
           val iamPolicyTags = IamPolicyTags(workbook.iamPolicyTags)
-          writeIamPolicyTagsYaml(
+          writeIamPolicyTagsAsYaml(
             iamPolicyTags,
             config.outputPath.getOrElse(DatasetArea.metadata.toString),
             "iam-policy-tags"
@@ -196,7 +202,7 @@ object Xls2Yml extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2Yml.run(args)
+    val result = Xls2YmlDomains.run(args)
     if (!result) throw new Exception("Xls2Yml failed!")
   }
 }
@@ -204,9 +210,14 @@ object Xls2Yml extends LazyLogging {
 object Main {
 
   def main(args: Array[String]): Unit = {
+    val cred = GoogleCredentials
+      .getApplicationDefault()
+      .createScoped("https://www.googleapis.com/auth/cloud-platform")
+    cred.refresh()
+    println(cred.getAccessToken())
     println(
       "[deprecated]: Please use ai.starlake.schema.generator.Xls2Yml instead of ai.starlake.schema.generator.Main"
     )
-    Xls2Yml.main(args)
+    // Xls2YmlDomains.main(args)
   }
 }

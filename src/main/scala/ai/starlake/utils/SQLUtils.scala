@@ -250,7 +250,10 @@ object SQLUtils extends StrictLogging {
 
     val tableAndAliasArray = tableAndAlias.trim.split("\\s")
     val tableName = tableAndAliasArray.head
-    val tableTuple = tableName.replaceAll("`", "").split("\\.").toList
+    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+      tableName.replaceAll(quote, "")
+    }
+    val tableTuple = quoteFreeTableName.split("\\.").toList
     if (cteContains(tableName) || tableName.contains("/") || tableName.contains("(")) {
       // this is a parquet reference with Spark syntax
       // or a function: from date(...)
