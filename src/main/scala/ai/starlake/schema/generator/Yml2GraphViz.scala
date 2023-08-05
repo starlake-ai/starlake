@@ -328,7 +328,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def aclAsDotString(config: Yml2GraphVizConfig): String = {
-    schemaHandler.domains(config.reload)
+    val domains = schemaHandler.domains(config.reload)
     aclPrefix + rlsAclTablesAsDot() + jobsAsDot() + tableAndAclAndRlsUsersAsDot() + aclRelationsAsDot() + rlsRelationsAsDot() + suffix
   }
 

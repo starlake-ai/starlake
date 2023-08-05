@@ -57,9 +57,8 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
       }
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
-          domainOrJobFilename = "_config.tableWithPartitions.comet.yml",
-          sourceDomainOrJobPathname =
-            "/sample/bq-integration-tests/_config.tableWithPartitions.comet.yml",
+          domainOrJobFilename = "_config.comet.yml",
+          sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.comet.yml",
           datasetDomainName = "SL_BQ_TEST_DS",
           sourceDatasetPathName = "",
           isDomain = false
@@ -97,7 +96,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
           val pathJob =
-            new Path(cometMetadataPath + "/transform/_config.addPartitionsWithOverwrite.comet.yml")
+            new Path(cometMetadataPath + "/transform/tableWithPartitions/_config.comet.yml")
           storageHandler.write(businessJobDef, pathJob)
           val schemaHandler = new SchemaHandler(storageHandler)
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())

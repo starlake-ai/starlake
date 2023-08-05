@@ -60,14 +60,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def checkValidity(
-    directorySeverity: Severity,
     reload: Boolean = false
   )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
     val domainStructureValidity = Domain.checkFilenamesValidity()(storage, settings)
     val typesValidity = this.types(reload).map(_.checkValidity())
     val loadedDomains = this.domains(reload)
-    val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this, directorySeverity))
+    val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsValidity =
       domainStructureValidity ++ loadedDomainsValidity
     val domainsVarsValidity = checkDomainsVars()
@@ -124,7 +123,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     config: ValidateConfig = ValidateConfig()
   ): Unit = {
     val validityErrorsAndWarnings =
-      checkValidity(directorySeverity = Warning, reload = config.reload)(storage)
+      checkValidity(reload = config.reload)(storage)
     val deserErrors = deserializedDomains(DatasetArea.load)
       .filter { case (path, res) =>
         res.isFailure
@@ -407,53 +406,66 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
   def deserializedDomains(domainPath: Path, raw: Boolean = false): List[(Path, Try[Domain])] = {
-    // we load only files starting with _config.
-    val paths = storage.list(
-      domainPath,
-      extension = ".yml",
-      recursive = true,
-      exclude = Some(Pattern.compile("^(?!_config\\.).*$"))
-    )
-
-    val domains = paths
-      .map { path =>
-        YamlSerializer
-          .deserializeDomain(
-            if (raw) storage.read(path) else Utils.parseJinja(storage.read(path), activeEnvVars()),
-            path.toString
-          )
-          // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
-          .map { domain =>
-            {
-              if (raw) {
-                domain
-              } else {
-                val tables = domain.tables.map { table =>
-                  table.copy(
-                    rls = table.rls.map(rls => {
-                      val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
-                      rls.copy(grants = grants)
-                    }),
-                    acl = table.acl.map(acl => {
-                      val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
-                      acl.copy(grants = grants)
-                    })
-                  )
-                }
-                val metadata = domain.metadata.getOrElse(Metadata())
-                // ideally the emptyNull field should set during object construction but the settings
-                // object is not available in the Metadata object
-                val enrichedMetadata = metadata
-                  .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
-
-                // set domain name
-                val domainName = if (domain.name == "") path.getParent().getName() else domain.name
-                domain.copy(name = domainName, tables = tables, metadata = Some(enrichedMetadata))
-              }
+    val directories = storage.listDirectories(domainPath)
+    val domainsOnly = directories
+      .map { directory =>
+        val configPath = new Path(directory, "_config.comet.yml")
+        if (storage.exists(configPath)) {
+          val domainOnly = YamlSerializer
+            .deserializeDomain(
+              if (raw) storage.read(configPath)
+              else Utils.parseJinja(storage.read(configPath), activeEnvVars()),
+              configPath.toString
+            )
+          val domainWithName = domainOnly
+            .map { domainOnly =>
+              val domainName = if (domainOnly.name == "") directory.getName() else domainOnly.name
+              domainOnly.copy(name = domainName)
             }
-          }
+          (configPath, domainWithName)
+
+        } else {
+          (configPath, Success(Domain(directory.getName())))
+        }
+
       }
-    paths.zip(domains)
+    val domains = domainsOnly.map { case (configPath, domainOnly) =>
+      // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
+      val domainCompleted = domainOnly.map { domain =>
+        {
+          if (raw) {
+            domain
+          } else {
+            val tables = domain.tables.map { table =>
+              table.copy(
+                rls = table.rls.map(rls => {
+                  val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+                  rls.copy(grants = grants)
+                }),
+                acl = table.acl.map(acl => {
+                  val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+                  acl.copy(grants = grants)
+                })
+              )
+            }
+            val metadata = domain.metadata.getOrElse(Metadata())
+            // ideally the emptyNull field should set during object construction but the settings
+            // object is not available in the Metadata object
+            val enrichedMetadata = metadata
+              .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
+
+            // set domain name
+            val domainName =
+              if (domain.name == "") configPath.getParent().getName() else domain.name
+            val domainResult =
+              domain.copy(name = domainName, tables = tables, metadata = Some(enrichedMetadata))
+            domainResult
+          }
+        }
+      }
+      (configPath, domainCompleted)
+    }
+    domains
   }
 
   def domains(reload: Boolean = false, raw: Boolean = false): List[Domain] = {
@@ -612,46 +624,39 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
+  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] = {
+    val jobDesc = loadJobDesc(jobPath)
+    logger.info(s"Successfully loaded job  in $jobPath")
+    val jobParentPath = jobPath.getParent()
+    loadJobTasks(jobDesc, jobParentPath)
+  }
+
+  def loadJobTasks(jobDesc: AutoJobDesc, jobFolder: Path): Try[AutoJobDesc] = {
     Try {
-
-      val jobDesc = loadJobDesc(jobPath)
-
       // Load task refs and inject them in the job
-      val folder = jobPath.getParent()
+      val autoTasksRefs = loadTaskRefs(jobDesc, jobFolder)
 
-      val autoTasksRefs = loadTaskRefs(jobPath, jobDesc, folder)
-
-      logger.info(s"Successfully loaded job  in $jobPath")
       val jobDescWithTaskRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
       // set task name / domain / table and load sql/py file if any
       val tasks = jobDescWithTaskRefs.tasks.map { taskDesc =>
-        val jobFilename = jobPath.getName()
-        val jobParentPath = jobPath.getParent()
-        val tableNameFromFilename =
-          if (taskDesc.name.isEmpty) jobFilename.substring(0, jobFilename.indexOf(".comet.yml"))
-          else taskDesc.name
-        val domainNameFromFoldername = {
-          val parentName = jobParentPath.getName()
-          val grandParentName = jobParentPath.getParent().getName()
-          if (grandParentName == "metadata" && parentName == "jobs")
-            settings.comet.domain
-          else
-            parentName
+        val (taskName, tableName) = (taskDesc.name, taskDesc.table) match {
+          case ("", "") =>
+            throw new Exception(
+              s"Task name or table must be defined for $taskDesc in ${jobFolder}"
+            )
+          case ("", table) =>
+            (table, table)
+          case (name, "") =>
+            (name, name)
+          case (name, table) =>
+            (name, table)
         }
 
-        val tableName = if (taskDesc.table.isEmpty) tableNameFromFilename else taskDesc.table
         // Domain name may be set explicitly or else we use the folder name
         val domainName =
-          if (taskDesc.domain.isEmpty) domainNameFromFoldername else taskDesc.domain
-
-        val taskName =
-          if (taskDesc.name.nonEmpty)
-            taskDesc.name
-          else
-            tableName
+          if (taskDesc.domain.isEmpty) jobFolder.getName() else taskDesc.domain
 
         val filenamePrefix =
           if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
@@ -664,7 +669,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
 
         val taskCommandFile: Option[Path] =
-          taskCommandPath(jobPath.getParent(), taskWithName._filenamePrefix)
+          taskCommandPath(jobFolder, taskWithName._filenamePrefix)
 
         val taskWithCommand = taskCommandFile
           .map { taskFile =>
@@ -695,7 +700,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           })
         )
       }
-      val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
+      val jobName = if (jobDesc.name.isEmpty) jobFolder.getName() else jobDesc.name
       // We do not check if task has a sql file associated with it, as it can be a python task
 
       val mergedTasks = jobDesc.default match {
@@ -714,8 +719,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        Failure(new Exception(s"Invalid Job file: $jobPath(${exception.getMessage})", exception))
+        Failure(new Exception(s"Invalid Job file: $jobFolder(${exception.getMessage})", exception))
     }
+  }
 
   private def loadJobDesc(jobPath: Path): AutoJobDesc = {
     val fileContent = storage.read(jobPath)
@@ -742,7 +748,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobDesc
   }
 
-  private def loadTaskRefs(path: Path, jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
+  private def loadTaskRefs(jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
     // List[(prefix, filename, extension)]
     val allFiles =
       storage
@@ -836,26 +842,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  /** To be deprecated soon
-    *
-    * @param path
-    *   : JOb path
-    * @param jobDesc
-    *   : job desc
-    * @return
-    */
-  private def finalDomainOrJobName(path: Path, name: String) =
-    if (path.getName != s"$name.comet.yml") {
-      val newJobName = path.getName.substring(0, path.getName.length - ".comet.yml".length)
-      if (name.nonEmpty)
-        logger.error(
-          s"deprecated: Please set the job name of ${path.getName} to reflect the filename. Job renamed to $newJobName. This feature will be removed soon"
-        )
-      newJobName
-    } else {
-      name
-    }
-
   def deserializedJobs(jobPath: Path): List[(Path, Try[AutoJobDesc])] = {
     val paths = storage.list(
       jobPath,
@@ -903,47 +889,46 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
-    val configs = storage.list(
-      DatasetArea.transform,
-      ".comet.yml",
-      recursive = true,
-      exclude = Some(Pattern.compile("^(?!_config\\.).*$"))
-    )
-    val (validJobsFile, invalidJobsFile) =
-      configs
-        .map { path =>
-          val result = loadJobFromFile(path)
+    val directories = storage.listDirectories(DatasetArea.transform)
+    val (validJobsFile, invalidJobsFile) = directories
+      .map { directory =>
+        val configPath = new Path(directory, "_config.comet.yml")
+        if (storage.exists(configPath)) {
+          val result = loadJobTasksFromFile(configPath)
           result match {
             case Success(_) =>
-              logger.info(s"Successfully loaded Job $path")
+              logger.info(s"Successfully loaded Job $configPath")
             case Failure(e) =>
-              logger.error(s"Failed to load Job file $path")
+              logger.error(s"Failed to load Job $configPath")
+              e.printStackTrace()
+          }
+          result
+        } else {
+          logger.info(s"Job $directory does not have a _config.yml file")
+          val job = AutoJobDesc(directory.getName(), Nil)
+          val result = loadJobTasks(job, directory)
+          result match {
+            case Success(_) =>
+              logger.info(s"Successfully loaded Job $directory")
+            case Failure(e) =>
+              logger.error(s"Failed to load Job $directory")
               e.printStackTrace()
           }
           result
         }
-        .partition(_.isSuccess)
+      }
+      .partition(_.isSuccess)
 
     val validJobs = validJobsFile
       .collect { case Success(job) => job }
-
-    val nameErrors = Utils.duplicates(
-      "Job name",
-      validJobs.filter(_.name.nonEmpty).map(_.name),
-      s"%s is defined %d times. A job can only be defined once."
-    ) match {
-      case Right(_) => Nil
-      case Left(errors) =>
-        errors
-    }
 
     val namePatternErrors = validJobs.filter(_.name.nonEmpty).map(_.name).flatMap { name =>
       if (!forceJobPrefixRegex.pattern.matcher(name).matches())
         Some(
           ValidationMessage(
             Error,
-            "View",
-            s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+            "Job",
+            s"Jon with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
           )
         )
       else
@@ -964,7 +949,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           None
       }
     this._jobs = validJobs
-    this._jobErrors = nameErrors ++ namePatternErrors ++ taskNamePatternErrors
+    this._jobErrors = namePatternErrors ++ taskNamePatternErrors
     (_jobErrors, _jobs)
   }
 

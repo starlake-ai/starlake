@@ -18,8 +18,8 @@ load:
     sink:
       type: ES
   tableRefs:
-    - _users.comet.yml
-    - _players
+    - users.comet.yml
+    - players
   tables:
     - name: "employee"
       pattern: "employee.*.csv"
