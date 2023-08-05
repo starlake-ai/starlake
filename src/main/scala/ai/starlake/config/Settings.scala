@@ -427,7 +427,6 @@ object Settings extends StrictLogging {
     forceTaskPattern: String,
     useLocalFileSystem: Boolean,
     sessionDurationServe: Long,
-    domain: String,
     database: String,
     tenant: String,
     engine: String,

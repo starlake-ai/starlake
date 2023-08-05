@@ -32,6 +32,7 @@ import org.apache.spark.sql.types._
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.Try
+import ai.starlake.schema.model.Severity._
 
 /** Dataset Schema
   *

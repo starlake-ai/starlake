@@ -31,6 +31,7 @@ import java.util.regex.Pattern
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import ai.starlake.schema.model.Severity._
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *

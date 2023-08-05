@@ -24,6 +24,7 @@ import java.io.{InputStream, StringWriter}
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Severity._
 
 class SchemaSpec extends TestHelper {
 

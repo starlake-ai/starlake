@@ -23,6 +23,7 @@ package ai.starlake.schema.model
 import java.io.InputStream
 
 import ai.starlake.TestHelper
+import ai.starlake.schema.model.Severity._
 
 class TypesSpec extends TestHelper {
   new WithSettings() {
