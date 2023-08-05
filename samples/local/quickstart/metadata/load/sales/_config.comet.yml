@@ -1,0 +1,11 @@
+load:
+  name: "sales"
+  directory: "${root_path}/incoming/sales"
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    withHeader: true
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+      #timestamp: signup

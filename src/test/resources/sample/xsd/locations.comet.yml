@@ -15,7 +15,7 @@ load:
     xml:
       rowTag: element
       inferSchema: false
-      rowValidationXSDPath: __SL_TEST_ROOT__/metadata/domains/sample/xsd/locations.xsd
+      rowValidationXSDPath: __SL_TEST_ROOT__/metadata/load/sample/xsd/locations.xsd
     partition:
       attributes:
         - comet_year

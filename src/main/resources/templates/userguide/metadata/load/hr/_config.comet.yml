@@ -2,6 +2,3 @@ load:
   name: "hr"
   metadata:
     directory: "${root_path}/incoming/hr"
-  tableRefs:
-    - sellers
-    - locations

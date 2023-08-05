@@ -14,14 +14,14 @@ import org.scalatest.BeforeAndAfterAll
 
 class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
-  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
+  lazy val pathBusiness = new Path(cometMetadataPath + "/transform/user.comet.yml")
 
   lazy val pathConfigBusiness = new Path(
-    cometMetadataPath + "/jobs/_config.comet.yml"
+    cometMetadataPath + "/transform/_config.comet.yml"
   )
 
   lazy val pathGraduateProgramBusiness = new Path(
-    cometMetadataPath + "/jobs/graduateProgram.comet.yml"
+    cometMetadataPath + "/transform/graduateProgram.comet.yml"
   )
 
   lazy val pathGraduateDatasetProgramBusiness = new Path(
@@ -81,8 +81,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user")
+          Nil
         )
 
       val configJobDef = mapper
@@ -140,8 +139,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user")
+          Nil
         )
 
       val configJobDef = mapper
@@ -186,8 +184,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user")
+          Nil
         )
 
       val configJobDef = mapper
@@ -248,8 +245,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user")
+          Nil
         )
 
       val configJobDef = mapper
@@ -301,8 +297,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user")
+          Nil
         )
 
       val configJobDef = mapper
@@ -356,8 +351,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("graduateProgram")
+          Nil
         )
 
       val configJobDef = mapper

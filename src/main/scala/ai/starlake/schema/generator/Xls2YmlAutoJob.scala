@@ -22,7 +22,7 @@ object Xls2YmlAutoJob extends LazyLogging {
       .foreach { autojob =>
         writeAutoJobYaml(
           autojob,
-          outputPath.getOrElse(DatasetArea.jobs.toString),
+          outputPath.getOrElse(DatasetArea.transform.toString),
           autojob.name
         )
       }

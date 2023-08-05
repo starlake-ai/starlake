@@ -111,8 +111,11 @@ object Settings extends StrictLogging {
     sink: AllSinks,
     maxErrors: Int,
     database: Option[String],
-    domain: Option[String]
+    domain: Option[String],
+    active: Option[Boolean]
   ) {
+    def isActive(): Boolean = this.active.getOrElse(false)
+
     def getConnectionRef(implicit settings: Settings): String =
       this.sink.connectionRef.getOrElse(settings.comet.connectionRef)
 

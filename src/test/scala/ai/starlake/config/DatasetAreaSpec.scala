@@ -31,7 +31,7 @@ class DatasetAreaSpec extends TestHelper {
       assertCommonStructure(settings)
       assertFoldersExist(
         settings,
-        List("out", "diagrams/domains", "diagrams/acl", "diagrams/jobs", "metadata", "incoming")
+        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "metadata", "incoming")
       )
     }
 
@@ -47,13 +47,12 @@ class DatasetAreaSpec extends TestHelper {
           "metadata/env.comet.yml",
           "metadata/env.BQ.comet.yml",
           "metadata/env.FS.comet.yml",
-          "incoming/sales/customers-2018-01-01.ack",
           "incoming/sales/customers-2018-01-01.psv"
         )
       )
       assertNoFilesInFolder(
         settings,
-        List("out", "diagrams/domains", "diagrams/acl", "diagrams/jobs", "incoming")
+        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "incoming")
       )
     }
 
@@ -64,32 +63,29 @@ class DatasetAreaSpec extends TestHelper {
         settings,
         Nil,
         List(
-          "metadata/domains/hr/hr.comet.yml",
-          "metadata/domains/hr/_locations.comet.yml",
-          "metadata/domains/hr/_sellers.comet.yml",
-          "metadata/domains/sales/sales.comet.yml",
-          "metadata/domains/sales/_customers.comet.yml",
-          "metadata/domains/sales/_orders.comet.yml",
-          "metadata/jobs/kpi/kpi.comet.yml",
-          "metadata/jobs/kpi/kpi.byseller.sql.j2",
+          "metadata/load/hr/_config.comet.yml",
+          "metadata/load/hr/locations.comet.yml",
+          "metadata/load/hr/sellers.comet.yml",
+          "metadata/load/sales/_config.comet.yml",
+          "metadata/load/sales/customers.comet.yml",
+          "metadata/load/sales/orders.comet.yml",
+          "metadata/transform/sales_kpi/_config.comet.yml",
+          "metadata/transform/sales_kpi/byseller_kpi.sql",
           "metadata/types/default.comet.yml",
           "metadata/types/types.comet.yml",
           "metadata/env.comet.yml",
           "metadata/env.BQ.comet.yml",
           "metadata/env.FS.comet.yml",
-          "incoming/hr/locations-2018-01-01.ack",
+          "metadata/application.yml",
           "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.ack",
           "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.ack",
           "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.ack",
           "incoming/sales/orders-2018-01-01.csv"
         )
       )
       assertNoFilesInFolder(
         settings,
-        List("out", "diagrams/domains", "diagrams/acl", "diagrams/jobs", "incoming")
+        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "incoming")
       )
     }
   }
@@ -97,7 +93,7 @@ class DatasetAreaSpec extends TestHelper {
   private def assertCommonStructure(settings: Settings): Unit = {
     assertExistence(
       settings,
-      List("out", "diagrams/domains", "diagrams/acl", "diagrams/jobs", "metadata", "incoming"),
+      List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "metadata", "incoming"),
       List(".vscode/extensions.json")
     )
   }

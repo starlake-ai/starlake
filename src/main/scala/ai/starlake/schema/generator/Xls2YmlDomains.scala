@@ -127,7 +127,7 @@ object Xls2YmlDomains extends LazyLogging {
   ): Unit = {
     val reader = new XlsDomainReader(InputPath(inputPath))
     reader.getDomain().foreach { domain =>
-      writeDomainAsYaml(domain, File(outputPath.getOrElse(DatasetArea.domains.toString)))
+      writeDomainAsYaml(domain, File(outputPath.getOrElse(DatasetArea.load.toString)))
     }
   }
 
@@ -140,7 +140,7 @@ object Xls2YmlDomains extends LazyLogging {
       serializeToFile(File(folder, s"${schema.name}.comet.yml"), schema)
     }
     val tableRefs = domain.tables.map(_.name)
-    val domainDataOnly = domain.copy(tables = Nil, tableRefs = tableRefs)
+    val domainDataOnly = domain.copy(tables = Nil)
     serializeToFile(File(folder, s"_config.comet.yml"), domainDataOnly)
   }
 
@@ -156,7 +156,7 @@ object Xls2YmlDomains extends LazyLogging {
 
   def run(args: Array[String]): Boolean = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    val defaultOutputPath = DatasetArea.domains.toString
+    val defaultOutputPath = DatasetArea.load.toString
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
         config.job match {

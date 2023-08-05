@@ -511,7 +511,6 @@ object JDBCUtils extends LazyLogging {
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), ack = ack)),
-      tableRefs = Nil,
       tables = cometSchema.toList,
       comment = None,
       ack = None

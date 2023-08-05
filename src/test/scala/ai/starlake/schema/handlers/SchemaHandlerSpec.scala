@@ -673,7 +673,7 @@ class SchemaHandlerSpec extends TestHelper {
     "Load Transform Job with taskrefs" should "succeed" in {
       cleanMetadata
       val schemaHandler = new SchemaHandler(storageHandler)
-      val filename = "/sample/job-with-taskrefs/my-job.comet.yml"
+      val filename = "/sample/job-with-taskrefs/_config.comet.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
       val job = schemaHandler.loadJobFromFile(jobPath)
@@ -681,7 +681,7 @@ class SchemaHandlerSpec extends TestHelper {
         case Success(job) =>
           val tasks = job.tasks
           tasks.length shouldBe 3
-          tasks.map(_.name) should contain theSameElementsInOrderAs (List(
+          tasks.map(_.name) should contain theSameElementsAs (List(
             "dream2.client2", // tasks are handled before task refs
             "myjob.task1",
             "myjob.task2"

@@ -23,7 +23,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       getClass.getResource("/sample/SomeJobTemplate.xls").getPath,
       Some(getClass.getResource("/sample/SomePolicies.xls").getPath)
     )
-    val outputFile = File(DatasetArea.jobs.toString + "/someJob.comet.yml")
+    val outputFile = File(DatasetArea.transform.toString + "/someJob.comet.yml")
 
     println(outputFile.contentAsString)
     val result: AutoJobDesc = YamlSerializer
@@ -59,7 +59,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       )
     }
 
-    val outputFile2 = File(DatasetArea.jobs.toString + "/someJob2.comet.yml")
+    val outputFile2 = File(DatasetArea.transform.toString + "/someJob2.comet.yml")
 
     val result2: AutoJobDesc = YamlSerializer
       .deserializeJob(outputFile2.contentAsString, outputFile2.pathAsString)
@@ -75,7 +75,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       getClass.getResource("/sample/SomeJobTemplateBQ.xls").getPath,
       Some(getClass.getResource("/sample/SomePolicies.xls").getPath)
     )
-    val outputFileBQ = File(DatasetArea.jobs.toString + "/someJobBQ.comet.yml")
+    val outputFileBQ = File(DatasetArea.transform.toString + "/someJobBQ.comet.yml")
 
     val resultBQ: AutoJobDesc = YamlSerializer
       .deserializeJob(outputFileBQ.contentAsString, outputFileBQ.pathAsString)

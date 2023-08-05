@@ -65,7 +65,6 @@ import scala.util.Try
   name: String,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
-  tableRefs: List[String] = Nil,
   tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
   comment: Option[String] = None,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
@@ -264,8 +263,8 @@ object Domain {
     storage: StorageHandler,
     settings: Settings
   ): List[Either[List[ValidationMessage], Boolean]] = {
-    val domainRootFiles = storage.list(DatasetArea.domains, recursive = false, exclude = None)
-    val domainRootDirectories = storage.listDirectories(DatasetArea.domains)
+    val domainRootFiles = storage.list(DatasetArea.load, recursive = false, exclude = None)
+    val domainRootDirectories = storage.listDirectories(DatasetArea.load)
     val diff = domainRootFiles.diff(domainRootDirectories)
     val extraFileWarnings = if (diff.nonEmpty) {
       List(
@@ -328,8 +327,6 @@ object Domain {
 
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
-      val tableRefsDiff: ListDiff[String] =
-        AnyRefDiff.diffSetString("tableRefs", existing.tableRefs.toSet, incoming.tableRefs.toSet)
       val commentDiff = AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
       val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
       val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
@@ -342,7 +339,6 @@ object Domain {
           updated = updatedTablesDiff
         ),
         metadataDiff,
-        tableRefsDiff,
         commentDiff,
         tagsDiffs,
         renameDiff

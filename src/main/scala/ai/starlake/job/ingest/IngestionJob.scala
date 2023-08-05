@@ -501,7 +501,7 @@ trait IngestionJob extends SparkJob {
               schemaHandler.getDatabase(domain),
               settings.comet.tenant
             )
-            AuditLog.sink(Map.empty, optionalAuditSession, log)
+            AuditLog.sink(optionalAuditSession, log)
           }
           logger.error(err)
           Failure(exception)
@@ -535,7 +535,7 @@ trait IngestionJob extends SparkJob {
                 schemaHandler.getDatabase(domain),
                 settings.comet.tenant
               )
-              AuditLog.sink(Map.empty, optionalAuditSession, log)
+              AuditLog.sink(optionalAuditSession, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
             }.recoverWith { case exception =>
@@ -1058,7 +1058,7 @@ trait IngestionJob extends SparkJob {
             schemaHandler.getDatabase(domain),
             settings.comet.tenant
           )
-          AuditLog.sink(Map.empty, optionalAuditSession, log)
+          AuditLog.sink(optionalAuditSession, log)
           sinkedDF
         case Failure(exception) =>
           Utils.logException(logger, exception)
@@ -1079,7 +1079,7 @@ trait IngestionJob extends SparkJob {
             schemaHandler.getDatabase(domain),
             settings.comet.tenant
           )
-          AuditLog.sink(Map.empty, optionalAuditSession, log)
+          AuditLog.sink(optionalAuditSession, log)
           throw exception
       }
       (sinkedDF, acceptedPath)
@@ -1395,7 +1395,7 @@ trait IngestionJob extends SparkJob {
           schemaHandler.getDatabase(domain),
           settings.comet.tenant
         )
-        AuditLog.sink(Map.empty, optionalAuditSession, log)
+        AuditLog.sink(optionalAuditSession, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -1416,7 +1416,7 @@ trait IngestionJob extends SparkJob {
           schemaHandler.getDatabase(domain),
           settings.comet.tenant
         )
-        AuditLog.sink(Map.empty, optionalAuditSession, log)
+        AuditLog.sink(optionalAuditSession, log)
         Failure(exception)
     }
   }
