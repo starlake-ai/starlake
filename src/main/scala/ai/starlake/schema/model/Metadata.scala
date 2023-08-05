@@ -28,6 +28,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
 import ai.starlake.config.Settings
+import ai.starlake.schema.model.Severity._
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level

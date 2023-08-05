@@ -32,7 +32,7 @@ import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.Logger
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
-
+import ai.starlake.schema.model.Severity._
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -194,7 +194,7 @@ object Utils {
     }
     duplicates.foreach { case (key, size) =>
       errorList += ValidationMessage(
-        ai.starlake.schema.model.Error,
+        Error,
         target,
         errorMessage.format(key, size)
       )

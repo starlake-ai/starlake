@@ -30,6 +30,7 @@ import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.Try
+import ai.starlake.schema.model.Severity._
 
 /** List of globally defined types
   *

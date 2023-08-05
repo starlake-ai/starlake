@@ -40,6 +40,7 @@ import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
+import ai.starlake.schema.model.Severity._
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *

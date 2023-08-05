@@ -25,6 +25,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
+import ai.starlake.schema.model.Severity._
 
 import scala.annotation.nowarn
 import scala.collection.mutable

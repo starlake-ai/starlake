@@ -3,6 +3,7 @@ package ai.starlake.schema.model
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
+import ai.starlake.schema.model.Severity._
 
 case class Freshness(
   warn: Option[String] = None,

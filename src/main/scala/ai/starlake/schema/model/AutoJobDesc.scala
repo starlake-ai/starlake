@@ -25,6 +25,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 
 import scala.collection.mutable
 import scala.util.Try
+import ai.starlake.schema.model.Severity._
 
 /** A job is a set of transform tasks executed using the specified engine.
   *
@@ -55,9 +56,8 @@ case class AutoJobDesc(
   // TODO
   def checkValidity(
     schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Either[(List[String], List[String]), Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-    val warningList: mutable.MutableList[String] = mutable.MutableList.empty
+  )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
+    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     // Check Domain name validity
     val forceJobPrefixRegex = settings.comet.forceJobPattern.r
@@ -68,9 +68,13 @@ case class AutoJobDesc(
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
     if (!forceJobPrefixRegex.pattern.matcher(name).matches())
-      errorList += s"name: Job with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+      errorList += ValidationMessage(
+        Error,
+        "Transform",
+        s"name: Job with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+      )
     if (errorList.nonEmpty)
-      Left(errorList.toList, warningList.toList)
+      Left(errorList.toList)
     else
       Right(true)
   }
