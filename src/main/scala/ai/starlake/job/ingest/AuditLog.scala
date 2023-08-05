@@ -202,43 +202,45 @@ object AuditLog extends StrictLogging {
     }
   }
 
-  def sink(authInfo: Map[String, String], sessionOpt: Option[SparkSession], log: AuditLog)(implicit
+  def sink(sessionOpt: Option[SparkSession], log: AuditLog)(implicit
     settings: Settings
-  ): Any = {
-    // We sink to a file when running unit tests
-    settings.comet.audit.sink.getSink() match {
-      case sink: JdbcSink =>
-        val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
-        val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
-        import session.implicits._
-        val auditDF = session
-          .createDataFrame(
-            auditTypedRDD.toDF().rdd,
-            StructType(
-              auditCols.map { case (name, _, sparkType) =>
-                StructField(name = name, dataType = sparkType, nullable = true)
-              }
+  ): Unit = {
+    if (settings.comet.audit.isActive()) {
+      // We sink to a file when running unit tests
+      settings.comet.audit.sink.getSink() match {
+        case sink: JdbcSink =>
+          val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
+          val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
+          import session.implicits._
+          val auditDF = session
+            .createDataFrame(
+              auditTypedRDD.toDF().rdd,
+              StructType(
+                auditCols.map { case (name, _, sparkType) =>
+                  StructField(name = name, dataType = sparkType, nullable = true)
+                }
+              )
             )
+            .toDF(auditCols.map { case (name, _, _) => name }: _*)
+          val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+            sink.connectionRef.getOrElse(settings.comet.connectionRef),
+            settings.comet,
+            Right(auditDF),
+            settings.comet.audit.domain.getOrElse("audit") + ".audit"
           )
-          .toDF(auditCols.map { case (name, _, _) => name }: _*)
-        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-          sink.connectionRef.getOrElse(settings.comet.connectionRef),
-          settings.comet,
-          Right(auditDF),
-          settings.comet.audit.domain.getOrElse("audit") + ".audit"
-        )
-        new ConnectionLoadJob(jdbcConfig).run()
+          new ConnectionLoadJob(jdbcConfig).run()
 
-      case sink: BigQuerySink =>
-        val res = sinkToBigQuery(log, sink)
-        Utils.logFailure(res, logger)
-      case _: EsSink =>
-        // TODO Sink Audit Log to ES
-        throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: FsSink =>
-        sinkToFile(log, sessionOpt, settings)
-      case sink =>
-        throw new Exception(s"Sink $sink not supported for AuditLog")
+        case sink: BigQuerySink =>
+          val res = sinkToBigQuery(log, sink)
+          Utils.logFailure(res, logger)
+        case _: EsSink =>
+          // TODO Sink Audit Log to ES
+          throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
+        case _: FsSink =>
+          sinkToFile(log, sessionOpt, settings)
+        case sink =>
+          throw new Exception(s"Sink $sink not supported for AuditLog")
+      }
     }
   }
 

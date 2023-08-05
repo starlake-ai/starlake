@@ -1,6 +1,3 @@
 transform:
   default:
     write: OVERWRITE
-  taskRefs:
-    - byseller_kpi
-

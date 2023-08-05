@@ -141,7 +141,7 @@ case class DomainsDiff(added: List[String], deleted: List[String], updated: List
 }
 
 case class JobsDiff(added: List[String], deleted: List[String], updated: List[JobDiff]) {
-  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty
 }
 
 case class ProjectDiff(
@@ -195,7 +195,6 @@ case class DomainDiff(
   name: String,
   tables: SchemasDiff,
   metadata: ListDiff[Named],
-  tableRefs: ListDiff[String],
   comment: ListDiff[String],
   tags: ListDiff[String],
   rename: ListDiff[String]
@@ -203,7 +202,6 @@ case class DomainDiff(
   def isEmpty(): Boolean =
     tables.isEmpty &&
     metadata.isEmpty &&
-    tableRefs.isEmpty &&
     comment.isEmpty &&
     tags.isEmpty &&
     rename.isEmpty
@@ -218,8 +216,5 @@ case class TasksDiff(
 
 case class JobDiff(
   name: String,
-  tasks: TasksDiff,
-  taskRefs: ListDiff[String]
-) {
-  def isEmpty() = taskRefs.isEmpty()
-}
+  tasks: TasksDiff
+)

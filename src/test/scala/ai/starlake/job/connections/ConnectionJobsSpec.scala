@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
 class ConnectionJobsSpec extends TestHelper {
-  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
+  lazy val pathBusiness = new Path(cometMetadataPath + "/transform/user.comet.yml")
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
       pending
@@ -42,8 +42,7 @@ class ConnectionJobsSpec extends TestHelper {
       val businessJob =
         AutoJobDesc(
           "user",
-          List(businessTask1),
-          Nil
+          List(businessTask1)
         )
 
       val businessJobDef = mapper

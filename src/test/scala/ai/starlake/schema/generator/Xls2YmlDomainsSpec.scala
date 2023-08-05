@@ -13,9 +13,9 @@ class Xls2YmlDomainsSpec extends TestHelper {
     Xls2YmlDomains.writeDomainsAsYaml(
       File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
     )
-    val outputPath = File(DatasetArea.domains.toString + "/someDomain/_config.comet.yml")
-    val schema1Path = File(DatasetArea.domains.toString + "/someDomain/SCHEMA1.comet.yml")
-    val schema2Path = File(DatasetArea.domains.toString + "/someDomain/SCHEMA2.comet.yml")
+    val outputPath = File(DatasetArea.load.toString + "/someDomain/_config.comet.yml")
+    val schema1Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.comet.yml")
+    val schema2Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.comet.yml")
 
     val result: Domain = YamlSerializer
       .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
@@ -36,13 +36,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputPath.exists shouldBe true
       result.name shouldBe "someDomain"
-      result.tableRefs.size shouldBe 2
-    }
-
-    it should "trim leading of trailing spaces in cells contents" in {
-      result.tableRefs should contain(
-        "SCHEMA1"
-      ) // while it is "SCHEMA1 " in the excel file
     }
 
     it should "take into account the index col of a schema" in {

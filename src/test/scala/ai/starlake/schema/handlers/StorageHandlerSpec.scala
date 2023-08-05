@@ -163,8 +163,7 @@ class StorageHandlerSpec extends TestHelper {
       val configJob =
         AutoJobDesc(
           "",
-          Nil,
-          List("user.user")
+          Nil
         )
 
       val configJobDef = mapper

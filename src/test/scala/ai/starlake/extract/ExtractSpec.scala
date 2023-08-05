@@ -88,7 +88,6 @@ class ExtractSpec extends TestHelper {
         case Failure(e)      => throw e
       }
     assert(domain.name == "PUBLIC")
-    assert(domain.tableRefs.size == 2)
 
     val tableFile = publicOutputDir / "_TEST_TABLE1.comet.yml"
     val table =
@@ -96,10 +95,6 @@ class ExtractSpec extends TestHelper {
         .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
         .tables
         .head
-    domain.tableRefs should contain theSameElementsAs Set(
-      "_TEST_TABLE1",
-      "_TEST_VIEW1"
-    )
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
       "ID"   -> "long",
       "NAME" -> "string"
@@ -353,8 +348,6 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      assert(domain.tableRefs.size == 1)
-      assert(domain.tableRefs.head == "_TEST_TABLE1")
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
       val table =
         YamlSerializer
@@ -416,8 +409,6 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      assert(domain.tableRefs.size == 1)
-      assert(domain.tableRefs.head == "_TEST_TABLE2")
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.comet.yml")
       val table =
         YamlSerializer

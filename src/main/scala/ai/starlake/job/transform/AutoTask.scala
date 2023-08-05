@@ -576,7 +576,7 @@ case class AutoTask(
       taskDesc.getDatabase(settings),
       settings.comet.tenant
     )
-    AuditLog.sink(authInfo, optionalAuditSession, log)
+    AuditLog.sink(optionalAuditSession, log)
   }
 
   private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =

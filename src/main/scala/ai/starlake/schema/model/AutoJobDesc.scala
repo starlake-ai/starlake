@@ -49,7 +49,6 @@ import scala.util.Try
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  taskRefs: List[String] = Nil,
   default: Option[AutoTaskDesc] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
@@ -126,12 +125,9 @@ object AutoJobDesc {
       val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
         AutoTaskDesc.compare(existing, incoming)
       }
-      val taskRefsDiff =
-        AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
       JobDiff(
         existing.name,
-        TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff),
-        taskRefsDiff
+        TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff)
       )
     }
   }

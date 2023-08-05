@@ -83,7 +83,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private def checkDomainsVars(): List[ValidationMessage] = {
     val paths = storage.list(
-      DatasetArea.domains,
+      DatasetArea.load,
       extension = ".yml",
       recursive = true,
       exclude = Some(Pattern.compile("_.*"))
@@ -92,15 +92,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkJobsVars(): List[ValidationMessage] = {
-    val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    val paths = storage.list(DatasetArea.transform, ".yml", recursive = true)
     val ymlWarnings = paths.flatMap(checkVarsAreDefined)
     val sqlPaths =
-      storage.list(DatasetArea.jobs, ".sql.j2", recursive = true) ++ storage.list(
-        DatasetArea.jobs,
+      storage.list(DatasetArea.transform, ".sql.j2", recursive = true) ++ storage.list(
+        DatasetArea.transform,
         ".sql",
         recursive = true
       ) ++ storage.list(
-        DatasetArea.jobs,
+        DatasetArea.transform,
         ".py",
         recursive = true
       )
@@ -125,7 +125,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   ): Unit = {
     val validityErrorsAndWarnings =
       checkValidity(directorySeverity = Warning, reload = config.reload)(storage)
-    val deserErrors = deserializedDomains(DatasetArea.domains)
+    val deserErrors = deserializedDomains(DatasetArea.load)
       .filter { case (path, res) =>
         res.isFailure
       } map { case (path, err) =>
@@ -468,7 +468,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private var (_domainErrors, _domains): (List[ValidationMessage], List[Domain]) = loadDomains()
 
   def loadDomains(raw: Boolean = false): (List[ValidationMessage], List[Domain]) = {
-    loadDomainsFromArea(DatasetArea.domains, raw)
+    loadDomainsFromArea(DatasetArea.load, raw)
   }
 
   def loadExternals(): (List[ValidationMessage], List[Domain]) = {
@@ -560,17 +560,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
           val folder = path.getParent()
-          val tableRefNames = domain.tableRefs match {
-            case "*" :: Nil =>
-              storage
-                .list(folder, extension = ".comet.yml", recursive = true)
-                .map(_.getName())
-                .filter(!_.startsWith("_config."))
-            case _ =>
-              domain.tableRefs.map { ref =>
-                if (ref.endsWith(".comet.yml")) ref else ref + ".comet.yml"
-              }
-          }
+          val tableRefNames =
+            storage
+              .list(folder, extension = ".comet.yml", recursive = true)
+              .map(_.getName())
+              .filter(!_.startsWith("_config."))
 
           val schemaRefs = tableRefNames
             .map { tableRefName =>
@@ -704,8 +698,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
       // We do not check if task has a sql file associated with it, as it can be a python task
 
-      listOrphanCommandFiles(jobPath.getParent())
-
       val mergedTasks = jobDesc.default match {
         case Some(defaultTask) =>
           tasks.map { task =>
@@ -717,7 +709,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       AutoJobDesc(
         name = jobName,
         tasks = mergedTasks,
-        taskRefs = Nil,
         default = None
       )
     } match {
@@ -751,60 +742,29 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobDesc
   }
 
-  private def listOrphanCommandFiles(path: Path): List[Path] = {
-    val ymlFiles = storage.list(path, extension = ".comet.yml", recursive = false)
-    val commandFiles = storage.list(path, extension = ".sql", recursive = false) ++
-      storage.list(path, extension = ".sql.j2", recursive = true) ++
-      storage.list(path, extension = ".py", recursive = true)
-    val orphanFiles = commandFiles.filterNot { commandFile =>
-      ymlFiles.exists { jobFile =>
-        val ymlName = jobFile.getName().substring(0, jobFile.getName().indexOf(".comet.yml"))
-        val commandName = {
-          val commandName = commandFile.getName()
-          if (commandName.endsWith(".sql.j2"))
-            commandName.substring(0, commandName.indexOf(".sql.j2"))
-          else if (commandName.endsWith(".sql"))
-            commandName.substring(0, commandName.indexOf(".sql"))
-          else // (commandName.endsWith(".py"))
-            commandName.substring(0, commandName.indexOf(".py"))
-        }
-        ymlName == commandName
-      }
-    }
-    orphanFiles
-  }
-
   private def loadTaskRefs(path: Path, jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
-    // (prefix, name, extension)
-    val autoTasksRefNames: List[(String, String, String)] = jobDesc.taskRefs match {
-      case "*" :: Nil =>
-        storage
-          .list(folder, extension = ".comet.yml", recursive = true)
-          .map(_.getName())
-          .filter(name => !name.startsWith("_config."))
-          .map { ref =>
-            val startIndex = if (ref.startsWith("_")) 1 else 0
-            val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
-            (taskName, ref, "comet.yml")
-          }
-      case _ =>
-        jobDesc.taskRefs.map { ref =>
-          val startIndex = if (ref.startsWith("_")) 1 else 0
-          if (ref.endsWith(".comet.yml")) {
-            val taskName = ref.substring(startIndex, ref.length - ".comet.yml".length)
-            (taskName, ref, "comet.yml")
-          } else {
-            val itemDetails = anyItemDetails(folder, ref)
-            itemDetails
-              .map { case (path, prefix, extension) =>
-                val name = path.getName()
-                (prefix, name, extension)
-              }
-              .getOrElse(throw new Exception(s"Invalid task ref $ref in $path"))
-          }
+    // List[(prefix, filename, extension)]
+    val allFiles =
+      storage
+        .list(folder, recursive = true)
+        .map(_.getName())
+        .filter(name => !name.startsWith("_config."))
+        .flatMap { filename =>
+          // improve the code below to handle more than one extension
+          List("comet.yml", "sql", "sql.j2", "py")
+            .find(ext => filename.endsWith(s".$ext"))
+            .map { ext =>
+              val taskName = filename.substring(0, filename.length - s".$ext".length)
+              (taskName, filename, ext)
+            }
         }
-    }
-
+    val ymlFiles = allFiles.filter(_._3 == "comet.yml")
+    val sqlPyFiles = allFiles.filter(x =>
+      (x._3 == "sql" || x._3 == "sql.j2" || x._3 == "py")
+      && !ymlFiles.exists(_._1 == x._1)
+      && !jobDesc.tasks.exists(_.name == x._1)
+    )
+    val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
       extension match {
         case "comet.yml" =>
@@ -876,18 +836,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  /** @param basePath
-    * @param sqlFilePrefix
-    * @return
-    *   (path, prefix, extension)
-    */
-  private def anyItemDetails(
-    basePath: Path,
-    sqlFilePrefix: String
-  ): Option[(Path, String, String)] = {
-    getTaskPathDetails(basePath, sqlFilePrefix, List("comet.yml", "sql", "sql.j2", "py"))
-  }
-
   /** To be deprecated soon
     *
     * @param path
@@ -956,7 +904,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   @throws[Exception]
   private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
     val configs = storage.list(
-      DatasetArea.jobs,
+      DatasetArea.transform,
       ".comet.yml",
       recursive = true,
       exclude = Some(Pattern.compile("^(?!_config\\.).*$"))

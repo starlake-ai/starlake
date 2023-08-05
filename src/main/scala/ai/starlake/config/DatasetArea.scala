@@ -193,7 +193,10 @@ object DatasetArea extends StrictLogging {
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
-  def domains(implicit settings: Settings): Path =
+  def load(implicit settings: Settings): Path =
+    new Path(metadata, "load")
+
+  def oldLoad(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
   def external(implicit settings: Settings): Path =
@@ -202,7 +205,10 @@ object DatasetArea extends StrictLogging {
   def extract(implicit settings: Settings): Path =
     new Path(metadata, "extract")
 
-  def jobs(implicit settings: Settings): Path =
+  def transform(implicit settings: Settings): Path =
+    new Path(metadata, "transform")
+
+  def oldTransform(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
   def views(implicit settings: Settings): Path =
@@ -223,9 +229,24 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, external, extract, jobs, expectations, views, mapping).foreach(
+    def migrateFolder(oldPath: Path, newPath: Path): Unit = {
+      if (storage.exists(oldPath)) {
+        storage.move(oldPath, newPath)
+      }
+      if (storage.exists(oldPath)) {
+        throw new Exception(
+          s"Could not move old folder from ${oldPath} to ${newPath}"
+        )
+      }
+    }
+    val oldDomains = DatasetArea.oldLoad(settings)
+    migrateFolder(oldDomains, DatasetArea.load)
+    val oldJobs = DatasetArea.oldTransform(settings)
+    migrateFolder(oldJobs, DatasetArea.transform)
+    List(metadata, types, load, external, extract, transform, expectations, views, mapping).foreach(
       storage.mkdirs
     )
+
   }
 
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
@@ -256,9 +277,10 @@ object DatasetArea extends StrictLogging {
     }
 
     initMetadata(settings.storageHandler())
-    List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
-      val root = File(settings.comet.metadata).parent
-      File(root.pathAsString, folder.split('/'): _*).createDirectories()
+    List("out", "diagrams", "diagrams/load", "diagrams/acl", "diagrams/transform").foreach {
+      folder =>
+        val root = File(settings.comet.metadata).parent
+        File(root.pathAsString, folder.split('/'): _*).createDirectories()
     }
     val metadataFile = File(metadata.toString)
     metadataFile.createDirectories()
@@ -271,14 +293,14 @@ object DatasetArea extends StrictLogging {
     template.getOrElse("quickstart") match {
       case "bigquery" =>
         val metadataResources = List(
-          "domains/hr/_config.comet.yml",
-          "domains/hr/sellers.comet.yml",
-          "domains/hr/locations.comet.yml",
-          "domains/sales/_config.comet.yml",
-          "domains/sales/customers.comet.yml",
-          "domains/sales/orders.comet.yml",
-          "jobs/kpi/kpi.comet.yml",
-          "jobs/kpi/kpi.byseller.sql.j2",
+          "load/hr/_config.comet.yml",
+          "load/hr/sellers.comet.yml",
+          "load/hr/locations.comet.yml",
+          "load/sales/_config.comet.yml",
+          "load/sales/customers.comet.yml",
+          "load/sales/orders.comet.yml",
+          "transform/kpi/kpi.comet.yml",
+          "transform/kpi/kpi.byseller.sql.j2",
           "types/default.comet.yml",
           "types/types.comet.yml",
           "env.comet.yml"
@@ -293,16 +315,17 @@ object DatasetArea extends StrictLogging {
         copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
       case "userguide" =>
         val metadataResources = List(
-          "domains/hr/_config.comet.yml",
-          "domains/hr/sellers.comet.yml",
-          "domains/hr/locations.comet.yml",
-          "domains/sales/_config.comet.yml",
-          "domains/sales/customers.comet.yml",
-          "domains/sales/orders.comet.yml",
-          "jobs/kpi/kpi.comet.yml",
-          "jobs/kpi/kpi.byseller.sql.j2",
+          "load/hr/_config.comet.yml",
+          "load/hr/sellers.comet.yml",
+          "load/hr/locations.comet.yml",
+          "load/sales/_config.comet.yml",
+          "load/sales/customers.comet.yml",
+          "load/sales/orders.comet.yml",
+          "transform/sales_kpi/_config.comet.yml",
+          "transform/sales_kpi/byseller_kpi.sql",
           "types/default.comet.yml",
           "types/types.comet.yml",
+          "application.yml",
           "env.comet.yml",
           "env.BQ.comet.yml",
           "env.FS.comet.yml"
@@ -325,7 +348,6 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
         val rootResources = List(
-          "incoming/sales/customers-2018-01-01.ack",
           "incoming/sales/customers-2018-01-01.psv"
         )
         copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)

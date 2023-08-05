@@ -88,8 +88,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           private val businessJob =
             AutoJobDesc(
               "",
-              List(businessTask1),
-              Nil
+              List(businessTask1)
             )
           private val businessJobDef = mapper
             .writer()
@@ -98,7 +97,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
           val pathJob =
-            new Path(cometMetadataPath + "/jobs/_config.addPartitionsWithOverwrite.comet.yml")
+            new Path(cometMetadataPath + "/transform/_config.addPartitionsWithOverwrite.comet.yml")
           storageHandler.write(businessJobDef, pathJob)
           val schemaHandler = new SchemaHandler(storageHandler)
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())

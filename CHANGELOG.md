@@ -14,7 +14,8 @@
   - Sinks "name" attribute renamed to "connectionRef"
   - extensions no more used in file detection. Table patterns are directly applied to detect correct extensions 
   - Default connection ref may be defined in the application.yml file
-  - Sink name in XLs files is now transleted to aconnection ref name
+  - Sink name in XLs files is now translated to a connection ref name
+  - "domains" and "jobs" folders renamed to "load" and "transform"
 
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ... 

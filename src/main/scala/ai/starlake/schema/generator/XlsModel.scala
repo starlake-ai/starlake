@@ -12,7 +12,6 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_schema_refs" -> "Schema Refs",
     "_rename"      -> "Rename"
   )
   val allPolicyHeaders = List(
