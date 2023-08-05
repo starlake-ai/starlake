@@ -1,2 +1,3 @@
 load:
-  directory: "${root_path}/incoming/hr"
+  metadata:
+    directory: "${root_path}/incoming/hr"

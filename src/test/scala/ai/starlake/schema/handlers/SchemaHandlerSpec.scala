@@ -656,8 +656,8 @@ class SchemaHandlerSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/business/business.comet.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
-        val job = schemaHandler.loadJobFromFile(jobPath)
-        job.success.value.name shouldBe "business" // Job renamed to filename and error is logged
+        val job = schemaHandler.loadJobTasksFromFile(jobPath)
+        job.success.value.name shouldBe "business2"
       }
     }
 
@@ -667,7 +667,7 @@ class SchemaHandlerSpec extends TestHelper {
       val filename = "/sample/job-tasks-without-sql/nosql.comet.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
-      val job = schemaHandler.loadJobFromFile(jobPath)
+      val job = schemaHandler.loadJobTasksFromFile(jobPath)
       job.isFailure shouldBe false
     }
     "Load Transform Job with taskrefs" should "succeed" in {
@@ -676,7 +676,7 @@ class SchemaHandlerSpec extends TestHelper {
       val filename = "/sample/job-with-taskrefs/_config.comet.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
-      val job = schemaHandler.loadJobFromFile(jobPath)
+      val job = schemaHandler.loadJobTasksFromFile(jobPath)
       job match {
         case Success(job) =>
           val tasks = job.tasks
@@ -724,7 +724,7 @@ class SchemaHandlerSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/business/my-jinja-job.comet.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
-        val job = schemaHandler.loadJobFromFile(jobPath)
+        val job = schemaHandler.loadJobTasksFromFile(jobPath)
         println(job)
         job.success.value.tasks.head.sql.get.trim shouldBe """{% set myList = ["col1,", "col2"] %}
                                                              |select
@@ -865,6 +865,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
+        File(cometMetadataPath + "/load").delete(true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
@@ -878,8 +879,8 @@ class SchemaHandlerSpec extends TestHelper {
         val fileContent = readFileContent(File(tempFile, "_domains.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
-
-        val result = schemaHandler.domains().head.asDot(false, Set("segment", "client"))
+        val domains = schemaHandler.domains()
+        val result = domains.head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
@@ -909,6 +910,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
+        File(cometMetadataPath + "/load").delete(true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
@@ -990,13 +992,13 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
 
         withSettings.deliverTestFile(
-          "/sample/schema-refs/_players.comet.yml",
-          new Path(domainMetadataRootPath, "_players.comet.yml")
+          "/sample/schema-refs/players.comet.yml",
+          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "players.comet.yml")
         )
 
         withSettings.deliverTestFile(
-          "/sample/schema-refs/_users.comet.yml",
-          new Path(domainMetadataRootPath, "_users.comet.yml")
+          "/sample/schema-refs/users.comet.yml",
+          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "users.comet.yml")
         )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         schemaHandler

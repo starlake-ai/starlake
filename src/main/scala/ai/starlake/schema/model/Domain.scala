@@ -116,7 +116,10 @@ import scala.util.Try
   @nowarn def resolveDirectory(): String = {
     resolveDirectoryOpt() match {
       case Some(directory) => directory
-      case None => throw new Exception("directory attribute is mandatory. should never happen")
+      case None =>
+        throw new Exception(
+          """directory attribute is mandatory for the "import" command. should never happen"""
+        )
     }
   }
 
@@ -160,8 +163,7 @@ import scala.util.Try
     * @return
     */
   def checkValidity(
-    schemaHandler: SchemaHandler,
-    directorySeverity: Severity
+    schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
 
     val messageList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
@@ -182,24 +184,6 @@ import scala.util.Try
       )
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
-
-    resolveDirectoryOpt() match {
-      case Some(_) =>
-      // do nothin
-      case None =>
-        // TODO Check in metadata
-        directorySeverity match {
-          case Disabled =>
-          // do nothing even if directory is not resolved
-          case _ =>
-            messageList += ValidationMessage(
-              directorySeverity,
-              "Domain",
-              s"metadata: directory: Domain with name $name should define the directory attribute (used in the 'import' command)"
-            )
-
-        }
-    }
 
     // Check Schemas validity
     tables.foreach { schema =>

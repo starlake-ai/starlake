@@ -130,7 +130,9 @@ case class Metadata(
        |dag:${dag}
        |freshness:${freshness}
        |nullValue:${nullValue}
-       |emptyIsNull:${emptyIsNull}""".stripMargin
+       |emptyIsNull:${emptyIsNull}
+       |dag:$dag
+       |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
 
   def getMode(): Mode = getFinalValue(mode, FILE)
 

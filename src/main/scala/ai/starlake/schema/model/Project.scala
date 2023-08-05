@@ -39,14 +39,14 @@ object Project {
   ): DomainsDiff = {
     val p1Domains =
       schemaHandler1
-        .deserializedDomains(new Path(DatasetArea.metadata(settings1), "domains"))
+        .deserializedDomains(new Path(DatasetArea.metadata(settings1), "load"))
         .flatMap { case (path, tryDomain) =>
           tryDomain.toOption
         }
 
     val p2Domains =
       schemaHandler2
-        .deserializedDomains(new Path(DatasetArea.metadata(settings2), "domains"))
+        .deserializedDomains(new Path(DatasetArea.metadata(settings2), "load"))
         .flatMap { case (path, tryDomain) =>
           tryDomain.toOption
         }
@@ -77,14 +77,14 @@ object Project {
   ): JobsDiff = {
     val p1Jobs =
       schemaHandler1
-        .deserializedJobs(new Path(DatasetArea.metadata(settings1), "jobs"))
+        .deserializedJobs(new Path(DatasetArea.metadata(settings1), "transform"))
         .flatMap { case (path, tryDomain) =>
           tryDomain.toOption
         }
 
     val p2Jobs =
       schemaHandler2
-        .deserializedJobs(new Path(DatasetArea.metadata(settings2), "jobs"))
+        .deserializedJobs(new Path(DatasetArea.metadata(settings2), "transform"))
         .flatMap { case (path, tryDomain) =>
           tryDomain.toOption
         }
