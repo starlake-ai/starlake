@@ -76,6 +76,7 @@ class AnyRefDiffSpec extends TestHelper {
       assert(res.isSuccess)
     }
     "Generic Project Diff" should "be valid" in {
+      pending
       val resource1 = getClass.getClassLoader.getResource(
         "/Users/hayssams/git/public/starlake/internal/anyref/quickstart1"
       )
