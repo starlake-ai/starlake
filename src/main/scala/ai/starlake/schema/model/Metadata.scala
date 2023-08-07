@@ -100,7 +100,8 @@ case class Metadata(
   dag: Option[DagGenerationConfig] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
-  fillWithDefaultValue: Boolean = true
+  fillWithDefaultValue: Boolean = true,
+  schedule: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -248,6 +249,15 @@ case class Metadata(
     *   the metadata resulting of the merge of the schema and the domain metadata.
     */
   def merge(child: Metadata): Metadata = {
+    val mergedSchedule = merge(this.schedule, child.schedule)
+    val dag = typeMerge(this.dag, child.dag)
+    val dagWithSchedule = dag.map { dag =>
+      mergedSchedule match {
+        case Some(s) => dag.copy(schedule = Some(s))
+        case None    => dag
+      }
+    }
+
     Metadata(
       mode = merge(this.mode, child.mode),
       format = merge(this.format, child.format),
@@ -268,10 +278,11 @@ case class Metadata(
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       validator = merge(this.validator, child.validator),
-      dag = typeMerge(this.dag, child.dag),
+      dag = dagWithSchedule,
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
-      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
+      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
+      schedule = mergedSchedule
       // fillWithDefaultValue = merge(this.fillWithDefaultValue, child.fillWithDefaultValue)
     )
   }

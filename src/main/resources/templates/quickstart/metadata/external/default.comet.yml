@@ -1,5 +1,5 @@
 external:
-  - database: starlake5312
+  - database: myProjectId
     domains:
       - name: dataset1
         tables:
