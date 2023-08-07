@@ -81,7 +81,14 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val mode: Option[Mode] =
         Option(row.getCell(headerMap("_mode"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(Mode.fromString)
+          .map { x =>
+            if (x == "REF_FIB_FGD")
+              throw new IllegalArgumentException(
+                "REF_FIB_FGD is not a valid mode. Please use REF_FIB_FGD_1 or REF_FIB_FGD_2"
+              )
+            else
+              Mode.fromString(x)
+          }
       val write =
         Option(row.getCell(headerMap("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)

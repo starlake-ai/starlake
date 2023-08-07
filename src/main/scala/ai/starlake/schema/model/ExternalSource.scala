@@ -1,12 +1,12 @@
 package ai.starlake.schema.model
 
 case class ExternalSource(
-  projects: List[ExternalProject]
+  projects: List[ExternalDatabase]
 )
 
-case class ExternalProject(project: String, datasets: List[ExternalDataset] = Nil) {
+case class ExternalDatabase(project: String, domains: List[ExternalDomain] = Nil) {
   def toMap(): Map[String, List[String]] =
-    datasets.map { dataset => dataset.dataset -> dataset.tables }.toMap
+    domains.map { domain => domain.name -> domain.tables }.toMap
 }
 
-case class ExternalDataset(dataset: String, tables: List[String] = Nil)
+case class ExternalDomain(name: String, tables: List[String] = Nil)

@@ -108,6 +108,9 @@ trait XlsModel {
     allHeaders: List[String]
   ): (Iterable[Row], Map[String, Int]) = {
     val scalaSheet = sheet.asScala
+    if (scalaSheet == null) {
+      throw new IllegalArgumentException("Sheet is empty")
+    }
     val hasSchema = scalaSheet.head
       .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       .getStringCellValue

@@ -20,6 +20,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.utils.CliConfig
+import better.files.File
 import scopt.OParser
 
 /** @param files
@@ -53,7 +54,20 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
       head("starlake", command, "[options]"),
       note(""),
       opt[Seq[String]]("files")
-        .action((x, c) => c.copy(files = x))
+        .action { (x, c) =>
+          val allFiles = x.flatMap { f =>
+            val file = File(f)
+            if (file.isDirectory()) {
+              file.collectChildren(_.name.endsWith(".xlsx")).toList
+            } else if (file.exists) {
+              List(file)
+            } else {
+              throw new IllegalArgumentException(s"File $file does not exist")
+            }
+          }
+
+          c.copy(files = allFiles.map(_.pathAsString))
+        }
         .required()
         .text("List of Excel files describing Domains & Schemas OR Jobs"),
       opt[Boolean]("encryption")

@@ -1,0 +1,14 @@
+transform:
+  tasks:
+    - name: pi
+      write: OVERWRITE
+      sink:
+        connectionRef: "filesystem"
+        options:
+          emptyValue: ""
+          coalesce: "true"
+          format: csv
+          delimiter: "|"
+          ignoreLeadingWhiteSpace: "false"
+          ignoreTrailingWhiteSpace: "false"
+

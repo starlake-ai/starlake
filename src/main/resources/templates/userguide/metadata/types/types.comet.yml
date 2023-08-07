@@ -6,7 +6,6 @@ types:
     sample: "me@company.com"
     comment: "Valid email only"
     ddlMapping:
-      sql:
       bigquery: STRING
       snowflake: STRING
       postgres: varchar(8000)
@@ -17,7 +16,6 @@ types:
     sample: "A123456"
     comment: "Letter followed by 6 digits"
     ddlMapping:
-      sql:
       bigquery: STRING
       snowflake: STRING
       postgres: varchar(8000)
@@ -28,7 +26,6 @@ types:
     sample: "123456"
     comment: "6 digits string"
     ddlMapping:
-      sql:
       bigquery: STRING
       snowflake: STRING
       postgres: varchar(8000)

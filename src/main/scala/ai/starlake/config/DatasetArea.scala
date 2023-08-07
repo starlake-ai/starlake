@@ -341,7 +341,6 @@ object DatasetArea extends StrictLogging {
       case "quickstart" =>
         val metadataResources = List(
           "types/default.comet.yml",
-          "types/types.comet.yml",
           "env.comet.yml",
           "env.BQ.comet.yml",
           "env.FS.comet.yml"
