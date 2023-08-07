@@ -1,7 +1,7 @@
 external:
-  - project: starlake5312
-    datasets:
-      - dataset: dataset1
+  - database: starlake5312
+    domains:
+      - name: dataset1
         tables:
           - table1
           - table2

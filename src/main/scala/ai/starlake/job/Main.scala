@@ -317,7 +317,7 @@ class Main() extends StrictLogging {
         true
 
       case "xls2yml" =>
-        Xls2YmlDomains.run(args.drop(1))
+        Xls2Yml.run(args.drop(1))
 
       case "yml2xls" =>
         new Yml2Xls(schemaHandler).run(args.drop(1))

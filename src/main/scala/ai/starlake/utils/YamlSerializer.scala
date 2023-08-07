@@ -36,6 +36,8 @@ object YamlSerializer extends LazyLogging {
 
   def serialize(autoJob: AutoJobDesc): String = mapper.writeValueAsString(autoJob)
 
+  def serialize(autoTask: AutoTaskDesc): String = mapper.writeValueAsString(autoTask)
+
   def serialize(schema: ModelSchema): String = mapper.writeValueAsString(schema)
 
   def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
@@ -79,6 +81,11 @@ object YamlSerializer extends LazyLogging {
   def serializeToFile(targetFile: File, autoJobDesc: AutoJobDesc): Unit = {
     case class Transform(transform: AutoJobDesc)
     mapper.writeValue(targetFile.toJava, Transform(autoJobDesc))
+  }
+
+  def serializeToFile(targetFile: File, autoTaskDesc: AutoTaskDesc): Unit = {
+    case class Task(task: AutoTaskDesc)
+    mapper.writeValue(targetFile.toJava, Task(autoTaskDesc))
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {

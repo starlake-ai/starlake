@@ -4,11 +4,10 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer._
 import better.files.File
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
-object Xls2YmlDomains extends LazyLogging {
+object Xls2Yml extends LazyLogging {
 
   /** Encryption of a data source is done by running a specific ingestion job that aims only to
     * apply Privacy rules on the concerned attributes. To apply the Encryption process on the data
@@ -166,6 +165,7 @@ object Xls2YmlDomains extends LazyLogging {
                 file   <- config.files
                 domain <- new XlsDomainReader(InputPath(file)).getDomain()
               } yield {
+                logger.info(s"Generating encryption schemas for $file")
                 val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
                 writeDomainAsYaml(
                   preEncrypt,
@@ -178,7 +178,10 @@ object Xls2YmlDomains extends LazyLogging {
                 )
               }
             } else {
-              config.files.foreach(writeDomainsAsYaml(_, config.outputPath))
+              config.files.foreach { file =>
+                logger.info(s"Generating schemas for $file")
+                writeDomainsAsYaml(file, config.outputPath)
+              }
             }
           case true =>
             config.files.foreach(
@@ -202,7 +205,7 @@ object Xls2YmlDomains extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2YmlDomains.run(args)
+    val result = Xls2Yml.run(args)
     if (!result) throw new Exception("Xls2Yml failed!")
   }
 }
@@ -210,14 +213,10 @@ object Xls2YmlDomains extends LazyLogging {
 object Main {
 
   def main(args: Array[String]): Unit = {
-    val cred = GoogleCredentials
-      .getApplicationDefault()
-      .createScoped("https://www.googleapis.com/auth/cloud-platform")
-    cred.refresh()
-    println(cred.getAccessToken())
     println(
       "[deprecated]: Please use ai.starlake.schema.generator.Xls2Yml instead of ai.starlake.schema.generator.Main"
     )
-    // Xls2YmlDomains.main(args)
+    Thread.sleep(10000)
+    Xls2Yml.main(args)
   }
 }

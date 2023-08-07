@@ -14,12 +14,12 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
   private lazy val policies = new XlsPolicyReader(policyInput.getOrElse(input)).policies
 
-  lazy val autoJobsDesc: List[AutoJobDesc] = {
+  lazy val autoTasksDesc: List[AutoTaskDesc] = {
 
     val sheetSchema = workbook.getSheet("schemas")
     val (rowsSchema, headerMapSchema) =
       getColsOrder(sheetSchema, allSchemaJobHeaders.map { case (name, _) => name })
-    rowsSchema.map { row =>
+    rowsSchema.flatMap { row =>
       val jobNameOpt: Option[String] =
         Option(row.getCell(headerMapSchema("_job"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -70,70 +70,70 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
       val isPartition = sinkOpt.nonEmpty
 
-      AutoJobDesc(
-        name = jobNameOpt.getOrElse(""),
-        default = None,
-        tasks = List(
-          AutoTaskDesc(
-            name = "",
-            sql = None,
-            database = databaseOpt,
-            domain = domainOpt.getOrElse("Default"),
-            table = schemaOpt.getOrElse("Table"),
-            write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
-            sink = Some(sinkOpt match {
-              case Some(sink) =>
-                BigQuerySink(
-                  timestamp = Some(sink),
-                  requirePartitionFilter = Some(true)
-                ).toAllSinks()
-              case _ => BigQuerySink().toAllSinks()
-            }),
-            rls = rls,
-            acl = acl,
-            comment = commentOpt,
-            attributesDesc = {
-              schemaOpt
-                .flatMap(schema => Option(workbook.getSheet(schema)))
-                .map(sheet => {
-                  val (rowsAttributes, headerMapAttributes) =
-                    getColsOrder(sheet, allAttributeJobHeaders.map { case (k, _) => k })
-                  rowsAttributes.flatMap { row =>
-                    val nameOpt =
-                      Option(
-                        row.getCell(
-                          headerMapAttributes("_name"),
-                          Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
-                        )
-                      )
-                        .flatMap(formatter.formatCellValue)
-                    val descriptionOpt =
-                      Option(
-                        row.getCell(
-                          headerMapAttributes("_description"),
-                          Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
-                        )
-                      )
-                        .flatMap(formatter.formatCellValue)
-
-                    (nameOpt, descriptionOpt) match {
-                      case (Some(name), Some(description)) if description.trim.nonEmpty =>
-                        Some(
-                          AttributeDesc(
-                            name,
-                            comment = descriptionOpt.getOrElse("")
+      val task =
+        if (domainOpt.isEmpty) None
+        else
+          Some(
+            AutoTaskDesc(
+              name = jobNameOpt.getOrElse(throw new Exception("Job name is required in XLS")),
+              sql = None,
+              database = databaseOpt,
+              domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
+              table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
+              write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
+              sink = Some(sinkOpt match {
+                case Some(sink) =>
+                  BigQuerySink(
+                    timestamp = Some(sink),
+                    requirePartitionFilter = Some(true)
+                  ).toAllSinks()
+                case _ => BigQuerySink().toAllSinks()
+              }),
+              rls = rls,
+              acl = acl,
+              comment = commentOpt,
+              attributesDesc = {
+                schemaOpt
+                  .flatMap(schema => Option(workbook.getSheet(schema)))
+                  .map(sheet => {
+                    val (rowsAttributes, headerMapAttributes) =
+                      getColsOrder(sheet, allAttributeJobHeaders.map { case (k, _) => k })
+                    rowsAttributes.flatMap { row =>
+                      val nameOpt =
+                        Option(
+                          row.getCell(
+                            headerMapAttributes("_name"),
+                            Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
                           )
                         )
-                      case _ => None
-                    }
-                  }.toList
-                })
-            }.getOrElse(Nil),
-            python = None,
-            merge = None
+                          .flatMap(formatter.formatCellValue)
+                      val descriptionOpt =
+                        Option(
+                          row.getCell(
+                            headerMapAttributes("_description"),
+                            Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+                          )
+                        )
+                          .flatMap(formatter.formatCellValue)
+
+                      (nameOpt, descriptionOpt) match {
+                        case (Some(name), Some(description)) if description.trim.nonEmpty =>
+                          Some(
+                            AttributeDesc(
+                              name,
+                              comment = descriptionOpt.getOrElse("")
+                            )
+                          )
+                        case _ => None
+                      }
+                    }.toList
+                  })
+              }.getOrElse(Nil),
+              python = None,
+              merge = None
+            )
           )
-        )
-      )
-    }.toList
-  }
+      task
+    }
+  }.toList
 }

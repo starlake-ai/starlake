@@ -1,0 +1,32 @@
+tables:
+  - name: "customers"
+    pattern: "customers-.*.psv"
+    metadata:
+      separator: "|"
+      partition:
+        attributes:
+          - signup
+    merge:
+      key:
+        - id
+    primaryKey:
+      - id
+    attributes:
+      - name: "id"
+        type: "customerid"
+        required: true
+      - name: "signup"
+        type: "timestamp"
+        required: false
+      - name: "contact"
+        type: "email"
+        required: false
+      - name: "birthdate"
+        type: "date"
+        required: false
+      - name: "firstname"
+        type: "string"
+        required: false
+      - name: "lastname"
+        type: "string"
+        required: false

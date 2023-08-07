@@ -240,7 +240,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       Map.empty[String, ExpectationDefinition]
   }
 
-  def loadExternalSources(filename: String): List[ExternalProject] = {
+  def loadExternalSources(filename: String): List[ExternalDatabase] = {
     val externalPath = new Path(DatasetArea.external, filename)
     logger.info(s"Loading external $externalPath")
     if (storage.exists(externalPath)) {
@@ -250,11 +250,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .readValue(content, classOf[ExternalSource])
         .projects
     } else
-      List.empty[ExternalProject]
+      List.empty[ExternalDatabase]
   }
 
   @throws[Exception]
-  def externalSources(): List[ExternalProject] = loadExternalSources("default.comet.yml")
+  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.comet.yml")
 
   @throws[Exception]
   def expectations(name: String): Map[String, ExpectationDefinition] = {
