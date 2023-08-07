@@ -21,6 +21,7 @@ object Xls2YmlAutoJob extends LazyLogging {
     reader.autoTasksDesc
       .foreach { autotask =>
         val taskPath = File(basePath, autotask.domain)
+        logger.info(s"Generating autoJob schema for ${autotask.name} in $taskPath")
         writeAutoTaskYaml(
           autotask,
           taskPath,
