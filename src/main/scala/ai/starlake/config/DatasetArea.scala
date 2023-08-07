@@ -340,16 +340,21 @@ object DatasetArea extends StrictLogging {
         copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
       case "quickstart" =>
         val metadataResources = List(
+          "load/sales/_config.comet.yml",
+          "load/sales/customers.comet.yml",
+          "transform/kpi/_config.comet.yml",
+          "transform/kpi/customers_kpi.sql",
           "types/default.comet.yml",
-          "env.comet.yml",
-          "env.BQ.comet.yml",
-          "env.FS.comet.yml"
+          "application.yml",
+          "env.comet.yml"
         )
         copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
+
         val rootResources = List(
           "incoming/sales/customers-2018-01-01.psv"
         )
         copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
+
         val dagResources = List(
           "dags/default.comet.yml"
         )

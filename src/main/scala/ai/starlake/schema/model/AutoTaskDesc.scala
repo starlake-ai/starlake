@@ -46,7 +46,7 @@ case class AutoTaskDesc(
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
   merge: Option[MergeOptions] = None,
-  schedulerRef: Option[String] = None,
+  schedule: Option[String] = None,
   _filenamePrefix: String = "" // for internal use. prefix of sql / py file
 ) extends Named {
 
@@ -73,7 +73,7 @@ case class AutoTaskDesc(
       python = child.python,
       tags = tags ++ child.tags,
       merge = child.merge.orElse(merge),
-      schedulerRef = child.schedulerRef.orElse(schedulerRef),
+      schedule = child.schedule.orElse(schedule),
       _filenamePrefix = child._filenamePrefix
     )
   }

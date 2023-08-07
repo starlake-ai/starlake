@@ -42,11 +42,13 @@ class DatasetAreaSpec extends TestHelper {
         settings,
         Nil,
         List(
+          "metadata/load/sales/_config.comet.yml",
+          "metadata/load/sales/customers.comet.yml",
+          "metadata/transform/kpi/_config.comet.yml",
+          "metadata/transform/kpi/customers_kpi.sql",
           "metadata/types/default.comet.yml",
-          "metadata/types/types.comet.yml",
+          "metadata/application.yml",
           "metadata/env.comet.yml",
-          "metadata/env.BQ.comet.yml",
-          "metadata/env.FS.comet.yml",
           "incoming/sales/customers-2018-01-01.psv"
         )
       )

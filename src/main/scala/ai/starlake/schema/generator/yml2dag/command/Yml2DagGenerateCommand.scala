@@ -84,7 +84,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     logger.info(s"Generating dag $effectiveDagName with the following tables: $tables")
   }
 
-  private def resolveGenerationConfig(domainTables: List[DomainTable]) = {
+  private def resolveGenerationConfig(domainTables: List[DomainTable]): DagGenerationConfig = {
     domainTables
       .map(_.table)
       .headOption
