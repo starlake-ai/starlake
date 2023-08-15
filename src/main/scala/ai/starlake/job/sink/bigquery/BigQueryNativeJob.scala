@@ -27,15 +27,22 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
   logger.info(s"BigQuery Config $cliConfig")
 
   private def uploadFilesToGCS(sourceURIs: String): List[Path] = {
-    val temporrayGcsBucket = settings.comet.internal
-      .flatMap(_.temporaryGcsBucket)
+
+    val temporaryGcsBucket = connectionOptions
+      .get("temporaryGcsBucket")
+      .orElse(
+        settings.comet.internal
+          .flatMap(_.temporaryGcsBucket)
+      )
       .getOrElse(
-        throw new Exception("Temporary GCS Bucket not defined. Please env var TEMPORARY_GCS_BUCKET")
+        throw new Exception(
+          "Temporary GCS Bucket not defined. Please set env var SL_TEMPORARY_GCS_BUCKET"
+        )
       )
 
     val folderId = UUID.randomUUID().toString
     val gcsPath =
-      new Path(s"gs://${temporrayGcsBucket}/$folderId")
+      new Path(s"gs://${temporaryGcsBucket}/$folderId")
     sourceURIs
       .split(",")
       .map { sourceUri =>
@@ -44,7 +51,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
         val targetPath =
           Path.getPathWithoutSchemeAndAuthority(targetPathWithScheme)
         val targetObject = s"$folderId/${sourcePath.getName()}"
-        val blobId = BlobId.of(temporrayGcsBucket, targetObject)
+        val blobId = BlobId.of(temporaryGcsBucket, targetObject)
         val blobInfo = BlobInfo.newBuilder(blobId).build()
         val precondition: Storage.BlobWriteOption = Storage.BlobWriteOption.doesNotExist()
         val targetUri = Paths.get(sourcePath.toUri)

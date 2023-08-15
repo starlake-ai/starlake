@@ -13,7 +13,6 @@ connections:
       sftimezone: "TIMESTAMP_LTZ"
       preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
 
-
 audit:
   sink:
     connectionRef: snowflake
