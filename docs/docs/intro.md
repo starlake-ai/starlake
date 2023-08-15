@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # What is Starlake ?
 
-Starlake is a configuration based extract, load and transform engine.
+Starlake is a configuration only Extract, Load and Transform engine.
 The workflow below is a typical use case :
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
 * Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
@@ -12,14 +12,13 @@ The workflow below is a typical use case :
 * Start watching your data being available as Tables in your warehouse.
 * Build aggregates using SQL, Jinja and YAML configuration files.  
 
+You may use Sytarlake for Extract, Load and Transform steps or any combination of these steps.
 
 ## Data Extraction
-Starlake provides two options to extract, in full or incrementally, tables from your database:
+Starlake provides a fast way to extract, in full or incrementally, tables from your database.
 
-1. By directly connecting to the source database and copying tables to the target warehouse. 
-This approach, based on a JDBC/ODBC connection, works well for small sets of data but is not suitable for exporting high volumes of data.
-
-2. By using the much faster and reliable bulk export feature of the source database, storing into files and load those files in the target warehouse.
+Using parallel load through a JDBC connection and configuring the incremental fields in the schema, you may extract your data incrementally.
+Once copied to the cloud provider of your choice, the data is available for further processing by the Load and Transform steps.
 
 ## Data Loading
 Usually, data loading is done by writing hand made custom parsers that transform input files into datasets of records.
@@ -35,12 +34,14 @@ The major benefits the Starlake data loader bring to your warehouse are:
 * Support semantic types by allowing you to set type constraints on the incoming data
 * Apply privacy to specific fields
 * Apply security at load time
-* Starlake is a very, very simple piece of software
+* Preview your data lifecycle and publish in SVG format
+* Support multiple data sources and sinks
+* Starlake is a very, very simple piece of software to administer
 
 
 ## Data Transformation
 
-Simply write standard SQL et describe how you want the result to be stored in a YML description file.
+Simply write standard SQL et describe how you want the result to be stored in a YAML description file.
 The major benefits Starlake bring to your Data transformation jobs are:
 
 * Write transformations in regular SQL files
@@ -74,31 +75,32 @@ figure below.
 
 Starlake Data Pipeline steps are described below:
 
-- Landing Area : In this optional step, files with predefined pattern filenames are stored on a local filesystem in a predefined folder hierarchy
-- Pending Area : Files associated with a schema are imported into here.
-- Working Area : Pending files are parsed against their schema and records are rejected or accepted and made available in parquet files as Hive Tables or Big Query tables or parquet files in a cloud bucket.
+- Landing Area : In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
+- Pending Area : Files associated with a schema are imported into this area.
+- Accepted Area : Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
 - Business Area : Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-- Data visualization : parquet files / tables may be exposed in warehouses or elasticsearch indices through an indexing definition
+- Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 
-### On Premise Data Pipeline
+### BigQuery Data Pipeline
 
-![On Premise Workflow]( /img/guide/elt-onpremise.png )
+![Bigquery Workflow]( /img/guide/elt-gcp-bq.png )
 
 ### Azure Databricks Data Pipeline
 
 ![Azure Workflow]( /img/guide/elt-azure-databricks.png )
 
+### On Premise Data Pipeline
 
-### Data Pipeline on Google Cloud Storage
+![On Premise Workflow]( /img/guide/elt-onpremise.png )
+
+
+### Google Cloud Storage Data Pipeline
 
 ![Cloud Storage Workflow]( /img/guide/elt-gcp-gcs.png )
 
 
-### Data Pipeline on BigQuery
-
-![Bigquery Workflow]( /img/guide/elt-gcp-bq.png )
 
 
 
