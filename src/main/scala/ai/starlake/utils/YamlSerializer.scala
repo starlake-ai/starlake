@@ -153,6 +153,20 @@ object YamlSerializer extends LazyLogging {
     }
   }
 
+  def deserializeSchema(content: String, path: String): Try[ModelSchema] = {
+    Try {
+      val rootNode = mapper.readTree(content)
+      val tableNode = rootNode.path("table").asInstanceOf[ObjectNode]
+      val table = mapper.treeToValue(tableNode, classOf[ModelSchema])
+      table
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        logger.error(s"Invalid Schema file: $path(${exception.getMessage})")
+        Failure(exception)
+    }
+  }
+
   def deserializeDagGenerationConfig(content: String, path: String): Try[DagGenerationConfig] = {
     Try {
       val rootNode = mapper.readTree(content)

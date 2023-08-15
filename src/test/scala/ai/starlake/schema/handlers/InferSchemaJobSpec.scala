@@ -101,11 +101,21 @@ class InferSchemaJobSpec extends TestHelper {
             true,
             None
           )
-          val targetFile = File(targetDir, "locations.comet.yml")
+          val locationDir = File(targetDir, "locations")
+          val targetConfig = File(locationDir, "_config.comet.yml")
           val maybeDomain =
-            YamlSerializer.deserializeDomain(targetFile.contentAsString, targetFile.pathAsString)
+            YamlSerializer.deserializeDomain(
+              targetConfig.contentAsString,
+              targetConfig.pathAsString
+            )
           maybeDomain.isSuccess shouldBe true
-          val discoveredSchema = maybeDomain.get.tables.head
+          val targetFile = File(locationDir, "flat_locations.comet.yml")
+          val maybeTable = YamlSerializer.deserializeSchema(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+
+          val discoveredSchema = maybeTable.get
           discoveredSchema.name shouldBe "flat_locations"
           discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
             "id",

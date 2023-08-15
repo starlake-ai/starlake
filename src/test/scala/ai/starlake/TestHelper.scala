@@ -21,7 +21,7 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{CometObjectMapper, JobResult, SparkJob, Utils}
@@ -368,7 +368,7 @@ trait TestHelper
       validator.secure(config)
     }
 
-    def load(config: LoadConfig): Boolean = {
+    def load(config: IngestConfig): Boolean = {
       val validator = loadWorkflow()
       validator.load(config)
     }

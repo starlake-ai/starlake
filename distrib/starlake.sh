@@ -156,8 +156,13 @@ echo Make sure your java home path does not contain space
 #                  fs.defaultFS=$SL_FS"
 #fi
 
-SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
-#export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+if [[ -z "$SL_DEBUG" ]]
+then
+  SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
+else
+  SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+fi
+
 if [[ "$SL_DEFAULT_VALIDATOR" == "native" ]]
 then
   SL_ROOT=$SL_ROOT java \

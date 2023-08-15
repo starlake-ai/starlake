@@ -8,11 +8,7 @@ case class TransformConfig(
   options: Map[String, String] = Map.empty,
   compile: Boolean = false,
   interactive: Option[String] = None,
-  noSink: Boolean = false,
-  viewsDir: Option[String] = None,
-  viewsCount: Int = 1000,
   reload: Boolean = false,
-  authInfo: Map[String, String] = Map.empty,
   drop: Boolean = false
 )
 
@@ -37,29 +33,11 @@ object TransformConfig extends CliConfig[TransformConfig] {
       opt[String]("interactive")
         .action((x, c) => c.copy(interactive = Some(x)))
         .optional()
-        .text("Run query without "),
-      opt[Unit]("no-sink")
-        .action((x, c) => c.copy(noSink = true))
-        .optional()
-        .text("Just run the query and return rows"),
+        .text("Run query without sinking the result"),
       opt[Unit]("reload")
         .action((x, c) => c.copy(reload = true))
         .optional()
-        .text("Just run the query and return rows"),
-      opt[String]("views-dir")
-        .action((x, c) => c.copy(viewsDir = Some(x)))
-        .optional()
-        .text("Useful for testing. Where to store the result of the query in JSON"),
-      opt[Map[String, String]]("authInfo")
-        .action((x, c) => c.copy(authInfo = x))
-        .optional()
-        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey"),
-      opt[Int]("views-count")
-        .action((x, c) => c.copy(viewsCount = x))
-        .optional()
-        .text(
-          s"Useful for testing. Max number of rows to retrieve. Negative value means the maximum value ${Int.MaxValue}"
-        ),
+        .text("Reload YAML  files. Used in server mode"),
       opt[Boolean]("drop")
         .action((x, c) => c.copy(drop = x))
         .optional()

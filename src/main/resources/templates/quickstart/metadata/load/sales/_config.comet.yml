@@ -1,3 +1,0 @@
-load:
-  metadata:
-    directory: "{{incomingPath}}/incoming/hr"
