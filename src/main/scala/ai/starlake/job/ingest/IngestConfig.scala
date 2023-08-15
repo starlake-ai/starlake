@@ -31,17 +31,17 @@ import scopt.OParser
   * @param paths
   *   Absolute path of the file to ingest (present in the ingesting area of the domain)
   */
-case class LoadConfig(
+case class IngestConfig(
   domain: String = "",
   schema: String = "",
   paths: List[Path] = Nil,
   options: Map[String, String] = Map.empty
 )
 
-object LoadConfig extends CliConfig[LoadConfig] {
+object IngestConfig extends CliConfig[IngestConfig] {
   val command = "load"
-  val parser: OParser[Unit, LoadConfig] = {
-    val builder = OParser.builder[LoadConfig]
+  val parser: OParser[Unit, IngestConfig] = {
+    val builder = OParser.builder[IngestConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -66,11 +66,11 @@ object LoadConfig extends CliConfig[LoadConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[LoadConfig] = {
-    OParser.parse(parser, args, LoadConfig())
+  def parse(args: Seq[String]): Option[IngestConfig] = {
+    OParser.parse(parser, args, IngestConfig())
   }
 
   def main(args: Array[String]): Unit = {
-    println(LoadConfig.usage())
+    println(IngestConfig.usage())
   }
 }

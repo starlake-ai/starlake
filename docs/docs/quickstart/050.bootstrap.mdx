@@ -85,23 +85,23 @@ myproject/
 │   └── jobs
 ├── incoming
 │   └── sales
-│       ├── customers-2018-01-01.ack
 │       └── customers-2018-01-01.psv
 ├── metadata
 │   ├── assertions
-│   ├── domains
 │   ├── env.BQ.comet.yml
 │   ├── env.FS.comet.yml
 │   ├── env.comet.yml
 │   ├── extract
-│   ├── jobs
-│   │   ├── kpi.sql.j2
-│   │   └── kpi.comet.yml
+│   ├── load
+│   ├── transform
+│   │   ├── customers_kpi.sql
+│   │   └── _config.comet.yml
 │   ├── mapping
 │   ├── types
 │   │   ├── default.comet.yml
 │   │   └── types.comet.yml
-│   └── views
+│   ├── views
+│   └── application.yml
 └── out
 ```
 

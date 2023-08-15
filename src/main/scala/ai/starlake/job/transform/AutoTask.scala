@@ -51,14 +51,13 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(_, Map.empty, None, Map.empty))
+      .map(task(_, Map.empty, None))
   }
 
   def task(
     taskDesc: AutoTaskDesc,
     configOptions: Map[String, String],
-    interactive: Option[String],
-    authInfo: Map[String, String]
+    interactive: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -71,7 +70,6 @@ object AutoTask extends StrictLogging {
         .map(_.getSink())
         .orElse(Some(AllSinks().getSink())),
       interactive,
-      authInfo,
       taskDesc.getDatabase(settings)
     )
   }
@@ -94,7 +92,6 @@ case class AutoTask(
   commandParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String],
-  authInfo: Map[String, String],
   database: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
@@ -416,7 +413,7 @@ case class AutoTask(
           val tableDF = session.read
             .format(settings.comet.defaultFormat)
             .load(table.toString)
-          tableDF.createOrReplaceTempView(tableName)
+          tableDF.createOrReplaceTempView(s"$domainName.$tableName")
           tableName
         }.toOption
       }

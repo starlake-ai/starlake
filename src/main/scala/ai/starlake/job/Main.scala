@@ -6,7 +6,7 @@ import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
@@ -81,7 +81,7 @@ class Main() extends StrictLogging {
     ImportConfig,
     InferSchemaConfig,
     KafkaJobConfig,
-    LoadConfig,
+    IngestConfig,
     MetricsConfig,
     Parquet2CSVConfig,
     TransformConfig,
@@ -205,7 +205,7 @@ class Main() extends StrictLogging {
             println(WatchConfig.usage())
             false
         }
-      case "watch" | "loadall" =>
+      case "watch" | "load" =>
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
@@ -213,12 +213,12 @@ class Main() extends StrictLogging {
             println(WatchConfig.usage())
             false
         }
-      case "ingest" | "load" =>
-        LoadConfig.parse(args.drop(1)) match {
+      case "ingest" =>
+        IngestConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.load(config)
           case _ =>
-            println(LoadConfig.usage())
+            println(IngestConfig.usage())
             false
         }
 

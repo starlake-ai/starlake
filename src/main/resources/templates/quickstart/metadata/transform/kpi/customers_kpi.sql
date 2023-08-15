@@ -1,5 +1,5 @@
 -- compute the number of customers in the sales.customers table
-select count(*) cnt from ${ds}.customers
+select count(*) cnt from sales.customers
 
 
 

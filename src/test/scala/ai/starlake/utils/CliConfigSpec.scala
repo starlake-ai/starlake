@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.extract.{BigQueryTablesConfig, ExtractDataConfig, ExtractSchemaConfig}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
@@ -24,7 +24,7 @@ class CliConfigSpec extends TestHelper {
         "bqload"         -> BigQueryLoadConfig,
         "esload"         -> ESLoadConfig,
         "infer-schema"   -> InferSchemaConfig,
-        "load"           -> LoadConfig,
+        "load"           -> IngestConfig,
         "metrics"        -> MetricsConfig,
         "parquet2csv"    -> Parquet2CSVConfig,
         "cnxload"        -> JdbcConnectionLoadConfig,

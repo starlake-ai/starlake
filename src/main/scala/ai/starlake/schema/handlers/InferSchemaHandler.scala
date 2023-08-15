@@ -24,11 +24,10 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.util.regex.Pattern
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object InferSchemaHandler {
   val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
@@ -190,35 +189,32 @@ object InferSchemaHandler {
   def generateYaml(domain: Domain, saveDir: String)(implicit
     settings: Settings
   ): Try[File] = Try {
-    val savePath = File(saveDir, s"${domain.name}.comet.yml")
-    savePath.parent.createDirectories()
-    if (savePath.exists) {
 
-      val existingDomain = YamlSerializer.deserializeDomain(
-        settings.storageHandler().read(new Path(savePath.pathAsString)),
-        savePath.pathAsString
+    /** load: metadata: directory: "{{root_path}}/incoming"
+      */
+    val domainFolder = File(saveDir, domain.name)
+    domainFolder.createDirectories()
+    val configPath = File(domainFolder, "_config.comet.yml")
+    if (!configPath.exists) {
+      val config = Domain(
+        name = domain.name,
+        metadata = Some(
+          Metadata(
+            directory = Some(s"{{root_path}}/incoming")
+          )
+        )
       )
-      existingDomain match {
-        case Success(existingDomain) =>
-          val tableExist =
-            existingDomain.tables.exists(schema =>
-              schema.name.toLowerCase() == domain.tables.head.name
-            )
-          if (tableExist)
-            throw new Exception(
-              s"Table ${domain.tables.head.name} already defined in file $savePath"
-            )
-          val finalDomain =
-            existingDomain.copy(tables = existingDomain.tables ++ domain.tables)
-          YamlSerializer.serializeToFile(savePath, finalDomain)
-        case Failure(e) =>
-          e.printStackTrace()
-          throw e
-      }
-
-    } else {
-      YamlSerializer.serializeToFile(savePath, domain)
+      YamlSerializer.serializeToFile(configPath, config)
     }
-    savePath
+    val table = domain.tables.head
+    val tablePath = File(domainFolder, s"${table.name}.comet.yml")
+    if (tablePath.exists) {
+      throw new Exception(
+        s"Table ${domain.tables.head.name} already defined in file $tablePath"
+      )
+    } else {
+      YamlSerializer.serializeToFile(tablePath, table)
+    }
+    tablePath
   }
 }

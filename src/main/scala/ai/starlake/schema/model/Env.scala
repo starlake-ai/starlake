@@ -93,11 +93,11 @@ case class Refs(refs: List[Ref]) {
   def getOutputRef(domain: String, table: String): Option[OutputRef] = {
     val result = refs
       .find { ref =>
-        ref.input.domain match {
-          case Some(inputDomain) =>
+        (ref.input.database, ref.input.domain) match {
+          case (None, Some(inputDomain)) =>
             inputDomain.matcher(domain).matches() &&
             ref.input.table.matcher(table).matches()
-          case None =>
+          case _ =>
             false
         }
       }
@@ -108,8 +108,8 @@ case class Refs(refs: List[Ref]) {
   def getOutputRef(table: String): Option[OutputRef] = {
     val result = refs
       .find { ref =>
-        ref.input.domain match {
-          case None =>
+        (ref.input.database, ref.input.domain) match {
+          case (None, None) =>
             ref.input.table.matcher(table).matches()
           case _ =>
             false

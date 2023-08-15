@@ -250,16 +250,28 @@ object SQLUtils extends StrictLogging {
 
     val tableAndAliasArray = tableAndAlias.trim.split("\\s")
     val tableName = tableAndAliasArray.head
+    val aliasName = if (tableAndAliasArray.length == 1) None else tableAndAliasArray.lastOption
     val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
       tableName.replaceAll(quote, "")
     }
     val tableTuple = quoteFreeTableName.split("\\.").toList
-    if (cteContains(tableName) || tableName.contains("/") || tableName.contains("(")) {
+    if (tableName.contains("/") || tableName.contains("(")) {
       // this is a parquet reference with Spark syntax
       // or a function: from date(...)
-      // or a CTE reference
+      tableAndAlias
+    } else if (isFilesystem) {
+      // We keep only the table name, the database and domain names are ignored for filesystem
+      val tableName = tableTuple.last
+      if (cteContains(tableName)) {
+        s"$tableName ${aliasName.getOrElse("")}"
+      } else {
+        tableAndAlias
+      }
+    } else if (cteContains(tableName)) {
+      // a CTE reference
       tableAndAlias
     } else {
+      // We need to find it in the refs
       val activeEnvRefs = refs
       val databaseDomainTableRef =
         activeEnvRefs

@@ -307,10 +307,10 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
         val rootResources = List(
-          "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.csv"
+          "incoming/locations-2018-01-01.json",
+          "incoming/sellers-2018-01-01.json",
+          "incoming/customers-2018-01-01.psv",
+          "incoming/orders-2018-01-01.csv"
         )
         copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
       case "userguide" =>
@@ -332,12 +332,13 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
         val rootResources = List(
-          "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.csv"
+          "incoming/locations-2018-01-01.json",
+          "incoming/sellers-2018-01-01.json",
+          "incoming/customers-2018-01-01.psv",
+          "incoming/orders-2018-01-01.csv"
         )
         copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
+
       case "quickstart" =>
         val metadataResources = List(
           "load/sales/_config.comet.yml",
@@ -346,12 +347,14 @@ object DatasetArea extends StrictLogging {
           "transform/kpi/customers_kpi.sql",
           "types/default.comet.yml",
           "application.yml",
-          "env.comet.yml"
+          "env.comet.yml",
+          "env.LOCAL.comet.yml",
+          "env.BQ.comet.yml"
         )
         copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
 
         val rootResources = List(
-          "incoming/sales/customers-2018-01-01.psv"
+          "incoming/customers-2018-01-01.psv"
         )
         copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
 

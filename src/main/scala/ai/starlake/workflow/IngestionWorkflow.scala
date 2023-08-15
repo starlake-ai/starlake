@@ -449,7 +449,7 @@ class IngestionWorkflow(
 
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def load(config: LoadConfig): Boolean = {
+  def load(config: IngestConfig): Boolean = {
     if (config.domain.isEmpty || config.schema.isEmpty) {
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
@@ -680,8 +680,7 @@ class IngestionWorkflow(
     AutoTask.task(
       taskDesc,
       config.options,
-      config.interactive,
-      config.authInfo
+      config.interactive
     )(
       settings,
       storageHandler,

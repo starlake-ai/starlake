@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.IngestConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._
@@ -206,7 +206,7 @@ class SchemaHandlerSpec extends TestHelper {
           )
           cleanMetadata
           cleanDatasets
-          load(LoadConfig(domainOrJobFilename, "User", List(targetPath))) shouldBe true
+          load(IngestConfig(domainOrJobFilename, "User", List(targetPath))) shouldBe true
         }
       }
     }
