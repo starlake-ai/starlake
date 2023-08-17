@@ -136,10 +136,9 @@ case class Refs(refs: List[Ref]) {
 }
 
 case class Env(
-  env: Map[String, String],
-  refs: List[Ref]
+  env: Map[String, String]
 ) {
   @JsonCreator
-  def this() = this(Map.empty, Nil) // Should never be called. Here for Jackson deserialization only
+  def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
 
 }

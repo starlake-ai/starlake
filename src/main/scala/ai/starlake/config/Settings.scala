@@ -26,7 +26,7 @@ import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.lang.SystemUtils
@@ -341,7 +341,7 @@ object Settings extends StrictLogging {
     file: String
   )
 
-  case class AccessPolicies(apply: Boolean, location: String, projectId: String, taxonomy: String)
+  case class AccessPolicies(apply: Boolean, location: String, database: String, taxonomy: String)
 
   /** @param datasets
     *   : Absolute path, datasets root folder beneath which each area is defined.
@@ -372,7 +372,6 @@ object Settings extends StrictLogging {
     */
   final case class Comet(
     env: String,
-    tmpdir: String,
     datasets: String,
     dags: String,
     metadata: String,
@@ -429,12 +428,10 @@ object Settings extends StrictLogging {
     sessionDurationServe: Long,
     database: String,
     tenant: String,
-    engine: String,
     connectionRef: String,
-    schedule: Map[String, Map[String, String]]
+    schedule: Map[String, Map[String, String]],
+    refs: List[Ref]
   ) extends Serializable {
-    def getEngine() = Engine.fromString(engine.toUpperCase())
-
     def getUdfs(): Seq[String] =
       udfs
         .map { udfs =>
@@ -456,43 +453,12 @@ object Settings extends StrictLogging {
         s"$fs://$bucketName"
       }
     }
-    @JsonIgnore
-    def getSinkTypeFromEngine(): ConnectionType = {
-      connectionRef.toUpperCase() match {
-        case "BQ" | "BIGQUERY" => ConnectionType.BQ
-        case "SPARK" =>
-          val sparkConnection = this.connections("SPARK")
-          sparkConnection.getSparkFormat().toUpperCase() match {
-            case "KAFKA" | "KAFKASINK"              => ConnectionType.KAFKA
-            case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => ConnectionType.BQ
-            case "JDBC"                             => ConnectionType.JDBC
-            case "FS" | "FSSINK"                    => ConnectionType.FS
-            case "ES" | "ELASTICSEARCH"             => ConnectionType.ES
-            case _ =>
-              if (
-                sparkConnection.options
-                  .contains("url") && sparkConnection.options("url").startsWith("jdbc:")
-              ) {
-                ConnectionType.JDBC
-              } else
-                ConnectionType.FS
-          }
-        case "JDBC"  => ConnectionType.JDBC
-        case "KAFKA" => ConnectionType.KAFKA
-        case _       => throw new Exception(s"Unknown engine $engine")
-      }
-    }
 
     @JsonIgnore
     def getDefaultDatabase(): Option[String] = if (database.isEmpty) None else Some(database)
 
     val cacheStorageLevel: StorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
-
-    @throws(classOf[ObjectStreamException])
-    protected def writeReplace: AnyRef = {
-      Comet.JsonWrapped(this)
-    }
 
     @JsonIgnore
     def isHiveCompatible(): Boolean = hive || Utils.isRunningInDatabricks()
@@ -575,8 +541,15 @@ object Settings extends StrictLogging {
         val applicationConfContent = settings.storageHandler().read(applicationConfPath)
         val content =
           Utils.parseJinja(applicationConfContent, schemaHandler.activeEnvVars())(settings)
-        val jsonNode = YamlSerializer.mapper.readTree(content)
-        val jsonString = Utils.newJsonMapper().writeValueAsString(jsonNode)
+        val jsonNode: JsonNode = YamlSerializer.mapper.readTree(content)
+        val appNode = jsonNode.path("application")
+        val finalNode =
+          if (appNode.isNull() || appNode.isMissingNode) {
+            jsonNode
+          } else
+            appNode
+
+        val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
         val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
         Some(applicationConfig)
       case None =>

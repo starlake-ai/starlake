@@ -100,6 +100,7 @@ case class Schema(
     }
   }
 
+  @JsonIgnore
   def isFlat(): Boolean = {
     !attributes.exists(_.attributes.nonEmpty)
   }
