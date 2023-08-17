@@ -392,7 +392,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val content = Utils.parseJinja(rawContent, activeEnvVars())
       YamlSerializer.mapper.readValue(content, classOf[Refs])
     } else
-      Refs(Nil)
+      Refs(settings.comet.refs)
     this._refs = refs
     this._refs
   }

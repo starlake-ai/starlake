@@ -305,10 +305,10 @@ trait BigQueryJobBase extends StrictLogging {
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
     val taxonomyProjectId =
-      if (settings.comet.accessPolicies.projectId == "invalid_project") {
+      if (settings.comet.accessPolicies.database == "invalid_project") {
         this.projectId
       } else
-        settings.comet.accessPolicies.projectId
+        settings.comet.accessPolicies.database
 
     val location = settings.comet.accessPolicies.location
     val taxonomy = settings.comet.accessPolicies.taxonomy

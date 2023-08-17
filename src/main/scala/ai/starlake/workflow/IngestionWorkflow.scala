@@ -66,7 +66,7 @@ import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
-private case object SnowflakeDialect extends JdbcDialect with SQLConfHelper {
+private case object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
   override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:snowflake:")
   // override def quoteIdentifier(column: String): String = column
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
@@ -101,7 +101,7 @@ class IngestionWorkflow(
 
   import org.apache.spark.sql.jdbc.JdbcDialects
 
-  JdbcDialects.registerDialect(SnowflakeDialect)
+  JdbcDialects.registerDialect(StarlakeSnowflakeDialect)
 
   var domains: List[Domain] = schemaHandler.domains()
 

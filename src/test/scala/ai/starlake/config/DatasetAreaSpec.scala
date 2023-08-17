@@ -42,19 +42,17 @@ class DatasetAreaSpec extends TestHelper {
         settings,
         Nil,
         List(
-          "metadata/load/sales/_config.comet.yml",
-          "metadata/load/sales/customers.comet.yml",
           "metadata/transform/kpi/_config.comet.yml",
           "metadata/transform/kpi/customers_kpi.sql",
           "metadata/types/default.comet.yml",
-          "metadata/application.yml",
+          "metadata/application.comet.yml",
           "metadata/env.comet.yml",
-          "incoming/sales/customers-2018-01-01.psv"
+          "incoming/customers-2018-01-01.psv"
         )
       )
       assertNoFilesInFolder(
         settings,
-        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "incoming")
+        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform")
       )
     }
 
@@ -78,16 +76,16 @@ class DatasetAreaSpec extends TestHelper {
           "metadata/env.comet.yml",
           "metadata/env.BQ.comet.yml",
           "metadata/env.FS.comet.yml",
-          "metadata/application.yml",
-          "incoming/hr/locations-2018-01-01.json",
-          "incoming/hr/sellers-2018-01-01.json",
-          "incoming/sales/customers-2018-01-01.psv",
-          "incoming/sales/orders-2018-01-01.csv"
+          "metadata/application.comet.yml",
+          "incoming/locations-2018-01-01.json",
+          "incoming/sellers-2018-01-01.json",
+          "incoming/customers-2018-01-01.psv",
+          "incoming/orders-2018-01-01.csv"
         )
       )
       assertNoFilesInFolder(
         settings,
-        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "incoming")
+        List("out", "diagrams/load", "diagrams/acl", "diagrams/transform")
       )
     }
   }

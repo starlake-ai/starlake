@@ -325,7 +325,7 @@ object DatasetArea extends StrictLogging {
           "transform/sales_kpi/byseller_kpi.sql",
           "types/default.comet.yml",
           "types/types.comet.yml",
-          "application.yml",
+          "application.comet.yml",
           "env.comet.yml",
           "env.BQ.comet.yml",
           "env.FS.comet.yml"
@@ -341,12 +341,10 @@ object DatasetArea extends StrictLogging {
 
       case "quickstart" =>
         val metadataResources = List(
-          "load/sales/_config.comet.yml",
-          "load/sales/customers.comet.yml",
           "transform/kpi/_config.comet.yml",
           "transform/kpi/customers_kpi.sql",
           "types/default.comet.yml",
-          "application.yml",
+          "application.comet.yml",
           "env.comet.yml",
           "env.LOCAL.comet.yml",
           "env.BQ.comet.yml"

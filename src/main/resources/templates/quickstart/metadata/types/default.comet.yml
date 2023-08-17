@@ -42,7 +42,7 @@ types:
       postgres: DOUBLE PRECISION
   - name: "long"
     primitiveType: "long"
-    pattern: "-?\\d+"
+    pattern: "[-|\\+|0-9][0-9]*"
     sample: "-64564"
     comment: "any positive or negative number"
     ddlMapping:

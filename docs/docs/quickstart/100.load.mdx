@@ -45,11 +45,11 @@ and are required to be loaded incrementally.
 ## Infer the schema
 
 In Starlake terms, after loading, we will end up with:
-- one domain: `sales` . A domain is equivalent to a database schema or a BigQuery Dataset.
+- one domain: `sales` . A domain is equivalent to a database schema or a BigQuery dataset.
 - one table: the `customers` table in the `sales` domain 
 
-We first need to write a YML configuration file that describe the structure of the file to load into the warehouse.
-Instead of writing this file by hand, we may infer this YML configuration file using the `infer-schema` command.
+We first need to write a YAML configuration file that describe the structure of the file to load into the warehouse.
+Instead of writing this file by hand, we may infer this YAML configuration file using the `infer-schema` command.
 
 
 
@@ -61,7 +61,7 @@ $ cd $HOME/myproject
 $ $HOME/starlake/starlake.sh infer-schema               \
     --domain sales                                      \
     --table customers                                   \
-    --input incoming/sales/customers-2018-01-01.psv     \
+    --input incoming/customers-2018-01-01.psv     \
     --output-dir metadata/load --with-header
 ```
 
@@ -72,7 +72,7 @@ $ $HOME/starlake/starlake.sh infer-schema               \
 c:\users\me\starlake> %userprofile%\starlake\starlake.cmd infer-schema  ^
     --domain sales                                                      ^
     --table customers                                                   ^
-    --input incoming/sales/customers-2018-01-01.psv                     ^
+    --input incoming/customers-2018-01-01.psv                     ^
     --output-dir metadata/load --with-header
 ```
 
@@ -85,7 +85,7 @@ $ docker run                                                        \
     -v $HOME/myproject:/app/myproject -it starlake infer-schema     \
     --domain sales                                                  \
     --table customers                                               \
-    --input $HOME/myproject/incoming/sales/customers-2018-01-01.psv \
+    --input $HOME/myproject/incoming/customers-2018-01-01.psv \
     --output-dir $HOME/myproject/metadata/load                   \
     --with-header```
 ```
@@ -94,33 +94,42 @@ $ docker run                                                        \
 </Tabs>
 
 This command will infer the YML configuration file used by the loader to watch the folder for new files to load and to validate each record in those files.
-This file may be found in the `sales.comet.yml` file under the `metadata/domains/` folder.
+This file may be found in the `customers.comet.yml` file under the `metadata/load/sales` folder.
+Notice how the `customers.comet.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
+The domain configuration file _config.comet.yml_ is stored in the _domain_ folder.
 
-The contents of the file looks like this:
 
-```yaml
+The contents of the files look like this:
+
+### Domain configuration file: _config.comet.yml
+This file describes properties shared by all tables in this domain.
+Here we assume that all tables in the `sales` domain are loaded from the _incoming_ folder.
+`{{root_path}}` is a variable path set in the env file (more on this later).
+
+```yaml title="Domain configuration file: _config.comet.yml"
 ---
 load:
-  name: "sales"         # The domain name
-  metadata:             # All load specific rules regarding the file go here
-    mode: "FILE"        # we are loading a file here
-    format: "DSV"       # The format is delimiter separated values
-    encoding: "UTF-8"   # The input is encoded in UTF-8
-    multiline: false    # One line per record
-    array: false        # Is it an array of JSON. Ignored in DSV mode
-    withHeader: true    # Does the file contain a header ?
-    separator: "|"      # What is the delimiter value (multi-char delimited are allowed) ?
-    quote: "\""         # How fields are quoted if any
-    escape: "\\"        # what is the escape char ?
-    write: "APPEND"     # Should we overwrite the destination or append data in the destination table
-    directory: "{{root_path}}/incoming/sales" # Where will the files land before loading ? Please set the root_path variable in metadata/env.comet.yml 
-  tables:
-  - name: "customers"   # destination table name
-    pattern: "customers-2018-01-01.psv" #file pattern. Please replace it by a file pattern eq. customers-.*.psv
-    attributes:         # Description of the fields to recognize
+  name: "sales"
+  metadata:
+    directory: "{{root_path}}/incoming"
+```
+
+
+### Table configuration file: customers.comet.yml
+
+The YAML file describes the structure of the file to load into the warehouse.
+The `pattern` property is a regular expression that will be used to match the file name.
+
+```yaml title="Table schema: customers.comet.yml"
+---
+table:
+  name: "customers"   # destination table name
+  pattern: "customers-2018-01-01.psv" # This property is a regular expression that will be used to match the file name.
+                                      # Please replace it by a file pattern eq. customers-.*.psv
+  attributes:         # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
-      array: false      # is it an array (false by default, ignored in DSV files) ? 
+      array: false      # is it an array (false by default, ignored in DSV files) ?
       required: false   # Is this field required in the source (false by default, change it accordingly) ?
       privacy: "NONE"   # Should we crypt this field before loading to the warehouse (No crypting by default )?
       ignore: false     # Should this field be excluded (false by default) ?
@@ -141,6 +150,16 @@ load:
     - name: "country"
       type: "string"
       ...               # and so on ...
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: "|"
+    quote: "\""
+    escape: "\\"
 
 ```
 
@@ -167,18 +186,19 @@ env:
   root_path: ${HOME}/myproject
 ```
 
+or simply leave it as `{{SL_ROOT}}`.
+
+`SL_ROOT` is a special variable that is set to the directory where the `starlake` command is executed.
+
 ## Load files
 Loading is a two step process: The optional `import` step and the `load` step.
 
 ### Import step
 In this first step, Starlake will look at the directory defined in the YAML file and look at the file that matches the expected pattern.
-In our example, the directory is `{{root_path}}/incoming/sales` and the expected file pattern has been changed to `customers-.*.psv`
+In our example, the directory is `{{root_path}}/incoming` and the expected file pattern has been changed to `customers-.*.psv`
 `import` move files from domain directory defined in any domain files such as `metadata/domains/sales.comet.yml` to the `datasets/pending` directory.
-Moving files is only done when it matches at least one table pattern otherwise it is ignored.
+Moving files is only done when it matches at least one table pattern otherwise, the file is ignored and moved to the _unresolved_ directory.
 
-Before loading our data, we are going to add another entry in our yaml file by setting `load.metadata.ack=ack`.
-This entry define the behavior for all tables defined in our yaml file to wait for an ack with the same name but ending with `.ack` file before importing it.
-By default, the generated yaml doesn't check for any `.ack` file, hence all files matching the pattern are imported.
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
@@ -221,21 +241,21 @@ Also note that all these source directories may be [redefined](../reference/conf
 In this second step, each line in the file present in the `datasets/pending` folder is checked against the schema described in the YAML file
 and its result is stored in the warehouse.
 
-Before loading data to the warehouse, create a copy of the psv file and name it `unknown-table.psv`. Then run the `watch` command to load data as below:
+Before loading data to the warehouse, create a copy of the psv file and name it `unknown-table.psv`. Then run the `load` command to load data as below:
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
 $ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh watch
+$ $HOME/starlake/starlake.sh load
 ```
 
 </TabItem>
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\users\me\starlake> %userprofile%\starlake\starlake.cmd watch
+c:\users\me\starlake> %userprofile%\starlake\starlake.cmd load
 ```
 
 </TabItem>
@@ -244,7 +264,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd watch
 ```shell 
 $ docker run                                                        \
     -e SL_ROOT=/app/myproject                                    \
-    -v $HOME/myproject:/app/myproject -it starlake watch
+    -v $HOME/myproject:/app/myproject -it starlake load
 ```
 
 </TabItem>
@@ -257,12 +277,6 @@ This will load the dataset and store it as a parquet file into the folders:
 
 The latter one is where you should find `unknown-table.psv`.
 
-:::note
-
-Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
-
-:::
-
 :::caution
 
 Starlake validate the data against the table's schema of the first pattern that match with the file name.
@@ -270,3 +284,31 @@ Hence, you must be careful regarding the pattern you set.
 Make sure that there is no overlap.
 
 :::
+
+
+### Check the result
+
+You can check the result by running the following python script:
+
+```python
+import pandas as pd
+filepath = 'datasets/accepted/sales/customers/'
+df = pd.read_parquet(filepath)
+df.head
+```
+
+### Loading the data into BigQuery
+We just loaded our text file into a parquet file. This is a very common format for data scientists and analysts.
+Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
+
+In our example, we will load the data into a BigQuery table.
+define the default env as being BQ in the `metadata/env.comet.yml` file:
+```yaml {3,3} title="Define the default environment to activate the env.BQ.comet.yml configuration file"
+env:
+  root_path: "{{SL_ROOT}}"
+  SL_ENV: BQ
+  myConnectionRef: "localFilesystem"
+  bigQueryMaterializationDataset: "???"
+  validator: "???" # native of spark
+```
+

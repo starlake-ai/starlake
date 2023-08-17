@@ -14,10 +14,10 @@ and another one containing customers living in the USA.
 ## Templated Job
 Starlake Transforms support Jinja2 templating inside SQL requests.
 
-We create a file `metadata/jobs/bycountry.sql` with the following content
+We create a file `metadata/transform/bycountry.sql` with the following content
 
 ```SQL
-select * from customers where lower(country) like lower('{{ p_country }}')
+select * from sales.customers where lower(country) like lower('{{ p_country }}')
 ```
 
 The french customers will be stored in the table `cust_france` and the american customers in the table `cust_usa`.
@@ -29,9 +29,6 @@ This file will instruct where the result of the SQL request will be stored.
 ```yaml
 transform:
   name: bycountry
-  views:
-    # The parquet file will be referenced as customers in the SQL request
-    customers: "FS:{{root_path}}/datasets/accepted/sales/customers"
   tasks:
     - domain: business
       table: cust_{{ p_country }}
