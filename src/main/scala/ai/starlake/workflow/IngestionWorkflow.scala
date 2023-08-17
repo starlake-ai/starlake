@@ -72,7 +72,7 @@ private case object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHel
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case TimestampType =>
-      Some(JdbcType(sys.env.get("SF_TIMEZONE").getOrElse("TIMESTAMP"), java.sql.Types.BOOLEAN))
+      Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.BOOLEAN))
     case _ => JdbcUtils.getCommonJDBCType(dt)
   }
 }
