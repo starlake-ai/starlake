@@ -29,18 +29,20 @@ import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
-import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
 import ai.starlake.schema.model.Severity._
+
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.{GenTraversable, mutable}
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-object Utils {
+object Utils extends StrictLogging {
 
   type Closeable = { def close(): Unit }
 
@@ -327,6 +329,13 @@ object Utils {
     domain.replaceAll("[^\\p{Alnum}]", "_")
   }
 
+  def timeIt[T](blockLabel: String)(code: => T): T = {
+    val startTime = System.currentTimeMillis()
+    val result = code
+    logger.info(blockLabel + " took " + toHumanElapsedTimeFrom(startTime))
+    result
+  }
+
   def toHumanElapsedTimeFrom(startTimeMs: Long): String = {
     val elapsedTimeMs = System.currentTimeMillis() - startTimeMs
     toHumanElapsedTime(elapsedTimeMs)
@@ -365,4 +374,29 @@ object Utils {
     }
   }
 
+  def createForkSupport(maxParOpt: Option[Int] = None, minForPar: Int = 2): Option[ForkJoinTaskSupport] = {
+    val maxPar = maxParOpt.getOrElse(Runtime.getRuntime().availableProcessors())
+    if (
+      maxPar < minForPar
+    ) { // don't treat as parallel if famine can occurs.
+      logger.info(s"Not enough in pool to parallelize (minimum: $minForPar). Falling back to sequential")
+      None
+    } else {
+      val forkJoinPool = new java.util.concurrent.ForkJoinPool(maxPar)
+      Some(new ForkJoinTaskSupport(forkJoinPool))
+    }
+  }
+
+  def makeParallel[T](
+                       list: GenTraversable[T]
+                     )(implicit fjp: Option[ForkJoinTaskSupport]): GenTraversable[T] = {
+    fjp match {
+      case Some(pool) =>
+        val parList = list.par
+        parList.tasksupport = pool
+        parList
+      case None =>
+        list
+    }
+  }
 }

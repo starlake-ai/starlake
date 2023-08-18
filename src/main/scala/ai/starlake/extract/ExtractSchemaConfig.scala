@@ -5,7 +5,8 @@ import scopt.OParser
 
 case class ExtractSchemaConfig(
   extractConfig: String = "",
-  outputDir: Option[String] = None
+  outputDir: Option[String] = None,
+  parallelism: Option[Int] = None
 )
 
 object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
@@ -24,7 +25,13 @@ object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
-        .text("Where to output YML files")
+        .text("Where to output YML files"),
+      opt[Int]("parallelism")
+        .action((x, c) => c.copy(parallelism = Some(x)))
+        .optional()
+        .text(
+          s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
+        )
     )
   }
 
