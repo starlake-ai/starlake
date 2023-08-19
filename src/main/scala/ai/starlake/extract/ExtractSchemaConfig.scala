@@ -30,7 +30,7 @@ object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
         .action((x, c) => c.copy(parallelism = Some(x)))
         .optional()
         .text(
-          s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
+          s"parallelism level of the extraction process. By default equals to the available cores"
         )
     )
   }

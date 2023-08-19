@@ -490,7 +490,7 @@ class ExtractSpec extends TestHelper {
         |Usage: starlake extract-schema [options]
         |  --config <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
-        |  --parallelism <value>  parallelism level of the extraction process. By default equals to the available cores: 12
+        |  --parallelism <value>  parallelism level of the extraction process. By default equals to the available cores
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
