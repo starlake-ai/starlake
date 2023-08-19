@@ -791,7 +791,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             database = None,
             domain = "",
             table = "",
-            write = Some(WriteMode.OVERWRITE),
+            write = None,
             _filenamePrefix = taskFilePrefix
           )
       }
