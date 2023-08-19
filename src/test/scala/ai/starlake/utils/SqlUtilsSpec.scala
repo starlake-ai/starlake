@@ -133,7 +133,6 @@ class SqlUtilsSpec extends TestHelper {
       val resultSQL =
         SQLUtils.buildSingleSQLQueryForRegex(
           selectWithCTE,
-          Map.empty,
           Refs(Nil),
           Nil,
           Nil,

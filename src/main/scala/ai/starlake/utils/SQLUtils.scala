@@ -150,8 +150,7 @@ object SQLUtils extends StrictLogging {
   }
 
   def buildSingleSQLQuery(
-    j2sql: String,
-    vars: Map[String, Any],
+    sql: String,
     refs: Refs,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
@@ -160,12 +159,10 @@ object SQLUtils extends StrictLogging {
   )(implicit
     settings: Settings
   ): String = {
-    logger.info(s"Source J2SQL: $j2sql")
-    val sql = Utils.parseJinja(j2sql, vars)
+    logger.info(s"Source SQL: $sql")
     val fromResolved =
       buildSingleSQLQueryForRegex(
         sql,
-        vars,
         refs,
         domains,
         tasks,
@@ -177,7 +174,6 @@ object SQLUtils extends StrictLogging {
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
-        vars,
         refs,
         domains,
         tasks,
@@ -191,7 +187,6 @@ object SQLUtils extends StrictLogging {
 
   def buildSingleSQLQueryForRegex(
     sql: String,
-    vars: Map[String, Any],
     refs: Refs,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],

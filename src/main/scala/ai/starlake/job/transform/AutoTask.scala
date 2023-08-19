@@ -247,24 +247,27 @@ case class AutoTask(
   ): (List[String], String, List[String]) = {
     // available jinja variables to build sql query depending on
     // whether the table exists or not.
-    val jinjaVars = Map("merge" -> tableExists)
+    val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
+    val sql = Utils.parseJinja(taskDesc.getSql(), allVars)
     val mergeSql =
-      if (!tableExists)
-        SQLUtils.buildSingleSQLQuery(
-          taskDesc.getSql(),
-          schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
-          schemaHandler.refs(),
-          schemaHandler.domains(),
-          schemaHandler.tasks(),
-          localViews,
-          taskDesc.getEngine(settings)
-        )
-      else {
+      if (!tableExists) {
+        if (taskDesc.parseSQL.getOrElse(true))
+          SQLUtils.buildSingleSQLQuery(
+            sql,
+            schemaHandler.refs(),
+            schemaHandler.domains(),
+            schemaHandler.tasks(),
+            localViews,
+            taskDesc.getEngine(settings)
+          )
+        else
+          sql
+      } else {
         taskDesc.merge match {
           case Some(options) =>
             val mergeSql =
               SQLUtils.buildMergeSql(
-                parseJinja(taskDesc.getSql(), jinjaVars),
+                sql,
                 options.key,
                 taskDesc.getDatabase(settings),
                 taskDesc.domain,
@@ -275,20 +278,22 @@ case class AutoTask(
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
           case None =>
-            SQLUtils.buildSingleSQLQuery(
-              taskDesc.getSql(),
-              schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
-              schemaHandler.refs(),
-              schemaHandler.domains(),
-              schemaHandler.tasks(),
-              localViews,
-              taskDesc.getEngine(settings)
-            )
+            if (taskDesc.parseSQL.getOrElse(true))
+              SQLUtils.buildSingleSQLQuery(
+                sql,
+                schemaHandler.refs(),
+                schemaHandler.domains(),
+                schemaHandler.tasks(),
+                localViews,
+                taskDesc.getEngine(settings)
+              )
+            else
+              sql
         }
       }
 
-    val preSql = parseJinja(taskDesc.presql, jinjaVars)
-    val postSql = parseJinja(taskDesc.postsql, jinjaVars)
+    val preSql = parseJinja(taskDesc.presql, allVars)
+    val postSql = parseJinja(taskDesc.postsql, allVars)
 
     (preSql, s"(\n$mergeSql\n)", postSql)
   }
