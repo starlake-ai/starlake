@@ -231,16 +231,6 @@ object Utils extends StrictLogging {
   def isRunningInDatabricks(): Boolean =
     sys.env.contains("DATABRICKS_RUNTIME_VERSION")
 
-  def isRunningTest(): Boolean =
-    Thread.currentThread.getStackTrace.exists(_.getClassName.startsWith("org.scalatest."))
-
-  def caseClassToMap(cc: AnyRef): Map[String, Any] = {
-    cc.getClass.getDeclaredFields.foldLeft(Map.empty[String, Any]) { (a, f) =>
-      f.setAccessible(true)
-      f.getType.getName
-      a + (f.getName -> f.get(cc))
-    }
-  }
   def labels(tags: Set[String]): Map[String, String] =
     tags.map { tag =>
       val labelValue = tag.split("=")
