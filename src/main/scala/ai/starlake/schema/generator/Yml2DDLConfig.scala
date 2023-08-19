@@ -29,7 +29,8 @@ case class Yml2DDLConfig(
   domain: Option[String] = None,
   schemas: Option[Seq[String]] = None,
   catalog: Option[String] = None,
-  apply: Boolean = false
+  apply: Boolean = false,
+  parallelism: Option[Int] = None
 )
 
 object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
@@ -70,7 +71,13 @@ object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
       opt[Unit]("apply")
         .action((x, c) => c.copy(apply = true))
         .optional()
-        .text("Does the file contain a header (For CSV files only)")
+        .text("Does the file contain a header (For CSV files only)"),
+      opt[Int]("parallelism")
+        .action((x, c) => c.copy(parallelism = Some(x)))
+        .optional()
+        .text(
+          s"parallelism level. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
+        )
     )
   }
 

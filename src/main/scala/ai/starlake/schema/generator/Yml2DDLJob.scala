@@ -22,6 +22,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.{JDBCSchema, JDBCUtils}
+import ai.starlake.utils.Utils.createForkSupport
 import ai.starlake.extract.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
@@ -31,6 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.{Path => StoragePath}
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.Try
 
 /** * Infers the schema of a given data path, domain name, schema name.
@@ -104,6 +106,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         val existingTables = config.connectionRef match {
           case Some(connection) =>
             val connectionOptions = settings.comet.connections(connection).options
+            implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = createForkSupport(config.parallelism)
             JDBCUtils.extractJDBCTables(
               JDBCSchema(
                 config.catalog,
