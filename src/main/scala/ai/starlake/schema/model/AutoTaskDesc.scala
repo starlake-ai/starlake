@@ -47,7 +47,8 @@ case class AutoTaskDesc(
   tags: Set[String] = Set.empty,
   merge: Option[MergeOptions] = None,
   schedule: Option[String] = None,
-  _filenamePrefix: String = "" // for internal use. prefix of sql / py file
+  _filenamePrefix: String = "", // for internal use. prefix of sql / py file
+  parseSQL: Option[Boolean] = None
 ) extends Named {
 
   def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
@@ -74,7 +75,8 @@ case class AutoTaskDesc(
       tags = tags ++ child.tags,
       merge = child.merge.orElse(merge),
       schedule = child.schedule.orElse(schedule),
-      _filenamePrefix = child._filenamePrefix
+      _filenamePrefix = child._filenamePrefix,
+      parseSQL = child.parseSQL.orElse(parseSQL)
     )
   }
 
