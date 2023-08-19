@@ -2,10 +2,9 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AttributeMergeStrategy, Domain, KeepOnlyScriptDiff, Metadata, RefFirst, SchemaRefs}
+import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.Utils.{createForkSupport, makeParallel}
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.YamlSerializer
 import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
@@ -39,7 +38,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    Utils.timeIt("Schema extraction") {
+    ExtractUtils.timeIt("Schema extraction") {
       val content = settings
         .storageHandler()
         .read(mappingPath(config.extractConfig))
@@ -49,8 +48,9 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       val connectionOptions = jdbcSchemas.connectionRef
         .map(settings.comet.connections(_).options)
         .getOrElse(jdbcSchemas.connection)
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = createForkSupport(config.parallelism)
-      makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+        ExtractUtils.createForkSupport(config.parallelism)
+      ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
         val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
           val content = settings
             .storageHandler()
@@ -66,7 +66,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
           }
         }
         val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
-        Utils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
+        ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
           extractSchema(
             jdbcSchema,
             connectionOptions,
@@ -86,7 +86,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     domainTemplate: Option[Domain],
     currentDomain: Option[Domain]
   )(implicit
-    settings: Settings, fjp: Option[ForkJoinTaskSupport]
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
   ): Unit = {
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
@@ -161,7 +162,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     connectionOptions: Map[String, String],
     domainTemplate: Option[Domain]
   )(implicit
-    settings: Settings, fjp: Option[ForkJoinTaskSupport]
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
   ): Domain = {
     val selectedTablesAndColumns =
       JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)

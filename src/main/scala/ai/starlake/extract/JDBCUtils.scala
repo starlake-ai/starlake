@@ -7,7 +7,6 @@ import ai.starlake.utils.Utils
 import au.com.bytecode.opencsv.CSVWriter
 import better.files.{using, File}
 import com.typesafe.scalalogging.LazyLogging
-import ai.starlake.utils.Utils.{createForkSupport, makeParallel}
 
 import java.sql.Types._
 import java.sql.{
@@ -210,7 +209,10 @@ object JDBCUtils extends LazyLogging {
     connectionOptions: Map[String, String],
     skipRemarks: Boolean,
     excludeTables: Seq[String] = Nil
-  )(implicit settings: Settings, fjp: Option[ForkJoinTaskSupport]): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
+  )(implicit
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
+  ): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
     withJDBCConnection(connectionOptions) { connection =>
       val databaseMetaData = connection.getMetaData()
 
@@ -289,134 +291,140 @@ object JDBCUtils extends LazyLogging {
       }
       // Extract the Comet Schema
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
-        makeParallel(selectedTables).map { case (tableName, tableRemarks) =>
-          Utils.timeIt(s"Table extraction of $tableName") {
-            logger.info(s"Extracting table $tableName: $tableRemarks")
-            Using.Manager { use =>
-              // Find all foreign keys
+        ExtractUtils
+          .makeParallel(selectedTables)
+          .map { case (tableName, tableRemarks) =>
+            ExtractUtils.timeIt(s"Table extraction of $tableName") {
+              logger.info(s"Extracting table $tableName: $tableRemarks")
+              Using.Manager { use =>
+                // Find all foreign keys
 
-              val foreignKeysResultSet = use(
-                databaseMetaData.getImportedKeys(
-                  jdbcSchema.catalog.orNull,
-                  schemaName,
-                  tableName
+                val foreignKeysResultSet = use(
+                  databaseMetaData.getImportedKeys(
+                    jdbcSchema.catalog.orNull,
+                    schemaName,
+                    tableName
+                  )
                 )
-              )
-              val foreignKeys = new Iterator[(String, String)] {
-                def hasNext: Boolean = foreignKeysResultSet.next()
+                val foreignKeys = new Iterator[(String, String)] {
+                  def hasNext: Boolean = foreignKeysResultSet.next()
 
-                def next(): (String, String) = {
-                  val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
-                  val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
-                  val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
-                  val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+                  def next(): (String, String) = {
+                    val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
+                    val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
+                    val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+                    val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
 
-                  val pkCompositeName =
-                    if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
-                    else s"$pkSchemaName.$pkTableName.$pkColumnName"
+                    val pkCompositeName =
+                      if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
+                      else s"$pkSchemaName.$pkTableName.$pkColumnName"
 
-                  fkColumnName -> pkCompositeName
-                }
-              }.toMap
+                    fkColumnName -> pkCompositeName
+                  }
+                }.toMap
 
-              // Extract all columns
-              val columnsResultSet = use(
-                databaseMetaData.getColumns(
-                  jdbcSchema.catalog.orNull,
-                  schemaName,
-                  tableName,
-                  null
+                // Extract all columns
+                val columnsResultSet = use(
+                  databaseMetaData.getColumns(
+                    jdbcSchema.catalog.orNull,
+                    schemaName,
+                    tableName,
+                    null
+                  )
                 )
-              )
-              val remarks: Map[TableRemarks, TableRemarks] = (
-                if (skipRemarks) None
-                else
-                  extractColumnRemarks(jdbcSchema, connectionOptions, tableName)
+                val remarks: Map[TableRemarks, TableRemarks] = (
+                  if (skipRemarks) None
+                  else
+                    extractColumnRemarks(jdbcSchema, connectionOptions, tableName)
                 ).getOrElse(Map.empty)
 
-              val isPostgres = connectionOptions("url").contains("postgres")
-              val attrs = new Iterator[Attribute] {
-                def hasNext: Boolean = columnsResultSet.next()
+                val isPostgres = connectionOptions("url").contains("postgres")
+                val attrs = new Iterator[Attribute] {
+                  def hasNext: Boolean = columnsResultSet.next()
 
-                def next(): Attribute = {
-                  val colName = columnsResultSet.getString("COLUMN_NAME")
-                  logger.debug(s"COLUMN_NAME=$tableName.$colName")
-                  val colType = columnsResultSet.getInt("DATA_TYPE")
-                  val colTypename = columnsResultSet.getString("TYPE_NAME")
-                  val colRemarks =
-                    remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
-                  val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
-                  val foreignKey = foreignKeys.get(colName.toUpperCase)
-                  val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
-                  // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
-                  Attribute(
-                    name = colName,
-                    `type` = sparkType(
-                      colType,
-                      tableName,
-                      colName,
-                      colTypename,
-                      colDecimalDigits,
-                      isPostgres
-                    ),
-                    required = colRequired,
-                    comment = Option(colRemarks),
-                    foreignKey = foreignKey
+                  def next(): Attribute = {
+                    val colName = columnsResultSet.getString("COLUMN_NAME")
+                    logger.debug(s"COLUMN_NAME=$tableName.$colName")
+                    val colType = columnsResultSet.getInt("DATA_TYPE")
+                    val colTypename = columnsResultSet.getString("TYPE_NAME")
+                    val colRemarks =
+                      remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
+                    val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
+                    val foreignKey = foreignKeys.get(colName.toUpperCase)
+                    val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
+                    // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
+                    Attribute(
+                      name = colName,
+                      `type` = sparkType(
+                        colType,
+                        tableName,
+                        colName,
+                        colTypename,
+                        colDecimalDigits,
+                        isPostgres
+                      ),
+                      required = colRequired,
+                      comment = Option(colRemarks),
+                      foreignKey = foreignKey
+                    )
+                  }
+                }.to[ListBuffer]
+
+                // remove duplicates
+                // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
+                def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
+                  list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
+                    if (partialResult.exists(_.name == element.name)) partialResult
+                    else partialResult :+ element
+                  }
+
+                val columns = removeDuplicatesColumns(attrs.toList)
+
+                logger.whenDebugEnabled {
+                  columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
+                }
+
+                // Limit to the columns specified by the user if any
+                val currentTableRequestedColumns =
+                  jdbcTableMap
+                    .get(tableName)
+                    .map(_.columns.map(_.toUpperCase))
+                    .getOrElse(Nil)
+                val selectedColumns =
+                  if (currentTableRequestedColumns.isEmpty)
+                    columns
+                  else
+                    columns.filter(col =>
+                      currentTableRequestedColumns.contains(col.name.toUpperCase())
+                    )
+                logger.whenDebugEnabled {
+                  columns.foreach(column =>
+                    logger.debug(s"Final schema column: $tableName.${column.name}")
                   )
                 }
-              }.to[ListBuffer]
 
-              // remove duplicates
-              // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-              def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
-                list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
-                  if (partialResult.exists(_.name == element.name)) partialResult
-                  else partialResult :+ element
-                }
-
-              val columns = removeDuplicatesColumns(attrs.toList)
-
-              logger.whenDebugEnabled {
-                columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
-              }
-
-              // Limit to the columns specified by the user if any
-              val currentTableRequestedColumns =
-                jdbcTableMap
-                  .get(tableName)
-                  .map(_.columns.map(_.toUpperCase))
-                  .getOrElse(Nil)
-              val selectedColumns =
-                if (currentTableRequestedColumns.isEmpty)
-                  columns
-                else
-                  columns.filter(col => currentTableRequestedColumns.contains(col.name.toUpperCase()))
-              logger.whenDebugEnabled {
-                columns.foreach(column =>
-                  logger.debug(s"Final schema column: $tableName.${column.name}")
+                //      // Find primary keys
+                val primaryKeysResultSet = use(
+                  databaseMetaData.getPrimaryKeys(
+                    jdbcSchema.catalog.orNull,
+                    schemaName,
+                    tableName
+                  )
                 )
+                val primaryKeys = new Iterator[String] {
+                  def hasNext: Boolean = primaryKeysResultSet.next()
+
+                  def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
+                }.toList
+                tableName -> (tableRemarks, selectedColumns, primaryKeys)
+              } match {
+                case Failure(exception) => throw exception
+                case Success(value)     => value
               }
-
-              //      // Find primary keys
-              val primaryKeysResultSet = use(
-                databaseMetaData.getPrimaryKeys(
-                  jdbcSchema.catalog.orNull,
-                  schemaName,
-                  tableName
-                )
-              )
-              val primaryKeys = new Iterator[String] {
-                def hasNext: Boolean = primaryKeysResultSet.next()
-
-                def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
-              }.toList
-              tableName -> (tableRemarks, selectedColumns, primaryKeys)
-            } match {
-              case Failure(exception) => throw exception
-              case Success(value) => value
             }
           }
-        }.seq.toMap
+          .seq
+          .toMap
       selectedTablesAndColumns
     }
 
@@ -659,7 +667,7 @@ object JDBCUtils extends LazyLogging {
     val doTablesExtraction = jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
     if (doTablesExtraction) {
       // Map tables to columns and primary keys
-      implicit val forkJoinTaskSupport = createForkSupport(parallelism)
+      implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(parallelism)
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
         JDBCUtils.extractJDBCTables(
           filteredJdbcSchema,
@@ -668,7 +676,7 @@ object JDBCUtils extends LazyLogging {
           excludeTables
         )
       val globalStart = System.currentTimeMillis()
-      makeParallel(selectedTablesAndColumns).foreach {
+      ExtractUtils.makeParallel(selectedTablesAndColumns).foreach {
         case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
           val context = s"[${jdbcSchema.schema}.$tableName]"
 
@@ -862,134 +870,135 @@ object JDBCUtils extends LazyLogging {
                 // Export in parallel mode
                 var tableCount = new AtomicLong();
                 val success = Try {
-                  makeParallel(boundaries.partitions.zipWithIndex).foreach { case (bounds, index) =>
-                    val boundaryContext = s"$context[$index]"
-                    logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
-                    val quotedPartitionColumn =
-                      s"$colNameQuoteData$partitionColumn$colNameQuoteData"
+                  ExtractUtils.makeParallel(boundaries.partitions.zipWithIndex).foreach {
+                    case (bounds, index) =>
+                      val boundaryContext = s"$context[$index]"
+                      logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
+                      val quotedPartitionColumn =
+                        s"$colNameQuoteData$partitionColumn$colNameQuoteData"
 
-                    def sql(
-                      columnToDistribute: String = quotedPartitionColumn
-                    ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
-                    else
-                      sqlNext(columnToDistribute)
+                      def sql(
+                        columnToDistribute: String = quotedPartitionColumn
+                      ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
+                      else
+                        sqlNext(columnToDistribute)
 
-                    withJDBCConnection(connectionOptions) { connection =>
-                      val (effectiveSql, statementFiller) = partitionColumnType match {
-                        case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
-                          val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
-                          sql() -> ((st: PreparedStatement) => {
-                            st.setLong(1, upper)
-                            if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
-                          })
-                        case PrimitiveType.decimal =>
-                          val (lower, upper) =
-                            bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
-                          sql() -> ((st: PreparedStatement) => {
-                            st.setBigDecimal(1, upper)
-                            if (!(boundaries.firstExport && index == 0))
-                              st.setBigDecimal(2, lower)
-                          })
+                      withJDBCConnection(connectionOptions) { connection =>
+                        val (effectiveSql, statementFiller) = partitionColumnType match {
+                          case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
+                            val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
+                            sql() -> ((st: PreparedStatement) => {
+                              st.setLong(1, upper)
+                              if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                            })
+                          case PrimitiveType.decimal =>
+                            val (lower, upper) =
+                              bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
+                            sql() -> ((st: PreparedStatement) => {
+                              st.setBigDecimal(1, upper)
+                              if (!(boundaries.firstExport && index == 0))
+                                st.setBigDecimal(2, lower)
+                            })
 
-                        case PrimitiveType.date =>
-                          val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
-                          sql() -> ((st: PreparedStatement) => {
-                            st.setDate(1, upper)
-                            if (!(boundaries.firstExport && index == 0)) st.setDate(2, lower)
-                          })
+                          case PrimitiveType.date =>
+                            val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
+                            sql() -> ((st: PreparedStatement) => {
+                              st.setDate(1, upper)
+                              if (!(boundaries.firstExport && index == 0)) st.setDate(2, lower)
+                            })
 
-                        case PrimitiveType.timestamp =>
-                          val (lower, upper) =
-                            bounds.asInstanceOf[(Timestamp, Timestamp)]
-                          sql() -> ((st: PreparedStatement) => {
-                            st.setTimestamp(1, upper)
-                            if (!(boundaries.firstExport && index == 0))
-                              st.setTimestamp(2, lower)
-                          })
-                        case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
-                          stringPartitionFuncTpl match {
-                            case Some(tpl) =>
-                              val stringPartitionFunc =
-                                Utils.parseJinjaTpl(
-                                  tpl,
-                                  Map(
-                                    "col"           -> quotedPartitionColumn,
-                                    "nb_partitions" -> numPartitions.toString
+                          case PrimitiveType.timestamp =>
+                            val (lower, upper) =
+                              bounds.asInstanceOf[(Timestamp, Timestamp)]
+                            sql() -> ((st: PreparedStatement) => {
+                              st.setTimestamp(1, upper)
+                              if (!(boundaries.firstExport && index == 0))
+                                st.setTimestamp(2, lower)
+                            })
+                          case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
+                            stringPartitionFuncTpl match {
+                              case Some(tpl) =>
+                                val stringPartitionFunc =
+                                  Utils.parseJinjaTpl(
+                                    tpl,
+                                    Map(
+                                      "col"           -> quotedPartitionColumn,
+                                      "nb_partitions" -> numPartitions.toString
+                                    )
                                   )
+                                val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
+                                sql(stringPartitionFunc) -> ((st: PreparedStatement) => {
+                                  st.setLong(1, upper)
+                                  if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                                })
+                              case None =>
+                                throw new RuntimeException(
+                                  "Should never happen since stringPartitionFuncTpl is always defined here"
                                 )
-                              val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
-                              sql(stringPartitionFunc) -> ((st: PreparedStatement) => {
-                                st.setLong(1, upper)
-                                if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
-                              })
-                            case None =>
-                              throw new RuntimeException(
-                                "Should never happen since stringPartitionFuncTpl is always defined here"
-                              )
-                          }
-                        case _ =>
-                          throw new Exception(
-                            s"type $partitionColumnType not supported for partition columnToDistribute"
-                          )
-                      }
-                      logger.info(s"$boundaryContext SQL: $effectiveSql")
-                      val partitionStart = System.currentTimeMillis()
-                      connection.setAutoCommit(false)
-                      val statement = connection.prepareStatement(effectiveSql)
-                      statementFiller(statement)
-                      fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
+                            }
+                          case _ =>
+                            throw new Exception(
+                              s"type $partitionColumnType not supported for partition columnToDistribute"
+                            )
+                        }
+                        logger.info(s"$boundaryContext SQL: $effectiveSql")
+                        val partitionStart = System.currentTimeMillis()
+                        connection.setAutoCommit(false)
+                        val statement = connection.prepareStatement(effectiveSql)
+                        statementFiller(statement)
+                        fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
 
-                      val count = extractPartitionToFile(
-                        boundaryContext,
-                        limit,
-                        separator,
-                        outputDir,
-                        tableName,
-                        dateTime,
-                        Some(index),
-                        statement,
-                        datePattern,
-                        timestampPattern
-                      )
-                      val currentTableCount = tableCount.addAndGet(count)
-
-                      val lineLength = 100
-                      val progressPercent =
-                        if (boundaries.count == 0) lineLength
-                        else (currentTableCount * lineLength / boundaries.count).toInt
-                      val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
-                      val progressPercentUnfilled =
-                        (progressPercent until lineLength).map(_ => " ").mkString
-                      val progressBar =
-                        s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
-                      val partitionEnd = System.currentTimeMillis()
-                      val elapsedTime = Utils.toHumanElapsedTimeFrom(tableStart)
-                      logger.info(
-                        s"$context $progressBar. Elapsed time: $elapsedTime"
-                      )
-                      val deltaRow = DeltaRow(
-                        domain = jdbcSchema.schema,
-                        schema = tableName,
-                        lastExport = boundaries.max,
-                        start = new Timestamp(partitionStart),
-                        end = new Timestamp(partitionEnd),
-                        duration = (partitionEnd - partitionStart).toInt,
-                        mode = jdbcSchema.writeMode().toString,
-                        count = count,
-                        success = true,
-                        message = partitionColumn,
-                        step = index.toString
-                      )
-                      withJDBCConnection(auditConnectionOptions) { connection =>
-                        LastExportUtils.insertNewLastExport(
-                          connection,
-                          deltaRow,
-                          Some(partitionColumnType),
-                          colNameQuoteAudit,
-                          colNameQuoteAudit
+                        val count = extractPartitionToFile(
+                          boundaryContext,
+                          limit,
+                          separator,
+                          outputDir,
+                          tableName,
+                          dateTime,
+                          Some(index),
+                          statement,
+                          datePattern,
+                          timestampPattern
                         )
+                        val currentTableCount = tableCount.addAndGet(count)
+
+                        val lineLength = 100
+                        val progressPercent =
+                          if (boundaries.count == 0) lineLength
+                          else (currentTableCount * lineLength / boundaries.count).toInt
+                        val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+                        val progressPercentUnfilled =
+                          (progressPercent until lineLength).map(_ => " ").mkString
+                        val progressBar =
+                          s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+                        val partitionEnd = System.currentTimeMillis()
+                        val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
+                        logger.info(
+                          s"$context $progressBar. Elapsed time: $elapsedTime"
+                        )
+                        val deltaRow = DeltaRow(
+                          domain = jdbcSchema.schema,
+                          schema = tableName,
+                          lastExport = boundaries.max,
+                          start = new Timestamp(partitionStart),
+                          end = new Timestamp(partitionEnd),
+                          duration = (partitionEnd - partitionStart).toInt,
+                          mode = jdbcSchema.writeMode().toString,
+                          count = count,
+                          success = true,
+                          message = partitionColumn,
+                          step = index.toString
+                        )
+                        withJDBCConnection(auditConnectionOptions) { connection =>
+                          LastExportUtils.insertNewLastExport(
+                            connection,
+                            deltaRow,
+                            Some(partitionColumnType),
+                            colNameQuoteAudit,
+                            colNameQuoteAudit
+                          )
+                        }
                       }
-                    }
                   }
                 } match {
                   case Success(_) =>
@@ -1000,7 +1009,7 @@ object JDBCUtils extends LazyLogging {
                 }
                 val tableEnd = System.currentTimeMillis()
                 val duration = (tableEnd - tableStart).toInt
-                val elapsedTime = Utils.toHumanElapsedTime(duration)
+                val elapsedTime = ExtractUtils.toHumanElapsedTime(duration)
                 logger.info(s"$context Extracted all lines in $elapsedTime")
                 val deltaRow = DeltaRow(
                   domain = jdbcSchema.schema,
@@ -1032,7 +1041,7 @@ object JDBCUtils extends LazyLogging {
       }
 
       forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
-      val elapsedTime = Utils.toHumanElapsedTimeFrom(globalStart)
+      val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(globalStart)
       logger.info(s"Extracted all tables in $elapsedTime")
     } else {
       logger.info("Tables extraction skipped")
@@ -1086,14 +1095,14 @@ object JDBCUtils extends LazyLogging {
         csvWriter.writeNext(resultService.getColumnValues(rs))
         if (System.currentTimeMillis() - lastHeartBeat > heartBeatMs) {
           lastHeartBeat = System.currentTimeMillis()
-          val elapsedTime = Utils.toHumanElapsedTimeFrom(extractionStartMs)
+          val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
           logger.info(
             s"$context Extraction in progress. Already extracted $count rows in $elapsedTime"
           )
         }
       }
     }
-    val elapsedTime = Utils.toHumanElapsedTimeFrom(extractionStartMs)
+    val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
     logger.info(s"$context Extracted $count rows and saved into $filename in $elapsedTime")
     count
   }
