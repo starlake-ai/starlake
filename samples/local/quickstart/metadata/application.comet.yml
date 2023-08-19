@@ -1,25 +1,26 @@
-accessPolicies:
-  apply: true
-  location: EU
-  taxonomy: RGPD
+application:
+  accessPolicies:
+    apply: true
+    location: EU
+    taxonomy: RGPD
 
-connections:
-  bigquery:
-    type: "bigquery"
-    options:
-      gcsBucket: "starlake-app"
-      #authType: APPLICATION_DEFAULT
-      authType: SERVICE_ACCOUNT_JSON_KEYFILE
-      jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
-
-  localFilesystem:
-    type: "fs"
-
-spark:
-  datasource:
+  connections:
     bigquery:
-      materializationDataset: "BQ_TEST_DS"
+      type: "bigquery"
+      options:
+        gcsBucket: "starlake-app"
+        #authType: APPLICATION_DEFAULT
+        authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
+
+    localFilesystem:
+      type: "fs"
+
+  spark:
+    datasource:
+      bigquery:
+        materializationDataset: "BQ_TEST_DS"
 
 
-connectionRef: {{ myConnectionRef }}
+  connectionRef: "{{ myConnectionRef }}"
 
