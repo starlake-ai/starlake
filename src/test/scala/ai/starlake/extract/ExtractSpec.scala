@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Metadata, Mode, Schema}
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.YamlSerializer
 import better.files.File
 
 import java.sql.DriverManager
@@ -71,7 +71,7 @@ class ExtractSpec extends TestHelper {
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$cometTestRoot/extract-without-template")
-    implicit val fjp: Option[ForkJoinTaskSupport] = Utils.createForkSupport()
+    implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
     new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
       jdbcSchema,
       connectionOptions,
@@ -326,7 +326,7 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-      implicit val fjp: Option[ForkJoinTaskSupport] = Utils.createForkSupport()
+      implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
@@ -387,7 +387,7 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-      implicit val fjp: Option[ForkJoinTaskSupport] = Utils.createForkSupport()
+      implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
