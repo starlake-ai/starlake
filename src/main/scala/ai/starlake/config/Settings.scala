@@ -137,13 +137,6 @@ object Settings extends StrictLogging {
     *   uri, user and password are required uri the URI of the database engine. It must start with
     *   "jdbc:" user the username under which to connect to the database engine password the
     *   password to use in order to connect to the database engine
-    * @param engineOverride
-    *   the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case one
-    *   cannot use the engine name from the uri
-    * @note
-    *   the use case for engineOverride is when you need to have an alternate schema definition
-    *   (e.g. non-standard table names) alongside with the regular schema definition, on the same
-    *   underlying engine.
     */
   final case class Connection(
     `type`: Option[String],
@@ -153,6 +146,91 @@ object Settings extends StrictLogging {
   ) {
     def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
 
+    def checkValidity(implicit settings: Settings): List[ValidationMessage] = {
+      var errors = List.empty[ValidationMessage]
+      val tpe = getType()
+      tpe match {
+        case ConnectionType.JDBC =>
+          if (!options.contains("url")) {
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "Connection",
+              s"Connection type $tpe requires a url"
+            )
+          }
+        case ConnectionType.BQ =>
+          if (this.sparkFormat.isDefined) {
+            if (!options.contains("temporaryGcsBucket")) {
+              errors = errors :+ ValidationMessage(
+                Severity.Warning,
+                "Connection",
+                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
+              )
+            }
+            if (!options.contains("gcsBucket")) {
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "Connection",
+                s"Connection type $tpe requires a gcsBucket"
+              )
+            }
+            if (!settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")) {
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "Connection",
+                s"Connection type $tpe requires spark.datasource.bigquery.materializationDataset"
+              )
+            }
+          }
+
+          options.getOrElse("authType", "") match {
+            case "APPLICATION_DEFAULT" =>
+              if (!options.contains("authScopes")) {
+                errors = errors :+ ValidationMessage(
+                  Severity.Warning,
+                  "Connection",
+                  s"requires an authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
+                )
+              }
+            case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+              if (!options.contains("jsonKeyfile")) {
+                errors = errors :+ ValidationMessage(
+                  Severity.Error,
+                  "Connection",
+                  s"Connection type $tpe requires a jsonKeyfile"
+                )
+              }
+            case "USER_CREDENTIALS" =>
+              val clientId = options.get("clientId")
+              val clientSecret = options.get("clientSecret")
+              val refreshToken = options.get("refreshToken")
+              if (clientId.isEmpty || clientSecret.isEmpty || refreshToken.isEmpty) {
+                errors = errors :+ ValidationMessage(
+                  Severity.Error,
+                  "Connection",
+                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken"
+                )
+              }
+            case "ACCESS_TOKEN" =>
+              val accessToken = options.get("gcpAccessToken")
+              if (accessToken.isEmpty) {
+                errors = errors :+ ValidationMessage(
+                  Severity.Error,
+                  "Connection",
+                  s"Connection type $tpe requires a gcpAccessToken"
+                )
+              }
+            case _ =>
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "Connection",
+                s"Connection type $tpe requires an authType"
+              )
+          }
+        case _ =>
+      }
+      errors
+    }
     def getSparkFormat(): String = {
       this.getType() match {
         case ConnectionType.JDBC =>
