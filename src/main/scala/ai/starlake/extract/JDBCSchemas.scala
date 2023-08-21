@@ -4,7 +4,7 @@ import ai.starlake.schema.model.{Trim, WriteMode}
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
-  globalJdbcSchema: Option[JDBCSchema] = None,
+  default: Option[JDBCSchema] = None,
   connectionRef: Option[String] = None,
   connection: Map[String, String] = Map.empty,
   fetchSize: Option[Int] = None
@@ -23,37 +23,36 @@ case class JDBCSchemas(
     *   - pattern
     */
   def propageGlobalJdbcSchemas(): JDBCSchemas = {
-    if (globalJdbcSchema.isDefined) {
+    if (default.isDefined) {
       this.copy(jdbcSchemas = jdbcSchemas.map(schema => {
         schema
           .copy(
-            catalog = schema.catalog.orElse(globalJdbcSchema.flatMap(_.catalog)),
+            catalog = schema.catalog.orElse(default.flatMap(_.catalog)),
             schema =
-              if (schema.schema.isEmpty) globalJdbcSchema.map(_.schema).getOrElse(schema.schema)
+              if (schema.schema.isEmpty) default.map(_.schema).getOrElse(schema.schema)
               else schema.schema,
-            tableRemarks = schema.tableRemarks.orElse(globalJdbcSchema.flatMap(_.tableRemarks)),
-            columnRemarks = schema.columnRemarks.orElse(globalJdbcSchema.flatMap(_.columnRemarks)),
+            tableRemarks = schema.tableRemarks.orElse(default.flatMap(_.tableRemarks)),
+            columnRemarks = schema.columnRemarks.orElse(default.flatMap(_.columnRemarks)),
             tableTypes =
               if (schema.tableTypes.isEmpty)
-                globalJdbcSchema
+                default
                   .map(_.tableTypes)
                   .getOrElse(schema.tableTypes)
               else schema.tableTypes,
-            template = schema.template.orElse(globalJdbcSchema.flatMap(_.template)),
-            write = schema.write.orElse(globalJdbcSchema.flatMap(_.write)),
-            pattern = schema.pattern.orElse(globalJdbcSchema.flatMap(_.pattern)),
-            numericTrim = schema.numericTrim.orElse(globalJdbcSchema.flatMap(_.numericTrim)),
-            partitionColumn =
-              schema.partitionColumn.orElse(globalJdbcSchema.flatMap(_.partitionColumn)),
-            numPartitions = schema.numPartitions.orElse(globalJdbcSchema.flatMap(_.numPartitions)),
+            template = schema.template.orElse(default.flatMap(_.template)),
+            write = schema.write.orElse(default.flatMap(_.write)),
+            pattern = schema.pattern.orElse(default.flatMap(_.pattern)),
+            numericTrim = schema.numericTrim.orElse(default.flatMap(_.numericTrim)),
+            partitionColumn = schema.partitionColumn.orElse(default.flatMap(_.partitionColumn)),
+            numPartitions = schema.numPartitions.orElse(default.flatMap(_.numPartitions)),
             connectionOptions =
               if (schema.connectionOptions.isEmpty)
-                globalJdbcSchema.map(_.connectionOptions).getOrElse(schema.connectionOptions)
+                default.map(_.connectionOptions).getOrElse(schema.connectionOptions)
               else schema.connectionOptions,
-            fetchSize = schema.fetchSize.orElse(globalJdbcSchema.flatMap(_.fetchSize)),
+            fetchSize = schema.fetchSize.orElse(default.flatMap(_.fetchSize)),
             stringPartitionFunc =
-              schema.stringPartitionFunc.orElse(globalJdbcSchema.flatMap(_.stringPartitionFunc)),
-            fullExport = schema.fullExport.orElse(globalJdbcSchema.flatMap(_.fullExport))
+              schema.stringPartitionFunc.orElse(default.flatMap(_.stringPartitionFunc)),
+            fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport))
           )
           .fillWithDefaultValues()
       }))

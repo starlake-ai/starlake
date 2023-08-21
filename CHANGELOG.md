@@ -17,6 +17,7 @@
   - Sink name in XLs files is now translated to a connection ref name
   - "domains" and "jobs" folders renamed to "load" and "transform" respectively
   - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
+  - globalJDBCSchema renamed to default
 
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ... 

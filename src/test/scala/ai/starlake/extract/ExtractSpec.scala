@@ -170,7 +170,7 @@ class ExtractSpec extends TestHelper {
             pattern = Some("{{schema}}-{{table}}.*")
           )
         ),
-        globalJdbcSchema = None,
+        default = None,
         connection = Map.empty
       )
     }
@@ -225,7 +225,7 @@ class ExtractSpec extends TestHelper {
             fullExport = Some(false)
           )
         ),
-        globalJdbcSchema = Some(
+        default = Some(
           JDBCSchema(
             catalog = Some("business"),
             schema = "public",
@@ -292,7 +292,7 @@ class ExtractSpec extends TestHelper {
             fullExport = Some(false)
           )
         ),
-        globalJdbcSchema = Some(
+        default = Some(
           JDBCSchema(
             catalog = Some("business"),
             tables = Nil,

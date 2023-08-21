@@ -20,7 +20,7 @@
 
 package ai.starlake.job.infer
 
-import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
 import ai.starlake.schema.model.{Attribute, Domain, Format, Position}
 import better.files.File
@@ -52,9 +52,10 @@ class InferSchema(
   header: Boolean = false,
   format: Option[Format] = None
 )(implicit settings: Settings) {
-
-  def run(): Try[File] =
-    (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header, format)
+  def run(): Try[File] = {
+    val dir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir
+    (new InferSchemaJob).infer(domainName, schemaName, dataPath, dir, header, format)
+  }
 
 }
 
