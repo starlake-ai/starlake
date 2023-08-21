@@ -60,18 +60,26 @@ object YamlSerializer extends LazyLogging {
     val jdbcNode =
       if (extractNode.isNull() || extractNode.isMissingNode) {
         logger.warn(
-          s"Defining a jdbc schema outside a extract node is now deprecated. Please update definition ${inputFilename}"
+          s"Defining a jdbc schema outside an extract node is now deprecated. Please update definition ${inputFilename}"
         )
         rootNode
       } else
         extractNode
+    jdbcNode match {
+      case objectNode: ObjectNode =>
+        YamlSerializer.renameField(objectNode, "globalJdbcSchema", "default")
+        logger.warn(
+          "'globalJdbcSchema' has been renamed to 'default'"
+        )
+      case _ =>
+    }
     if (
-      jdbcNode
-        .path("globalJdbcSchema")
-        .isMissingNode && !jdbcNode.path("globalJdbcSchema").path("tables").isMissingNode
+      !jdbcNode
+        .path("default")
+        .isMissingNode && !jdbcNode.path("default").path("tables").isMissingNode
     ) {
       logger.warn(
-        "tables defined in globalJdbcSchema are ignored. Please define them in jdbcSchemas"
+        "tables defined in default are ignored. Please define them in jdbcSchemas"
       )
     }
     val jdbcSchemas = mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
