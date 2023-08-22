@@ -1,5 +1,7 @@
 application:
   connections:
+    localFilesystem:
+      type: "fs"
     bigquery:
       type: "bigquery"
       options:
@@ -7,8 +9,6 @@ application:
         authType: APPLICATION_DEFAULT
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
-    localFilesystem:
-      type: "fs"
 
   # default connection
   connectionRef: "{{ myConnectionRef }}"

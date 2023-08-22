@@ -93,10 +93,10 @@ $ docker run                                                        \
 </TabItem>
 </Tabs>
 
-This command will infer the YML configuration file used by the loader to watch the folder for new files to load and to validate each record in those files.
-This file may be found in the `customers.comet.yml` file under the `metadata/load/sales` folder.
+This command will infer the YAML configuration file used by the loader to watch the folder for new files to load and to validate each record in those files.
+This inferred YAML file may be found in the `customers.comet.yml` file under the `metadata/load/sales` folder.
 Notice how the `customers.comet.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
-The domain configuration file _config.comet.yml_ is stored in the _domain_ folder.
+The domain configuration file __config.comet.yml_ is stored in the _domain_ folder.
 
 
 The contents of the files look like this:
@@ -113,6 +113,7 @@ load:
   metadata:
     directory: "{{root_path}}/incoming"
 ```
+You may change this path in the _directory_ attribute to any other path.
 
 
 ### Table configuration file: customers.comet.yml
@@ -131,7 +132,7 @@ table:
       type: "string"    # expected type
       array: false      # is it an array (false by default, ignored in DSV files) ?
       required: false   # Is this field required in the source (false by default, change it accordingly) ?
-      privacy: "NONE"   # Should we crypt this field before loading to the warehouse (No crypting by default )?
+      privacy: "NONE"   # Should we encrypt this field before loading to the warehouse (No encryption by default )?
       ignore: false     # Should this field be excluded (false by default) ?
     - name: "signup"    # second attribute
       type: "timestamp" # recognized type by analyzing input.
@@ -166,9 +167,16 @@ table:
 We have seen in the [bootstrap section](bootstrap) that three environment files were created such as `metadata/env.comet.yml`.
 These environment files define variables that will be used for runtime substitution in any YAML file. Variables in YAML files are enclosed with {{ and }}.
 
+:::note
+
+You may also use _${ }_ to define variables but this is not recommended.
+
+:::
+
+
 Furthermore, it is important to know that `metadata/env.comet.yml` define the default variables.
 Any other environment files will be mixed with this default one and specific environment file have higher precedence.
-In other word, we have the following environments
+In other words, we have the following environments
 
 | Environment | File used                          |
 |-------------|------------------------------------|
@@ -188,13 +196,13 @@ env:
 
 or simply leave it as `{{SL_ROOT}}`.
 
-`SL_ROOT` is a special variable that is set to the directory where the `starlake` command is executed.
+`SL_ROOT` is a special variable that is set to the directory from where the `starlake` command is executed.
 
 ## Load files
 Loading is a two step process: The optional `import` step and the `load` step.
 
 ### Import step
-In this first step, Starlake will look at the directory defined in the YAML file and look at the file that matches the expected pattern.
+In this first step, Starlake will look at the _directory_ attribute value in the YAML file and look at the file that matches the expected pattern by the table definition.
 In our example, the directory is `{{root_path}}/incoming` and the expected file pattern has been changed to `customers-.*.psv`
 `import` move files from domain directory defined in any domain files such as `metadata/domains/sales.comet.yml` to the `datasets/pending` directory.
 Moving files is only done when it matches at least one table pattern otherwise, the file is ignored and moved to the _unresolved_ directory.
@@ -270,7 +278,7 @@ $ docker run                                                        \
 </TabItem>
 </Tabs>
 
-This will load the dataset and store it as a parquet file into the folders:
+This will load the CSV file and store it as a parquet file into the following folders:
 - `datasets/accepted` for valid records
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
@@ -298,12 +306,91 @@ df.head
 ```
 
 ### Loading the data into BigQuery
-We just loaded our text file into a parquet file. This is a very common format for data scientists and analysts.
+To load the data into BigQuery, simply put back the customer-*.psv file in the coming folder and set
+```SL_ENV=BQ``` in the _env.comet.yml_ file and run the load command again.
+
+### How the result went tot he filesystem as parquet files
+Starlake tried to find the definition of the active environment. It searches to it in the ```SL_ENV``` variable.
+This variable may be defined as:
+- a value in the `metadata/env.comet.yml` file
+- a value passed as an environment variable
+- a java property
+
+In our case this variable is set as follows to the _LOCAL_ value.
+
+```yaml {3,3} title="Default env.comet.yml configuration file. Always loaded"
+env:
+  root_path: "{{SL_ROOT}}"
+  SL_ENV: LOCAL
+  myConnectionRef: "???"
+  bigQueryMaterializationDataset: "???"
+  validator: "???" # native of spark
+```
+This means that the specific _env.LOCAL.comet.yml_ environment file will be loaded and mixed with the default one :
+
+```yaml title="env.LOCAL.comet.yml is Loaded since SL_ENV is evaluated to LOCAL"
+env:
+  myConnectionRef: "localFilesystem" # use the local file system connection as defined in application.comet.yml
+  validator: "spark" # spark since we are running in local mode
+```
+
+The ```connectionRef``` refers to the connection defined in the `application.comet.yml` file as follows:
+
+```yaml {3,4} title="application.comet.yml"
+application:
+  connections:
+    localFilesystem:
+      type: "fs"
+    bigquery:
+      type: "bigquery"
+      options:
+        gcsBucket: "starlake-app"
+        authType: APPLICATION_DEFAULT
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
+
+  # default connection
+  connectionRef: "{{ myConnectionRef }}" # myConnectionRef is defined in the env.LOCAL.comet.yml & env.BQ.comet.yml files
+
+  validator: "spark" # native of spark
+  spark:
+    datasource:
+      bigquery:
+        materializationDataset: {{ bigQueryMaterializationDataset }}
+
+```
+
+
+
+### Loading the data into BigQuery
+We just loaded our text file as a parquet file. This is a very common format for data scientists and analysts.
 Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
 
 In our example, we will load the data into a BigQuery table.
-define the default env as being BQ in the `metadata/env.comet.yml` file:
-```yaml {3,3} title="Define the default environment to activate the env.BQ.comet.yml configuration file"
+define the default env as being BQ in the `metadata/env.comet.yml` file
+and set the values specifi to BigQuery in the metadata/env.BQ.comet.yml file as follows:
+
+```yaml  title="the env.BQ.comet.yml configuration file":
+env:
+  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
+  validator: "native" # native of spark # Load using the BigQuery API
+```
+
+To load the file using Spark simply set the validator to spark as follows:
+```yaml  title="the env.BQ.comet.yml configuration file":
+env:
+  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
+  bigQueryMaterializationDataset: "BQ_TEST_DS" # Spark require a dataset to store temporary tables
+  validator: "spark" # Use Spark as the ingestion engine
+```
+
+Using Spark instead of the BigQuery Load API may slow down the ingestion process but it has among others the following advantages:
+- It allows to load data from any source supported by Spark
+- It allows to load data into any destination supported by Spark
+- It allows to apply any transformation supported by Spark
+- It allows to report any number of errors instead of 5 errors max with the BigQuery Load API (This is a BigQuery API Limitation)
+
+```yaml {3,3} title="Define the default environment to activate the env.BQ.comet.yml configuration file":
 env:
   root_path: "{{SL_ROOT}}"
   SL_ENV: BQ
