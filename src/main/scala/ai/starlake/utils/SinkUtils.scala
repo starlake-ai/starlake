@@ -6,7 +6,7 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.google.cloud.bigquery.JobInfo.WriteDisposition
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SaveMode, SparkSession}
@@ -78,9 +78,11 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               .getOrElse(settings.comet.connectionRef),
             settings.comet,
             Right(dataframe),
-            (settings.comet.audit.domain.getOrElse("audit") + "." + table).toUpperCase()
+            (settings.comet.audit.domain.getOrElse("audit") + "." + table).toUpperCase(),
+            CreateDisposition.CREATE_IF_NEEDED,
+            WriteDisposition.WRITE_APPEND
           )
-          sinkToJdbc(jdbcConfig)
+          sinkAuditToJdbc(jdbcConfig)
         }
     }
   }
@@ -120,7 +122,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     }
   }
 
-  private def sinkToJdbc(
+  private def sinkAuditToJdbc(
     cliConfig: JdbcConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
@@ -135,7 +137,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
 
         val dfw = dataframe.write
           .format(cliConfig.format)
-          .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
+          .option("truncate", false)
           .option("dbtable", cliConfig.outputTable)
 
         logger.info(s"JDBC save done to table ${cliConfig.outputTable} at $cliConfig")

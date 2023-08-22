@@ -1492,7 +1492,9 @@ object IngestionUtil {
             settings.comet.audit.getConnectionRef(settings),
             settings.comet,
             Right(rejectedDF),
-            settings.comet.audit.domain.getOrElse("audit") + ".rejected"
+            settings.comet.audit.domain.getOrElse("audit") + ".rejected",
+            CreateDisposition.CREATE_IF_NEEDED,
+            WriteDisposition.WRITE_APPEND
           )
 
           new ConnectionLoadJob(jdbcConfig).run()

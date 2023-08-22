@@ -45,7 +45,7 @@ class ConnectionLoadJob(
           dfw
       sourceDF.show(false)
       finalDfw
-        .mode(cliConfig.mode.getOrElse(writeMode.toString))
+        .mode(writeMode.toString)
         .options(cliConfig.options)
         .save()
 
