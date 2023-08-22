@@ -26,6 +26,7 @@ import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, JobResult, Utils}
 import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -226,7 +227,9 @@ object AuditLog extends StrictLogging {
             sink.connectionRef.getOrElse(settings.comet.connectionRef),
             settings.comet,
             Right(auditDF),
-            settings.comet.audit.domain.getOrElse("audit") + ".audit"
+            settings.comet.audit.domain.getOrElse("audit") + ".audit",
+            CreateDisposition.CREATE_IF_NEEDED,
+            WriteDisposition.WRITE_APPEND
           )
           new ConnectionLoadJob(jdbcConfig).run()
 
