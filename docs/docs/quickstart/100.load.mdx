@@ -61,8 +61,8 @@ $ cd $HOME/myproject
 $ $HOME/starlake/starlake.sh infer-schema               \
     --domain sales                                      \
     --table customers                                   \
-    --input incoming/customers-2018-01-01.psv     \
-    --output-dir metadata/load --with-header
+    --input incoming/customers-2018-01-01.psv           \
+    --with-header
 ```
 
 </TabItem>
@@ -72,8 +72,8 @@ $ $HOME/starlake/starlake.sh infer-schema               \
 c:\users\me\starlake> %userprofile%\starlake\starlake.cmd infer-schema  ^
     --domain sales                                                      ^
     --table customers                                                   ^
-    --input incoming/customers-2018-01-01.psv                     ^
-    --output-dir metadata/load --with-header
+    --input incoming/customers-2018-01-01.psv                           ^
+    --with-header
 ```
 
 </TabItem>
@@ -81,12 +81,11 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd infer-schema  ^
 
 ```shell
 $ docker run                                                        \
-    -e SL_ROOT=/app/myproject                                    \
+    -e SL_ROOT=/app/myproject                                       \
     -v $HOME/myproject:/app/myproject -it starlake infer-schema     \
     --domain sales                                                  \
     --table customers                                               \
-    --input $HOME/myproject/incoming/customers-2018-01-01.psv \
-    --output-dir $HOME/myproject/metadata/load                   \
+    --input $HOME/myproject/incoming/customers-2018-01-01.psv       \
     --with-header```
 ```
 
