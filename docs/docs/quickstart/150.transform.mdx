@@ -14,7 +14,7 @@ We create a file `metadata/transform/kpi/customers_kpi.sql` with the following c
 select count(*) cnt from sales.customers
 ```
 
-This SQL file alone is not sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
+This SQL file alone is sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
 named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
 
 :::note
@@ -25,7 +25,7 @@ transform:
     write: APPEND
 ```
 
-This instructs to run all transformations in `kpi` dataset  in append mode.
+This instructs to run all transformations in `kpi` folder in append mode.
 To run only this transformation in append mode, update the __config_ file as follows:
 
 ```yaml
