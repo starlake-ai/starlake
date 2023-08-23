@@ -7,12 +7,50 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 Now that our file is successfully loaded and available as a table, we usually need to create KPIs or specialized tables.
-To illustrate how transform may be defined on tables, we will create two tables, one containing customers living in France
-and another one containing customers living in the USA.
 
+## Simple Jobs
+We create a file `metadata/transform/kpi/customers_kpi.sql` with the following content
+```SQL
+select count(*) cnt from sales.customers
+```
 
-## Templated Job
+This SQL file alone is not sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
+named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
+
+:::note
+By default, the existing table data is overriden. To append data, use the `write` option in the __config.comet.yml_ file:
+```yaml
+transform:
+  default:
+    write: APPEND
+```
+
+This instructs to run all transformations in `kpi` dataset  in append mode.
+To run only this transformation in append mode, update the __config_ file as follows:
+
+```yaml
+transform:
+  default:
+    write: OVERWRITE
+  tasks:
+    - name: customers_kpi
+      write: APPEND
+```
+
+:::
+
+That's it! We can now run the transform as follows:
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name kpi.customers_kpi
+```
+The transform job will run against the connectionRef defined in the application.comet.yml file.
+
+## Templated Jobs
 Starlake Transforms support Jinja2 templating inside SQL requests.
+To illustrate how transform may be defined dynamic table names, we will create two tables, one containing customers living in France
+and another one containing customers living in the USA.
 
 We create a file `metadata/transform/kpi/bycountry.sql` with the following content
 
@@ -22,12 +60,11 @@ select * from sales.customers where lower(country) like lower('{{ p_country }}')
 
 By creating the sql file in the kpi folder, we instruct Starlake to put the result of the query in a schema (dataset in BigQuery)
 named 'kpi'.
-The french customers will be stored in the table `cust_france` and the american customers in the table `cust_usa`.
-SQL file alone is not sufficient to be a Starlake Transform.
+But we need the french customers to be stored in the table `cust_france` and the american customers in the table `cust_usa`.
 
-Since y default the table is named after the SQL file name, ```bycountry.sql``` will create a table named ```bycountry```.
+Since by default the table is named after the SQL file name, ```bycountry.sql``` will create a table named ```bycountry```.
 We need to configure a dynamic table name based on the country name in the YAML configuration file.
-Therefore we need to create the YAML file `metadata/transform/kpi/_config.comet.yml`.
+Therefore, we need to update the YAML file `metadata/transform/kpi/_config.comet.yml`.
 This file will instruct where the result of the SQL request will be stored.
 
 ```yaml
@@ -73,48 +110,48 @@ the transform will be executed with the default values defined in the env.{{SL_E
 <Tabs groupId="warehouses">
 <TabItem value="bq" label="BigQuery">
 
-```yaml
+```yaml title="metadata/transform/kpi/_config.comet.yml"
 transform:
-  name: bycountry
   tasks:
     - table: cust_{{ p_country }}
-      write: OVERWRITE
-      connectionRef: BigQuery
+      connectionRef: bigquery
 ```
 </TabItem>
 <TabItem value="databricks" label="Databricks">
 
-```yaml
+```yaml title="metadata/transform/kpi/_config.comet.yml"
 transform:
   tasks:
-    - domain: business
-      table: cust_{{ p_country }}
-      write: OVERWRITE
-      connectionRef: DATABRICKS
+    - table: cust_{{ p_country }}
+      connectionRef: databricks
 ```
 
 </TabItem>
 <TabItem value="hive" label="Hive">
 
-```yaml
+```yaml title="metadata/transform/kpi/_config.comet.yml"
 transform:
-  engine: Spark
   tasks:
-    - domain: business
-      table: cust_{{ p_country }}
-      write: OVERWRITE
-      connectionRef: DATABRICKS
+    - table: cust_{{ p_country }}
+      connectionRef: spark
 ```
 
 </TabItem>
 <TabItem value="redshift" label="Redshift">
 
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: redshift
+```
+
 Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.comet.yml file as follows:
 
-```yaml
+```yaml title="metadata/application.comet.yml"
 connections:
-  Redshift:
-    format: "com.databricks.spark.redshift"
+  redshift:
+    sparkFormat: "com.databricks.spark.redshift"
     options:
       url: "jdbc:redshift://redshifthost:5439/database",
       user: "username",
@@ -123,28 +160,22 @@ connections:
       aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
 ```
 
-```yaml
-transform:
-  name: bycountry_{{ p_country }}
-  engine: Redshift
-  tasks:
-    - domain: business
-      table: cust_{{ p_country }}
-      write: OVERWRITE
-      sink:
-        type: Redshift
-```
-
 </TabItem>
 <TabItem value="snowflake" label="Snowflake">
 
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: snowflake
+```
 Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.comet.yml file as follows:
 
-```yaml
-
+```yaml title="metadata/application.comet.yml"
 connections:
-  Snowflake:
-    format = "net.snowflake.spark.snowflake"
+  snowflake:
+    sparkFormat = "net.snowflake.spark.snowflake"
     options:
       url: "jdbc:snowflake://myorganization-myaccount.snowflakecomputing.com/",
       user: "username",
@@ -157,15 +188,6 @@ connections:
 
 ```
 
-```yaml
-transform:
-  name: bycountry
-  engine: Snowflake
-  tasks:
-    - table: cust_{{ p_country }}
-      write: OVERWRITE
-      connectionRef: Snowflake
-```
 
 </TabItem>
 

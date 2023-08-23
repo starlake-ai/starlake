@@ -46,7 +46,7 @@ and are required to be loaded incrementally.
 
 In Starlake terms, after loading, we will end up with:
 - one domain: `sales` . A domain is equivalent to a database schema or a BigQuery dataset.
-- one table: the `customers` table in the `sales` domain 
+- one table: the `customers` table in the `sales` domain
 
 We first need to write a YAML configuration file that describe the structure of the file to load into the warehouse.
 Instead of writing this file by hand, we may infer this YAML configuration file using the `infer-schema` command.
@@ -79,7 +79,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd infer-schema  ^
 </TabItem>
 <TabItem value="docker" label="Docker">
 
-```shell 
+```shell
 $ docker run                                                        \
     -e SL_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake infer-schema     \
@@ -169,7 +169,7 @@ These environment files define variables that will be used for runtime substitut
 
 :::note
 
-You may also use _${ }_ to define variables but this is not recommended.
+You may also use the _${ }_ syntax to define variables.
 
 :::
 
@@ -226,7 +226,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd import
 </TabItem>
 <TabItem value="docker" label="Docker">
 
-```shell 
+```shell
 $ docker run                                                        \
     -e SL_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake import
@@ -269,7 +269,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd load
 </TabItem>
 <TabItem value="docker" label="Docker">
 
-```shell 
+```shell
 $ docker run                                                        \
     -e SL_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake load
@@ -296,7 +296,7 @@ Make sure that there is no overlap.
 
 ### Check the result
 
-You can check the result by running the following python script:
+You can check the result by running the following python script to read the parquet file from the current directory:
 
 ```python
 import pandas as pd
@@ -304,10 +304,6 @@ filepath = 'datasets/accepted/sales/customers/'
 df = pd.read_parquet(filepath)
 df.head
 ```
-
-### Loading the data into BigQuery
-To load the data into BigQuery, simply put back the customer-*.psv file in the coming folder and set
-```SL_ENV=BQ``` in the _env.comet.yml_ file and run the load command again.
 
 ### How the result went tot he filesystem as parquet files
 Starlake tried to find the definition of the active environment. It searches to it in the ```SL_ENV``` variable.
@@ -323,8 +319,8 @@ env:
   root_path: "{{SL_ROOT}}"
   SL_ENV: LOCAL
   myConnectionRef: "???"
-  bigQueryMaterializationDataset: "???"
-  validator: "???" # native of spark
+  bigQueryMaterializationDataset: "???" # need to be defined for spark validator on BigQuery only
+  validator: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.comet.yml file
 ```
 This means that the specific _env.LOCAL.comet.yml_ environment file will be loaded and mixed with the default one :
 
@@ -344,7 +340,7 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        gcsBucket: "starlake-app"
+        gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Used by the spark validator only.
         authType: APPLICATION_DEFAULT
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
@@ -352,23 +348,25 @@ application:
   # default connection
   connectionRef: "{{ myConnectionRef }}" # myConnectionRef is defined in the env.LOCAL.comet.yml & env.BQ.comet.yml files
 
-  validator: "spark" # native of spark
+  validator: "{{ validator }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
   spark:
     datasource:
       bigquery:
-        materializationDataset: {{ bigQueryMaterializationDataset }}
+        materializationDataset: {{ bigQueryMaterializationDataset }} # need to be defined for spark validator on BigQuery only
 
 ```
 
 
-
 ### Loading the data into BigQuery
+To load the data into BigQuery, simply put back the customer-*.psv file in the incoming folder and set
+```SL_ENV=BQ``` in the _env.comet.yml_ file and run the load command again.
+
 We just loaded our text file as a parquet file. This is a very common format for data scientists and analysts.
 Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
 
 In our example, we will load the data into a BigQuery table.
 define the default env as being BQ in the `metadata/env.comet.yml` file
-and set the values specifi to BigQuery in the metadata/env.BQ.comet.yml file as follows:
+and set the values specific to BigQuery in the metadata/env.BQ.comet.yml file as follows:
 
 ```yaml  title="the env.BQ.comet.yml configuration file":
 env:
@@ -377,7 +375,7 @@ env:
 ```
 
 To load the file using Spark simply set the validator to spark as follows:
-```yaml  title="the env.BQ.comet.yml configuration file":
+```yaml title="the env.BQ.comet.yml configuration file, used when SL_ENV is set to BQ":
 env:
   myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
   bigQueryMaterializationDataset: "BQ_TEST_DS" # Spark require a dataset to store temporary tables
@@ -385,17 +383,7 @@ env:
 ```
 
 Using Spark instead of the BigQuery Load API may slow down the ingestion process but it has among others the following advantages:
-- It allows to load data from any source supported by Spark
-- It allows to load data into any destination supported by Spark
+- It allows to load data from any source supported by Spark including Fixed Width Files, XML files, JSON Arrays files ...
+- It allows to load data into any destination supported by Spark including Snowflake, Amazon Redshift ...
 - It allows to apply any transformation supported by Spark
 - It allows to report any number of errors instead of 5 errors max with the BigQuery Load API (This is a BigQuery API Limitation)
-
-```yaml {3,3} title="Define the default environment to activate the env.BQ.comet.yml configuration file":
-env:
-  root_path: "{{SL_ROOT}}"
-  SL_ENV: BQ
-  myConnectionRef: "localFilesystem"
-  bigQueryMaterializationDataset: "???"
-  validator: "???" # native of spark
-```
-

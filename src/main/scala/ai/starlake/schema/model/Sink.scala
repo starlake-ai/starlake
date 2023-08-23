@@ -43,12 +43,12 @@ object ConnectionType {
 
   def fromString(value: String): ConnectionType = {
     value.toUpperCase match {
-      case "FS" | "FILESYSTEM"    => ConnectionType.FS
-      case "JDBC"                 => ConnectionType.JDBC
-      case "BIGQUERY" | "BQ"      => ConnectionType.BQ
-      case "ES" | "ELASTICSEARCH" => ConnectionType.ES
-      case "KAFKA"                => ConnectionType.KAFKA
-      case _                      => throw new Exception(s"Unsupported ConnectionType $value")
+      case "FS" | "FILESYSTEM" | "DATABRICKS" | "SPARK" => ConnectionType.FS
+      case "JDBC"                                       => ConnectionType.JDBC
+      case "BIGQUERY" | "BQ"                            => ConnectionType.BQ
+      case "ES" | "ELASTICSEARCH"                       => ConnectionType.ES
+      case "KAFKA"                                      => ConnectionType.KAFKA
+      case _ => throw new Exception(s"Unsupported ConnectionType $value")
     }
   }
 
