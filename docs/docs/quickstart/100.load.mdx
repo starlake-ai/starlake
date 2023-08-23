@@ -203,7 +203,7 @@ Loading is a two step process: The optional `import` step and the `load` step.
 ### Import step
 In this first step, Starlake will look at the _directory_ attribute value in the YAML file and look at the file that matches the expected pattern by the table definition.
 In our example, the directory is `{{root_path}}/incoming` and the expected file pattern has been changed to `customers-.*.psv`
-`import` move files from domain directory defined in any domain files such as `metadata/domains/sales.comet.yml` to the `datasets/pending` directory.
+`import` move files from domain directory defined in any domain files such as `metadata/load/sales/_config.comet.yml` to the `datasets/pending` directory.
 Moving files is only done when it matches at least one table pattern otherwise, the file is ignored and moved to the _unresolved_ directory.
 
 

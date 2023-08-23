@@ -28,7 +28,7 @@ transform:
 This instructs to run all transformations in `kpi` folder in append mode.
 To run only this transformation in append mode, update the __config_ file as follows:
 
-```yaml
+```yaml {5-6}
 transform:
   default:
     write: OVERWRITE
@@ -49,7 +49,7 @@ The transform job will run against the connectionRef defined in the application.
 
 ## Templated Jobs
 Starlake Transforms support Jinja2 templating inside SQL requests.
-To illustrate how transform may be defined dynamic table names, we will create two tables, one containing customers living in France
+To illustrate how this works, we will create two tables, one containing customers living in France
 and another one containing customers living in the USA.
 
 We create a file `metadata/transform/kpi/bycountry.sql` with the following content
@@ -67,9 +67,11 @@ We need to configure a dynamic table name based on the country name in the YAML 
 Therefore, we need to update the YAML file `metadata/transform/kpi/_config.comet.yml`.
 This file will instruct where the result of the SQL request will be stored.
 
-```yaml
+```yaml {5-7}
 transform:
   tasks:
+    - name: customers_kpi
+      write: APPEND
     - name: bycountry # We define the name of the transform.
       table: cust_{{ p_country }} # We define the table name based on the country name.
       write: OVERWRITE # We overwrite the table each time the job is executed.
