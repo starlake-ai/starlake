@@ -89,7 +89,6 @@ trait TestHelper
          |SL_TEST_ID="${cometTestId}"
          |SL_DATASETS="${cometDatasetsPath}"
          |SL_METADATA="${cometMetadataPath}"
-         |SL_TMPDIR="${cometTestRoot}/tmp"
          |SL_LOCK_PATH="${cometTestRoot}/locks"
          |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
          |SL_AUDIT_PATH="${cometTestRoot}/audit"

@@ -599,15 +599,45 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
-    // Load application.conf
-    val applicationConfSettings = loadApplicationConf(effectiveConfig, settings)
+    // Load application.conf / application.comet.yml
+    val applicationConfSettings =
+      loadApplicationYaml(effectiveConfig, settings)
+        .orElse(loadApplicationConf(effectiveConfig, settings))
+        .getOrElse(settings)
+
+    applicationConfSettings.storageHandler(true) // Reload with the authentication settings
+
     // Load fairscheduler.xml
     val jobConf = initSparkSchedulingConfig(applicationConfSettings)
     val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
     withSparkConfig
   }
 
-  private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Settings = {
+  private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
+    val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
+    if (settings.storageHandler().exists(applicationConfPath)) {
+      val applicationConfContent = settings.storageHandler().read(applicationConfPath)
+      val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
+      val effectiveApplicationConfig = applicationConfig
+        .withFallback(effectiveConfig)
+      logger.debug(effectiveApplicationConfig.toString)
+      val mergedSettings = ConfigSource
+        .fromConfig(effectiveApplicationConfig)
+        .loadOrThrow[Comet]
+
+      Some(
+        Settings(
+          mergedSettings,
+          effectiveApplicationConfig.getConfig("spark"),
+          effectiveApplicationConfig.getConfig("extra")
+        )
+      )
+    } else {
+      None
+    }
+  }
+
+  private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
     val applicationYml = List("application.comet.yml", "application.yml").find { filename =>
       val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
       settings.storageHandler().exists(applicationConfPath)
@@ -653,12 +683,11 @@ object Settings extends StrictLogging {
           effectiveApplicationConfig.getConfig("spark"),
           effectiveApplicationConfig.getConfig("extra")
         )
-        applicationSettings
+        Some(applicationSettings)
       case None =>
-        settings
+        None
     }
-
-    applicationSettings.storageHandler(true) // Reload with the authentication settings
+    applicationSettings.map(_.storageHandler(true)) // Reload with the authentication settings
     applicationSettings
   }
 
