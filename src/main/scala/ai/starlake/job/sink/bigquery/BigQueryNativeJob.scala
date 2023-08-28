@@ -4,19 +4,20 @@ import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.schema.model.{BigQuerySink, Format}
 import ai.starlake.utils.{JobBase, JobResult, Utils}
+import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
-import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
-import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{BlobId, BlobInfo, Storage}
-import org.apache.hadoop.fs.Path
+import com.google.cloud.bigquery.{Table, Schema => BQSchema, _}
 
-import java.nio.file.Paths
+import java.net.URI
+import java.nio.channels.Channels
+import java.nio.file.Files
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.util.{Try, Using}
 
 class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)(implicit
   val settings: Settings
@@ -26,42 +27,6 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  private def uploadFilesToGCS(sourceURIs: String): List[Path] = {
-
-    val temporaryGcsBucket = connectionOptions
-      .get("temporaryGcsBucket")
-      .orElse(
-        settings.comet.internal
-          .flatMap(_.temporaryGcsBucket)
-      )
-      .getOrElse(
-        throw new Exception(
-          "Temporary GCS Bucket not defined. Please set env var SL_TEMPORARY_GCS_BUCKET"
-        )
-      )
-
-    val folderId = UUID.randomUUID().toString
-    val gcsPath =
-      new Path(s"gs://${temporaryGcsBucket}/$folderId")
-    sourceURIs
-      .split(",")
-      .map { sourceUri =>
-        val sourcePath = new Path(sourceUri)
-        val targetPathWithScheme = new Path(gcsPath, sourcePath.getName())
-        val targetPath =
-          Path.getPathWithoutSchemeAndAuthority(targetPathWithScheme)
-        val targetObject = s"$folderId/${sourcePath.getName()}"
-        val blobId = BlobId.of(temporaryGcsBucket, targetObject)
-        val blobInfo = BlobInfo.newBuilder(blobId).build()
-        val precondition: Storage.BlobWriteOption = Storage.BlobWriteOption.doesNotExist()
-        val targetUri = Paths.get(sourcePath.toUri)
-
-        this.gcsStorage().createFrom(blobInfo, targetUri, precondition)
-        logger.info(s"Uploaded $sourcePath to $targetPathWithScheme")
-        targetPathWithScheme
-      }
-      .toList
-  }
   def loadPathsToBQ(bqSchema: BQSchema): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
@@ -73,27 +38,26 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
 
             // We upload local files first.
             val localFiles = uri.startsWith("file:")
-            val gcsUris =
-              if (localFiles)
-                uploadFilesToGCS(sourceURIs).mkString(",")
-              else
-                sourceURIs
-
-            val loadConfig: LoadJobConfiguration =
-              bqLoadConfig(bqSchema, formatOptions, gcsUris)
-            // Load data from a GCS CSV file into the table
-            val job = bigquery().create(JobInfo.of(loadConfig))
+            val job =
+              if (localFiles) {
+                val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
+                val jobName = "jobId_" + UUID.randomUUID().toString();
+                val jobId = JobId.newBuilder().setJob(jobName).build();
+                Using(bigquery.writer(jobId, loadConfig)) { writer =>
+                  val outputStream = Channels.newOutputStream(writer)
+                  sourceURIs
+                    .split(",")
+                    .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
+                }
+                bigquery().getJob(jobId)
+              } else {
+                val loadConfig: LoadJobConfiguration =
+                  bqLoadConfig(bqSchema, formatOptions, sourceURIs)
+                // Load data from a GCS CSV file into the table
+                bigquery().create(JobInfo.of(loadConfig))
+              }
             // Blocks until this load table job completes its execution, either failing or succeeding.
             val jobResult = job.waitFor()
-
-            // We delete any updated local file
-            if (localFiles) {
-              gcsUris.split(",").foreach { uri =>
-                val path = new Path(uri)
-                settings.storageHandler().delete(path)
-                logger.info(s"Deleted $path")
-              }
-            }
             if (jobResult.isDone) {
               val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
               applyRLSAndCLS().recover { case e =>
@@ -145,13 +109,27 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     sourceURIs: String
   ): LoadJobConfiguration = {
     val loadConfig =
-      LoadJobConfiguration
-        .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
-        .setIgnoreUnknownValues(true)
-        .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
-        .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
-        .setSchema(bqSchema)
+      LoadJobConfiguration.newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
+    configureBqLoad(loadConfig, bqSchema).build()
+  }
 
+  private def bqLoadLocaFileConfig(
+    bqSchema: BQSchema,
+    formatOptions: FormatOptions
+  ): WriteChannelConfiguration = {
+    val loadConfig = WriteChannelConfiguration.newBuilder(tableId).setFormatOptions(formatOptions)
+    configureBqLoad(loadConfig, bqSchema).build()
+  }
+
+  private def configureBqLoad[T <: LoadConfiguration.Builder](
+    loadConfig: T,
+    bqSchema: BQSchema
+  ): T = {
+    loadConfig
+      .setIgnoreUnknownValues(true)
+      .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
+      .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
+      .setSchema(bqSchema)
     if (cliConfig.writeDisposition == JobInfo.WriteDisposition.WRITE_APPEND.toString) {
       loadConfig.setSchemaUpdateOptions(
         List(
@@ -178,7 +156,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
         val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
         loadConfig.setClustering(clustering)
     }
-    loadConfig.build()
+    loadConfig
   }
 
   private def bqLoadFormatOptions(): FormatOptions = {
