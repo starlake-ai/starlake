@@ -468,7 +468,7 @@ object Settings extends StrictLogging {
     launcher: String,
     chewerPrefix: String,
     emptyIsNull: Boolean,
-    validator: String,
+    loader: String,
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,
