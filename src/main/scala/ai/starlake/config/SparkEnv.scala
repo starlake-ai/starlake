@@ -20,6 +20,7 @@
 
 package ai.starlake.config
 
+import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -42,6 +43,13 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
+    if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
+      config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+      config.set(
+        "spark.sql.catalog.spark_catalog",
+        "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+      )
+    }
     val session =
       if (settings.comet.isHiveCompatible())
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()

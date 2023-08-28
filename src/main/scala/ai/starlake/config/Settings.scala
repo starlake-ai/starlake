@@ -539,7 +539,14 @@ object Settings extends StrictLogging {
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @JsonIgnore
-    def isHiveCompatible(): Boolean = hive || Utils.isRunningInDatabricks()
+    def isHiveCompatible(): Boolean = {
+      val connectionTypeIsHive = this.connections
+        .get(this.connectionRef)
+        .exists { conn =>
+          conn.`type`.getOrElse("").toLowerCase() == "hive"
+        }
+      connectionTypeIsHive || hive || Utils.isRunningInDatabricks()
+    }
 
     @JsonIgnore
     def connection(name: String): Option[Connection] = connections.get(name)

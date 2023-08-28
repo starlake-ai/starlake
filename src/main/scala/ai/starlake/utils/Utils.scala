@@ -228,6 +228,16 @@ object Utils extends StrictLogging {
       keyValuePAir(0) -> keyValuePAir(1)
     }
   }
+
+  def isDeltaAvailable(): Boolean = {
+    try {
+      Class.forName("io.delta.tables.DeltaTable")
+      true
+    } catch {
+      case _: ClassNotFoundException => false
+    }
+  }
+
   def isRunningInDatabricks(): Boolean =
     sys.env.contains("DATABRICKS_RUNTIME_VERSION")
 
