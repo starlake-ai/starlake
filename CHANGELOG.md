@@ -18,6 +18,7 @@
   - "domains" and "jobs" folders renamed to "load" and "transform" respectively
   - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
   - globalJDBCSchema renamed to default
+  - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
 
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ... 
