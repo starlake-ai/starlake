@@ -42,10 +42,10 @@ import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val validator = mergedMetadata.validator.getOrElse(settings.comet.validator)
-    val validatorClassName = validator.toLowerCase() match {
+    val loader = mergedMetadata.loader.getOrElse(settings.comet.loader)
+    val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
-      case _       => throw new Exception(s"Unexpected '$validator' validator !!!")
+      case _       => throw new Exception(s"Unexpected '$loader' loader !!!")
     }
     Utils.loadInstance[GenericRowValidator](validatorClassName)
   }
@@ -255,7 +255,7 @@ trait IngestionJob extends SparkJob {
       )
 
     val nativeValidator =
-      mergedMetadata.validator.getOrElse(settings.comet.validator).toLowerCase().equals("native")
+      mergedMetadata.loader.getOrElse(settings.comet.loader).toLowerCase().equals("native")
     // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
     csvOrJsonLines && nativeValidator
   }
