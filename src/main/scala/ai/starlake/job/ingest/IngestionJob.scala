@@ -255,7 +255,7 @@ trait IngestionJob extends SparkJob {
       )
 
     val nativeValidator =
-      mergedMetadata.validator.getOrElse("Non Native").toLowerCase().equals("native")
+      mergedMetadata.validator.getOrElse(settings.comet.validator).toLowerCase().equals("native")
     // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
     csvOrJsonLines && nativeValidator
   }
