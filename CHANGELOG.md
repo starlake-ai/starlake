@@ -29,6 +29,7 @@ __Feature__:
 - Support native loading of data into BigQuery
 - Define JDBC connections and audit connections in metadata/connections.comet.yml
 - schema extraction and features relying on it benefit from parallel fetching
+- use load dataset path as default output dir if not defined for schema inference
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
