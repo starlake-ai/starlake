@@ -461,18 +461,6 @@ case class AutoTask(
         case None =>
           (SparkJobResult(None), sqlWithParameters)
         case Some(dataframe) =>
-//          if (settings.comet.isHiveCompatible()) {
-//            val fsSink = sink match {
-//              case Some(sink) =>
-//                sink match {
-//                  case fsSink: FsSink => fsSink
-//                  case _ => FsSink()
-//                }
-//              case _ => FsSink()
-//            }
-//            sinkToFS(dataframe, fsSink)
-//          }
-
           if (settings.comet.expectations.active) {
             new ExpectationJob(
               taskDesc.domain,

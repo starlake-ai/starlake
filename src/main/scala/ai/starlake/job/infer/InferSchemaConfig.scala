@@ -55,12 +55,12 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
         .text("Dataset Input Path"),
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = x))
-        .required()
-        .text("Domain YAML Output Path"),
+        .optional()
+        .text("YAML Output Path"),
       opt[String]("format")
         .action((x, c) => c.copy(format = Some(Format.fromString(x))))
         .optional()
-        .text("Force format"),
+        .text("Force input file format"),
       opt[Unit]("with-header")
         .action((x, c) => c.copy(withHeader = true))
         .optional()

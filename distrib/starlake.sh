@@ -13,7 +13,7 @@ SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
 SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
 #SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 SKIP_INSTALL=1
-export SL_ENV="${SL_ENV:-FS}"
+
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
