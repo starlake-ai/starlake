@@ -194,3 +194,49 @@ connections:
 </TabItem>
 
 </Tabs>
+
+
+
+## Transform lineage
+
+To display the job linage, run the following command:
+
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh jobs2gv
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\users\me\starlake> %userprofile%\starlake\starlake.cmd jobs2gv
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```sh
+$ docker run                                                        \
+-e SL_ROOT=/app/myproject                                    \
+-v $HOME/myproject:/app/myproject -it starlake jobs2gv
+```
+
+</TabItem>
+</Tabs>
+
+This will display the dot file. Copy paste de result to the following URL : https://dreampuf.github.io/GraphvizOnline/
+
+![](/img/quickstart/graphviz-transform.png)
+
+
+
+:::note
+
+You may also convert this file to a png/svg/... file using the `dot` command available at https://graphviz.org/download/
+
+:::

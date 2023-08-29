@@ -304,6 +304,7 @@ df = pd.read_parquet(filepath)
 df.head
 ```
 
+## Configuration
 ### How the result went tot he filesystem as parquet files
 Starlake tried to find the definition of the active environment. It searches to it in the ```SL_ENV``` variable.
 This variable may be defined as:
@@ -386,3 +387,47 @@ Using Spark instead of the BigQuery Load API may slow down the ingestion process
 - It allows to load data into any destination supported by Spark including Snowflake, Amazon Redshift ...
 - It allows to apply any transformation supported by Spark
 - It allows to report any number of errors instead of 5 errors max with the BigQuery Load API (This is a BigQuery API Limitation)
+
+
+
+## Entity relations diagram
+
+To display table dependencies, run the following command:
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh yml2gv --domains --all
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\users\me\starlake> %userprofile%\starlake\starlake.cmd yml2gv --domains --all
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```sh
+$ docker run                                                        \
+-e SL_ROOT=/app/myproject                                    \
+-v $HOME/myproject:/app/myproject -it starlake yml2gv --domains --all
+```
+
+</TabItem>
+</Tabs>
+
+This will display the dot file. Copy paste de result to the following URL : https://dreampuf.github.io/GraphvizOnline/
+
+![](/img/quickstart/graphviz-load.png)
+
+
+:::note
+
+You may also convert this file to a png/svg/... file using the `dot` command available at https://graphviz.org/download/
+
+:::

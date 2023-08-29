@@ -13,8 +13,8 @@ class InferSchemaSpec extends TestHelper {
           |  --domain <value>       Domain Name
           |  --table <value>        Table Name
           |  --input <value>        Dataset Input Path
-          |  --output-dir <value>   Domain YAML Output Path
-          |  --format <value>       Force format
+          |  --output-dir <value>   YAML Output Path
+          |  --format <value>       Force input file format
           |  --with-header          Does the file contain a header (For CSV files only)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
