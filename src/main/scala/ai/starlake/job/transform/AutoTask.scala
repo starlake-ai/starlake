@@ -418,7 +418,7 @@ case class AutoTask(
           val tableDF = session.read
             .format(settings.comet.defaultFormat)
             .load(table.toString)
-          tableDF.createOrReplaceTempView(s"$domainName.$tableName")
+          tableDF.createOrReplaceTempView(s"$tableName")
           tableName
         }.toOption
       }
