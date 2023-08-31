@@ -69,7 +69,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
           c.copy(files = allFiles.map(_.pathAsString))
         }
         .required()
-        .text("List of Excel files describing Domains & Schemas OR Jobs"),
+        .text("List of Excel files describing domains & schemas or jobs"),
       opt[Boolean]("encryption")
         .action((x, c) => c.copy(encryption = x))
         .optional()
