@@ -485,9 +485,7 @@ class IngestionWorkflow(
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
-    val metadata = domain.metadata
-      .getOrElse(Metadata())
-      .merge(schema.metadata.getOrElse(Metadata()))
+    val metadata = schema.mergedMetadata(domain.metadata)
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
