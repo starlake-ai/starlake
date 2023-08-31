@@ -150,7 +150,20 @@ class InferSchemaJob(implicit settings: Settings) {
     *   the schema pattern
     */
   private def getSchemaPattern(path: Path): String = {
-    path.getName
+    val filename = path.getName
+    val parts = filename.split("\\.")
+    if (parts.length < 2)
+      filename
+    else {
+      val extension = parts.last
+      val prefix = filename.replace(s".$extension", "")
+      val indexOfNonAlpha = prefix.indexWhere(!_.isLetterOrDigit)
+      val prefixWithoutNonAlpha = prefix.substring(0, indexOfNonAlpha)
+      if (prefixWithoutNonAlpha.isEmpty)
+        filename
+      else
+        s"$prefixWithoutNonAlpha.*.$extension"
+    }
   }
 
   /** Create the dataframe with its associated format

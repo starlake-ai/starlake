@@ -18,10 +18,12 @@ application:
       type: "fs"
 
   spark:
+    delta:
+      logStore:
+        class: org.apache.spark.sql.delta.storage.LocalLogStore
     datasource:
       bigquery:
         materializationDataset: "BQ_TEST_DS"
 
 
   connectionRef: "{{ myConnectionRef }}"
-
