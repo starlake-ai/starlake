@@ -214,7 +214,9 @@ object SQLUtils extends StrictLogging {
 
           val tablesFound =
             source
-              .substring(keyword.length) // SKIP FROM AND JOIN
+              .substring(
+                source.toUpperCase().indexOf(keyword.toUpperCase()) + keyword.length
+              ) // SKIP FROM AND JOIN
               .split(",")
               .map(_.trim.split("\\s").head) // get expressions in FROM / JOIN
               .filter(tablesList.contains(_)) // we remove CTEs
