@@ -8,7 +8,7 @@ import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
-import com.google.cloud.bigquery.{Table, Schema => BQSchema, _}
+import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
 
 import java.net.URI
 import java.nio.channels.Channels
