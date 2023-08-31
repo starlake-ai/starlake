@@ -92,17 +92,17 @@ $ docker run                                                        \
 </TabItem>
 </Tabs>
 
-This command will infer the YAML configuration file used by the loader to watch the folder for new files to load and to validate each record in those files.
 This inferred YAML file may be found in the `customers.comet.yml` file under the `metadata/load/sales` folder.
 Notice how the `customers.comet.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
-The domain configuration file __config.comet.yml_ is stored in the _domain_ folder.
+The domain configuration file __config.comet.yml_ is also stored in the _domain_ folder.
 
 
 The contents of the files look like this:
 
 ### Domain configuration file: _config.comet.yml
-This file describes properties shared by all tables in this domain.
+This file describes the properties shared by all tables in this domain.
 Here we assume that all tables in the `sales` domain are loaded from the _incoming_ folder.
+
 `{{root_path}}` is a variable path set in the env file (more on this later).
 
 ```yaml title="Domain configuration file: _config.comet.yml"
@@ -112,7 +112,7 @@ load:
   metadata:
     directory: "{{root_path}}/incoming"
 ```
-You may change this path in the _directory_ attribute to any other path.
+You may change the path referenced by the _directory_ attribute to any other path.
 
 
 ### Table configuration file: customers.comet.yml
@@ -124,8 +124,8 @@ The `pattern` property is a regular expression that will be used to match the fi
 ---
 table:
   name: "customers"   # destination table name
-  pattern: "customers-2018-01-01.psv" # This property is a regular expression that will be used to match the file name.
-                                      # Please replace it by a file pattern eq. customers-.*.psv
+  pattern: "customers.*.psv" # This property is a regular expression that will be used to match the file name.
+                                      # Please replace it by the adequate file pattern eq. customers-.*.psv if required
   attributes:         # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
@@ -163,8 +163,8 @@ table:
 
 ```
 
-We have seen in the [bootstrap section](bootstrap) that three environment files were created such as `metadata/env.comet.yml`.
-These environment files define variables that will be used for runtime substitution in any YAML file. Variables in YAML files are enclosed with {{ and }}.
+We have seen in the [bootstrap section](bootstrap) that three environment files.
+These environment files define the variables that will be used for runtime substitution in any YAML file. Variables in YAML files are enclosed with {{ and }}.
 
 :::note
 
@@ -173,9 +173,9 @@ You may also use the _${ }_ syntax to define variables.
 :::
 
 
-Furthermore, it is important to know that `metadata/env.comet.yml` define the default variables.
-Any other environment files will be mixed with this default one and specific environment file have higher precedence.
-In other words, we have the following environments
+The environment file `metadata/env.comet.yml` define the default variables.
+Any other environment file will be mixed with this default one and specific environment file have higher precedence.
+In our example, we have the following environment files:
 
 | Environment | File used                          |
 |-------------|------------------------------------|
@@ -183,7 +183,7 @@ In other words, we have the following environments
 | LOCAL       | env.LOCAL.comet.yml, env.comet.yml |
 | BQ          | env.BQ.comet.yml, env.comet.yml    |
 
-Environment is set thanks to `SL_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
+The active environment is set through the `SL_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
 
 In our example, the `root_path` must be defined to the location where the incoming directory containing the datasets to load will be located.
 Set it to your project directory as follows in the default environment file:
@@ -201,10 +201,11 @@ or simply leave it as `{{SL_ROOT}}`.
 Loading is a two step process: The optional `import` step and the `load` step.
 
 ### Import step
-In this first step, Starlake will look at the _directory_ attribute value in the YAML file and look at the file that matches the expected pattern by the table definition.
-In our example, the directory is `{{root_path}}/incoming` and the expected file pattern has been changed to `customers-.*.psv`
-`import` move files from domain directory defined in any domain files such as `metadata/load/sales/_config.comet.yml` to the `datasets/pending` directory.
-Moving files is only done when it matches at least one table pattern otherwise, the file is ignored and moved to the _unresolved_ directory.
+In this first step, Starlake will look at the _directory_ attribute value in the YAML file and look at the file that matches the expected pattern defined in the table definition.
+In our example, the directory is `{{root_path}}/incoming` and the expected file pattern has been changed to `customers.*.psv`
+
+the `import` command moves the files that satisfy one table pattern from the _incoming_ folder to the `datasets/pending` folder.
+Files that do not satisfy any pattern won't be loaded and are moved to the `datasets/unresolved` directory.
 
 
 <Tabs groupId="platforms">
@@ -234,7 +235,7 @@ $ docker run                                                        \
 </TabItem>
 </Tabs>
 
-The file has now been moved to the `myproject/datasets/pending/sales` directory.
+The _customers_ file has now been moved to the `myproject/datasets/pending/sales` directory.
 
 :::note
 
@@ -248,7 +249,6 @@ Also note that all these source directories may be [redefined](../reference/conf
 In this second step, each line in the file present in the `datasets/pending` folder is checked against the schema described in the YAML file
 and its result is stored in the warehouse.
 
-Before loading data to the warehouse, create a copy of the psv file and name it `unknown-table.psv`. Then run the `load` command to load data as below:
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
@@ -282,7 +282,6 @@ This will load the CSV file and store it as a parquet file into the following fo
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
 
-The latter one is where you should find `unknown-table.psv`.
 
 :::caution
 
@@ -312,7 +311,7 @@ This variable may be defined as:
 - a value passed as an environment variable
 - a java property
 
-In our case this variable is set as follows to the _LOCAL_ value.
+In our case this variable has been set as follows to the _LOCAL_ value.
 
 ```yaml {3,3} title="Default env.comet.yml configuration file. Always loaded"
 env:
@@ -330,7 +329,7 @@ env:
   validator: "spark" # spark since we are running in local mode
 ```
 
-The ```connectionRef``` refers to the connection defined in the `application.comet.yml` file as follows:
+The ```connectionRef``` refers to the datawarehouse connection defined in the `application.comet.yml` file as follows:
 
 ```yaml {3,4} title="application.comet.yml"
 application:
@@ -358,20 +357,17 @@ application:
 
 
 ### Loading the data into BigQuery
-To load the data into BigQuery, simply put back the customer-*.psv file in the incoming folder and set
-```SL_ENV=BQ``` in the _env.comet.yml_ file and run the load command again.
-
 We just loaded our text file as a parquet file. This is a very common format for data scientists and analysts.
 Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
 
 In our example, we will load the data into a BigQuery table.
-define the default env as being BQ in the `metadata/env.comet.yml` file
+define the default env as being BQ (```SL_ENV=BQ```) in the `metadata/env.comet.yml` file
 and set the values specific to BigQuery in the metadata/env.BQ.comet.yml file as follows:
 
 ```yaml  title="the env.BQ.comet.yml configuration file":
 env:
   myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
-  validator: "native" # native of spark # Load using the BigQuery API
+  validator: "native" # native or spark # native means we want to load the data using the BigQuery API
 ```
 
 To load the file using Spark simply set the validator to spark as follows:
@@ -388,6 +384,9 @@ Using Spark instead of the BigQuery Load API may slow down the ingestion process
 - It allows to apply any transformation supported by Spark
 - It allows to report any number of errors instead of 5 errors max with the BigQuery Load API (This is a BigQuery API Limitation)
 
+
+To load the data into BigQuery, simply put back the customer-*.psv file in the incoming folder
+and run the _import_ and _load_ commands again.
 
 
 ## Entity relations diagram
@@ -428,6 +427,7 @@ This will display the dot file. Copy paste de result to the following URL : http
 
 :::note
 
-You may also convert this file to a png/svg/... file using the `dot` command available at https://graphviz.org/download/
+You may also convert this file to a png/svg/...
+file using the `dot` command available at https://graphviz.org/download/
 
 :::
