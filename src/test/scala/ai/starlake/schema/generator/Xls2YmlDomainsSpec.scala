@@ -226,7 +226,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
         """
           |Usage: starlake xls2yml [options]
           |
-          |  --files <value>       List of Excel files describing Domains & Schemas OR Jobs
+          |  --files <value>       List of Excel files describing domains & schemas or jobs
           |  --encryption <value>  If true generate pre and post encryption YML
           |  --iamPolicyTagsFile <value>
           |                        If true generate IAM PolicyTags YML
