@@ -50,6 +50,7 @@ import ai.starlake.utils._
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
@@ -494,9 +495,7 @@ class IngestionWorkflow(
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
-    val metadata = domain.metadata
-      .getOrElse(Metadata())
-      .merge(schema.metadata.getOrElse(Metadata()))
+    val metadata = schema.mergedMetadata(domain.metadata)
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
@@ -652,11 +651,12 @@ class IngestionWorkflow(
   }
 
   def inferSchema(config: InferSchemaConfig): Try[File] = {
+    implicit val settings: Settings = Settings(ConfigFactory.load())
     val result = new InferSchema(
       config.domainName,
       config.schemaName,
       config.inputPath,
-      config.outputDir,
+      config.outputDir.getOrElse(DatasetArea.load.toString),
       config.withHeader,
       config.format
     ).run()

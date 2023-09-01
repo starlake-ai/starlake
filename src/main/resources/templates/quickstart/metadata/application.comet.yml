@@ -13,7 +13,7 @@ application:
   # default connection
   connectionRef: "{{ myConnectionRef }}"
 
-  validator: "{{ validator }}" # native of spark
+  loader: "{{ loader }}" # native or spark
   spark:
     datasource:
       bigquery:

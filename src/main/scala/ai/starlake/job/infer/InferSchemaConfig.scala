@@ -27,7 +27,7 @@ case class InferSchemaConfig(
   domainName: String = "",
   schemaName: String = "",
   inputPath: String = "",
-  outputDir: String = "",
+  outputDir: Option[String] = None,
   withHeader: Boolean = false,
   format: Option[Format] = None
 )
@@ -54,9 +54,9 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
         .required()
         .text("Dataset Input Path"),
       opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = x))
+        .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
-        .text("YAML Output Path"),
+        .text("Domain YAML Output Path"),
       opt[String]("format")
         .action((x, c) => c.copy(format = Some(Format.fromString(x))))
         .optional()

@@ -319,15 +319,15 @@ env:
   root_path: "{{SL_ROOT}}"
   SL_ENV: LOCAL
   myConnectionRef: "???"
-  bigQueryMaterializationDataset: "???" # need to be defined for spark validator on BigQuery only
-  validator: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.comet.yml file
+  bigQueryMaterializationDataset: "???" # need to be defined for spark loader on BigQuery only
+  loader: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.comet.yml file
 ```
 This means that the specific _env.LOCAL.comet.yml_ environment file will be loaded and mixed with the default one :
 
 ```yaml title="env.LOCAL.comet.yml is Loaded since SL_ENV is evaluated to LOCAL"
 env:
   myConnectionRef: "localFilesystem" # use the local file system connection as defined in application.comet.yml
-  validator: "spark" # spark since we are running in local mode
+  loader: "spark" # spark since we are running in local mode
 ```
 
 The ```connectionRef``` refers to the datawarehouse connection defined in the `application.comet.yml` file as follows:
@@ -340,7 +340,7 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Used by the spark validator only.
+        gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Used by the spark loader only.
         authType: APPLICATION_DEFAULT
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
@@ -348,11 +348,11 @@ application:
   # default connection
   connectionRef: "{{ myConnectionRef }}" # myConnectionRef is defined in the env.LOCAL.comet.yml & env.BQ.comet.yml files
 
-  validator: "{{ validator }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
   spark:
     datasource:
       bigquery:
-        materializationDataset: {{ bigQueryMaterializationDataset }} # need to be defined for spark validator on BigQuery only
+        materializationDataset: {{ bigQueryMaterializationDataset }} # need to be defined for spark loader on BigQuery only
 
 ```
 
@@ -368,15 +368,15 @@ and set the values specific to BigQuery in the metadata/env.BQ.comet.yml file as
 ```yaml  title="the env.BQ.comet.yml configuration file":
 env:
   myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
-  validator: "native" # native or spark # native means we want to load the data using the BigQuery API
+  loader: "native" # native or spark # native means we want to load the data using the BigQuery API
 ```
 
-To load the file using Spark simply set the validator to spark as follows:
+To load the file using Spark simply set the loader to spark as follows:
 ```yaml title="the env.BQ.comet.yml configuration file, used when SL_ENV is set to BQ":
 env:
   myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
   bigQueryMaterializationDataset: "BQ_TEST_DS" # Spark require a dataset to store temporary tables
-  validator: "spark" # Use Spark as the ingestion engine
+  loader: "spark" # Use Spark as the ingestion engine
 ```
 
 Using Spark instead of the BigQuery Load API may slow down the ingestion process but it has among others the following advantages:
