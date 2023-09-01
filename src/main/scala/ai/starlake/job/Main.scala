@@ -2,7 +2,6 @@ package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract._
-import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
@@ -229,16 +228,6 @@ class Main() extends StrictLogging {
             workflow.esLoad(config).isSuccess
           case _ =>
             println(ESLoadConfig.usage())
-            false
-        }
-
-      case "atlas" =>
-        AtlasConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            // do something
-            workflow.atlas(config)
-          case _ =>
-            println(AtlasConfig.usage())
             false
         }
 

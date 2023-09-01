@@ -125,16 +125,6 @@ object Dependencies {
     "com.github.scopt" %% "scopt" % Versions.scopt
   )
 
-  // We need here to remove any reference to hadoop 3
-  val atlas = Seq(
-    // "org.apache.atlas" % "apache-atlas" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-intg" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    "org.apache.atlas" % "atlas-client-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    // "org.apache.atlas" % "atlas-client" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    "org.apache.atlas" % "atlas-client-v2" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava")
-  )
-
   val excelClientApi = Seq(
     "org.apache.poi" % "poi-ooxml" % Versions.poi
   )
@@ -165,5 +155,5 @@ object Dependencies {
 
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue
 }
