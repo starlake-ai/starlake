@@ -163,7 +163,7 @@ else
   SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
 fi
 
-if [[ "$SL_DEFAULT_VALIDATOR" == "native" ]]
+if [[ "$SL_DEFAULT_LOADER" == "native" ]]
 then
   SL_ROOT=$SL_ROOT java \
                       --add-opens=java.base/java.lang=ALL-UNNAMED \

@@ -42,10 +42,10 @@ import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val validator = mergedMetadata.validator.getOrElse(settings.comet.validator)
-    val validatorClassName = validator.toLowerCase() match {
+    val loader = mergedMetadata.loader.getOrElse(settings.comet.loader)
+    val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
-      case _       => throw new Exception(s"Unexpected '$validator' validator !!!")
+      case _       => throw new Exception(s"Unexpected '$loader' loader !!!")
     }
     Utils.loadInstance[GenericRowValidator](validatorClassName)
   }
@@ -255,7 +255,7 @@ trait IngestionJob extends SparkJob {
       )
 
     val nativeValidator =
-      mergedMetadata.validator.getOrElse("Non Native").toLowerCase().equals("native")
+      mergedMetadata.loader.getOrElse(settings.comet.loader).toLowerCase().equals("native")
     // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
     csvOrJsonLines && nativeValidator
   }
@@ -263,7 +263,7 @@ trait IngestionJob extends SparkJob {
   def run(): Try[JobResult] = {
     selectEngine() match {
       case Engine.BQ =>
-        runBQ()
+        runBQNative()
       case Engine.SPARK =>
         runSpark()
       case _ =>
@@ -275,7 +275,7 @@ trait IngestionJob extends SparkJob {
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
-  def runBQ(): Try[JobResult] = {
+  def runBQNative(): Try[JobResult] = {
 
     val requireTwoSteps = schema.hasTransformOrIgnoreOrScriptColumns()
 
@@ -290,7 +290,7 @@ trait IngestionJob extends SparkJob {
         _.connectionRefOptions(mergedMetadata.getEngine(settings).toString).get("location")
       )
     val commonConfig = BigQueryLoadConfig(
-      connectionRef = bqSink.flatMap(_.connectionRef).orElse(Some(settings.comet.connectionRef)),
+      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
       sourceFormat = settings.comet.defaultFormat,
@@ -330,17 +330,10 @@ trait IngestionJob extends SparkJob {
             schema.finalName
           )
       ),
-      days = mergedMetadata.getSink(settings).flatMap(_.asInstanceOf[BigQuerySink].days),
-      outputPartition =
-        mergedMetadata.getSink(settings).flatMap(_.asInstanceOf[BigQuerySink].timestamp),
-      outputClustering = mergedMetadata
-        .getSink(settings)
-        .flatMap(_.asInstanceOf[BigQuerySink].clustering)
-        .getOrElse(Nil),
-      requirePartitionFilter = mergedMetadata
-        .getSink(settings)
-        .flatMap(_.asInstanceOf[BigQuerySink].requirePartitionFilter)
-        .getOrElse(false),
+      days = bqSink.flatMap(_.days),
+      outputPartition = bqSink.flatMap(_.timestamp),
+      outputClustering = bqSink.flatMap(_.clustering).getOrElse(Nil),
+      requirePartitionFilter = bqSink.flatMap(_.requirePartitionFilter).getOrElse(false),
       rls = schema.rls
     )
 
