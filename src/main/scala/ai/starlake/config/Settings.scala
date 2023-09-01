@@ -354,8 +354,6 @@ object Settings extends StrictLogging {
     refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )
 
-  final case class Atlas(uri: String, user: String, password: String, owner: String)
-
   final case class Internal(
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String,

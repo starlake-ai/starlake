@@ -14,7 +14,7 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
-        #jsonKeyfile: "/Users/hayssams/.gcloud/keys/starlake-hayssams.json"
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
 
     localFilesystem:
       type: "fs"

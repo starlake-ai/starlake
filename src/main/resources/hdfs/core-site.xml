@@ -19,7 +19,7 @@
 <configuration>
     <property>
         <name>hadoop.tmp.dir</name>
-        <value>/Users/hayssams/hdfs/tmp</value>
+        <value>/Users/me/hdfs/tmp</value>
         <description>A base for other temporary directories.</description>
     </property>
     <property>
