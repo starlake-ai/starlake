@@ -96,7 +96,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
           val pathJob =
-            new Path(cometMetadataPath + "/transform/tableWithPartitions/_config.comet.yml")
+            new Path(starlakeMetadataPath + "/transform/tableWithPartitions/_config.comet.yml")
           storageHandler.write(businessJobDef, pathJob)
           val schemaHandler = new SchemaHandler(storageHandler)
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())

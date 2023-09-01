@@ -104,7 +104,7 @@ class DsvIngestionJob(
         .option("parserLib", "UNIVOCITY")
         .option("encoding", mergedMetadata.getEncoding())
         .options(mergedMetadata.getOptions())
-        .options(settings.comet.dsvOptions)
+        .options(settings.appConfig.dsvOptions)
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
@@ -198,10 +198,10 @@ class DsvIngestionJob(
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes,
-      settings.comet.privacy.options,
-      settings.comet.cacheStorageLevel,
-      settings.comet.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
     saveRejected(validationResult.errors, validationResult.rejected).map { _ =>

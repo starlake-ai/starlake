@@ -131,10 +131,10 @@ class ParquetIngestionJob(
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes,
-      settings.comet.privacy.options,
-      settings.comet.cacheStorageLevel,
-      settings.comet.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
     saveRejected(validationResult.errors, validationResult.rejected).map { _ =>

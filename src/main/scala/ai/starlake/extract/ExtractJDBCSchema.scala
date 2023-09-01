@@ -46,7 +46,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       val jdbcSchemas =
         YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
       val connectionOptions = jdbcSchemas.connectionRef
-        .map(settings.comet.connections(_).options)
+        .map(settings.appConfig.connections(_).options)
         .getOrElse(jdbcSchemas.connection)
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
         ExtractUtils.createForkSupport(config.parallelism)

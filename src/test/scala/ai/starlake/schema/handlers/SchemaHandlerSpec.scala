@@ -112,14 +112,14 @@ class SchemaHandlerSpec extends TestHelper {
 
         // Check Archived
         readFileContent(
-          cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
+          starlakeDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
         // Check rejected
         val rejectedDf = sparkSession.read
-          .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
+          .parquet(starlakeDatasetsPath + s"/rejected/$datasetDomainName/User")
 
         val expectedRejectedF =
           sparkSession.read
@@ -166,9 +166,9 @@ class SchemaHandlerSpec extends TestHelper {
             schema = "",
             format = "json",
             dataset = Some(
-              Left(new Path(cometDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
+              Left(new Path(starlakeDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
             ),
-            options = settings.comet.connectionOptions("elasticsearch")
+            options = settings.appConfig.connectionOptions("elasticsearch")
           )
         )
         result.isSuccess shouldBe true
@@ -243,14 +243,14 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         private val firstLevel: List[Path] = storageHandler.listDirectories(
-          new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          new Path(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
         )
 
         firstLevel.size shouldBe 2
         firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
 
         sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
           .except(
             sparkSession.read
               .option("header", "false")
@@ -285,7 +285,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         val accepted: Array[Row] = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
           .collect()
 
         // Input contains a row with an older timestamp
@@ -313,7 +313,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         val accepted: Array[Row] = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
           .collect()
 
         // Input contains a row with an older timestamp
@@ -353,7 +353,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         val accepted: Array[Row] = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
           .collect()
 
         // Input contains a row with an older timestamp
@@ -383,7 +383,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         loadPending
         val acceptedDf: DataFrame = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/employee")
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/employee")
         acceptedDf.schema.fields.length shouldBe 1
         acceptedDf.schema.fields.map(_.name).count("name".equals) shouldBe 1
 
@@ -404,7 +404,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
+          starlakeDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -413,7 +413,7 @@ class SchemaHandlerSpec extends TestHelper {
         Try {
           printDF(
             sparkSession.read.parquet(
-              cometDatasetsPath + "/rejected/dream/client"
+              starlakeDatasetsPath + "/rejected/dream/client"
             ),
             "dream/client"
           )
@@ -422,7 +422,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
           )
           // Timezone Problem
           .drop("customer_creation_date")
@@ -455,7 +455,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Segmentation_20190101_090800_008.psv"
+          starlakeDatasetsPath + s"/archive/$datasetDomainName/OneClient_Segmentation_20190101_090800_008.psv"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -463,7 +463,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/segment/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/segment/${getTodayPartitionPath}"
           )
 
         val expectedAccepted =
@@ -491,7 +491,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.json"
+          starlakeDatasetsPath + s"/${settings.appConfig.area.archive}/$datasetDomainName/locations.json"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -499,7 +499,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
 
         val expectedAccepted =
@@ -533,7 +533,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/flat_locations/$getTodayPartitionPath"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/flat_locations/$getTodayPartitionPath"
           )
 
         val expectedAccepted =
@@ -567,7 +567,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
+          starlakeDatasetsPath + s"/${settings.appConfig.area.archive}/$datasetDomainName/locations.xml"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -575,7 +575,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
 
         val session = sparkSession
@@ -613,7 +613,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
+          starlakeDatasetsPath + s"/${settings.appConfig.area.archive}/$datasetDomainName/locations.xml"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -621,7 +621,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
 
         val session = sparkSession
@@ -865,7 +865,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
-        File(cometMetadataPath + "/load").delete(true)
+        File(starlakeMetadataPath + "/load").delete(true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
@@ -910,7 +910,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
-        File(cometMetadataPath + "/load").delete(true)
+        File(starlakeMetadataPath + "/load").delete(true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
@@ -944,7 +944,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         readFileContent(
-          cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
+          starlakeDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
         ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
@@ -953,7 +953,7 @@ class SchemaHandlerSpec extends TestHelper {
         Try {
           printDF(
             sparkSession.read.parquet(
-              cometDatasetsPath + "/rejected/dream/client"
+              starlakeDatasetsPath + "/rejected/dream/client"
             ),
             "dream/client"
           )
@@ -962,7 +962,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
           )
           // Timezone Problem
           .drop("customer_creation_date")

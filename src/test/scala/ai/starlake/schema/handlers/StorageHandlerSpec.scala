@@ -29,12 +29,12 @@ import java.util.regex.Pattern
 
 class StorageHandlerSpec extends TestHelper {
 
-  lazy val pathDomain = new Path(cometTestRoot + "/domain.comet.yml")
+  lazy val pathDomain = new Path(starlakeTestRoot + "/domain.comet.yml")
 
-  lazy val pathType = new Path(cometTestRoot + "/types.comet.yml")
+  lazy val pathType = new Path(starlakeTestRoot + "/types.comet.yml")
 
-  lazy val pathBusiness = new Path(cometTestRoot + "/business.comet.yml")
-  lazy val pathConfigBusiness = new Path(cometTestRoot + "/_config.comet.yml")
+  lazy val pathBusiness = new Path(starlakeTestRoot + "/business.comet.yml")
+  lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.comet.yml")
 
   new WithSettings() {
     "Domain Case Class" should "be written as yaml and read correctly" in {
@@ -52,7 +52,7 @@ class StorageHandlerSpec extends TestHelper {
             quote = Some("\""),
             escape = Some("\\"),
             write = Some(WriteMode.APPEND),
-            directory = Some(s"${cometTestRoot}/incoming/DOMAIN")
+            directory = Some(s"${starlakeTestRoot}/incoming/DOMAIN")
           )
         ),
         tables = List(

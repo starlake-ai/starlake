@@ -123,7 +123,7 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    sys.env.get("COMET_ROOT").orElse(sys.env.get("SL_ROOT")) match {
+    sys.env.get("SL_ROOT") match {
       case None =>
         logger.warn(
           "Define and set the SL_ROOT env variable to your starlake project folder"
@@ -165,7 +165,7 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    if (settings.comet.validateOnLoad)
+    if (settings.appConfig.validateOnLoad)
       schemaHandler.fullValidation()
 
     DatasetArea.initDomains(storageHandler(), schemaHandler.domains().map(_.name))
@@ -369,6 +369,6 @@ class Main() extends StrictLogging {
         false
     }
     if (!result)
-      throw new Exception(s"""Comet failed to execute command with args ${args.mkString(",")}""")
+      throw new Exception(s"""Starlake failed to execute command with args ${args.mkString(",")}""")
   }
 }

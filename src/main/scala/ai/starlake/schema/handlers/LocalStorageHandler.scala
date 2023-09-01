@@ -41,9 +41,9 @@ class LocalStorageHandler(implicit
 
   import LocalStorageHandler._
 
-  def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
+  def lockAcquisitionPollTime: FiniteDuration = settings.appConfig.lock.pollTime
 
-  def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
+  def lockRefreshPollTime: FiniteDuration = settings.appConfig.lock.refreshTime
 
   /** Gets the outputstream given a path
     *

@@ -48,24 +48,24 @@ object DatasetArea extends StrictLogging {
   def path(domain: String, area: String)(implicit settings: Settings): Path = {
     if (area.contains("://"))
       new Path(area)
-    else if (settings.comet.datasets.contains("://"))
+    else if (settings.appConfig.datasets.contains("://"))
       new Path(
-        s"${settings.comet.datasets}/$area/$domain"
+        s"${settings.appConfig.datasets}/$area/$domain"
       )
     else
       new Path(
-        s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
+        s"${settings.appConfig.fileSystem}/${settings.appConfig.datasets}/$area/$domain"
       )
   }
 
   def path(domain: String)(implicit settings: Settings): Path =
-    if (settings.comet.datasets.contains("://"))
+    if (settings.appConfig.datasets.contains("://"))
       new Path(
-        s"${settings.comet.datasets}/$domain"
+        s"${settings.appConfig.datasets}/$domain"
       )
     else
       new Path(
-        s"${settings.comet.fileSystem}/${settings.comet.datasets}/$domain"
+        s"${settings.appConfig.fileSystem}/${settings.appConfig.datasets}/$domain"
       )
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
@@ -78,7 +78,7 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the pending folder of domain
     */
   def pending(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.pending)
+    path(domain, settings.appConfig.area.pending)
 
   /** datasets with a file name that could not match any schema file name pattern in the specified
     * domain are marked unresolved by being stored in this folder.
@@ -89,7 +89,7 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the pending unresolved folder of domain
     */
   def unresolved(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.unresolved)
+    path(domain, settings.appConfig.area.unresolved)
 
   /** Once ingested datasets are archived in this folder.
     *
@@ -99,7 +99,7 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the archive folder of domain
     */
   def archive(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.archive)
+    path(domain, settings.appConfig.area.archive)
 
   /** Datasets of the specified domain currently being ingested are located in this folder
     *
@@ -109,7 +109,7 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the ingesting folder of domain
     */
   def ingesting(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.ingesting)
+    path(domain, settings.appConfig.area.ingesting)
 
   /** Valid records for datasets the specified domain are stored in this folder.
     *
@@ -119,7 +119,7 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the ingesting folder of domain
     */
   def accepted(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.accepted)
+    path(domain, settings.appConfig.area.accepted)
 
   /** Invalid records and the reason why they have been rejected for the datasets of the specified
     * domain are stored in this folder.
@@ -130,16 +130,16 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the rejected folder of domain
     */
   def rejected(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.rejected)
+    path(domain, settings.appConfig.area.rejected)
 
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    substituteDomainAndSchemaInPath(domain, schema, settings.comet.metrics.path)
+    substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
 
   def expectations(domain: String, schema: String)(implicit settings: Settings): Path =
-    substituteDomainAndSchemaInPath(domain, schema, settings.comet.expectations.path)
+    substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.expectations.path)
 
   def replay(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.replay)
+    path(domain, settings.appConfig.area.replay)
 
   def substituteDomainAndSchemaInPath(
     domain: String,
@@ -176,16 +176,16 @@ object DatasetArea extends StrictLogging {
     *   Absolute path to the business folder of domain
     */
   def business(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.comet.area.business)
+    path(domain, settings.appConfig.area.business)
 
   def metadata(implicit settings: Settings): Path =
-    new Path(s"${settings.comet.metadata}")
+    new Path(s"${settings.appConfig.metadata}")
 
   def types(implicit settings: Settings): Path =
     new Path(metadata, "types")
 
   def dags(implicit settings: Settings): Path =
-    new Path(settings.comet.dags)
+    new Path(settings.appConfig.dags)
 
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
@@ -279,7 +279,7 @@ object DatasetArea extends StrictLogging {
     initMetadata(settings.storageHandler())
     List("out", "diagrams", "diagrams/load", "diagrams/acl", "diagrams/transform").foreach {
       folder =>
-        val root = File(settings.comet.metadata).parent
+        val root = File(settings.appConfig.metadata).parent
         File(root.pathAsString, folder.split('/'): _*).createDirectories()
     }
     val metadataFile = File(metadata.toString)
@@ -381,11 +381,11 @@ object StorageArea {
     val lcValue = value.toLowerCase(Locale.ROOT)
 
     lcValue match {
-      case _ if lcValue == settings.comet.area.rejectedFinal => StorageArea.rejected
-      case _ if lcValue == settings.comet.area.acceptedFinal => StorageArea.accepted
-      case _ if lcValue == settings.comet.area.replayFinal   => StorageArea.replay
-      case _ if lcValue == settings.comet.area.businessFinal => StorageArea.business
-      case custom                                            => StorageArea.Custom(custom)
+      case _ if lcValue == settings.appConfig.area.rejectedFinal => StorageArea.rejected
+      case _ if lcValue == settings.appConfig.area.acceptedFinal => StorageArea.accepted
+      case _ if lcValue == settings.appConfig.area.replayFinal   => StorageArea.replay
+      case _ if lcValue == settings.appConfig.area.businessFinal => StorageArea.business
+      case custom                                                => StorageArea.Custom(custom)
     }
   }
 
@@ -408,7 +408,7 @@ object StorageArea {
   final case class Custom(value: String) extends StorageArea
 
   def area(domain: String, area: Option[StorageArea])(implicit settings: Settings): String =
-    settings.comet.area.hiveDatabase.richFormat(
+    settings.appConfig.area.hiveDatabase.richFormat(
       Map.empty,
       Map(
         "domain" -> domain,
@@ -428,10 +428,10 @@ final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
     require(settings != null, "the SerializationContext lacks a Settings instance")
 
     val strValue = value match {
-      case StorageArea.accepted            => settings.comet.area.accepted
-      case StorageArea.rejected            => settings.comet.area.rejected
-      case StorageArea.business            => settings.comet.area.business
-      case StorageArea.replay              => settings.comet.area.replay
+      case StorageArea.accepted            => settings.appConfig.area.accepted
+      case StorageArea.rejected            => settings.appConfig.area.rejected
+      case StorageArea.business            => settings.appConfig.area.business
+      case StorageArea.replay              => settings.appConfig.area.replay
       case StorageArea.Custom(customValue) => customValue
     }
     gen.writeString(strValue)

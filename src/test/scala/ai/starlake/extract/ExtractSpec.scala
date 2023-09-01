@@ -23,7 +23,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -38,7 +38,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         None
       ) { case (domain, _, _) =>
         assert(domain.metadata.isEmpty)
@@ -52,7 +52,7 @@ class ExtractSpec extends TestHelper {
     domainTemplate: Option[Domain]
   )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
   (implicit settings: Settings) = {
-    val jdbcOptions = settings.comet.connections("test-h2")
+    val jdbcOptions = settings.appConfig.connections("test-h2")
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),
       jdbcOptions.options("user"),
@@ -70,7 +70,7 @@ class ExtractSpec extends TestHelper {
     rs.next
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
-    val outputDir: File = File(s"$cometTestRoot/extract-without-template")
+    val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
     implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
     new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
       jdbcSchema,
@@ -308,7 +308,7 @@ class ExtractSpec extends TestHelper {
 
   "JDBC2Yml of some columns" should "should generate only the tables and columns requested" in {
     new WithSettings() {
-      val jdbcOptions = settings.comet.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -335,7 +335,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         File("/tmp"),
         None,
         None
@@ -365,7 +365,7 @@ class ExtractSpec extends TestHelper {
 
   "JDBC2Yml with foreign keys" should "detect the foreign keys" in {
     new WithSettings() {
-      val jdbcOptions = settings.comet.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -396,7 +396,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         File("/tmp"),
         None,
         None

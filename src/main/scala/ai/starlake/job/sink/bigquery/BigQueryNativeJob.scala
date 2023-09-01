@@ -67,7 +67,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
               logger.info(
                 s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
               )
-              val success = !settings.comet.rejectAllOnError || stats.getBadRecords == 0
+              val success = !settings.appConfig.rejectAllOnError || stats.getBadRecords == 0
               val log = AuditLog(
                 jobResult.getJobId.getJob,
                 sourceURIs,
@@ -82,9 +82,9 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
                 if (success) "success" else s"${stats.getBadRecords} invalid records",
                 Step.LOAD.toString,
                 cliConfig.outputDatabase,
-                settings.comet.tenant
+                settings.appConfig.tenant
               )
-              settings.comet.audit.sink.getSink() match {
+              settings.appConfig.audit.sink.getSink() match {
                 case sink: BigQuerySink =>
                   AuditLog.sinkToBigQuery(log, sink)
                 case _ =>
@@ -137,8 +137,8 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           SchemaUpdateOption.ALLOW_FIELD_RELAXATION
         ).asJava
       )
-      if (!settings.comet.rejectAllOnError)
-        loadConfig.setMaxBadRecords(settings.comet.rejectMaxRecords)
+      if (!settings.appConfig.rejectAllOnError)
+        loadConfig.setMaxBadRecords(settings.appConfig.rejectMaxRecords)
     }
 
     cliConfig.outputPartition match {
@@ -226,7 +226,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
   private def addUDFToQueryConfig(
     queryConfig: QueryJobConfiguration.Builder
   ): QueryJobConfiguration.Builder = {
-    settings.comet
+    settings.appConfig
       .getUdfs()
       .foreach { udf =>
         queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)

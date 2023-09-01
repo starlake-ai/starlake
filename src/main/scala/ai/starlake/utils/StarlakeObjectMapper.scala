@@ -8,7 +8,7 @@ import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 
 import scala.annotation.nowarn
 
-object CometObjectMapper {
+object StarlakeObjectMapper {
 
   // https://github.com/FasterXML/jackson-databind/issues/962
   @JsonIgnoreType
@@ -17,7 +17,7 @@ object CometObjectMapper {
 }
 
 @nowarn
-class CometObjectMapper(
+class StarlakeObjectMapper(
   jf: JsonFactory = null,
   injectables: scala.collection.immutable.Seq[(Class[_], AnyRef)] = Nil
 ) extends ObjectMapper(jf)
@@ -30,7 +30,10 @@ class CometObjectMapper(
     hierarchy. This happens, in particular, within [[Settings]].
      */
     new SimpleModule()
-      .setMixInAnnotation(classOf[ObjectMapper], classOf[CometObjectMapper.MixinsForObjectMapper])
+      .setMixInAnnotation(
+        classOf[ObjectMapper],
+        classOf[StarlakeObjectMapper.MixinsForObjectMapper]
+      )
   )
 
   if (injectables.nonEmpty) {

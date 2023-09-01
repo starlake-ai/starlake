@@ -116,11 +116,11 @@ class BigQuerySparkJob(
     prepareConf()
     Try {
       val cacheStorageLevel =
-        settings.comet.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
+        settings.appConfig.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
       cliConfig.source match {
         case Left(path) =>
           session.read
-            .format(settings.comet.defaultFormat)
+            .format(settings.appConfig.defaultFormat)
             .load(path)
             .persist(
               cacheStorageLevel
@@ -162,7 +162,7 @@ class BigQuerySparkJob(
       }
       val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
       val defaultIntermediateFormat =
-        settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
+        settings.appConfig.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
 
       val intermediateFormat =
         if (containsArrayOfRecords && defaultIntermediateFormat == "parquet")

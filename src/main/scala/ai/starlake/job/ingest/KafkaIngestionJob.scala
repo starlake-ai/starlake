@@ -57,7 +57,7 @@ class KafkaIngestionJob(
 
   var offsets: List[(Int, Long)] = Nil
 
-  private val topicConfig: Settings.KafkaTopicConfig = settings.comet.kafka.topics(schema.name)
+  private val topicConfig: Settings.KafkaTopicConfig = settings.appConfig.kafka.topics(schema.name)
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped from the dataset (require datsets with a header)
@@ -68,14 +68,14 @@ class KafkaIngestionJob(
   override protected def loadJsonData(): Dataset[String] = {
     val dfIn = mergedMetadata.mode match {
       case None | Some(Mode.FILE) =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+        Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           val (dfIn, offsets) =
             kafkaClient.consumeTopicBatch(schema.name, session, topicConfig)
           this.offsets = offsets
           dfIn
         }
       case Some(Mode.STREAM) =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+        Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           KafkaClient.consumeTopicStreaming(session, topicConfig)
         }
       case _ =>
@@ -97,7 +97,7 @@ class KafkaIngestionJob(
     val res = super.run()
     mode match {
       case Mode.FILE =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+        Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           kafkaClient.topicSaveOffsets(
             schema.name,
             topicConfig.allAccessOptions(),

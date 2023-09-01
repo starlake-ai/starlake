@@ -296,7 +296,7 @@ class IngestionWorkflow(
         storageHandler.move(path, targetPath)
       }
 
-      val filteredResolved = if (settings.comet.privacyOnly) {
+      val filteredResolved = if (settings.appConfig.privacyOnly) {
         val (withPrivacy, noPrivacy) =
           resolved.partition { case (schema, _) =>
             schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
@@ -334,7 +334,7 @@ class IngestionWorkflow(
 
         // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
         val groupedPendingPathsIterator =
-          pendingPaths.grouped(settings.comet.groupedMax)
+          pendingPaths.grouped(settings.appConfig.groupedMax)
         groupedPendingPathsIterator.map { pendingPaths =>
           val ingestingPaths = pendingPaths.map { pendingPath =>
             val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
@@ -343,7 +343,7 @@ class IngestionWorkflow(
             }
             ingestingPath
           }
-          val jobs = if (settings.comet.grouped) {
+          val jobs = if (settings.appConfig.grouped) {
             JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
           } else {
             // We ingest all the files but return false if one of them fails.
@@ -351,7 +351,8 @@ class IngestionWorkflow(
               JobContext(domain, schema, path :: Nil, config.options)
             }
           }
-          val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
+          val (parJobs, forkJoinPool) =
+            makeParallel(jobs.toList, settings.appConfig.scheduling.maxJobs)
           val res = parJobs.map { jobContext =>
             launchHandler.ingest(
               this,
@@ -400,7 +401,7 @@ class IngestionWorkflow(
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val files = Utils
-      .loadInstance[LoadStrategy](settings.comet.loadStrategyClass)
+      .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
       .list(settings.storageHandler(), pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
@@ -462,9 +463,9 @@ class IngestionWorkflow(
       )
     } else {
       val lockPath =
-        new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
+        new Path(settings.appConfig.lock.path, s"${config.domain}_${config.schema}.lock")
       val locker = new FileLock(lockPath, storageHandler)
-      val waitTimeMillis = settings.comet.lock.timeout
+      val waitTimeMillis = settings.appConfig.lock.timeout
 
       locker.doExclusively(waitTimeMillis) {
         val domainName = config.domain
@@ -610,8 +611,9 @@ class IngestionWorkflow(
     }
     ingestionResult match {
       case Success(Success(jobResult)) =>
-        if (settings.comet.archive) {
-          val (parIngests, forkJoinPool) = makeParallel(ingestingPath, settings.comet.maxParCopy)
+        if (settings.appConfig.archive) {
+          val (parIngests, forkJoinPool) =
+            makeParallel(ingestingPath, settings.appConfig.maxParCopy)
           parIngests.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
@@ -691,7 +693,7 @@ class IngestionWorkflow(
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
-    val output = settings.comet.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
+    val output = settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
     output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
     logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
   }
@@ -728,7 +730,7 @@ class IngestionWorkflow(
               result.map { result =>
                 val bqJobResult = result.asInstanceOf[BigQueryJobResult]
                 logger.info("START INTERACTIVE SQL")
-                bqJobResult.show(format, settings.comet.rootServe)
+                bqJobResult.show(format, settings.appConfig.rootServe)
                 logger.info("END INTERACTIVE SQL")
               }
             // No sink on interactive queries. Results displayed in console output
@@ -738,7 +740,9 @@ class IngestionWorkflow(
             case Success(res) =>
             case Failure(e) =>
               val output =
-                settings.comet.rootServe.map(rootServe => File(File(rootServe), "transform.log"))
+                settings.appConfig.rootServe.map(rootServe =>
+                  File(File(rootServe), "transform.log")
+                )
               output.foreach(_.overwrite(Utils.exceptionAsString(e)))
           }
 
@@ -778,7 +782,7 @@ class IngestionWorkflow(
                       val bqLoadConfig =
                         BigQueryLoadConfig(
                           connectionRef =
-                            Some(bqSink.connectionRef.getOrElse(settings.comet.connectionRef)),
+                            Some(bqSink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
                           source = source,
                           outputTableId = Some(
                             BigQueryJobBase.extractProjectDatasetAndTable(
@@ -787,7 +791,7 @@ class IngestionWorkflow(
                               action.taskDesc.table
                             )
                           ),
-                          sourceFormat = settings.comet.defaultFormat,
+                          sourceFormat = settings.appConfig.defaultFormat,
                           createDisposition = createDisposition,
                           writeDisposition = writeDisposition,
                           outputPartition = bqSink.timestamp,
@@ -808,7 +812,7 @@ class IngestionWorkflow(
 
                     case jdbcSink: JdbcSink =>
                       val jdbcName =
-                        jdbcSink.connectionRef.getOrElse(settings.comet.connectionRef)
+                        jdbcSink.connectionRef.getOrElse(settings.appConfig.connectionRef)
                       val source = maybeDataFrame
                         .map(df => Right(df))
                         .getOrElse(Left(action.taskDesc.getTargetPath().toString))
@@ -820,7 +824,7 @@ class IngestionWorkflow(
                       }
                       val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
                         jdbcName,
-                        settings.comet,
+                        settings.appConfig,
                         source,
                         outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
                         createDisposition = CreateDisposition.valueOf(createDisposition),
@@ -846,7 +850,7 @@ class IngestionWorkflow(
               }
             case (Failure(exception), _) =>
               val output =
-                settings.comet.rootServe.map(rootServe => File(File(rootServe), "run.log"))
+                settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "run.log"))
               output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
@@ -870,7 +874,7 @@ class IngestionWorkflow(
       ESLoadConfig(
         timestamp = sink.timestamp,
         id = sink.id,
-        format = settings.comet.defaultFormat,
+        format = settings.appConfig.defaultFormat,
         domain = action.taskDesc.domain,
         schema = action.taskDesc.table,
         dataset = Some(Left(targetPath)),
@@ -962,7 +966,7 @@ class IngestionWorkflow(
           schemaHandler,
           Map.empty
         )
-        if (settings.comet.isHiveCompatible()) {
+        if (settings.appConfig.isHiveCompatible()) {
           dummyIngestionJob.applyHiveTableAcl()
         } else {
           val sink = metadata.sink
@@ -973,7 +977,7 @@ class IngestionWorkflow(
             case jdbcSink: JdbcSink =>
               val connectionName = jdbcSink.connectionRef
                 .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
-              val connection = settings.comet.connections(connectionName)
+              val connection = settings.appConfig.connections(connectionName)
               if (connection.isSnowflake)
                 dummyIngestionJob.applySnowflakeTableAcl()
               else
@@ -986,7 +990,7 @@ class IngestionWorkflow(
                   BigQueryJobBase
                     .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
                 ),
-                sourceFormat = settings.comet.defaultFormat,
+                sourceFormat = settings.appConfig.defaultFormat,
                 rls = schema.rls,
                 acl = schema.acl,
                 starlakeSchema = Some(schema),

@@ -29,7 +29,7 @@ import sbtbuildinfo.BuildInfoPlugin
 
 object Common {
 
-  def enableCometAliases: Seq[Def.Setting[_]] =
+  def enableStarlakeAliases: Seq[Def.Setting[_]] =
     Seq(
       addCommandAlias("cd", "project"), // navigate the projects
       addCommandAlias("cc", ";clean;compile"), // clean and compile
@@ -41,7 +41,7 @@ object Common {
       ) // clean and publish/launch the docker environment
     ).flatten
 
-  def cometPlugins: Seq[AutoPlugin] = Seq(
+  def starlakePlugins: Seq[AutoPlugin] = Seq(
     GitVersioning,
     GitBranchPrompt,
     SiteScaladocPlugin,

@@ -194,13 +194,13 @@ case class Metadata(
 
   @JsonIgnore
   def getConnectionRef(implicit settings: Settings): String =
-    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
   def getEngine(implicit settings: Settings): Engine = {
     val connectionRef =
-      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet.connections(connectionRef)
+      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig.connections(connectionRef)
     connection.getEngine()
 
   }

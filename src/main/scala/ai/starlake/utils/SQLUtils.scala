@@ -349,7 +349,7 @@ object SQLUtils extends StrictLogging {
           (None, "")
         }
         val databaseName = database
-          .orElse(settings.comet.getDefaultDatabase())
+          .orElse(settings.appConfig.getDefaultDatabase())
           .getOrElse("")
         (databaseName, domain, table)
       case _ =>
