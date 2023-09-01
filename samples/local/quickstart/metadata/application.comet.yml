@@ -1,4 +1,5 @@
 application:
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
   accessPolicies:
     apply: true
     location: EU
@@ -8,7 +9,8 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        gcsBucket: "starlake-app"
+        writeMethod: "direct" # direct or indirect
+        #gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE

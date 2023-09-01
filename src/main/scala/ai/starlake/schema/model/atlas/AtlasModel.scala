@@ -446,7 +446,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
         Array(sch.name, dom.name),
         sch.name,
         sch.comment.getOrElse(""),
-        "hayssams-test",
+        "me-test",
         getAtlasObjectId(domainEntity),
         sch.pattern.toString,
         sch.metadata,

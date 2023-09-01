@@ -85,7 +85,7 @@ class BigQuerySparkJob(
       cliConfig.createDisposition
     )
     // Authentication
-    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions
