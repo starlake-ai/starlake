@@ -78,13 +78,7 @@ class PositionIngestionJob(
       }
 
       val df = applyIgnore(dfIn)
-
-      mergedMetadata.withHeader match {
-        case Some(true) =>
-          throw new Exception("No Header allowed for Position File Format ")
-        case Some(false) | None =>
-          df
-      }
+      df
     }
   }
 
