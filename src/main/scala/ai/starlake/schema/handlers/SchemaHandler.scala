@@ -522,9 +522,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .collect { case Success(domain) => domain }
       .map(domain => this.fromXSD(domain))
 
+    val (nonEmptyDomains, emptyDomains) = domains.partition(_.tables.nonEmpty)
+    emptyDomains.foreach { domain =>
+      logger.warn(s"Domain ${domain.name} discarded because it's empty")
+    }
     val nameErrors = Utils.duplicates(
       "Domain name",
-      domains.map(_.name),
+      nonEmptyDomains.map(_.name),
       s"%s is defined %d times. A domain can only be defined once."
     ) match {
       case Right(_) => Nil
@@ -534,7 +538,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val renameErrors = Utils.duplicates(
       "Domain rename",
-      domains.map(d => d.rename.getOrElse(d.name)),
+      nonEmptyDomains.map(d => d.rename.getOrElse(d.name)),
       s"renamed domain %s is defined %d times. It can only appear once."
     ) match {
       case Right(_) => Nil
@@ -544,12 +548,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val directoryErrors = Utils.duplicates(
       "Domain directory",
-      domains.flatMap(_.resolveDirectoryOpt()),
+      nonEmptyDomains.flatMap(_.resolveDirectoryOpt()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>
         if (!raw)
-          this._domains = domains
+          this._domains = nonEmptyDomains
         Nil
       case Left(errors) =>
         errors
@@ -564,7 +568,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
     this._domainErrors.foreach(err => logger.error(err.toString()))
-    (this._domainErrors, domains)
+    (this._domainErrors, nonEmptyDomains)
   }
 
   private def loadFullDomains(area: Path, raw: Boolean): (List[Try[Domain]], List[Try[Domain]]) = {

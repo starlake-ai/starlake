@@ -68,7 +68,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   private def bigQueryCredentials(): Credentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions
@@ -100,7 +100,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   @nowarn
   private def gcsCredentials(): GcsCredentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions

@@ -42,7 +42,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         |    gcsBucket: starlake-app
         |    authType: APPLICATION_DEFAULT
         |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
-        |    #jsonKeyfile: "/Users/hayssams/.gcloud/keys/my-key.json"
+        |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
         |  }
         |}
         |""".stripMargin)

@@ -60,7 +60,7 @@ class KafkaIngestionJob(
   private val topicConfig: Settings.KafkaTopicConfig = settings.comet.kafka.topics(schema.name)
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
-    * defined in the schema are dropped fro the dataset (require datsets with a header)
+    * defined in the schema are dropped from the dataset (require datsets with a header)
     *
     * @return
     *   Spark DataFrame where each row holds a single string
