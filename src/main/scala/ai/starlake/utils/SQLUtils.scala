@@ -256,33 +256,37 @@ object SQLUtils extends StrictLogging {
     settings: Settings
   ): String = {
     def cteContains(table: String): Boolean = ctes.exists(cte => cte.equalsIgnoreCase(table))
-
-    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
-      tableName.replaceAll(quote, "")
-    }
-    val tableTuple = quoteFreeTableName.split("\\.").toList
-    if (isFilesystem) {
-      // We keep only the table name, the database and domain names are ignored for filesystem
-      tableTuple.last
+    if (tableName.contains('/')) {
+      // This is a file in the form of parquet.`/path/to/file`
+      tableName
     } else {
-      // We need to find it in the refs
-      val activeEnvRefs = refs
-      val databaseDomainTableRef =
-        activeEnvRefs
-          .getOutputRef(tableTuple)
-          .map(_.toSQLString(engine, isFilesystem))
-      val resolvedTableName = databaseDomainTableRef.getOrElse {
-        resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
-          case Success((database, domain, table)) =>
-            ai.starlake.schema.model
-              .OutputRef(database, domain, table)
-              .toSQLString(engine, isFilesystem)
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            throw e
-        }
+      val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+        tableName.replaceAll(quote, "")
       }
-      resolvedTableName
+      val tableTuple = quoteFreeTableName.split("\\.").toList
+      if (isFilesystem) {
+        // We keep only the table name, the database and domain names are ignored for filesystem
+        tableTuple.last
+      } else {
+        // We need to find it in the refs
+        val activeEnvRefs = refs
+        val databaseDomainTableRef =
+          activeEnvRefs
+            .getOutputRef(tableTuple)
+            .map(_.toSQLString(engine, isFilesystem))
+        val resolvedTableName = databaseDomainTableRef.getOrElse {
+          resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
+            case Success((database, domain, table)) =>
+              ai.starlake.schema.model
+                .OutputRef(database, domain, table)
+                .toSQLString(engine, isFilesystem)
+            case Failure(e) =>
+              Utils.logException(logger, e)
+              throw e
+          }
+        }
+        resolvedTableName
+      }
     }
   }
 

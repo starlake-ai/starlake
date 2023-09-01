@@ -15,7 +15,7 @@ title: xls2yml
 
 Parameter|Cardinality|Description
 ---|---|---
---files:`<value>`|*Required*|List of Excel files describing Domains & Schemas OR Jobs
+--files:`<value>`|*Required*|List of Excel files describing domains & schemas or jobs
 --encryption:`<value>`|*Optional*|If true generate pre and post encryption YML
 --iamPolicyTagsFile:`<value>`|*Optional*|If true generate IAM PolicyTags YML
 --delimiter:`<value>`|*Optional*|CSV delimiter to use in post-encrypt YML.
