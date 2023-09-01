@@ -814,7 +814,7 @@ trait IngestionJob extends SparkJob {
               .format("csv")
               .option("ignoreLeadingWhiteSpace", value = false)
               .option("ignoreTrailingWhiteSpace", value = false)
-              .option("header", mergedMetadata.withHeader.getOrElse(false))
+              .option("header", mergedMetadata.isWithHeader())
               .option("delimiter", mergedMetadata.separator.getOrElse("µ"))
               .option("path", targetPath.toString)
           } else
