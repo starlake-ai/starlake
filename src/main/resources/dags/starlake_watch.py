@@ -18,13 +18,11 @@ default_args = {
     # 'end_date': datetime(2016, 1, 1),
 }
 
-dag = DAG('comet_ingest', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval=None)
-
-COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
-
-templated_command = COMET_SPARK_CMD + """ {{ dag_run.conf['command'] }}"""
-
+dag = DAG('starlake_watcher', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
+SL_SPARK_CMD = os.environ.get('SL_SPARK_CMD', '')
+SL_DOMAIN = os.environ.get('SL_DOMAIN', '')
+# t1, t2 and t3 are examples of tasks created by instantiating operators
 t1 = BashOperator(
-    task_id='comet_ingest',
-    bash_command=templated_command,
+    task_id='starlake_watcher',
+    bash_command=SL_SPARK_CMD + ' watch ' + SL_DOMAIN,
     dag=dag)

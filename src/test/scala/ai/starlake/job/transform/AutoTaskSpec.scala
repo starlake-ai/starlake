@@ -22,7 +22,7 @@ class AutoTaskSpec extends TestHelper {
         workflow.autoJob(TransformConfig(name = "result.file"))
 
         readFileContent(
-          new Path(cometDatasetsPath + "/business/result/file/file.csv")
+          new Path(starlakeDatasetsPath + "/business/result/file/file.csv")
         ) shouldBe "  Name|Last Name   |"
       }
     }
@@ -48,7 +48,7 @@ class AutoTaskSpec extends TestHelper {
           workflow.autoJob(TransformConfig(name = "piJob"))
 
           readFileContent(
-            new Path(cometDatasetsPath + "/business/result/file/file.csv")
+            new Path(starlakeDatasetsPath + "/business/result/file/file.csv")
           ).trim shouldBe "Pi is roughly 3.137320"
         }
       }

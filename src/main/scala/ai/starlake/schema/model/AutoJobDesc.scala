@@ -60,7 +60,7 @@ case class AutoJobDesc(
     val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
 
     // Check Domain name validity
-    val forceJobPrefixRegex = settings.comet.forceJobPattern.r
+    val forceJobPrefixRegex = settings.appConfig.forceJobPattern.r
     // TODO: name doesn't need to respect the pattern because it may be renamed. Restriction is based on target database restriction.
     // We may check depending on the sink type but we may sink differently for each table.
     // It would be better to assume a starlake pattern to describe a dataset and the container of the dataset such as the bigquery syntax project:dataset

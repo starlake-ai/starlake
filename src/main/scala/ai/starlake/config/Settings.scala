@@ -24,7 +24,7 @@ import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -117,12 +117,12 @@ object Settings extends StrictLogging {
     def isActive(): Boolean = this.active.getOrElse(false)
 
     def getConnectionRef(implicit settings: Settings): String =
-      this.sink.connectionRef.getOrElse(settings.comet.connectionRef)
+      this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
     def getSink(implicit settings: Settings) = this.sink.getSink()
 
     def getDatabase(implicit settings: Settings): Option[String] =
-      this.database.orElse(settings.comet.getDefaultDatabase())
+      this.database.orElse(settings.appConfig.getDefaultDatabase())
   }
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -372,7 +372,7 @@ object Settings extends StrictLogging {
     headers: Map[String, Map[String, String]] = Map.empty
   ) {
     def allAccessOptions()(implicit settings: Settings): Map[String, String] = {
-      settings.comet.kafka.sparkServerOptions ++ accessOptions
+      settings.appConfig.kafka.sparkServerOptions ++ accessOptions
     }
   }
 
@@ -446,7 +446,7 @@ object Settings extends StrictLogging {
     * @param airflow
     *   : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
-  final case class Comet(
+  final case class AppConfig(
     env: String,
     datasets: String,
     dags: String,
@@ -555,22 +555,22 @@ object Settings extends StrictLogging {
 
   }
 
-  object Comet {
+  object AppConfig {
 
     private case class JsonWrapped(jsonValue: String) {
 
       @throws(classOf[ObjectStreamException])
       protected def readResolve: AnyRef = {
-        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[Comet])
+        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[AppConfig])
         unwrapped
       }
     }
 
     private object JsonWrapped {
-      private def jsonMapper: ObjectMapper = new CometObjectMapper()
+      private def jsonMapper: ObjectMapper = new StarlakeObjectMapper()
 
-      def apply(comet: Comet): JsonWrapped = {
-        val writer = jsonMapper.writerFor(classOf[Comet])
+      def apply(comet: AppConfig): JsonWrapped = {
+        val writer = jsonMapper.writerFor(classOf[AppConfig])
         val asJson = writer.writeValueAsString(comet)
         JsonWrapped(asJson)
       }
@@ -594,7 +594,7 @@ object Settings extends StrictLogging {
       implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
       ConfigSource
         .fromConfig(effectiveConfig)
-        .loadOrThrow[Comet]
+        .loadOrThrow[AppConfig]
     }
 
     logger.info(
@@ -628,7 +628,7 @@ object Settings extends StrictLogging {
       logger.debug(effectiveApplicationConfig.toString)
       val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
-        .loadOrThrow[Comet]
+        .loadOrThrow[AppConfig]
 
       Some(
         Settings(
@@ -680,7 +680,7 @@ object Settings extends StrictLogging {
             ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
           ConfigSource
             .fromConfig(effectiveApplicationConfig)
-            .loadOrThrow[Comet]
+            .loadOrThrow[AppConfig]
         }
 
         val applicationSettings = Settings(
@@ -701,7 +701,7 @@ object Settings extends StrictLogging {
 
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
-      settings.comet.internal.flatMap(_.temporaryGcsBucket) match {
+      settings.appConfig.internal.flatMap(_.temporaryGcsBucket) match {
         case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
         case None        => new SparkConf()
       }
@@ -712,7 +712,7 @@ object Settings extends StrictLogging {
       .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
-      .set("spark.scheduler.mode", settings.comet.scheduling.mode)
+      .set("spark.scheduler.mode", settings.appConfig.scheduling.mode)
 
     schedulingConfig.foreach(path => thisConf.set("spark.scheduler.allocation.file", path.toString))
 
@@ -723,7 +723,7 @@ object Settings extends StrictLogging {
   }
 
   private def schedulingPath(settings: Settings): Option[Path] = {
-    import settings.comet.scheduling._
+    import settings.appConfig.scheduling._
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
       Some(schedulingPath).filter(settings.storageHandler().exists)
@@ -745,7 +745,7 @@ object CometColumns {
   * justified? probably not quite yet) — cchepelov
   */
 final case class Settings(
-  comet: Settings.Comet,
+  appConfig: Settings.AppConfig,
   sparkConfig: Config,
   extraConf: Config,
   jobConf: SparkConf = new SparkConf()
@@ -760,10 +760,10 @@ final case class Settings(
       case _ =>
         implicit val self: Settings = this
         val handler =
-          if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+          if (SystemUtils.IS_OS_WINDOWS || appConfig.useLocalFileSystem)
             new LocalStorageHandler()
           else
-            new HdfsStorageHandler(comet.fileSystem)
+            new HdfsStorageHandler(appConfig.fileSystem)
 
         _storageHandler = Some(handler)
         handler
@@ -771,7 +771,7 @@ final case class Settings(
   }
 
   @transient
-  lazy val launcherService: LaunchHandler = comet.launcher match {
+  lazy val launcherService: LaunchHandler = appConfig.launcher match {
     case "simple"  => new SimpleLauncher()
     case "airflow" => new AirflowLauncher()
   }

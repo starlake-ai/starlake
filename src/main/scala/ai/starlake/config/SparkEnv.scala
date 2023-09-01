@@ -51,7 +51,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       )
     }
     val session =
-      if (settings.comet.isHiveCompatible())
+      if (settings.appConfig.isHiveCompatible())
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
       else {
         SparkSession.builder.config(config).getOrCreate()
@@ -63,7 +63,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   }
   def newSession: SparkSession = {
     val session =
-      if (settings.comet.isHiveCompatible())
+      if (settings.appConfig.isHiveCompatible())
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate().newSession()
       else {
         SparkSession.builder.config(config).getOrCreate().newSession()

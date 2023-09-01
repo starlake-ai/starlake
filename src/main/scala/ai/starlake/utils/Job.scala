@@ -71,21 +71,21 @@ trait SparkJob extends JobBase {
   }
 
   def newSession: SparkSession = {
-    val udfs = settings.comet.getUdfs()
+    val udfs = settings.appConfig.getUdfs()
     udfs.foreach(registerUdf)
     sparkEnv.newSession
 
   }
 
   lazy val session: SparkSession = {
-    val udfs = settings.comet.getUdfs()
+    val udfs = settings.appConfig.getUdfs()
     udfs.foreach(registerUdf)
     sparkEnv.session
   }
 
   lazy val optionalAuditSession: Option[SparkSession] = {
 
-    if (settings.comet.audit.sink.getSink().getConnectionType(settings) == ConnectionType.BQ)
+    if (settings.appConfig.audit.sink.getSink().getConnectionType(settings) == ConnectionType.BQ)
       None
     else Some(session)
   }
@@ -170,7 +170,7 @@ trait SparkJob extends JobBase {
   }
 
   protected def analyze(fullTableName: String): Any = {
-    if (settings.comet.analyze) {
+    if (settings.appConfig.analyze) {
       logger.info(s"computing statistics on table $fullTableName")
       val allCols = session.table(fullTableName).columns.mkString(",")
       session.table(fullTableName)

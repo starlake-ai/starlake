@@ -217,8 +217,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     paths: List[Path],
     options: Map[String, String]
   )(implicit settings: Settings): Try[JobResult] = {
-    val endpoint = settings.comet.airflow.endpoint
-    val ingest = settings.comet.airflow.ingest
+    val endpoint = settings.appConfig.airflow.endpoint
+    val ingest = settings.appConfig.airflow.ingest
     val url = s"$endpoint/dags/$ingest/dag_runs"
     val command =
       s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
@@ -235,7 +235,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
-    val endpoint = settings.comet.airflow.endpoint
+    val endpoint = settings.appConfig.airflow.endpoint
     val url = s"$endpoint/dags/comet_index/dag_runs"
     // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
     //    --format parquet|json|json-array --dataset datasetPath
@@ -261,8 +261,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadCliConfig)(implicit
     settings: Settings
   ): Boolean = {
-    val endpoint = settings.comet.airflow.endpoint
-    val url = s"$endpoint/dags/comet_bqload/dag_runs"
+    val endpoint = settings.appConfig.airflow.endpoint
+    val url = s"$endpoint/dags/starlake_bqload/dag_runs"
     val params = List(
       s"--source_file ${config.source}",
       s"--output_dataset ${config.outputDataset}",
@@ -283,7 +283,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   override def jdbcload(workflow: IngestionWorkflow, config: JdbcConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
-    val endpoint = settings.comet.airflow.endpoint
+    val endpoint = settings.appConfig.airflow.endpoint
     val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
     val params = List(
       s"--source_file ${config.sourceFile}",

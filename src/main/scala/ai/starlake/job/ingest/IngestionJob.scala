@@ -42,7 +42,7 @@ import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val loader = mergedMetadata.loader.getOrElse(settings.comet.loader)
+    val loader = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
     val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
       case _       => throw new Exception(s"Unexpected '$loader' loader !!!")
@@ -51,11 +51,11 @@ trait IngestionJob extends SparkJob {
   }
 
   protected lazy val treeRowValidator: GenericRowValidator = {
-    loadGenericValidator(settings.comet.treeValidatorClass)
+    loadGenericValidator(settings.appConfig.treeValidatorClass)
   }
 
   protected lazy val flatRowValidator: GenericRowValidator =
-    loadGenericValidator(settings.comet.rowValidatorClass)
+    loadGenericValidator(settings.appConfig.rowValidatorClass)
 
   def domain: Domain
 
@@ -117,8 +117,8 @@ trait IngestionJob extends SparkJob {
       mergedMetadata
         .getSink(settings)
         .flatMap(_.connectionRef)
-        .getOrElse(settings.comet.connectionRef)
-    settings.comet.connections(connectionRef).getType()
+        .getOrElse(settings.appConfig.connectionRef)
+    settings.appConfig.connections(connectionRef).getType()
   }
 
   private def csvOutput(): Boolean = {
@@ -127,8 +127,8 @@ trait IngestionJob extends SparkJob {
       case Some(sink) if sink.isInstanceOf[FsSink] =>
         val fsSink = sink.asInstanceOf[FsSink]
         val format = fsSink.format.getOrElse("")
-        (settings.comet.csvOutput || format == "csv") &&
-        !settings.comet.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
+        (settings.appConfig.csvOutput || format == "csv") &&
+        !settings.appConfig.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
       case _ =>
         false
     }
@@ -140,15 +140,15 @@ trait IngestionJob extends SparkJob {
     */
   private def csvOutputExtension(): String = {
 
-    if (settings.comet.csvOutputExt.nonEmpty)
-      settings.comet.csvOutputExt
+    if (settings.appConfig.csvOutputExt.nonEmpty)
+      settings.appConfig.csvOutputExt
     else {
       mergedMetadata.sink.map(_.getSink()).asInstanceOf[FsSink].extension.getOrElse("")
     }
   }
 
   private def extractHiveTableAcl(): List[String] = {
-    if (settings.comet.isHiveCompatible()) {
+    if (settings.appConfig.isHiveCompatible()) {
       schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
           /*
@@ -183,7 +183,7 @@ trait IngestionJob extends SparkJob {
 
   def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
     Try {
-      if (forceApply || settings.comet.accessPolicies.apply)
+      if (forceApply || settings.appConfig.accessPolicies.apply)
         applySql(extractHiveTableAcl())
     }
 
@@ -205,7 +205,7 @@ trait IngestionJob extends SparkJob {
 
   def applySnowflakeTableAcl(forceApply: Boolean = false): Try[Unit] =
     Try {
-      if (forceApply || settings.comet.accessPolicies.apply)
+      if (forceApply || settings.appConfig.accessPolicies.apply)
         applySql(extractSnowflakeTableAcl())
     }
 
@@ -255,7 +255,7 @@ trait IngestionJob extends SparkJob {
       )
 
     val nativeValidator =
-      mergedMetadata.loader.getOrElse(settings.comet.loader).toLowerCase().equals("native")
+      mergedMetadata.loader.getOrElse(settings.appConfig.loader).toLowerCase().equals("native")
     // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
     csvOrJsonLines && nativeValidator
   }
@@ -293,7 +293,7 @@ trait IngestionJob extends SparkJob {
       connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
-      sourceFormat = settings.comet.defaultFormat,
+      sourceFormat = settings.appConfig.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       outputPartition = None,
@@ -461,7 +461,7 @@ trait IngestionJob extends SparkJob {
   def runSpark(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
-      settings.comet.scheduling.poolName
+      settings.appConfig.scheduling.poolName
     )
 
     val jobResult = domain.checkValidity(schemaHandler) match {
@@ -494,7 +494,7 @@ trait IngestionJob extends SparkJob {
               err,
               Step.LOAD.toString,
               schemaHandler.getDatabase(domain),
-              settings.comet.tenant
+              settings.appConfig.tenant
             )
             AuditLog.sink(optionalAuditSession, log)
           }
@@ -513,7 +513,7 @@ trait IngestionJob extends SparkJob {
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
               val end = Timestamp.from(Instant.now())
-              val success = !settings.comet.rejectAllOnError || rejectedCount == 0
+              val success = !settings.appConfig.rejectAllOnError || rejectedCount == 0
               val log = AuditLog(
                 applicationId(),
                 inputFiles,
@@ -528,7 +528,7 @@ trait IngestionJob extends SparkJob {
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString,
                 schemaHandler.getDatabase(domain),
-                settings.comet.tenant
+                settings.appConfig.tenant
               )
               AuditLog.sink(optionalAuditSession, log)
               if (success) SparkJobResult(None)
@@ -562,11 +562,14 @@ trait IngestionJob extends SparkJob {
         session.read
           .schema(
             MergeUtils.computeCompatibleSchema(
-              session.read.format(settings.comet.defaultFormat).load(acceptedPath.toString).schema,
+              session.read
+                .format(settings.appConfig.defaultFormat)
+                .load(acceptedPath.toString)
+                .schema,
               incomingSchema
             )
           )
-          .format(settings.comet.defaultFormat)
+          .format(settings.appConfig.defaultFormat)
           .load(acceptedPath.toString)
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
@@ -641,7 +644,7 @@ trait IngestionJob extends SparkJob {
     val partitionsToUpdate = (
       partitionOverwriteMode,
       sink.timestamp,
-      settings.comet.mergeOptimizePartitionWrite
+      settings.appConfig.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
       case ("dynamic", Some(timestamp), true) if !existingDF.isEmpty =>
@@ -717,7 +720,7 @@ trait IngestionJob extends SparkJob {
       val hiveDB = StorageArea.area(domain.finalName, Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
-      if (settings.comet.isHiveCompatible()) {
+      if (settings.appConfig.isHiveCompatible()) {
         val dbComment = domain.comment.getOrElse("")
         val tableTagPairs = Utils.extractTags(domain.tags) + ("comment" -> dbComment)
         val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
@@ -794,7 +797,7 @@ trait IngestionJob extends SparkJob {
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
-        val mergedDataset = session.read.format(settings.comet.defaultFormat).load(mergePath)
+        val mergedDataset = session.read.format(settings.appConfig.defaultFormat).load(mergePath)
         (
           partitionedDatasetWriter(
             mergedDataset,
@@ -825,7 +828,7 @@ trait IngestionJob extends SparkJob {
 
         logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
 
-        if (settings.comet.isHiveCompatible()) {
+        if (settings.appConfig.isHiveCompatible()) {
           finalTargetDatasetWriter.saveAsTable(fullTableName)
           val tableComment = schema.comment.getOrElse("")
           val tableTagPairs = Utils.extractTags(schema.tags) + ("comment" -> tableComment)
@@ -841,7 +844,7 @@ trait IngestionJob extends SparkJob {
           // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
           // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
           val df = session.createDataFrame(
-            session.read.format(settings.comet.defaultFormat).load(targetPath.toString).rdd,
+            session.read.format(settings.appConfig.defaultFormat).load(targetPath.toString).rdd,
             dataset.schema
           )
           storageHandler.delete(new Path(mergePath))
@@ -880,7 +883,7 @@ trait IngestionJob extends SparkJob {
     }
     // output file should have the same name as input file when applying privacy
     if (
-      settings.comet.defaultFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
+      settings.appConfig.defaultFormat == "text" && settings.appConfig.privacyOnly && area != StorageArea.rejected
     ) {
       val pathsOutput = storageHandler
         .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
@@ -945,7 +948,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def runExpectations(acceptedDF: DataFrame) = {
-    if (settings.comet.expectations.active) {
+    if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         this.domain.finalName,
         this.schema.finalName,
@@ -961,7 +964,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def runMetrics(acceptedDF: DataFrame) = {
-    if (settings.comet.metrics.active) {
+    if (settings.appConfig.metrics.active) {
       new MetricsJob(
         this.domain,
         this.schema,
@@ -994,7 +997,7 @@ trait IngestionJob extends SparkJob {
   protected def saveAccepted(
     validationResult: ValidationResult
   ): (DataFrame, Path) = {
-    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty) {
+    if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
         logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
@@ -1022,7 +1025,7 @@ trait IngestionJob extends SparkJob {
 
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame =
-        computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
+        computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
       runExpectations(finalAcceptedDF)
       runMetrics(finalAcceptedDF)
       val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
@@ -1051,7 +1054,7 @@ trait IngestionJob extends SparkJob {
             "success",
             Step.SINK_ACCEPTED.toString,
             schemaHandler.getDatabase(domain),
-            settings.comet.tenant
+            settings.appConfig.tenant
           )
           AuditLog.sink(optionalAuditSession, log)
           sinkedDF
@@ -1072,7 +1075,7 @@ trait IngestionJob extends SparkJob {
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString,
             schemaHandler.getDatabase(domain),
-            settings.comet.tenant
+            settings.appConfig.tenant
           )
           AuditLog.sink(optionalAuditSession, log)
           throw exception
@@ -1104,7 +1107,7 @@ trait IngestionJob extends SparkJob {
         }
       }
 
-    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
+    if (settings.appConfig.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
     else (mergedDF, partitionsToUpdate)
   }
 
@@ -1170,12 +1173,12 @@ trait IngestionJob extends SparkJob {
     val config = ESLoadConfig(
       timestamp = sink.flatMap(_.timestamp),
       id = sink.flatMap(_.id),
-      format = settings.comet.defaultFormat,
+      format = settings.appConfig.defaultFormat,
       domain = domain.name,
       schema = schema.name,
       dataset = Some(Right(mergedDF)),
       options = sink
-        .map(_.connectionRefOptions(settings.comet.connectionRef))
+        .map(_.connectionRefOptions(settings.appConfig.connectionRef))
         .getOrElse(Map.empty)
     )
     new ESLoadJob(config, storageHandler, schemaHandler).run()
@@ -1209,7 +1212,7 @@ trait IngestionJob extends SparkJob {
             getWriteMode(),
             StorageArea.accepted,
             schema.merge.isDefined,
-            settings.comet.defaultFormat
+            settings.appConfig.defaultFormat
           )
           sinkedDF
         case st: ConnectionType =>
@@ -1221,8 +1224,8 @@ trait IngestionJob extends SparkJob {
   }
 
   private def kafkaSink(mergedDF: DataFrame): DataFrame = {
-    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.finalName), mergedDF)
+    Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
+      kafkaClient.sinkToTopic(settings.appConfig.kafka.topics(schema.finalName), mergedDF)
     }
     mergedDF
   }
@@ -1239,8 +1242,8 @@ trait IngestionJob extends SparkJob {
     val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[JdbcSink])
     sink.foreach { sink =>
       val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-        sink.connectionRef.getOrElse(settings.comet.connectionRef),
-        settings.comet,
+        sink.connectionRef.getOrElse(settings.appConfig.connectionRef),
+        settings.appConfig,
         Right(mergedDF),
         outputTable = domain.finalName + "." + schema.finalName,
         createDisposition = createDisposition,
@@ -1280,7 +1283,7 @@ trait IngestionJob extends SparkJob {
             schema.finalName
           )
       ),
-      sourceFormat = settings.comet.defaultFormat,
+      sourceFormat = settings.appConfig.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       outputPartition = sink.flatMap(_.timestamp),
@@ -1337,7 +1340,7 @@ trait IngestionJob extends SparkJob {
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
 
-    if (settings.comet.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
+    if (settings.appConfig.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
       val replayArea = DatasetArea.replay(domainName)
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
@@ -1361,7 +1364,7 @@ trait IngestionJob extends SparkJob {
       mergedMetadata
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
-        settings.comet.audit.sink.getSink() match {
+        settings.appConfig.audit.sink.getSink() match {
           case _: FsSink =>
             sinkToFile(
               rejectedDF,
@@ -1369,7 +1372,7 @@ trait IngestionJob extends SparkJob {
               WriteMode.APPEND,
               StorageArea.rejected,
               merge = false,
-              settings.comet.defaultRejectedWriteFormat
+              settings.appConfig.defaultRejectedWriteFormat
             )
           case _ => // do nothing
         }
@@ -1388,7 +1391,7 @@ trait IngestionJob extends SparkJob {
           "success",
           Step.SINK_REJECTED.toString,
           schemaHandler.getDatabase(domain),
-          settings.comet.tenant
+          settings.appConfig.tenant
         )
         AuditLog.sink(optionalAuditSession, log)
         Success(rejectedPath)
@@ -1409,7 +1412,7 @@ trait IngestionJob extends SparkJob {
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString,
           schemaHandler.getDatabase(domain),
-          settings.comet.tenant
+          settings.appConfig.tenant
         )
         AuditLog.sink(optionalAuditSession, log)
         Failure(exception)
@@ -1464,11 +1467,11 @@ object IngestionUtil {
       )
     }
     val rejectedDF = rejectedTypedDS
-      .limit(settings.comet.audit.maxErrors)
+      .limit(settings.appConfig.audit.maxErrors)
       .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
 
     val res =
-      settings.comet.audit.sink.getSink() match {
+      settings.appConfig.audit.sink.getSink() match {
         case _: BigQuerySink =>
           BigQuerySparkWriter.sinkInAudit(
             rejectedDF,
@@ -1482,10 +1485,10 @@ object IngestionUtil {
 
         case _: JdbcSink =>
           val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-            settings.comet.audit.getConnectionRef(settings),
-            settings.comet,
+            settings.appConfig.audit.getConnectionRef(settings),
+            settings.appConfig,
             Right(rejectedDF),
-            settings.comet.audit.domain.getOrElse("audit") + ".rejected",
+            settings.appConfig.audit.domain.getOrElse("audit") + ".rejected",
             CreateDisposition.CREATE_IF_NEEDED,
             WriteDisposition.WRITE_APPEND
           )
@@ -1503,7 +1506,7 @@ object IngestionUtil {
         case _ =>
           Failure(
             new Exception(
-              s"Sink ${settings.comet.audit.sink.getSink().getClass.getSimpleName} not supported"
+              s"Sink ${settings.appConfig.audit.sink.getSink().getClass.getSimpleName} not supported"
             )
           )
       }

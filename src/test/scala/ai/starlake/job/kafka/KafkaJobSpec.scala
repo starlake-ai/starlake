@@ -238,7 +238,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Create topic comet_offsets topic" should "succeed" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -251,7 +251,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Get comet_offsets partitions " should "return 1" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -266,7 +266,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Access comet_offsets end offsets" should "work" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -297,7 +297,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Offload messages from Kafka" should "work" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -334,7 +334,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Load data from file to Kafka" should "work" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -355,7 +355,7 @@ class KafkaJobSpec extends TestHelper {
         val offsets =
           kafkaClient.topicEndOffsets(
             "test_load",
-            settings.comet.kafka
+            settings.appConfig.kafka
               .topics("test_load")
               .allAccessOptions()
           )
@@ -363,7 +363,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Offload from Kafka to Elasticsearch" should "work" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -384,7 +384,7 @@ class KafkaJobSpec extends TestHelper {
         val offsets =
           kafkaClient.topicEndOffsets(
             "kafka_to_es",
-            settings.comet.kafka
+            settings.appConfig.kafka
               .topics("kafka_to_es")
               .allAccessOptions()
           )
@@ -397,7 +397,7 @@ class KafkaJobSpec extends TestHelper {
               writeFormat = "org.elasticsearch.spark.sql",
               writeMode = SaveMode.Overwrite.toString,
               writePath = Some("test/_doc"),
-              writeOptions = settings.comet.connectionOptions("elasticsearch")
+              writeOptions = settings.appConfig.connectionOptions("elasticsearch")
             )
           )
         kafkaJobToEs.run()
@@ -414,7 +414,7 @@ class KafkaJobSpec extends TestHelper {
       }
 
       s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Elasticsearch" should "work" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload")
@@ -444,7 +444,7 @@ class KafkaJobSpec extends TestHelper {
               writeFormat = "org.elasticsearch.spark.sql",
               writeMode = SaveMode.Overwrite.toString,
               writePath = Some("test/_doc"),
-              writeOptions = settings.comet.connectionOptions("elasticsearch")
+              writeOptions = settings.appConfig.connectionOptions("elasticsearch")
             )
           )
         kafkaJobToEs.run()
@@ -507,7 +507,7 @@ class KafkaJobSpec extends TestHelper {
       }
        */
       s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Kafka" should "succeed" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload_kafka_to_kafka")
@@ -547,7 +547,7 @@ class KafkaJobSpec extends TestHelper {
             val offsets =
               kafkaClient.topicEndOffsets(
                 "topic_sink",
-                settings.comet.kafka
+                settings.appConfig.kafka
                   .topics("topic_sink_config")
                   .allAccessOptions()
               )

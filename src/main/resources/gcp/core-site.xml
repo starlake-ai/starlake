@@ -39,15 +39,15 @@
     </property>
     <property>
         <name>fs.default.name</name>
-        <value>gs://comet-app</value>
+        <value>gs://starlake-app</value>
     </property>
     <property>
         <name>fs.defaultFS</name>
-        <value>gs://comet-app</value>
+        <value>gs://starlake-app</value>
     </property>
     <property>
         <name>fs.gs.system.bucket</name>
-        <value>comet-app</value>
+        <value>starlake-app</value>
     </property>
 </configuration>
 

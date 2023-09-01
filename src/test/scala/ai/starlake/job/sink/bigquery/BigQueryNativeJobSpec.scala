@@ -66,7 +66,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
 
-          logger.info(settings.comet.datasets)
+          logger.info(settings.appConfig.datasets)
           loadPending
         }
         val tableFound =
@@ -91,7 +91,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
 
-          logger.info(settings.comet.datasets)
+          logger.info(settings.appConfig.datasets)
           secure(WatchConfig())
         }
         val tableFound =
@@ -127,7 +127,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .writer()
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(businessTask1)
-          val pathBusiness = new Path(cometMetadataPath + "/transform/bqtest/bqjobtest.comet.yml")
+          val pathBusiness =
+            new Path(starlakeMetadataPath + "/transform/bqtest/bqjobtest.comet.yml")
           storageHandler.write(businessTaskDef, pathBusiness)
 
           val configJob =
@@ -141,7 +142,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(configJob)
           val pathConfigBusiness =
-            new Path(cometMetadataPath + "/transform/bqtest/_config.comet.yml")
+            new Path(starlakeMetadataPath + "/transform/bqtest/_config.comet.yml")
           storageHandler.write(configJobDef, pathConfigBusiness)
 
           val schemaHandler = new SchemaHandler(storageHandler)

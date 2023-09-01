@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -51,13 +51,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  private val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
-  private val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
-  private val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
+  private val forceViewPrefixRegex: Regex = settings.appConfig.forceViewPattern.r
+  private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
+  private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
-    new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
+    new StarlakeObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
   private def checkValidity(
@@ -143,7 +143,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val warningCount = warnings.length
 
     val output =
-      settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
     output.foreach(_.overwrite(""))
 
     if (errorCount + warningCount > 0) {
@@ -159,7 +159,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
       logger.error(s"END VALIDATION RESULTS")
       output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-      if (settings.comet.validateOnLoad)
+      if (settings.appConfig.validateOnLoad)
         throw new Exception(
           s"Validation Failed: $errorCount errors and $warningCount warning found"
         )
@@ -364,7 +364,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         ) // will replace with sys.env
     val activeEnvName = Option(System.getenv().get("SL_ENV"))
       .orElse(globalEnvVars.get("SL_ENV"))
-      .getOrElse(settings.comet.env)
+      .getOrElse(settings.appConfig.env)
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.comet.yml")
@@ -392,7 +392,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val content = Utils.parseJinja(rawContent, activeEnvVars())
       YamlSerializer.mapper.readValue(content, classOf[Refs])
     } else
-      Refs(settings.comet.refs)
+      Refs(settings.appConfig.refs)
     this._refs = refs
     this._refs
   }
@@ -453,7 +453,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             // ideally the emptyNull field should set during object construction but the settings
             // object is not available in the Metadata object
             val enrichedMetadata = metadata
-              .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
+              .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.appConfig.emptyIsNull)))
 
             // set domain name
             val domainName =
@@ -1026,7 +1026,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
-    domain.database.orElse(settings.comet.getDefaultDatabase())
+    domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
 }

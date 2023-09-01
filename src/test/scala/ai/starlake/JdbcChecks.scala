@@ -58,7 +58,7 @@ trait JdbcChecks {
     expectedValues: immutable.Seq[T]
   )(rowToEntity: ResultSet => T)(implicit settings: Settings): Assertion = {
 
-    val jdbcOptions = settings.comet.connections(jdbcName)
+    val jdbcOptions = settings.appConfig.connections(jdbcName)
 
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),

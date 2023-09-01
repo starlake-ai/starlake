@@ -50,7 +50,7 @@ object SingleUserMainServer {
           SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         core.run(args)(settings)
         SingleUserMainServer.mapper.writeValueAsString(
-          Response(settings.comet.rootServe.getOrElse("Should never happen"))
+          Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
         )
     }
     response

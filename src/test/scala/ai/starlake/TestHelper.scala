@@ -24,7 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
-import ai.starlake.utils.{CometObjectMapper, JobResult, SparkJob, Utils}
+import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
@@ -65,33 +65,33 @@ trait TestHelper
     super.afterAll()
   }
 
-  private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
+  private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
 
-  private def cometTestInstanceId: String =
+  private def starlakeTestInstanceId: String =
     s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
 
-  def cometTestId: String = s"${cometTestPrefix}-${cometTestInstanceId}"
+  def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
-  lazy val cometTestRoot: String =
+  lazy val starlakeTestRoot: String =
     Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
       case Some(true) =>
-        BetterFile(Files.createTempDirectory(cometTestId)).pathAsString.replace("\\", "/")
-      case _ => BetterFile(Files.createTempDirectory(cometTestId)).pathAsString
+        BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
+      case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
     }
-  lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
-  lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
+  lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
+  lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
 
   def testConfiguration: Config = {
     val baseConfigString =
       s"""
          |SL_ASSERTIONS_ACTIVE=true
-         |SL_ROOT="${cometTestRoot}"
-         |SL_TEST_ID="${cometTestId}"
-         |SL_DATASETS="${cometDatasetsPath}"
-         |SL_METADATA="${cometMetadataPath}"
-         |SL_LOCK_PATH="${cometTestRoot}/locks"
-         |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
-         |SL_AUDIT_PATH="${cometTestRoot}/audit"
+         |SL_ROOT="${starlakeTestRoot}"
+         |SL_TEST_ID="${starlakeTestId}"
+         |SL_DATASETS="${starlakeDatasetsPath}"
+         |SL_METADATA="${starlakeMetadataPath}"
+         |SL_LOCK_PATH="${starlakeTestRoot}/locks"
+         |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+         |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
          |SL_UDFS="ai.starlake.udf.TestUdf"
          |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
          |SL_ACCESS_POLICIES_LOCATION="eu"
@@ -182,7 +182,7 @@ trait TestHelper
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("__SL_TEST_ROOT__", cometTestRoot)
+    fileContent.replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
@@ -207,7 +207,7 @@ trait TestHelper
     def storageHandler = settings.storageHandler()
 
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
-      val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
+      val mapper = new StarlakeObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
 
@@ -235,7 +235,7 @@ trait TestHelper
       Try {
         val allMetadataFiles = FileUtils
           .listFiles(
-            new File(cometMetadataPath),
+            new File(starlakeMetadataPath),
             TrueFileFilter.INSTANCE,
             TrueFileFilter.INSTANCE
           )
@@ -274,14 +274,14 @@ trait TestHelper
     }
 
     // Init
-    new File(cometTestRoot).mkdirs()
-    new File(cometDatasetsPath).mkdir()
-    new File(cometMetadataPath).mkdir()
-    new File(cometTestRoot + "/yelp").mkdir()
-    new File(cometTestRoot + "/DOMAIN").mkdir()
-    new File(cometTestRoot + "/dream").mkdir()
-    new File(cometTestRoot + "/json").mkdir()
-    new File(cometTestRoot + "/position").mkdir()
+    new File(starlakeTestRoot).mkdirs()
+    new File(starlakeDatasetsPath).mkdir()
+    new File(starlakeMetadataPath).mkdir()
+    new File(starlakeTestRoot + "/yelp").mkdir()
+    new File(starlakeTestRoot + "/DOMAIN").mkdir()
+    new File(starlakeTestRoot + "/dream").mkdir()
+    new File(starlakeTestRoot + "/json").mkdir()
+    new File(starlakeTestRoot + "/position").mkdir()
 
     DatasetArea.initMetadata(storageHandler)
     deliverTypesFiles()
@@ -313,7 +313,7 @@ trait TestHelper
       Try {
         val deletedFiles = FileUtils
           .listFiles(
-            new File(cometDatasetsPath),
+            new File(starlakeDatasetsPath),
             TrueFileFilter.INSTANCE,
             TrueFileFilter.INSTANCE
           )

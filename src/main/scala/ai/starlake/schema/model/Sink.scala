@@ -83,8 +83,8 @@ sealed abstract class Sink {
   def getConnectionType(implicit
     settings: Settings
   ): ConnectionType = {
-    val ref = connectionRef.getOrElse(settings.comet.connectionRef)
-    settings.comet.connections(ref).getType()
+    val ref = connectionRef.getOrElse(settings.appConfig.connectionRef)
+    settings.appConfig.connections(ref).getType()
   }
 
   @JsonIgnore
@@ -92,7 +92,7 @@ sealed abstract class Sink {
     settings: Settings
   ): Map[String, String] = {
     val ref = connectionRef.getOrElse(defaultConnectionName)
-    settings.comet.connections
+    settings.appConfig.connections
       .get(ref)
       .map(_.options)
       .getOrElse(Map.empty)
@@ -157,8 +157,8 @@ case class AllSinks(
   }
   def toAllSinks(): AllSinks = this
   def getSink()(implicit settings: Settings): Sink = {
-    val ref = this.connectionRef.getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet.connections(ref)
+    val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig.connections(ref)
     connection.getType() match {
       case ConnectionType.FS   => FsSink.fromAllSinks(this)
       case ConnectionType.JDBC => JdbcSink.fromAllSinks(this)
