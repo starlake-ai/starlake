@@ -1,0 +1,33 @@
+—
+sidebar_position: 10
+title: General
+—
+
+import Tabs from ‘@theme/Tabs’;
+import TabItem from ‘@theme/TabItem’;
+
+
+## Metadata folder
+All informations related to a project are store in the metadata folder. This folder is organized as follows:
+
+- metadata/extract: Is the folder where you write all extraction rules such as which tables and columns you want to extract from an existing database. 
+- metadata/load: this sub-directory contains all informations related to load jobs. A load job is a job that load files from disk, validate the input records and store them in the target datawarehouse 
+- metadata/transform: this sub-directory contains all informations related to transform jobs. A transform job is a job that run against existing tables on the target database and write the result in a target table. These are usually jobs that compute KPIs by aggregating values from different fact tables and or apply specific transformations to do some cleaning.
+- metadata/types: this sub-directory is a companion to the metadata/load directory. It contains all custom type validation you wish to apply on records loaded from a file. You may want that a record has a specific length or verify a specific pattern like an email for example. This allows to go much further than simply checking the input against standard python or java types.
+- metadata/connections.sl.yml: This file contains all the connections to your datawarehouse. Note , you may that usually you just have one connection
+- metadata/refs.sl.yml: In your SQL transforms, you may be joining tables coming from different domains or databases. In that case, you normally need to reference your table by its full name such as: `project-id.domain.my-table`. The refs file allows to make your query more readable by allowing to map the name `my-table` to its full name.
+- metadata/env.[SL_ENV].sl.yml: You may use any of the variables defined in the env files in your exctract / load and transforms jobs. The SL_ENV env var activates a specific env file making it possible to assign to variables, a value based on the active environment.
+
+
+## Load and Transform
+
+Whether you load files or apply operations on tables, your load and transform jobs will end up writing to a table hosted in a domain.
+
+A domain is a synonym to :
+- a schema in somes databases such as Postgres or Snowflake
+- a database in Databricks
+- A dataset in BigQuery.
+
+
+ 
+
