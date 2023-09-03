@@ -129,9 +129,6 @@ object Settings extends StrictLogging {
     *
     * @param sparkFormat
     *   source / sink format (jdbc by default). Cf spark.format possible values
-    * @param mode
-    *   Spark SaveMode to use. If not present, the save mode will be computed from the write
-    *   disposition set in the YAM file
     * @param options
     *   any option required by the format used to ingest / tranform / compute the data. Eg for JDBC
     *   uri, user and password are required uri the URI of the database engine. It must start with
@@ -141,7 +138,6 @@ object Settings extends StrictLogging {
   final case class Connection(
     `type`: Option[String],
     sparkFormat: Option[String] = None,
-    mode: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
     def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
@@ -160,14 +156,16 @@ object Settings extends StrictLogging {
           }
         case ConnectionType.BQ =>
           if (this.sparkFormat.isDefined) {
-            if (!options.contains("temporaryGcsBucket")) {
+            val isIndirectWriteMethod =
+              options.get("writeMethod").getOrElse("indirect").equals("indirect")
+            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
                 "Connection",
                 s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
               )
             }
-            if (!options.contains("gcsBucket")) {
+            if (isIndirectWriteMethod && !options.contains("gcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
