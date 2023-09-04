@@ -140,7 +140,7 @@ object Settings extends StrictLogging {
     sparkFormat: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
-    def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
+    def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
 
     def checkValidity(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]

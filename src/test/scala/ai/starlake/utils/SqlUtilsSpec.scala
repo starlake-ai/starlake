@@ -18,7 +18,7 @@ class SqlUtilsSpec extends TestHelper {
     }
 
     val selectWithCTE1 =
-      """WITH cte1 as (select * from thisview),
+      """WITH cte1 as (select *  except(this_col) from thisview),
         |cte2 as (select * from thisview)
         |SELECT *
         |FROM myview, yourview
@@ -49,7 +49,8 @@ class SqlUtilsSpec extends TestHelper {
     }
 
     "Extract tables from select parquet" should "return only tables with parquet files" in {
-      val refs = SQLUtils.extractTableNames("select * from parquet('s3://bucket/path'), t")
+      val refs =
+        SQLUtils.extractTableNames("select * from parquet('s3://bucket/path'), t")
       assert(refs == List("t"))
     }
 
@@ -61,7 +62,7 @@ class SqlUtilsSpec extends TestHelper {
         |            transaction_date,
         |            amount,
         |            store_id,
-        |            seller_id
+        |            seller_id 
         |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
         |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
         |    ),
