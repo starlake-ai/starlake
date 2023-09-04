@@ -10,31 +10,31 @@ import TabItem from '@theme/TabItem';
 ## Metadata
 All the information related to a project is stored in the metadata folder. This folder is organized as follows:
 
-- metadata/extract: this directory contains all the extraction rules such as which tables and columns need to be extracted from an existing database.
+- __metadata/extract__: this directory contains all the extraction rules such as which tables and columns need to be extracted from an existing database.
 
-- metadata/load: this directory contains all the information related to load jobs. A load job is a job that load files from disk,
+- __metadata/load__: this directory contains all the information related to load jobs. A load job is a job that load files from disk,
 validate the input records and store them in the target datawarehouse
 
-- metadata/transform: this directory contains all the information related to transform jobs.
+- __metadata/transform__: this directory contains all the information related to transform jobs.
 A transform job is a job that run against existing tables on the target database and write the result in a target table.
 These are usually jobs that compute KPIs by aggregating values from different fact tables and or apply specific transformations to do some cleaning.
 
-- metadata/types: this is a companion directory to the metadata/load directory.
+- __metadata/types__: this is a companion directory to the metadata/load directory.
 It contains all the custom types validation you wish to apply on the records loaded from a file.
 We may require a record column to have a specific length or to verify a specific pattern like an email for example.
 This allows to go much further than simply checking the input against standard python or java types.
 
-- metadata/expectations: This directory contains a library of expectations we may want to use in our project.
+- __metadata/expectations__: This directory contains a library of expectations we may want to use in our project.
 Expectations are used to validate the data we load into our datawarehouse.
 For example, we may want to check that the number of records loaded in a table is greater than 0.
 
-- metadata/connections.sl.yml: This file contains all the connections to our datawarehouse, although usually we just have one connection.
+- __metadata/connections.sl.yml__: This file contains all the connections to our datawarehouse, although usually we just have one connection.
 
-- metadata/refs.sl.yml: In your SQL transforms, we may be joining tables coming from different domains or databases.
+- __metadata/refs.sl.yml__: In your SQL transforms, we may be joining tables coming from different domains or databases.
 In that case, we normally need to reference our tables by their full names such as: `project-id.domain.my-table`.
 The refs file allows us to make our query more readable by allowing to map the name `my-table` to its full name.
 
-- metadata/env.[SL_ENV].sl.yml: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
+- __metadata/env.[SL_ENV].sl.yml__: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
 The SL_ENV env var activates a specific env file making it possible to assign to variables, values based on the active environment.
 
 
