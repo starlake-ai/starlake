@@ -24,6 +24,10 @@ It contains all the custom types validation you wish to apply on the records loa
 We may require a record column to have a specific length or to verify a specific pattern like an email for example.
 This allows to go much further than simply checking the input against standard python or java types.
 
+- metadata/expectations: This directory contains a library of expectations we may want to use in our project.
+Expectations are used to validate the data we load into our datawarehouse.
+For example, we may want to check that the number of records loaded in a table is greater than 0.
+
 - metadata/connections.sl.yml: This file contains all the connections to our datawarehouse, although usually we just have one connection.
 
 - metadata/refs.sl.yml: In your SQL transforms, we may be joining tables coming from different domains or databases.
