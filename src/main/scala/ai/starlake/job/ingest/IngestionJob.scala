@@ -275,10 +275,12 @@ trait IngestionJob extends SparkJob {
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
+  def requireTwoSteps(schema: Schema): Boolean = {
+    //renamed attribute can be loaded directly so it's not in the condition
+    schema.hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty
+  }
+
   def runBQNative(): Try[JobResult] = {
-
-    val requireTwoSteps = schema.hasTransformOrIgnoreOrScriptColumns()
-
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(settings),
       schema.merge.exists(_.key.nonEmpty)
@@ -337,7 +339,7 @@ trait IngestionJob extends SparkJob {
       rls = schema.rls
     )
 
-    val result = if (requireTwoSteps) {
+    val result = if (requireTwoSteps(schema)) {
       val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
       val tempTableSchema = schema.bqSchemaWithIgnoreAndScript(
         schemaHandler
@@ -350,7 +352,7 @@ trait IngestionJob extends SparkJob {
           val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
           val firstStepTableId =
             firstStepConfig.outputTableId.getOrElse(throw new Exception("Should never happen"))
-          val result = applySecondStep(targetBigqueryJob, firstStepTableId, targetTableSchema)
+          val result = applySecondStep(targetBigqueryJob, firstStepTableId, targetTableSchema, schema)
           targetBigqueryJob.dropTable(firstStepTableId)
           result
         case Failure(exception) =>
@@ -366,9 +368,10 @@ trait IngestionJob extends SparkJob {
   }
 
   def applySecondStepSQL(
-    bigqueryJob: BigQueryNativeJob,
-    firstStepTempTableId: TableId,
-    targetTableId: TableId
+                          bigqueryJob: BigQueryNativeJob,
+                          firstStepTempTableId: TableId,
+                          targetTableId: TableId,
+                          schema: Schema
   ): Try[BigQueryJobResult] = {
     val tempTable =
       s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
@@ -376,11 +379,18 @@ trait IngestionJob extends SparkJob {
       s"`${targetTableId.getProject}.${targetTableId.getDataset}.${targetTableId.getTable}`"
     val sourceUris =
       bigqueryJob.cliConfig.source.left.getOrElse(throw new Exception("Should never happen"))
+
+    val enrichedTempTable =
+      s"""
+         |(
+         | SELECT *, '${sourceUris.replace("'", "\\'")}' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
+         |)
+         |""".stripMargin
     schema
       .buildSqlMerge(
-        tempTable,
+        enrichedTempTable,
         targetTable,
-        sourceUris
+        schema.filter
       )
       .map { sql =>
         logger.info(s"buildSqlMerge: $sql")
@@ -388,8 +398,8 @@ trait IngestionJob extends SparkJob {
       }
       .getOrElse {
         val sql = schema.buildSqlSelect(
-          tempTable,
-          sourceUris
+          enrichedTempTable,
+          schema.filter
         )
         logger.info(s"buildSqlSelect: $sql")
         bigqueryJob.RunAndSinkAsTable(Some(sql))
@@ -399,12 +409,13 @@ trait IngestionJob extends SparkJob {
   private def applySecondStep(
     targetBigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
-    incomingTableSchema: BQSchema
+    incomingTableSchema: BQSchema,
+    schema: Schema
   ): Try[BigQueryJobResult] = {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, incomingTableSchema)
-        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId)
+        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId, schema)
       }
       .getOrElse(throw new Exception("Should never happen"))
   }

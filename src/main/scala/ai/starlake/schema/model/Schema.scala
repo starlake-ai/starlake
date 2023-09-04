@@ -175,6 +175,12 @@ case class Schema(
     }
   }
 
+  def ignoredAttributes(): List[Attribute] = {
+    attributes.filter { attribute =>
+      attribute.isIgnore()
+    }
+  }
+
   def hasTransformOrIgnoreOrScriptColumns(): Boolean = {
     attributes.count(attr => attr.isIgnore() || attr.script.nonEmpty || attr.transform.nonEmpty) > 0
   }
@@ -491,47 +497,64 @@ case class Schema(
     }
   }
 
-  def buildSqlSelect(table: String, inputFilename: String): String = {
-    val scriptAndTranformAttributes = scriptAndTransformAttributes()
-
-    val (scriptAttributes, transformAttributes) =
-      scriptAndTranformAttributes.partition(_.script.nonEmpty)
+  /**
+   *
+   * @param table             table to add field to
+   * @param sourceTableFilter filter applied after transformation and before field removal
+   * @return query
+   */
+  def buildSqlSelect(table: String, sourceTableFilter: Option[String]): String = {
+    val (scriptAttributes, transformAttributes) = scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
     val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      if (script.trim.equalsIgnoreCase("input_file_name()"))
-        s"'$inputFilename' AS ${scriptField.getFinalName()}"
-      else
-        s"$script AS ${scriptField.getFinalName()}"
-
+      s"$script AS ${scriptField.getFinalName()}"
     }
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
-      val transform =
-        transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      if (transform.trim.equalsIgnoreCase("input_file_name()"))
-        s"'$inputFilename' AS ${transformField.getFinalName()}"
-      else
-        s"$transform AS ${transformField.getFinalName()}"
+      val transform = transformField.transform.getOrElse(throw new Exception("Should never happen"))
+      s"$transform AS ${transformField.getFinalName()}"
     }
 
     val sqlSimple = simpleAttributes.map { field =>
       s"`${field.getFinalName()}`"
     }
 
-    s"SELECT ${sqlSimple.mkString(",")}, ${sqlScripts.mkString(",")}, ${sqlTransforms
-        .mkString(",")} FROM $table"
+    val sqlIgnored = ignoredAttributes().map { field =>
+      s"`${field.getFinalName()}`"
+    }
 
+    val finalSqlExcept = {
+      if (ignoredAttributes().isEmpty) {
+        ""
+      } else {
+        sqlIgnored.mkString("EXCEPT(", ",", ")")
+      }
+    }
+    val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
+    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
+    sourceTableFilter match {
+      case Some(filter) =>
+        s"""
+           |SELECT * $finalSqlExcept
+           |  FROM (
+           |    SELECT $allAttributes
+           |    FROM $table
+           |  )
+           |  WHERE $filter
+           |""".stripMargin
+      case None => s"SELECT $allFinalAttributes FROM $table"
+    }
   }
 
   def buildSqlMerge(
     sourceTable: String,
     targetTable: String,
-    inputFilename: String
+    sourceTableFilter: Option[String]
   ): Option[String] = {
     merge.map { mergeOptions =>
-      val inputData = buildSqlSelect(sourceTable, inputFilename)
+      val inputData = buildSqlSelect(sourceTable, sourceTableFilter)
 
       val scriptAndTranformAttributes = scriptAndTransformAttributes()
 
