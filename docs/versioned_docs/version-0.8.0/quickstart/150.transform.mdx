@@ -1,0 +1,235 @@
+---
+sidebar_position: 150
+title: Transform
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Now that our file is successfully loaded and available as a table, we usually need to join them and expose KPIs.
+This is where Starlake Transforms come into play.
+Three types of jobs are supported:
+- SQL jobs: a single SQL file
+- Jinja2 jobs: a single SQL/Python/PySpark file with Jinja2 templating
+- Python jobs: a single Python/PySpark file
+
+## SQL Transforms
+We create a file `metadata/transform/kpi/customers_kpi.sql` with the following content
+```SQL
+select count(*) cnt from sales.customers
+```
+
+This SQL file alone is sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
+named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
+
+:::note
+By default, the existing table data is overriden. To append data, use the `write` option in the `metadata/transform/kpi/_config.comet.yml` file:
+```yaml
+transform:
+  default:
+    write: APPEND
+```
+
+This instructs to run all transformations in `kpi` folder in append mode.
+To run only this transformation in append mode, update the __config_ file as follows:
+
+```yaml {5-6}
+transform:
+  default:
+    write: OVERWRITE
+  tasks:
+    - name: customers_kpi
+      write: APPEND
+```
+
+:::
+
+That's it! We can now run the transform as follows:
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name kpi.customers_kpi
+```
+The transform job will run against the connectionRef defined in the application.comet.yml file.
+
+## Jinja2 Transforms
+Starlake Transforms support Jinja2 templating inside SQL requests.
+To illustrate how this works, we will create two tables, one containing customers living in France
+and another one containing customers living in the USA.
+
+We create a file `metadata/transform/kpi/bycountry.sql` with the following content
+
+```SQL
+select * from sales.customers where lower(country) like lower('{{ p_country }}')
+```
+
+By creating the sql file in the kpi folder, we instruct Starlake to put the result of the query in a schema (dataset in BigQuery)
+named 'kpi'.
+But we need the french customers to be stored in the table `cust_france` and the american customers in the table `cust_usa`.
+
+Since by default the table is named after the SQL file name, ```bycountry.sql``` will create a table named ```bycountry```.
+We need to configure a dynamic table name based on the country name in the YAML configuration file.
+Therefore, we need to update the YAML file `metadata/transform/kpi/_config.comet.yml`.
+This file will instruct where the result of the SQL request will be stored.
+
+```yaml {5-7}
+transform:
+  tasks:
+    - name: customers_kpi
+      write: APPEND
+    - name: bycountry # We define the name of the transform.
+      table: cust_{{ p_country }} # We define the table name based on the country name.
+      write: OVERWRITE # We overwrite the table each time the job is executed.
+
+```
+
+<Tabs groupId="customers">
+<TabItem value="france" label="French customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=France
+```
+
+</TabItem>
+<TabItem value="usa" label="American customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=USA
+```
+
+</TabItem>
+</Tabs>
+
+The `--options` allow to define variables that will be used for substitution and thus allowing a query to be parameterized.
+
+
+:::note
+The `--options` parameter is optional. If not provided,
+the transform will be executed with the default values defined in the env.{{SL_ENV}}.comet.yml  file.
+:::
+
+## Python/PySpark Transforms
+You mays also use Python/PySpark to create your transforms. The output of the job must be a Spark DataFrame registered as a temporary view named `SL_THIS`.
+The dataframe will be saved in a table named after the filename.
+Below is an example:
+
+```python title="metadata/transform/kpi/pi.py"
+import sys
+from random import random
+from operator import add
+
+from pyspark.sql import SparkSession
+
+# From Apache Spark example
+if __name__ == "__main__":
+    # get Spark context
+    spark = SparkSession.builder.getOrCreate()
+
+    # run any python/pyspark transform below
+    partitions = 2
+    n = 100000 * partitions
+
+    def f(_: int) -> float:
+        x = random() * 2 - 1
+        y = random() * 2 - 1
+        return 1 if x ** 2 + y ** 2 <= 1 else 0
+    count = spark.sparkContext.parallelize(range(1, n + 1), partitions).map(f).reduce(add)
+    result = 4.0 * count / n
+
+    # put the result in a spark dataframe
+    df = spark.createDataFrame([[result]])
+    # register the dataframe as a temporary view named SL_THIS
+    df.registerTempTable("SL_THIS")
+```
+## Targeting another datawarehouse
+
+
+<Tabs groupId="warehouses">
+<TabItem value="bq" label="BigQuery">
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: bigquery
+```
+</TabItem>
+<TabItem value="databricks" label="Databricks">
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: databricks
+```
+
+</TabItem>
+<TabItem value="hive" label="Hive">
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: spark
+```
+
+</TabItem>
+<TabItem value="redshift" label="Redshift">
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: redshift
+```
+
+Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.comet.yml file as follows:
+
+```yaml title="metadata/application.comet.yml"
+connections:
+  redshift:
+    sparkFormat: "com.databricks.spark.redshift"
+    options:
+      url: "jdbc:redshift://redshifthost:5439/database",
+      user: "username",
+      password: "pass",
+      tempdir: "s3n://path/for/temp/data",
+      aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
+```
+
+</TabItem>
+<TabItem value="snowflake" label="Snowflake">
+
+
+```yaml title="metadata/transform/kpi/_config.comet.yml"
+transform:
+  tasks:
+    - table: cust_{{ p_country }}
+      connectionRef: snowflake
+```
+Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.comet.yml file as follows:
+
+```yaml title="metadata/application.comet.yml"
+connections:
+  snowflake:
+    sparkFormat = "net.snowflake.spark.snowflake"
+    options:
+      url: "jdbc:snowflake://myorganization-myaccount.snowflakecomputing.com/",
+      user: "username",
+      password: "pass",
+      account: "myorganization-myaccount",
+      warehouse: "mywh",
+      autopushdown: "off" # to pushdown set to 'on'
+      db: "mydb",
+      schema: "public"
+
+```
+
+
+</TabItem>
+
+</Tabs>
+
+
