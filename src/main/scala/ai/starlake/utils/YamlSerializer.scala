@@ -102,8 +102,12 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serializeToFile(targetFile: File, schema: ModelSchema): Unit = {
+    mapper.writeValue(targetFile.toJava, serializeTable(schema))
+  }
+
+  def serializeTable(schema: ModelSchema): String = {
     case class Table(table: ModelSchema)
-    mapper.writeValue(targetFile.toJava, Table(schema))
+    mapper.writeValueAsString(Table(schema))
   }
 
   def serializeToFile(targetFile: File, iamPolicyTags: IamPolicyTags): Unit = {
