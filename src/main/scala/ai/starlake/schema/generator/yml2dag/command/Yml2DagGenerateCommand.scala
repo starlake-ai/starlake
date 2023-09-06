@@ -23,7 +23,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(domainTemplatePath) =>
         generateDomainDags(domainTemplatePath) match {
           case Failure(exception) => logger.error(exception.getMessage, exception)
-          case Success(_)         => logger.info("Sucessfully generated dags")
+          case Success(_)         => logger.info("Successfully generated dags")
         }
       case None => // Do nothing
     }
