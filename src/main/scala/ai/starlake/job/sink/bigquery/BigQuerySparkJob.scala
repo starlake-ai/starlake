@@ -173,7 +173,15 @@ class BigQuerySparkJob(
       val partitionOverwriteMode =
         if (bqTable.endsWith("SL_BQ_TEST_DS.SL_BQ_TEST_TABLE_DYNAMIC"))
           "dynamic" // Force during testing
-        else session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+        else
+          cliConfig.dynamicPartitionOverwrite
+            .map {
+              case true => "dynamic"
+              case false => "static"
+            }
+            .getOrElse(
+              session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+            )
 
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
@@ -223,6 +231,7 @@ class BigQuerySparkJob(
           }
 
           partitions.foreach { partitionStr =>
+            logger.info(s"Saving into partition $bqTable$$$partitionStr")
             val finalDF =
               sourceDF
                 .where(

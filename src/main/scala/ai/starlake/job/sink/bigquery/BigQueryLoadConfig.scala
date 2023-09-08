@@ -36,7 +36,8 @@ case class BigQueryLoadConfig(
   attributesDesc: List[AttributeDesc] = Nil,
   outputDatabase: Option[String],
   enableRefresh: Option[Boolean] = None,
-  refreshIntervalMs: Option[Long] = None
+  refreshIntervalMs: Option[Long] = None,
+  dynamicPartitionOverwrite: Option[Boolean] = None
 )
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {

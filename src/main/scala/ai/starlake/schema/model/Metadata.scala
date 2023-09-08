@@ -105,7 +105,9 @@ case class Metadata(
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
-  def getSink(implicit settings: Settings): Option[Sink] = sink.map(_.getSink())
+  def getSink(implicit settings: Settings): Sink = {
+    sink.map(_.getSink()).getOrElse(AllSinks().getSink())
+  }
 
   def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
 
@@ -194,15 +196,12 @@ case class Metadata(
 
   @JsonIgnore
   def getConnectionRef(implicit settings: Settings): String =
-    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+    getSink(settings).connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
   def getEngine(implicit settings: Settings): Engine = {
-    val connectionRef =
-      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
-    val connection = settings.appConfig.connections(connectionRef)
+    val connection = settings.appConfig.connections(getConnectionRef)
     connection.getEngine()
-
   }
 
   private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {

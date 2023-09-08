@@ -1,6 +1,34 @@
 
 # Release notes
 
+# 1.0.0:
+
+__Features__
+
+- have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
+  Don't support the following ingestion phases:
+  - CSV attribute order matters
+  - line ignore filter
+  - pre-sql
+  - post-sql
+  - detailed rejection
+  - udf privacy
+  - data validation
+  - expectations
+  - metrics
+  - distinct on all lines
+  - unique input file name with grouped ingestion
+
+__Improvements__
+
+- sink become optional in spark job and can fallback into global connection ref settings
+- add dynamicPartitionOverwrite sink options. Available for bigquery sink and file sink. No need to set
+  spark.sql.sources.partitionOverwriteMode.
+
+__Bug Fix__:
+
+- forceDomainPattern renamed in order to be overridable with environment variable
+
 # 0.8.0:
 - Databricks on Azure is now fully documented
 - **BREAKING CHANGE** 

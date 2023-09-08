@@ -132,6 +132,7 @@ case class AllSinks(
   extension: Option[String] = None,
   // clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
+  dynamicPartitionOverwrite: Option[Boolean] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
@@ -151,6 +152,7 @@ case class AllSinks(
       child.format.orElse(this.format),
       child.extension.orElse(this.extension),
       child.partition.orElse(this.partition),
+      child.dynamicPartitionOverwrite.orElse(this.dynamicPartitionOverwrite),
       child.coalesce.orElse(this.coalesce),
       child.options.orElse(this.options)
     )
@@ -186,6 +188,7 @@ case class AllSinks(
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
   timestamp: Option[String] = None,
+  dynamicPartitionOverwrite: Option[Boolean] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
@@ -212,6 +215,7 @@ object BigQuerySink {
     BigQuerySink(
       connectionRef = allSinks.connectionRef,
       timestamp = allSinks.timestamp,
+      dynamicPartitionOverwrite = allSinks.dynamicPartitionOverwrite,
       clustering = allSinks.clustering,
       days = allSinks.days,
       requirePartitionFilter = allSinks.requirePartitionFilter,
@@ -266,6 +270,7 @@ case class FsSink(
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
+  dynamicPartitionOverwrite: Option[Boolean] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink {
@@ -291,6 +296,7 @@ object FsSink {
       allSinks.extension,
       allSinks.clustering,
       allSinks.partition,
+      allSinks.dynamicPartitionOverwrite,
       allSinks.coalesce,
       allSinks.options
     )

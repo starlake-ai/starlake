@@ -22,6 +22,8 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Schema.{SL_INTERNAL_TABLE, SL_TARGET_TABLE}
+import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
@@ -32,7 +34,6 @@ import org.apache.spark.sql.types._
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.Try
-import ai.starlake.schema.model.Severity._
 
 /** Dataset Schema
   *
@@ -497,24 +498,30 @@ case class Schema(
     }
   }
 
-  /**
-   *
-   * @param table             table to add field to
-   * @param sourceTableFilter filter applied after transformation and before field removal
-   * @return query
+  /** @param table
+   * table to add field to
+   * @param sourceTableFilter
+   * filter applied after transformation and before field removal
+   * @return
+   * query
    */
-  def buildSqlSelect(table: String, sourceTableFilter: Option[String]): String = {
-    val (scriptAttributes, transformAttributes) = scriptAndTransformAttributes().partition(_.script.nonEmpty)
+  def buildSqlSelect(
+                      table: String,
+                      sourceTableFilter: Option[String],
+                      columnSuffixOpt: Option[String] = None
+                    ): String = {
+    val (scriptAttributes, transformAttributes) =
+      scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
     val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      s"$script AS ${scriptField.getFinalName()}"
+      s"$script AS `${scriptField.getFinalName()}`"
     }
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
       val transform = transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      s"$transform AS ${transformField.getFinalName()}"
+      s"$transform AS `${transformField.getFinalName()}`"
     }
 
     val sqlSimple = simpleAttributes.map { field =>
@@ -525,64 +532,146 @@ case class Schema(
       s"`${field.getFinalName()}`"
     }
 
-    val finalSqlExcept = {
-      if (ignoredAttributes().isEmpty) {
-        ""
-      } else {
-        sqlIgnored.mkString("EXCEPT(", ",", ")")
-      }
-    }
     val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
-    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
-    sourceTableFilter match {
-      case Some(filter) =>
-        s"""
-           |SELECT * $finalSqlExcept
-           |  FROM (
-           |    SELECT $allAttributes
-           |    FROM $table
-           |  )
-           |  WHERE $filter
-           |""".stripMargin
-      case None => s"SELECT $allFinalAttributes FROM $table"
+    val allFinalAttributes = columnSuffixOpt match {
+      case Some(columnSuffix) =>
+        (simpleAttributes.map(_.getFinalName()) ++ scriptAttributes.map(
+          _.getFinalName()
+        ) ++ transformAttributes.map(_.getFinalName()))
+          .map(f => s"`$f` AS `$f$columnSuffix`")
+          .mkString(", ")
+      case None =>
+        val finalSqlExcept = {
+          if (ignoredAttributes().isEmpty) {
+            ""
+          } else {
+            sqlIgnored.mkString("EXCEPT(", ",", ")")
+          }
+        }
+        s"* $finalSqlExcept"
     }
+    val sourceTableFilterSQL = sourceTableFilter match {
+      case Some(filter) => s"WHERE $filter"
+      case None => ""
+
+    }
+    s"""
+       |SELECT $allFinalAttributes
+       |  FROM (
+       |    SELECT $allAttributes
+       |    FROM $table
+       |  )
+       |  $sourceTableFilterSQL
+       |""".stripMargin
   }
 
   def buildSqlMerge(
     sourceTable: String,
     targetTable: String,
-    sourceTableFilter: Option[String]
-  ): Option[String] = {
-    merge.map { mergeOptions =>
-      val inputData = buildSqlSelect(sourceTable, sourceTableFilter)
+    mergeOptions: MergeOptions,
+    sourceTableFilter: Option[String],
+    targetTableFilters: List[String],
+    updateTargetFilters: List[String],
+    partitionOverwrite: Boolean,
+    suffixOutputColumn: Option[String] = None
+                   ): String = {
+    val sourceColumnPrefix = "__INTERNAL"
+    val (scriptAttributes, transformAttributes) =
+      scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
-      val scriptAndTranformAttributes = scriptAndTransformAttributes()
+    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+    val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
 
-      val (scriptAttributes, transformAttributes) =
-        scriptAndTranformAttributes.partition(_.script.nonEmpty)
+    val targetTableFilterSQL = targetTableFilters match {
+      case Nil => ""
+      case _ => targetTableFilters.mkString(" AND ")
+    }
 
-      val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
-      val allAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
+    if (partitionOverwrite) { // similar to dynamic mode in spark
+      val (targetColumns, sourceColumns) =
+        allOutputAttributes
+          .map(f =>
+            s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}$sourceColumnPrefix`"
+          )
+          .unzip
+      val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
+      val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
+      val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
 
-      val matchedSql = allAttributes
+      val joinKeySQL =
+        mergeOptions.key.map { key =>
+          s"$SL_INTERNAL_TABLE.`$key$sourceColumnPrefix` = $SL_TARGET_TABLE.`$key`"
+        }
+      val matchedUpdatedSql = allOutputAttributes
         .map { attribute =>
-          s"${attribute.getFinalName()} = SL_INTERNAL_TABLE.${attribute.getFinalName()}"
+          s"`${attribute.getFinalName()}` = $SL_INTERNAL_TABLE.`${attribute.getFinalName()}$sourceColumnPrefix`"
         }
         .mkString(",")
-
-      val notMatchedColNamesString =
-        allAttributes
-          .map(attribute => s"${attribute.getFinalName()}")
-          .mkString("(", ",", ")")
-      val notMatchedSql = s"""$notMatchedColNamesString VALUES $notMatchedColNamesString"""
-
-      val on =
-        mergeOptions.key.map { key =>
-          s"SL_INTERNAL_TABLE.$key = $targetTable.$key"
+      val updateTargetFiltersSQL = updateTargetFilters match {
+        case Nil => ""
+        case _ => updateTargetFilters.mkString(" AND ")
+      }
+      val inputData = buildSqlMerge(
+        sourceTable,
+        targetTable,
+        mergeOptions,
+        sourceTableFilter,
+        targetTableFilters,
+        updateTargetFilters,
+        false,
+        Some(sourceColumnPrefix)
+      )
+      // if filter applied on update
+      // everything in this filter not matched by source is deleted
+      // keys existing in target partition are updated
+      // keys not existing in target partition are inserted
+      // keys not matched by source in target partition are deleted
+      // similar to dynamic partition overwrite behavior
+      val finalNotMatchedBySource =
+      if (updateTargetFiltersSQL.isEmpty) ""
+      else s"WHEN NOT MATCHED BY SOURCE AND $updateTargetFiltersSQL THEN DELETE"
+      val joinAdditionalClauseSQL =
+        if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
+      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON ${
+        joinKeySQL
+          .mkString(" AND ")
+      } $joinAdditionalClauseSQL
+         |WHEN MATCHED $joinAdditionalClauseSQL THEN UPDATE SET $matchedUpdatedSql
+         |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+         |$finalNotMatchedBySource""".stripMargin
+    } else {
+      val inputData = buildSqlSelect(sourceTable, sourceTableFilter)
+      val effectiveSuffixOutputColumn = suffixOutputColumn.getOrElse("")
+      val allAttributesSQL = allOutputAttributes
+        .map { attribute =>
+          val renameAttribute = suffixOutputColumn match {
+            case Some(_) => f" AS `${attribute.getFinalName()}$effectiveSuffixOutputColumn`"
+            case None => ""
+          }
+          s"`${attribute.getFinalName()}`$renameAttribute"
         }
-      s"""MERGE INTO $targetTable USING ($inputData) AS SL_INTERNAL_TABLE ON ${on.mkString(" AND ")}
-       |WHEN MATCHED THEN UPDATE SET $matchedSql
-       |WHEN NOT MATCHED THEN INSERT $notMatchedSql""".stripMargin
+        .mkString(",")
+      val dataSourceColumnName = "SL_DATASOURCE_INFORMATION"
+      // According to the usage above of join clause between target and source table, we assume key not to be null.
+      val partitionKeys =
+        mergeOptions.key.map(key => s"`$key$effectiveSuffixOutputColumn`").mkString(",")
+      val rowSelectionSQL = mergeOptions.timestamp match {
+        case Some(mergeTimestampCol) =>
+          s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol$effectiveSuffixOutputColumn` DESC) = 1"
+        case _ =>
+          s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
+      }
+
+      val whereClauseSQL = if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
+
+      s"""SELECT * EXCEPT($dataSourceColumnName) FROM(
+         |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+         |  UNION ALL
+         |  SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as `$dataSourceColumnName` FROM $targetTable $SL_TARGET_TABLE
+         |  $whereClauseSQL
+         |)
+         |$rowSelectionSQL
+         |""".stripMargin
     }
   }
 
@@ -628,6 +717,10 @@ case class Schema(
 }
 
 object Schema {
+
+  val SL_INTERNAL_TABLE = "SL_INTERNAL_TABLE"
+
+  val SL_TARGET_TABLE = "SL_TARGET_TABLE"
 
   def mapping(
     domainName: String,
