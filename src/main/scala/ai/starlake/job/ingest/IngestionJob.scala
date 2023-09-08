@@ -111,21 +111,15 @@ trait IngestionJob extends SparkJob {
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(mergedMetadata.getWrite(settings))
-
   def getConnectionType(): ConnectionType = {
     val connectionRef =
-      mergedMetadata
-        .getSink(settings)
-        .flatMap(_.connectionRef)
-        .getOrElse(settings.appConfig.connectionRef)
+      mergedMetadata.getSink(settings).connectionRef.getOrElse(settings.appConfig.connectionRef)
     settings.appConfig.connections(connectionRef).getType()
   }
 
   private def csvOutput(): Boolean = {
-    val sinkOpt = mergedMetadata.getSink(settings)
-    sinkOpt match {
-      case Some(sink) if sink.isInstanceOf[FsSink] =>
-        val fsSink = sink.asInstanceOf[FsSink]
+    mergedMetadata.getSink(settings) match {
+      case fsSink: FsSink =>
         val format = fsSink.format.getOrElse("")
         (settings.appConfig.csvOutput || format == "csv") &&
         !settings.appConfig.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
@@ -276,7 +270,7 @@ trait IngestionJob extends SparkJob {
   ///////////////////////////////////////////////////////////////////////////
 
   def requireTwoSteps(schema: Schema): Boolean = {
-    //renamed attribute can be loaded directly so it's not in the condition
+    // renamed attribute can be loaded directly so it's not in the condition
     schema.hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty
   }
 
@@ -286,11 +280,8 @@ trait IngestionJob extends SparkJob {
       schema.merge.exists(_.key.nonEmpty)
     )
 
-    val bqSink = mergedMetadata.getSink(settings).map(_.asInstanceOf[BigQuerySink])
-    val connectionLocation =
-      bqSink.flatMap(
-        _.connectionRefOptions(mergedMetadata.getEngine(settings).toString).get("location")
-      )
+    val bqSink = mergedMetadata.getSink(settings).asInstanceOf[BigQuerySink]
+    val schemaWithMergedMetadata = schema.copy(metadata = Some(mergedMetadata))
     val commonConfig = BigQueryLoadConfig(
       connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
       source = Left(path.map(_.toString).mkString(",")),
@@ -304,21 +295,21 @@ trait IngestionJob extends SparkJob {
       requirePartitionFilter = false,
       rls = Nil,
       partitionsToUpdate = Nil,
-      starlakeSchema = Some(schema.copy(metadata = Some(mergedMetadata))),
+      starlakeSchema = Some(schemaWithMergedMetadata),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain)
+      outputDatabase = schemaHandler.getDatabase(domain),
+      dynamicPartitionOverwrite = bqSink.dynamicPartitionOverwrite
+    )
+
+    val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
+      schemaHandler.getDatabase(domain),
+      domain.finalName,
+      "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
     )
 
     val firstStepConfig = commonConfig.copy(
-      outputTableId = Some(
-        BigQueryJobBase
-          .extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain),
-            domain.finalName,
-            "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
-          )
-      ),
+      outputTableId = Some(firstStepTempTable),
       days = Some(1) // not supported by BQ loadConfig
     )
 
@@ -332,10 +323,10 @@ trait IngestionJob extends SparkJob {
             schema.finalName
           )
       ),
-      days = bqSink.flatMap(_.days),
-      outputPartition = bqSink.flatMap(_.timestamp),
-      outputClustering = bqSink.flatMap(_.clustering).getOrElse(Nil),
-      requirePartitionFilter = bqSink.flatMap(_.requirePartitionFilter).getOrElse(false),
+      days = bqSink.days,
+      outputPartition = bqSink.timestamp,
+      outputClustering = bqSink.clustering.getOrElse(Nil),
+      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = schema.rls
     )
 
@@ -350,10 +341,9 @@ trait IngestionJob extends SparkJob {
           logger.info(s"First step result: $loadFileResult")
           val targetTableSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
           val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
-          val firstStepTableId =
-            firstStepConfig.outputTableId.getOrElse(throw new Exception("Should never happen"))
-          val result = applySecondStep(targetBigqueryJob, firstStepTableId, targetTableSchema, schema)
-          targetBigqueryJob.dropTable(firstStepTableId)
+          val result =
+            applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
+          targetBigqueryJob.dropTable(firstStepTempTable)
           result
         case Failure(exception) =>
           Utils.logException(logger, exception)
@@ -383,27 +373,87 @@ trait IngestionJob extends SparkJob {
     val enrichedTempTable =
       s"""
          |(
-         | SELECT *, '${sourceUris.replace("'", "\\'")}' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
+         | SELECT *, '${
+        sourceUris.replace(
+          "'",
+          "\\'"
+        )
+      }' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
          |)
          |""".stripMargin
-    schema
-      .buildSqlMerge(
-        enrichedTempTable,
-        targetTable,
-        schema.filter
-      )
-      .map { sql =>
-        logger.info(s"buildSqlMerge: $sql")
-        bigqueryJob.runInteractiveQuery(Some(sql))
-      }
-      .getOrElse {
-        val sql = schema.buildSqlSelect(
+
+    // Even if merge is able to handle data deletion, in order to have same behavior with spark
+    // we require user to set dynamic partition overwrite
+    schema.merge match {
+      case Some(mergeOptions: MergeOptions) =>
+        val targetFilters =
+          (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
+            case (Some(_), Some(_)) =>
+              val partitions = {
+                bigqueryJob.bigquery().listPartitions(targetTableId).asScala.toList
+              }
+              mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnvVars(), options).toList
+            case _ => Nil
+          }
+        val (finalDynamicPartitionOverwrite, updateTargetFilters) = (
+          bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
+          bigqueryJob.cliConfig.writeDisposition,
+          bigqueryJob.cliConfig.outputPartition
+        ) match {
+          case (true, "WRITE_TRUNCATE", Some(partition)) =>
+            val sql = schema.buildSqlMerge(
+              enrichedTempTable,
+              targetTable,
+              mergeOptions,
+              schema.filter,
+              targetFilters,
+              Nil,
+              false
+            )
+            val detectImpliedPartitions =
+              s"SELECT DISTINCT cast(`$partition` as STRING) AS $partition FROM ($sql)"
+            bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions)) match {
+              case Failure(exception) => throw exception
+              case Success(result) =>
+                val allPartitions = result.tableResult
+                  .map(_.getValues)
+                  .map(
+                    _.iterator().asScala
+                      .map(_.get(partition).getStringValue)
+                      .toList
+                  )
+                  .getOrElse(Nil)
+                (
+                  true,
+                  allPartitions match {
+                    case Nil => targetFilters
+                    case _ =>
+                      val inPartitions = allPartitions.map(date =>
+                        f"'$date'"
+                      ) mkString(f"date(`$partition`) IN (", ",", ")")
+                      List(inPartitions)
+                  }
+                )
+            }
+          case _ => false -> Nil
+        }
+        val sql = schema.buildSqlMerge(
           enrichedTempTable,
-          schema.filter
+          targetTable,
+          mergeOptions,
+          schema.filter,
+          targetFilters,
+          updateTargetFilters,
+          finalDynamicPartitionOverwrite
         )
+        logger.info(s"buildSqlMerge: $sql")
+        val destinationTable = if (finalDynamicPartitionOverwrite) None else Some(targetTableId)
+        bigqueryJob.runInteractiveQuery(Some(sql), destinationTable)
+      case None =>
+        val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
         logger.info(s"buildSqlSelect: $sql")
         bigqueryJob.RunAndSinkAsTable(Some(sql))
-      }
+    }
   }
 
   private def applySecondStep(
@@ -650,8 +700,16 @@ trait IngestionJob extends SparkJob {
     val (finalIncomingDF, mergedDF, toDeleteDF) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, mergeOptions)
 
-    val partitionOverwriteMode =
-      session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+    val partitionOverwriteMode = {
+      sink.dynamicPartitionOverwrite
+        .map {
+          case true => "static"
+          case false => "dynamic"
+        }
+        .getOrElse(
+          session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+        )
+    }
     val partitionsToUpdate = (
       partitionOverwriteMode,
       sink.timestamp,
@@ -749,15 +807,20 @@ trait IngestionJob extends SparkJob {
       }
 
       val sinkOpt = mergedMetadata.getSink(settings)
-      val (sinkPartition, nbPartitions, clustering, options) =
+      val (sinkPartition, nbPartitions, clustering, options, dynamicPartitionOption) =
         sinkOpt match {
-          case Some(sink) if sink.isInstanceOf[FsSink] =>
-            val fsSink = sink.asInstanceOf[FsSink]
+          case fsSink: FsSink =>
             val partitionColumns = fsSink.partition
               .orElse(mergedMetadata.partition)
 
             val sinkClustering = fsSink.clustering.orElse(None)
             val sinkOptions = fsSink.options.orElse(None)
+            val dynamicPartitionOverwrite = fsSink.dynamicPartitionOverwrite
+              .map {
+                case true => Map("partitionOverwriteMode" -> "dynamic")
+                case false => Map("partitionOverwriteMode" -> "static")
+              }
+              .getOrElse(Map.empty)
             (
               partitionColumns,
               nbFsPartitions(
@@ -767,7 +830,8 @@ trait IngestionJob extends SparkJob {
                 partitionColumns
               ),
               sinkClustering,
-              sinkOptions.getOrElse(Map.empty)
+              sinkOptions.getOrElse(Map.empty),
+              dynamicPartitionOverwrite
             )
           case _ =>
             (
@@ -779,19 +843,23 @@ trait IngestionJob extends SparkJob {
                 mergedMetadata.partition
               ),
               mergedMetadata.getClustering(),
+              Map.empty[String, String],
               Map.empty[String, String]
             )
         }
 
       // No need to apply partition on rejected dF
-      val partitionedDFWriter =
-        if (area == StorageArea.rejected)
-          partitionedDatasetWriter(dataset.repartition(nbPartitions), Nil)
-        else
-          partitionedDatasetWriter(
-            dataset.repartition(nbPartitions),
-            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
-          )
+      val partitionedDFWriter = {
+        val writer =
+          if (area == StorageArea.rejected)
+            partitionedDatasetWriter(dataset.repartition(nbPartitions), Nil)
+          else
+            partitionedDatasetWriter(
+              dataset.repartition(nbPartitions),
+              sinkPartition.map(_.getAttributes()).getOrElse(Nil)
+            )
+        writer.options(dynamicPartitionOption)
+      }
 
       val clusteredDFWriter = clustering match {
         case None          => partitionedDFWriter
@@ -804,7 +872,7 @@ trait IngestionJob extends SparkJob {
         clusteredDFWriter
           .mode(SaveMode.Overwrite)
           .format(writeFormat)
-          .options(options)
+          .options(options ++ dynamicPartitionOption)
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
@@ -1113,7 +1181,7 @@ trait IngestionJob extends SparkJob {
     val (mergedDF, partitionsToUpdate) =
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         mergedMetadata.getSink(settings) match {
-          case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
+          case sink: BigQuerySink => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
       }
@@ -1179,18 +1247,15 @@ trait IngestionJob extends SparkJob {
       }
   }
 
-  private def esSink(mergedDF: DataFrame): DataFrame = {
-    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[EsSink])
+  private def esSink(mergedDF: DataFrame, sink: EsSink): DataFrame = {
     val config = ESLoadConfig(
-      timestamp = sink.flatMap(_.timestamp),
-      id = sink.flatMap(_.id),
+      timestamp = sink.timestamp,
+      id = sink.id,
       format = settings.appConfig.defaultFormat,
       domain = domain.name,
       schema = schema.name,
       dataset = Some(Right(mergedDF)),
-      options = sink
-        .map(_.connectionRefOptions(settings.appConfig.connectionRef))
-        .getOrElse(Map.empty)
+      options = sink.connectionRefOptions(settings.appConfig.connectionRef)
     )
     new ESLoadJob(config, storageHandler, schemaHandler).run()
     mergedDF
@@ -1201,20 +1266,18 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate: List[String]
   ): Try[DataFrame] = {
     Try {
-      val sinkType = getConnectionType()
-      sinkType match {
-        case ConnectionType.ES =>
-          esSink(mergedDF)
-        case ConnectionType.BQ =>
-          bqSink(mergedDF, partitionsToUpdate)
-
-        case ConnectionType.KAFKA =>
+      (mergedMetadata.getSink(settings), getConnectionType()) match {
+        case (sink: EsSink, _) =>
+          esSink(mergedDF, sink)
+        case (sink: BigQuerySink, _) =>
+          bqSink(mergedDF, partitionsToUpdate, sink)
+        case (_, ConnectionType.KAFKA) =>
           kafkaSink(mergedDF)
 
-        case ConnectionType.JDBC =>
-          genericSink(mergedDF)
+        case (sink: JdbcSink, _) =>
+          genericSink(mergedDF, sink)
 
-        case ConnectionType.FS =>
+        case (_, ConnectionType.FS) =>
           val acceptedPath =
             new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
           val sinkedDF = sinkToFile(
@@ -1226,10 +1289,9 @@ trait IngestionJob extends SparkJob {
             settings.appConfig.defaultFormat
           )
           sinkedDF
-        case st: ConnectionType =>
+        case (_, st: ConnectionType) =>
           logger.trace(s"Unsupported Sink $st")
           mergedDF
-
       }
     }
   }
@@ -1241,7 +1303,7 @@ trait IngestionJob extends SparkJob {
     mergedDF
   }
 
-  private def genericSink(mergedDF: DataFrame): DataFrame = {
+  private def genericSink(mergedDF: DataFrame, sink: JdbcSink): DataFrame = {
     val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
       val (cd, wd) = Utils.getDBDisposition(
@@ -1250,29 +1312,29 @@ trait IngestionJob extends SparkJob {
       )
       (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
     }
-    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[JdbcSink])
-    sink.foreach { sink =>
-      val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-        sink.connectionRef.getOrElse(settings.appConfig.connectionRef),
-        settings.appConfig,
-        Right(mergedDF),
-        outputTable = domain.finalName + "." + schema.finalName,
-        createDisposition = createDisposition,
-        writeDisposition = writeDisposition
-      )
+    val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+      sink.connectionRef.getOrElse(settings.appConfig.connectionRef),
+      settings.appConfig,
+      Right(mergedDF),
+      outputTable = domain.finalName + "." + schema.finalName,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition
+    )
 
-      val res = new ConnectionLoadJob(jdbcConfig).run()
-      res match {
-        case Success(_) => ;
-        case Failure(e) =>
-          throw e
-      }
+    val res = new ConnectionLoadJob(jdbcConfig).run()
+    res match {
+      case Success(_) => ;
+      case Failure(e) =>
+        throw e
     }
     mergedDF
   }
 
-  private def bqSink(mergedDF: DataFrame, partitionsToUpdate: List[String]): DataFrame = {
-    val sink = mergedMetadata.getSink(settings).map(_.asInstanceOf[BigQuerySink])
+  private def bqSink(
+                      mergedDF: DataFrame,
+                      partitionsToUpdate: List[String],
+                      sink: BigQuerySink
+                    ): DataFrame = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(settings),
       schema.merge.exists(_.key.nonEmpty)
@@ -1297,16 +1359,17 @@ trait IngestionJob extends SparkJob {
       sourceFormat = settings.appConfig.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      outputPartition = sink.flatMap(_.timestamp),
-      outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
-      days = sink.flatMap(_.days),
-      requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
+      outputPartition = sink.timestamp,
+      outputClustering = sink.clustering.getOrElse(Nil),
+      days = sink.days,
+      requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
       rls = schema.rls,
       partitionsToUpdate = partitionsToUpdate,
       starlakeSchema = Some(schema),
       domainTags = domain.tags,
       domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain)
+      outputDatabase = schemaHandler.getDatabase(domain),
+      dynamicPartitionOverwrite = sink.dynamicPartitionOverwrite
     )
     val res = new BigQuerySparkJob(
       config,

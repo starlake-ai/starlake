@@ -188,7 +188,10 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     formatOptions
   }
 
-  def runInteractiveQuery(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
+  def runInteractiveQuery(
+                           thisSql: scala.Option[String] = None,
+                           destinationTable: scala.Option[TableId] = None
+                         ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
         val targetSQL = thisSql.getOrElse(sql)
@@ -202,6 +205,16 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
             .setMaximumBytesBilled(
               connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
             )
+
+        destinationTable.foreach { table =>
+          logger.info(
+            s"Destination table is $table with write mode '${cliConfig.writeDisposition}'"
+          )
+          queryConfig
+            .setDestinationTable(table)
+            .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
+            .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
+        }
 
         logger.info(s"Running interactive BQ Query $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
