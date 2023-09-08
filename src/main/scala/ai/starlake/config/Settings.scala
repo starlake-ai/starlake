@@ -504,7 +504,8 @@ object Settings extends StrictLogging {
     tenant: String,
     connectionRef: String,
     schedule: Map[String, Map[String, String]],
-    refs: List[Ref]
+    refs: List[Ref],
+    dagRef: Option[String]
   ) extends Serializable {
     def getUdfs(): Seq[String] =
       udfs

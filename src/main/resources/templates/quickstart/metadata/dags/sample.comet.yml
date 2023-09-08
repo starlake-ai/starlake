@@ -1,0 +1,20 @@
+dag:
+    comment: "sample dag configuration"
+    template: "sample.py.j2"
+    filename: "{{domain}}.py"
+    options:
+        profileVar: "DATAPROC_MEDIUM"
+        region: "europe-west1"
+        envVar: "SL_ENV"
+        jarFileUrisVar: "SL_JARS"
+
+datax: envoie tous les schedules du projet
+
+domain: communiquer au template tous les schedules du domaine
+
+domain-table: 1 seul schdule possible
+
+
+
+
+

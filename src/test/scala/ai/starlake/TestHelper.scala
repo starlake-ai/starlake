@@ -158,6 +158,17 @@ trait TestHelper
     )
   )
 
+  val allDags: List[FileToImport] = List(
+    FileToImport(
+      "default.comet.yml",
+      "/sample/dags/default.comet.yml"
+    ),
+    FileToImport(
+      "types.comet.yml",
+      "/sample/dags/dags.comet.yml"
+    )
+  )
+
   private def readSourceContentAsString(source: Source): String = {
     source.getLines().mkString("\n")
   }
