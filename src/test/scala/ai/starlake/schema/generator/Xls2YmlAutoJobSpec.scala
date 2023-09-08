@@ -7,7 +7,7 @@ import ai.starlake.utils.YamlSerializer
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 
-class Xls2YmlAutoJobTest extends TestHelper {
+class Xls2YmlAutoJobSpec extends TestHelper {
 
   val bqConfiguration: Config = {
     val config = ConfigFactory

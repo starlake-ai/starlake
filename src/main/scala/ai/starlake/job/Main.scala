@@ -13,7 +13,6 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
-import ai.starlake.schema.generator.yml2dag.config.Yml2DagConfigForMain
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
@@ -88,8 +87,7 @@ class Main() extends StrictLogging {
     Xls2YmlConfig,
     Yml2DDLConfig,
     Yml2GraphVizConfig,
-    Yml2XlsConfig,
-    Yml2DagConfigForMain
+    Yml2XlsConfig
   )
   private def printUsage() = {
     // scalastyle:off println
@@ -361,8 +359,8 @@ class Main() extends StrictLogging {
             println(MainServerConfig.usage())
             false
         }
-      case Yml2DagCommandDispatcher.name =>
-        new Yml2DagCommandDispatcher(schemaHandler).run(args.tail)
+      case "generate-dag" =>
+        new Yml2DagGenerateCommand(schemaHandler).run()
         true
       case command =>
         printUsage(command)

@@ -488,24 +488,37 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     loadDomainsFromArea(DatasetArea.external)
   }
 
-  def deserializedDagGenerationConfig(dagPath: Path): Try[DagGenerationConfig] = {
-    YamlSerializer.deserializeDagGenerationConfig(
-      Utils.parseJinjaTpl(storage.read(dagPath), activeEnvVars()),
-      dagPath.toString
-    )
+  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
+    val dagsConfigsPaths = storage.list(path = dagPath, extension = ".comet.yml", recursive = false)
+    dagsConfigsPaths.map { dagsConfigsPath =>
+      val dagConfigName = dagsConfigsPath.getName().dropRight(".comet.yml".length)
+      val dagConfig = YamlSerializer
+        .deserializeDagGenerationConfig(
+          Utils.parseJinjaTpl(storage.read(dagsConfigsPath), activeEnvVars()),
+          dagsConfigsPath.toString
+        ) match {
+        case Success(dagConfig) => dagConfig
+        case Failure(err) =>
+          logger.error(
+            s"Failed to load dag config in $dagsConfigsPath"
+          )
+          Utils.logException(logger, err)
+          throw err
+      }
+      dagConfigName -> dagConfig
+    }.toMap
   }
 
   /** Global dag generation config can only be defined in "dags" folder in the metadata folder.
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfig(dagsAreaPath: Path): Try[DagGenerationConfig] = {
-    val dagConfigPath = new Path(dagsAreaPath, "default.comet.yml")
-    if (storage.exists(dagConfigPath)) {
-      deserializedDagGenerationConfig(dagConfigPath)
+  def loadDagGenerationConfigs(): Map[String, DagGenerationConfig] = {
+    if (storage.exists(DatasetArea.dags)) {
+      deserializedDagGenerationConfigs(DatasetArea.dags)
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
-      Success(DagGenerationConfig(None, None, None, None, None))
+      Map.empty[String, DagGenerationConfig]
     }
   }
 
