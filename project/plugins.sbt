@@ -13,7 +13,7 @@ addSbtPlugin("com.github.sbt" % "sbt-git" % "2.0.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.3")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.0")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 
 addSbtPlugin("com.lightbend" % "sbt-google-cloud-storage" % "0.0.10")
 
