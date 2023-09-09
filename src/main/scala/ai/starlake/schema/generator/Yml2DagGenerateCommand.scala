@@ -78,47 +78,52 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       val dagTemplateName = dagConfig.template
       val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
-      if (filenameVars.contains("domain")) {
-        if (filenameVars.contains("table")) {
-          groupedBySchedule.foreach { case (schedule, groupedByDomain) =>
-            groupedByDomain.foreach { case (domainName, tableNames) =>
-              tableNames.foreach { tableName =>
-                val dagDomain = DagDomain(domainName, java.util.List.of[String](tableName))
-                val schedules = List(DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain)))
-                val context = DagGenerationContext(config = dagConfig, schedules)
-                val filename = Utils.parseJinja(
-                  dagConfig.filename,
-                  schemaHandler.activeEnvVars() ++ Map(
-                    "domain" -> domainName,
-                    "table"  -> tableName
-                  )
+      if (filenameVars.contains("table")) {
+        if (!filenameVars.contains("domain"))
+          logger.warn(
+            s"Dag Config $dagConfigName: filename contains table but not domain, this will generate multiple dags with the same name if the same table name appear in multiple domains"
+          )
+        // one dag per table
+        groupedBySchedule.foreach { case (schedule, groupedByDomain) =>
+          groupedByDomain.foreach { case (domainName, tableNames) =>
+            tableNames.foreach { tableName =>
+              val dagDomain = DagDomain(domainName, java.util.List.of[String](tableName))
+              val schedules = List(DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain)))
+              val context = DagGenerationContext(config = dagConfig, schedules)
+              val filename = Utils.parseJinja(
+                dagConfig.filename,
+                schemaHandler.activeEnvVars() ++ Map(
+                  "domain" -> domainName,
+                  "table"  -> tableName
                 )
-                applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
-              }
+              )
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
             }
-          }
-        } else {
-          val domainNames = groupedBySchedule.flatMap { case (schedule, groupedByDomain) =>
-            groupedByDomain.map { case (domainName, tableNames) =>
-              domainName
-            }
-          }
-          domainNames.foreach { domainName =>
-            val schedules = groupedBySchedule.map { case (schedule, groupedByDomain) =>
-              val tables = groupedByDomain(domainName)
-              val dagDomain = DagDomain(domainName, tables.asJava)
-              DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain))
-            }.toList
-
-            val context = DagGenerationContext(config = dagConfig, schedules)
-            val filename = Utils.parseJinja(
-              dagConfig.filename,
-              schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
-            )
-            applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
           }
         }
+      } else if (filenameVars.contains("domain")) {
+        // one dag per domain
+        val domainNames = groupedBySchedule.flatMap { case (schedule, groupedByDomain) =>
+          groupedByDomain.map { case (domainName, tableNames) =>
+            domainName
+          }
+        }
+        domainNames.foreach { domainName =>
+          val schedules = groupedBySchedule.map { case (schedule, groupedByDomain) =>
+            val tables = groupedByDomain(domainName)
+            val dagDomain = DagDomain(domainName, tables.asJava)
+            DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain))
+          }.toList
+
+          val context = DagGenerationContext(config = dagConfig, schedules)
+          val filename = Utils.parseJinja(
+            dagConfig.filename,
+            schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
+          )
+          applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
+        }
       } else {
+        // one dag per config
         groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
           val dagConfig = dagConfigs(dagConfigName)
           val dagTemplateName = dagConfig.template
