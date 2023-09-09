@@ -169,6 +169,13 @@ trait TestHelper
     )
   )
 
+  val applicationYmlConfig: List[FileToImport] = List(
+    FileToImport(
+      "application.comet.yml",
+      "/config//application.comet.yml"
+    )
+  )
+
   private def readSourceContentAsString(source: Source): String = {
     source.getLines().mkString("\n")
   }
@@ -286,6 +293,10 @@ trait TestHelper
         val dagPath = new Path(DatasetArea.dags, dagImport.name)
         deliverTestFile(dagImport.path, dagPath)
       }
+      /*applicationYmlConfig.foreach { appImport =>
+        val configPath = new Path(DatasetArea.metadata, appImport.name)
+        deliverTestFile(appImport.path, configPath)
+      }*/
     }
 
     // Init
