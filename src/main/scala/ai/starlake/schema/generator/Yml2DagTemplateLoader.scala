@@ -14,6 +14,10 @@ object Yml2DagTemplateLoader extends LazyLogging {
   private val RESOURCE_DOMAIN_TEMPLATE_FOLDER = s"yml2dag/$TEMPLATE_FOLDER"
 
   def loadTemplate(templatePathname: String)(implicit settings: Settings): String = {
+    assert(
+      templatePathname.endsWith(JINJA_EXTENSION),
+      s"Template $templatePathname must end with .j2"
+    )
     loadTemplateFromAbsolutePath(templatePathname)
       .orElse(loadTemplateFromDagPath(templatePathname))
       .orElse(loadTemplateFromResources(templatePathname))

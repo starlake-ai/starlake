@@ -160,12 +160,12 @@ trait TestHelper
 
   val allDags: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/dags/default.comet.yml"
+      "sample.comet.yml",
+      "/yml2dag//sample.comet.yml"
     ),
     FileToImport(
-      "types.comet.yml",
-      "/sample/dags/dags.comet.yml"
+      "sample.py.j2",
+      "/yml2dag/templates/sample.py.j2"
     )
   )
 
@@ -242,7 +242,7 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata =
+    def cleanMetadata: Try[Unit] =
       Try {
         val allMetadataFiles = FileUtils
           .listFiles(
@@ -264,12 +264,12 @@ trait TestHelper
         deliverTestFile(typeToImport.path, typesPath)
       }
       allExpectations.foreach { assertionToImport =>
-        val assertionPath = new Path(DatasetArea.expectations, assertionToImport.name)
-        deliverTestFile(assertionToImport.path, assertionPath)
+        val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
+        deliverTestFile(assertionToImport.path, expectationPath)
       }
       allViews.foreach { viewToImport =>
-        val assertionPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, assertionPath)
+        val viewPath = new Path(DatasetArea.views, viewToImport.name)
+        deliverTestFile(viewToImport.path, viewPath)
       }
       allMappings.foreach { mappingToImport =>
         val path = mappingToImport.folder match {
@@ -281,6 +281,10 @@ trait TestHelper
         storageHandler.mkdirs(new Path(path))
         val mappingPath = new Path(path, mappingToImport.name)
         deliverTestFile(mappingToImport.path, mappingPath)
+      }
+      allDags.foreach { dagImport =>
+        val dagPath = new Path(DatasetArea.dags, dagImport.name)
+        deliverTestFile(dagImport.path, dagPath)
       }
     }
 

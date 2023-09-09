@@ -359,8 +359,8 @@ class Main() extends StrictLogging {
             println(MainServerConfig.usage())
             false
         }
-      case "generate-dag" =>
-        new Yml2DagGenerateCommand(schemaHandler).run()
+      case "dag-generate" =>
+        new Yml2DagGenerateCommand(schemaHandler).run(args.drop(1))
         true
       case command =>
         printUsage(command)
