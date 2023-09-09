@@ -1,0 +1,34 @@
+description='{{ context.config.comment }}'
+template='{{ context.config.template }}'
+
+
+options = {
+    {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
+    {% endfor %}
+}
+
+
+env = {
+    {% for variable in env %}'{{ variable.name }}':'{{ variable.value }}'{% if not loop.last  %}, {% endif %}
+    {% endfor %}
+}
+
+schedules= [{% for schedule in context.schedules %}
+  'schedule':'{{ schedule.schedule }}',
+  'domains':[{% for domain in schedule.domains %}
+    {
+      'name':'{{ domain.name }}',
+      'tables': [{% for table in domain.tables %}
+                   '{{ table }}'{% if not loop.last  %}, {% endif %}{% endfor %}
+      ],
+    }{% if not loop.last  %},{% endif %}
+    {% endfor %}
+  ]
+{% endfor %}
+]
+
+# dataproc[schedule, domain, table]
+# spark-serverless[schedule, domain, table]
+# cloudrun[schedule, domain, table]
+## databricks[schedule, domain, table]
+

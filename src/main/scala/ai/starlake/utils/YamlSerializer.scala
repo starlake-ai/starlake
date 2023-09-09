@@ -185,7 +185,7 @@ object YamlSerializer extends LazyLogging {
       val dagNode = rootNode.path("dag")
       if (dagNode.isNull() || dagNode.isMissingNode) {
         throw new RuntimeException(
-          s"No 'dag' attribute found in $path. Please define your dag generation config under 'dags' attribute."
+          s"No 'dag' attribute found in $path. Please define your dag generation config under 'dag' attribute."
         )
       }
       mapper.treeToValue(dagNode, classOf[DagGenerationConfig])

@@ -97,7 +97,7 @@ case class Metadata(
   options: Option[Map[String, String]] = None,
   loader: Option[String] = None,
   emptyIsNull: Option[Boolean] = None,
-  dag: Option[DagGenerationConfig] = None,
+  dagRef: Option[String] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true,
@@ -129,11 +129,11 @@ case class Metadata(
        |ack:${ack}
        |options:${options}
        |validator:${loader}
-       |dag:${dag}
+       |dag:${dagRef}
        |freshness:${freshness}
        |nullValue:${nullValue}
        |emptyIsNull:${emptyIsNull}
-       |dag:$dag
+       |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
 
   def getMode(): Mode = getFinalValue(mode, FILE)
@@ -250,13 +250,6 @@ case class Metadata(
     */
   def merge(child: Metadata): Metadata = {
     val mergedSchedule = merge(this.schedule, child.schedule)
-    val dag = typeMerge(this.dag, child.dag)
-    val dagWithSchedule = dag.map { dag =>
-      mergedSchedule match {
-        case Some(s) => dag.copy(schedule = Some(s))
-        case None    => dag
-      }
-    }
 
     Metadata(
       mode = merge(this.mode, child.mode),
@@ -278,7 +271,7 @@ case class Metadata(
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       loader = merge(this.loader, child.loader),
-      dag = dagWithSchedule,
+      dagRef = merge(this.dagRef, child.dagRef),
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
@@ -314,7 +307,7 @@ case class Metadata(
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
       loader = if (parent.loader != this.loader) this.loader else None,
-      dag = if (parent.dag != this.dag) this.dag else None,
+      dagRef = if (parent.dagRef != this.dagRef) this.dagRef else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
       emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
@@ -330,7 +323,7 @@ case class Metadata(
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
       partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
-      ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dag.nonEmpty ||
+      ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )
       Some(this)
