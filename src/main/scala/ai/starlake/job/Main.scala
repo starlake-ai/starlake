@@ -3,7 +3,7 @@ package ai.starlake.job
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapConfig
-import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
+import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
@@ -13,7 +13,7 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
+import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils._
@@ -75,7 +75,6 @@ class Main() extends StrictLogging {
     ESLoadConfig,
     ExtractDataConfig,
     ExtractSchemaConfig,
-    FileSplitterConfig,
     ImportConfig,
     InferSchemaConfig,
     KafkaJobConfig,
@@ -137,7 +136,7 @@ class Main() extends StrictLogging {
     val argList = args.toList
     checkPrerequisites(argList)
 
-    import settings.{launcherService, storageHandler}
+    import settings.storageHandler
     DatasetArea.initMetadata(storageHandler())
 
     // extract any env var passed as --options argument
@@ -168,7 +167,7 @@ class Main() extends StrictLogging {
 
     DatasetArea.initDomains(storageHandler(), schemaHandler.domains().map(_.name))
     val workflow =
-      new IngestionWorkflow(storageHandler(), schemaHandler, launcherService)
+      new IngestionWorkflow(storageHandler(), schemaHandler, new SimpleLauncher())
 
     logger.info(s"Running Starlake $argList")
     val result = argList.head match {
