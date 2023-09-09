@@ -4,7 +4,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
@@ -13,9 +12,13 @@ import scala.collection.JavaConverters._
 
 class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
 
-  def run(): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    generateDomainDags()
+  def run(args: Array[String])(implicit settings: Settings): Unit = {
+    Yml2DagGenerateConfig.parse(args) match {
+      case Some(config) =>
+        generateDomainDags(config)
+      case _ =>
+        println(Yml2DagGenerateConfig.usage())
+    }
   }
 
   case class TableWithDagConfig(
@@ -49,7 +52,18 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
     tableWithDagConfigAndSchedule
   }
-  private def generateDomainDags()(implicit settings: Settings): Unit = {
+  private def generateDomainDags(
+    config: Yml2DagGenerateConfig
+  )(implicit settings: Settings): Unit = {
+    val outputDir = new Path(
+      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/load/")
+    )
+
+    if (config.clean) {
+      logger.info(s"Cleaning output directory $outputDir")
+      settings.storageHandler().delete(outputDir)
+    }
+
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
     val tableConfigs = tableWithDagConfigs(dagConfigs)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
@@ -72,13 +86,6 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 val dagDomain = DagDomain(domainName, java.util.List.of[String](tableName))
                 val schedules = List(DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain)))
                 val context = DagGenerationContext(config = dagConfig, schedules)
-                val jContext = context.asMap
-
-                val paramMap = Map(
-                  "context" -> jContext,
-                  "env"     -> jEnv
-                )
-                val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
                 val filename = Utils.parseJinja(
                   dagConfig.filename,
                   schemaHandler.activeEnvVars() ++ Map(
@@ -86,10 +93,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                     "table"  -> tableName
                   )
                 )
-                val dagPath =
-                  Path.mergePaths(DatasetArea.dags, new Path(s"/generated/load/$filename"))
-                logger.info(s"Writing dag to $dagPath")
-                settings.storageHandler().write(jinjaOutput, dagPath)(StandardCharsets.UTF_8)
+                applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
               }
             }
           }
@@ -107,21 +111,11 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             }.toList
 
             val context = DagGenerationContext(config = dagConfig, schedules)
-            val jContext = context.asMap
-
-            val paramMap = Map(
-              "context" -> jContext,
-              "env"     -> jEnv
-            )
-            val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
             val filename = Utils.parseJinja(
               dagConfig.filename,
               schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
             )
-            val dagPath =
-              Path.mergePaths(DatasetArea.dags, new Path(s"/generated/load/$filename"))
-            logger.info(s"Writing dag to $dagPath")
-            settings.storageHandler().write(jinjaOutput, dagPath)(StandardCharsets.UTF_8)
+            applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
           }
         }
       } else {
@@ -137,27 +131,36 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           }.toList
 
           val context = DagGenerationContext(config = dagConfig, schedules = dagSchedules)
-          val jContext = context.asMap
-          val paramMap = Map(
-            "context" -> jContext,
-            "env"     -> jEnv
-          )
-
-          val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
           val filename = Utils.parseJinja(
             dagConfig.filename,
             schemaHandler.activeEnvVars()
           )
-          val dagPath =
-            Path.mergePaths(DatasetArea.dags, new Path(s"/generated/load/$filename"))
-          logger.info(s"Writing dag to $dagPath")
-          settings.storageHandler().write(jinjaOutput, dagPath)(StandardCharsets.UTF_8)
+          applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
         }
       }
     }
   }
 
+  private def applyJ2AndSave(
+    outputDir: Path,
+    jEnv: List[DagPair],
+    dagTemplateContent: String,
+    context: DagGenerationContext,
+    filename: String
+  )(implicit settings: Settings): Unit = {
+    val jContext = context.asMap
+    val paramMap = Map(
+      "context" -> jContext,
+      "env"     -> jEnv
+    )
+    val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
+    val dagPath = new Path(outputDir, filename)
+    logger.info(s"Writing dag to $dagPath")
+    settings.storageHandler().write(jinjaOutput, dagPath)(StandardCharsets.UTF_8)
+  }
+
   /** group tables by dag config name, schedule and domain
+    *
     * @return
     *   Map[dagConfigName, Map[schedule, Map[domainName, List[tableName]]]]
     */

@@ -492,12 +492,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val dagsConfigsPaths = storage.list(path = dagPath, extension = ".comet.yml", recursive = false)
     dagsConfigsPaths.map { dagsConfigsPath =>
       val dagConfigName = dagsConfigsPath.getName().dropRight(".comet.yml".length)
+      val dagFileContent = storage.read(dagsConfigsPath)
       val dagConfig = YamlSerializer
         .deserializeDagGenerationConfig(
-          Utils.parseJinjaTpl(storage.read(dagsConfigsPath), activeEnvVars()),
+          dagFileContent,
           dagsConfigsPath.toString
         ) match {
-        case Success(dagConfig) => dagConfig
+        case Success(dagConfig) =>
+          // we save the raw filename since it willl be instantiaed at runtime (it holds the domain and table vars potentially
+          val rawFilename = dagConfig.filename
+          // Let's reload the dag config and apply the jinja templating
+          val dagConfigResult = YamlSerializer
+            .deserializeDagGenerationConfig(
+              Utils.parseJinja(dagFileContent, activeEnvVars()),
+              dagsConfigsPath.toString
+            )
+          dagConfigResult match {
+            case Success(dagConfig) =>
+              dagConfig.copy(filename = rawFilename)
+            case Failure(err) =>
+              throw err
+          }
         case Failure(err) =>
           logger.error(
             s"Failed to load dag config in $dagsConfigsPath"
