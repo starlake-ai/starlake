@@ -356,10 +356,13 @@ object DatasetArea extends StrictLogging {
         )
         copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
 
-        val dagResources = List(
-          "dags/default.comet.yml"
+      /*
+      val dagResources = List(
+          "dags/sample.comet.yml"
         )
-        copyToFolder(dagResources, s"templates/quickstart", metadataFile.parent)
+        copyToFolder(dagResources, s"templates/quickstart/metadata", metadataFile.parent)
+
+       */
       case _ => // do nothing
     }
   }

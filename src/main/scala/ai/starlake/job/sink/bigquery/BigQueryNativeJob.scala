@@ -378,7 +378,14 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           .setJob(
             UUID.randomUUID.toString
           ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(connectionOptions.getOrElse("location", "EU"))
+          .setLocation(
+            connectionOptions.getOrElse(
+              "location",
+              throw new Exception(
+                s"location is required but not present in connection $connectionName"
+              )
+            )
+          )
           .build()
         val queryConfig =
           QueryJobConfiguration

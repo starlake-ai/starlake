@@ -144,6 +144,7 @@ object InferSchemaHandler {
   def createSchema(
     name: String,
     pattern: Pattern,
+    comment: Option[String],
     attributes: List[Attribute],
     metadata: Option[Metadata]
   ): Schema =
@@ -152,10 +153,8 @@ object InferSchemaHandler {
       pattern = pattern,
       attributes = attributes,
       metadata = metadata,
-      None,
-      None,
-      Nil,
-      Nil
+      comment = comment,
+      merge = None
     )
 
   /** * Builds the Domain case class
