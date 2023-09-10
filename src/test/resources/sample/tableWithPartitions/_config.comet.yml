@@ -1,16 +1,1 @@
 transform:
-  tasks:
-    - domain: SL_BQ_TEST_DS
-      name: tableWithPartitions
-      table: SL_BQ_TEST_TABLE_DYNAMIC
-      write: OVERWRITE
-      sink:
-        type: BQ
-        timestamp: DOB
-      sql: |
-        WITH tbl as (
-          select "joe" as name,Date("2022-01-01") as dob
-          union all
-          select "sam" as name, Date("2023-02-01") as dob
-        )
-        select * from tbl

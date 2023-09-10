@@ -86,7 +86,7 @@ class DsvIngestionJob(
   }
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
-    * defined in the schema are dropped fro the dataset (require datsets with a header)
+    * defined in the schema are dropped from the dataset (require datsets with a header)
     *
     * @return
     *   Spark Dataset
@@ -104,7 +104,7 @@ class DsvIngestionJob(
         .option("parserLib", "UNIVOCITY")
         .option("encoding", mergedMetadata.getEncoding())
         .options(mergedMetadata.getOptions())
-        .options(settings.comet.dsvOptions)
+        .options(settings.appConfig.dsvOptions)
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
@@ -121,47 +121,46 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val resDF = mergedMetadata.withHeader match {
-          case Some(true) =>
-            val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-            val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-            if (datasetHeaders.length == drop.length) {
-              throw new Exception(s"""No attribute found in input dataset ${path.toString}
-                                   | SchemaHeaders : ${schemaHeaders.mkString(",")}
-                                   | Dataset Headers : ${datasetHeaders.mkString(",")}
+        val resDF = if (mergedMetadata.isWithHeader()) {
+          val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
+          val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
+          if (datasetHeaders.length == drop.length) {
+            throw new Exception(s"""No attribute found in input dataset ${path.toString}
+                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
+                 | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
-            }
-            // TODO: add warning or raise error when schemaHeader is optional or required
-            // Source: COL1 COL2
-            // schema: COL1 COL3 => Col3 should not be discarded silently
-            // Maybe we should complete the dataframe with null values for the missing columns
-            // This will allow failure on required attributes during validation
-            df.drop(drop: _*)
-          case Some(false) | None =>
-            /* No header, let's make sure we take the first attributes
+          }
+          // TODO: add warning or raise error when schemaHeader is optional or required
+          // Source: COL1 COL2
+          // schema: COL1 COL3 => Col3 should not be discarded silently
+          // Maybe we should complete the dataframe with null values for the missing columns
+          // This will allow failure on required attributes during validation
+          df.drop(drop: _*)
+        } else {
+          /* No header, let's make sure we take the first attributes
              if there are more in the CSV file
-             */
-            val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
-            val compare =
-              attributesWithoutScriptedFields.length.compareTo(df.columns.length)
-            compare match {
-              case 0 =>
-                df.toDF(
-                  attributesWithoutScriptedFields
-                    .map(_.name)
-                    .take(attributesWithoutScriptedFields.length): _*
-                )
-              case c if c > 0 =>
-                val countMissing =
-                  attributesWithoutScriptedFields.length - df.columns.length
-                throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
-              case _ => // compare < 0
-                val cols = df.columns
-                df.select(
-                  cols.head,
-                  cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
-                ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
-            }
+           */
+          val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
+          val compare =
+            attributesWithoutScriptedFields.length.compareTo(df.columns.length)
+          compare match {
+            case 0 =>
+              df.toDF(
+                attributesWithoutScriptedFields
+                  .map(_.name)
+                  .take(attributesWithoutScriptedFields.length): _*
+              )
+            case c if c > 0 =>
+              val countMissing =
+                attributesWithoutScriptedFields.length - df.columns.length
+              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+            case _ => // compare < 0
+              val cols = df.columns
+              df.select(
+                cols.head,
+                cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
+              ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
+          }
         }
         resDF.withColumn(
           //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
@@ -199,10 +198,10 @@ class DsvIngestionJob(
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes,
-      settings.comet.privacy.options,
-      settings.comet.cacheStorageLevel,
-      settings.comet.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
     saveRejected(validationResult.errors, validationResult.rejected).map { _ =>

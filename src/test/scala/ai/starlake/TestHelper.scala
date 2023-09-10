@@ -24,7 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
-import ai.starlake.utils.{CometObjectMapper, JobResult, SparkJob, Utils}
+import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
@@ -65,34 +65,33 @@ trait TestHelper
     super.afterAll()
   }
 
-  private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
+  private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
 
-  private def cometTestInstanceId: String =
+  private def starlakeTestInstanceId: String =
     s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
 
-  def cometTestId: String = s"${cometTestPrefix}-${cometTestInstanceId}"
+  def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
-  lazy val cometTestRoot: String =
+  lazy val starlakeTestRoot: String =
     Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
       case Some(true) =>
-        BetterFile(Files.createTempDirectory(cometTestId)).pathAsString.replace("\\", "/")
-      case _ => BetterFile(Files.createTempDirectory(cometTestId)).pathAsString
+        BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
+      case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
     }
-  lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
-  lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
+  lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
+  lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
 
   def testConfiguration: Config = {
     val baseConfigString =
       s"""
          |SL_ASSERTIONS_ACTIVE=true
-         |SL_ROOT="${cometTestRoot}"
-         |SL_TEST_ID="${cometTestId}"
-         |SL_DATASETS="${cometDatasetsPath}"
-         |SL_METADATA="${cometMetadataPath}"
-         |SL_TMPDIR="${cometTestRoot}/tmp"
-         |SL_LOCK_PATH="${cometTestRoot}/locks"
-         |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
-         |SL_AUDIT_PATH="${cometTestRoot}/audit"
+         |SL_ROOT="${starlakeTestRoot}"
+         |SL_TEST_ID="${starlakeTestId}"
+         |SL_DATASETS="${starlakeDatasetsPath}"
+         |SL_METADATA="${starlakeMetadataPath}"
+         |SL_LOCK_PATH="${starlakeTestRoot}/locks"
+         |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+         |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
          |SL_UDFS="ai.starlake.udf.TestUdf"
          |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
          |SL_ACCESS_POLICIES_LOCATION="eu"
@@ -159,6 +158,24 @@ trait TestHelper
     )
   )
 
+  val allDags: List[FileToImport] = List(
+    FileToImport(
+      "sample.comet.yml",
+      "/yml2dag//sample.comet.yml"
+    ),
+    FileToImport(
+      "sample.py.j2",
+      "/yml2dag/templates/sample.py.j2"
+    )
+  )
+
+  val applicationYmlConfig: List[FileToImport] = List(
+    FileToImport(
+      "application.comet.yml",
+      "/config//application.comet.yml"
+    )
+  )
+
   private def readSourceContentAsString(source: Source): String = {
     source.getLines().mkString("\n")
   }
@@ -183,7 +200,7 @@ trait TestHelper
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("__SL_TEST_ROOT__", cometTestRoot)
+    fileContent.replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
@@ -202,13 +219,14 @@ trait TestHelper
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
+    settings.appConfig.connections.values.foreach(_.checkValidity())
 
     implicit def withSettings: WithSettings = this
 
     def storageHandler = settings.storageHandler()
 
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
-      val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
+      val mapper = new StarlakeObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
 
@@ -232,11 +250,11 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata =
+    def cleanMetadata: Try[Unit] =
       Try {
         val allMetadataFiles = FileUtils
           .listFiles(
-            new File(cometMetadataPath),
+            new File(starlakeMetadataPath),
             TrueFileFilter.INSTANCE,
             TrueFileFilter.INSTANCE
           )
@@ -254,12 +272,12 @@ trait TestHelper
         deliverTestFile(typeToImport.path, typesPath)
       }
       allExpectations.foreach { assertionToImport =>
-        val assertionPath = new Path(DatasetArea.expectations, assertionToImport.name)
-        deliverTestFile(assertionToImport.path, assertionPath)
+        val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
+        deliverTestFile(assertionToImport.path, expectationPath)
       }
       allViews.foreach { viewToImport =>
-        val assertionPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, assertionPath)
+        val viewPath = new Path(DatasetArea.views, viewToImport.name)
+        deliverTestFile(viewToImport.path, viewPath)
       }
       allMappings.foreach { mappingToImport =>
         val path = mappingToImport.folder match {
@@ -272,17 +290,25 @@ trait TestHelper
         val mappingPath = new Path(path, mappingToImport.name)
         deliverTestFile(mappingToImport.path, mappingPath)
       }
+      allDags.foreach { dagImport =>
+        val dagPath = new Path(DatasetArea.dags, dagImport.name)
+        deliverTestFile(dagImport.path, dagPath)
+      }
+      /*applicationYmlConfig.foreach { appImport =>
+        val configPath = new Path(DatasetArea.metadata, appImport.name)
+        deliverTestFile(appImport.path, configPath)
+      }*/
     }
 
     // Init
-    new File(cometTestRoot).mkdirs()
-    new File(cometDatasetsPath).mkdir()
-    new File(cometMetadataPath).mkdir()
-    new File(cometTestRoot + "/yelp").mkdir()
-    new File(cometTestRoot + "/DOMAIN").mkdir()
-    new File(cometTestRoot + "/dream").mkdir()
-    new File(cometTestRoot + "/json").mkdir()
-    new File(cometTestRoot + "/position").mkdir()
+    new File(starlakeTestRoot).mkdirs()
+    new File(starlakeDatasetsPath).mkdir()
+    new File(starlakeMetadataPath).mkdir()
+    new File(starlakeTestRoot + "/yelp").mkdir()
+    new File(starlakeTestRoot + "/DOMAIN").mkdir()
+    new File(starlakeTestRoot + "/dream").mkdir()
+    new File(starlakeTestRoot + "/json").mkdir()
+    new File(starlakeTestRoot + "/position").mkdir()
 
     DatasetArea.initMetadata(storageHandler)
     deliverTypesFiles()
@@ -305,7 +331,6 @@ trait TestHelper
     isDomain: Boolean = true // TODO refactor. false if delivering a job
   )(implicit withSettings: WithSettings) {
     implicit def settings: Settings = withSettings.settings
-
     def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.load
     val jobMetadataRootPath: Path = DatasetArea.transform
@@ -314,7 +339,7 @@ trait TestHelper
       Try {
         val deletedFiles = FileUtils
           .listFiles(
-            new File(cometDatasetsPath),
+            new File(starlakeDatasetsPath),
             TrueFileFilter.INSTANCE,
             TrueFileFilter.INSTANCE
           )

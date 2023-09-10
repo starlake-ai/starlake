@@ -104,7 +104,7 @@ case class AutoTask(
     Utils.getDBDisposition(taskDesc.getWrite(), hasMergeKeyDefined = false)
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
-    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
     val bqSink =
       taskDesc.sink
         .map(_.getSink())
@@ -209,7 +209,7 @@ case class AutoTask(
             jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
           jobResultCount.foreach(logAuditSuccess(start, end, _))
           // We execute assertions only on success
-          if (settings.comet.expectations.active) {
+          if (settings.appConfig.expectations.active) {
             new ExpectationJob(
               taskDesc.domain,
               taskDesc.table,
@@ -247,24 +247,27 @@ case class AutoTask(
   ): (List[String], String, List[String]) = {
     // available jinja variables to build sql query depending on
     // whether the table exists or not.
-    val jinjaVars = Map("merge" -> tableExists)
+    val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
+    val sql = Utils.parseJinja(taskDesc.getSql(), allVars)
     val mergeSql =
-      if (!tableExists)
-        SQLUtils.buildSingleSQLQuery(
-          taskDesc.getSql(),
-          schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
-          schemaHandler.refs(),
-          schemaHandler.domains(),
-          schemaHandler.tasks(),
-          localViews,
-          taskDesc.getEngine(settings)
-        )
-      else {
+      if (!tableExists) {
+        if (taskDesc.parseSQL.getOrElse(true))
+          SQLUtils.buildSingleSQLQuery(
+            sql,
+            schemaHandler.refs(),
+            schemaHandler.domains(),
+            schemaHandler.tasks(),
+            localViews,
+            taskDesc.getEngine(settings)
+          )
+        else
+          sql
+      } else {
         taskDesc.merge match {
           case Some(options) =>
             val mergeSql =
               SQLUtils.buildMergeSql(
-                parseJinja(taskDesc.getSql(), jinjaVars),
+                sql,
                 options.key,
                 taskDesc.getDatabase(settings),
                 taskDesc.domain,
@@ -275,20 +278,22 @@ case class AutoTask(
             logger.info(s"Merge SQL: $mergeSql")
             mergeSql
           case None =>
-            SQLUtils.buildSingleSQLQuery(
-              taskDesc.getSql(),
-              schemaHandler.activeEnvVars() ++ commandParameters ++ jinjaVars,
-              schemaHandler.refs(),
-              schemaHandler.domains(),
-              schemaHandler.tasks(),
-              localViews,
-              taskDesc.getEngine(settings)
-            )
+            if (taskDesc.parseSQL.getOrElse(true))
+              SQLUtils.buildSingleSQLQuery(
+                sql,
+                schemaHandler.refs(),
+                schemaHandler.domains(),
+                schemaHandler.tasks(),
+                localViews,
+                taskDesc.getEngine(settings)
+              )
+            else
+              sql
         }
       }
 
-    val preSql = parseJinja(taskDesc.presql, jinjaVars)
-    val postSql = parseJinja(taskDesc.postsql, jinjaVars)
+    val preSql = parseJinja(taskDesc.presql, allVars)
+    val postSql = parseJinja(taskDesc.postsql, allVars)
 
     (preSql, s"(\n$mergeSql\n)", postSql)
   }
@@ -351,11 +356,11 @@ case class AutoTask(
 
     val finalDataset = clusteredDFWriter
       .mode(taskDesc.getWrite().toSaveMode)
-      .format(sink.format.getOrElse(settings.comet.defaultFormat))
+      .format(sink.format.getOrElse(settings.appConfig.defaultFormat))
       .options(sink.getOptions())
       .option("path", targetPath.toString)
 
-    if (settings.comet.isHiveCompatible()) {
+    if (settings.appConfig.isHiveCompatible()) {
       val tableName = taskDesc.table
       val hiveDB = taskDesc.getHiveDB()
       val fullTableName = s"$hiveDB.$tableName"
@@ -386,7 +391,7 @@ case class AutoTask(
       if (coalesce) {
         val extension =
           sink.extension.getOrElse(
-            sink.format.getOrElse(settings.comet.defaultFormat)
+            sink.format.getOrElse(settings.appConfig.defaultFormat)
           )
         val csvPath = storageHandler
           .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
@@ -411,9 +416,9 @@ case class AutoTask(
           val tableName = table.getName
           logger.info(s"registering view for $domainName.$tableName with path $table")
           val tableDF = session.read
-            .format(settings.comet.defaultFormat)
+            .format(settings.appConfig.defaultFormat)
             .load(table.toString)
-          tableDF.createOrReplaceTempView(s"$domainName.$tableName")
+          tableDF.createOrReplaceTempView(s"$tableName")
           tableName
         }.toOption
       }
@@ -424,7 +429,9 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       val localViews =
-        if (sink.exists(_.isInstanceOf[FsSink]) && settings.comet.fileSystem.startsWith("file:")) {
+        if (
+          sink.exists(_.isInstanceOf[FsSink]) && settings.appConfig.fileSystem.startsWith("file:")
+        ) {
           // we are in local development mode
           registerFSViews()
         } else {
@@ -456,19 +463,7 @@ case class AutoTask(
         case None =>
           (SparkJobResult(None), sqlWithParameters)
         case Some(dataframe) =>
-//          if (settings.comet.isHiveCompatible()) {
-//            val fsSink = sink match {
-//              case Some(sink) =>
-//                sink match {
-//                  case fsSink: FsSink => fsSink
-//                  case _ => FsSink()
-//                }
-//              case _ => FsSink()
-//            }
-//            sinkToFS(dataframe, fsSink)
-//          }
-
-          if (settings.comet.expectations.active) {
+          if (settings.appConfig.expectations.active) {
             new ExpectationJob(
               taskDesc.domain,
               taskDesc.table,
@@ -536,8 +531,8 @@ case class AutoTask(
   }
 
   private def loadSparkQuery(sqlWithParameters: String): DataFrame = {
-    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet.connections(connectionRef)
+    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig.connections(connectionRef)
     connection.getType() match {
       case ConnectionType.FS =>
         session.sql(sqlWithParameters)
@@ -571,7 +566,7 @@ case class AutoTask(
       message,
       Step.TRANSFORM.toString,
       taskDesc.getDatabase(settings),
-      settings.comet.tenant
+      settings.appConfig.tenant
     )
     AuditLog.sink(optionalAuditSession, log)
   }

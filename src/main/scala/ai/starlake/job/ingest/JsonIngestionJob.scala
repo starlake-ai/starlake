@@ -108,7 +108,7 @@ class JsonIngestionJob(
 
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
-      .persist(settings.comet.cacheStorageLevel)
+      .persist(settings.appConfig.cacheStorageLevel)
 
     val withValidSchema: RDD[String] =
       parsed
@@ -150,10 +150,10 @@ class JsonIngestionJob(
         schema.attributes,
         types,
         validationSchema,
-        settings.comet.privacy.options,
-        settings.comet.cacheStorageLevel,
-        settings.comet.sinkReplayToFile,
-        mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+        settings.appConfig.privacy.options,
+        settings.appConfig.cacheStorageLevel,
+        settings.appConfig.sinkReplayToFile,
+        mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
       )
 
     import session.implicits._

@@ -38,7 +38,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
     val connectionOptions = jdbcSchemas.connectionRef
-      .map(settings.comet.connections(_).options)
+      .map(settings.appConfig.connections(_).options)
       .getOrElse(jdbcSchemas.connection)
     jdbcSchemas.jdbcSchemas
       .filter { s =>
@@ -59,7 +59,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
           config.limit,
           config.separator,
           config.numPartitions,
-          config.parallelism.getOrElse(Runtime.getRuntime.availableProcessors()),
+          config.parallelism,
           config.fullExport,
           config.datePattern,
           config.timestampPattern,

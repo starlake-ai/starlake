@@ -35,7 +35,7 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
           cleanMetadata
           cleanDatasets
 
-          logger.info(settings.comet.datasets)
+          logger.info(settings.appConfig.datasets)
           loadPending
         }
       }

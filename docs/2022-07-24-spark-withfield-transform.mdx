@@ -49,7 +49,7 @@ Spark also provide support for a single step strategy
 
 BigQuery comes with the `bq load` command line tool to load formatted files into BigQuery. JSON and CSV are the human-readable
 file formats supported by `bq load`. However, this comes with some limitations:
-- JSON stored as arrays are not supported and those are often present in the Open Data industry.
+- JSON stored as arrays are not supported and those are often present in the Open Data repositories.
 - CSV files with a multi-character delimiter, with a date or time field not stored as `YYYY-MM-DD hh:mm:ss` are not supported
 - [POSITIONAL](https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files) and XML files are also not supported
 
@@ -59,8 +59,8 @@ bq load
 ```
 
 
-Spark on the other end is a distributed engine that comes with a CSV, XML, JSON and TEXT parsing library that allows
-to address any custom case at 'spark speed' and seamlessly connect with BigQuery
+Spark on the other end is a distributed engine that comes with a CSV, XML, JSON and TEXT parsing library that allows us
+to address any specific case at 'spark speed' and seamlessly connect with BigQuery
 using the [Google Spark BigQuery Connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
 
 #### Loading data with BigQuery

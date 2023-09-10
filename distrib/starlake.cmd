@@ -11,6 +11,7 @@ SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DE
 SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/winutils.exe
 SET SPARK_TARGET_FOLDER=%SCRIPT_DIR%\bin\spark
 SET SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd
+REM SET SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 
 SET HADOOP_DOWNLOADED=FALSE
 SET HADOOP_DLL_DOWNLOADED=FALSE
@@ -252,4 +253,4 @@ ECHO Make sure your java home path does not contain space
 
 PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
 
-CALL %SPARK_SUBMIT% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %SL_JAR_FULL_NAME% %*
+CALL %SPARK_SUBMIT% %SPARK_EXTRA_PACKAGES% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %SL_JAR_FULL_NAME% %*

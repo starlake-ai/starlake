@@ -21,18 +21,18 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.{Attribute, ValidationMessage, WriteMode}
 import ai.starlake.utils.Formatter._
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.hubspot.jinjava.interpret.JinjavaInterpreter
-import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
-import com.typesafe.scalalogging.Logger
+import com.hubspot.jinjava.Jinjava
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
-import ai.starlake.schema.model.Severity._
+
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -40,7 +40,7 @@ import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-object Utils {
+object Utils extends StrictLogging {
 
   type Closeable = { def close(): Unit }
 
@@ -227,19 +227,19 @@ object Utils {
       keyValuePAir(0) -> keyValuePAir(1)
     }
   }
+
+  def isDeltaAvailable(): Boolean = {
+    try {
+      Class.forName("io.delta.tables.DeltaTable")
+      true
+    } catch {
+      case _: ClassNotFoundException => false
+    }
+  }
+
   def isRunningInDatabricks(): Boolean =
     sys.env.contains("DATABRICKS_RUNTIME_VERSION")
 
-  def isRunningTest(): Boolean =
-    Thread.currentThread.getStackTrace.exists(_.getClassName.startsWith("org.scalatest."))
-
-  def caseClassToMap(cc: AnyRef): Map[String, Any] = {
-    cc.getClass.getDeclaredFields.foldLeft(Map.empty[String, Any]) { (a, f) =>
-      f.setAccessible(true)
-      f.getType.getName
-      a + (f.getName -> f.get(cc))
-    }
-  }
   def labels(tags: Set[String]): Map[String, String] =
     tags.map { tag =>
       val labelValue = tag.split("=")
@@ -278,17 +278,9 @@ object Utils {
     result
   }
 
-  def parseJinjaTpl(template: String, params: Map[String, Object])(implicit
-    settings: Settings
-  ): String = {
-    val config = JinjavaConfig
-      .newBuilder()
-      .withNestedInterpretationEnabled(false)
-      .build()
-    val context = jinjava.getGlobalContextCopy
-    context.putAll(params.asJava)
-    val interpreter = new JinjavaInterpreter(jinjava, context, config)
-    interpreter.render(template)
+  def parseJinjaTpl(templateContent: String, params: Map[String, Object]): String = {
+    val jinjava = new Jinjava()
+    jinjava.render(templateContent, params.asJava);
   }
 
   def newJsonMapper(): ObjectMapper = {
@@ -326,43 +318,4 @@ object Utils {
   def keepAlphaNum(domain: String): String = {
     domain.replaceAll("[^\\p{Alnum}]", "_")
   }
-
-  def toHumanElapsedTimeFrom(startTimeMs: Long): String = {
-    val elapsedTimeMs = System.currentTimeMillis() - startTimeMs
-    toHumanElapsedTime(elapsedTimeMs)
-  }
-
-  def toHumanElapsedTime(elapsedTimeMs: Long): String = {
-    if (elapsedTimeMs == 0) {
-      "0 ms"
-    } else {
-      val (output, _) = List(
-        "d"  -> 1000 * 60 * 60 * 24,
-        "h"  -> 1000 * 60 * 60,
-        "m"  -> 1000 * 60,
-        "s"  -> 1000,
-        "ms" -> 0
-      ).foldLeft("" -> elapsedTimeMs) { case ((output, timeMs), (unitSuffix, unitInMs)) =>
-        if (elapsedTimeMs < unitInMs)
-          output -> timeMs
-        else {
-          val (elapsedTimeInUnit, restOfTimeMs) = if (unitInMs > 0) {
-            val timeAsUnit = timeMs / unitInMs
-            val restOfTimeMs = timeMs % unitInMs
-            timeAsUnit -> restOfTimeMs
-          } else {
-            timeMs -> 0L
-          }
-          if (elapsedTimeInUnit > 0) {
-            s"$output $elapsedTimeInUnit$unitSuffix" -> restOfTimeMs
-          } else {
-            output -> restOfTimeMs
-          }
-        }
-      }
-      // remove first space introduced by first concatenation
-      output.tail
-    }
-  }
-
 }
