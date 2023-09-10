@@ -63,6 +63,8 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "",
           isDomain = false
         ) {
+          cleanMetadata
+          cleanDatasets
           private val query: String =
             """
               |WITH tbl as (
@@ -89,8 +91,6 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .writer()
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(Task(businessTaskAddPart))
-          cleanMetadata
-          cleanDatasets
           val pathTask =
             new Path(
               starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
