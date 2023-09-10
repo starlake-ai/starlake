@@ -95,11 +95,13 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .writeValueAsString(Task(businessTaskPart))
           val pathTask =
             new Path(
-              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
+              jobMetadataRootPath,
+              "/transform/SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
             )
           val pathTaskSQL =
             new Path(
-              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/tableWithPartitions.sql.j2"
+              jobMetadataRootPath,
+              "/transform/SL_BQ_TEST_DS/tableWithPartitions.sql.j2"
             )
           storageHandler.mkdirs(pathTask.getParent)
           storageHandler.write(businessTaskPartDef, pathTask)
@@ -132,11 +134,13 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .writeValueAsString(Task(businessTaskAddPart))
           val pathTaskAdd =
             new Path(
-              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
+              this.jobMetadataRootPath,
+              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
             )
           val pathTaskSQLAdd =
             new Path(
-              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.sql.j2"
+              this.jobMetadataRootPath,
+              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.sql.j2"
             )
           storageHandler.write(businessTaskAddPartDef, pathTaskAdd)
           storageHandler.write(queryAdd, pathTaskSQLAdd)
