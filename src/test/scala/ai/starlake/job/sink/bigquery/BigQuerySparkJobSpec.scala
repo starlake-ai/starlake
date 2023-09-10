@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, BigQuerySink, WriteMode}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
