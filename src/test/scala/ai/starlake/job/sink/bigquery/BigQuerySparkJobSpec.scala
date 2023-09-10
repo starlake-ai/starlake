@@ -96,12 +96,12 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathTask =
             new Path(
               jobMetadataRootPath,
-              "/transform/SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
+              "SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
             )
           val pathTaskSQL =
             new Path(
               jobMetadataRootPath,
-              "/transform/SL_BQ_TEST_DS/tableWithPartitions.sql.j2"
+              "SL_BQ_TEST_DS/tableWithPartitions.sql.j2"
             )
           storageHandler.mkdirs(pathTask.getParent)
           storageHandler.write(businessTaskPartDef, pathTask)
