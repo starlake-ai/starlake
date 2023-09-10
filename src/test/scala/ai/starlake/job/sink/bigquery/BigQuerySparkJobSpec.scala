@@ -67,6 +67,46 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanDatasets
           private val query: String =
             """
+              |        WITH tbl as (
+              |          select "joe" as name,Date("2022-01-01") as dob
+              |          union all
+              |          select "sam" as name, Date("2023-02-01") as dob
+              |        )
+              |        select * from tbl
+              |""".stripMargin
+          private val businessTaskPart = AutoTaskDesc(
+            "tableWithPartitions",
+            None,
+            None,
+            "SL_BQ_TEST_DS",
+            "SL_BQ_TEST_TABLE_DYNAMIC",
+            Some(WriteMode.OVERWRITE),
+            sink = Some(
+              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
+            ),
+            merge = None
+          )
+
+          case class Task(task: AutoTaskDesc)
+
+          private val businessTaskPartDef = mapper
+            .writer()
+            .withAttribute(classOf[Settings], settings)
+            .writeValueAsString(Task(businessTaskPart))
+          val pathTask =
+            new Path(
+              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
+            )
+          val pathTaskSQL =
+            new Path(
+              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/tableWithPartitions.sql.j2"
+            )
+          storageHandler.mkdirs(pathTask.getParent)
+          storageHandler.write(businessTaskPartDef, pathTask)
+          storageHandler.write(query, pathTaskSQL)
+
+          private val queryAdd: String =
+            """
               |WITH tbl as (
               |  select "sam" as name,Date("1990-01-01") as dob
               |  union all
@@ -86,19 +126,25 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             ),
             merge = None
           )
-          case class Task(task: AutoTaskDesc)
           private val businessTaskAddPartDef = mapper
             .writer()
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(Task(businessTaskAddPart))
-          val pathTask =
+          val pathTaskAdd =
             new Path(
               starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
             )
-          storageHandler.mkdirs(pathTask.getParent)
-          storageHandler.write(businessTaskAddPartDef, pathTask)
+          val pathTaskSQLAdd =
+            new Path(
+              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.sql.j2"
+            )
+          storageHandler.write(businessTaskAddPartDef, pathTaskAdd)
+          storageHandler.write(queryAdd, pathTaskSQLAdd)
           val schemaHandler = new SchemaHandler(storageHandler)
           logger.info("Job:SL_BQ_TEST_DS")
+          logger.info(pathTaskSQL.toString)
+          logger.info(this.jobMetadataRootPath.toString)
+
           schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
           validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
