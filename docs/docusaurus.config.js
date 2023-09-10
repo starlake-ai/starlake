@@ -71,6 +71,10 @@ module.exports = {
                     ]
                 },
                 {
+                    type: 'docsVersionDropdown',
+                    position: 'right',
+                },
+                {
                     href: 'https://search.maven.org/search?q=ai.starlake',
                     position: 'right',
                     className: 'header-download-link header-icon-link',

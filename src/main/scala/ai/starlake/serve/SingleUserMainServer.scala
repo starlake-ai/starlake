@@ -27,6 +27,8 @@ object SingleUserMainServer {
     env: Option[String],
     gcpProject: Option[String]
   ): String = {
+    val settings =
+      SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
     val response = args.head match {
       case "quit" | "exit" =>
         System.exit(0)
@@ -34,23 +36,15 @@ object SingleUserMainServer {
       case "version"   => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
-        val settings =
-          SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         SingleUserMainServer.mapper.writeValueAsString(Services.domains()(settings))
       case "jobs" =>
-        val settings =
-          SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         SingleUserMainServer.mapper.writeValueAsString(Services.jobs()(settings))
       case "types" =>
-        val settings =
-          SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         SingleUserMainServer.mapper.writeValueAsString(Services.types()(settings))
       case _ =>
-        val settings =
-          SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         core.run(args)(settings)
         SingleUserMainServer.mapper.writeValueAsString(
-          Response(settings.comet.rootServe.getOrElse("Should never happen"))
+          Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
         )
     }
     response

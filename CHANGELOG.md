@@ -18,6 +18,7 @@
   - "domains" and "jobs" folders renamed to "load" and "transform" respectively
   - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
   - globalJDBCSchema renamed to default
+  - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
 
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ... 
@@ -28,6 +29,7 @@ __Feature__:
 - Support native loading of data into BigQuery
 - Define JDBC connections and audit connections in metadata/connections.comet.yml
 - schema extraction and features relying on it benefit from parallel fetching
+- use load dataset path as default output dir if not defined for schema inference
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.

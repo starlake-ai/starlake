@@ -56,7 +56,7 @@ class ExpectationJob(
 
   def lockPath(path: String): Path = {
     new Path(
-      settings.comet.lock.path,
+      settings.appConfig.lock.path,
       "expectations" + path
         .replace("{{domain}}", domainName)
         .replace("{{schema}}", schemaName)
@@ -136,12 +136,12 @@ class ExpectationJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       new SinkUtils().sinkInAudit(
-        settings.comet.audit.sink.getSink().getConnectionType(settings),
+        settings.appConfig.audit.sink.getSink().getConnectionType(settings),
         expectationsDF,
         "expectations",
         Some("Expectation results"),
         DatasetArea.expectations(domainName, schemaName),
-        lockPath(settings.comet.expectations.path),
+        lockPath(settings.appConfig.expectations.path),
         storageHandler,
         engine,
         session

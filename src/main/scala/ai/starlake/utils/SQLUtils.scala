@@ -9,7 +9,7 @@ import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAda
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -66,7 +66,7 @@ object SQLUtils extends StrictLogging {
     }
     val statementVisitor = new StatementVisitorAdapter() {
       override def visit(select: Select): Unit = {
-        select.getSelectBody.accept(selectVisitorAdapter)
+        select.accept(selectVisitorAdapter)
       }
     }
     val select = CCJSqlParserUtil.parse(sql)
@@ -77,7 +77,7 @@ object SQLUtils extends StrictLogging {
   def extractTableNames(sql: String): List[String] = {
     val select = CCJSqlParserUtil.parse(sql)
     val finder = new TablesNamesFinder()
-    val tableList = Option(finder.getTableList(select)).map(_.asScala).getOrElse(Nil)
+    val tableList = Option(finder.getTables(select)).map(_.asScala).getOrElse(Nil)
     tableList.toList
   }
 
@@ -87,7 +87,9 @@ object SQLUtils extends StrictLogging {
       override def visit(select: Select): Unit = {
         val ctes = Option(select.getWithItemsList()).map(_.asScala).getOrElse(Nil)
         ctes.foreach { withItem =>
-          result += withItem.getName()
+          val alias = Option(withItem.getAlias).map(_.getName).getOrElse("")
+          if (alias.nonEmpty)
+            result += alias
         }
       }
     }
@@ -214,7 +216,9 @@ object SQLUtils extends StrictLogging {
 
           val tablesFound =
             source
-              .substring(keyword.length) // SKIP FROM AND JOIN
+              .substring(
+                source.toUpperCase().indexOf(keyword.toUpperCase()) + keyword.length
+              ) // SKIP FROM AND JOIN
               .split(",")
               .map(_.trim.split("\\s").head) // get expressions in FROM / JOIN
               .filter(tablesList.contains(_)) // we remove CTEs
@@ -254,33 +258,37 @@ object SQLUtils extends StrictLogging {
     settings: Settings
   ): String = {
     def cteContains(table: String): Boolean = ctes.exists(cte => cte.equalsIgnoreCase(table))
-
-    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
-      tableName.replaceAll(quote, "")
-    }
-    val tableTuple = quoteFreeTableName.split("\\.").toList
-    if (isFilesystem) {
-      // We keep only the table name, the database and domain names are ignored for filesystem
-      tableTuple.last
+    if (tableName.contains('/')) {
+      // This is a file in the form of parquet.`/path/to/file`
+      tableName
     } else {
-      // We need to find it in the refs
-      val activeEnvRefs = refs
-      val databaseDomainTableRef =
-        activeEnvRefs
-          .getOutputRef(tableTuple)
-          .map(_.toSQLString(engine, isFilesystem))
-      val resolvedTableName = databaseDomainTableRef.getOrElse {
-        resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
-          case Success((database, domain, table)) =>
-            ai.starlake.schema.model
-              .OutputRef(database, domain, table)
-              .toSQLString(engine, isFilesystem)
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            throw e
-        }
+      val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+        tableName.replaceAll(quote, "")
       }
-      resolvedTableName
+      val tableTuple = quoteFreeTableName.split("\\.").toList
+      if (isFilesystem) {
+        // We keep only the table name, the database and domain names are ignored for filesystem
+        tableTuple.last
+      } else {
+        // We need to find it in the refs
+        val activeEnvRefs = refs
+        val databaseDomainTableRef =
+          activeEnvRefs
+            .getOutputRef(tableTuple)
+            .map(_.toSQLString(engine, isFilesystem))
+        val resolvedTableName = databaseDomainTableRef.getOrElse {
+          resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
+            case Success((database, domain, table)) =>
+              ai.starlake.schema.model
+                .OutputRef(database, domain, table)
+                .toSQLString(engine, isFilesystem)
+            case Failure(e) =>
+              Utils.logException(logger, e)
+              throw e
+          }
+        }
+        resolvedTableName
+      }
     }
   }
 
@@ -343,7 +351,7 @@ object SQLUtils extends StrictLogging {
           (None, "")
         }
         val databaseName = database
-          .orElse(settings.comet.getDefaultDatabase())
+          .orElse(settings.appConfig.getDefaultDatabase())
           .getOrElse("")
         (databaseName, domain, table)
       case _ =>

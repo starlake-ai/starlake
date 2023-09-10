@@ -1,6 +1,6 @@
 application:
   connectionRef: {{ myConnection }}
-  # validator: "spark" # "spark" or "native"
+  # loader: "spark" # "spark" or "native"
 
   audit:
     sink:
@@ -31,7 +31,7 @@ application:
 
         #authType: "ACCESS_TOKEN"
         #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    Filesystem:
+    LocalFileSystem:
       type: "fs"
 
 

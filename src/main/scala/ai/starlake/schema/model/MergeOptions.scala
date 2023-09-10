@@ -29,12 +29,12 @@ case class MergeOptions(
     Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
 
   @JsonIgnore
-  private val matcher = lastPat.matcher(queryFilter.getOrElse(""))
+  private val lastMatcher = lastPat.matcher(queryFilter.getOrElse(""))
 
   @JsonIgnore
   private val queryFilterContainsLast: Boolean =
     queryFilter.exists { queryFilter =>
-      matcher.matches()
+      lastMatcher.matches()
     }
   @JsonIgnore
   private val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
@@ -44,13 +44,13 @@ case class MergeOptions(
 
   @JsonIgnore
   private val nbPartitionQueryFilter: Int =
-    if (queryFilterContainsLast) matcher.group(2).toInt else -1
+    if (queryFilterContainsLast) lastMatcher.group(2).toInt else -1
 
   @JsonIgnore
-  val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
+  val lastStartQueryFilter: Int = if (queryFilterContainsLast) lastMatcher.start(1) else -1
 
   @JsonIgnore
-  val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
+  val lastEndQueryFilter: Int = if (queryFilterContainsLast) lastMatcher.end(3) else -1
 
   private def formatQuery(activeEnv: Map[String, String], options: Map[String, String])(implicit
     settings: Settings

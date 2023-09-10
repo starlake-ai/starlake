@@ -94,7 +94,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
                 case Some(freshness) =>
                   val errorStatus =
                     getFreshnessStatus(
-                      task.database.getOrElse(isettings.comet.database),
+                      task.database.getOrElse(isettings.appConfig.database),
                       task.domain,
                       tableInfo,
                       task.table,
@@ -104,7 +104,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
                     )
                   errorStatus.orElse {
                     getFreshnessStatus(
-                      task.database.getOrElse(isettings.comet.database),
+                      task.database.getOrElse(isettings.appConfig.database),
                       task.domain,
                       tableInfo,
                       task.table,
@@ -182,7 +182,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
               warnOrErrorDuration,
               level,
               domainDatabaseName,
-              settings.comet.tenant
+              settings.appConfig.tenant
             )
           )
         else

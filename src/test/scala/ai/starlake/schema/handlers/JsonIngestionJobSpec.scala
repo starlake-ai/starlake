@@ -58,7 +58,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         // Check archive
         readFileContent(
-          cometDatasetsPath + s"/archive/${datasetDomainName}/$jsonData"
+          starlakeDatasetsPath + s"/archive/${datasetDomainName}/$jsonData"
         ) shouldBe loadTextFile(
           s"/sample/json/$jsonData"
         )
@@ -70,7 +70,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
         // Accepted should have the same data as input
         val resultDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
 
         val expectedDf = sparkSession.read
@@ -174,8 +174,9 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
-      paths =
-        new Path("file:///" + settings.comet.datasets + "/ingesting/json/complex.json").toString,
+      paths = new Path(
+        "file:///" + settings.appConfig.datasets + "/ingesting/json/complex.json"
+      ).toString,
       domain = "json",
       schema = "sample_json",
       success = true,
@@ -186,8 +187,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.getDefaultDatabase(),
-      settings.comet.tenant
+      settings.appConfig.getDefaultDatabase(),
+      settings.appConfig.tenant
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
@@ -231,7 +232,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
       paths = new Path(
-        "file:///" + settings.comet.datasets + "/ingesting/json/complexWithError.json"
+        "file:///" + settings.appConfig.datasets + "/ingesting/json/complexWithError.json"
       ).toString,
       domain = "json",
       schema = "sample_json",
@@ -243,8 +244,8 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.getDefaultDatabase(),
-      settings.comet.tenant
+      settings.appConfig.getDefaultDatabase(),
+      settings.appConfig.tenant
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =

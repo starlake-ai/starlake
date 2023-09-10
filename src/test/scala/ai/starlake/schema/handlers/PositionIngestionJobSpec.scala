@@ -43,13 +43,13 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
 
-        logger.info(settings.comet.datasets)
+        logger.info(settings.appConfig.datasets)
         loadPending
 
         // Check archive
 
         readFileContent(
-          cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL"
+          starlakeDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL"
         ) shouldBe loadTextFile(
           "/sample/position/XPOSTBL"
         )
@@ -57,7 +57,7 @@ class PositionIngestionJobSpec extends TestHelper {
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
           )
         printDF(acceptedDf, "acceptedDf")
         acceptedDf.count() shouldBe
@@ -80,7 +80,7 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-        logger.info(settings.comet.datasets)
+        logger.info(settings.appConfig.datasets)
         loadPending shouldBe true
       }
     }
@@ -97,7 +97,7 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanDatasets
         loadPending(new Codec(Charset forName "ISO-8859-1"))
         // Accepted should contain data formatted correctly
-        val path = cometDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
+        val path = starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
         val acceptedDf = sparkSession.read
           .parquet(
             path
@@ -120,7 +120,7 @@ class PositionIngestionJobSpec extends TestHelper {
         // Accepted should contain data formatted correctly
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATAREGEX"
+            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATAREGEX"
           )
         acceptedDf.count() shouldBe 1
       }
@@ -141,7 +141,7 @@ class PositionIngestionJobSpec extends TestHelper {
         // Accepted should contain data formatted correctly
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATAUDF"
+            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATAUDF"
           )
         acceptedDf.count() shouldBe 1
       }
