@@ -84,12 +84,6 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             ),
             merge = None
           )
-          private val businessJob = {
-            AutoJobDesc(
-              "SL_BQ_TEST_DS",
-              List(businessTaskAddPart)
-            )
-          }
           case class Task(task: AutoTaskDesc)
           private val businessTaskAddPartDef = mapper
             .writer()
@@ -101,9 +95,11 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             new Path(
               starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
             )
+          storageHandler.mkdirs(pathTask.getParent)
           storageHandler.write(businessTaskAddPartDef, pathTask)
           val schemaHandler = new SchemaHandler(storageHandler)
-          schemaHandler.jobs().foreach(println)
+          logger.info("Job:SL_BQ_TEST_DS")
+          schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
           validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
           // check that table is created correctly with the right number of lines
