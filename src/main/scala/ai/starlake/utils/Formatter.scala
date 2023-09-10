@@ -19,11 +19,11 @@ trait Formatter {
       activeEnv: Map[String, Any],
       extraEnvVars: Map[String, Any]
     )(implicit settings: Settings): String = {
-      if (settings.comet.internal.forall(_.substituteVars))
+      if (settings.appConfig.internal.forall(_.substituteVars))
         (activeEnv ++ extraEnvVars).foldLeft(str) { case (res, (key, value)) =>
           res
             .replaceAll(
-              settings.comet.sqlParameterPattern.format(key),
+              settings.appConfig.sqlParameterPattern.format(key),
               Regex.quoteReplacement(value.toString)
             )
             .replaceAll(

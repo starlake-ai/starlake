@@ -28,8 +28,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.hubspot.jinjava.interpret.JinjavaInterpreter
-import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
@@ -228,6 +227,16 @@ object Utils extends StrictLogging {
       keyValuePAir(0) -> keyValuePAir(1)
     }
   }
+
+  def isDeltaAvailable(): Boolean = {
+    try {
+      Class.forName("io.delta.tables.DeltaTable")
+      true
+    } catch {
+      case _: ClassNotFoundException => false
+    }
+  }
+
   def isRunningInDatabricks(): Boolean =
     sys.env.contains("DATABRICKS_RUNTIME_VERSION")
 
@@ -269,17 +278,9 @@ object Utils extends StrictLogging {
     result
   }
 
-  def parseJinjaTpl(template: String, params: Map[String, Object])(implicit
-    settings: Settings
-  ): String = {
-    val config = JinjavaConfig
-      .newBuilder()
-      .withNestedInterpretationEnabled(false)
-      .build()
-    val context = jinjava.getGlobalContextCopy
-    context.putAll(params.asJava)
-    val interpreter = new JinjavaInterpreter(jinjava, context, config)
-    interpreter.render(template)
+  def parseJinjaTpl(templateContent: String, params: Map[String, Object]): String = {
+    val jinjava = new Jinjava()
+    jinjava.render(templateContent, params.asJava);
   }
 
   def newJsonMapper(): ObjectMapper = {

@@ -101,9 +101,13 @@ object YamlSerializer extends LazyLogging {
     mapper.writeValue(targetFile.toJava, Load(domain))
   }
 
-  def serializeToFile(targetFile: File, schema: ModelSchema): Unit = {
+  def serializeToFile(targetFile: File, schema: ModelSchema): File = {
+    targetFile.overwrite(serializeTable(schema))
+  }
+
+  def serializeTable(schema: ModelSchema): String = {
     case class Table(table: ModelSchema)
-    mapper.writeValue(targetFile.toJava, Table(schema))
+    mapper.writeValueAsString(Table(schema))
   }
 
   def serializeToFile(targetFile: File, iamPolicyTags: IamPolicyTags): Unit = {
@@ -181,7 +185,7 @@ object YamlSerializer extends LazyLogging {
       val dagNode = rootNode.path("dag")
       if (dagNode.isNull() || dagNode.isMissingNode) {
         throw new RuntimeException(
-          s"No 'dag' attribute found in $path. Please define your dag generation config under 'dags' attribute."
+          s"No 'dag' attribute found in $path. Please define your dag generation config under 'dag' attribute."
         )
       }
       mapper.treeToValue(dagNode, classOf[DagGenerationConfig])

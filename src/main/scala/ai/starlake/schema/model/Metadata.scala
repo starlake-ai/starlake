@@ -20,15 +20,15 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Mode.FILE
+import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
-import ai.starlake.config.Settings
-import ai.starlake.schema.model.Severity._
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
@@ -95,9 +95,9 @@ case class Metadata(
   extensions: List[String] = Nil,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
-  validator: Option[String] = None,
+  loader: Option[String] = None,
   emptyIsNull: Option[Boolean] = None,
-  dag: Option[DagGenerationConfig] = None,
+  dagRef: Option[String] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true,
@@ -128,12 +128,12 @@ case class Metadata(
        |extensions:${extensions}
        |ack:${ack}
        |options:${options}
-       |validator:${validator}
-       |dag:${dag}
+       |validator:${loader}
+       |dag:${dagRef}
        |freshness:${freshness}
        |nullValue:${nullValue}
        |emptyIsNull:${emptyIsNull}
-       |dag:$dag
+       |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
 
   def getMode(): Mode = getFinalValue(mode, FILE)
@@ -194,13 +194,13 @@ case class Metadata(
 
   @JsonIgnore
   def getConnectionRef(implicit settings: Settings): String =
-    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
+    getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
   def getEngine(implicit settings: Settings): Engine = {
     val connectionRef =
-      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet.connections(connectionRef)
+      getSink(settings).flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig.connections(connectionRef)
     connection.getEngine()
 
   }
@@ -250,13 +250,6 @@ case class Metadata(
     */
   def merge(child: Metadata): Metadata = {
     val mergedSchedule = merge(this.schedule, child.schedule)
-    val dag = typeMerge(this.dag, child.dag)
-    val dagWithSchedule = dag.map { dag =>
-      mergedSchedule match {
-        case Some(s) => dag.copy(schedule = Some(s))
-        case None    => dag
-      }
-    }
 
     Metadata(
       mode = merge(this.mode, child.mode),
@@ -277,8 +270,8 @@ case class Metadata(
       extensions = merge(this.extensions, child.extensions),
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
-      validator = merge(this.validator, child.validator),
-      dag = dagWithSchedule,
+      loader = merge(this.loader, child.loader),
+      dagRef = merge(this.dagRef, child.dagRef),
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
@@ -313,8 +306,8 @@ case class Metadata(
       directory = if (parent.directory != this.directory) this.directory else None,
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
-      validator = if (parent.validator != this.validator) this.validator else None,
-      dag = if (parent.dag != this.dag) this.dag else None,
+      loader = if (parent.loader != this.loader) this.loader else None,
+      dagRef = if (parent.dagRef != this.dagRef) this.dagRef else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
       emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
@@ -330,7 +323,7 @@ case class Metadata(
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
       partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
-      ack.nonEmpty || options.nonEmpty || validator.nonEmpty || dag.nonEmpty ||
+      ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )
       Some(this)

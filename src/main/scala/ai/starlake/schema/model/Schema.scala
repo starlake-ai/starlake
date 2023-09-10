@@ -267,7 +267,7 @@ case class Schema(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
-    val forceTablePrefixRegex = settings.comet.forceTablePattern.r
+    val forceTablePrefixRegex = settings.appConfig.forceTablePattern.r
     if (!forceTablePrefixRegex.pattern.matcher(name).matches())
       errorList += ValidationMessage(
         Error,

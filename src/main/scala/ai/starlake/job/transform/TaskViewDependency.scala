@@ -25,7 +25,7 @@ object TaskViewDependency extends StrictLogging {
     case TASK_TYPE     => "Transform"
     case CTE_TYPE      => "CTE"
     case TASKVIEW_TYPE => "Taskview"
-    case TABLE_TYPE    => "Load"
+    case TABLE_TYPE    => "Table"
     case VIEW_TYPE     => "View"
     case _             => "Unknown"
   }
@@ -208,12 +208,12 @@ case class TaskViewDependency(
   private def dotBgColor() = {
     import TaskViewDependency._
     typ match {
-      case TASK_TYPE     => "darkgreen"
+      case TASK_TYPE     => "darkblue"
       case TASKVIEW_TYPE => "darkcyan"
-      case VIEW_TYPE     => "darkblue"
-      case TABLE_TYPE    => "black"
+      case VIEW_TYPE     => "darkgrey"
+      case TABLE_TYPE    => "darkgreen"
       case CTE_TYPE      => "darkorange"
-      case UNKNOWN_TYPE  => "darkgrey"
+      case UNKNOWN_TYPE  => "black"
       case _             => throw new Exception(s"Unknown type $typ")
     }
   }

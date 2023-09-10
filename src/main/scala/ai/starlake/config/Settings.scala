@@ -24,7 +24,7 @@ import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -117,21 +117,18 @@ object Settings extends StrictLogging {
     def isActive(): Boolean = this.active.getOrElse(false)
 
     def getConnectionRef(implicit settings: Settings): String =
-      this.sink.connectionRef.getOrElse(settings.comet.connectionRef)
+      this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
     def getSink(implicit settings: Settings) = this.sink.getSink()
 
     def getDatabase(implicit settings: Settings): Option[String] =
-      this.database.orElse(settings.comet.getDefaultDatabase())
+      this.database.orElse(settings.appConfig.getDefaultDatabase())
   }
 
   /** Describes a connection to a JDBC-accessible database engine
     *
     * @param sparkFormat
     *   source / sink format (jdbc by default). Cf spark.format possible values
-    * @param mode
-    *   Spark SaveMode to use. If not present, the save mode will be computed from the write
-    *   disposition set in the YAM file
     * @param options
     *   any option required by the format used to ingest / tranform / compute the data. Eg for JDBC
     *   uri, user and password are required uri the URI of the database engine. It must start with
@@ -141,12 +138,11 @@ object Settings extends StrictLogging {
   final case class Connection(
     `type`: Option[String],
     sparkFormat: Option[String] = None,
-    mode: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
-    def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
+    def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
 
-    def checkValidity(implicit settings: Settings): List[ValidationMessage] = {
+    def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
       val tpe = getType()
       tpe match {
@@ -160,14 +156,16 @@ object Settings extends StrictLogging {
           }
         case ConnectionType.BQ =>
           if (this.sparkFormat.isDefined) {
-            if (!options.contains("temporaryGcsBucket")) {
+            val isIndirectWriteMethod =
+              options.get("writeMethod").getOrElse("indirect").equals("indirect")
+            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
                 "Connection",
                 s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
               )
             }
-            if (!options.contains("gcsBucket")) {
+            if (isIndirectWriteMethod && !options.contains("gcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
@@ -354,8 +352,6 @@ object Settings extends StrictLogging {
     refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )
 
-  final case class Atlas(uri: String, user: String, password: String, owner: String)
-
   final case class Internal(
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String,
@@ -374,7 +370,7 @@ object Settings extends StrictLogging {
     headers: Map[String, Map[String, String]] = Map.empty
   ) {
     def allAccessOptions()(implicit settings: Settings): Map[String, String] = {
-      settings.comet.kafka.sparkServerOptions ++ accessOptions
+      settings.appConfig.kafka.sparkServerOptions ++ accessOptions
     }
   }
 
@@ -437,8 +433,6 @@ object Settings extends StrictLogging {
     *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
     * @param defaultAuditWriteFormat
     *   : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
-    * @param launcher
-    *   : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
     * @param analyze
     *   : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive
@@ -448,7 +442,7 @@ object Settings extends StrictLogging {
     * @param airflow
     *   : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
-  final case class Comet(
+  final case class AppConfig(
     env: String,
     datasets: String,
     dags: String,
@@ -465,10 +459,9 @@ object Settings extends StrictLogging {
     csvOutput: Boolean,
     csvOutputExt: String,
     privacyOnly: Boolean,
-    launcher: String,
     chewerPrefix: String,
     emptyIsNull: Boolean,
-    validator: String,
+    loader: String,
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,
@@ -508,7 +501,8 @@ object Settings extends StrictLogging {
     tenant: String,
     connectionRef: String,
     schedule: Map[String, Map[String, String]],
-    refs: List[Ref]
+    refs: List[Ref],
+    dagRef: Option[String]
   ) extends Serializable {
     def getUdfs(): Seq[String] =
       udfs
@@ -539,7 +533,14 @@ object Settings extends StrictLogging {
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @JsonIgnore
-    def isHiveCompatible(): Boolean = hive || Utils.isRunningInDatabricks()
+    def isHiveCompatible(): Boolean = {
+      val connectionTypeIsHive = this.connections
+        .get(this.connectionRef)
+        .exists { conn =>
+          conn.`type`.getOrElse("").toLowerCase() == "hive"
+        }
+      connectionTypeIsHive || hive || Utils.isRunningInDatabricks()
+    }
 
     @JsonIgnore
     def connection(name: String): Option[Connection] = connections.get(name)
@@ -550,22 +551,22 @@ object Settings extends StrictLogging {
 
   }
 
-  object Comet {
+  object AppConfig {
 
     private case class JsonWrapped(jsonValue: String) {
 
       @throws(classOf[ObjectStreamException])
       protected def readResolve: AnyRef = {
-        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[Comet])
+        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[AppConfig])
         unwrapped
       }
     }
 
     private object JsonWrapped {
-      private def jsonMapper: ObjectMapper = new CometObjectMapper()
+      private def jsonMapper: ObjectMapper = new StarlakeObjectMapper()
 
-      def apply(comet: Comet): JsonWrapped = {
-        val writer = jsonMapper.writerFor(classOf[Comet])
+      def apply(comet: AppConfig): JsonWrapped = {
+        val writer = jsonMapper.writerFor(classOf[AppConfig])
         val asJson = writer.writeValueAsString(comet)
         JsonWrapped(asJson)
       }
@@ -589,7 +590,7 @@ object Settings extends StrictLogging {
       implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
       ConfigSource
         .fromConfig(effectiveConfig)
-        .loadOrThrow[Comet]
+        .loadOrThrow[AppConfig]
     }
 
     logger.info(
@@ -623,7 +624,7 @@ object Settings extends StrictLogging {
       logger.debug(effectiveApplicationConfig.toString)
       val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
-        .loadOrThrow[Comet]
+        .loadOrThrow[AppConfig]
 
       Some(
         Settings(
@@ -675,7 +676,7 @@ object Settings extends StrictLogging {
             ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
           ConfigSource
             .fromConfig(effectiveApplicationConfig)
-            .loadOrThrow[Comet]
+            .loadOrThrow[AppConfig]
         }
 
         val applicationSettings = Settings(
@@ -696,7 +697,7 @@ object Settings extends StrictLogging {
 
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
-      settings.comet.internal.flatMap(_.temporaryGcsBucket) match {
+      settings.appConfig.internal.flatMap(_.temporaryGcsBucket) match {
         case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
         case None        => new SparkConf()
       }
@@ -707,7 +708,7 @@ object Settings extends StrictLogging {
       .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
-      .set("spark.scheduler.mode", settings.comet.scheduling.mode)
+      .set("spark.scheduler.mode", settings.appConfig.scheduling.mode)
 
     schedulingConfig.foreach(path => thisConf.set("spark.scheduler.allocation.file", path.toString))
 
@@ -718,7 +719,7 @@ object Settings extends StrictLogging {
   }
 
   private def schedulingPath(settings: Settings): Option[Path] = {
-    import settings.comet.scheduling._
+    import settings.appConfig.scheduling._
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
       Some(schedulingPath).filter(settings.storageHandler().exists)
@@ -740,7 +741,7 @@ object CometColumns {
   * justified? probably not quite yet) — cchepelov
   */
 final case class Settings(
-  comet: Settings.Comet,
+  appConfig: Settings.AppConfig,
   sparkConfig: Config,
   extraConf: Config,
   jobConf: SparkConf = new SparkConf()
@@ -755,20 +756,14 @@ final case class Settings(
       case _ =>
         implicit val self: Settings = this
         val handler =
-          if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+          if (SystemUtils.IS_OS_WINDOWS || appConfig.useLocalFileSystem)
             new LocalStorageHandler()
           else
-            new HdfsStorageHandler(comet.fileSystem)
+            new HdfsStorageHandler(appConfig.fileSystem)
 
         _storageHandler = Some(handler)
         handler
     }
-  }
-
-  @transient
-  lazy val launcherService: LaunchHandler = comet.launcher match {
-    case "simple"  => new SimpleLauncher()
-    case "airflow" => new AirflowLauncher()
   }
 
 }

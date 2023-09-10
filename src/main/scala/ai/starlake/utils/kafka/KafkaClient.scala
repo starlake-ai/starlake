@@ -24,7 +24,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     with AutoCloseable {
 
   val cometOffsetsMode: Mode =
-    settings.comet.kafka.cometOffsetsMode.map(Mode.fromString).getOrElse(Mode.STREAM)
+    settings.appConfig.kafka.cometOffsetsMode.map(Mode.fromString).getOrElse(Mode.STREAM)
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
   val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
 
@@ -197,7 +197,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   }
 
   private def cometOffsetsLock(topicConfigName: String): FileLock = {
-    val lockPath = new Path(settings.comet.lock.path, s"comet_offsets_$topicConfigName.lock")
+    val lockPath = new Path(settings.appConfig.lock.path, s"comet_offsets_$topicConfigName.lock")
     new FileLock(lockPath, settings.storageHandler())
   }
 
@@ -294,14 +294,14 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
     logger.info("withOffsetsTopicOptions:" + withOffsetsTopicOptions.toString())
     logger.info(
-      "settings.comet.kafka.sparkServerOptions:" + settings.comet.kafka.sparkServerOptions
+      "settings.comet.kafka.sparkServerOptions:" + settings.appConfig.kafka.sparkServerOptions
         .toString()
     )
     val reader = session.read.format("kafka")
     val df =
       reader
         .options(withOffsetsTopicOptions)
-        .options(settings.comet.kafka.sparkServerOptions)
+        .options(settings.appConfig.kafka.sparkServerOptions)
         .load()
         .selectExpr(config.fields: _*)
 

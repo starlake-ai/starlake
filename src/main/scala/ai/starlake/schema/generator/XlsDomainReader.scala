@@ -458,7 +458,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
         .flatMap(formatter.formatCellValue)
         .map { value =>
           val allPrivacyLevels =
-            PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)
+            PrivacyLevels.allPrivacyLevels(settings.appConfig.privacy.options)
           val ignore: Option[((PrivacyEngine, List[String]), PrivacyLevel)] =
             allPrivacyLevels.get(value.toUpperCase)
           ignore.map { case (_, level) => level }.getOrElse {

@@ -102,7 +102,7 @@ class DatasetAreaSpec extends TestHelper {
     expectedFolders: List[String],
     expectedFiles: List[String]
   ): Unit = {
-    val rootFolder = File(settings.comet.metadata).parent
+    val rootFolder = File(settings.appConfig.metadata).parent
     val checkFileStatus = (l: List[String]) =>
       l.map(rootFolder / _).map(f => f -> FileStatus(f.exists, f.isDirectory))
     all(checkFileStatus(expectedFiles)) should have(
@@ -117,7 +117,7 @@ class DatasetAreaSpec extends TestHelper {
     settings: Settings,
     expectedEmptyFolders: List[String]
   ): Unit = {
-    val rootFolder = File(settings.comet.metadata).parent
+    val rootFolder = File(settings.appConfig.metadata).parent
     all(
       expectedEmptyFolders.map(rootFolder / _).map { f =>
         println(f.list.toList)
@@ -133,7 +133,7 @@ class DatasetAreaSpec extends TestHelper {
     settings: Settings,
     folders: List[String]
   ): Unit = {
-    val rootFolder = File(settings.comet.metadata).parent
+    val rootFolder = File(settings.appConfig.metadata).parent
     all(folders.map(rootFolder / _).map { f => f -> f.exists }) should have('_2(true))
   }
 
