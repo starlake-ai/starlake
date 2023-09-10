@@ -3,9 +3,11 @@ package ai.starlake.job.bootstrap
 import ai.starlake.TestHelper
 
 class BootstrapConfigSpec extends TestHelper {
-  "BootstrapConfig" should
-  "parse" in {
-    val expected = """
+  new WithSettings() {
+    "BootstrapConfig" should
+    "parse" in {
+      val x = settings
+      val expected = """
         |Usage: starlake bootstrap [options]
         |
         |
@@ -13,8 +15,9 @@ class BootstrapConfigSpec extends TestHelper {
         |
         |  --template <value>  Template to use to bootstrap project
         |""".stripMargin
-    val rendered = BootstrapConfig.usage()
-    rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
-      .replaceAll("\\s", "")
+      val rendered = BootstrapConfig.usage()
+      rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
+        .replaceAll("\\s", "")
+    }
   }
 }

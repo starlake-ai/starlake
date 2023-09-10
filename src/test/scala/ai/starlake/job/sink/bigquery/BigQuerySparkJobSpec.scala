@@ -72,7 +72,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
               |)
               |select * from tbl
               |""".stripMargin
-          private val businessTask1 = AutoTaskDesc(
+          private val businessTaskAddPart = AutoTaskDesc(
             "addPartitionsWithOverwrite",
             Some(query),
             None,
@@ -84,21 +84,26 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             ),
             merge = None
           )
-          private val businessJob =
+          private val businessJob = {
             AutoJobDesc(
               "SL_BQ_TEST_DS",
-              List(businessTask1)
+              List(businessTaskAddPart)
             )
-          private val businessJobDef = mapper
+          }
+          case class Task(task: AutoTaskDesc)
+          private val businessTaskAddPartDef = mapper
             .writer()
             .withAttribute(classOf[Settings], settings)
-            .writeValueAsString(businessJob)
+            .writeValueAsString(Task(businessTaskAddPart))
           cleanMetadata
           cleanDatasets
-          val pathJob =
-            new Path(starlakeMetadataPath + "/transform/tableWithPartitions/_config.comet.yml")
-          storageHandler.write(businessJobDef, pathJob)
+          val pathTask =
+            new Path(
+              starlakeMetadataPath + "/transform/SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
+            )
+          storageHandler.write(businessTaskAddPartDef, pathTask)
           val schemaHandler = new SchemaHandler(storageHandler)
+          schemaHandler.jobs().foreach(println)
           val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
           validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
           // check that table is created correctly with the right number of lines
