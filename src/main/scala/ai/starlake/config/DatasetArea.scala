@@ -24,14 +24,6 @@ import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.Utils
 import better.files.File
-import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
-import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{
-  DeserializationContext,
-  JsonDeserializer,
-  JsonSerializer,
-  SerializerProvider
-}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
@@ -420,42 +412,6 @@ object StorageArea {
     )
 }
 
-final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
-
-  override def serialize(
-    value: StorageArea,
-    gen: JsonGenerator,
-    serializers: SerializerProvider
-  ): Unit = {
-    val settings = serializers.getAttribute(classOf[Settings]).asInstanceOf[Settings]
-    require(settings != null, "the SerializationContext lacks a Settings instance")
-
-    val strValue = value match {
-      case StorageArea.accepted            => settings.appConfig.area.accepted
-      case StorageArea.rejected            => settings.appConfig.area.rejected
-      case StorageArea.business            => settings.appConfig.area.business
-      case StorageArea.replay              => settings.appConfig.area.replay
-      case StorageArea.Custom(customValue) => customValue
-    }
-    gen.writeString(strValue)
-  }
-}
-
-final class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
-
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): StorageArea = {
-    val settings = ctx
-      .findInjectableValue("ai.starlake.config.Settings", null, null)
-      .asInstanceOf[Settings]
-    require(settings != null, "the DeserializationContext lacks a Settings instance")
-
-    val value = jp.readValueAs[String](classOf[String])
-    StorageArea.fromString(value)(settings)
-  }
-}
-
-@JsonSerialize(using = classOf[StorageAreaSerializer])
-@JsonDeserialize(using = classOf[StorageAreaDeserializer])
 sealed abstract class StorageArea {
   def value: String
   override def toString: String = value
