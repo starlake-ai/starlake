@@ -86,7 +86,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           )
           private val businessJob =
             AutoJobDesc(
-              "",
+              "SL_BQ_TEST_DS",
               List(businessTask1)
             )
           private val businessJobDef = mapper
