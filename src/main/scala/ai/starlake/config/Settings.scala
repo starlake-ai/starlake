@@ -142,7 +142,7 @@ object Settings extends StrictLogging {
   ) {
     def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
 
-    def checkValidity(implicit settings: Settings): List[ValidationMessage] = {
+    def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
       val tpe = getType()
       tpe match {

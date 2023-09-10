@@ -219,6 +219,7 @@ trait TestHelper
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
+    settings.appConfig.connections.values.foreach(_.checkValidity())
 
     implicit def withSettings: WithSettings = this
 
@@ -330,7 +331,6 @@ trait TestHelper
     isDomain: Boolean = true // TODO refactor. false if delivering a job
   )(implicit withSettings: WithSettings) {
     implicit def settings: Settings = withSettings.settings
-
     def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.load
     val jobMetadataRootPath: Path = DatasetArea.transform
