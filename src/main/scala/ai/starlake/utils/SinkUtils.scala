@@ -6,7 +6,7 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.google.cloud.bigquery.JobInfo.WriteDisposition
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SaveMode, SparkSession}
@@ -31,7 +31,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     sinkType match {
       case ConnectionType.FS =>
         if (engine == Engine.SPARK) {
-          val waitTimeMillis = settings.comet.lock.timeout
+          val waitTimeMillis = settings.appConfig.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
           locker.tryExclusively(waitTimeMillis) {
             appendToFile(
@@ -39,7 +39,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
               session,
               dataframe,
               savePath,
-              settings.comet.audit.domain.getOrElse("audit"),
+              settings.appConfig.audit.domain.getOrElse("audit"),
               table
             )
           }
@@ -50,15 +50,15 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         Try {
           sinkToBigQuery(
             dataframe,
-            settings.comet.audit.getDatabase(settings),
-            settings.comet.audit.domain.getOrElse("audit"),
+            settings.appConfig.audit.getDatabase(settings),
+            settings.appConfig.audit.domain.getOrElse("audit"),
             table,
             maybeTableDescription,
             Some(
-              settings.comet.audit.sink
+              settings.appConfig.audit.sink
                 .getSink()
                 .connectionRef
-                .getOrElse(settings.comet.connectionRef)
+                .getOrElse(settings.appConfig.connectionRef)
             )
           )
         }
@@ -72,15 +72,17 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       case _ => // including SinkType.JDBC | SinkType.SNOWFLAKE | SinkType.REDSHIFT ect ...
         Try {
           val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-            settings.comet.audit.sink
+            settings.appConfig.audit.sink
               .getSink()
               .connectionRef
-              .getOrElse(settings.comet.connectionRef),
-            settings.comet,
+              .getOrElse(settings.appConfig.connectionRef),
+            settings.appConfig,
             Right(dataframe),
-            (settings.comet.audit.domain.getOrElse("audit") + "." + table).toUpperCase()
+            (settings.appConfig.audit.domain.getOrElse("audit") + "." + table).toUpperCase(),
+            CreateDisposition.CREATE_IF_NEEDED,
+            WriteDisposition.WRITE_APPEND
           )
-          sinkToJdbc(jdbcConfig)
+          sinkAuditToJdbc(jdbcConfig)
         }
     }
   }
@@ -101,7 +103,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           Some(BigQueryJobBase.extractProjectDatasetAndTable(bqDatabase, bqDataset, bqTable)),
         None,
         Nil,
-        settings.comet.defaultFormat,
+        settings.appConfig.defaultFormat,
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",
         None,
@@ -120,7 +122,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     }
   }
 
-  private def sinkToJdbc(
+  private def sinkAuditToJdbc(
     cliConfig: JdbcConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
@@ -135,7 +137,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
 
         val dfw = dataframe.write
           .format(cliConfig.format)
-          .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
+          .option("truncate", false)
           .option("dbtable", cliConfig.outputTable)
 
         logger.info(s"JDBC save done to table ${cliConfig.outputTable} at $cliConfig")
@@ -172,17 +174,17 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       logger.whenDebugEnabled {
         logger.debug(
           session.read
-            .format(settings.comet.defaultFormat)
+            .format(settings.appConfig.defaultFormat)
             .load(path.toString)
             .showString(truncate = 0)
         )
       }
       val dataByVariableStored: DataFrame = session.read
-        .format(settings.comet.defaultFormat)
+        .format(settings.appConfig.defaultFormat)
         .load(path.toString)
         .union(dataToSave)
 
-      if (settings.comet.isHiveCompatible()) {
+      if (settings.appConfig.isHiveCompatible()) {
         val hiveDB = datasetName
         val fullTableName = s"$hiveDB.$tableName"
         session.sql(s"create database if not exists $hiveDB")
@@ -191,14 +193,14 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           .repartition(1)
           .write
           .mode(SaveMode.Append)
-          .format(settings.comet.defaultFormat)
+          .format(settings.appConfig.defaultFormat)
           .saveAsTable(fullTableName)
       } else {
         dataByVariableStored
           .repartition(1)
           .write
           .mode(SaveMode.Append)
-          .format(settings.comet.defaultFormat)
+          .format(settings.appConfig.defaultFormat)
           .save(pathIntermediate.toString)
       }
 
@@ -207,7 +209,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       logger.whenDebugEnabled {
         logger.debug(
           session.read
-            .format(settings.comet.defaultFormat)
+            .format(settings.appConfig.defaultFormat)
             .load(path.toString)
             .showString(1000, truncate = 0)
         )
@@ -218,7 +220,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         .repartition(1)
         .write
         .mode(SaveMode.Append)
-        .format(settings.comet.defaultFormat)
+        .format(settings.appConfig.defaultFormat)
         .save(path.toString)
     }
   }

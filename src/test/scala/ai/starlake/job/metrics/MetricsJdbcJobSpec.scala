@@ -5,6 +5,7 @@ import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, Fre
 import ai.starlake.job.metrics.Metrics._
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.{JdbcChecks, TestHelper}
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -390,10 +391,12 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         assert(loadPending)
 
         val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-          settings.comet.audit.getConnectionRef(settings),
-          settings.comet,
+          settings.appConfig.audit.getConnectionRef(settings),
+          settings.appConfig,
           Left("ignore"),
-          settings.comet.audit.domain.getOrElse("audit") + ".discrete"
+          settings.appConfig.audit.domain.getOrElse("audit") + ".discrete",
+          CreateDisposition.CREATE_IF_NEEDED,
+          WriteDisposition.WRITE_APPEND
         )
 
         val discreteMetricsDf: DataFrame = sparkSession.read

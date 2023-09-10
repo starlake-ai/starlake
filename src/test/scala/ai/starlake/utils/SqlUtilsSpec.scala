@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.Engine
+import ai.starlake.schema.model.{Engine, Refs}
 
 class SqlUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -17,17 +17,41 @@ class SqlUtilsSpec extends TestHelper {
       assert(true)
     }
 
+    val selectWithCTE1 =
+      """WITH cte1 as (select *  except(this_col) from thisview),
+        |cte2 as (select * from thisview)
+        |SELECT *
+        |FROM myview, yourview
+        |union
+        |select whatever from otherview cross join herview left join cte1""".stripMargin
+
     "TableRefs Extractor" should "return all tables and views" in {
-      val input =
-        """WITH cte1 as (query),
-          |cte2 as (query2)
-          |SELECT *
-          |FROM myview, yourview
-          |union
-          |select whatever cross join herview""".stripMargin
-      val refs = SQLUtils.extractRefsInSQL(input)
-      refs should contain theSameElementsAs (List("myview", "yourview", "herview"))
+      val refs = SQLUtils.extractTableNames(selectWithCTE1)
+      refs should contain theSameElementsAs (List(
+        "thisview",
+        "myview",
+        "yourview",
+        "otherview",
+        "herview"
+      ))
       // , "cte1", "cte2"))
+    }
+
+    "Extract tables from CTE" should "return all table names" in {
+      val refs = SQLUtils.extractTableNames(selectWithCTE1)
+      refs.distinct should contain theSameElementsAs List(
+        "myview",
+        "yourview",
+        "herview",
+        "thisview",
+        "otherview"
+      )
+    }
+
+    "Extract tables from select parquet" should "return only tables with parquet files" in {
+      val refs =
+        SQLUtils.extractTableNames("select * from parquet('s3://bucket/path'), t")
+      assert(refs == List("t"))
     }
 
     val selectWithCTEs =
@@ -38,7 +62,7 @@ class SqlUtilsSpec extends TestHelper {
         |            transaction_date,
         |            amount,
         |            store_id,
-        |            seller_id
+        |            seller_id 
         |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
         |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
         |    ),
@@ -97,8 +121,85 @@ class SqlUtilsSpec extends TestHelper {
       ))
     }
 
+    "Build Single SQl Query for Regex" should "return all table names" in {
+      val selectWithCTE =
+        """with mycte as (
+          |select seller_email, amount
+          |from sellers hrs, orders sos where hrs.id = sos.seller_id
+          |)
+          |select seller_email, sum(amount) as sum from mycte
+          |group by mycte.seller_email
+          |""".stripMargin
+
+      val resultSQL =
+        SQLUtils.buildSingleSQLQueryForRegex(
+          selectWithCTE,
+          Refs(Nil),
+          Nil,
+          Nil,
+          Nil,
+          SQLUtils.fromsRegex,
+          "FROM",
+          Engine.SPARK
+        )
+      resultSQL should equal(
+        """with mycte as (
+          |select seller_email, amount
+          |from sellers hrs, orders sos where hrs.id = sos.seller_id
+          |)
+          |select seller_email, sum(amount) as sum from mycte
+          |group by mycte.seller_email
+          |""".stripMargin
+      )
+    }
+
+    "Extract table names from select with CTE" should "return all table names" in {
+
+      val selectWithCTE =
+        """with mycte as (
+          |select seller_email, amount, (select x from y)
+          |from "domain".sellers hrs, orders sos where hrs.id = sos.seller_id
+          |)
+          |select seller_email, sum(amount) as sum from mycte
+          |group by mycte.seller_email
+          |""".stripMargin
+
+      val refs = SQLUtils.extractTableNames(selectWithCTE)
+      refs should contain theSameElementsAs (List(
+        "\"domain\".sellers",
+        "orders",
+        "y"
+      ))
+    }
+
+    "Extract table names from nested select" should "return all table names" in {
+      val selectNestedSelects =
+        """select selected_item_count * 100 / all_item_count, thismonth
+          |FROM (
+          |  SELECT count(case when Items.StatusID in (5,7,11) then 1 end) as selected_item_count,
+          |         count(case when Items.StatusID in (5,7,11,6) then 1 end) as all_item_count,
+          |         count(case when Items.StatusID in (5,7,11,6) and month(Items.Close_Date) = 11 then 1 end) As thisMonth
+          |  FROM items
+          |  WHERE Items.StatusID in (5,7,11,6)
+          |    and year(Items.Close_Date) = 2016
+          |) t""".stripMargin
+      val refs = SQLUtils.extractTableNames(selectNestedSelects)
+      refs should contain theSameElementsAs (List(
+        "items"
+      ))
+    }
+
+    "Extract table names from select" should "return all CTE names" in {
+      val refs = SQLUtils.extractTableNames(selectWithCTEs)
+      refs should contain theSameElementsAs (List(
+        "`starlake-325712`.`starlake_tbl`.`transactions`",
+        "`starlake-325712`.`starlake_tbl`.`locations`",
+        "`starlake-325712`.`starlake_tbl`.`sellers`"
+      ))
+    }
+
     "Extract CTE from select" should "return all CTE names" in {
-      val refs = SQLUtils.extractCTEsFromSQL(selectWithCTEs)
+      val refs = SQLUtils.extractCTENames(selectWithCTEs)
       refs should contain theSameElementsAs (List(
         "transactions",
         "locations",

@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -51,13 +51,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  private val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
-  private val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
-  private val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
+  private val forceViewPrefixRegex: Regex = settings.appConfig.forceViewPattern.r
+  private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
+  private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
-    new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
+    new StarlakeObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
   private def checkValidity(
@@ -143,7 +143,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val warningCount = warnings.length
 
     val output =
-      settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
     output.foreach(_.overwrite(""))
 
     if (errorCount + warningCount > 0) {
@@ -159,7 +159,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
       logger.error(s"END VALIDATION RESULTS")
       output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-      if (settings.comet.validateOnLoad)
+      if (settings.appConfig.validateOnLoad)
         throw new Exception(
           s"Validation Failed: $errorCount errors and $warningCount warning found"
         )
@@ -364,7 +364,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         ) // will replace with sys.env
     val activeEnvName = Option(System.getenv().get("SL_ENV"))
       .orElse(globalEnvVars.get("SL_ENV"))
-      .getOrElse(settings.comet.env)
+      .getOrElse(settings.appConfig.env)
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.comet.yml")
@@ -392,7 +392,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val content = Utils.parseJinja(rawContent, activeEnvVars())
       YamlSerializer.mapper.readValue(content, classOf[Refs])
     } else
-      Refs(settings.comet.refs)
+      Refs(settings.appConfig.refs)
     this._refs = refs
     this._refs
   }
@@ -453,7 +453,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             // ideally the emptyNull field should set during object construction but the settings
             // object is not available in the Metadata object
             val enrichedMetadata = metadata
-              .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
+              .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.appConfig.emptyIsNull)))
 
             // set domain name
             val domainName =
@@ -488,24 +488,52 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     loadDomainsFromArea(DatasetArea.external)
   }
 
-  def deserializedDagGenerationConfig(dagPath: Path): Try[DagGenerationConfig] = {
-    YamlSerializer.deserializeDagGenerationConfig(
-      Utils.parseJinjaTpl(storage.read(dagPath), activeEnvVars()),
-      dagPath.toString
-    )
+  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
+    val dagsConfigsPaths = storage.list(path = dagPath, extension = ".comet.yml", recursive = false)
+    dagsConfigsPaths.map { dagsConfigsPath =>
+      val dagConfigName = dagsConfigsPath.getName().dropRight(".comet.yml".length)
+      val dagFileContent = storage.read(dagsConfigsPath)
+      val dagConfig = YamlSerializer
+        .deserializeDagGenerationConfig(
+          dagFileContent,
+          dagsConfigsPath.toString
+        ) match {
+        case Success(dagConfig) =>
+          // we save the raw filename since it willl be instantiaed at runtime (it holds the domain and table vars potentially
+          val rawFilename = dagConfig.filename
+          // Let's reload the dag config and apply the jinja templating
+          val dagConfigResult = YamlSerializer
+            .deserializeDagGenerationConfig(
+              Utils.parseJinja(dagFileContent, activeEnvVars()),
+              dagsConfigsPath.toString
+            )
+          dagConfigResult match {
+            case Success(dagConfig) =>
+              dagConfig.copy(filename = rawFilename)
+            case Failure(err) =>
+              throw err
+          }
+        case Failure(err) =>
+          logger.error(
+            s"Failed to load dag config in $dagsConfigsPath"
+          )
+          Utils.logException(logger, err)
+          throw err
+      }
+      dagConfigName -> dagConfig
+    }.toMap
   }
 
   /** Global dag generation config can only be defined in "dags" folder in the metadata folder.
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfig(dagsAreaPath: Path): Try[DagGenerationConfig] = {
-    val dagConfigPath = new Path(dagsAreaPath, "default.comet.yml")
-    if (storage.exists(dagConfigPath)) {
-      deserializedDagGenerationConfig(dagConfigPath)
+  def loadDagGenerationConfigs(): Map[String, DagGenerationConfig] = {
+    if (storage.exists(DatasetArea.dags)) {
+      deserializedDagGenerationConfigs(DatasetArea.dags)
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
-      Success(DagGenerationConfig(None, None, None, None, None))
+      Map.empty[String, DagGenerationConfig]
     }
   }
 
@@ -522,9 +550,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .collect { case Success(domain) => domain }
       .map(domain => this.fromXSD(domain))
 
+    val (nonEmptyDomains, emptyDomains) = domains.partition(_.tables.nonEmpty)
+    emptyDomains.foreach { domain =>
+      logger.warn(s"Domain ${domain.name} discarded because it's empty")
+    }
     val nameErrors = Utils.duplicates(
       "Domain name",
-      domains.map(_.name),
+      nonEmptyDomains.map(_.name),
       s"%s is defined %d times. A domain can only be defined once."
     ) match {
       case Right(_) => Nil
@@ -534,7 +566,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val renameErrors = Utils.duplicates(
       "Domain rename",
-      domains.map(d => d.rename.getOrElse(d.name)),
+      nonEmptyDomains.map(d => d.rename.getOrElse(d.name)),
       s"renamed domain %s is defined %d times. It can only appear once."
     ) match {
       case Right(_) => Nil
@@ -544,12 +576,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val directoryErrors = Utils.duplicates(
       "Domain directory",
-      domains.flatMap(_.resolveDirectoryOpt()),
+      nonEmptyDomains.flatMap(_.resolveDirectoryOpt()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>
         if (!raw)
-          this._domains = domains
+          this._domains = nonEmptyDomains
         Nil
       case Left(errors) =>
         errors
@@ -564,7 +596,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
     this._domainErrors.foreach(err => logger.error(err.toString()))
-    (this._domainErrors, domains)
+    (this._domainErrors, nonEmptyDomains)
   }
 
   private def loadFullDomains(area: Path, raw: Boolean): (List[Try[Domain]], List[Try[Domain]]) = {
@@ -791,7 +823,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             database = None,
             domain = "",
             table = "",
-            write = Some(WriteMode.OVERWRITE),
+            write = None,
             _filenamePrefix = taskFilePrefix
           )
       }
@@ -1022,7 +1054,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
-    domain.database.orElse(settings.comet.getDefaultDatabase())
+    domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
 }

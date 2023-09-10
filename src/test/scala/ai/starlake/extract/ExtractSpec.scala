@@ -8,6 +8,7 @@ import ai.starlake.utils.YamlSerializer
 import better.files.File
 
 import java.sql.DriverManager
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success}
 
 class ExtractSpec extends TestHelper {
@@ -22,7 +23,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -37,7 +38,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         None
       ) { case (domain, _, _) =>
         assert(domain.metadata.isEmpty)
@@ -51,7 +52,7 @@ class ExtractSpec extends TestHelper {
     domainTemplate: Option[Domain]
   )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
   (implicit settings: Settings) = {
-    val jdbcOptions = settings.comet.connections("test-h2")
+    val jdbcOptions = settings.appConfig.connections("test-h2")
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),
       jdbcOptions.options("user"),
@@ -69,7 +70,8 @@ class ExtractSpec extends TestHelper {
     rs.next
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
-    val outputDir: File = File(s"$cometTestRoot/extract-without-template")
+    val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
+    implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
     new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
       jdbcSchema,
       connectionOptions,
@@ -168,7 +170,7 @@ class ExtractSpec extends TestHelper {
             pattern = Some("{{schema}}-{{table}}.*")
           )
         ),
-        globalJdbcSchema = None,
+        default = None,
         connection = Map.empty
       )
     }
@@ -223,7 +225,7 @@ class ExtractSpec extends TestHelper {
             fullExport = Some(false)
           )
         ),
-        globalJdbcSchema = Some(
+        default = Some(
           JDBCSchema(
             catalog = Some("business"),
             schema = "public",
@@ -290,7 +292,7 @@ class ExtractSpec extends TestHelper {
             fullExport = Some(false)
           )
         ),
-        globalJdbcSchema = Some(
+        default = Some(
           JDBCSchema(
             catalog = Some("business"),
             tables = Nil,
@@ -306,7 +308,7 @@ class ExtractSpec extends TestHelper {
 
   "JDBC2Yml of some columns" should "should generate only the tables and columns requested" in {
     new WithSettings() {
-      val jdbcOptions = settings.comet.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -324,7 +326,7 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-
+      implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
@@ -333,7 +335,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         File("/tmp"),
         None,
         None
@@ -363,7 +365,7 @@ class ExtractSpec extends TestHelper {
 
   "JDBC2Yml with foreign keys" should "detect the foreign keys" in {
     new WithSettings() {
-      val jdbcOptions = settings.comet.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -385,7 +387,7 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-
+      implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
@@ -394,7 +396,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.comet.connections("test-h2").options,
+        settings.appConfig.connections("test-h2").options,
         File("/tmp"),
         None,
         None
@@ -488,6 +490,7 @@ class ExtractSpec extends TestHelper {
         |Usage: starlake extract-schema [options]
         |  --config <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
+        |  --parallelism <value>  parallelism level of the extraction process. By default equals to the available cores
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

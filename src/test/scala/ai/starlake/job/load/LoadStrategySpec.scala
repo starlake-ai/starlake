@@ -7,9 +7,9 @@ import org.apache.hadoop.fs.Path
 class LoadStrategySpec extends TestHelper {
   new WithSettings() {
 
-    val myDataset1 = new Path(cometDatasetsPath + "/my_dataset_20210101120000.csv")
-    val myDataset2 = new Path(cometDatasetsPath + "/my_dataset_20210102120000.csv")
-    val myDataset3 = new Path(cometDatasetsPath + "/my_dataset_20210103120000.csv")
+    val myDataset1 = new Path(starlakeDatasetsPath + "/my_dataset_20210101120000.csv")
+    val myDataset2 = new Path(starlakeDatasetsPath + "/my_dataset_20210102120000.csv")
+    val myDataset3 = new Path(starlakeDatasetsPath + "/my_dataset_20210103120000.csv")
 
     "IngestionTimeStrategy" should "list files by modification_time and name" in {
       storageHandler.touchz(myDataset2)
@@ -20,7 +20,7 @@ class LoadStrategySpec extends TestHelper {
 
       val files: List[Path] = Utils
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionTimeStrategy")
-        .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
+        .list(storageHandler, new Path(starlakeDatasetsPath), recursive = false)
 
       val expected: List[String] = List(
         "my_dataset_20210102120000.csv",
@@ -38,7 +38,7 @@ class LoadStrategySpec extends TestHelper {
 
       val files: List[Path] = Utils
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionNameStrategy")
-        .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
+        .list(storageHandler, new Path(starlakeDatasetsPath), recursive = false)
 
       val expected: List[String] = List(
         "my_dataset_20210101120000.csv",

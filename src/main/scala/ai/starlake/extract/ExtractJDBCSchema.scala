@@ -2,14 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{
-  AttributeMergeStrategy,
-  Domain,
-  KeepOnlyScriptDiff,
-  Metadata,
-  RefFirst,
-  SchemaRefs
-}
+import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
@@ -17,6 +10,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
 import scala.util.{Failure, Success}
 
@@ -44,38 +38,44 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    val content = settings
-      .storageHandler()
-      .read(mappingPath(config.extractConfig))
-      .richFormat(schemaHandler.activeEnvVars(), Map.empty)
-    val jdbcSchemas =
-      YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
-    val connectionOptions = jdbcSchemas.connectionRef
-      .map(settings.comet.connections(_).options)
-      .getOrElse(jdbcSchemas.connection)
-    jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
-      val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
-        val content = settings
-          .storageHandler()
-          .read(mappingPath(ymlTemplate))
-        YamlSerializer.deserializeDomain(content, ymlTemplate) match {
-          case Success(domain) =>
-            if (domain.resolveDirectoryOpt().isEmpty)
-              throw new Exception(
-                "Domain metadata directory property is mandatory in template file."
-              )
-            domain
-          case Failure(e) => throw e
+    ExtractUtils.timeIt("Schema extraction") {
+      val content = settings
+        .storageHandler()
+        .read(mappingPath(config.extractConfig))
+        .richFormat(schemaHandler.activeEnvVars(), Map.empty)
+      val jdbcSchemas =
+        YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
+      val connectionOptions = jdbcSchemas.connectionRef
+        .map(settings.appConfig.connections(_).options)
+        .getOrElse(jdbcSchemas.connection)
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+        ExtractUtils.createForkSupport(config.parallelism)
+      ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+        val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
+          val content = settings
+            .storageHandler()
+            .read(mappingPath(ymlTemplate))
+          YamlSerializer.deserializeDomain(content, ymlTemplate) match {
+            case Success(domain) =>
+              if (domain.resolveDirectoryOpt().isEmpty)
+                throw new Exception(
+                  "Domain metadata directory property is mandatory in template file."
+                )
+              domain
+            case Failure(e) => throw e
+          }
+        }
+        val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
+        ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
+          extractSchema(
+            jdbcSchema,
+            connectionOptions,
+            outputDir(config.outputDir),
+            domainTemplate,
+            currentDomain
+          )
         }
       }
-      val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
-      extractSchema(
-        jdbcSchema,
-        connectionOptions,
-        outputDir(config.outputDir),
-        domainTemplate,
-        currentDomain
-      )
     }
   }
 
@@ -86,7 +86,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     domainTemplate: Option[Domain],
     currentDomain: Option[Domain]
   )(implicit
-    settings: Settings
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
   ): Unit = {
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
@@ -161,7 +162,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     connectionOptions: Map[String, String],
     domainTemplate: Option[Domain]
   )(implicit
-    settings: Settings
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
   ): Domain = {
     val selectedTablesAndColumns =
       JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)

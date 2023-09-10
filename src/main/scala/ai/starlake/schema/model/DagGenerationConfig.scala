@@ -1,47 +1,59 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
+import ai.starlake.utils.Formatter.RichFormatter
+
+import java.util
+import scala.jdk.CollectionConverters.seqAsJavaListConverter
+
+// We add
+
+case class DagSchedule(schedule: String, domains: java.util.List[DagDomain]) {
+  def getSchedule(): String = schedule
+  def getDomains(): java.util.List[DagDomain] = domains
+}
+
+case class DagDomain(name: String, tables: java.util.List[String]) {
+  def getName(): String = name
+  def getTables(): java.util.List[String] = tables
+}
+case class DagPair(name: String, value: String) {
+  def getName(): String = name
+  def getValue(): String = value
+}
+
 case class DagGenerationConfig(
-  schedule: Option[String],
-  cluster: Option[ClusterConfig],
-  sl: Option[SlConfig],
-  dagName: Option[String],
-  suffixWithIndex: Option[Boolean]
-)
+  comment: String,
+  template: String,
+  filename: String,
+  options: Map[String, String]
+) {
+  def getfilenameVars()(implicit settings: Settings): Set[String] = filename.extractVars()
 
-case class ClusterConfig(profileVar: Option[String], region: Option[String])
+  def this(template: String, filename: String, options: Map[String, String]) =
+    this("", template, filename, options)
 
-/** @param envVar
-  * @param jarFileUrisVar
-  *   ["gs://.../starlake
-  */
-case class SlConfig(envVar: Option[String], jarFileUrisVar: Option[String])
+  def asMap: util.HashMap[String, Object] = {
+    val jOptions = new java.util.ArrayList[DagPair]
+    options.foreach { case (k, v) =>
+      jOptions.add(DagPair(k, v))
+    }
+    new java.util.HashMap[String, Object]() {
+      put("comment", comment)
+      put("template", template)
+      put("options", jOptions)
+    }
+  }
+}
 
-object DagGenerationConfig {
-
-  val defaultDagNamePattern = "{{domain}}"
-
-  val defaultSuffixWithIndex = true
-  implicit def dagGenerationConfigMerger(
-    parent: DagGenerationConfig,
-    child: DagGenerationConfig
-  ): DagGenerationConfig = {
-    DagGenerationConfig(
-      schedule = child.schedule.orElse(parent.schedule),
-      cluster = child.cluster.orElse(parent.cluster),
-      sl = child.sl
-        .map(childConfig => {
-          parent.sl match {
-            case Some(parentConfig) =>
-              SlConfig(
-                envVar = childConfig.envVar.orElse(parentConfig.envVar),
-                jarFileUrisVar = childConfig.jarFileUrisVar.orElse(parentConfig.jarFileUrisVar)
-              )
-            case None => childConfig
-          }
-        })
-        .orElse(parent.sl),
-      dagName = child.dagName.orElse(parent.dagName),
-      suffixWithIndex = child.suffixWithIndex.orElse(parent.suffixWithIndex)
-    )
+case class DagGenerationContext(
+  config: DagGenerationConfig,
+  schedules: List[DagSchedule]
+) {
+  def asMap: util.HashMap[String, Object] = {
+    new java.util.HashMap[String, Object]() {
+      put("config", config.asMap)
+      put("schedules", schedules.asJava)
+    }
   }
 }

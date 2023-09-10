@@ -20,7 +20,7 @@
 
 package ai.starlake.job.infer
 
-import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
 import ai.starlake.schema.model.{Attribute, Domain, Format, Position}
 import better.files.File
@@ -47,14 +47,26 @@ import scala.util.Try
 class InferSchema(
   domainName: String,
   schemaName: String,
+  pattern: Option[String],
+  comment: Option[String],
   dataPath: String,
   saveDir: String,
   header: Boolean = false,
   format: Option[Format] = None
 )(implicit settings: Settings) {
-
-  def run(): Try[File] =
-    (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header, format)
+  def run(): Try[File] = {
+    val dir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir
+    (new InferSchemaJob).infer(
+      domainName = domainName,
+      schemaName = schemaName,
+      pattern = pattern,
+      comment = comment,
+      dataPath = dataPath,
+      saveDir = dir,
+      withHeader = header,
+      forceFormat = format
+    )
+  }
 
 }
 
@@ -149,7 +161,20 @@ class InferSchemaJob(implicit settings: Settings) {
     *   the schema pattern
     */
   private def getSchemaPattern(path: Path): String = {
-    path.getName
+    val filename = path.getName
+    val parts = filename.split("\\.")
+    if (parts.length < 2)
+      filename
+    else {
+      val extension = parts.last
+      val prefix = filename.replace(s".$extension", "")
+      val indexOfNonAlpha = prefix.indexWhere(!_.isLetterOrDigit)
+      val prefixWithoutNonAlpha = prefix.substring(0, indexOfNonAlpha)
+      if (prefixWithoutNonAlpha.isEmpty)
+        filename
+      else
+        s"$prefixWithoutNonAlpha.*.$extension"
+    }
   }
 
   /** Create the dataframe with its associated format
@@ -207,6 +232,8 @@ class InferSchemaJob(implicit settings: Settings) {
   def infer(
     domainName: String,
     schemaName: String,
+    pattern: Option[String],
+    comment: Option[String],
     dataPath: String,
     saveDir: String,
     withHeader: Boolean,
@@ -232,7 +259,8 @@ class InferSchemaJob(implicit settings: Settings) {
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
             schemaName,
-            Pattern.compile(getSchemaPattern(path)),
+            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            comment,
             attributes,
             Some(metadata)
           )
@@ -267,7 +295,8 @@ class InferSchemaJob(implicit settings: Settings) {
 
           InferSchemaHandler.createSchema(
             schemaName,
-            Pattern.compile(getSchemaPattern(path)),
+            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            comment,
             attributes,
             Some(metadata)
           )

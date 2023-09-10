@@ -16,7 +16,6 @@ case class JdbcConnectionLoadConfig(
   createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
   writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
   format: String = "jdbc",
-  mode: Option[String] = None,
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None
 )
@@ -60,11 +59,11 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
 
   def fromComet(
     connectionRef: String,
-    comet: Settings.Comet,
+    comet: Settings.AppConfig,
     sourceFile: Either[String, DataFrame],
     outputTable: String,
-    createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-    writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+    createDisposition: CreateDisposition, // = CreateDisposition.CREATE_IF_NEEDED,
+    writeDisposition: WriteDisposition, // = WriteDisposition.WRITE_APPEND,
     createTableIfAbsent: Boolean = true
   ): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
@@ -92,7 +91,6 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       jdbcOptions.getSparkFormat(),
-      jdbcOptions.mode,
       jdbcOptions.options
     )
   }

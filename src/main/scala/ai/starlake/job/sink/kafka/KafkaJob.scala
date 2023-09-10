@@ -25,10 +25,10 @@ class KafkaJob(
   val schemaHandler = new SchemaHandler(storageHandler())
 
   private val topicConfig: Option[Settings.KafkaTopicConfig] =
-    kafkaJobConfig.topicConfigName.map(settings.comet.kafka.topics)
+    kafkaJobConfig.topicConfigName.map(settings.appConfig.kafka.topics)
 
   private val writeTopicConfig: Option[Settings.KafkaTopicConfig] =
-    kafkaJobConfig.writeTopicConfigName.map(settings.comet.kafka.topics)
+    kafkaJobConfig.writeTopicConfigName.map(settings.appConfig.kafka.topics)
 
   private val finalWritePath: Option[String] = formatPath(kafkaJobConfig.writePath)
 
@@ -46,14 +46,14 @@ class KafkaJob(
     )
 
   val schemaRegistryUrl: Option[String] =
-    settings.comet.kafka.serverOptions.get("schema.registry.url")
+    settings.appConfig.kafka.serverOptions.get("schema.registry.url")
 
   val schemaRegistryClient: Option[CachedSchemaRegistryClient] =
     schemaRegistryUrl.map(schemaRegistryUrl =>
       new CachedSchemaRegistryClient(
         schemaRegistryUrl,
         128,
-        settings.comet.kafka.serverOptions.asJava
+        settings.appConfig.kafka.serverOptions.asJava
       )
     )
 
@@ -70,7 +70,7 @@ class KafkaJob(
 
   private val writeOptions = kafkaJobConfig.writeOptions.get("config") match {
     case Some(configValue) if kafkaJobConfig.writeFormat == "kafka" =>
-      settings.comet.kafka
+      settings.appConfig.kafka
         .topics(configValue)
         .allAccessOptions() ++ (kafkaJobConfig.writeOptions - "config")
     case Some(configValue) =>
@@ -81,7 +81,7 @@ class KafkaJob(
 
   private val options = kafkaJobConfig.options.get("config") match {
     case Some(configValue) if kafkaJobConfig.format == "kafka" =>
-      settings.comet.kafka
+      settings.appConfig.kafka
         .topics(configValue)
         .allAccessOptions() ++ (kafkaJobConfig.options - "config")
     case Some(configValue) =>
@@ -113,7 +113,7 @@ class KafkaJob(
             writeStreaming(transformedDF)
             SparkJobResult(None)
           } else {
-            Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+            Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
               val (df, offsets) = kafkaClient
                 .consumeTopicBatch(
                   kafkaJobConfig.topicConfigName.getOrElse(""),
@@ -151,7 +151,7 @@ class KafkaJob(
             val transformedDF: DataFrame = transform(df)
             (kafkaJobConfig.writeFormat, writeTopicConfig) match {
               case ("kafka", Some(writeTopicConfig)) =>
-                Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+                Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
                   kafkaClient.sinkToTopic(
                     writeTopicConfig,
                     transformedDF
@@ -284,7 +284,7 @@ class KafkaJob(
   }
 
   override def run(): Try[JobResult] = {
-    val customDeserializers = settings.comet.kafka.customDeserializers.getOrElse(Map.empty)
+    val customDeserializers = settings.appConfig.kafka.customDeserializers.getOrElse(Map.empty)
     customDeserializers.foreach { case (customDeserializerName, customDeserializerFunction) =>
       val topicName = topicConfig
         .map(_.topicName)
@@ -296,7 +296,7 @@ class KafkaJob(
       CustomDeserializer.configure(
         customDeserializerName,
         customDeserializerFunction,
-        settings.comet.kafka.serverOptions
+        settings.appConfig.kafka.serverOptions
       )
 
       session.udf.register(

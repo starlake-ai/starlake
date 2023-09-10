@@ -47,7 +47,8 @@ case class AutoTaskDesc(
   tags: Set[String] = Set.empty,
   merge: Option[MergeOptions] = None,
   schedule: Option[String] = None,
-  _filenamePrefix: String = "" // for internal use. prefix of sql / py file
+  _filenamePrefix: String = "", // for internal use. prefix of sql / py file
+  parseSQL: Option[Boolean] = None
 ) extends Named {
 
   def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
@@ -74,7 +75,8 @@ case class AutoTaskDesc(
       tags = tags ++ child.tags,
       merge = child.merge.orElse(merge),
       schedule = child.schedule.orElse(schedule),
-      _filenamePrefix = child._filenamePrefix
+      _filenamePrefix = child._filenamePrefix,
+      parseSQL = child.parseSQL.orElse(parseSQL)
     )
   }
 
@@ -114,13 +116,13 @@ case class AutoTaskDesc(
 
   def getDatabase(implicit settings: Settings): Option[String] = {
     database
-      .orElse(settings.comet.getDefaultDatabase()) // database passed in env vars
+      .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
   def getEngine(implicit settings: Settings): Engine = {
     val connectionRef =
-      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet
+      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig
       .connection(connectionRef)
       .getOrElse(throw new Exception("Connection not found"))
     connection.getEngine()

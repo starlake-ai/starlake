@@ -46,7 +46,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         // Accepted should have the same data as input
         val resultDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
+            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
 
         logger.info(resultDf.showString(truncate = 0))

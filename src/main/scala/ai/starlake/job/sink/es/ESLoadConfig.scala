@@ -45,7 +45,9 @@ case class ESLoadConfig(
     dataset match {
       case None =>
         Left(
-          new Path(s"${settings.comet.datasets}/${settings.comet.area.accepted}/$domain/$schema")
+          new Path(
+            s"${settings.appConfig.datasets}/${settings.appConfig.area.accepted}/$domain/$schema"
+          )
         )
       case Some(pathOrDF) =>
         pathOrDF
