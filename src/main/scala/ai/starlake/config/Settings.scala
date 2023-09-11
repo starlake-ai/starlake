@@ -116,12 +116,12 @@ object Settings extends StrictLogging {
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
-    def getConnectionRef(implicit settings: Settings): String =
+    def getConnectionRef()(implicit settings: Settings): String =
       this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-    def getSink(implicit settings: Settings) = this.sink.getSink()
+    def getSink()(implicit settings: Settings) = this.sink.getSink()
 
-    def getDatabase(implicit settings: Settings): Option[String] =
+    def getDatabase()(implicit settings: Settings): Option[String] =
       this.database.orElse(settings.appConfig.getDefaultDatabase())
   }
 

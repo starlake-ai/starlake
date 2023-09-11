@@ -70,7 +70,7 @@ object AutoTask extends StrictLogging {
         .map(_.getSink())
         .orElse(Some(AllSinks().getSink())),
       interactive,
-      taskDesc.getDatabase(settings)
+      taskDesc.getDatabase()
     )
   }
 }
@@ -133,7 +133,7 @@ case class AutoTask(
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
       starlakeSchema = Some(Schema.fromTaskDesc(taskDesc)),
-      outputDatabase = taskDesc.getDatabase(settings)
+      outputDatabase = taskDesc.getDatabase()
     )
   }
 
@@ -153,7 +153,7 @@ case class AutoTask(
     if (drop) {
       logger.info(s"Truncating table ${taskDesc.domain}.${taskDesc.table}")
       bqNativeJob("ignore sql").dropTable(
-        taskDesc.getDatabase(settings),
+        taskDesc.getDatabase(),
         taskDesc.domain,
         taskDesc.table
       )
@@ -161,7 +161,7 @@ case class AutoTask(
     logger.info(s"running BQ Query  start time $start")
     val tableExists =
       bqNativeJob("ignore sql").tableExists(
-        taskDesc.getDatabase(settings),
+        taskDesc.getDatabase(),
         taskDesc.domain,
         taskDesc.table
       )
@@ -218,7 +218,7 @@ case class AutoTask(
               storageHandler,
               schemaHandler,
               None,
-              taskDesc.getEngine(settings),
+              taskDesc.getEngine(),
               expectationSql =>
                 bqNativeJob(parseJinja(expectationSql, Map.empty))
                   .runInteractiveQuery()
@@ -258,7 +258,7 @@ case class AutoTask(
             schemaHandler.domains(),
             schemaHandler.tasks(),
             localViews,
-            taskDesc.getEngine(settings)
+            taskDesc.getEngine()
           )
         else
           sql
@@ -269,10 +269,10 @@ case class AutoTask(
               SQLUtils.buildMergeSql(
                 sql,
                 options.key,
-                taskDesc.getDatabase(settings),
+                taskDesc.getDatabase(),
                 taskDesc.domain,
                 taskDesc.table,
-                taskDesc.getEngine(settings),
+                taskDesc.getEngine(),
                 localViews.nonEmpty
               )
             logger.info(s"Merge SQL: $mergeSql")
@@ -285,7 +285,7 @@ case class AutoTask(
                 schemaHandler.domains(),
                 schemaHandler.tasks(),
                 localViews,
-                taskDesc.getEngine(settings)
+                taskDesc.getEngine()
               )
             else
               sql
@@ -444,7 +444,7 @@ case class AutoTask(
         buildAllSQLQueries(tableExists, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${taskDesc.getEngine(settings)}")
+      logger.info(s"running sql request using ${taskDesc.getEngine()}")
       val dataframe = (taskDesc.sql, taskDesc.python) match {
         case (Some(sql), None) =>
           Some(loadSparkQuery(sqlWithParameters))
@@ -472,7 +472,7 @@ case class AutoTask(
               storageHandler,
               schemaHandler,
               Some(dataframe),
-              taskDesc.getEngine(settings),
+              taskDesc.getEngine(),
               sql => session.sql(sql).count()
             ).run()
           }
@@ -565,7 +565,7 @@ case class AutoTask(
       end.getTime - start.getTime,
       message,
       Step.TRANSFORM.toString,
-      taskDesc.getDatabase(settings),
+      taskDesc.getDatabase(),
       settings.appConfig.tenant
     )
     AuditLog.sink(optionalAuditSession, log)
