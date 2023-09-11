@@ -392,7 +392,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         assert(loadPending)
 
         val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-          settings.appConfig.audit.getConnectionRef(settings),
+          settings.appConfig.audit.getConnectionRef(),
           settings.appConfig,
           Left("ignore"),
           settings.appConfig.audit.domain.getOrElse("audit") + ".discrete",

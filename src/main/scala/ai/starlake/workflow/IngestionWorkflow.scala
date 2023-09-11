@@ -710,7 +710,7 @@ class IngestionWorkflow(
     schemaHandler.tasks(transformConfig.reload)
     val result: Boolean = {
       val action = buildTask(transformConfig)
-      val engine = action.taskDesc.getEngine(settings)
+      val engine = action.taskDesc.getEngine()
       logger.info(s"running with config $transformConfig")
 
       engine match {
@@ -722,7 +722,7 @@ class IngestionWorkflow(
               val sink = action.taskDesc.sink.map(_.getSink())
               logger.info(s"BQ Job succeeded. sinking data to $sink")
               sink match {
-                case Some(sink) if sink.getConnectionType(settings) == ConnectionType.BQ =>
+                case Some(sink) if sink.getConnectionType() == ConnectionType.BQ =>
                   logger.info("Sinking to BQ done")
                 case _ =>
                   // TODO Sinking not supported
@@ -987,7 +987,7 @@ class IngestionWorkflow(
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
               val config = BigQueryLoadConfig(
-                connectionRef = Some(metadata.getConnectionRef(settings)),
+                connectionRef = Some(metadata.getConnectionRef()),
                 outputTableId = Some(
                   BigQueryJobBase
                     .extractProjectDatasetAndTable(database, domain.name, schema.finalName)

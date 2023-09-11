@@ -105,7 +105,7 @@ case class Metadata(
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
-  def getSink(implicit settings: Settings): Sink = {
+  def getSink()(implicit settings: Settings): Sink = {
     sink.map(_.getSink()).getOrElse(AllSinks().getSink())
   }
 
@@ -160,7 +160,7 @@ case class Metadata(
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite(implicit settings: Settings): WriteMode =
+  def getWrite()(implicit settings: Settings): WriteMode =
     getFinalValue(write, APPEND)
 
   @JsonIgnore
@@ -195,11 +195,11 @@ case class Metadata(
   }
 
   @JsonIgnore
-  def getConnectionRef(implicit settings: Settings): String =
-    getSink(settings).connectionRef.getOrElse(settings.appConfig.connectionRef)
+  def getConnectionRef()(implicit settings: Settings): String =
+    getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
-  def getEngine(implicit settings: Settings): Engine = {
+  def getEngine()(implicit settings: Settings): Engine = {
     val connection = settings.appConfig.connections(getConnectionRef)
     connection.getEngine()
   }
