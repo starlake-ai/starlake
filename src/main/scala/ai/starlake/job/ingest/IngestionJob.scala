@@ -358,10 +358,10 @@ trait IngestionJob extends SparkJob {
   }
 
   def applySecondStepSQL(
-                          bigqueryJob: BigQueryNativeJob,
-                          firstStepTempTableId: TableId,
-                          targetTableId: TableId,
-                          schema: Schema
+    bigqueryJob: BigQueryNativeJob,
+    firstStepTempTableId: TableId,
+    targetTableId: TableId,
+    schema: Schema
   ): Try[BigQueryJobResult] = {
     val tempTable =
       s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
@@ -373,18 +373,16 @@ trait IngestionJob extends SparkJob {
     val enrichedTempTable =
       s"""
          |(
-         | SELECT *, '${
-        sourceUris.replace(
+         | SELECT *, '${sourceUris.replace(
           "'",
           "\\'"
-        )
-      }' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
+        )}' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
          |)
          |""".stripMargin
 
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
-    schema.merge match {
+    val sql = schema.merge match {
       case Some(mergeOptions: MergeOptions) =>
         val targetFilters =
           (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
@@ -430,7 +428,7 @@ trait IngestionJob extends SparkJob {
                     case _ =>
                       val inPartitions = allPartitions.map(date =>
                         f"'$date'"
-                      ) mkString(f"date(`$partition`) IN (", ",", ")")
+                      ) mkString (f"date(`$partition`) IN (", ",", ")")
                       List(inPartitions)
                   }
                 )
@@ -446,14 +444,13 @@ trait IngestionJob extends SparkJob {
           updateTargetFilters,
           finalDynamicPartitionOverwrite
         )
-        logger.info(s"buildSqlMerge: $sql")
-        val destinationTable = if (finalDynamicPartitionOverwrite) None else Some(targetTableId)
-        bigqueryJob.runInteractiveQuery(Some(sql), destinationTable)
+        sql
       case None =>
         val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
-        logger.info(s"buildSqlSelect: $sql")
-        bigqueryJob.RunAndSinkAsTable(Some(sql))
+        sql
     }
+    logger.info(s"buildSqlSelect: $sql")
+    bigqueryJob.RunAndSinkAsTable(Some(sql))
   }
 
   private def applySecondStep(
@@ -703,7 +700,7 @@ trait IngestionJob extends SparkJob {
     val partitionOverwriteMode = {
       sink.dynamicPartitionOverwrite
         .map {
-          case true => "static"
+          case true  => "static"
           case false => "dynamic"
         }
         .getOrElse(
@@ -817,7 +814,7 @@ trait IngestionJob extends SparkJob {
             val sinkOptions = fsSink.options.orElse(None)
             val dynamicPartitionOverwrite = fsSink.dynamicPartitionOverwrite
               .map {
-                case true => Map("partitionOverwriteMode" -> "dynamic")
+                case true  => Map("partitionOverwriteMode" -> "dynamic")
                 case false => Map("partitionOverwriteMode" -> "static")
               }
               .getOrElse(Map.empty)
@@ -1182,7 +1179,7 @@ trait IngestionJob extends SparkJob {
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         mergedMetadata.getSink(settings) match {
           case sink: BigQuerySink => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
-          case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+          case _                  => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
       }
 
@@ -1331,10 +1328,10 @@ trait IngestionJob extends SparkJob {
   }
 
   private def bqSink(
-                      mergedDF: DataFrame,
-                      partitionsToUpdate: List[String],
-                      sink: BigQuerySink
-                    ): DataFrame = {
+    mergedDF: DataFrame,
+    partitionsToUpdate: List[String],
+    sink: BigQuerySink
+  ): DataFrame = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(settings),
       schema.merge.exists(_.key.nonEmpty)
