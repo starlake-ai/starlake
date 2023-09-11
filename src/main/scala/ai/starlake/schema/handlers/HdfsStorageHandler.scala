@@ -27,17 +27,17 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.OutputStream
+import java.io.{InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 /** HDFS Filesystem Handler
-  */
+ */
 class HdfsStorageHandler(fileSystem: String)(implicit
-  settings: Settings
+                                             settings: Settings
 ) extends StorageHandler {
 
   private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
@@ -55,7 +55,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       case None =>
         logger.warn(
           s"temporaryGcsBucket is not set, using $bucket as temporary bucket. " +
-          s"Please set temporaryGcsBucket to a different bucket if you want to use a different one."
+            s"Please set temporaryGcsBucket to a different bucket if you want to use a different one."
         )
         bucketName
     }
@@ -229,12 +229,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** Gets the outputstream given a path
-    *
-    * @param path
-    *   : path
-    * @return
-    *   FSDataOutputStream
-    */
+   *
+   * @param path
+   * : path
+   * @return
+   * FSDataOutputStream
+   */
   private def getOutputStream(path: Path): OutputStream = {
     val currentFS = fs(path)
     currentFS.delete(path, false)
@@ -243,27 +243,40 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** Read a UTF-8 text file into a string used to load yml configuration files
-    *
-    * @param path
-    *   : Absolute file path
-    * @return
-    *   file content as a string
-    */
+   *
+   * @param path
+   * : Absolute file path
+   * @return
+   * file content as a string
+   */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    readAndExecute(path, charset) { is =>
+      IOUtils.toString(is)
+    }
+  }
+
+  /** read input stream and do something with input
+   *
+   * @param path
+   * : Absolute file path
+   * @return
+   * file content as a string
+   */
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(action: InputStreamReader => T): T = {
     val currentFS = fs(path)
-    val stream = currentFS.open(path)
-    val content = IOUtils.toString(stream, "UTF-8")
-    stream.close()
-    content
+    val output: T = Using.resource(new InputStreamReader(currentFS.open(path), charset)) { stream =>
+      action(stream)
+    }
+    output
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
-    *
-    * @param data
-    *   file content as a string
-    * @param path
-    *   : Absolute file path
-    */
+   *
+   * @param data
+   * file content as a string
+   * @param path
+   * : Absolute file path
+   */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
     val os: FSDataOutputStream = getOutputStream(path).asInstanceOf[FSDataOutputStream]
     os.write(data.getBytes(charset))
@@ -271,12 +284,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** Write bytes to binary file. Used for zip / gzip input test files.
-    *
-    * @param data
-    *   file content as a string
-    * @param path
-    *   : Absolute file path
-    */
+   *
+   * @param data
+   * file content as a string
+   * @param path
+   * : Absolute file path
+   */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
     val os: OutputStream = getOutputStream(path)
     os.write(data, 0, data.length)
@@ -289,27 +302,27 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** List all files in folder
-    *
-    * @param path
-    *   Absolute folder path
-    * @param extension
-    *   : Files should end with this string. To list all files, simply provide an empty string
-    * @param since
-    *   Minimum modification time of liste files. To list all files, simply provide the beginning of
-    *   all times
-    * @param recursive:
-    *   List all files recursively ?
-    * @return
-    *   List of Path
-    */
+   *
+   * @param path
+   *                  Absolute folder path
+   * @param extension
+   *                  : Files should end with this string. To list all files, simply provide an empty string
+   * @param since
+   *                  Minimum modification time of liste files. To list all files, simply provide the beginning of
+   *                  all times
+   * @param recursive :
+   *                  List all files recursively ?
+   * @return
+   * List of Path
+   */
   def list(
-    path: Path,
-    extension: String,
-    since: LocalDateTime,
-    recursive: Boolean,
-    exclude: Option[Pattern],
-    sortByName: Boolean = false
-  ): List[Path] = {
+            path: Path,
+            extension: String,
+            since: LocalDateTime,
+            recursive: Boolean,
+            exclude: Option[Pattern],
+            sortByName: Boolean = false
+          ): List[Path] = {
     val currentFS = fs(path)
     logger.info(s"list($path, $extension, $since)")
     Try {
@@ -344,24 +357,25 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** Copy file
-    * @param src
-    *   source path
-    * @param dst
-    *   destination path
-    * @return
-    */
+   *
+   * @param src
+   * source path
+   * @param dst
+   * destination path
+   * @return
+   */
   override def copy(src: Path, dst: Path): Boolean = {
     FileUtil.copy(fs(src), src, fs(dst), dst, false, conf)
   }
 
   /** Move file
-    *
-    * @param src
-    *   source path (file or folder)
-    * @param dest
-    *   destination path (file or folder)
-    * @return
-    */
+   *
+   * @param src
+   * source path (file or folder)
+   * @param dest
+   * destination path (file or folder)
+   * @return
+   */
   def move(src: Path, dest: Path): Boolean = {
     val currentFS = fs(src)
     delete(dest)
@@ -370,56 +384,57 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** delete file (skip trash)
-    *
-    * @param path
-    *   : Absolute path of file to delete
-    */
+   *
+   * @param path
+   * : Absolute path of file to delete
+   */
   def delete(path: Path): Boolean = {
     val currentFS = fs(path)
     currentFS.delete(path, true)
   }
 
   /** Create folder if it does not exsit including any intermediary non existent folder
-    *
-    * @param path
-    *   Absolute path of folder to create
-    */
+   *
+   * @param path
+   * Absolute path of folder to create
+   */
   def mkdirs(path: Path): Boolean = {
     val currentFS = fs(path)
     currentFS.mkdirs(path)
   }
 
   /** Copy file from local filesystem to target file system
-    *
-    * @param source
-    *   Local file path
-    * @param dest
-    *   destination file path
-    */
+   *
+   * @param source
+   * Local file path
+   * @param dest
+   * destination file path
+   */
   def copyFromLocal(source: Path, dest: Path): Unit = {
     val currentFS = fs(source)
     currentFS.copyFromLocalFile(source, dest)
   }
 
   /** Copy file to local filesystem from remote file system
-    *
-    * @param source
-    *   Remote file path
-    * @param dest
-    *   Local file path
-    */
+   *
+   * @param source
+   * Remote file path
+   * @param dest
+   * Local file path
+   */
   def copyToLocal(source: Path, dest: Path): Unit = {
     val currentFS = fs(source)
     currentFS.copyToLocalFile(source, dest)
   }
 
   /** Move file from local filesystem to target file system If source FS Scheme is not "file" then
-    * issue a regular move
-    * @param source
-    *   Local file path
-    * @param dest
-    *   destination file path
-    */
+   * issue a regular move
+   *
+   * @param source
+   * Local file path
+   * @param dest
+   * destination file path
+   */
   def moveFromLocal(source: Path, dest: Path): Unit = {
     val currentFS = fs(source)
     if (currentFS.getScheme() == "file")

@@ -24,6 +24,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
+import java.io.InputStreamReader
 import java.nio.charset.Charset.defaultCharset
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.LocalDateTime
@@ -32,7 +33,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /** Interface required by any filesystem manager
-  */
+ */
 trait StorageHandler extends StrictLogging {
 
   def move(src: Path, dst: Path): Boolean
@@ -64,6 +65,8 @@ trait StorageHandler extends StrictLogging {
 
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String
 
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(action: InputStreamReader => T): T
+
   def write(data: String, path: Path)(implicit charset: Charset = defaultCharset): Unit
 
   def writeBinary(data: Array[Byte], path: Path): Unit
@@ -71,13 +74,13 @@ trait StorageHandler extends StrictLogging {
   def listDirectories(path: Path): List[Path]
 
   def list(
-    path: Path,
-    extension: String = "",
-    since: LocalDateTime = LocalDateTime.MIN,
-    recursive: Boolean,
-    exclude: Option[Pattern] = None,
-    sortByName: Boolean = false // sort by time by default
-  ): List[Path]
+            path: Path,
+            extension: String = "",
+            since: LocalDateTime = LocalDateTime.MIN,
+            recursive: Boolean,
+            exclude: Option[Pattern] = None,
+            sortByName: Boolean = false // sort by time by default
+          ): List[Path]
 
   def blockSize(path: Path): Long
 

@@ -22,11 +22,12 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import better.files.File
+import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.OutputStream
+import java.io.{InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -34,10 +35,10 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 /** HDFS Filesystem Handler
-  */
+ */
 class LocalStorageHandler(implicit
-  settings: Settings
-) extends StorageHandler {
+                          settings: Settings
+                         ) extends StorageHandler {
 
   import LocalStorageHandler._
 
@@ -46,12 +47,12 @@ class LocalStorageHandler(implicit
   def lockRefreshPollTime: FiniteDuration = settings.appConfig.lock.refreshTime
 
   /** Gets the outputstream given a path
-    *
-    * @param path
-    *   : path
-    * @return
-    *   FSDataOutputStream
-    */
+   *
+   * @param path
+   * : path
+   * @return
+   * FSDataOutputStream
+   */
   private def getOutputStream(path: Path): OutputStream = {
     val file = localFile(path)
     file.delete(true)
@@ -59,24 +60,39 @@ class LocalStorageHandler(implicit
   }
 
   /** Read a UTF-8 text file into a string used to load yml configuration files
-    *
-    * @param path
-    *   : Absolute file path
-    * @return
-    *   file content as a string
-    */
+   *
+   * @param path
+   * : Absolute file path
+   * @return
+   * file content as a string
+   */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    readAndExecute(path, charset) { is =>
+      IOUtils.toString(is)
+    }
+  }
+
+  /** read input stream and do something with input
+   *
+   * @param path
+   * : Absolute file path
+   * @return
+   * file content as a string
+   */
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(action: InputStreamReader => T): T = {
     val file = localFile(path)
-    file.contentAsString(charset)
+    file.fileInputStream.map { is =>
+      action(new InputStreamReader(is, charset))
+    }.get()
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
-    *
-    * @param data
-    *   file content as a string
-    * @param path
-    *   : Absolute file path
-    */
+   *
+   * @param data
+   * file content as a string
+   * @param path
+   * : Absolute file path
+   */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
     val file = localFile(path)
     file.parent.createDirectories()
@@ -84,12 +100,12 @@ class LocalStorageHandler(implicit
   }
 
   /** Write bytes to binary file. Used for zip / gzip input test files.
-    *
-    * @param data
-    *   file content as a string
-    * @param path
-    *   : Absolute file path
-    */
+   *
+   * @param data
+   * file content as a string
+   * @param path
+   * : Absolute file path
+   */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
     val file = localFile(path)
     file.parent.createDirectories()
@@ -102,27 +118,27 @@ class LocalStorageHandler(implicit
   }
 
   /** List all files in folder
-    *
-    * @param path
-    *   Absolute folder path
-    * @param extension
-    *   : Files should end with this string. To list all files, simply provide an empty string
-    * @param since
-    *   Minimum modification time of liste files. To list all files, simply provide the beginning of
-    *   all times
-    * @param recursive
-    *   : List all files recursively ?
-    * @return
-    *   List of Path
-    */
+   *
+   * @param path
+   * Absolute folder path
+   * @param extension
+   * : Files should end with this string. To list all files, simply provide an empty string
+   * @param since
+   * Minimum modification time of liste files. To list all files, simply provide the beginning of
+   * all times
+   * @param recursive
+   * : List all files recursively ?
+   * @return
+   * List of Path
+   */
   def list(
-    path: Path,
-    extension: String,
-    since: LocalDateTime,
-    recursive: Boolean,
-    exclude: Option[Pattern],
-    sortByName: Boolean = false // sort by time by default
-  ): List[Path] = {
+            path: Path,
+            extension: String,
+            since: LocalDateTime,
+            recursive: Boolean,
+            exclude: Option[Pattern],
+            sortByName: Boolean = false // sort by time by default
+          ): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
     Try {
       if (exists(path)) {
@@ -161,12 +177,13 @@ class LocalStorageHandler(implicit
   }
 
   /** Copy file
-    * @param src
-    *   source path
-    * @param dest
-    *   destination path
-    * @return
-    */
+   *
+   * @param src
+   * source path
+   * @param dest
+   * destination path
+   * @return
+   */
   override def copy(src: Path, dest: Path): Boolean = {
     val fsrc = localFile(src)
     val fdest = localFile(dest)
@@ -176,13 +193,13 @@ class LocalStorageHandler(implicit
   }
 
   /** Move file
-    *
-    * @param src
-    *   source path (file or folder)
-    * @param dest
-    *   destination path (file or folder)
-    * @return
-    */
+   *
+   * @param src
+   * source path (file or folder)
+   * @param dest
+   * destination path (file or folder)
+   * @return
+   */
   def move(src: Path, dest: Path): Boolean = {
     val fsrc = localFile(src)
     val fdest = localFile(dest)
@@ -193,10 +210,10 @@ class LocalStorageHandler(implicit
   }
 
   /** delete file (skip trash)
-    *
-    * @param path
-    *   : Absolute path of file to delete
-    */
+   *
+   * @param path
+   * : Absolute path of file to delete
+   */
   def delete(path: Path): Boolean = {
     val file = localFile(path)
     file.delete(true)
@@ -204,10 +221,10 @@ class LocalStorageHandler(implicit
   }
 
   /** Create folder if it does not exsit including any intermediary non existent folder
-    *
-    * @param path
-    *   Absolute path of folder to create
-    */
+   *
+   * @param path
+   * Absolute path of folder to create
+   */
   def mkdirs(path: Path): Boolean = {
     val file = localFile(path)
     file.createDirectories()
@@ -215,12 +232,12 @@ class LocalStorageHandler(implicit
   }
 
   /** Copy file from local filesystem to target file system
-    *
-    * @param source
-    *   Local file path
-    * @param dest
-    *   destination file path
-    */
+   *
+   * @param source
+   * Local file path
+   * @param dest
+   * destination file path
+   */
   def copyFromLocal(src: Path, dest: Path): Unit = {
     val fsrc = localFile(src)
     val fdest = localFile(dest)
@@ -231,22 +248,22 @@ class LocalStorageHandler(implicit
   }
 
   /** Copy file to local filesystem from remote file system
-    *
-    * @param source
-    *   Remote file path
-    * @param dest
-    *   Local file path
-    */
+   *
+   * @param source
+   * Remote file path
+   * @param dest
+   * Local file path
+   */
   def copyToLocal(src: Path, dest: Path): Unit = copyFromLocal(src, dest)
 
   /** Move file from local filesystem to target file system If source FS Scheme is not "file" then
-    * issue a regular move
-    *
-    * @param source
-    *   Local file path
-    * @param dest
-    *   destination file path
-    */
+   * issue a regular move
+   *
+   * @param source
+   * Local file path
+   * @param dest
+   * destination file path
+   */
   def moveFromLocal(source: Path, dest: Path): Unit = {
     this.move(source, dest)
   }
