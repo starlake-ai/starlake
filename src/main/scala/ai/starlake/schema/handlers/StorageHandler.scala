@@ -33,7 +33,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /** Interface required by any filesystem manager
- */
+  */
 trait StorageHandler extends StrictLogging {
 
   def move(src: Path, dst: Path): Boolean
@@ -65,7 +65,9 @@ trait StorageHandler extends StrictLogging {
 
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String
 
-  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(action: InputStreamReader => T): T
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
+    action: InputStreamReader => T
+  ): T
 
   def write(data: String, path: Path)(implicit charset: Charset = defaultCharset): Unit
 
@@ -74,13 +76,13 @@ trait StorageHandler extends StrictLogging {
   def listDirectories(path: Path): List[Path]
 
   def list(
-            path: Path,
-            extension: String = "",
-            since: LocalDateTime = LocalDateTime.MIN,
-            recursive: Boolean,
-            exclude: Option[Pattern] = None,
-            sortByName: Boolean = false // sort by time by default
-          ): List[Path]
+    path: Path,
+    extension: String = "",
+    since: LocalDateTime = LocalDateTime.MIN,
+    recursive: Boolean,
+    exclude: Option[Pattern] = None,
+    sortByName: Boolean = false // sort by time by default
+  ): List[Path]
 
   def blockSize(path: Path): Long
 
