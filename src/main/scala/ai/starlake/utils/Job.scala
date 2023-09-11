@@ -78,7 +78,7 @@ trait SparkJob extends JobBase {
 
   lazy val optionalAuditSession: Option[SparkSession] = {
 
-    if (settings.appConfig.audit.sink.getSink().getConnectionType(settings) == ConnectionType.BQ)
+    if (settings.appConfig.audit.sink.getSink().getConnectionType() == ConnectionType.BQ)
       None
     else Some(session)
   }

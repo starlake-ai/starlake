@@ -136,7 +136,7 @@ class ExpectationJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       new SinkUtils().sinkInAudit(
-        settings.appConfig.audit.sink.getSink().getConnectionType(settings),
+        settings.appConfig.audit.sink.getSink().getConnectionType(),
         expectationsDF,
         "expectations",
         Some("Expectation results"),

@@ -248,7 +248,7 @@ object AuditLog extends StrictLogging {
   }
 
   private def getDatabase()(implicit settings: Settings): Option[String] =
-    settings.appConfig.audit.getDatabase(settings)
+    settings.appConfig.audit.getDatabase()
 
   def sinkToBigQuery(
     log: AuditLog,

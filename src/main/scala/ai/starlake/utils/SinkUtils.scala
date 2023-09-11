@@ -50,7 +50,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         Try {
           sinkToBigQuery(
             dataframe,
-            settings.appConfig.audit.getDatabase(settings),
+            settings.appConfig.audit.getDatabase(),
             settings.appConfig.audit.domain.getOrElse("audit"),
             table,
             maybeTableDescription,

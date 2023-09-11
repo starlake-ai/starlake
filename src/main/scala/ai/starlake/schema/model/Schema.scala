@@ -499,17 +499,17 @@ case class Schema(
   }
 
   /** @param table
-   * table to add field to
-   * @param sourceTableFilter
-   * filter applied after transformation and before field removal
-   * @return
-   * query
-   */
+    *   table to add field to
+    * @param sourceTableFilter
+    *   filter applied after transformation and before field removal
+    * @return
+    *   query
+    */
   def buildSqlSelect(
-                      table: String,
-                      sourceTableFilter: Option[String],
-                      columnSuffixOpt: Option[String] = None
-                    ): String = {
+    table: String,
+    sourceTableFilter: Option[String],
+    columnSuffixOpt: Option[String] = None
+  ): String = {
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -552,7 +552,7 @@ case class Schema(
     }
     val sourceTableFilterSQL = sourceTableFilter match {
       case Some(filter) => s"WHERE $filter"
-      case None => ""
+      case None         => ""
 
     }
     s"""
@@ -574,7 +574,7 @@ case class Schema(
     updateTargetFilters: List[String],
     partitionOverwrite: Boolean,
     suffixOutputColumn: Option[String] = None
-                   ): String = {
+  ): String = {
     val sourceColumnPrefix = "__INTERNAL"
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
@@ -584,7 +584,7 @@ case class Schema(
 
     val targetTableFilterSQL = targetTableFilters match {
       case Nil => ""
-      case _ => targetTableFilters.mkString(" AND ")
+      case _   => targetTableFilters.mkString(" AND ")
     }
 
     if (partitionOverwrite) { // similar to dynamic mode in spark
@@ -609,7 +609,7 @@ case class Schema(
         .mkString(",")
       val updateTargetFiltersSQL = updateTargetFilters match {
         case Nil => ""
-        case _ => updateTargetFilters.mkString(" AND ")
+        case _   => updateTargetFilters.mkString(" AND ")
       }
       val inputData = buildSqlMerge(
         sourceTable,
@@ -628,14 +628,12 @@ case class Schema(
       // keys not matched by source in target partition are deleted
       // similar to dynamic partition overwrite behavior
       val finalNotMatchedBySource =
-      if (updateTargetFiltersSQL.isEmpty) ""
-      else s"WHEN NOT MATCHED BY SOURCE AND $updateTargetFiltersSQL THEN DELETE"
+        if (updateTargetFiltersSQL.isEmpty) ""
+        else s"WHEN NOT MATCHED BY SOURCE AND $updateTargetFiltersSQL THEN DELETE"
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
-      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON ${
-        joinKeySQL
-          .mkString(" AND ")
-      } $joinAdditionalClauseSQL
+      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON ${joinKeySQL
+          .mkString(" AND ")} $joinAdditionalClauseSQL
          |WHEN MATCHED $joinAdditionalClauseSQL THEN UPDATE SET $matchedUpdatedSql
          |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
          |$finalNotMatchedBySource""".stripMargin
@@ -646,7 +644,7 @@ case class Schema(
         .map { attribute =>
           val renameAttribute = suffixOutputColumn match {
             case Some(_) => f" AS `${attribute.getFinalName()}$effectiveSuffixOutputColumn`"
-            case None => ""
+            case None    => ""
           }
           s"`${attribute.getFinalName()}`$renameAttribute"
         }

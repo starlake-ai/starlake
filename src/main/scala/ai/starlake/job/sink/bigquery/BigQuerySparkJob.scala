@@ -176,7 +176,7 @@ class BigQuerySparkJob(
         else
           cliConfig.dynamicPartitionOverwrite
             .map {
-              case true => "dynamic"
+              case true  => "dynamic"
               case false => "static"
             }
             .getOrElse(
