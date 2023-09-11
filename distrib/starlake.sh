@@ -5,15 +5,15 @@ SL_ROOT="${SL_ROOT:-`pwd`}"
 SCALA_VERSION=2.12
 SPARK_VERSION="${SPARK_VERSION:-3.4.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
-SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.32.0}"
+SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.32.2}"
 SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
 SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
 SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
-
+#SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 SKIP_INSTALL=1
-export SL_ENV="${SL_ENV:-FS}"
+
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
@@ -163,7 +163,7 @@ else
   SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
 fi
 
-if [[ "$SL_DEFAULT_VALIDATOR" == "native" ]]
+if [[ "$SL_DEFAULT_LOADER" == "native" ]]
 then
   SL_ROOT=$SL_ROOT java \
                       --add-opens=java.base/java.lang=ALL-UNNAMED \
@@ -184,7 +184,7 @@ then
                       -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
 else
   SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-  SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
+  SL_ROOT=$SL_ROOT $SPARK_SUBMIT $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
 fi
 
 

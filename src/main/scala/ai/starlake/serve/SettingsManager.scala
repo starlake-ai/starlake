@@ -56,7 +56,7 @@ object SettingsManager {
     outFile.createDirectoryIfNotExists()
 
     gcpProject.foreach { gcpProject =>
-      sysProps.setProperty("SL_DATABASE", gcpProject)
+      sysProps.setProperty("database", gcpProject)
     }
     val currentSettings = settingsMap.getOrElse(
       sessionId, {

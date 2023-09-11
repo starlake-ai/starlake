@@ -58,7 +58,7 @@ object BigQueryDatasetInfo {
       info.getDescription(),
       info.getDefaultTableLifetime(),
       logTime,
-      settings.comet.tenant
+      settings.appConfig.tenant
     )
 }
 
@@ -95,7 +95,7 @@ object BigQueryTableInfo extends StrictLogging {
       info.getNumRows().longValue(),
       info.getRequirePartitionFilter(),
       logTime,
-      settings.comet.tenant
+      settings.appConfig.tenant
     )
   def sink(config: BigQueryTablesConfig)(implicit iSettings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)

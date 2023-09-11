@@ -94,12 +94,14 @@ class InferSchemaJobSpec extends TestHelper {
         } {
           sourceFile.overwrite(inputData)
           inferSchemaJob.infer(
-            "locations",
-            "flat_locations",
-            sourceFile.pathAsString,
-            targetDir.pathAsString,
-            true,
-            None
+            domainName = "locations",
+            schemaName = "flat_locations",
+            pattern = None,
+            comment = None,
+            dataPath = sourceFile.pathAsString,
+            saveDir = targetDir.pathAsString,
+            withHeader = true,
+            forceFormat = None
           )
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.comet.yml")

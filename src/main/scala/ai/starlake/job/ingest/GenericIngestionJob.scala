@@ -103,7 +103,7 @@ class GenericIngestionJob(
 
   class LastExportDateRequest(domainName: String, schemaName: String)
       extends SQlRequest[java.sql.Timestamp] {
-    val auditSchema = settings.comet.audit.domain.getOrElse("audit")
+    val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
     val queryString =
       s"SELECT max(timestamp) FROM $auditSchema.SL_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
     def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
@@ -150,7 +150,7 @@ class GenericIngestionJob(
     row: DeltaRow
   ): Try[PreparedStatement] = {
     Try {
-      val auditSchema = settings.comet.audit.domain.getOrElse("audit")
+      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
       val sqlInsert =
         s"insert into $auditSchema.SL_LAST_EXPORT(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
       val preparedStatement = conn.prepareStatement(sqlInsert)
@@ -168,7 +168,7 @@ class GenericIngestionJob(
   }
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
-    * defined in the schema are dropped fro the dataset (require datsets with a header)
+    * defined in the schema are dropped from the dataset (require datsets with a header)
     *
     * @return
     *   Spark Dataset
@@ -302,10 +302,10 @@ class GenericIngestionJob(
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes,
-      settings.comet.privacy.options,
-      settings.comet.cacheStorageLevel,
-      settings.comet.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
     saveRejected(validationResult.errors, validationResult.rejected).map { _ =>

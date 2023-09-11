@@ -11,13 +11,13 @@ object Project {
 
   def compare(project1Path: Path, project2Path: Path)(implicit settings: Settings): ProjectDiff = {
     val settings1 =
-      settings.copy(comet =
-        settings.comet.copy(metadata = new Path(project1Path, "metadata").toString)
+      settings.copy(appConfig =
+        settings.appConfig.copy(metadata = new Path(project1Path, "metadata").toString)
       )
 
     val settings2 =
-      settings.copy(comet =
-        settings.comet.copy(metadata = new Path(project2Path, "metadata").toString)
+      settings.copy(appConfig =
+        settings.appConfig.copy(metadata = new Path(project2Path, "metadata").toString)
       )
 
     val schemaHandler1 = new SchemaHandler(settings1.storageHandler())(settings1)

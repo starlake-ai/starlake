@@ -32,7 +32,7 @@ object BigQuerySparkWriter extends StrictLogging {
     settings: Settings
   ): Try[Unit] = {
     Try {
-      settings.comet.audit.sink.getSink() match {
+      settings.appConfig.audit.sink.getSink() match {
         case sink: BigQuerySink =>
           val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
           val (createDisposition, writeDisposition) = {
@@ -40,17 +40,17 @@ object BigQuerySparkWriter extends StrictLogging {
           }
           val bqLoadConfig =
             BigQueryLoadConfig(
-              connectionRef = Some(settings.comet.audit.getConnectionRef(settings)),
+              connectionRef = Some(settings.appConfig.audit.getConnectionRef(settings)),
               source = source,
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(
-                    settings.comet.audit.getDatabase(settings),
-                    settings.comet.audit.domain.getOrElse("audit"),
+                    settings.appConfig.audit.getDatabase(settings),
+                    settings.appConfig.audit.domain.getOrElse("audit"),
                     tableName
                   )
               ),
-              sourceFormat = settings.comet.defaultFormat,
+              sourceFormat = settings.appConfig.defaultFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
               outputPartition = sink.timestamp,
@@ -59,7 +59,7 @@ object BigQuerySparkWriter extends StrictLogging {
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
               rls = Nil,
               acl = Nil,
-              outputDatabase = settings.comet.audit.getDatabase(settings)
+              outputDatabase = settings.appConfig.audit.getDatabase(settings)
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,

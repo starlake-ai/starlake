@@ -49,7 +49,7 @@ class MetricsJob(
 
   def lockPath(path: String): Path = {
     new Path(
-      settings.comet.lock.path,
+      settings.appConfig.lock.path,
       "metrics" + path
         .replace("{{domain}}", domain.name)
         .replace("{{schema}}", schema.name)
@@ -153,7 +153,7 @@ class MetricsJob(
   override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame =
-      session.read.format(settings.comet.defaultFormat).load(datasetPath.toString)
+      session.read.format(settings.appConfig.defaultFormat).load(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
@@ -187,14 +187,14 @@ class MetricsJob(
     val combinedResult = metricsToSave.map { case (df, table) =>
       df match {
         case Some(df) =>
-          settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
+          settings.appConfig.internal.foreach(in => df.persist(in.cacheStorageLevel))
           new SinkUtils().sinkInAudit(
-            settings.comet.audit.sink.getSink().getConnectionType(settings),
+            settings.appConfig.audit.sink.getSink().getConnectionType(settings),
             df,
             table.toString,
             Some("Metrics on tables"),
             new Path(savePath, table.toString),
-            lockPath(settings.comet.metrics.path),
+            lockPath(settings.appConfig.metrics.path),
             storageHandler,
             SPARK,
             session

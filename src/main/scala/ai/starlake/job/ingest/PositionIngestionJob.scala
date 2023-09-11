@@ -56,7 +56,7 @@ class PositionIngestionJob(
     extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
-    * defined in the schema are dropped fro the dataset (require datsets with a header)
+    * defined in the schema are dropped from the dataset (require datsets with a header)
     *
     * @return
     *   Spark DataFrame where each row holds a single string
@@ -78,13 +78,7 @@ class PositionIngestionJob(
       }
 
       val df = applyIgnore(dfIn)
-
-      mergedMetadata.withHeader match {
-        case Some(true) =>
-          throw new Exception("No Header allowed for Position File Format ")
-        case Some(false) | None =>
-          df
-      }
+      df
     }
   }
 
@@ -109,10 +103,10 @@ class PositionIngestionJob(
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes,
-      settings.comet.privacy.options,
-      settings.comet.cacheStorageLevel,
-      settings.comet.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
     saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
       saveAccepted(validationResult)

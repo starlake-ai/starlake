@@ -50,10 +50,10 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
   logger.info(s"cliConfig=$cliConfig")
   lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
-    .orElse(Some(settings.comet.connectionRef))
+    .orElse(Some(settings.appConfig.connectionRef))
 
   lazy val connectionRef: scala.Option[Settings.Connection] =
-    connectionName.flatMap(name => settings.comet.connections.get(name))
+    connectionName.flatMap(name => settings.appConfig.connections.get(name))
 
   lazy val connectionOptions: Map[String, String] =
     connectionRef.map(_.options).getOrElse(Map.empty)
@@ -68,7 +68,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   private def bigQueryCredentials(): Credentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions
@@ -100,7 +100,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   @nowarn
   private def gcsCredentials(): GcsCredentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials fro GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions
@@ -221,7 +221,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
-      if (forceApply || settings.comet.accessPolicies.apply) {
+      if (forceApply || settings.appConfig.accessPolicies.apply) {
         cliConfig.outputTableId match {
           case None =>
             throw new RuntimeException("TableId must be defined in order to apply access policies.")
@@ -305,13 +305,13 @@ trait BigQueryJobBase extends StrictLogging {
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
     val taxonomyProjectId =
-      if (settings.comet.accessPolicies.database == "invalid_project") {
+      if (settings.appConfig.accessPolicies.database == "invalid_project") {
         this.projectId
       } else
-        settings.comet.accessPolicies.database
+        settings.appConfig.accessPolicies.database
 
-    val location = settings.comet.accessPolicies.location
-    val taxonomy = settings.comet.accessPolicies.taxonomy
+    val location = settings.appConfig.accessPolicies.location
+    val taxonomy = settings.appConfig.accessPolicies.taxonomy
     if (location == "invalid_location")
       throw new Exception("accessPolicies.location not set")
     if (taxonomyProjectId == "invalid_project")
@@ -346,7 +346,7 @@ trait BigQueryJobBase extends StrictLogging {
     settings: Settings
   ): Try[Unit] = {
     Try {
-      if (forceApply || settings.comet.accessPolicies.apply) {
+      if (forceApply || settings.appConfig.accessPolicies.apply) {
         cliConfig.starlakeSchema match {
           case None =>
           case Some(schema) =>
@@ -586,7 +586,14 @@ trait BigQueryJobBase extends StrictLogging {
         case None =>
           val datasetInfo = DatasetInfo
             .newBuilder(datasetId)
-            .setLocation(connectionOptions.getOrElse("location", "EU"))
+            .setLocation(
+              connectionOptions.getOrElse(
+                "location",
+                throw new Exception(
+                  s"location is required but not present in connection $connectionName"
+                )
+              )
+            )
             .setDescription(domainDescription.orNull)
             .setLabels(labels.asJava)
             .build

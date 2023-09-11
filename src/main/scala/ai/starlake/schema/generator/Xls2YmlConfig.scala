@@ -69,7 +69,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
           c.copy(files = allFiles.map(_.pathAsString))
         }
         .required()
-        .text("List of Excel files describing Domains & Schemas OR Jobs"),
+        .text("List of Excel files describing domains & schemas or jobs"),
       opt[Boolean]("encryption")
         .action((x, c) => c.copy(encryption = x))
         .optional()
@@ -92,7 +92,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .action((x, c) => c.copy(outputPath = x))
         .optional()
         .text(
-          """Path for saving the resulting YAML file(s). Comet domains path is used by default.""".stripMargin
+          """Path for saving the resulting YAML file(s). Starlake domains path is used by default.""".stripMargin
         ),
       opt[Option[String]]("policyFile")
         .action((x, c) => c.copy(policyFile = x))

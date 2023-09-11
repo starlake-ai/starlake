@@ -147,8 +147,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   override def loadExtraConf(): Map[String, String] = {
 
-    val options = settings.comet.connections
-      .get(settings.comet.connectionRef)
+    val options = settings.appConfig.connections
+      .get(settings.appConfig.connectionRef)
       .map(_.options)
       .getOrElse(Map.empty)
 
@@ -166,7 +166,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   lazy val conf = {
     val conf = new Configuration()
     this.extraConf.foreach { case (k, v) => conf.set(k, v) }
-    settings.comet.hadoop.foreach { case (k, v) =>
+    settings.appConfig.hadoop.foreach { case (k, v) =>
       conf.set(k, v)
     }
     conf
@@ -196,8 +196,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   private lazy val defaultNormalizedFileSystem = normalizedFileSystem(fileSystem)
 
-  def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
-  def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
+  def lockAcquisitionPollTime: FiniteDuration = settings.appConfig.lock.pollTime
+  def lockRefreshPollTime: FiniteDuration = settings.appConfig.lock.refreshTime
 
   conf.set("fs.defaultFS", defaultNormalizedFileSystem)
 
@@ -209,7 +209,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def fs(inputPath: Path): FileSystem = {
     val path =
       if (inputPath.toString.contains(':')) inputPath
-      else new Path(settings.comet.fileSystem, inputPath.toString)
+      else new Path(settings.appConfig.fileSystem, inputPath.toString)
     val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toString)
     val fs = scheme match {
       case "gs" =>

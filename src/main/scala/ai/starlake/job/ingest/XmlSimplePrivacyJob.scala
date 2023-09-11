@@ -46,7 +46,7 @@ class XmlSimplePrivacyJob(
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
       require(
-        settings.comet.defaultFormat == "text",
+        settings.appConfig.defaultFormat == "text",
         "default-write-format should be set to text"
       )
       val df = session.read.text(path.map(_.toString): _*)
@@ -88,7 +88,7 @@ object XmlSimplePrivacyJob {
     val openTag = "<" + attribute.name + ">"
     val closeTag = "</" + attribute.name + ">"
     val pattern = Pattern.compile(s".*$openTag.*$closeTag.*")
-    val allPrivacyLevels = PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)
+    val allPrivacyLevels = PrivacyLevels.allPrivacyLevels(settings.appConfig.privacy.options)
 
     inputDF.map { row =>
       val line = row.getString(0)

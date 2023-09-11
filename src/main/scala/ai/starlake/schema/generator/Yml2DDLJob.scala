@@ -104,7 +104,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connectionRef match {
           case Some(connection) =>
-            val connectionOptions = settings.comet.connections(connection).options
+            val connectionOptions = settings.appConfig.connections(connection).options
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
               ExtractUtils.createForkSupport(config.parallelism)
             JDBCUtils.extractJDBCTables(
@@ -280,7 +280,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       val outputPath =
         File(
-          config.outputPath.getOrElse(settings.comet.metadata),
+          config.outputPath.getOrElse(settings.appConfig.metadata),
           "ddl",
           config.datawarehouse + ".sql"
         )
@@ -288,13 +288,13 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connectionRef.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, settings.comet.connections(conn).options)
+          conn => JDBCUtils.applyScript(sqlScript, settings.appConfig.connections(conn).options)
         )
     }
 
   private def applyTemplate(
-    ddlType: TableRemarks,
-    dropParamMap: Map[TableRemarks, Any]
+    ddlType: String,
+    dropParamMap: Map[String, Any]
   ): String = {
     val (templatePath, templateContent) =
       Domain.ddlExtract(

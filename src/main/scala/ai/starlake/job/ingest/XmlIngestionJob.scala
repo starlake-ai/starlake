@@ -134,10 +134,10 @@ class XmlIngestionJob(
             schema.attributes,
             types,
             validationSchema,
-            settings.comet.privacy.options,
-            settings.comet.cacheStorageLevel,
-            settings.comet.sinkReplayToFile,
-            mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
+            settings.appConfig.privacy.options,
+            settings.appConfig.cacheStorageLevel,
+            settings.appConfig.sinkReplayToFile,
+            mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
