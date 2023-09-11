@@ -114,12 +114,12 @@ case class AutoTaskDesc(
     StorageArea.area(domain, None)
   }
 
-  def getDatabase(implicit settings: Settings): Option[String] = {
+  def getDatabase()(implicit settings: Settings): Option[String] = {
     database
       .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
-  def getEngine(implicit settings: Settings): Engine = {
+  def getEngine()(implicit settings: Settings): Engine = {
     val connectionRef =
       sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig

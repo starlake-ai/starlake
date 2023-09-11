@@ -10,7 +10,7 @@ import org.apache.spark.sql.DataFrame
 import scala.util.{Failure, Success, Try}
 /*
 BigQueryLoadConfig(
-            Some(settings.comet.audit.getConnectionRef(settings)),
+            Some(settings.comet.audit.getConnectionRef()),
             Right(rejectedDF),
             outputTableId = Some(
               BigQueryJobBase
@@ -40,12 +40,12 @@ object BigQuerySparkWriter extends StrictLogging {
           }
           val bqLoadConfig =
             BigQueryLoadConfig(
-              connectionRef = Some(settings.appConfig.audit.getConnectionRef(settings)),
+              connectionRef = Some(settings.appConfig.audit.getConnectionRef()),
               source = source,
               outputTableId = Some(
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(
-                    settings.appConfig.audit.getDatabase(settings),
+                    settings.appConfig.audit.getDatabase(),
                     settings.appConfig.audit.domain.getOrElse("audit"),
                     tableName
                   )
@@ -59,7 +59,7 @@ object BigQuerySparkWriter extends StrictLogging {
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
               rls = Nil,
               acl = Nil,
-              outputDatabase = settings.appConfig.audit.getDatabase(settings)
+              outputDatabase = settings.appConfig.audit.getDatabase()
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,

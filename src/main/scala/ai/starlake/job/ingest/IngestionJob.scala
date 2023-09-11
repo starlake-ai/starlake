@@ -110,15 +110,15 @@ trait IngestionJob extends SparkJob {
   private def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
-      .getOrElse(mergedMetadata.getWrite(settings))
+      .getOrElse(mergedMetadata.getWrite())
   def getConnectionType(): ConnectionType = {
     val connectionRef =
-      mergedMetadata.getSink(settings).connectionRef.getOrElse(settings.appConfig.connectionRef)
+      mergedMetadata.getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
     settings.appConfig.connections(connectionRef).getType()
   }
 
   private def csvOutput(): Boolean = {
-    mergedMetadata.getSink(settings) match {
+    mergedMetadata.getSink() match {
       case fsSink: FsSink =>
         val format = fsSink.format.getOrElse("")
         (settings.appConfig.csvOutput || format == "csv") &&
@@ -205,14 +205,14 @@ trait IngestionJob extends SparkJob {
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
-      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
+      connectionRef = Some(mergedMetadata.getConnectionRef()),
       outputDatabase = schemaHandler.getDatabase(domain)
     )
     def bqNativeJob(sql: String)(implicit settings: Settings) =
       new BigQueryNativeJob(bqConfig, sql)
     schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
-      mergedMetadata.getEngine(settings) match {
+      mergedMetadata.getEngine() match {
         case Engine.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
         case _ =>
@@ -231,7 +231,7 @@ trait IngestionJob extends SparkJob {
   private def selectEngine(): Engine = {
     val nativeCandidate: Boolean = isNativeCandidate()
 
-    val engine = mergedMetadata.getEngine(settings)
+    val engine = mergedMetadata.getEngine()
 
     if (nativeCandidate && engine == Engine.BQ) {
       logger.info("Using BQ as ingestion engine")
@@ -276,14 +276,14 @@ trait IngestionJob extends SparkJob {
 
   def runBQNative(): Try[JobResult] = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(settings),
+      mergedMetadata.getWrite(),
       schema.merge.exists(_.key.nonEmpty)
     )
 
-    val bqSink = mergedMetadata.getSink(settings).asInstanceOf[BigQuerySink]
+    val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
     val schemaWithMergedMetadata = schema.copy(metadata = Some(mergedMetadata))
     val commonConfig = BigQueryLoadConfig(
-      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
+      connectionRef = Some(mergedMetadata.getConnectionRef()),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
       sourceFormat = settings.appConfig.defaultFormat,
@@ -803,7 +803,7 @@ trait IngestionJob extends SparkJob {
         }
       }
 
-      val sinkOpt = mergedMetadata.getSink(settings)
+      val sinkOpt = mergedMetadata.getSink()
       val (sinkPartition, nbPartitions, clustering, options, dynamicPartitionOption) =
         sinkOpt match {
           case fsSink: FsSink =>
@@ -1177,7 +1177,7 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, List[String]) = {
     val (mergedDF, partitionsToUpdate) =
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
-        mergedMetadata.getSink(settings) match {
+        mergedMetadata.getSink() match {
           case sink: BigQuerySink => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _                  => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
@@ -1263,7 +1263,7 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate: List[String]
   ): Try[DataFrame] = {
     Try {
-      (mergedMetadata.getSink(settings), getConnectionType()) match {
+      (mergedMetadata.getSink(), getConnectionType()) match {
         case (sink: EsSink, _) =>
           esSink(mergedDF, sink)
         case (sink: BigQuerySink, _) =>
@@ -1304,7 +1304,7 @@ trait IngestionJob extends SparkJob {
     val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
       val (cd, wd) = Utils.getDBDisposition(
-        mergedMetadata.getWrite(settings),
+        mergedMetadata.getWrite(),
         schema.merge.exists(_.key.nonEmpty)
       )
       (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
@@ -1333,7 +1333,7 @@ trait IngestionJob extends SparkJob {
     sink: BigQuerySink
   ): DataFrame = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(settings),
+      mergedMetadata.getWrite(),
       schema.merge.exists(_.key.nonEmpty)
     )
 
@@ -1343,7 +1343,7 @@ trait IngestionJob extends SparkJob {
       case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
     }
     val config = BigQueryLoadConfig(
-      connectionRef = Some(mergedMetadata.getConnectionRef(settings)),
+      connectionRef = Some(mergedMetadata.getConnectionRef()),
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
@@ -1556,7 +1556,7 @@ object IngestionUtil {
 
         case _: JdbcSink =>
           val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-            settings.appConfig.audit.getConnectionRef(settings),
+            settings.appConfig.audit.getConnectionRef(),
             settings.appConfig,
             Right(rejectedDF),
             settings.appConfig.audit.domain.getOrElse("audit") + ".rejected",

@@ -80,7 +80,7 @@ class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
 sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
-  def getConnectionType(implicit
+  def getConnectionType()(implicit
     settings: Settings
   ): ConnectionType = {
     val ref = connectionRef.getOrElse(settings.appConfig.connectionRef)
