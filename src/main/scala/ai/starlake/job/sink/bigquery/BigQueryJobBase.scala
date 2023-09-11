@@ -586,7 +586,14 @@ trait BigQueryJobBase extends StrictLogging {
         case None =>
           val datasetInfo = DatasetInfo
             .newBuilder(datasetId)
-            .setLocation(connectionOptions.getOrElse("location", "EU"))
+            .setLocation(
+              connectionOptions.getOrElse(
+                "location",
+                throw new Exception(
+                  s"location is required but not present in connection $connectionName"
+                )
+              )
+            )
             .setDescription(domainDescription.orNull)
             .setLabels(labels.asJava)
             .build

@@ -654,12 +654,14 @@ class IngestionWorkflow(
   def inferSchema(config: InferSchemaConfig): Try[File] = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val result = new InferSchema(
-      config.domainName,
-      config.schemaName,
-      config.inputPath,
-      config.outputDir.getOrElse(DatasetArea.load.toString),
-      config.withHeader,
-      config.format
+      domainName = config.domainName,
+      schemaName = config.schemaName,
+      pattern = None,
+      comment = None,
+      dataPath = config.inputPath,
+      saveDir = config.outputDir.getOrElse(DatasetArea.load.toString),
+      header = config.withHeader,
+      format = config.format
     ).run()
     Utils.logFailure(result, logger)
     result

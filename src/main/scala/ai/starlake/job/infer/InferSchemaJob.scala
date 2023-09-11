@@ -47,6 +47,8 @@ import scala.util.Try
 class InferSchema(
   domainName: String,
   schemaName: String,
+  pattern: Option[String],
+  comment: Option[String],
   dataPath: String,
   saveDir: String,
   header: Boolean = false,
@@ -54,7 +56,16 @@ class InferSchema(
 )(implicit settings: Settings) {
   def run(): Try[File] = {
     val dir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir
-    (new InferSchemaJob).infer(domainName, schemaName, dataPath, dir, header, format)
+    (new InferSchemaJob).infer(
+      domainName = domainName,
+      schemaName = schemaName,
+      pattern = pattern,
+      comment = comment,
+      dataPath = dataPath,
+      saveDir = dir,
+      withHeader = header,
+      forceFormat = format
+    )
   }
 
 }
@@ -221,6 +232,8 @@ class InferSchemaJob(implicit settings: Settings) {
   def infer(
     domainName: String,
     schemaName: String,
+    pattern: Option[String],
+    comment: Option[String],
     dataPath: String,
     saveDir: String,
     withHeader: Boolean,
@@ -246,7 +259,8 @@ class InferSchemaJob(implicit settings: Settings) {
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
             schemaName,
-            Pattern.compile(getSchemaPattern(path)),
+            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            comment,
             attributes,
             Some(metadata)
           )
@@ -281,7 +295,8 @@ class InferSchemaJob(implicit settings: Settings) {
 
           InferSchemaHandler.createSchema(
             schemaName,
-            Pattern.compile(getSchemaPattern(path)),
+            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            comment,
             attributes,
             Some(metadata)
           )
