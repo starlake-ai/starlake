@@ -380,9 +380,10 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       )
 
     "Yelp Business Metrics" should "produce correct metrics in JDBC database" in {
+      // yelp jdbc ignores struct fields in the yml file
       new SpecTrait(
-        domainOrJobFilename = "yelp.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/yelp/yelp.comet.yml",
+        domainOrJobFilename = "yelpjdbc.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelpjdbc.comet.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {

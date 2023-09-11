@@ -17,6 +17,8 @@ import ai.starlake.utils.Formatter._
   *   considered the last. Maybe prefixed with TIMESTAMP or DATE(default) to specifiy if it is a
   *   timestamp or a date (useful on dynamic partitioning on BQ to selectively apply PARSE_DATE or
   *   PARSE_TIMESTAMP
+ * @param queryFilter
+ *    filter incoming data after all transformations have been done
   */
 case class MergeOptions(
   key: List[String],
