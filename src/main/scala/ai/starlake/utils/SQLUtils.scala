@@ -9,7 +9,7 @@ import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAda
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -66,7 +66,7 @@ object SQLUtils extends StrictLogging {
     }
     val statementVisitor = new StatementVisitorAdapter() {
       override def visit(select: Select): Unit = {
-        select.getSelectBody.accept(selectVisitorAdapter)
+        select.accept(selectVisitorAdapter)
       }
     }
     val select = CCJSqlParserUtil.parse(sql)
@@ -77,7 +77,7 @@ object SQLUtils extends StrictLogging {
   def extractTableNames(sql: String): List[String] = {
     val select = CCJSqlParserUtil.parse(sql)
     val finder = new TablesNamesFinder()
-    val tableList = Option(finder.getTableList(select)).map(_.asScala).getOrElse(Nil)
+    val tableList = Option(finder.getTables(select)).map(_.asScala).getOrElse(Nil)
     tableList.toList
   }
 
@@ -87,7 +87,9 @@ object SQLUtils extends StrictLogging {
       override def visit(select: Select): Unit = {
         val ctes = Option(select.getWithItemsList()).map(_.asScala).getOrElse(Nil)
         ctes.foreach { withItem =>
-          result += withItem.getName()
+          val alias = Option(withItem.getAlias).map(_.getName).getOrElse("")
+          if (alias.nonEmpty)
+            result += alias
         }
       }
     }

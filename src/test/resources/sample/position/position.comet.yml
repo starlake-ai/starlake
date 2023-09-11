@@ -17,6 +17,8 @@ load:
         - comet_year
         - comet_month
         - comet_day
+    dagRef: "sample"
+    schedule: "0 0 0 * * ?"
   tables:
     - name: "TEST_EMTPY"
       pattern: "empty_position"

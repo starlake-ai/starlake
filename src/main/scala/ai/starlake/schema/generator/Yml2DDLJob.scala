@@ -293,8 +293,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
     }
 
   private def applyTemplate(
-    ddlType: TableRemarks,
-    dropParamMap: Map[TableRemarks, Any]
+    ddlType: String,
+    dropParamMap: Map[String, Any]
   ): String = {
     val (templatePath, templateContent) =
       Domain.ddlExtract(

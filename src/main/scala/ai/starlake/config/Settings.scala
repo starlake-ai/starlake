@@ -129,9 +129,6 @@ object Settings extends StrictLogging {
     *
     * @param sparkFormat
     *   source / sink format (jdbc by default). Cf spark.format possible values
-    * @param mode
-    *   Spark SaveMode to use. If not present, the save mode will be computed from the write
-    *   disposition set in the YAM file
     * @param options
     *   any option required by the format used to ingest / tranform / compute the data. Eg for JDBC
     *   uri, user and password are required uri the URI of the database engine. It must start with
@@ -141,12 +138,11 @@ object Settings extends StrictLogging {
   final case class Connection(
     `type`: Option[String],
     sparkFormat: Option[String] = None,
-    mode: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
-    def this() = this(Some(ConnectionType.JDBC.value), None, None, Map.empty)
+    def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
 
-    def checkValidity(implicit settings: Settings): List[ValidationMessage] = {
+    def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
       val tpe = getType()
       tpe match {
@@ -160,14 +156,16 @@ object Settings extends StrictLogging {
           }
         case ConnectionType.BQ =>
           if (this.sparkFormat.isDefined) {
-            if (!options.contains("temporaryGcsBucket")) {
+            val isIndirectWriteMethod =
+              options.get("writeMethod").getOrElse("indirect").equals("indirect")
+            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
                 "Connection",
                 s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
               )
             }
-            if (!options.contains("gcsBucket")) {
+            if (isIndirectWriteMethod && !options.contains("gcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
@@ -435,8 +433,6 @@ object Settings extends StrictLogging {
     *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
     * @param defaultAuditWriteFormat
     *   : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
-    * @param launcher
-    *   : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
     * @param analyze
     *   : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive
@@ -463,7 +459,6 @@ object Settings extends StrictLogging {
     csvOutput: Boolean,
     csvOutputExt: String,
     privacyOnly: Boolean,
-    launcher: String,
     chewerPrefix: String,
     emptyIsNull: Boolean,
     loader: String,
@@ -506,7 +501,8 @@ object Settings extends StrictLogging {
     tenant: String,
     connectionRef: String,
     schedule: Map[String, Map[String, String]],
-    refs: List[Ref]
+    refs: List[Ref],
+    dagRef: Option[String]
   ) extends Serializable {
     def getUdfs(): Seq[String] =
       udfs
@@ -768,12 +764,6 @@ final case class Settings(
         _storageHandler = Some(handler)
         handler
     }
-  }
-
-  @transient
-  lazy val launcherService: LaunchHandler = appConfig.launcher match {
-    case "simple"  => new SimpleLauncher()
-    case "airflow" => new AirflowLauncher()
   }
 
 }

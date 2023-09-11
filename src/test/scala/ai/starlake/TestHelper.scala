@@ -158,6 +158,24 @@ trait TestHelper
     )
   )
 
+  val allDags: List[FileToImport] = List(
+    FileToImport(
+      "sample.comet.yml",
+      "/yml2dag//sample.comet.yml"
+    ),
+    FileToImport(
+      "sample.py.j2",
+      "/yml2dag/templates/sample.py.j2"
+    )
+  )
+
+  val applicationYmlConfig: List[FileToImport] = List(
+    FileToImport(
+      "application.comet.yml",
+      "/config//application.comet.yml"
+    )
+  )
+
   private def readSourceContentAsString(source: Source): String = {
     source.getLines().mkString("\n")
   }
@@ -201,6 +219,7 @@ trait TestHelper
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
+    settings.appConfig.connections.values.foreach(_.checkValidity())
 
     implicit def withSettings: WithSettings = this
 
@@ -231,7 +250,7 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata =
+    def cleanMetadata: Try[Unit] =
       Try {
         val allMetadataFiles = FileUtils
           .listFiles(
@@ -253,12 +272,12 @@ trait TestHelper
         deliverTestFile(typeToImport.path, typesPath)
       }
       allExpectations.foreach { assertionToImport =>
-        val assertionPath = new Path(DatasetArea.expectations, assertionToImport.name)
-        deliverTestFile(assertionToImport.path, assertionPath)
+        val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
+        deliverTestFile(assertionToImport.path, expectationPath)
       }
       allViews.foreach { viewToImport =>
-        val assertionPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, assertionPath)
+        val viewPath = new Path(DatasetArea.views, viewToImport.name)
+        deliverTestFile(viewToImport.path, viewPath)
       }
       allMappings.foreach { mappingToImport =>
         val path = mappingToImport.folder match {
@@ -271,6 +290,14 @@ trait TestHelper
         val mappingPath = new Path(path, mappingToImport.name)
         deliverTestFile(mappingToImport.path, mappingPath)
       }
+      allDags.foreach { dagImport =>
+        val dagPath = new Path(DatasetArea.dags, dagImport.name)
+        deliverTestFile(dagImport.path, dagPath)
+      }
+      /*applicationYmlConfig.foreach { appImport =>
+        val configPath = new Path(DatasetArea.metadata, appImport.name)
+        deliverTestFile(appImport.path, configPath)
+      }*/
     }
 
     // Init
@@ -304,7 +331,6 @@ trait TestHelper
     isDomain: Boolean = true // TODO refactor. false if delivering a job
   )(implicit withSettings: WithSettings) {
     implicit def settings: Settings = withSettings.settings
-
     def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.load
     val jobMetadataRootPath: Path = DatasetArea.transform

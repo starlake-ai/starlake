@@ -22,11 +22,11 @@ DEFAULT_DAG_ARGS = {
     'retry_delay': timedelta(minutes=1)
 }
 
-CLUSTER_CONFIG = Variable.get("{{sl.config().dataproc().get().profileVar().get()}}", deserialize_json=True)
+CLUSTER_CONFIG = Variable.get("{{context.config.options}}", deserialize_json=True)
 CLUSTER_CONFIG["software_config"] = CLUSTER_CONFIG.get("software_config") or {"properties": {}}
 CLUSTER_CONFIG["software_config"]["properties"] = CLUSTER_CONFIG["software_config"].get("properties") or {}
 
-for key, value in Variable.get("{{sl.config().sl().get().envVar().get()}}", {}, deserialize_json=True).items():
+for key, value in Variable.get("{{sl.config.options}}", {}, deserialize_json=True).items():
     CLUSTER_CONFIG["software_config"]["properties"][f"spark-env:{key}"] = value
 
 SPARK_DEFAULT_PROPERTIES = {
@@ -86,7 +86,7 @@ with DAG(dag_name, schedule="{{sl.config().schedule().get()}}" or None, default_
     with TaskGroup(group_id='load_tasks') as load_tasks:
         load_task_dict = {}
         sensor_task_dict = {}
-{% for domainTable in sl.domainTables() %}
+{% for domainTable in config.() %}
         load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] = submitJobFor('{{domainTable.domain().name()}}', '{{domainTable.table().name()}}')
         sensor_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] = waitForDataprocJob(load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'])
         load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] >> sensor_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}']

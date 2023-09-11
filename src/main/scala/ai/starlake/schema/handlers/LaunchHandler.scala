@@ -25,14 +25,10 @@ import ai.starlake.job.sink.bigquery.BigQueryLoadCliConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.schema.model.{Domain, Schema}
-import ai.starlake.utils.{AirflowJobResult, JobResult, Utils}
+import ai.starlake.utils.{JobResult, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.{ContentType, StringEntity}
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.util.EntityUtils
 
 import scala.util.Try
 
@@ -170,130 +166,5 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     logger.info(s"Launch JDBC: ${config}")
     workflow.jdbcload(config)
     true
-
   }
-}
-
-/** Airflow Launcher will submit a request for ingestion to Airflow using the REST API. The
-  * requested DAG must exist in Airflow first.
-  */
-class AirflowLauncher extends LaunchHandler with StrictLogging {
-
-  protected def post(url: String, command: String): Try[AirflowJobResult] = {
-    Try {
-      val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
-      logger.info(s"JSON to post to Airflow: $json")
-      val client = HttpClients.createDefault
-      val requestEntity = new StringEntity(json, ContentType.APPLICATION_JSON);
-      val httpPost = new HttpPost(url)
-      httpPost.setEntity(requestEntity)
-      logger.debug(
-        "Posting to Airflow: " + httpPost.getURI.toString + "\n" + EntityUtils
-          .toString(httpPost.getEntity, "UTF-8")
-      )
-      val response = client.execute(httpPost)
-      val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
-      logger.debug("Post result from Airflow: " + responseBody)
-      client.close();
-      AirflowJobResult(responseBody)
-    }
-  }
-
-  /** Request the execution of the "comet-ingest" DAG in Airflow
-    *
-    * @param domain
-    *   : Domain to which belong this dataset
-    * @param schema
-    *   : Schema of the dataset
-    * @param paths
-    *   : absolute paths where the source datasets (JSON / CSV / ...) are located
-    * @return
-    *   success if request accepted
-    */
-  override def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path],
-    options: Map[String, String]
-  )(implicit settings: Settings): Try[JobResult] = {
-    val endpoint = settings.appConfig.airflow.endpoint
-    val ingest = settings.appConfig.airflow.ingest
-    val url = s"$endpoint/dags/$ingest/dag_runs"
-    val command =
-      s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
-
-    // We make sure two successive calls to the same dag id do not occur in the same second, otherwise Airflow will produce an error.
-    Thread.sleep(1000)
-    post(url, command)
-  }
-
-  /** Index into elasticsearch
-    *
-    * @param config
-    */
-  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
-    settings: Settings
-  ): Boolean = {
-    val endpoint = settings.appConfig.airflow.endpoint
-    val url = s"$endpoint/dags/comet_index/dag_runs"
-    // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
-    //    --format parquet|json|json-array --dataset datasetPath
-    //    --conf key=value,key=value,...
-    val resource = List(
-      s"--timestamp ${config.timestamp}",
-      s"--domain ${config.domain}",
-      s"--schema ${config.schema}",
-      s"--format ${config.format}",
-      s"--dataset ${config.getDataset()}"
-    ).mkString(" ")
-    val id = config.id.map(id => s"--id $id")
-    val mapping = config.mapping.map(path => s"--mapping ${path.toString}")
-    val params = List(Some(resource), id, mapping).flatten.mkString(" ")
-    val command = s"""index $params """
-    post(url, command).isSuccess
-  }
-
-  /** Load to BigQuery
-    *
-    * @param config
-    */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadCliConfig)(implicit
-    settings: Settings
-  ): Boolean = {
-    val endpoint = settings.appConfig.airflow.endpoint
-    val url = s"$endpoint/dags/starlake_bqload/dag_runs"
-    val params = List(
-      s"--source_file ${config.source}",
-      s"--output_dataset ${config.outputDataset}",
-      s"--output_table ${config.outputTable}",
-      s"--source_format ${config.sourceFormat}",
-      s"--create_disposition ${config.createDisposition}",
-      s"--write_disposition ${config.writeDisposition}",
-      config.outputPartition.map(partition => s"--output_partition $partition").getOrElse("")
-    ).mkString(" ")
-    val command = s"""bqload $params """
-    post(url, command).isSuccess
-  }
-
-  /** Load to JDBC sink
-    *
-    * @param config
-    */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcConnectionLoadConfig)(implicit
-    settings: Settings
-  ): Boolean = {
-    val endpoint = settings.appConfig.airflow.endpoint
-    val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
-    val params = List(
-      s"--source_file ${config.sourceFile}",
-      s"--options partitions=1000,user=sa,password=sa,batch_size=1,driver=org.postgresqlDriver,url=jdbc:postgresql:...",
-      s"--format=jdbc",
-      s"--create_disposition ${config.createDisposition}",
-      s"--write_disposition ${config.writeDisposition}"
-    ).mkString(" ")
-    val command = s"""jdbcload $params """
-    post(url, command).isSuccess
-  }
-
 }
