@@ -116,13 +116,13 @@ case class AutoTaskDesc(
 
   def getDatabase(implicit settings: Settings): Option[String] = {
     database
-      .orElse(settings.comet.getDefaultDatabase()) // database passed in env vars
+      .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
   def getEngine(implicit settings: Settings): Engine = {
     val connectionRef =
-      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.comet.connectionRef)
-    val connection = settings.comet
+      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
+    val connection = settings.appConfig
       .connection(connectionRef)
       .getOrElse(throw new Exception("Connection not found"))
     connection.getEngine()

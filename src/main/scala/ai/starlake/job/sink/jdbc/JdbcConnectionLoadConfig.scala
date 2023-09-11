@@ -59,7 +59,7 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
 
   def fromComet(
     connectionRef: String,
-    comet: Settings.Comet,
+    comet: Settings.AppConfig,
     sourceFile: Either[String, DataFrame],
     outputTable: String,
     createDisposition: CreateDisposition, // = CreateDisposition.CREATE_IF_NEEDED,

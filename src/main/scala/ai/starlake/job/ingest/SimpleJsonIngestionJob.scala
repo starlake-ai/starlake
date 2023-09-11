@@ -72,7 +72,7 @@ class SimpleJsonIngestionJob(
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
               CometColumns.cometInputFileNameColumn,
-              if (settings.comet.grouped) lit(path.map(_.toString).mkString(","))
+              if (settings.appConfig.grouped) lit(path.map(_.toString).mkString(","))
               else lit(path.head.toString)
             )
 

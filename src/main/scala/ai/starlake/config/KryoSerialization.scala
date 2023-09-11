@@ -12,7 +12,7 @@ import org.apache.spark.storage.StorageLevel
 class KryoSerialization extends KryoRegistrator {
   override def registerClasses(kryo: Kryo) {
     kryo.register(classOf[Settings])
-    kryo.register(classOf[Comet])
+    kryo.register(classOf[AppConfig])
     kryo.register(classOf[Metrics])
     kryo.register(classOf[Audit])
     kryo.register(classOf[Elasticsearch])

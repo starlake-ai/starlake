@@ -60,7 +60,9 @@ object Dependencies {
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0,
-    "org.apache.spark" %% "spark-avro" % Versions.spark3d0
+    "org.apache.spark" %% "spark-avro" % Versions.spark3d0,
+    "io.delta" %% "delta-core" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "io.delta" % "delta-storage" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
   )
 
   val azure = Seq(
@@ -123,16 +125,6 @@ object Dependencies {
     "com.github.scopt" %% "scopt" % Versions.scopt
   )
 
-  // We need here to remove any reference to hadoop 3
-  val atlas = Seq(
-    // "org.apache.atlas" % "apache-atlas" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-intg" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    "org.apache.atlas" % "atlas-client-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    // "org.apache.atlas" % "atlas-client" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
-    "org.apache.atlas" % "atlas-client-v2" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava")
-  )
-
   val excelClientApi = Seq(
     "org.apache.poi" % "poi-ooxml" % Versions.poi
   )
@@ -163,5 +155,5 @@ object Dependencies {
 
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue
 }

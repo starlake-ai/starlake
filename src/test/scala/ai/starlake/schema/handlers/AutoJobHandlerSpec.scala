@@ -14,27 +14,29 @@ import org.scalatest.BeforeAndAfterAll
 
 class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
-  lazy val pathBusiness = new Path(cometMetadataPath + "/transform/user/user.comet.yml")
+  lazy val pathBusiness = new Path(starlakeMetadataPath + "/transform/user/user.comet.yml")
 
   lazy val pathConfigBusiness = new Path(
-    cometMetadataPath + "/transform/user/_config.comet.yml"
+    starlakeMetadataPath + "/transform/user/_config.comet.yml"
   )
 
   lazy val pathGraduateProgramBusiness = new Path(
-    cometMetadataPath + "/transform/user/graduateProgram.comet.yml"
+    starlakeMetadataPath + "/transform/user/graduateProgram.comet.yml"
   )
 
   lazy val pathGraduateDatasetProgramBusiness = new Path(
-    cometDatasetsPath + "/business/graduateProgram/output"
+    starlakeDatasetsPath + "/business/graduateProgram/output"
   )
 
-  lazy val pathUserDatasetBusiness = new Path(cometDatasetsPath + "/business/user/user")
+  lazy val pathUserDatasetBusiness = new Path(starlakeDatasetsPath + "/business/user/user")
 
-  lazy val pathUserAccepted = new Path(cometDatasetsPath + "/accepted/user")
+  lazy val pathUserAccepted = new Path(starlakeDatasetsPath + "/accepted/user")
 
-  lazy val pathGraduateProgramAccepted = new Path(cometDatasetsPath + "/accepted/graduateProgram")
+  lazy val pathGraduateProgramAccepted = new Path(
+    starlakeDatasetsPath + "/accepted/graduateProgram"
+  )
 
-  lazy val metadataPath = new Path(cometMetadataPath)
+  lazy val metadataPath = new Path(starlakeMetadataPath)
 
   override def beforeAll(): Unit = {
     new WithSettings() {
@@ -57,7 +59,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   new WithSettings() {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.comet.datasets}/accepted/user"
+      val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some(
@@ -115,7 +117,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "Extract file and view dependencies" should "work" in {
 
-      val userView = s"${settings.comet.datasets}/accepted/user"
+      val userView = s"${settings.appConfig.datasets}/accepted/user"
       logger.info("************userView:" + userView)
       val businessTask1 = AutoTaskDesc(
         name = "user",
@@ -160,7 +162,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.comet.datasets}/accepted/user"
+      val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -219,7 +221,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.comet.datasets}/accepted/user"
+      val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -273,7 +275,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
-      val userView = s"${settings.comet.datasets}/accepted/user"
+      val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -340,7 +342,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
-            |      from parquet.`${settings.comet.datasets}/accepted/graduateProgram`
+            |      from parquet.`${settings.appConfig.datasets}/accepted/graduateProgram`
             |      where school={{school}}
             |""".stripMargin
         ),

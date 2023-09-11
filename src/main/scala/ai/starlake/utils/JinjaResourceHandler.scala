@@ -18,7 +18,7 @@ class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator 
       if (fullName.startsWith(File.separator) || fullName.contains(":"))
         new Path(fullName)
       else
-        new Path(settings.comet.metadata, fullName)
+        new Path(settings.appConfig.metadata, fullName)
     settings.storageHandler().read(path)
   }
 }

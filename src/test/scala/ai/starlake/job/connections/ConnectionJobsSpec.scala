@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
 class ConnectionJobsSpec extends TestHelper {
-  lazy val pathBusiness = new Path(cometMetadataPath + "/transform/user.comet.yml")
+  lazy val pathBusiness = new Path(starlakeMetadataPath + "/transform/user.comet.yml")
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
       pending
@@ -23,7 +23,7 @@ class ConnectionJobsSpec extends TestHelper {
         ("Martin", "Odersky", 30)
       ).toDF("firstname", "lastname", "age")
       val usersOptions =
-        settings.comet.connections(connection).options + ("dbtable" -> "users.users")
+        settings.appConfig.connections(connection).options + ("dbtable" -> "users.users")
       usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
 
       val businessTask1 = AutoTaskDesc(
@@ -60,7 +60,7 @@ class ConnectionJobsSpec extends TestHelper {
       workflow.autoJob(TransformConfig("user"))
 
       val userOutOptions =
-        settings.comet.connections(connection).options + ("dbtable" -> "users.userout")
+        settings.appConfig.connections(connection).options + ("dbtable" -> "users.userout")
       sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
     }
   }

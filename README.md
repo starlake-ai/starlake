@@ -51,7 +51,7 @@ The major benefits the Starlake data loader bring to your warehouse are:
 Simply write standard SQL et describe how you want the result to be stored in a YAML description file.
 The major benefits Starlake bring to your Data transformation jobs are:
 
-* Write transformations in regular SQL files
+* Write transformations in regular SQL of python scripts
 * Use Jinja2 to augment your SQL scripts and make them easier to read and maintain
 * Describe where and how the result is stored using YML description files
 * Apply security to the target table

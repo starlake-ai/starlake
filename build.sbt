@@ -51,9 +51,9 @@ name := {
 
 assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
-Common.enableCometAliases
+Common.enableStarlakeAliases
 
-enablePlugins(Common.cometPlugins: _*)
+enablePlugins(Common.starlakePlugins: _*)
 
 Common.customSettings
 

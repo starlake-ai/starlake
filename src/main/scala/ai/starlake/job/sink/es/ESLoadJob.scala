@@ -98,9 +98,9 @@ class ESLoadJob(
     // Convert timestamp field to ISO8601 date time, so that ES Hadoop can handle it correctly.
     val df = cliConfig.getTimestampCol().map { tsCol =>
       inputDF
-        .withColumn("comet_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
+        .withColumn("sl_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
         .drop(tsCol)
-        .withColumnRenamed("comet_es_tmp", tsCol)
+        .withColumnRenamed("sl_es_tmp", tsCol)
     } getOrElse inputDF
 
     val content = cliConfig.mapping.map(path => storageHandler.read(path)).getOrElse {
