@@ -409,7 +409,7 @@ trait IngestionJob extends SparkJob {
 
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
-    val sql = schema.merge match {
+    val (sql, asTable) = schema.merge match {
       case Some(mergeOptions: MergeOptions) =>
         val targetFilters =
           (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
@@ -471,13 +471,16 @@ trait IngestionJob extends SparkJob {
           updateTargetFilters,
           finalDynamicPartitionOverwrite
         )
-        sql
+        sql -> !finalDynamicPartitionOverwrite
       case None =>
         val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
-        sql
+        sql -> true
     }
     logger.info(s"buildSqlSelect: $sql")
-    bigqueryJob.RunAndSinkAsTable(Some(sql))
+    if (asTable)
+      bigqueryJob.RunAndSinkAsTable(Some(sql))
+    else
+      bigqueryJob.runInteractiveQuery(Some(sql))
   }
 
   private def applySecondStep(
