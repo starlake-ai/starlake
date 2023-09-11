@@ -19,26 +19,21 @@ import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{
-  Field,
-  LegacySQLTypeName,
-  Schema => BQSchema,
-  StandardTableDefinition,
-  Table,
-  TableId
-}
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition, Table, TableId, Schema => BQSchema}
+import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 
+import java.nio.charset.Charset
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 trait IngestionJob extends SparkJob {
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
@@ -74,13 +69,13 @@ trait IngestionJob extends SparkJob {
   val now: Timestamp = java.sql.Timestamp.from(Instant.now)
 
   /** Merged metadata
-    */
+   */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
 
   /** ingestion algorithm
-    *
-    * @param dataset
-    */
+   *
+   * @param dataset
+   */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row])
 
   protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
@@ -93,17 +88,17 @@ trait IngestionJob extends SparkJob {
   }
 
   /** @param datasetHeaders
-    *   : Headers found in the dataset
-    * @param schemaHeaders
-    *   : Headers defined in the schema
-    * @return
-    *   two lists : One with thecolumns present in the schema and the dataset and another with the
-    *   headers present in the dataset only
-    */
+   * : Headers found in the dataset
+   * @param schemaHeaders
+   * : Headers defined in the schema
+   * @return
+   * two lists : One with thecolumns present in the schema and the dataset and another with the
+   * headers present in the dataset only
+   */
   protected def intersectHeaders(
-    datasetHeaders: List[String],
-    schemaHeaders: List[String]
-  ): (List[String], List[String]) = {
+                                  datasetHeaders: List[String],
+                                  schemaHeaders: List[String]
+                                ): (List[String], List[String]) = {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
@@ -122,16 +117,17 @@ trait IngestionJob extends SparkJob {
       case fsSink: FsSink =>
         val format = fsSink.format.getOrElse("")
         (settings.appConfig.csvOutput || format == "csv") &&
-        !settings.appConfig.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
+          !settings.appConfig.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
       case _ =>
         false
     }
   }
 
   /** This function is called only if csvOutput is true This means we are sure that sink is an
-    * FsSink
-    * @return
-    */
+   * FsSink
+   *
+   * @return
+   */
   private def csvOutputExtension(): String = {
 
     if (settings.appConfig.csvOutputExt.nonEmpty)
@@ -275,13 +271,44 @@ trait IngestionJob extends SparkJob {
   }
 
   def runBQNative(): Try[JobResult] = {
+    val effectiveSchema = mergedMetadata.format match {
+      case Some(Format.DSV) =>
+        (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
+          case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
+            val csvHeaders = storageHandler.readAndExecute(new Path(sourceFile), Charset.forName(mergedMetadata.getEncoding())) { is =>
+              Using.resource(is) { reader =>
+                assert(mergedMetadata.getQuote().length <= 1, "quote must be a single character")
+                assert(mergedMetadata.getEscape().length <= 1, "quote must be a single character")
+                val csvParserSettings = new CsvParserSettings()
+                val format = new CsvFormat()
+                format.setDelimiter(mergedMetadata.getSeparator())
+                mergedMetadata.getQuote().headOption.foreach(format.setQuote)
+                mergedMetadata.getEscape().headOption.foreach(format.setQuoteEscape)
+                csvParserSettings.setFormat(format)
+                mergedMetadata.getSeparator()
+                csvParserSettings.setNullValue(mergedMetadata.getNullValue())
+                csvParserSettings.setHeaderExtractionEnabled(true)
+                val csvParser = new CsvParser(csvParserSettings)
+                csvParser.beginParsing(reader)
+                val record = csvParser.parseNextRecord()
+                record.getMetaData.headers().toList
+              }
+            }
+            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
+            val csvAttributesInOrders = csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
+            // attributes not in csv input file must not be required but we don't force them to optional.
+            val unionedAttributes = csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
+            schema.copy(attributes = unionedAttributes)
+          case _ => schema
+        }
+      case _ => schema
+    }
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
-      schema.merge.exists(_.key.nonEmpty)
+      effectiveSchema.merge.exists(_.key.nonEmpty)
     )
-
     val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
-    val schemaWithMergedMetadata = schema.copy(metadata = Some(mergedMetadata))
+    val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
     val commonConfig = BigQueryLoadConfig(
       connectionRef = Some(mergedMetadata.getConnectionRef()),
       source = Left(path.map(_.toString).mkString(",")),
@@ -305,7 +332,7 @@ trait IngestionJob extends SparkJob {
     val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
       schemaHandler.getDatabase(domain),
       domain.finalName,
-      "zztmp_" + schema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
+      "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
     )
 
     val firstStepConfig = commonConfig.copy(
@@ -320,26 +347,26 @@ trait IngestionJob extends SparkJob {
             schemaHandler
               .getDatabase(domain),
             domain.finalName,
-            schema.finalName
+            effectiveSchema.finalName
           )
       ),
       days = bqSink.days,
       outputPartition = bqSink.timestamp,
       outputClustering = bqSink.clustering.getOrElse(Nil),
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-      rls = schema.rls
+      rls = effectiveSchema.rls
     )
 
-    val result = if (requireTwoSteps(schema)) {
+    val result = if (requireTwoSteps(effectiveSchema)) {
       val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
-      val tempTableSchema = schema.bqSchemaWithIgnoreAndScript(
+      val tempTableSchema = effectiveSchema.bqSchemaWithIgnoreAndScript(
         schemaHandler
       ) // TODO What if type is changed by transform ?
       val res = firstStepBigqueryJob.loadPathsToBQ(tempTableSchema)
       res match {
         case Success(loadFileResult) =>
           logger.info(s"First step result: $loadFileResult")
-          val targetTableSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
+          val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
           val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
           val result =
             applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
@@ -351,7 +378,7 @@ trait IngestionJob extends SparkJob {
       }
     } else {
       val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
-      val targetTableSchema = schema.bqSchema(schemaHandler)
+      val targetTableSchema = effectiveSchema.bqSchema(schemaHandler)
       bigqueryJob.loadPathsToBQ(targetTableSchema)
     }
     result
@@ -362,7 +389,7 @@ trait IngestionJob extends SparkJob {
     firstStepTempTableId: TableId,
     targetTableId: TableId,
     schema: Schema
-  ): Try[BigQueryJobResult] = {
+                        ): Try[BigQueryJobResult] = {
     val tempTable =
       s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
     val targetTable =
@@ -454,11 +481,11 @@ trait IngestionJob extends SparkJob {
   }
 
   private def applySecondStep(
-    targetBigqueryJob: BigQueryNativeJob,
-    firstStepTempTableId: TableId,
-    incomingTableSchema: BQSchema,
-    schema: Schema
-  ): Try[BigQueryJobResult] = {
+                               targetBigqueryJob: BigQueryNativeJob,
+                               firstStepTempTableId: TableId,
+                               incomingTableSchema: BQSchema,
+                               schema: Schema
+                             ): Try[BigQueryJobResult] = {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, incomingTableSchema)
@@ -468,9 +495,9 @@ trait IngestionJob extends SparkJob {
   }
 
   private def updateTargetTableSchema(
-    bigqueryJob: BigQueryNativeJob,
-    incomingTableSchema: BQSchema
-  ): Try[StandardTableDefinition] = {
+                                       bigqueryJob: BigQueryNativeJob,
+                                       incomingTableSchema: BQSchema
+                                     ): Try[StandardTableDefinition] = {
     val tableId = bigqueryJob.tableId
     if (bigqueryJob.tableExists(tableId)) {
       val existingTableSchema = bigqueryJob.getBQSchema(tableId)
@@ -512,10 +539,10 @@ trait IngestionJob extends SparkJob {
   /////// SPARK ENGINE ONLY /////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
   /** Main entry point as required by the Spark Job interface
-    *
-    * @return
-    *   : Spark Session used for the job
-    */
+   *
+   * @return
+   * : Spark Session used for the job
+   */
   def runSpark(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
@@ -608,10 +635,10 @@ trait IngestionJob extends SparkJob {
   // /////////////////////////////////////////////////////////////////////////
 
   private def mergeFromParquet(
-    acceptedPath: Path,
-    withScriptFieldsDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): (DataFrame, List[String]) = {
+                                acceptedPath: Path,
+                                withScriptFieldsDF: DataFrame,
+                                mergeOptions: MergeOptions
+                              ): (DataFrame, List[String]) = {
     val incomingSchema = schema.finalSparkSchema(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
@@ -646,23 +673,23 @@ trait IngestionJob extends SparkJob {
   }
 
   /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
-    * this will be translated to partitionField between partitionStart and partitionEnd
-    *
-    * partitionEnd is the last partition in the dataset paritionStart is the 3rd last partition in
-    * the dataset
-    *
-    * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
-    * 19700101
-    *
-    * @param incomingDF
-    * @param mergeOptions
-    * @return
-    */
+   * this will be translated to partitionField between partitionStart and partitionEnd
+   *
+   * partitionEnd is the last partition in the dataset paritionStart is the 3rd last partition in
+   * the dataset
+   *
+   * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
+   * 19700101
+   *
+   * @param incomingDF
+   * @param mergeOptions
+   * @return
+   */
   private def mergeFromBQ(
-    incomingDF: DataFrame,
-    mergeOptions: MergeOptions,
-    sink: BigQuerySink
-  ): (DataFrame, List[String]) = {
+                           incomingDF: DataFrame,
+                           mergeOptions: MergeOptions,
+                           sink: BigQuerySink
+                         ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
       BigQuerySparkJob.getTable(domain.finalName + "." + schema.finalName)
@@ -762,25 +789,25 @@ trait IngestionJob extends SparkJob {
   }
 
   /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
-    * if analyze is active, also compute basic statistics
-    *
-    * @param dataset
-    *   : dataset to save
-    * @param targetPath
-    *   : absolute path
-    * @param writeMode
-    *   : Append or overwrite
-    * @param area
-    *   : accepted or rejected area
-    */
+   * if analyze is active, also compute basic statistics
+   *
+   * @param dataset
+   * : dataset to save
+   * @param targetPath
+   * : absolute path
+   * @param writeMode
+   * : Append or overwrite
+   * @param area
+   * : accepted or rejected area
+   */
   private def sinkToFile(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: StorageArea,
-    merge: Boolean,
-    writeFormat: String
-  ): DataFrame = {
+                          dataset: DataFrame,
+                          targetPath: Path,
+                          writeMode: WriteMode,
+                          area: StorageArea,
+                          merge: Boolean,
+                          writeFormat: String
+                        ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
       val hiveDB = StorageArea.area(domain.finalName, Some(area))
@@ -947,7 +974,7 @@ trait IngestionJob extends SparkJob {
             val targetName = path.head.getName
             val index = targetName.lastIndexOf('.')
             val finalName = (if (index > 0) targetName.substring(0, index)
-                             else targetName) + csvOutputExtension()
+            else targetName) + csvOutputExtension()
             new Path(targetPath, finalName)
           } else
             new Path(
@@ -978,11 +1005,11 @@ trait IngestionJob extends SparkJob {
   }
 
   private def nbFsPartitions(
-    dataset: DataFrame,
-    writeFormat: String,
-    targetPath: Path,
-    sinkPartition: Option[Partition]
-  ): Int = {
+                              dataset: DataFrame,
+                              writeFormat: String,
+                              targetPath: Path,
+                              sinkPartition: Option[Partition]
+                            ): Int = {
     val tmpPath = new Path(s"${targetPath.toString}.tmp")
     val nbPartitions =
       sinkPartition.map(_.getSampling()).getOrElse(mergedMetadata.getSamplingStrategy()) match {
@@ -1067,12 +1094,12 @@ trait IngestionJob extends SparkJob {
   }
 
   /** Merge new and existing dataset if required Save using overwrite / Append mode
-    *
-    * @param validationResult
-    */
+   *
+   * @param validationResult
+   */
   protected def saveAccepted(
-    validationResult: ValidationResult
-  ): (DataFrame, Path) = {
+                              validationResult: ValidationResult
+                            ): (DataFrame, Path) = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
@@ -1172,9 +1199,9 @@ trait IngestionJob extends SparkJob {
   }
 
   private def applyMerge(
-    acceptedPath: Path,
-    finalAcceptedDF: DataFrame
-  ): (DataFrame, List[String]) = {
+                          acceptedPath: Path,
+                          finalAcceptedDF: DataFrame
+                        ): (DataFrame, List[String]) = {
     val (mergedDF, partitionsToUpdate) =
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         mergedMetadata.getSink() match {
@@ -1208,8 +1235,8 @@ trait IngestionJob extends SparkJob {
   }
 
   private def removeIgnoredAttributes(
-    acceptedDfWithScriptAndTransformedFields: DataFrame
-  ): DataFrame = {
+                                       acceptedDfWithScriptAndTransformedFields: DataFrame
+                                     ): DataFrame = {
     val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
     val acceptedDfWithoutIgnoredFields =
       acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
@@ -1259,9 +1286,9 @@ trait IngestionJob extends SparkJob {
   }
 
   private def sinkAccepted(
-    mergedDF: DataFrame,
-    partitionsToUpdate: List[String]
-  ): Try[DataFrame] = {
+                            mergedDF: DataFrame,
+                            partitionsToUpdate: List[String]
+                          ): Try[DataFrame] = {
     Try {
       (mergedMetadata.getSink(), getConnectionType()) match {
         case (sink: EsSink, _) =>
@@ -1398,9 +1425,9 @@ trait IngestionJob extends SparkJob {
   protected def loadDataSet(): Try[DataFrame]
 
   protected def saveRejected(
-    errMessagesDS: Dataset[String],
-    rejectedLinesDS: Dataset[String]
-  ): Try[Path] = {
+                              errMessagesDS: Dataset[String],
+                              rejectedLinesDS: Dataset[String]
+                            ): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
@@ -1514,13 +1541,13 @@ object IngestionUtil {
   }
 
   def sinkRejected(
-    session: SparkSession,
-    rejectedDS: Dataset[String],
-    domainName: String,
-    schemaName: String,
-    now: Timestamp,
-    mergedMetadata: Metadata
-  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
+                    session: SparkSession,
+                    rejectedDS: Dataset[String],
+                    domainName: String,
+                    schemaName: String,
+                    now: Timestamp,
+                    mergedMetadata: Metadata
+                  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
@@ -1588,13 +1615,13 @@ object IngestionUtil {
   }
 
   def validateCol(
-    colRawValue: Option[String],
-    colAttribute: Attribute,
-    tpe: Type,
-    colMap: => Map[String, Option[String]],
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
-    emptyIsNull: Boolean
-  ): ColResult = {
+                   colRawValue: Option[String],
+                   colAttribute: Attribute,
+                   tpe: Type,
+                   colMap: => Map[String, Option[String]],
+                   allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+                   emptyIsNull: Boolean
+                 ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
 
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
