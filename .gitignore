@@ -145,3 +145,4 @@ distrib/bin
 /docker-publish.sh
 /samples/extract/drivers/
 /distrib/version.info
+samples/local/quickstart/metadata/dags/generated

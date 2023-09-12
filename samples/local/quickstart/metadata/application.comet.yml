@@ -1,4 +1,5 @@
 application:
+  dagRef: {{ dag_ref }}
   loader: "{{ loader }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
   accessPolicies:
     apply: true
