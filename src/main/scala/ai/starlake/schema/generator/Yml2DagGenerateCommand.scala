@@ -120,7 +120,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             dagConfig.filename,
             schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
           )
-          applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
+          applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
         }
       } else {
         // one dag per config
@@ -140,7 +140,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             dagConfig.filename,
             schemaHandler.activeEnvVars()
           )
-          applyJ2AndSave(DatasetArea.dags, jEnv, dagTemplateContent, context, filename)
+          applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
         }
       }
     }

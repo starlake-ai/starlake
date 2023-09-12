@@ -56,7 +56,7 @@ object Yml2DagGenerateConfig extends CliConfig[Yml2DagGenerateConfig] {
         .action((x, c) => c.copy(clean = true))
         .optional()
         .text(
-          """Path for saving the resulting DAG file(s).""".stripMargin
+          """Clean Resulting DAg file output first ?""".stripMargin
         )
     )
   }
