@@ -22,11 +22,12 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import better.files.File
+import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.OutputStream
+import java.io.{InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -66,8 +67,27 @@ class LocalStorageHandler(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    readAndExecute(path, charset) { is =>
+      IOUtils.toString(is)
+    }
+  }
+
+  /** read input stream and do something with input
+    *
+    * @param path
+    *   : Absolute file path
+    * @return
+    *   file content as a string
+    */
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
+    action: InputStreamReader => T
+  ): T = {
     val file = localFile(path)
-    file.contentAsString(charset)
+    file.fileInputStream
+      .map { is =>
+        action(new InputStreamReader(is, charset))
+      }
+      .get()
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
@@ -161,6 +181,7 @@ class LocalStorageHandler(implicit
   }
 
   /** Copy file
+    *
     * @param src
     *   source path
     * @param dest
