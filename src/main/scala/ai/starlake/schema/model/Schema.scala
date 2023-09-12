@@ -657,7 +657,8 @@ case class Schema(
         case Some(mergeTimestampCol) =>
           s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol$effectiveSuffixOutputColumn` DESC) = 1"
         case _ =>
-          s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
+          // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
+          s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
       }
 
       val whereClauseSQL = if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
