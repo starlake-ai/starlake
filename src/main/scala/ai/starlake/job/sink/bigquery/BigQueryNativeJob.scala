@@ -2,7 +2,14 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.schema.model.{BigQuerySink, Format}
+import ai.starlake.schema.model.{
+  BigQuerySink,
+  ClusteringInfo,
+  FieldPartitionInfo,
+  Format,
+  Schema,
+  TableInfo => SLTableInfo
+}
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
@@ -27,9 +34,11 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(bqSchema: BQSchema): Try[BigQueryJobResult] = {
-    getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
+  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BigQueryJobResult] = {
+    getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
       Try {
+        val bqSchema =
+          tableInfo.maybeSchema.getOrElse(throw new RuntimeException("Should never happen"))
         logger.info(s"BigQuery Schema: $bqSchema")
         val formatOptions: FormatOptions = bqLoadFormatOptions()
         cliConfig.source match {
@@ -101,6 +110,25 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
         }
       }
     }
+  }
+
+  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
+    SLTableInfo(
+      tableId,
+      cliConfig.outputTableDesc,
+      cliConfig.starlakeSchema.map(toBQSchema),
+      cliConfig.outputPartition.map { partitionField =>
+        FieldPartitionInfo(
+          partitionField,
+          cliConfig.days,
+          cliConfig.requirePartitionFilter
+        )
+      },
+      cliConfig.outputClustering match {
+        case Nil => None
+        case _   => Some(ClusteringInfo(cliConfig.outputClustering.toList))
+      }
+    )
   }
 
   private def bqLoadConfig(
