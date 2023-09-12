@@ -115,41 +115,6 @@ case class Schema(
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
 
-  /** This Schema as a Spark Catalyst Schema, without scripted fields
-    *
-    * @return
-    *   Spark Catalyst Schema
-    */
-  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
-    val fields = attributes.filter(_.script.isEmpty).map { attr =>
-      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-        .withComment(attr.comment.getOrElse(""))
-    }
-    StructType(fields)
-  }
-
-  def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
-    val fields = attributesWithoutScriptedFields.map { attr =>
-      val sparkType = attr.`type`(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
-        (tpe.primitiveType, tpe.pattern) match {
-          case (PrimitiveType.timestamp, "epoch_second") => LongType
-          case (PrimitiveType.timestamp, "epoch_milli")  => LongType
-          case (PrimitiveType.date, _)                   => StringType
-          case (_, _)                                    => attr.sparkType(schemaHandler)
-        }
-      }
-      StructField(attr.name, sparkType, !attr.required)
-        .withComment(attr.comment.getOrElse(""))
-    }
-    StructType(fields)
-  }
-  def sparkSchemaWithoutScriptedFieldsWithInputFileName(
-    schemaHandler: SchemaHandler
-  ): StructType = {
-    sparkSchemaWithoutScriptedFields(schemaHandler)
-      .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
-  }
-
   /** @return
     *   Are the parittions columns defined in the metadata valid column names
     */
@@ -204,7 +169,7 @@ case class Schema(
     * @return
     *   Spark Catalyst Schema
     */
-  def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
+  def sparkSchemaFinal(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
 
   private def sparkSchemaWithCondition(
@@ -222,6 +187,42 @@ case class Schema(
     StructType(fields)
   }
 
+  /** This Schema as a Spark Catalyst Schema, without scripted fields
+    *
+    * @return
+    *   Spark Catalyst Schema
+    */
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+    val fields = attributes.filter(_.script.isEmpty).map { attr =>
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        .withComment(attr.comment.getOrElse(""))
+    }
+    StructType(fields)
+  }
+
+  def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+    val fields = attributesWithoutScriptedFields.map { attr =>
+      val sparkType = attr.`type`(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
+        (tpe.primitiveType, tpe.pattern) match {
+          case (PrimitiveType.timestamp, "epoch_second") => LongType
+          case (PrimitiveType.timestamp, "epoch_milli")  => LongType
+          case (PrimitiveType.date, _)                   => StringType
+          case (_, _)                                    => attr.sparkType(schemaHandler)
+        }
+      }
+      StructField(attr.name, sparkType, !attr.required)
+        .withComment(attr.comment.getOrElse(""))
+    }
+    StructType(fields)
+  }
+
+  def sparkSchemaWithoutScriptedFieldsWithInputFileName(
+    schemaHandler: SchemaHandler
+  ): StructType = {
+    sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
+  }
+
   def sparkSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore() && attr.script.isEmpty)
 
@@ -231,8 +232,8 @@ case class Schema(
   def sparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
 
-  def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
+  def bqSchemaFinal(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaFinal(schemaHandler))
   }
 
   def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
@@ -568,14 +569,12 @@ case class Schema(
   def buildSqlMerge(
     sourceTable: String,
     targetTable: String,
-    mergeOptions: MergeOptions,
+    mergeOptionsOpt: Option[MergeOptions],
     sourceTableFilter: Option[String],
     targetTableFilters: List[String],
     updateTargetFilters: List[String],
-    partitionOverwrite: Boolean,
-    suffixOutputColumn: Option[String] = None
+    partitionOverwrite: Boolean
   ): String = {
-    val sourceColumnPrefix = "__INTERNAL"
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -590,72 +589,51 @@ case class Schema(
     if (partitionOverwrite) { // similar to dynamic mode in spark
       val (targetColumns, sourceColumns) =
         allOutputAttributes
-          .map(f =>
-            s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}$sourceColumnPrefix`"
-          )
+          .map(f => s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}`")
           .unzip
       val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
       val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
       val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
-
-      val joinKeySQL =
-        mergeOptions.key.map { key =>
-          s"$SL_INTERNAL_TABLE.`$key$sourceColumnPrefix` = $SL_TARGET_TABLE.`$key`"
-        }
-      val matchedUpdatedSql = allOutputAttributes
-        .map { attribute =>
-          s"`${attribute.getFinalName()}` = $SL_INTERNAL_TABLE.`${attribute.getFinalName()}$sourceColumnPrefix`"
-        }
-        .mkString(",")
       val updateTargetFiltersSQL = updateTargetFilters match {
-        case Nil => ""
-        case _   => updateTargetFilters.mkString(" AND ")
+        case Nil =>
+          throw new RuntimeException("No filter applied for partition overwrite. Should not happen")
+        case _ => updateTargetFilters.mkString(" AND ")
       }
-      val inputData = buildSqlMerge(
-        sourceTable,
-        targetTable,
-        mergeOptions,
-        sourceTableFilter,
-        targetTableFilters,
-        updateTargetFilters,
-        false,
-        Some(sourceColumnPrefix)
-      )
-      // if filter applied on update
-      // everything in this filter not matched by source is deleted
-      // keys existing in target partition are updated
-      // keys not existing in target partition are inserted
-      // keys not matched by source in target partition are deleted
-      // similar to dynamic partition overwrite behavior
-      val finalNotMatchedBySource =
-        if (updateTargetFiltersSQL.isEmpty) ""
-        else s"WHEN NOT MATCHED BY SOURCE AND $updateTargetFiltersSQL THEN DELETE"
+      val inputData =
+        if (merge.map(_.key.isEmpty).getOrElse(true))
+          sourceTable // partition overwrite without deduplication
+        else
+          buildSqlMerge(
+            sourceTable,
+            targetTable,
+            mergeOptionsOpt,
+            sourceTableFilter,
+            targetTableFilters,
+            updateTargetFilters,
+            false
+          )
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
-      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON ${joinKeySQL
-          .mkString(" AND ")} $joinAdditionalClauseSQL
-         |WHEN MATCHED $joinAdditionalClauseSQL THEN UPDATE SET $matchedUpdatedSql
-         |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
-         |$finalNotMatchedBySource""".stripMargin
+      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON FALSE
+         |WHEN NOT MATCHED BY SOURCE $joinAdditionalClauseSQL THEN DELETE
+         |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
+         |""".stripMargin
     } else {
       val inputData = buildSqlSelect(sourceTable, sourceTableFilter)
-      val effectiveSuffixOutputColumn = suffixOutputColumn.getOrElse("")
       val allAttributesSQL = allOutputAttributes
         .map { attribute =>
-          val renameAttribute = suffixOutputColumn match {
-            case Some(_) => f" AS `${attribute.getFinalName()}$effectiveSuffixOutputColumn`"
-            case None    => ""
-          }
-          s"`${attribute.getFinalName()}`$renameAttribute"
+          s"`${attribute.getFinalName()}`"
         }
         .mkString(",")
       val dataSourceColumnName = "SL_DATASOURCE_INFORMATION"
       // According to the usage above of join clause between target and source table, we assume key not to be null.
       val partitionKeys =
-        mergeOptions.key.map(key => s"`$key$effectiveSuffixOutputColumn`").mkString(",")
-      val rowSelectionSQL = mergeOptions.timestamp match {
+        mergeOptionsOpt
+          .map(_.key.map(key => s"`$key`").mkString(","))
+          .getOrElse(throw new RuntimeException("Should not happen"))
+      val rowSelectionSQL = mergeOptionsOpt.flatMap(_.timestamp) match {
         case Some(mergeTimestampCol) =>
-          s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol$effectiveSuffixOutputColumn` DESC) = 1"
+          s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
         case _ =>
           // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
           s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
