@@ -19,6 +19,7 @@ package ai.starlake.utils.repackaged;
  * Included here only to avoid repackaged conflict
  */
 
+import ai.starlake.job.Main;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
@@ -418,6 +419,14 @@ public class BigQuerySchemaConverters {
 
         Field.Builder fieldBuilder =
                 createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields);
+
+        // https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/1060
+        if (System.getenv().get("SL_ISSUE_SPARK_BIGQUERY_1060") != null ) {
+            if (fieldType == LegacySQLTypeName.NUMERIC || fieldType == LegacySQLTypeName.BIGNUMERIC) {
+                DecimalType decimalType = (DecimalType) sparkType;
+                fieldBuilder.setPrecision((long) decimalType.precision()).setScale((long) decimalType.scale());
+            }
+        }
         Optional<String> description = getDescriptionOrCommentOfField(sparkField);
 
         if (description.isPresent()) {

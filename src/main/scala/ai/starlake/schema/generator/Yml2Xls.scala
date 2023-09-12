@@ -26,7 +26,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
   ): Unit = {
     val domains =
       domainNames match {
-        case Nil => schemaHandler.domains()
+        case Nil => schemaHandler.domains(true)
         case x   => schemaHandler.domains().filter(domain => x.contains(domain.name))
       }
     if (domains.isEmpty) {

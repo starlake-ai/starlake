@@ -14,11 +14,10 @@
         rename: "id"
       - name: "customer_id"
         type: "customerid"
-        required: false
-        foreignKey: customers
+        required: true
       - name: "amount"
         type: "decimal"
-        required: false
+        required: true
       - name: "seller_id"
         type: "string"
         required: false

@@ -29,6 +29,7 @@ object Versions {
   val kafkaClients = "7.5.0-ce"
   val testContainers = "0.41.0"
   val gcpDataCatalog = "1.29.0"
+  val gcpDataplex = "1.21.0"
   val jinja = "2.7.1"
   val snowflakeJDBC = "3.13.30"
   val snowflakeSpark: String = "2.11.3-spark_3.3"

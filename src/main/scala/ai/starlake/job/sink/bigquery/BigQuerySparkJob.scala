@@ -161,8 +161,8 @@ class BigQuerySparkJob(
 
       }
       val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
-      val defaultIntermediateFormat =
-        settings.appConfig.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
+      val intermediateFormatSettings = settings.appConfig.internal.map(_.intermediateBigqueryFormat)
+      val defaultIntermediateFormat = intermediateFormatSettings.getOrElse("parquet")
 
       val intermediateFormat =
         if (containsArrayOfRecords && defaultIntermediateFormat == "parquet")

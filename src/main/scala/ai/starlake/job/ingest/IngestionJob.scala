@@ -45,7 +45,9 @@ trait IngestionJob extends SparkJob {
     val loader = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
     val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
-      case _       => throw new Exception(s"Unexpected '$loader' loader !!!")
+      case "native" =>
+        logger.warn(s"Unexpected '$loader' loader !!!")
+        validatorClass
     }
     Utils.loadInstance[GenericRowValidator](validatorClassName)
   }

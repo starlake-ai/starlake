@@ -65,6 +65,14 @@ trait TestHelper
     super.afterAll()
   }
 
+  def setEnv(key: String, value: String): Unit = {
+    val field = System.getenv().getClass.getDeclaredField("m")
+    field.setAccessible(true)
+    val map =
+      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
+    map.put(key, value)
+  }
+
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
 
   private def starlakeTestInstanceId: String =
@@ -81,27 +89,27 @@ trait TestHelper
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
   lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
 
-  def testConfiguration: Config = {
-    val baseConfigString =
-      s"""
-         |SL_ASSERTIONS_ACTIVE=true
-         |SL_ROOT="${starlakeTestRoot}"
-         |SL_TEST_ID="${starlakeTestId}"
-         |SL_DATASETS="${starlakeDatasetsPath}"
-         |SL_METADATA="${starlakeMetadataPath}"
-         |SL_LOCK_PATH="${starlakeTestRoot}/locks"
-         |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
-         |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
-         |SL_UDFS="ai.starlake.udf.TestUdf"
-         |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
-         |SL_ACCESS_POLICIES_LOCATION="eu"
-         |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
-         |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
-          .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
-         |include required("application-test.conf")
-         |
-         |""".stripMargin
+  def baseConfigString =
+    s"""
+       |SL_ASSERTIONS_ACTIVE=true
+       |SL_ROOT="${starlakeTestRoot}"
+       |SL_TEST_ID="${starlakeTestId}"
+       |SL_DATASETS="${starlakeDatasetsPath}"
+       |SL_METADATA="${starlakeMetadataPath}"
+       |SL_LOCK_PATH="${starlakeTestRoot}/locks"
+       |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+       |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
+       |SL_UDFS="ai.starlake.udf.TestUdf"
+       |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
+       |SL_ACCESS_POLICIES_LOCATION="eu"
+       |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
+       |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
+        .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
+       |include required("application-test.conf")
+       |
+       |""".stripMargin
 
+  def testConfiguration: Config = {
     val rootConfig = ConfigFactory.parseString(
       baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)

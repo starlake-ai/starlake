@@ -1,7 +1,7 @@
 load:
   name: "sales"
   metadata:
-    directory: "${root_path}/incoming/sales"
+    directory: "{{root_path}}/incoming/sales"
     mode: "FILE"
     format: "DSV"
     withHeader: true
