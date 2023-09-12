@@ -27,12 +27,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.OutputStream
+import java.io.{InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 /** HDFS Filesystem Handler
   */
@@ -250,11 +250,26 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    readAndExecute(path, charset) { is =>
+      IOUtils.toString(is)
+    }
+  }
+
+  /** read input stream and do something with input
+    *
+    * @param path
+    *   : Absolute file path
+    * @return
+    *   file content as a string
+    */
+  def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
+    action: InputStreamReader => T
+  ): T = {
     val currentFS = fs(path)
-    val stream = currentFS.open(path)
-    val content = IOUtils.toString(stream, "UTF-8")
-    stream.close()
-    content
+    val output: T = Using.resource(new InputStreamReader(currentFS.open(path), charset)) { stream =>
+      action(stream)
+    }
+    output
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
@@ -297,8 +312,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @param since
     *   Minimum modification time of liste files. To list all files, simply provide the beginning of
     *   all times
-    * @param recursive:
-    *   List all files recursively ?
+    * @param recursive
+    *   : List all files recursively ?
     * @return
     *   List of Path
     */
@@ -344,6 +359,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   /** Copy file
+    *
     * @param src
     *   source path
     * @param dst
@@ -415,6 +431,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   /** Move file from local filesystem to target file system If source FS Scheme is not "file" then
     * issue a regular move
+    *
     * @param source
     *   Local file path
     * @param dest

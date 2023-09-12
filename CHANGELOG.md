@@ -7,7 +7,6 @@ __Features__
 
 - have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
   Don't support the following ingestion phases:
-  - CSV attribute order matters
   - line ignore filter
   - pre-sql
   - post-sql
