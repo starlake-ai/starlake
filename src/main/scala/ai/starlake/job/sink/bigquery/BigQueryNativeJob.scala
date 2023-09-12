@@ -156,6 +156,15 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
         val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
         loadConfig.setClustering(clustering)
     }
+    cliConfig.starlakeSchema.flatMap(_.metadata) match {
+      case Some(metadata) =>
+        metadata.getFormat() match {
+          case Format.DSV =>
+            metadata.nullValue.foreach(loadConfig.setNullMarker)
+          case _ =>
+        }
+      case _ =>
+    }
     loadConfig
   }
 
