@@ -274,56 +274,98 @@ trait IngestionJob extends SparkJob {
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
-  def requireTwoSteps(schema: Schema): Boolean = {
+  def requireTwoSteps(schema: Schema, sink: BigQuerySink): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
-    schema.hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty
+    schema
+      .hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty || sink.dynamicPartitionOverwrite
+      .getOrElse(false)
   }
 
   def runBQNative(): Try[JobResult] = {
-    val effectiveSchema = mergedMetadata.format match {
-      case Some(Format.DSV) =>
-        (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
-          case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
-            val csvHeaders = storageHandler.readAndExecute(
-              new Path(sourceFile),
-              Charset.forName(mergedMetadata.getEncoding())
-            ) { is =>
-              Using.resource(is) { reader =>
-                assert(mergedMetadata.getQuote().length <= 1, "quote must be a single character")
-                assert(mergedMetadata.getEscape().length <= 1, "quote must be a single character")
-                val csvParserSettings = new CsvParserSettings()
-                val format = new CsvFormat()
-                format.setDelimiter(mergedMetadata.getSeparator())
-                mergedMetadata.getQuote().headOption.foreach(format.setQuote)
-                mergedMetadata.getEscape().headOption.foreach(format.setQuoteEscape)
-                csvParserSettings.setFormat(format)
-                mergedMetadata.getSeparator()
-                csvParserSettings.setNullValue(mergedMetadata.getNullValue())
-                csvParserSettings.setHeaderExtractionEnabled(true)
-                val csvParser = new CsvParser(csvParserSettings)
-                csvParser.beginParsing(reader)
-                val record = csvParser.parseNextRecord()
-                record.getMetaData.headers().toList
-              }
-            }
-            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
-            val csvAttributesInOrders =
-              csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
-            // attributes not in csv input file must not be required but we don't force them to optional.
-            val unionedAttributes =
-              csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-            schema.copy(attributes = unionedAttributes)
-          case _ => schema
-        }
-      case _ => schema
-    }
+    val effectiveSchema: Schema = computeEffectiveInputSchema()
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
       effectiveSchema.merge.exists(_.key.nonEmpty)
     )
     val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
     val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
-    val commonConfig = BigQueryLoadConfig(
+
+    val targetTableId =
+      BigQueryJobBase
+        .extractProjectDatasetAndTable(
+          schemaHandler
+            .getDatabase(domain),
+          domain.finalName,
+          effectiveSchema.finalName
+        )
+
+    val targetConfig = buildCommonNativeBQLoadConfig(
+      createDisposition,
+      writeDisposition,
+      bqSink,
+      schemaWithMergedMetadata
+    ).copy(
+      outputTableId = Some(targetTableId),
+      days = bqSink.days,
+      outputPartition = bqSink.timestamp,
+      outputClustering = bqSink.clustering.getOrElse(Nil),
+      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+      rls = effectiveSchema.rls
+    )
+
+    val result = if (requireTwoSteps(effectiveSchema, bqSink)) {
+      val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
+        schemaHandler.getDatabase(domain),
+        domain.finalName,
+        "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
+      )
+      val firstStepConfig = buildCommonNativeBQLoadConfig(
+        createDisposition,
+        writeDisposition,
+        bqSink,
+        schemaWithMergedMetadata
+      ).copy(
+        outputTableId = Some(firstStepTempTable),
+        outputTableDesc = Some("Temporary table created during data ingestion."),
+        days = Some(1)
+      )
+      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
+      // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
+      val res = firstStepBigqueryJob.loadPathsToBQ(
+        firstStepBigqueryJob.getTableInfo(
+          firstStepTempTable,
+          _.bqSchemaWithIgnoreAndScript(schemaHandler)
+        )
+      )
+      res match {
+        case Success(loadFileResult) =>
+          logger.info(s"First step result: $loadFileResult")
+          val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
+          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
+          val result =
+            applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
+          targetBigqueryJob.dropTable(firstStepTempTable)
+          result
+        case Failure(exception) =>
+          Utils.logException(logger, exception)
+          res
+      }
+    } else {
+      val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
+      bigqueryJob.loadPathsToBQ(
+        bigqueryJob.getTableInfo(targetTableId, _.bqSchemaFinal(schemaHandler))
+      )
+    }
+    result
+  }
+
+  private def buildCommonNativeBQLoadConfig(
+    createDisposition: String,
+    writeDisposition: String,
+    bqSink: BigQuerySink,
+    schemaWithMergedMetadata: Schema
+  ): BigQueryLoadConfig = {
+    BigQueryLoadConfig(
       connectionRef = Some(mergedMetadata.getConnectionRef()),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
@@ -342,60 +384,54 @@ trait IngestionJob extends SparkJob {
       outputDatabase = schemaHandler.getDatabase(domain),
       dynamicPartitionOverwrite = bqSink.dynamicPartitionOverwrite
     )
+  }
 
-    val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
-      schemaHandler.getDatabase(domain),
-      domain.finalName,
-      "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
-    )
-
-    val firstStepConfig = commonConfig.copy(
-      outputTableId = Some(firstStepTempTable),
-      days = Some(1) // not supported by BQ loadConfig
-    )
-
-    val targetConfig = commonConfig.copy(
-      outputTableId = Some(
-        BigQueryJobBase
-          .extractProjectDatasetAndTable(
-            schemaHandler
-              .getDatabase(domain),
-            domain.finalName,
-            effectiveSchema.finalName
-          )
-      ),
-      days = bqSink.days,
-      outputPartition = bqSink.timestamp,
-      outputClustering = bqSink.clustering.getOrElse(Nil),
-      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-      rls = effectiveSchema.rls
-    )
-
-    val result = if (requireTwoSteps(effectiveSchema)) {
-      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
-      val tempTableSchema = effectiveSchema.bqSchemaWithIgnoreAndScript(
-        schemaHandler
-      ) // TODO What if type is changed by transform ?
-      val res = firstStepBigqueryJob.loadPathsToBQ(tempTableSchema)
-      res match {
-        case Success(loadFileResult) =>
-          logger.info(s"First step result: $loadFileResult")
-          val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
-          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
-          val result =
-            applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
-          targetBigqueryJob.dropTable(firstStepTempTable)
-          result
-        case Failure(exception) =>
-          Utils.logException(logger, exception)
-          res
-      }
-    } else {
-      val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
-      val targetTableSchema = effectiveSchema.bqSchema(schemaHandler)
-      bigqueryJob.loadPathsToBQ(targetTableSchema)
+  private def computeEffectiveInputSchema() = {
+    val effectiveSchema = mergedMetadata.format match {
+      case Some(Format.DSV) =>
+        (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
+          case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
+            val csvHeadersOpt = storageHandler.readAndExecute(
+              new Path(sourceFile),
+              Charset.forName(mergedMetadata.getEncoding())
+            ) { is =>
+              Using.resource(is) { reader =>
+                assert(mergedMetadata.getQuote().length <= 1, "quote must be a single character")
+                assert(mergedMetadata.getEscape().length <= 1, "quote must be a single character")
+                val csvParserSettings = new CsvParserSettings()
+                val format = new CsvFormat()
+                format.setDelimiter(mergedMetadata.getSeparator())
+                mergedMetadata.getQuote().headOption.foreach(format.setQuote)
+                mergedMetadata.getEscape().headOption.foreach(format.setQuoteEscape)
+                csvParserSettings.setFormat(format)
+                mergedMetadata.getSeparator()
+                csvParserSettings.setNullValue(mergedMetadata.getNullValue())
+                csvParserSettings.setHeaderExtractionEnabled(true)
+                val csvParser = new CsvParser(csvParserSettings)
+                csvParser.beginParsing(reader)
+                val recordOpt = Option(
+                  csvParser.parseNextRecord()
+                ) // can be None if input doesn't have any record
+                recordOpt.map(_.getMetaData.headers().toList)
+                Some(csvParser.getRecordMetadata.headers().toList)
+              }
+            }
+            val effectiveAttributes = csvHeadersOpt match {
+              case Some(csvHeaders) =>
+                val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
+                val csvAttributesInOrders = csvHeaders.map(h =>
+                  attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true)))
+                )
+                // attributes not in csv input file must not be required but we don't force them to optional.
+                csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
+              case _ => schema.attributes
+            }
+            schema.copy(attributes = effectiveAttributes)
+          case _ => schema
+        }
+      case _ => schema
     }
-    result
+    effectiveSchema
   }
 
   def applySecondStepSQL(
@@ -423,78 +459,159 @@ trait IngestionJob extends SparkJob {
 
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
-    val (sql, asTable) = schema.merge match {
+    // we have sql as optional because in dynamic partition overwrite mode, if no partition exists, we do nothing
+    val (sqlOpt, asTable) = schema.merge match {
       case Some(mergeOptions: MergeOptions) =>
-        val targetFilters =
-          (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
-            case (Some(_), Some(_)) =>
-              val partitions = {
-                bigqueryJob.bigquery().listPartitions(targetTableId).asScala.toList
-              }
-              mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnvVars(), options).toList
-            case _ => Nil
-          }
-        val (finalDynamicPartitionOverwrite, updateTargetFilters) = (
-          bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
-          bigqueryJob.cliConfig.writeDisposition,
-          bigqueryJob.cliConfig.outputPartition
-        ) match {
-          case (true, "WRITE_TRUNCATE", Some(partition)) =>
-            val sql = schema.buildSqlMerge(
-              enrichedTempTable,
-              targetTable,
-              mergeOptions,
-              schema.filter,
-              targetFilters,
-              Nil,
-              false
+        handleNativeMergeCases(
+          bigqueryJob,
+          targetTableId,
+          schema,
+          targetTable,
+          enrichedTempTable,
+          mergeOptions
+        )
+      case None =>
+        handleNativeNoMergeCases(bigqueryJob, schema, targetTable, enrichedTempTable)
+    }
+    sqlOpt match {
+      case Some(sql) =>
+        logger.info(s"buildSqlSelect: $sql")
+        if (asTable)
+          bigqueryJob.RunAndSinkAsTable(sqlOpt)
+        else
+          bigqueryJob.runInteractiveQuery(sqlOpt)
+      case None =>
+        logger.info("Sink skipped")
+        Success(BigQueryJobResult(None, 0, None))
+    }
+  }
+
+  private def handleNativeNoMergeCases(
+    bigqueryJob: BigQueryNativeJob,
+    schema: Schema,
+    targetTable: String,
+    enrichedTempTable: String
+  ): (Option[String], Boolean) = {
+    (
+      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
+      bigqueryJob.cliConfig.outputPartition
+    ) match {
+      case (true, Some(partitionName)) =>
+        val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
+        computePartitions(bigqueryJob, partitionName, sql) match {
+          case Nil =>
+            logger.info(
+              "No partitions found in source. In dynamic partition overwrite mode, skip sink."
             )
-            val detectImpliedPartitions =
-              s"SELECT DISTINCT cast(`$partition` as STRING) AS $partition FROM ($sql)"
-            bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions)) match {
-              case Failure(exception) => throw exception
-              case Success(result) =>
-                val allPartitions = result.tableResult
-                  .map(_.getValues)
-                  .map(
-                    _.iterator().asScala
-                      .map(_.get(partition).getStringValue)
-                      .toList
-                  )
-                  .getOrElse(Nil)
-                (
-                  true,
-                  allPartitions match {
-                    case Nil => targetFilters
-                    case _ =>
-                      val inPartitions = allPartitions.map(date =>
-                        f"'$date'"
-                      ) mkString (f"date(`$partition`) IN (", ",", ")")
-                      List(inPartitions)
-                  }
-                )
-            }
-          case _ => false -> Nil
+            None -> false
+          case allPartitions =>
+            val inPartitions = allPartitions.map(date =>
+              f"'$date'"
+            ) mkString (f"date(`$partitionName`) IN (", ",", ")")
+            Some(
+              schema.buildSqlMerge(
+                enrichedTempTable,
+                targetTable,
+                None,
+                schema.filter,
+                Nil,
+                List(inPartitions),
+                true
+              )
+            ) -> false
         }
+      case _ => Some(schema.buildSqlSelect(enrichedTempTable, schema.filter)) -> true
+    }
+  }
+
+  private def computePartitions(
+    bigqueryJob: BigQueryNativeJob,
+    partitionName: String,
+    sql: String
+  ): List[String] = {
+    val detectImpliedPartitions =
+      s"SELECT DISTINCT cast(`$partitionName` as STRING) AS $partitionName FROM ($sql)"
+    bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions)) match {
+      case Failure(exception) => throw exception
+      case Success(result) =>
+        result.tableResult
+          .map(_.getValues)
+          .map(
+            _.iterator().asScala
+              .map(_.get(partitionName).getStringValue)
+              .toList
+          )
+          .getOrElse(Nil)
+    }
+  }
+
+  private def handleNativeMergeCases(
+    bigqueryJob: BigQueryNativeJob,
+    targetTableId: TableId,
+    schema: Schema,
+    targetTable: String,
+    enrichedTempTable: String,
+    mergeOptions: MergeOptions
+  ): (Option[String], Boolean) = {
+    val targetFilters =
+      (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
+        case (Some(_), Some(_)) =>
+          val partitions = {
+            bigqueryJob.bigquery().listPartitions(targetTableId).asScala.toList
+          }
+          mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnvVars(), options).toList
+        case _ => Nil
+      }
+    (
+      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
+      bigqueryJob.cliConfig.writeDisposition,
+      bigqueryJob.cliConfig.outputPartition
+    ) match {
+      case (true, "WRITE_TRUNCATE", Some(partitionName)) =>
         val sql = schema.buildSqlMerge(
           enrichedTempTable,
           targetTable,
-          mergeOptions,
+          schema.merge,
           schema.filter,
           targetFilters,
-          updateTargetFilters,
-          finalDynamicPartitionOverwrite
+          Nil,
+          false
         )
-        sql -> !finalDynamicPartitionOverwrite
-      case None =>
-        val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
-        sql -> true
+        computePartitions(bigqueryJob, partitionName, sql) match {
+          case Nil =>
+            logger.info(
+              "No partitions found in source. In dynamic partition overwrite mode, skip sink."
+            )
+            None -> false
+          case allPartitions =>
+            val inPartitions = allPartitions.map(date =>
+              f"'$date'"
+            ) mkString (f"date(`$partitionName`) IN (", ",", ")")
+            Some(
+              schema.buildSqlMerge(
+                enrichedTempTable,
+                targetTable,
+                schema.merge,
+                schema.filter,
+                targetFilters,
+                List(inPartitions),
+                true
+              )
+            ) -> false
+        }
+      case _ =>
+        Some(
+          schema.buildSqlMerge(
+            enrichedTempTable,
+            targetTable,
+            schema.merge,
+            schema.filter,
+            targetFilters,
+            Nil,
+            false
+          )
+        ) -> true
     }
-    logger.info(s"buildSqlSelect: $sql")
-    if (asTable)
-      bigqueryJob.RunAndSinkAsTable(Some(sql))
-    else
-      bigqueryJob.runInteractiveQuery(Some(sql))
   }
 
   private def applySecondStep(
@@ -656,7 +773,7 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, List[String]) = {
-    val incomingSchema = schema.finalSparkSchema(schemaHandler)
+    val incomingSchema = schema.sparkSchemaFinal(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
         // Load from accepted area
@@ -712,7 +829,7 @@ trait IngestionJob extends SparkJob {
       BigQuerySparkJob.getTable(domain.finalName + "." + schema.finalName)
     val existingDF = tableMetadata.table
       .map { table =>
-        val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+        val incomingSchema = BigQueryUtils.normalizeSchema(schema.sparkSchemaFinal(schemaHandler))
         val updatedTable = updateBqTableSchema(table, incomingSchema)
         val bqTable = s"${domain.finalName}.${schema.finalName}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
@@ -796,7 +913,7 @@ trait IngestionJob extends SparkJob {
     MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
     val newBqSchema =
       BigQueryUtils.bqSchema(
-        BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+        BigQueryUtils.normalizeSchema(schema.sparkSchemaFinal(schemaHandler))
       )
     val updatedTableDefinition =
       table.getDefinition[StandardTableDefinition].toBuilder.setSchema(newBqSchema).build()
@@ -1383,7 +1500,7 @@ trait IngestionJob extends SparkJob {
 
     /* We load the schema from the postsql returned dataframe if any */
     val tableSchema = schema.postsql match {
-      case Nil => Some(schema.bqSchema(schemaHandler))
+      case Nil => Some(schema.bqSchemaFinal(schemaHandler))
       case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
     }
     val config = BigQueryLoadConfig(
