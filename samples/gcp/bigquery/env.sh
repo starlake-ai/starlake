@@ -19,7 +19,7 @@ if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
     exit 1
 fi
 
-export SL_BIN_DIR="$PWD/../../distrib"
+export SL_BIN_DIR="$PWD/../../../distrib"
 export SL_ENV=BQ
 export SPARK_DRIVER_MEMORY=4G
 export SL_ROOT="gs://$GCP_BUCKET_NAME/mnt/starlake-app/quickstart"

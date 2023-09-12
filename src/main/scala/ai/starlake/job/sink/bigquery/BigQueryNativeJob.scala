@@ -177,10 +177,10 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
-          case Format.JSON =>
+          case Format.JSON | Format.SIMPLE_JSON =>
             FormatOptions.json()
           case _ =>
-            throw new Exception("Should never happen")
+            throw new Exception(s"Should never happen: ${metadata.getFormat()}")
         }
       case None =>
         throw new Exception("Should never happen")

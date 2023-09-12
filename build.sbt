@@ -66,6 +66,8 @@ commands += Command.command("assemblyWithSpark") { state =>
 // Assembly
 Test / fork := true
 
+Test / parallelExecution := false
+
 Compile / assembly / artifact := {
   val art: Artifact = (Compile / assembly / artifact).value
   art.withClassifier(Some("assembly"))
