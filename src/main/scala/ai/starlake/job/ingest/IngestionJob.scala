@@ -391,7 +391,7 @@ trait IngestionJob extends SparkJob {
       case Some(Format.DSV) =>
         (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
           case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
-            val csvHeadersOpt = storageHandler.readAndExecute(
+            val csvHeaders = storageHandler.readAndExecute(
               new Path(sourceFile),
               Charset.forName(mergedMetadata.getEncoding())
             ) { is =>
@@ -409,23 +409,17 @@ trait IngestionJob extends SparkJob {
                 csvParserSettings.setHeaderExtractionEnabled(true)
                 val csvParser = new CsvParser(csvParserSettings)
                 csvParser.beginParsing(reader)
-                val recordOpt = Option(
-                  csvParser.parseNextRecord()
-                ) // can be None if input doesn't have any record
-                recordOpt.map(_.getMetaData.headers().toList)
-                Some(csvParser.getRecordMetadata.headers().toList)
+                // call this in order to get the headers even if there is no record
+                csvParser.parseNextRecord()
+                csvParser.getRecordMetadata.headers().toList
               }
             }
-            val effectiveAttributes = csvHeadersOpt match {
-              case Some(csvHeaders) =>
-                val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
-                val csvAttributesInOrders = csvHeaders.map(h =>
-                  attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true)))
-                )
-                // attributes not in csv input file must not be required but we don't force them to optional.
-                csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-              case _ => schema.attributes
-            }
+            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
+            val csvAttributesInOrders =
+              csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
+            // attributes not in csv input file must not be required but we don't force them to optional.
+            val effectiveAttributes =
+              csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
             schema.copy(attributes = effectiveAttributes)
           case _ => schema
         }
