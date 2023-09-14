@@ -65,7 +65,7 @@ object Step {
 
 case class AuditLog(
   jobid: String,
-  paths: String,
+  paths: Option[String],
   domain: String,
   schema: String,
   success: Boolean,
@@ -83,7 +83,7 @@ case class AuditLog(
   override def toString(): String =
     s"""
        |jobid=$jobid
-       |paths=$paths
+       |paths=${paths.getOrElse("null")}
        |domain=$domain
        |schema=$schema
        |success=$success
@@ -122,7 +122,7 @@ case class AuditLog(
        |)
        |values(
        |'${escapeStringParameter(jobid)}',
-       |'${escapeStringParameter(paths)}',
+       |${paths.map(escapeStringParameter(_)).map(p => f"'$p'").getOrElse("null")},
        |'${escapeStringParameter(domain)}',
        |'${escapeStringParameter(schema)}',
        |$success,
@@ -137,7 +137,6 @@ case class AuditLog(
        |'${escapeStringParameter(tenant)}'
        |)""".stripMargin
   }
-
 }
 
 object AuditLog extends StrictLogging {
