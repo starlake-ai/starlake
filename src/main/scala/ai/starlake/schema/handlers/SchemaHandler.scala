@@ -814,7 +814,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           )
           YamlSerializer.upgradeTaskNode(taskNode)
           val taskDesc = YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskFilePrefix)
-          val taskName = if (taskDesc.name.isEmpty) taskDesc.name else taskFilePrefix
+          val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
           taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
         case _ =>
           AutoTaskDesc(
