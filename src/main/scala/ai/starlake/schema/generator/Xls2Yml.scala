@@ -138,7 +138,6 @@ object Xls2Yml extends LazyLogging {
     domain.tables foreach { schema =>
       serializeToFile(File(folder, s"${schema.name}.comet.yml"), schema)
     }
-    val tableRefs = domain.tables.map(_.name)
     val domainDataOnly = domain.copy(tables = Nil)
     serializeToFile(File(folder, s"_config.comet.yml"), domainDataOnly)
   }
