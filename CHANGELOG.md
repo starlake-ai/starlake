@@ -1,35 +1,10 @@
 
 # Release notes
 
-# 1.0.0:
-
-__Features__
-
-- have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
-  Don't support the following ingestion phases:
-  - line ignore filter
-  - pre-sql
-  - post-sql
-  - detailed rejection
-  - udf privacy
-  - data validation
-  - expectations
-  - metrics
-  - distinct on all lines
-  - unique input file name with grouped ingestion
-
-__Improvements__
-
-- sink become optional in spark job and can fallback into global connection ref settings
-- add dynamicPartitionOverwrite sink options. Available for bigquery sink and file sink. No need to set
-  spark.sql.sources.partitionOverwriteMode.
-
-__Bug Fix__:
-
-- forceDomainPattern renamed in order to be overridable with environment variable
-
 # 0.8.0:
-- Databricks on Azure is now fully documented
+- ** DEPRECATED **
+  - All date time related variables are now deprecated aka; comet_date, comet_year ...
+
 - **BREAKING CHANGE** 
   - extract-schema command line option 'mapping' replaced by 'config' 
   - kafkaload takes now a connection ref parameter
@@ -46,20 +21,37 @@ __Bug Fix__:
   - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
   - globalJDBCSchema renamed to default
   - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
-
-- ** DEPRECATED **
-  - All date time related variables are now deprecated aka; comet_date, comet_year ... 
+  - SINK_ACCEPTED and SINK_REJECTED  duration are not logged anymore. Only full time LOAD and TRANSFORM are logged
 
 __Feature__:
+- Databricks on Azure is now fully documented
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
 - Use Refs file to configure model references
 - Support native loading of data into BigQuery
 - Define JDBC connections and audit connections in metadata/connections.comet.yml
 - schema extraction and features relying on it benefit from parallel fetching
 - use load dataset path as default output dir if not defined for schema inference
+- have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
+  Don't support the following ingestion phases:
+  - line ignore filter
+  - pre-sql
+  - post-sql
+  - detailed rejection
+  - udf privacy
+  - data validation
+  - expectations
+  - metrics
+  - distinct on all lines
+  - unique input file name with grouped ingestion
+
+- sink become optional in spark job and can fallback into global connection ref settings
+- add dynamicPartitionOverwrite sink options. Available for bigquery sink and file sink. No need to set
+  spark.sql.sources.partitionOverwriteMode.
+
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
+- forceDomainPattern renamed in order to be overridable with environment variable
 
   Please run the following SQL to update your audit table on BigQuery:
 ```
