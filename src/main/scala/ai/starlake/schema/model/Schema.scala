@@ -601,7 +601,10 @@ case class Schema(
       }
       val inputData =
         if (merge.map(_.key.isEmpty).getOrElse(true))
-          buildSqlSelect(sourceTable, sourceTableFilter) // partition overwrite without deduplication
+          buildSqlSelect(
+            sourceTable,
+            sourceTableFilter
+          ) // partition overwrite without deduplication
         else
           buildSqlMerge(
             sourceTable,
