@@ -109,10 +109,12 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           }
         }
         domainNames.foreach { domainName =>
-          val schedules = groupedBySchedule.map { case (schedule, groupedByDomain) =>
-            val tables = groupedByDomain(domainName)
-            val dagDomain = DagDomain(domainName, tables.asJava)
-            DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain))
+          val schedules = groupedBySchedule.flatMap { case (schedule, groupedByDomain) =>
+            val tables = groupedByDomain.get(domainName)
+            tables.map { tableNames =>
+              val dagDomain = DagDomain(domainName, tableNames.asJava)
+              DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain))
+            }
           }.toList
 
           val context = DagGenerationContext(config = dagConfig, schedules)
@@ -156,7 +158,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     val jContext = context.asMap
     val paramMap = Map(
       "context" -> jContext,
-      "env"     -> jEnv
+      "env"     -> jEnv.asJava
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)
