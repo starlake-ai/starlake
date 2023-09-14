@@ -23,6 +23,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         schedules = List(
           DagSchedule(
             "0 0 * * *",
+            "0 0 * * *",
             List(
               DagDomain("domain1", List("table1", "table2").asJava),
               DagDomain("domain2", List("table3", "table4").asJava)

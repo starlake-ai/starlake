@@ -500,7 +500,7 @@ object Settings extends StrictLogging {
     database: String,
     tenant: String,
     connectionRef: String,
-    schedule: Map[String, Map[String, String]],
+    schedules: Map[String, String],
     refs: List[Ref],
     dagRef: Option[String]
   ) extends Serializable {
@@ -619,7 +619,20 @@ object Settings extends StrictLogging {
     // Load fairscheduler.xml
     val jobConf = initSparkSchedulingConfig(applicationConfSettings)
     val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
-    withSparkConfig
+    val withDefaultSchdules = addDefaultSchedules(withSparkConfig)
+    withDefaultSchdules
+  }
+
+  def addDefaultSchedules(settings: Settings): Settings = {
+    val defaultSchedules = Map(
+      "hourly"  -> "0 * * * *",
+      "daily"   -> "0 0 * * *",
+      "weekly"  -> "0 0 * * 1",
+      "monthly" -> "0 0 1 * *",
+      "yearly"  -> "0 0 1 1 *"
+    )
+    val schedules = settings.appConfig.schedules ++ defaultSchedules
+    settings.copy(appConfig = settings.appConfig.copy(schedules = schedules))
   }
 
   private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
