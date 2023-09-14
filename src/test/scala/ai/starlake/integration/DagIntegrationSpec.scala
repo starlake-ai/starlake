@@ -11,9 +11,10 @@ class DagIntegrationSpec extends IntegrationSpecBase {
     incomingDir.copyToDirectory(quickstartDir)
 
     Main.main(
-      Array("dag-generate", "--clean")
+      Array("dag-generate")
     )
   }
+
   "Domain Dag generation" should "succeed" in {
     setEnv("SL_ENV", "LOCAL")
     setEnv("SL_INTERNAL_SUBSTITUTE_VARS", "true")
@@ -25,6 +26,7 @@ class DagIntegrationSpec extends IntegrationSpecBase {
       Array("dag-generate")
     )
   }
+
   "Domain / Table Dag generation" should "succeed" in {
     setEnv("SL_ENV", "LOCAL")
     setEnv("SL_INTERNAL_SUBSTITUTE_VARS", "true")

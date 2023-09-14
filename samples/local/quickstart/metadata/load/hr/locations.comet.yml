@@ -7,6 +7,7 @@ table:
       array: false
       format: "JSON"
       write: "OVERWRITE"
+      schedule: "0 0 * * *"
     attributes:
       - name: "id"
         type: "string"
