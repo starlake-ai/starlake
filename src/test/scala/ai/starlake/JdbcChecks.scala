@@ -214,7 +214,7 @@ trait JdbcChecks {
       }
       val item = AuditLog(
         sparkSession.sparkContext.applicationId,
-        rs.getString("paths"),
+        Some(rs.getString("paths")),
         rs.getString("domain"),
         rs.getString("schema"),
         rs.getBoolean("success"),

@@ -554,7 +554,7 @@ case class AutoTask(
   ): Unit = {
     val log = AuditLog(
       applicationId(),
-      this.name,
+      Some(this.name),
       this.taskDesc.domain,
       this.taskDesc.table,
       success,

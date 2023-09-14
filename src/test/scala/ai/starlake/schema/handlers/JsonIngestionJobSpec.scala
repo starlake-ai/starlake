@@ -174,9 +174,11 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
-      paths = new Path(
-        "file:///" + settings.appConfig.datasets + "/ingesting/json/complex.json"
-      ).toString,
+      paths = Some(
+        new Path(
+          "file:///" + settings.appConfig.datasets + "/ingesting/json/complex.json"
+        ).toString
+      ),
       domain = "json",
       schema = "sample_json",
       success = true,
@@ -231,9 +233,11 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
-      paths = new Path(
-        "file:///" + settings.appConfig.datasets + "/ingesting/json/complexWithError.json"
-      ).toString,
+      paths = Some(
+        new Path(
+          "file:///" + settings.appConfig.datasets + "/ingesting/json/complexWithError.json"
+        ).toString
+      ),
       domain = "json",
       schema = "sample_json",
       success = true,
