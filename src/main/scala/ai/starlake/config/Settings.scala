@@ -504,6 +504,9 @@ object Settings extends StrictLogging {
     refs: List[Ref],
     dagRef: Option[String]
   ) extends Serializable {
+
+    def checkValidity(): Unit = {}
+
     def getUdfs(): Seq[String] =
       udfs
         .map { udfs =>
@@ -580,6 +583,11 @@ object Settings extends StrictLogging {
   implicit val storageLevelReader =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
+  /** @param config
+    *   : usually the default configuration loaded from reference.conf except in tests
+    * @return
+    *   final configuration after merging with application.conf & application. comet.yml
+    */
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
@@ -638,19 +646,27 @@ object Settings extends StrictLogging {
     }
   }
 
+  /** Load application.comet.yml from metadata folder
+    * @param effectiveConfig:
+    *   config to merge with application.comet.yml
+    * @param settings
+    *   :
+    * @return
+    */
   private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
-    val applicationYml = List("application.comet.yml", "application.yml").find { filename =>
-      val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
-      settings.storageHandler().exists(applicationConfPath)
+    val applicationYml = Option("application.comet.yml").find { filename =>
+      val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
+      settings.storageHandler().exists(applicationYmlPath)
     }
     val applicationYmlConfig = applicationYml match {
       case Some(filename) =>
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
-        val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
-        val applicationConfContent = settings.storageHandler().read(applicationConfPath)
+        val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
+        val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
-          Utils.parseJinja(applicationConfContent, schemaHandler.activeEnvVars())(settings)
+          Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
         val jsonNode: JsonNode = YamlSerializer.mapper.readTree(content)
+        // application: root node is optional
         val appNode = jsonNode.path("application")
         val finalNode =
           if (appNode.isNull() || appNode.isMissingNode) {
