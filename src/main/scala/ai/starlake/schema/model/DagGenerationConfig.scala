@@ -8,7 +8,7 @@ import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
 // We add
 
-case class DagSchedule(schedule: String, domains: java.util.List[DagDomain]) {
+case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
   def getSchedule(): String = schedule
   def getDomains(): java.util.List[DagDomain] = domains
 }

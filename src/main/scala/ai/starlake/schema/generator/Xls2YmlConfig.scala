@@ -88,14 +88,14 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .text(
           """What privacy policies should be applied in the pre-encryption phase ? All privacy policies are applied by default.""".stripMargin
         ),
-      opt[Option[String]]("outputPath")
-        .action((x, c) => c.copy(outputPath = x))
+      opt[String]("outputPath")
+        .action((x, c) => c.copy(outputPath = Some(x)))
         .optional()
         .text(
           """Path for saving the resulting YAML file(s). Starlake domains path is used by default.""".stripMargin
         ),
-      opt[Option[String]]("policyFile")
-        .action((x, c) => c.copy(policyFile = x))
+      opt[String]("policyFile")
+        .action((x, c) => c.copy(policyFile = Some(x)))
         .optional()
         .text(
           """Optional File for centralising ACL & RLS definition.""".stripMargin
