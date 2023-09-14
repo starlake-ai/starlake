@@ -45,22 +45,16 @@ object Step {
 
   def fromString(value: String): Step = {
     value.toUpperCase() match {
-      case "LOAD"          => Step.LOAD
-      case "SINK_ACCEPTED" => Step.SINK_ACCEPTED
-      case "SINK_REJECTED" => Step.SINK_REJECTED
-      case "TRANSFORM"     => Step.TRANSFORM
+      case "LOAD"      => Step.LOAD
+      case "TRANSFORM" => Step.TRANSFORM
     }
   }
 
   object LOAD extends Step("LOAD")
 
-  object SINK_ACCEPTED extends Step("SINK_ACCEPTED")
-
-  object SINK_REJECTED extends Step("SINK_REJECTED")
-
   object TRANSFORM extends Step("TRANSFORM")
 
-  val steps: Set[Step] = Set(LOAD, SINK_ACCEPTED, SINK_REJECTED, TRANSFORM)
+  val steps: Set[Step] = Set(LOAD, TRANSFORM)
 }
 
 case class AuditLog(

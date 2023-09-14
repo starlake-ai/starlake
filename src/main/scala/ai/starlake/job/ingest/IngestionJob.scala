@@ -742,38 +742,6 @@ trait IngestionJob extends SparkJob {
     log
   }
 
-  private def logSinkAcceptedInAudit[T](
-    start: Timestamp,
-    throwable: Option[Throwable],
-    acceptedPath: Option[String]
-  ): Unit = {
-    val end = Timestamp.from(Instant.now())
-    val err = throwable.map(Utils.exceptionAsString)
-    Try {
-      val log = AuditLog(
-        applicationId(),
-        acceptedPath,
-        domain.name,
-        schema.name,
-        success = throwable.isEmpty,
-        -1,
-        -1,
-        -1,
-        start,
-        end.getTime - start.getTime,
-        err match {
-          case Some(errAsString) => errAsString
-          case None              => "success"
-        },
-        Step.SINK_ACCEPTED.toString,
-        schemaHandler.getDatabase(domain),
-        settings.appConfig.tenant
-      )
-      err.foreach(m => logger.error(m))
-      AuditLog.sink(optionalAuditSession, log)
-    }
-  }
-
   ///////////////////////////////////////////////////////////////////////////
   /////// SPARK ENGINE ONLY /////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
@@ -1332,10 +1300,10 @@ trait IngestionJob extends SparkJob {
 
       val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
         case Success(sinkedDF) =>
-          logSinkAcceptedInAudit(start, None, Some(acceptedPath.toString))
           sinkedDF
         case Failure(exception) =>
-          logSinkAcceptedInAudit(start, Some(exception), Some(acceptedPath.toString))
+          val err = Utils.exceptionAsString(exception)
+          logger.error(err)
           throw exception
       }
       (sinkedDF, acceptedPath)
@@ -1629,45 +1597,9 @@ trait IngestionJob extends SparkJob {
             )
           case _ => // do nothing
         }
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          Some(rejectedPath.toString),
-          domainName,
-          schemaName,
-          success = true,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          "success",
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
-          settings.appConfig.tenant
-        )
-        AuditLog.sink(optionalAuditSession, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          Some(new Path(DatasetArea.rejected(domainName), schemaName).toString),
-          domainName,
-          schemaName,
-          success = false,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          Utils.exceptionAsString(exception),
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
-          settings.appConfig.tenant
-        )
-        AuditLog.sink(optionalAuditSession, log)
         Failure(exception)
     }
   }
