@@ -34,7 +34,7 @@ object Xls2YmlAutoJob extends LazyLogging {
     outputPath.createIfNotExists(asDirectory = true, createParents = true)
     logger.info(s"""Generated autoJob schemas:
                    |${serialize(autotask)}""".stripMargin)
-    serializeToFile(File(outputPath, s"$fileName.comet.yml"), autotask)
+    serializeToFile(File(outputPath, s"$fileName.sl.yml"), autotask)
   }
 
   def run(args: Array[String]): Boolean = {

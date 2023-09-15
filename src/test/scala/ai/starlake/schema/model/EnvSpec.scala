@@ -32,7 +32,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
   override def beforeAll(): Unit = {
     new WithSettings() {
       val stream: InputStream =
-        getClass.getResourceAsStream("/env/env.comet.yml")
+        getClass.getResourceAsStream("/env/env.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
@@ -42,7 +42,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   new WithSettings() {
-    "Load connections.comet.yml" should "succeed" in {
+    "Load connections.sl.yml" should "succeed" in {
       val str = YamlSerializer.mapper.writeValueAsString(settings.appConfig.connections)
       println(str)
       val str2 = YamlSerializer.mapper.writeValueAsString(settings.appConfig)

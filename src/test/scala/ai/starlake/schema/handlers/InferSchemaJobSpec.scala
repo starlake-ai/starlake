@@ -80,8 +80,8 @@ class InferSchemaJobSpec extends TestHelper {
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
@@ -104,14 +104,14 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None
           )
           val locationDir = File(targetDir, "locations")
-          val targetConfig = File(locationDir, "_config.comet.yml")
+          val targetConfig = File(locationDir, "_config.sl.yml")
           val maybeDomain =
             YamlSerializer.deserializeDomain(
               targetConfig.contentAsString,
               targetConfig.pathAsString
             )
           maybeDomain.isSuccess shouldBe true
-          val targetFile = File(locationDir, "flat_locations.comet.yml")
+          val targetFile = File(locationDir, "flat_locations.sl.yml")
           val maybeTable = YamlSerializer.deserializeSchema(
             targetFile.contentAsString,
             targetFile.pathAsString

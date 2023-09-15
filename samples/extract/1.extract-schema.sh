@@ -53,7 +53,7 @@ SQL=`cat $PWD/createdb.sql`
 echo Loading data from file $PWD/createdb.sql
 java -classpath drivers/h2*.jar org.h2.tools.Shell -url jdbc:h2:file:$PWD/H2SLDB -sql "$SQL"
 
-awk -v h2db="$PWD/H2SLDB" '{gsub("H2_DB", h2db)}1' connections-template.comet.yml >$SL_ROOT/metadata/connections.comet.yml
+awk -v h2db="$PWD/H2SLDB" '{gsub("H2_DB", h2db)}1' connections-template.sl.yml >$SL_ROOT/metadata/connections.sl.yml
 
 #SL_LIBS="--jars drivers/$H2_JAR"
 cp drivers/$H2_JAR ../../distrib/bin/spark/jars/

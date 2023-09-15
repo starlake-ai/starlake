@@ -58,8 +58,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          domainOrJobFilename = "bqtest.sl.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
@@ -83,8 +83,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          domainOrJobFilename = "bqtest.sl.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
@@ -104,8 +104,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     "Native BigQuery AutoJob" should "succeed" in {
       if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
         new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          domainOrJobFilename = "bqtest.sl.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
@@ -128,7 +128,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(businessTask1)
           val pathBusiness =
-            new Path(starlakeMetadataPath + "/transform/bqtest/bqjobtest.comet.yml")
+            new Path(starlakeMetadataPath + "/transform/bqtest/bqjobtest.sl.yml")
           storageHandler.write(businessTaskDef, pathBusiness)
 
           val configJob =
@@ -142,7 +142,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(configJob)
           val pathConfigBusiness =
-            new Path(starlakeMetadataPath + "/transform/bqtest/_config.comet.yml")
+            new Path(starlakeMetadataPath + "/transform/bqtest/_config.sl.yml")
           storageHandler.write(configJobDef, pathConfigBusiness)
 
           val schemaHandler = new SchemaHandler(storageHandler)
@@ -178,8 +178,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          domainOrJobFilename = "bqtest.sl.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {

@@ -33,7 +33,7 @@ class SchemaSpec extends TestHelper {
 
     "Attribute type" should "be valid" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/sample/default.comet.yml")
+        getClass.getResourceAsStream("/sample/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
       val types = mapper.readValue(lines, classOf[Types])
@@ -93,7 +93,7 @@ class SchemaSpec extends TestHelper {
     }
 
     "Position serialization" should "output all fields" in {
-      val yml = loadTextFile(s"/expected/yml/position_serialization.comet.yml")
+      val yml = loadTextFile(s"/expected/yml/position_serialization.sl.yml")
 
       val attr =
         Attribute("hello", position = Some(Position(1, 2)))

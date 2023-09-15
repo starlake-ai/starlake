@@ -88,8 +88,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   new WithSettings(sparkConfiguration) {
     "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
       new SpecTrait(
-        domainOrJobFilename = "yelp.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/yelp/yelp.comet.yml",
+        domainOrJobFilename = "yelp.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelp.sl.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {

@@ -13,9 +13,9 @@ class Xls2YmlDomainsSpec extends TestHelper {
     Xls2Yml.writeDomainsAsYaml(
       File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
     )
-    val outputPath = File(DatasetArea.load.toString + "/someDomain/_config.comet.yml")
-    val schema1Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.comet.yml")
-    val schema2Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.comet.yml")
+    val outputPath = File(DatasetArea.load.toString + "/someDomain/_config.sl.yml")
+    val schema1Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
+    val schema2Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
     val result: Domain = YamlSerializer
       .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
@@ -95,7 +95,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
       val xlsTable = complexReader.getDomain().get.tables.head
       val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
       val yamlPath =
-        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
 
       val yamlTable = YamlSerializer
         .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
@@ -108,25 +108,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
       deepEquals(xlsTable.attributes, yamlTable.attributes)
     }
 
-    "a preEncryption domain" should "have only string types" in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.tables.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
-    }
-
-    "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.tables.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
-      preEncrypt.tables.map(_.merge).forall(m => m.isEmpty) shouldBe true
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, None, Nil)
-      postEncrypt.tables
-        .flatMap(_.metadata.map(_.partition))
-        .forall(p => p.isDefined) shouldBe true
-      postEncrypt.tables.map(_.merge).forall(m => m.isDefined) shouldBe true
-
-    }
-
     "Column Description in schema" should "be present" in {
       domainOpt shouldBe defined
       domainOpt.get.tables.flatMap(_.comment) should have length 1
@@ -136,80 +117,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
       domain.tables
         .flatMap(_.attributes)
         .filter(_.getPrivacy().toString == algo) should have length count
-
-    "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
-      validCount(preEncrypt, "HIDE", 2)
-      validCount(preEncrypt, "MD5", 0)
-      validCount(preEncrypt, "SHA1", 1)
-    }
-    "All privacy policies" should "be applied in the pre-encrypt step " in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      validCount(preEncrypt, "HIDE", 2)
-      validCount(preEncrypt, "MD5", 2)
-      validCount(preEncrypt, "SHA1", 1)
-    }
-    "In prestep Attributes" should "not be renamed" in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      val schemaOpt = preEncrypt.tables.find(_.name == "SCHEMA1")
-      schemaOpt shouldBe defined
-      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
-      attrOpt shouldBe defined
-      attrOpt.get.rename shouldBe None
-    }
-
-    "In poststep Attributes" should "keep renaming strategy" in {
-      domainOpt shouldBe defined
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
-      val schemaOpt = postEncrypt.tables.find(_.name == "SCHEMA1")
-      schemaOpt shouldBe defined
-      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
-      attrOpt shouldBe defined
-      attrOpt.get.rename shouldBe defined
-      attrOpt.get.rename.get shouldBe "RENAME_ATTRIBUTE_6"
-
-    }
-    "No privacy policies" should "be applied in the post-encrypt step " in {
-      domainOpt shouldBe defined
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
-      validCount(postEncrypt, "HIDE", 0)
-      validCount(postEncrypt, "MD5", 0)
-      validCount(postEncrypt, "SHA1", 0)
-    }
-
-    "a preEncryption domain" should " not have required attributes" in {
-      domainOpt shouldBe defined
-      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.tables.flatMap(_.attributes).filter(_.required) shouldBe empty
-    }
-
-    "a postEncryption domain" should "have not have POSITION schemas" in {
-      domainOpt shouldBe defined
-      domainOpt.get.tables
-        .flatMap(_.metadata)
-        .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt =
-        Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
-      postEncrypt.tables
-        .flatMap(_.metadata)
-        .filter(_.format.contains(Format.POSITION)) shouldBe empty
-      validCount(postEncrypt, "HIDE", 0)
-      validCount(postEncrypt, "MD5", 2)
-      validCount(postEncrypt, "SHA1", 0)
-    }
-    "a custom separator" should "be generated" in {
-      domainOpt shouldBe defined
-      domainOpt.get.tables
-        .flatMap(_.metadata)
-        .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
-      postEncrypt.tables
-        .flatMap(_.metadata)
-        .filterNot(_.separator.contains(",")) shouldBe empty
-    }
 
     "a scripted attribute" should "be generated" in {
       domainOpt shouldBe defined
@@ -227,12 +134,8 @@ class Xls2YmlDomainsSpec extends TestHelper {
           |Usage: starlake xls2yml [options]
           |
           |  --files <value>       List of Excel files describing domains & schemas or jobs
-          |  --encryption <value>  If true generate pre and post encryption YML
           |  --iamPolicyTagsFile <value>
           |                        If true generate IAM PolicyTags YML
-          |  --delimiter <value>   CSV delimiter to use in post-encrypt YML.
-          |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
-          | All privacy policies are applied by default.
           |  --outputPath <value>  Path for saving the resulting YAML file(s).
           | Starlake domains path is used by default.
           |  --policyFile <value>  Optional File for centralising ACL & RLS definition.

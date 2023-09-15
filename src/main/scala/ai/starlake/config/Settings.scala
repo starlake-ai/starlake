@@ -500,7 +500,7 @@ object Settings extends StrictLogging {
     database: String,
     tenant: String,
     connectionRef: String,
-    schedules: Map[String, String],
+    schedulePresets: Map[String, String],
     refs: List[Ref],
     dagRef: Option[String]
   ) extends Serializable {
@@ -586,7 +586,7 @@ object Settings extends StrictLogging {
   /** @param config
     *   : usually the default configuration loaded from reference.conf except in tests
     * @return
-    *   final configuration after merging with application.conf & application. comet.yml
+    *   final configuration after merging with application.conf & application. sl.yml
     */
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
@@ -608,7 +608,7 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
-    // Load application.conf / application.comet.yml
+    // Load application.conf / application.sl.yml
     val applicationConfSettings =
       loadApplicationYaml(effectiveConfig, settings)
         .orElse(loadApplicationConf(effectiveConfig, settings))
@@ -624,15 +624,15 @@ object Settings extends StrictLogging {
   }
 
   def addDefaultSchedules(settings: Settings): Settings = {
-    val defaultSchedules = Map(
+    val defaultCronPresets = Map(
       "hourly"  -> "0 * * * *",
       "daily"   -> "0 0 * * *",
       "weekly"  -> "0 0 * * 1",
       "monthly" -> "0 0 1 * *",
       "yearly"  -> "0 0 1 1 *"
     )
-    val schedules = settings.appConfig.schedules ++ defaultSchedules
-    settings.copy(appConfig = settings.appConfig.copy(schedules = schedules))
+    val schedules = settings.appConfig.schedulePresets ++ defaultCronPresets
+    settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
 
   private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
@@ -659,15 +659,15 @@ object Settings extends StrictLogging {
     }
   }
 
-  /** Load application.comet.yml from metadata folder
+  /** Load application.sl.yml from metadata folder
     * @param effectiveConfig:
-    *   config to merge with application.comet.yml
+    *   config to merge with application.sl.yml
     * @param settings
     *   :
     * @return
     */
   private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
-    val applicationYml = Option("application.comet.yml").find { filename =>
+    val applicationYml = Option("application.sl.yml").find { filename =>
       val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
       settings.storageHandler().exists(applicationYmlPath)
     }

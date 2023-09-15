@@ -45,8 +45,8 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
   ("Ingest Complex JSON " + variant) should "be ingested from pending to accepted, and archived " in {
     new WithSettings(configuration) {
       new SpecTrait(
-        domainOrJobFilename = "json.comet.yml",
-        sourceDomainOrJobPathname = "/sample/json/json.comet.yml",
+        domainOrJobFilename = "json.sl.yml",
+        sourceDomainOrJobPathname = "/sample/json/json.sl.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/" + jsonData
       ) {
@@ -108,8 +108,8 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
     new WithSettings(configuration) {
 
       new SpecTrait(
-        domainOrJobFilename = "json.comet.yml",
-        sourceDomainOrJobPathname = "/sample/json/json-invalid-script.comet.yml",
+        domainOrJobFilename = "json.sl.yml",
+        sourceDomainOrJobPathname = "/sample/json/json-invalid-script.sl.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = s"/sample/json/$jsonData"
       ) {

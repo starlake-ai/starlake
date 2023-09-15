@@ -32,7 +32,7 @@ class RefSpec extends TestHelper with BeforeAndAfterAll {
   override def beforeAll(): Unit = {
     new WithSettings() {
       val stream: InputStream =
-        getClass.getResourceAsStream("/refs/refs.comet.yml")
+        getClass.getResourceAsStream("/refs/refs.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()

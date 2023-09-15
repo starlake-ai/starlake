@@ -99,8 +99,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest CSV" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.comet.yml",
+        domainOrJobFilename = "DOMAIN.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
@@ -151,8 +151,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "load to elasticsearch" should "work" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -180,8 +180,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest empty file with DSV schema" should "be ok " in {
       new WithSettings() {
         new SpecTrait(
-          domainOrJobFilename = "DOMAIN.comet.yml",
-          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+          domainOrJobFilename = "DOMAIN.sl.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
           datasetDomainName = "DOMAIN",
           sourceDatasetPathName = "/sample/employee-empty.csv"
         ) {
@@ -195,13 +195,13 @@ class SchemaHandlerSpec extends TestHelper {
     "load File" should "work" in {
       new WithSettings() {
         new SpecTrait(
-          domainOrJobFilename = "DOMAIN.comet.yml",
-          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+          domainOrJobFilename = "DOMAIN.sl.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
           datasetDomainName = "DOMAIN",
           sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
         ) {
           val targetPath = DatasetArea.path(
-            DatasetArea.pending("DOMAIN.comet.yml"),
+            DatasetArea.pending("DOMAIN.sl.yml"),
             new Path("/sample/SCHEMA-VALID.dsv").getName
           )
           cleanMetadata
@@ -214,8 +214,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Contains Array Of records" should "succeed" in {
       new WithSettings() {
         new SpecTrait(
-          domainOrJobFilename = "DOMAIN.comet.yml",
-          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+          domainOrJobFilename = "DOMAIN.sl.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
           datasetDomainName = "DOMAIN",
           sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
         ) {
@@ -233,8 +233,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest schema with partition" should "produce partitioned output in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        domainOrJobFilename = "DOMAIN.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -264,8 +264,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "simple-merge.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
+        domainOrJobFilename = "simple-merge.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -275,8 +275,8 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
       new SpecTrait(
-        domainOrJobFilename = "merge-with-timestamp.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/merge/merge-with-timestamp.comet.yml",
+        domainOrJobFilename = "merge-with-timestamp.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/merge-with-timestamp.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
@@ -303,8 +303,8 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
       new SpecTrait(
-        domainOrJobFilename = "simple-merge.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
+        domainOrJobFilename = "simple-merge.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
@@ -332,8 +332,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "Ingest updated schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "simple-merge.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
+        domainOrJobFilename = "simple-merge.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -343,8 +343,8 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
       new SpecTrait(
-        domainOrJobFilename = "merge-with-new-schema.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/merge/merge-with-new-schema.comet.yml",
+        domainOrJobFilename = "merge-with-new-schema.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/merge-with-new-schema.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/merge/Players-Entitled.csv"
       ) {
@@ -374,8 +374,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "A postsql query" should "update the resulting schema" in {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        domainOrJobFilename = "DOMAIN.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/employee.csv"
       ) {
@@ -391,8 +391,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "Ingest Dream Contact CSV" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "dream.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        domainOrJobFilename = "dream.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
@@ -444,8 +444,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Dream Segment CSV" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainOrJobFilename = "dream.comet.yml",
-        sourceDomainOrJobPathname = "/sample/dream/dream.comet.yml",
+        domainOrJobFilename = "dream.sl.yml",
+        sourceDomainOrJobPathname = "/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
@@ -480,8 +480,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Locations JSON" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -520,8 +520,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
@@ -556,8 +556,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "Ingest Locations XML" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/xml/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/xml/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xml/locations.xml"
       ) {
@@ -597,8 +597,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest Locations XML with XSD" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/xsd/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/xsd/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xsd/locations.xml"
       ) {
@@ -643,8 +643,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Load Business with Transform Tag" should "load an AutoDesc" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -654,7 +654,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business.comet.yml"
+        val filename = "/sample/metadata/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
         job.success.value.name shouldBe "business2"
@@ -664,7 +664,7 @@ class SchemaHandlerSpec extends TestHelper {
     "Load Transform Job" should "not reject tasks without SQL (SQL my be in external file)" in {
       cleanMetadata
       val schemaHandler = new SchemaHandler(storageHandler)
-      val filename = "/sample/job-tasks-without-sql/nosql.comet.yml"
+      val filename = "/sample/job-tasks-without-sql/nosql.sl.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
       val job = schemaHandler.loadJobTasksFromFile(jobPath)
@@ -673,7 +673,7 @@ class SchemaHandlerSpec extends TestHelper {
     "Load Transform Job with taskrefs" should "succeed" in {
       cleanMetadata
       val schemaHandler = new SchemaHandler(storageHandler)
-      val filename = "/sample/job-with-taskrefs/_config.comet.yml"
+      val filename = "/sample/job-with-taskrefs/_config.sl.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
       val job = schemaHandler.loadJobTasksFromFile(jobPath)
@@ -694,8 +694,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Extract Var from Job File" should "find all vars" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -703,7 +703,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business_with_vars.comet.yml"
+        val filename = "/sample/metadata/business/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val content = storageHandler.read(jobPath)
         val vars = content.extractVars()
@@ -713,8 +713,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Load Business with jinja" should "should not run jinja parser" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -722,7 +722,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/my-jinja-job.comet.yml"
+        val filename = "/sample/metadata/business/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
         println(job)
@@ -738,8 +738,8 @@ class SchemaHandlerSpec extends TestHelper {
     // TODO TOFIX
     //  "Load Business Definition" should "produce business dataset" in {
     //    val sh = new HdfsStorageHandler
-    //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.comet.yml")
-    //    sh.write(loadFile("/sample/metadata/business/business.comet.yml"), jobsPath)
+    //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.sl.yml")
+    //    sh.write(loadFile("/sample/metadata/business/business.sl.yml"), jobsPath)
     //    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
     //    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     //    validator.autoJob("business1")
@@ -747,17 +747,17 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Writing types" should "work" in {
 
-      val typesPath = new Path(DatasetArea.types, "types.comet.yml")
+      val typesPath = new Path(DatasetArea.types, "types.sl.yml")
 
-      deliverTestFile("/sample/types.comet.yml", typesPath)
+      deliverTestFile("/sample/types.sl.yml", typesPath)
 
-      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.comet.yml")
+      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.sl.yml")
     }
 
     "Mapping Schema" should "produce valid template" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -810,8 +810,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "JSON Schema" should "produce valid template" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        domainOrJobFilename = "locations.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -860,8 +860,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "Exporting domain as Dot" should "create a valid dot file" in {
       new SpecTrait(
-        domainOrJobFilename = "dream.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        domainOrJobFilename = "dream.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
@@ -905,8 +905,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Exporting domain as ACL Dot" should "create a valid ACL dot file" in {
       new SpecTrait(
-        domainOrJobFilename = "dream.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        domainOrJobFilename = "dream.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
@@ -931,8 +931,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest Dream Contact CSV with ignore" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "dreamignore.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/dream/dreamignore.comet.yml",
+        domainOrJobFilename = "dreamignore.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dreamignore.sl.yml",
         datasetDomainName = "dreamignore",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
@@ -983,8 +983,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "Schema with external refs" should "produce import external refs into domain" in {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/schema-refs/WITH_REF.comet.yml",
+        domainOrJobFilename = "DOMAIN.sl.yml",
+        sourceDomainOrJobPathname = s"/sample/schema-refs/WITH_REF.sl.yml",
         datasetDomainName = "WITH_REF",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -992,13 +992,13 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
 
         withSettings.deliverTestFile(
-          "/sample/schema-refs/players.comet.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "players.comet.yml")
+          "/sample/schema-refs/players.sl.yml",
+          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "players.sl.yml")
         )
 
         withSettings.deliverTestFile(
-          "/sample/schema-refs/users.comet.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "users.comet.yml")
+          "/sample/schema-refs/users.sl.yml",
+          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "users.sl.yml")
         )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         schemaHandler

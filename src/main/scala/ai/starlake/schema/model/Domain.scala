@@ -269,7 +269,7 @@ object Domain {
     val allWarnings = domainRootDirectories.flatMap { domainRootDirectory =>
       val domainName = domainRootDirectory.getName()
       val domainDirectory = new Path(domainRootDirectory, domainName)
-      val expectedDomainYmlName = s"_config.comet.yml"
+      val expectedDomainYmlName = s"_config.sl.yml"
       val expectedDomainYmlPath = new Path(domainDirectory, expectedDomainYmlName)
       val domainYmlExists = storage.exists(expectedDomainYmlPath)
       val domainYmlWarnings = if (domainYmlExists) {
@@ -281,7 +281,7 @@ object Domain {
               ValidationMessage(
                 Warning,
                 "Domain",
-                s"Domain directory for $domainName should contain a _config.comet.yml file"
+                s"Domain directory for $domainName should contain a _config.sl.yml file"
               )
             )
           )
