@@ -57,8 +57,8 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
       }
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
-          domainOrJobFilename = "_config.comet.yml",
-          sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.comet.yml",
+          domainOrJobFilename = "_config.sl.yml",
+          sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.sl.yml",
           datasetDomainName = "SL_BQ_TEST_DS",
           sourceDatasetPathName = "",
           isDomain = false
@@ -96,7 +96,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathTask =
             new Path(
               jobMetadataRootPath,
-              "SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
+              "SL_BQ_TEST_DS/tableWithPartitions.sl.yml"
             )
           val pathTaskSQL =
             new Path(
@@ -135,7 +135,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathTaskAdd =
             new Path(
               this.jobMetadataRootPath,
-              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
+              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.sl.yml"
             )
           val pathTaskSQLAdd =
             new Path(

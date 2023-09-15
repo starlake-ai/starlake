@@ -152,15 +152,15 @@ You will need first to write your metadata configuration files from a local envi
 
 ![metadata container]( /img/databricks/metadata-container.png "metadata container")
 
-If you are working with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.comet.yml`` file: 
-```yaml title="env.comet.yml"
+If you are working with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.sl.yml`` file:
+```yaml title="env.sl.yml"
 env:
   root_path: "/mnt/starlake/tmp/quickstart"
   incoming_path: "/mnt/sample-data"
 ```
 Then reference your data source by using `{{incoming_path}}` variable in the domains schemas
 
-```yaml title="hr.comet.yml"
+```yaml title="hr.sl.yml"
 load:
   name: "HR"
   metadata:

@@ -92,20 +92,20 @@ $ docker run                                                        \
 </TabItem>
 </Tabs>
 
-This inferred YAML file may be found in the `customers.comet.yml` file under the `metadata/load/sales` folder.
-Notice how the `customers.comet.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
-The domain configuration file __config.comet.yml_ is also stored in the _domain_ folder.
+This inferred YAML file may be found in the `customers.sl.yml` file under the `metadata/load/sales` folder.
+Notice how the `customers.sl.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
+The domain configuration file __config.sl.yml_ is also stored in the _domain_ folder.
 
 
 The contents of the files look like this:
 
-### Domain configuration file: _config.comet.yml
+### Domain configuration file: _config.sl.yml
 This file describes the properties shared by all tables in this domain.
 Here we assume that all tables in the `sales` domain are loaded from the _incoming_ folder.
 
 `{{root_path}}` is a variable path set in the env file (more on this later).
 
-```yaml title="Domain configuration file: _config.comet.yml"
+```yaml title="Domain configuration file: _config.sl.yml"
 ---
 load:
   name: "sales"
@@ -115,12 +115,12 @@ load:
 You may change the path referenced by the _directory_ attribute to any other path.
 
 
-### Table configuration file: customers.comet.yml
+### Table configuration file: customers.sl.yml
 
 The YAML file describes the structure of the file to load into the warehouse.
 The `pattern` property is a regular expression that will be used to match the file name.
 
-```yaml title="Table schema: customers.comet.yml"
+```yaml title="Table schema: customers.sl.yml"
 ---
 table:
   name: "customers"   # destination table name
@@ -173,15 +173,15 @@ You may also use the _${ }_ syntax to define variables.
 :::
 
 
-The environment file `metadata/env.comet.yml` define the default variables.
+The environment file `metadata/env.sl.yml` define the default variables.
 Any other environment file will be mixed with this default one and specific environment file have higher precedence.
 In our example, we have the following environment files:
 
 | Environment | File used                          |
 |-------------|------------------------------------|
-| default     | env.comet.yml                      |
-| LOCAL       | env.LOCAL.comet.yml, env.comet.yml |
-| BQ          | env.BQ.comet.yml, env.comet.yml    |
+| default     | env.sl.yml                      |
+| LOCAL       | env.LOCAL.sl.yml, env.sl.yml |
+| BQ          | env.BQ.sl.yml, env.sl.yml    |
 
 The active environment is set through the `SL_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
 
@@ -308,31 +308,31 @@ df.head
 ### How the result went tot he filesystem as parquet files
 Starlake tried to find the definition of the active environment. It searches to it in the ```SL_ENV``` variable.
 This variable may be defined as:
-- a value in the `metadata/env.comet.yml` file
+- a value in the `metadata/env.sl.yml` file
 - a value passed as an environment variable
 - a java property
 
 In our case this variable has been set as follows to the _LOCAL_ value.
 
-```yaml {3,3} title="Default env.comet.yml configuration file. Always loaded"
+```yaml {3,3} title="Default env.sl.yml configuration file. Always loaded"
 env:
   root_path: "{{SL_ROOT}}"
   SL_ENV: LOCAL
   myConnectionRef: "???"
   bigQueryMaterializationDataset: "???" # need to be defined for spark loader on BigQuery only
-  loader: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.comet.yml file
+  loader: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.sl.yml file
 ```
-This means that the specific _env.LOCAL.comet.yml_ environment file will be loaded and mixed with the default one :
+This means that the specific _env.LOCAL.sl.yml_ environment file will be loaded and mixed with the default one :
 
-```yaml title="env.LOCAL.comet.yml is Loaded since SL_ENV is evaluated to LOCAL"
+```yaml title="env.LOCAL.sl.yml is Loaded since SL_ENV is evaluated to LOCAL"
 env:
-  myConnectionRef: "localFilesystem" # use the local file system connection as defined in application.comet.yml
+  myConnectionRef: "localFilesystem" # use the local file system connection as defined in application.sl.yml
   loader: "spark" # spark since we are running in local mode
 ```
 
-The ```connectionRef``` refers to the datawarehouse connection defined in the `application.comet.yml` file as follows:
+The ```connectionRef``` refers to the datawarehouse connection defined in the `application.sl.yml` file as follows:
 
-```yaml {3,4} title="application.comet.yml"
+```yaml {3,4} title="application.sl.yml"
 application:
   connections:
     localFilesystem:
@@ -347,9 +347,9 @@ application:
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
 
   # default connection
-  connectionRef: "{{ myConnectionRef }}" # myConnectionRef is defined in the env.LOCAL.comet.yml & env.BQ.comet.yml files
+  connectionRef: "{{ myConnectionRef }}" # myConnectionRef is defined in the env.LOCAL.sl.yml & env.BQ.sl.yml files
 
-  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   spark:
     datasource:
       bigquery:
@@ -363,19 +363,19 @@ We just loaded our text file as a parquet file. This is a very common format for
 Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
 
 In our example, we will load the data into a BigQuery table.
-define the default env as being BQ (```SL_ENV=BQ```) in the `metadata/env.comet.yml` file
-and set the values specific to BigQuery in the metadata/env.BQ.comet.yml file as follows:
+define the default env as being BQ (```SL_ENV=BQ```) in the `metadata/env.sl.yml` file
+and set the values specific to BigQuery in the metadata/env.BQ.sl.yml file as follows:
 
-```yaml  title="the env.BQ.comet.yml configuration file":
+```yaml  title="the env.BQ.sl.yml configuration file":
 env:
-  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
+  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.sl.yml file
   loader: "native" # native or spark # native means we want to load the data using the BigQuery API
 ```
 
 To load the file using Spark simply set the loader to spark as follows:
-```yaml title="the env.BQ.comet.yml configuration file, used when SL_ENV is set to BQ":
+```yaml title="the env.BQ.sl.yml configuration file, used when SL_ENV is set to BQ":
 env:
-  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.comet.yml file
+  myConnectionRef: "bigquery" # Use the bigquery connection defined in the application.sl.yml file
   bigQueryMaterializationDataset: "BQ_TEST_DS" # Spark require a dataset to store temporary tables
   loader: "spark" # Use Spark as the ingestion engine
 ```

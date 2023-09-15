@@ -29,7 +29,7 @@ class TypesSpec extends TestHelper {
   new WithSettings() {
     "Default types" should "be valid" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
       val types = mapper.readValue(lines, classOf[Types])
@@ -38,7 +38,7 @@ class TypesSpec extends TestHelper {
 
     "Duplicate  type names" should "be refused" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
@@ -64,7 +64,7 @@ class TypesSpec extends TestHelper {
 
     "Money Zone" should "be valid" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
@@ -93,7 +93,7 @@ class TypesSpec extends TestHelper {
 
     "Date / Time Pattern" should "be valid" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
@@ -154,7 +154,7 @@ class TypesSpec extends TestHelper {
 
     "Double Type with a Zone" should "be able to parse a value with a + prefix" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()

@@ -198,7 +198,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
   def loadTypes(filename: String): List[Type] = {
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
-    val typesCometPath = new Path(DatasetArea.types, filename + ".comet.yml")
+    val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")
     if (storage.exists(typesCometPath))
       mapper.readValue(storage.read(typesCometPath), classOf[Types]).types
     else if (storage.exists(deprecatedTypesPath))
@@ -210,9 +210,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def types(reload: Boolean = false): List[Type] = if (reload) loadTypes() else _types
   var _types: List[Type] = loadTypes()
 
-  /** All defined types. Load all default types defined in the file default.comet.yml Types are
-    * located in the only file "types.comet.yml" Types redefined in the file "types.comet.yml"
-    * supersede the ones in "default.comet.yml"
+  /** All defined types. Load all default types defined in the file default.sl.yml Types are located
+    * in the only file "types.sl.yml" Types redefined in the file "types.sl.yml" supersede the ones
+    * in "default.sl.yml"
     */
   @throws[Exception]
   private def loadTypes(): List[Type] = {
@@ -254,13 +254,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   @throws[Exception]
-  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.comet.yml")
+  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.sl.yml")
 
   @throws[Exception]
   def expectations(name: String): Map[String, ExpectationDefinition] = {
-    val defaultExpectations = loadExpectations("default.comet.yml")
-    val expectations = loadExpectations("expectations.comet.yml")
-    val resExpectations = loadExpectations(name + ".comet.yml")
+    val defaultExpectations = loadExpectations("default.sl.yml")
+    val expectations = loadExpectations("expectations.sl.yml")
+    val resExpectations = loadExpectations(name + ".sl.yml")
     defaultExpectations ++ expectations ++ resExpectations
   }
 
@@ -352,7 +352,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
-    val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
+    val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
     val globalEnv = loadEnv(globalsCometPath)
     // System Env variables may be used as values for variables defined in the env files.
     val globalEnvVars =
@@ -367,7 +367,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .getOrElse(settings.appConfig.env)
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
-    val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.comet.yml")
+    val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
 
     // We subsittute values defined in the current profile with variables defined
     // in the default env file
@@ -386,7 +386,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def loadRefs(): Refs = {
-    val refsPath = new Path(DatasetArea.metadata, "refs.comet.yml")
+    val refsPath = new Path(DatasetArea.metadata, "refs.sl.yml")
     val refs = if (storage.exists(refsPath)) {
       val rawContent = storage.read(refsPath)
       val content = Utils.parseJinja(rawContent, activeEnvVars())
@@ -410,7 +410,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val directories = storage.listDirectories(domainPath)
     val domainsOnly = directories
       .map { directory =>
-        val configPath = new Path(directory, "_config.comet.yml")
+        val configPath = new Path(directory, "_config.sl.yml")
         if (storage.exists(configPath)) {
           val domainOnly = YamlSerializer
             .deserializeDomain(
@@ -489,9 +489,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
-    val dagsConfigsPaths = storage.list(path = dagPath, extension = ".comet.yml", recursive = false)
+    val dagsConfigsPaths = storage.list(path = dagPath, extension = ".sl.yml", recursive = false)
     dagsConfigsPaths.map { dagsConfigsPath =>
-      val dagConfigName = dagsConfigsPath.getName().dropRight(".comet.yml".length)
+      val dagConfigName = dagsConfigsPath.getName().dropRight(".sl.yml".length)
       val dagFileContent = storage.read(dagsConfigsPath)
       val dagConfig = YamlSerializer
         .deserializeDagGenerationConfig(
@@ -607,7 +607,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val folder = path.getParent()
           val tableRefNames =
             storage
-              .list(folder, extension = ".comet.yml", recursive = true)
+              .list(folder, extension = ".sl.yml", recursive = true)
               .map(_.getName())
               .filter(!_.startsWith("_config."))
 
@@ -790,14 +790,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .filter(name => !name.startsWith("_config."))
         .flatMap { filename =>
           // improve the code below to handle more than one extension
-          List("comet.yml", "sql", "sql.j2", "py")
+          List("sl.yml", "sql", "sql.j2", "py")
             .find(ext => filename.endsWith(s".$ext"))
             .map { ext =>
               val taskName = filename.substring(0, filename.length - s".$ext".length)
               (taskName, filename, ext)
             }
         }
-    val ymlFiles = allFiles.filter(_._3 == "comet.yml")
+    val ymlFiles = allFiles.filter(_._3 == "sl.yml")
     val sqlPyFiles = allFiles.filter(x =>
       (x._3 == "sql" || x._3 == "sql.j2" || x._3 == "py")
       && !ymlFiles.exists(_._1 == x._1)
@@ -806,7 +806,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
       extension match {
-        case "comet.yml" =>
+        case "sl.yml" =>
           val taskPath = new Path(folder, taskFilename)
           val taskNode = loadTaskRefNode(
             Utils
@@ -925,7 +925,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val directories = storage.listDirectories(DatasetArea.transform)
     val (validJobsFile, invalidJobsFile) = directories
       .map { directory =>
-        val configPath = new Path(directory, "_config.comet.yml")
+        val configPath = new Path(directory, "_config.sl.yml")
         if (storage.exists(configPath)) {
           val result = loadJobTasksFromFile(configPath)
           result match {

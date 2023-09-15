@@ -127,12 +127,12 @@ trait TestHelper
 
   val allTypes: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/default.comet.yml"
+      "default.sl.yml",
+      "/sample/default.sl.yml"
     ),
     FileToImport(
-      "types.comet.yml",
-      "/sample/types.comet.yml"
+      "types.sl.yml",
+      "/sample/types.sl.yml"
     )
   )
 
@@ -146,30 +146,30 @@ trait TestHelper
 
   val allExpectations: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/expectations/default.comet.yml"
+      "default.sl.yml",
+      "/sample/expectations/default.sl.yml"
     ),
     FileToImport(
-      "types.comet.yml",
-      "/sample/expectations/assertions.comet.yml"
+      "types.sl.yml",
+      "/sample/expectations/assertions.sl.yml"
     )
   )
 
   val allViews: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/views/default.comet.yml"
+      "default.sl.yml",
+      "/sample/views/default.sl.yml"
     ),
     FileToImport(
-      "types.comet.yml",
-      "/sample/views/views.comet.yml"
+      "types.sl.yml",
+      "/sample/views/views.sl.yml"
     )
   )
 
   val allDags: List[FileToImport] = List(
     FileToImport(
-      "sample.comet.yml",
-      "/yml2dag//sample.comet.yml"
+      "sample.sl.yml",
+      "/yml2dag//sample.sl.yml"
     ),
     FileToImport(
       "sample.py.j2",
@@ -179,8 +179,8 @@ trait TestHelper
 
   val applicationYmlConfig: List[FileToImport] = List(
     FileToImport(
-      "application.comet.yml",
-      "/config//application.comet.yml"
+      "application.sl.yml",
+      "/config//application.sl.yml"
     )
   )
 
@@ -362,7 +362,7 @@ trait TestHelper
       }
 
     def deliverSourceDomain(): Unit = {
-      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.comet.yml")
+      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
 
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }

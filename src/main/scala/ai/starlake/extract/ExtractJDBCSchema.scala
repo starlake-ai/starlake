@@ -139,13 +139,13 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       }
 
       val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
-      val file = File(baseOutputDir, domainName, "_" + table.name + ".comet.yml")
+      val file = File(baseOutputDir, domainName, "_" + table.name + ".sl.yml")
       file.overwrite(content)
     }
 
     val finalDomain = domain.copy(tables = Nil)
     YamlSerializer.serializeToFile(
-      File(baseOutputDir, domainName, domainName + ".comet.yml"),
+      File(baseOutputDir, domainName, domainName + ".sl.yml"),
       finalDomain
     )
   }

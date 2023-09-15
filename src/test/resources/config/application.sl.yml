@@ -1,9 +1,8 @@
 application:
-  dagRef: {{ dag_ref }}
-  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.comet.yml & env.BQ.comet.yml files
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   accessPolicies:
     apply: true
-    location: eu
+    location: EU
     taxonomy: RGPD
 
   connections:
@@ -11,7 +10,6 @@ application:
       type: "bigquery"
       options:
         writeMethod: "direct" # direct or indirect
-        location: "EU" # EU or US
         #gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes

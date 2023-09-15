@@ -8,7 +8,7 @@
 - **BREAKING CHANGE** 
   - extract-schema command line option 'mapping' replaced by 'config' 
   - kafkaload takes now a connection ref parameter
-  - application.conf replaced with application.comet.yml or application.yml in metadata folder
+  - application.conf replaced with application.sl.yml or application.yml in metadata folder
   - SL_FS no more used. Set SL_ROOT to an absolute path instead
   - SL_ENGINE no more used. engine is derived from connection
   - format renamed to sparkFormat in connections.
@@ -22,13 +22,18 @@
   - globalJDBCSchema renamed to default
   - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
   - SINK_ACCEPTED and SINK_REJECTED  duration are not logged anymore. Only full time LOAD and TRANSFORM are logged
+  - configuration files have now the .sl.yml extension
+    - On Linux/MacOS, you may have to run the following command to make it work: 
+    ```find . -name "*.comet.yml" -exec rename 's/\.comet.yml$/.sl.yml/' '{}' +``` # On MacOS install first with brew install rename
+    - On Windows, you may have to run the following command to make it work: 
+    ```Get-ChildItem -Path . -Filter "*.comet.yml" -Recurse | Rename-Item -NewName { $_.name -replace '\.comet\.yml$','.sl.yml' }```
 
 __Feature__:
 - Databricks on Azure is now fully documented
 - Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
 - Use Refs file to configure model references
 - Support native loading of data into BigQuery
-- Define JDBC connections and audit connections in metadata/connections.comet.yml
+- Define JDBC connections and audit connections in metadata/connections.sl.yml
 - schema extraction and features relying on it benefit from parallel fetching
 - use load dataset path as default output dir if not defined for schema inference
 - have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
@@ -499,7 +504,7 @@ __New feature__:
 - Improve logging
 - Add column type during for database extraction
 - The name attribute inside a job file should reflect the filename. This attribute will soon be deprecated
-- Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.comet.yml/job.sql code
+- Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.sl.yml/job.sql code
 - Switch from readthedocs to docusaurus
 - Add local and bigquery samples
 - Custom var pattern through sql-pattern-parameter in reference.conf
@@ -564,7 +569,7 @@ __Bug Fix__:
 
 ## 0.1.23
 __New feature__:
-- YML files are now renamed with the suffix .comet.yml
+- YML files are now renamed with the suffix .sl.yml
 - Comet Schema is now published on SchemaStore. This allows Intellisense in VSCode & Intellij
 - Assertions may now be executed as part of the Load and transform processes
 - Shared Assertions UDF may be defined and stored in COMET_ROOT/metadata/assertions

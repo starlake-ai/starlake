@@ -98,7 +98,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           groupedByDomain.foreach { case (domainName, tableNames) =>
             tableNames.foreach { tableName =>
               val dagDomain = DagDomain(domainName, java.util.List.of[String](tableName))
-              val cron = settings.appConfig.schedules.getOrElse(
+              val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
                 schedule
               )
@@ -134,7 +134,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             val tables = groupedByDomain.get(domainName)
             tables.map { tableNames =>
               val dagDomain = DagDomain(domainName, tableNames.asJava)
-              val cron = settings.appConfig.schedules.getOrElse(
+              val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
                 schedule
               )
@@ -176,7 +176,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             val dagDomains = groupedByDomain.map { case (domainName, tableNames) =>
               DagDomain(domainName, tableNames.asJava)
             }.toList
-            val cron = settings.appConfig.schedules.getOrElse(
+            val cron = settings.appConfig.schedulePresets.getOrElse(
               schedule,
               schedule
             )
