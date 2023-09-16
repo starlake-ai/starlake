@@ -35,11 +35,11 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     val tableWithDagConfigAndSchedule = schemaHandler.domains().flatMap { domain =>
       domain.tables.flatMap { table =>
         val mergedMetadata = table.mergedMetadata(domain.metadata)
-        val dagRef = mergedMetadata.dagRef
-          .orElse(settings.appConfig.dagRef)
+        val dagConfigRef = mergedMetadata.dagRef
+          .orElse(settings.appConfig.dagConfigRef)
         val schedule = mergedMetadata.schedule
 
-        dagRef.map { dagRef =>
+        dagConfigRef.map { dagRef =>
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
