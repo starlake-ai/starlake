@@ -163,7 +163,7 @@ class Main() extends StrictLogging {
     }
 
     if (settings.appConfig.validateOnLoad)
-      schemaHandler.fullValidation()
+      schemaHandler.checkValidity()
 
     DatasetArea.initDomains(storageHandler(), schemaHandler.domains().map(_.name))
     val workflow =
@@ -195,7 +195,7 @@ class Main() extends StrictLogging {
       case "validate" =>
         ValidateConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            schemaHandler.fullValidation(config)
+            schemaHandler.checkValidity(config)
             true
           case _ =>
             println(WatchConfig.usage())

@@ -20,6 +20,7 @@
 
 package ai.starlake.schema.handlers
 
+import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -60,7 +61,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     new StarlakeObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  private def checkValidity(
+  private def checkTypeDomainsJobsValidity(
     reload: Boolean = false
   )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
@@ -84,7 +85,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def checkDomainsVars(): List[ValidationMessage] = {
     val paths = storage.list(
       DatasetArea.load,
-      extension = ".yml",
+      extension = ".sl.yml",
       recursive = true,
       exclude = Some(Pattern.compile("_.*"))
     )
@@ -92,7 +93,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkJobsVars(): List[ValidationMessage] = {
-    val paths = storage.list(DatasetArea.transform, ".yml", recursive = true)
+    val paths = storage.list(DatasetArea.transform, ".sl.yml", recursive = true)
     val ymlWarnings = paths.flatMap(checkVarsAreDefined)
     val sqlPaths =
       storage.list(DatasetArea.transform, ".sql.j2", recursive = true) ++ storage.list(
@@ -120,11 +121,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     ymlWarnings ++ sqlWarnings
   }
 
-  def fullValidation(
+  def checkValidity(
     config: ValidateConfig = ValidateConfig()
   ): Unit = {
-    val validityErrorsAndWarnings =
-      checkValidity(reload = config.reload)(storage)
+    val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
+    val TypesDomainsJobsErrorsAndWarnings =
+      checkTypeDomainsJobsValidity(reload = config.reload)(storage)
     val deserErrors = deserializedDomains(DatasetArea.load)
       .filter { case (path, res) =>
         res.isFailure
@@ -137,7 +139,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val allErrorsAndWarnings =
-      validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+      settingsErrorsAndWarnings ++ TypesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
     val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
@@ -878,7 +880,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def deserializedJobs(jobPath: Path): List[(Path, Try[AutoJobDesc])] = {
     val paths = storage.list(
       jobPath,
-      extension = ".yml",
+      extension = ".sl.yml",
       recursive = true,
       exclude = Some(Pattern.compile("_.*"))
     )
