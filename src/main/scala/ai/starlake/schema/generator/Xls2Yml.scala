@@ -66,7 +66,6 @@ object Xls2Yml extends LazyLogging {
         }
         true
       case _ =>
-        println(Xls2YmlConfig.usage())
         false
     }
   }

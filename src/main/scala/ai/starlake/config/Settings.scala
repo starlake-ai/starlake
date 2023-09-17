@@ -21,6 +21,7 @@
 package ai.starlake.config
 
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
+import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
@@ -144,6 +145,22 @@ object Settings extends StrictLogging {
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
+      val defaultTypes = new Path(DatasetArea.types, "default.sl.yml")
+      if (!settings.storageHandler().exists(defaultTypes))
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "Types",
+          s"File not found: ${defaultTypes.toString}"
+        )
+
+      val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
+      if (!settings.storageHandler().exists(globalsCometPath))
+        errors = errors :+ ValidationMessage(
+          Severity.Warning,
+          "Environment",
+          s"env.sl.comet not found in ${globalsCometPath.toString}"
+        )
+
       val tpe = getType()
       tpe match {
         case ConnectionType.JDBC =>
@@ -592,9 +609,10 @@ object Settings extends StrictLogging {
         }
         Try {
           Utils
-            .loadInstance[GenericRowValidator](settings.appConfig.loadStrategyClass)
+            .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
         } match {
           case scala.util.Failure(exception) =>
+            exception.printStackTrace()
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "AppConfig",

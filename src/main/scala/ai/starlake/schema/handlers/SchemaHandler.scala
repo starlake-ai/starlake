@@ -22,6 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
@@ -41,7 +42,6 @@ import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
-import ai.starlake.schema.model.Severity._
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
@@ -66,7 +66,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
     val domainStructureValidity = Domain.checkFilenamesValidity()(storage, settings)
-    val typesValidity = this.types(reload).map(_.checkValidity())
+    val types = this.types(reload)
+    if (types.isEmpty) {
+      throw new Exception("No types defined. Please define types in metadata/types/default.sl.yml")
+    }
+
+    val typesValidity = types.map(_.checkValidity())
     val loadedDomains = this.domains(reload)
     val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsValidity =
@@ -123,7 +128,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def checkValidity(
     config: ValidateConfig = ValidateConfig()
-  ): Unit = {
+  ): (Int, Int) = {
     val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
     val TypesDomainsJobsErrorsAndWarnings =
       checkTypeDomainsJobsValidity(reload = config.reload)(storage)
@@ -166,6 +171,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           s"Validation Failed: $errorCount errors and $warningCount warning found"
         )
     }
+    (errorCount, warningCount)
   }
 
   def checkViewsValidity(): Either[List[ValidationMessage], Boolean] = {
@@ -349,8 +355,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     def loadEnv(path: Path): Option[Env] =
       if (storage.exists(path))
         Option(mapper.readValue(storage.read(path), classOf[Env]))
-      else
+      else {
+        logger.warn(s"Env file $path not found")
         None
+      }
 
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
@@ -962,8 +970,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         Some(
           ValidationMessage(
             Error,
-            "Job",
-            s"Jon with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
+            "Transform",
+            s"Transform with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
           )
         )
       else
@@ -972,12 +980,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val taskNamePatternErrors =
       validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.name)).flatMap { name =>
-        if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
+        val components = name.split('.')
+        if (components.length != 2) {
           Some(
             ValidationMessage(
               Error,
-              "View",
-              s"View with name $name should respect the pattern ${forceTaskPrefixRegex.regex}"
+              "Task",
+              s"Tasks with name $name should be prefixed with the domain name"
+            )
+          )
+        } else if (!forceTaskPrefixRegex.pattern.matcher(components(1)).matches())
+          Some(
+            ValidationMessage(
+              Error,
+              "Task",
+              s"Tasks with name ${components(1)} in domain ${components(0)} should respect the pattern ${forceTaskPrefixRegex.regex}"
             )
           )
         else

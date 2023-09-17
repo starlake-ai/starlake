@@ -44,7 +44,6 @@ object Xls2YmlAutoJob extends LazyLogging {
         config.files.foreach(generateSchema(_, config.policyFile, config.outputPath))
         true
       case _ =>
-        println(Xls2YmlConfig.usage())
         false
     }
   }
