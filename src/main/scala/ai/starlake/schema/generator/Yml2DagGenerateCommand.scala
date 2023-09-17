@@ -17,7 +17,6 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(config) =>
         generateDomainDags(config)
       case _ =>
-        println(Yml2DagGenerateConfig.usage())
     }
   }
 

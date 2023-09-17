@@ -154,7 +154,6 @@ class Main() extends StrictLogging {
           case Some(config) =>
             DatasetArea.bootstrap(config.template)
           case None =>
-            println(BootstrapConfig.usage())
             false
 
         }
@@ -180,8 +179,7 @@ class Main() extends StrictLogging {
             } else
               workflow.autoJob(config)
           case _ =>
-            println(TransformConfig.usage())
-            false
+            true
         }
       case "import" =>
         ImportConfig.parse(args.drop(1)) match {
@@ -189,33 +187,38 @@ class Main() extends StrictLogging {
             workflow.loadLanding(config)
             true
           case None =>
-            println(ImportConfig.usage())
-            false
+            true
         }
       case "validate" =>
         ValidateConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            schemaHandler.checkValidity(config)
+            val (errorCount, warningCount) = schemaHandler.checkValidity(config)
+            if (errorCount > 0) {
+              // scalastyle:off println
+              println(s"Found $errorCount errors")
+            } else if (warningCount > 0) {
+              // scalastyle:off println
+              println(s"Found $warningCount warnings")
+            } else
+              // scalastyle:off println
+              println("No errors or warnings found")
             true
           case _ =>
-            println(WatchConfig.usage())
-            false
+            true
         }
       case "watch" | "load" =>
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
           case _ =>
-            println(WatchConfig.usage())
-            false
+            true
         }
       case "ingest" =>
         IngestConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.load(config)
           case _ =>
-            println(IngestConfig.usage())
-            false
+            true
         }
 
       case "index" | "esload" =>
@@ -224,8 +227,7 @@ class Main() extends StrictLogging {
             // do something
             workflow.esLoad(config).isSuccess
           case _ =>
-            println(ESLoadConfig.usage())
-            false
+            true
         }
 
       case "kafkaload" =>
@@ -233,8 +235,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.kafkaload(config).isSuccess
           case _ =>
-            println(KafkaJobConfig.usage())
-            false
+            true
         }
 
       case "bqload" =>
@@ -242,8 +243,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.bqload(config.asBigqueryLoadConfig()).isSuccess
           case _ =>
-            println(BigQueryLoadConfig.usage())
-            false
+            true
         }
 
       case "cnxload" =>
@@ -251,8 +251,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.jdbcload(config).isSuccess
           case _ =>
-            println(JdbcConnectionLoadConfig.usage())
-            false
+            true
         }
 
       case "infer-ddl" =>
@@ -260,24 +259,21 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.inferDDL(config).isSuccess
           case _ =>
-            println(Yml2DDLConfig.usage())
-            false
+            true
         }
       case "infer-schema" =>
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.inferSchema(config).isSuccess
           case _ =>
-            println(InferSchemaConfig.usage())
-            false
+            true
         }
       case "metrics" =>
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.metric(config).isSuccess
           case _ =>
-            println(MetricsConfig.usage())
-            false
+            true
         }
 
       case "parquet2csv" =>
@@ -285,8 +281,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             new Parquet2CSV(config, storageHandler()).run().isSuccess
           case _ =>
-            println(Parquet2CSVConfig.usage())
-            false
+            true
         }
 
       case "secure" =>
@@ -294,8 +289,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.secure(config)
           case _ =>
-            println(WatchConfig.usage())
-            false
+            true
         }
 
       case "iam-policies" =>
@@ -320,7 +314,6 @@ class Main() extends StrictLogging {
           case Some(config) =>
             new AutoTaskToGraphViz(settings, schemaHandler, storageHandler()).run(config)
           case None =>
-            println(AutoTask2GraphVizConfig.usage())
         }
         true
       case "extract-schema" =>
@@ -355,16 +348,16 @@ class Main() extends StrictLogging {
             SingleUserMainServer.serve(config)
             true
           case _ =>
-            println(MainServerConfig.usage())
-            false
+            true
         }
       case "dag-generate" =>
         new Yml2DagGenerateCommand(schemaHandler).run(args.drop(1))
         true
       case command =>
         printUsage(command)
-        false
+        true
     }
+    // We raise an exception only on command failure not on parse args failure
     if (!result)
       throw new Exception(s"""Starlake failed to execute command with args ${args.mkString(",")}""")
   }

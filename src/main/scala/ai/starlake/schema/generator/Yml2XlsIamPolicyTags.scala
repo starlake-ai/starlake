@@ -21,7 +21,6 @@ object Yml2XlsIamPolicyTags extends LazyLogging with XlsModel {
           YamlSerializer.deserializeIamPolicyTags(settings.storageHandler().read(inputPath))
         writeXls(iamPolicyTags, config.xlsDirectory)
       case _ =>
-        println(Yml2XlsConfig.usage())
     }
   }
 

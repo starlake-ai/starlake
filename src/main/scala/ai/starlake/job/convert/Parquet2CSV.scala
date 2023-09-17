@@ -82,7 +82,6 @@ object Parquet2CSV {
       case Some(config) =>
         new Parquet2CSV(config, storageHandler()).run()
       case _ =>
-        println(Parquet2CSVConfig.usage())
     }
   }
 }
