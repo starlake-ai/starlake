@@ -3,7 +3,7 @@ package ai.starlake.job.transform
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class AutoTask2GraphVizConfig(
+case class AutoTaskDependenciesConfig(
   outputDir: Option[String] = None,
   task: Option[String] = None,
   reload: Boolean = false,
@@ -11,16 +11,16 @@ case class AutoTask2GraphVizConfig(
   objects: Seq[String] = Seq("task", "table")
 )
 
-object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
+object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
   val command = "jobs2gv"
 
-  val parser: OParser[Unit, AutoTask2GraphVizConfig] = {
-    val builder = OParser.builder[AutoTask2GraphVizConfig]
+  val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
+    val builder = OParser.builder[AutoTaskDependenciesConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
-      note("Generate GraphViz files from Job YAML files"),
+      note("Generate Task dependencies graph"),
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
@@ -51,6 +51,6 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
     * @return
     *   Option of case class SchemaGenConfig.
     */
-  def parse(args: Seq[String]): Option[AutoTask2GraphVizConfig] =
-    OParser.parse(parser, args, AutoTask2GraphVizConfig())
+  def parse(args: Seq[String]): Option[AutoTaskDependenciesConfig] =
+    OParser.parse(parser, args, AutoTaskDependenciesConfig())
 }

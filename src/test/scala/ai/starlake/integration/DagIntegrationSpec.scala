@@ -2,7 +2,7 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class DagIntegrationSpec extends IntegrationSpecBase {
+class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
   "All Dag generation" should "succeed" in {
     setEnv("SL_ENV", "LOCAL")
     setEnv("SL_INTERNAL_SUBSTITUTE_VARS", "true")

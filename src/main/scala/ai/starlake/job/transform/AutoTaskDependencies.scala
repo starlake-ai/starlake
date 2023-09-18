@@ -6,7 +6,9 @@ import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
-class AutoTaskToGraphViz(
+import scala.collection.immutable.List
+
+class AutoTaskDependencies(
   settings: Settings,
   schemaHandler: SchemaHandler,
   storageHandler: StorageHandler
@@ -32,10 +34,14 @@ class AutoTaskToGraphViz(
                  |}
                  |""".stripMargin
 
-  def run(config: AutoTask2GraphVizConfig): Unit = jobAsDot(config)
+  def run(config: AutoTaskDependenciesConfig): Unit = jobAsDot(config)
 
+  /** @param config
+    * @return
+    *   (jobName, dedupEntities, relations)
+    */
   def jobs(
-    config: AutoTask2GraphVizConfig
+    config: AutoTaskDependenciesConfig
   ): List[(String, List[TaskViewDependency], List[TaskViewDependency])] = {
     val tasks =
       AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
@@ -70,7 +76,23 @@ class AutoTaskToGraphViz(
     }
   }
 
-  def jobAsDot(config: AutoTask2GraphVizConfig): List[(String, String)] = {
+  def jobsDependencyTree(config: AutoTaskDependenciesConfig): List[TaskViewDependencyNode] = {
+    val deps = jobs(config)
+    val relations = deps.flatMap(_._3)
+    val entities = deps.flatMap(_._2)
+    val result = config.task match {
+      case Some(taskName) =>
+        val entity = entities.find(_.name == taskName).getOrElse {
+          throw new RuntimeException(s"taskName:$taskName not found")
+        }
+        List(TaskViewDependencyNode.dependencies(entity, entities, relations))
+
+      case None =>
+        TaskViewDependencyNode.dependencies(entities, relations)
+    }
+    result
+  }
+  def jobAsDot(config: AutoTaskDependenciesConfig): List[(String, String)] = {
     val results: List[(String, String)] = jobs(config).map {
       case (jobName, dedupEntities, relations) =>
         val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")

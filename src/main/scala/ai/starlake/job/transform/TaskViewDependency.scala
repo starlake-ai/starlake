@@ -87,7 +87,18 @@ object TaskViewDependency extends StrictLogging {
             val parentJobName = parts.length match {
               case 1 =>
                 val tablePart = parts.last // == 0
-                tasks.find(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase()).map(_.name)
+                val refs = tasks.filter(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase())
+                if (refs.size > 1) {
+                  throw new Exception(
+                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
+                        .map(_.name)
+                        .mkString}.
+                     |Make sure references in your SQL are unambiguous or fully qualified.
+                     |""".stripMargin
+                  )
+
+                } else
+                  refs.headOption.map(_.name)
 
               case 2 | 3 =>
                 val domainPart = parts.dropRight(1).last

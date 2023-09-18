@@ -11,7 +11,7 @@ import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
+import ai.starlake.job.transform.{AutoTaskDependencies, AutoTaskDependenciesConfig, TransformConfig}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
@@ -66,7 +66,7 @@ object Main extends StrictLogging {
 class Main() extends StrictLogging {
 
   val configs: List[CliConfig[_]] = List(
-    AutoTask2GraphVizConfig,
+    AutoTaskDependenciesConfig,
     BootstrapConfig,
     BigQueryLoadConfig,
     BigQueryTablesConfig,
@@ -309,10 +309,18 @@ class Main() extends StrictLogging {
       case "yml2gv" =>
         new Yml2GraphViz(schemaHandler).run(args.drop(1))
         true
-      case "jobs2gv" =>
-        AutoTask2GraphVizConfig.parse(args.drop(1)) match {
+      case "dependencies" =>
+        AutoTaskDependenciesConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new AutoTaskToGraphViz(settings, schemaHandler, storageHandler()).run(config)
+            new AutoTaskDependencies(settings, schemaHandler, storageHandler())
+              .jobsDependencyTree(config)
+          case None =>
+        }
+        true
+      case "jobs2gv" =>
+        AutoTaskDependenciesConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)
           case None =>
         }
         true

@@ -88,14 +88,29 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     sourceURIs: Iterable[String]
   ): Job = {
     val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
-    val jobName = "jobId_" + UUID.randomUUID().toString();
-    val jobId = JobId.newBuilder().setJob(jobName).build();
+    val jobId: JobId = newJobId()
     Using(bigquery.writer(jobId, loadConfig)) { writer =>
       val outputStream = Channels.newOutputStream(writer)
       sourceURIs
         .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
     }
     bigquery().getJob(jobId)
+  }
+
+  private def newJobId(): JobId = {
+    val jobName = UUID.randomUUID().toString();
+    val jobIdBuilder = JobId.newBuilder().setJob(jobName);
+    cliConfig.outputDatabase.map(jobIdBuilder.setProject)
+    jobIdBuilder.setLocation(
+      connectionOptions.getOrElse(
+        "location",
+        throw new Exception(
+          s"location is required but not present in connection $connectionName"
+        )
+      )
+    )
+    val jobId = jobIdBuilder.build()
+    jobId
   }
 
   def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
@@ -396,20 +411,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
   def runBatchQuery(wait: Boolean): Try[Job] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
-        val jobId = JobId
-          .newBuilder()
-          .setJob(
-            UUID.randomUUID.toString
-          ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(
-            connectionOptions.getOrElse(
-              "location",
-              throw new Exception(
-                s"location is required but not present in connection $connectionName"
-              )
-            )
-          )
-          .build()
+        val jobId = newJobId()
         val queryConfig =
           QueryJobConfiguration
             .newBuilder(sql)
