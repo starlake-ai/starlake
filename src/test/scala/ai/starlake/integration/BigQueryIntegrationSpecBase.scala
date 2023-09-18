@@ -5,7 +5,7 @@ import better.files.File
 import com.google.cloud.bigquery.BigQueryOptions
 import org.scalatest.BeforeAndAfterAll
 
-class IntegrationSpecBase extends TestHelper with BeforeAndAfterAll {
+class BigQueryIntegrationSpecBase extends TestHelper with BeforeAndAfterAll {
 
   val bigquery = BigQueryOptions.newBuilder().build().getService()
 

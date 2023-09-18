@@ -2,7 +2,7 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class LocalBQIntegrationSpec extends IntegrationSpecBase {
+class LocalBQIntegrationSpec extends BigQueryIntegrationSpecBase {
   if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ" should "succeed" in {
       setEnv("SL_ENV", "BQ")
