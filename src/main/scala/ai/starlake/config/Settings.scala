@@ -516,7 +516,8 @@ object Settings extends StrictLogging {
     connectionRef: String,
     schedulePresets: Map[String, String],
     refs: List[Ref],
-    dagConfigRef: Option[String]
+    dagConfigRef: Option[String],
+    maxParTask: Int
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =

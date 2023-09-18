@@ -312,14 +312,6 @@ class Main() extends StrictLogging {
       case "dependencies" =>
         AutoTaskDependenciesConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new AutoTaskDependencies(settings, schemaHandler, storageHandler())
-              .jobsDependencyTree(config)
-          case None =>
-        }
-        true
-      case "jobs2gv" =>
-        AutoTaskDependenciesConfig.parse(args.drop(1)) match {
-          case Some(config) =>
             new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)
           case None =>
         }

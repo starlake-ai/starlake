@@ -8,11 +8,13 @@ case class AutoTaskDependenciesConfig(
   task: Option[String] = None,
   reload: Boolean = false,
   verbose: Boolean = false,
-  objects: Seq[String] = Seq("task", "table")
+  objects: Seq[String] = Seq("task", "table"),
+  viz: Boolean = false,
+  print: Boolean = false
 )
 
 object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
-  val command = "jobs2gv"
+  val command = "dependencies"
 
   val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
     val builder = OParser.builder[AutoTaskDependenciesConfig]
@@ -39,6 +41,14 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
         .action((x, c) => c.copy(verbose = true))
         .optional()
         .text("Should we generate one graph per job ?"),
+      opt[Unit]("viz")
+        .action((x, c) => c.copy(viz = true))
+        .optional()
+        .text("Should we generate one graph per job ?"),
+      opt[Unit]("print")
+        .action((x, c) => c.copy(print = true))
+        .optional()
+        .text("Print dependencies as text"),
       opt[Seq[String]]("objects")
         .action((x, c) => c.copy(objects = x))
         .optional()

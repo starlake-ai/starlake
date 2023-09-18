@@ -6,43 +6,30 @@ import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.collection.immutable.List
-
+case class DependencyContext(
+  jobName: String,
+  entities: List[TaskViewDependency],
+  relations: List[TaskViewDependency]
+)
 class AutoTaskDependencies(
   settings: Settings,
   schemaHandler: SchemaHandler,
   storageHandler: StorageHandler
 ) extends StrictLogging {
 
-  val prefix = """
-                 |digraph {
-                 |graph [pad="0.5", nodesep="0.5", ranksep="2"];
-                 |node [shape=plain]
-                 |rankdir=LR;
-                 |
-                 |
-                 |""".stripMargin
-
-  val aclPrefix = """
-                    |digraph {
-                    |graph [pad="0.5", nodesep="0.5", ranksep="2"];
-                    |
-                    |
-                    |""".stripMargin
-
-  val suffix = """
-                 |}
-                 |""".stripMargin
-
-  def run(config: AutoTaskDependenciesConfig): Unit = jobAsDot(config)
+  def run(config: AutoTaskDependenciesConfig): Unit = {
+    val allDependencies: List[DependencyContext] = jobs(config)
+    if (config.print) jobsDependencyTree(allDependencies, config)
+    if (config.viz) jobAsDot(allDependencies, config)
+  }
 
   /** @param config
     * @return
-    *   (jobName, dedupEntities, relations)
+    *   List[DependencyContext(jobName, dedupEntities, relations)]
     */
   def jobs(
     config: AutoTaskDependenciesConfig
-  ): List[(String, List[TaskViewDependency], List[TaskViewDependency])] = {
+  ): List[DependencyContext] = {
     val tasks =
       AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
     val depsMap =
@@ -69,17 +56,28 @@ class AutoTaskDependencies(
       val relations = deps
         .filter(dep => config.objects.contains(dep.parentTyp))
 
-      logger.debug(s"----------jobName:$jobName")
-      logger.debug("----------relations------")
-      logger.debug(mapper.writeValueAsString(System.out, relations))
-      (jobName, dedupEntities, relations)
+      logger.whenDebugEnabled {
+        logger.debug(s"----------jobName:$jobName")
+        logger.debug("----------relations------")
+        logger.debug(mapper.writeValueAsString(relations))
+      }
+      DependencyContext(jobName, dedupEntities, relations)
     }
   }
 
-  def jobsDependencyTree(config: AutoTaskDependenciesConfig): List[TaskViewDependencyNode] = {
-    val deps = jobs(config)
-    val relations = deps.flatMap(_._3)
-    val entities = deps.flatMap(_._2)
+  def jobsDependencyTree(
+    config: AutoTaskDependenciesConfig
+  ): List[TaskViewDependencyNode] = {
+    jobsDependencyTree(jobs(config), config)
+  }
+
+  def jobsDependencyTree(
+    allDependencies: List[DependencyContext],
+    config: AutoTaskDependenciesConfig
+  ): List[TaskViewDependencyNode] = {
+
+    val relations = allDependencies.flatMap(_.relations)
+    val entities = allDependencies.flatMap(_.entities)
     val result = config.task match {
       case Some(taskName) =>
         val entity = entities.find(_.name == taskName).getOrElse {
@@ -90,11 +88,43 @@ class AutoTaskDependencies(
       case None =>
         TaskViewDependencyNode.dependencies(entities, relations)
     }
+    result.foreach(_.print())
     result
   }
-  def jobAsDot(config: AutoTaskDependenciesConfig): List[(String, String)] = {
-    val results: List[(String, String)] = jobs(config).map {
-      case (jobName, dedupEntities, relations) =>
+
+  //// DOT section
+  val prefix =
+    """
+      |digraph {
+      |graph [pad="0.5", nodesep="0.5", ranksep="2"];
+      |node [shape=plain]
+      |rankdir=LR;
+      |
+      |
+      |""".stripMargin
+
+  val aclPrefix =
+    """
+      |digraph {
+      |graph [pad="0.5", nodesep="0.5", ranksep="2"];
+      |
+      |
+      |""".stripMargin
+
+  val suffix =
+    """
+      |}
+      |""".stripMargin
+
+  def jobAsDot(config: AutoTaskDependenciesConfig): List[(String, String)] =
+    jobAsDot(jobs(config), config)
+
+  def jobAsDot(
+    allDependencies: List[DependencyContext],
+    config: AutoTaskDependenciesConfig
+  ): List[(String, String)] = {
+    val results: List[(String, String)] = allDependencies.map {
+      case DependencyContext(jobName, dedupEntities, relations) =>
         val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")
         val relationsAsDot = relations
           .flatMap(dep => dep.relationAsDot())
