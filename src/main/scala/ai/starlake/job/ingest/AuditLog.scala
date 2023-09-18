@@ -25,7 +25,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQu
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, JobResult, Utils}
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName, TableId}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -251,10 +251,14 @@ object AuditLog extends StrictLogging {
   )(implicit
     settings: Settings
   ): Try[JobResult] = {
-    val auditOutputTarget =
-      BigQueryJobBase.extractProjectDatasetAndTable(
-        settings.appConfig.audit.domain.getOrElse("audit") + ".audit"
-      )
+    val auditOutputTarget = {
+      val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
+      val auditTable = "audit"
+      settings.appConfig.audit.database match {
+        case Some(prj) => TableId.of(prj, auditDomain, auditTable)
+        case None      => TableId.of(auditDomain, auditTable)
+      }
+    }
     val bqConfig = BigQueryLoadConfig(
       Some(sink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
       Left("ignore"),
