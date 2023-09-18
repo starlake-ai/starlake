@@ -193,7 +193,7 @@ object InferSchemaHandler {
       */
     val domainFolder = File(saveDir, domain.name)
     domainFolder.createDirectories()
-    val configPath = File(domainFolder, "_config.comet.yml")
+    val configPath = File(domainFolder, "_config.sl.yml")
     if (!configPath.exists) {
       val config = Domain(
         name = domain.name,
@@ -206,7 +206,7 @@ object InferSchemaHandler {
       YamlSerializer.serializeToFile(configPath, config)
     }
     val table = domain.tables.head
-    val tablePath = File(domainFolder, s"${table.name}.comet.yml")
+    val tablePath = File(domainFolder, s"${table.name}.sl.yml")
     if (tablePath.exists) {
       throw new Exception(
         s"Table ${domain.tables.head.name} already defined in file $tablePath"

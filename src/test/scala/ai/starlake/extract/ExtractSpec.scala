@@ -80,7 +80,7 @@ class ExtractSpec extends TestHelper {
       None
     )
     val publicOutputDir = outputDir / "PUBLIC"
-    val publicPath = publicOutputDir / "PUBLIC.comet.yml"
+    val publicPath = publicOutputDir / "PUBLIC.sl.yml"
     val domain =
       YamlSerializer.deserializeDomain(
         publicPath.contentAsString,
@@ -91,7 +91,7 @@ class ExtractSpec extends TestHelper {
       }
     assert(domain.name == "PUBLIC")
 
-    val tableFile = publicOutputDir / "_TEST_TABLE1.comet.yml"
+    val tableFile = publicOutputDir / "_TEST_TABLE1.sl.yml"
     val table =
       YamlSerializer
         .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
@@ -103,7 +103,7 @@ class ExtractSpec extends TestHelper {
     )
     table.primaryKey should contain("ID")
     table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\QTEST_TABLE1\\E.*"
-    val viewFile = publicOutputDir / "_TEST_VIEW1.comet.yml"
+    val viewFile = publicOutputDir / "_TEST_VIEW1.sl.yml"
     val view =
       YamlSerializer
         .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
@@ -340,7 +340,7 @@ class ExtractSpec extends TestHelper {
         None,
         None
       )
-      val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
+      val publicPath = File("/tmp/PUBLIC/PUBLIC.sl.yml")
       val domain =
         YamlSerializer.deserializeDomain(
           publicPath.contentAsString,
@@ -350,7 +350,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
+      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.sl.yml")
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
@@ -401,7 +401,7 @@ class ExtractSpec extends TestHelper {
         None,
         None
       )
-      val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
+      val publicPath = File("/tmp/PUBLIC/PUBLIC.sl.yml")
       val domain =
         YamlSerializer.deserializeDomain(
           publicPath.contentAsString,
@@ -411,7 +411,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.comet.yml")
+      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.sl.yml")
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)

@@ -21,6 +21,8 @@
 package ai.starlake.config
 
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
+import ai.starlake.job.load.LoadStrategy
+import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
@@ -45,10 +47,9 @@ import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
-
-  final case class Airflow(endpoint: String, ingest: String)
 
   /** datasets in the data pipeline go through several stages and are stored on disk at each of
     * these stages. This setting allow to customize the folder names of each of these stages.
@@ -144,6 +145,22 @@ object Settings extends StrictLogging {
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
+      val defaultTypes = new Path(DatasetArea.types, "default.sl.yml")
+      if (!settings.storageHandler().exists(defaultTypes))
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "Types",
+          s"File not found: ${defaultTypes.toString}"
+        )
+
+      val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
+      if (!settings.storageHandler().exists(globalsCometPath))
+        errors = errors :+ ValidationMessage(
+          Severity.Warning,
+          "Environment",
+          s"env.sl.comet not found in ${globalsCometPath.toString}"
+        )
+
       val tpe = getType()
       tpe match {
         case ConnectionType.JDBC =>
@@ -439,8 +456,6 @@ object Settings extends StrictLogging {
     *   : Should we create a Hive Table ? true by default
     * @param area
     *   : see Area above
-    * @param airflow
-    *   : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class AppConfig(
     env: String,
@@ -472,7 +487,6 @@ object Settings extends StrictLogging {
     mergeForceDistinct: Boolean,
     mergeOptimizePartitionWrite: Boolean,
     area: Area,
-    airflow: Airflow,
     hadoop: Map[String, String],
     connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
@@ -500,10 +514,12 @@ object Settings extends StrictLogging {
     database: String,
     tenant: String,
     connectionRef: String,
-    schedule: Map[String, Map[String, String]],
+    schedulePresets: Map[String, String],
     refs: List[Ref],
-    dagRef: Option[String]
+    dagConfigRef: Option[String],
+    maxParTask: Int
   ) extends Serializable {
+
     def getUdfs(): Seq[String] =
       udfs
         .map { udfs =>
@@ -552,6 +568,176 @@ object Settings extends StrictLogging {
   }
 
   object AppConfig {
+    def checkValidity(
+      storageHandler: StorageHandler,
+      settings: Settings
+    ): List[ValidationMessage] = {
+      var errors = List.empty[ValidationMessage]
+      val appConfig = settings.appConfig
+      if (appConfig.env.nonEmpty) {
+        val envFile = new Path(DatasetArea.metadata(settings), "env." + appConfig.env + ".sl.yml")
+        if (!storageHandler.exists(envFile)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"env.${appConfig.env}.sl.yml not found in ${envFile.toString}"
+          )
+        }
+        Try {
+          Utils
+            .loadInstance[GenericRowValidator](settings.appConfig.rowValidatorClass)
+        } match {
+          case scala.util.Failure(exception) =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"rowValidatorClass ${settings.appConfig.rowValidatorClass} not found"
+            )
+          case _ =>
+        }
+
+        Try {
+          Utils
+            .loadInstance[GenericRowValidator](settings.appConfig.treeValidatorClass)
+        } match {
+          case scala.util.Failure(exception) =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"treeValidatorClass ${settings.appConfig.treeValidatorClass} not found"
+            )
+          case _ =>
+        }
+        Try {
+          Utils
+            .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
+        } match {
+          case scala.util.Failure(exception) =>
+            exception.printStackTrace()
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"loadStrategyClass ${settings.appConfig.loadStrategyClass} not found"
+            )
+          case _ =>
+        }
+
+        if (!Set("spark", "native").contains(settings.appConfig.loader)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"loader ${settings.appConfig.loader} not supported"
+          )
+        }
+        settings.appConfig.connections.foreach { case (name, connection) =>
+          errors = errors ++ connection.checkValidity()(settings)
+        }
+        val path = new Path(settings.appConfig.root)
+        if (!storageHandler.exists(path)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"root ${settings.appConfig.root} not found"
+          )
+        }
+        Try {
+          settings.appConfig.sqlParameterPattern.r
+        } match {
+          case scala.util.Failure(exception) =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"sqlParameterPattern ${settings.appConfig.sqlParameterPattern} is not a valid regex"
+            )
+          case _ =>
+        }
+        if (settings.appConfig.rejectMaxRecords < 0) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"rejectMaxRecords ${settings.appConfig.rejectMaxRecords} must be positive"
+          )
+        }
+        if (settings.appConfig.maxParCopy <= 0) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"maxParCopy ${settings.appConfig.maxParCopy} must be positive"
+          )
+        }
+        val patterns = List(
+          (settings.appConfig.forceViewPattern, "forceViewPattern"),
+          (settings.appConfig.forceDomainPattern, "forceDomainPattern"),
+          (settings.appConfig.forceTablePattern, "forceTablePattern"),
+          (settings.appConfig.forceJobPattern, "forceJobPattern"),
+          settings.appConfig.forceTaskPattern -> "forceTaskPattern"
+        )
+        patterns.foreach { case (value, name) =>
+          Try {
+            value.r
+          } match {
+            case Failure(exception) =>
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "AppConfig",
+                s"$name value is not a valid regex"
+              )
+            case _ =>
+          }
+        }
+        if (settings.appConfig.sessionDurationServe <= 0) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"sessionDurationServe ${settings.appConfig.sessionDurationServe} must be positive"
+          )
+        }
+
+        val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
+        if (settings.appConfig.connectionRef.isEmpty) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"connectionRef must be defined. Valid connection names are $validConnectionNames"
+          )
+        } else {
+          settings.appConfig.connections.get(settings.appConfig.connectionRef) match {
+            case Some(_) =>
+            case None =>
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "AppConfig",
+                s"Connection ${settings.appConfig.connectionRef} not found. Valid connection names are $validConnectionNames"
+              )
+          }
+        }
+
+        settings.appConfig.schedulePresets.foreach { case (name, cron) =>
+          Try {
+            cron.r
+          } match {
+            case Failure(exception) =>
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                "AppConfig",
+                s"schedulePresets $name value is not a valid cron"
+              )
+            case _ =>
+          }
+        }
+        settings.appConfig.dagConfigRef.foreach { dagConfigRef =>
+          val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
+          if (!storageHandler.exists(dagConfigPath)) {
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.toString}"
+            )
+          }
+        }
+      }
+      errors
+    }
 
     private case class JsonWrapped(jsonValue: String) {
 
@@ -580,6 +766,11 @@ object Settings extends StrictLogging {
   implicit val storageLevelReader =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
+  /** @param config
+    *   : usually the default configuration loaded from reference.conf except in tests
+    * @return
+    *   final configuration after merging with application.conf & application. sl.yml
+    */
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
@@ -600,7 +791,7 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
-    // Load application.conf / application.comet.yml
+    // Load application.conf / application.sl.yml
     val applicationConfSettings =
       loadApplicationYaml(effectiveConfig, settings)
         .orElse(loadApplicationConf(effectiveConfig, settings))
@@ -611,7 +802,20 @@ object Settings extends StrictLogging {
     // Load fairscheduler.xml
     val jobConf = initSparkSchedulingConfig(applicationConfSettings)
     val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
-    withSparkConfig
+    val withDefaultSchdules = addDefaultSchedules(withSparkConfig)
+    withDefaultSchdules
+  }
+
+  def addDefaultSchedules(settings: Settings): Settings = {
+    val defaultCronPresets = Map(
+      "hourly"  -> "0 * * * *",
+      "daily"   -> "0 0 * * *",
+      "weekly"  -> "0 0 * * 1",
+      "monthly" -> "0 0 1 * *",
+      "yearly"  -> "0 0 1 1 *"
+    )
+    val schedules = settings.appConfig.schedulePresets ++ defaultCronPresets
+    settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
 
   private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
@@ -638,19 +842,27 @@ object Settings extends StrictLogging {
     }
   }
 
+  /** Load application.sl.yml from metadata folder
+    * @param effectiveConfig:
+    *   config to merge with application.sl.yml
+    * @param settings
+    *   :
+    * @return
+    */
   private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
-    val applicationYml = List("application.comet.yml", "application.yml").find { filename =>
-      val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
-      settings.storageHandler().exists(applicationConfPath)
+    val applicationYml = Option("application.sl.yml").find { filename =>
+      val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
+      settings.storageHandler().exists(applicationYmlPath)
     }
     val applicationYmlConfig = applicationYml match {
       case Some(filename) =>
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
-        val applicationConfPath = new Path(DatasetArea.metadata(settings), filename)
-        val applicationConfContent = settings.storageHandler().read(applicationConfPath)
+        val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
+        val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
-          Utils.parseJinja(applicationConfContent, schemaHandler.activeEnvVars())(settings)
+          Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
         val jsonNode: JsonNode = YamlSerializer.mapper.readTree(content)
+        // application: root node is optional
         val appNode = jsonNode.path("application")
         val finalNode =
           if (appNode.isNull() || appNode.isMissingNode) {

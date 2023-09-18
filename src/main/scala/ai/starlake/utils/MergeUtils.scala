@@ -83,10 +83,6 @@ object MergeUtils extends StrictLogging with DatasetLogging {
       logger.info(s"incomingDF field list=${incomingDF.schema.fieldNames.mkString(",")}")
     }
 
-    val finalIncomingDF = mergeOptions.delete
-      .map(condition => incomingDF.filter(s"not ($condition)"))
-      .getOrElse(incomingDF)
-
     val (mergedDF, toDeleteDF) = mergeOptions.timestamp match {
       case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
@@ -94,11 +90,11 @@ object MergeUtils extends StrictLogging with DatasetLogging {
           .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
           .orderBy(col(timestamp).desc)
 
-        val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
+        val allRowsDF = computeDataframeUnion(existingDF, incomingDF)
 
         val allRowsWithRownum = updateFieldComment(
           allRowsDF,
-          existingDF.schema.fields ++ finalIncomingDF.schema.fields
+          existingDF.schema.fields ++ incomingDF.schema.fields
         ).withColumn("rownum", row_number.over(orderingWindow))
 
         // Deduplicate
@@ -113,25 +109,25 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         (mergedDF, toDeleteDF)
       case None =>
         // We directly remove from the existing dataset the rows that are present in the incoming dataset
-        val patchedExistingDF = addMissingAttributes(existingDF, finalIncomingDF)
-        val patchedIncomingDF = addMissingAttributes(finalIncomingDF, existingDF)
+        val patchedExistingDF = addMissingAttributes(existingDF, incomingDF)
+        val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
         val commonDF = patchedExistingDF
           .join(patchedIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
           .select(patchedIncomingDF.columns.map(col): _*)
         val mergeDF = updateFieldComment(
           patchedExistingDF.except(commonDF).union(patchedIncomingDF),
-          existingDF.schema.fields ++ finalIncomingDF.schema.fields
+          existingDF.schema.fields ++ incomingDF.schema.fields
         )
         (mergeDF, commonDF)
     }
 
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${mergedDF.count() - finalIncomingDF.count()} items to insert")
+      logger.debug(s"Merge detected ${mergedDF.count() - incomingDF.count()} items to insert")
       logger.debug(mergedDF.showString(truncate = 0))
     }
 
-    (finalIncomingDF, mergedDF, toDeleteDF)
+    (incomingDF, mergedDF, toDeleteDF)
   }
 
   // return an optional list of column paths (ex "root.field" <=> ("root", "field"))

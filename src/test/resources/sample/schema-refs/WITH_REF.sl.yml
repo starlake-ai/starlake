@@ -18,7 +18,7 @@ load:
     sink:
       type: ES
   tableRefs:
-    - users.comet.yml
+    - users.sl.yml
     - players
   tables:
     - name: "employee"

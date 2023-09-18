@@ -46,7 +46,6 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       throw new Exception("bucket attribute is required for Google Storage")
     )
     val index = bucket.indexOf("://")
-    val scheme = if (index > 0) bucket.substring(0, index) else "gs"
     val bucketName = if (index > 0) bucket.substring(index + 3) else bucket
     val tempBucketName = connectionOptions.get("temporaryGcsBucket") match {
       case Some(tempBucket) =>

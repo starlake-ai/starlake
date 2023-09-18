@@ -11,7 +11,7 @@ abstract class Extract {
       new Path(mapping)
     else {
       val mappingFilename =
-        if (mapping.endsWith(".yml")) mapping else mapping + ".comet.yml"
+        if (mapping.endsWith(".yml")) mapping else mapping + ".sl.yml"
       val paths =
         settings.storageHandler().list(DatasetArea.extract, extension = ".yml", recursive = false)
 

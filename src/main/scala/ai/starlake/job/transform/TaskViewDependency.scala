@@ -1,9 +1,9 @@
 package ai.starlake.job.transform
 
-import ai.starlake.job.transform.TaskViewDependency.typLabel
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import ai.starlake.utils.SQLUtils
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.mutable.ListBuffer
@@ -87,7 +87,18 @@ object TaskViewDependency extends StrictLogging {
             val parentJobName = parts.length match {
               case 1 =>
                 val tablePart = parts.last // == 0
-                tasks.find(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase()).map(_.name)
+                val refs = tasks.filter(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase())
+                if (refs.size > 1) {
+                  throw new Exception(
+                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
+                        .map(_.name)
+                        .mkString(",")}.
+                     |Make sure references in your SQL are unambiguous or fully qualified.
+                     |""".stripMargin
+                  )
+
+                } else
+                  refs.headOption.map(_.name)
 
               case 2 | 3 =>
                 val domainPart = parts.dropRight(1).last
@@ -203,12 +214,14 @@ case class TaskViewDependency(
   parentRef: String,
   sink: Option[String] = None
 ) {
+
+  @JsonIgnore
   def hasParent(): Boolean = parent.nonEmpty
 
   private def dotBgColor() = {
     import TaskViewDependency._
     typ match {
-      case TASK_TYPE     => "darkblue"
+      case TASK_TYPE     => "#00008B" // darkblue
       case TASKVIEW_TYPE => "darkcyan"
       case VIEW_TYPE     => "darkgrey"
       case TABLE_TYPE    => "darkgreen"
@@ -218,7 +231,7 @@ case class TaskViewDependency(
     }
   }
 
-  def relationAsDot() = {
+  def relationAsDot(): Option[String] = {
     val depId = name.replaceAll("\\.", "_")
     val dotParent: String = if (parent.isEmpty) parentRef else parent
     val dotParentId = dotParent.replaceAll("\\.", "_")
@@ -232,19 +245,10 @@ case class TaskViewDependency(
   def entityAsDot(): String = {
     val depId = name.replaceAll("\\.", "_")
     val depBgColor = dotBgColor()
-    val sinkToTable = sink match {
-      case None => ""
-      case Some(sink) =>
-        s"""<tr><td port="2">&#8594;$sink&nbsp;&nbsp;</td></tr>"""
-    }
     s"""
        |$depId [label=<
-       |<table border="0" cellborder="1" cellspacing="0">
-       |<tr><td port="0" bgcolor="$depBgColor"><B><FONT color="white"> ${typLabel(
-        typ
-      )} </FONT></B></td></tr>
-       |<tr><td port="1">$name</td></tr>
-       |$sinkToTable
-       |     </table>>];""".stripMargin
+       |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
+       |<tr><td port="0" bgcolor="$depBgColor"><B><FONT face="Arial" color="white"> $name&nbsp;&nbsp;</FONT></B></td></tr>
+       |</table>>];""".stripMargin
   }
 }

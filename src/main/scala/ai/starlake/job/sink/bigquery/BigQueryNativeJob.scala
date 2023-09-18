@@ -1,9 +1,8 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.ingest.NativeBqLoadInfo
 import ai.starlake.schema.model.{
-  BigQuerySink,
   ClusteringInfo,
   FieldPartitionInfo,
   Format,
@@ -20,8 +19,6 @@ import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
 import java.net.URI
 import java.nio.channels.Channels
 import java.nio.file.Files
-import java.sql.Timestamp
-import java.time.Instant
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
@@ -34,7 +31,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BigQueryJobResult] = {
+  def loadPathsToBQ(tableInfo: SLTableInfo): Try[NativeBqLoadInfo] = {
     getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
       Try {
         val bqSchema =
@@ -49,16 +46,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
             val localFiles = uri.startsWith("file:")
             val job =
               if (localFiles) {
-                val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
-                val jobName = "jobId_" + UUID.randomUUID().toString();
-                val jobId = JobId.newBuilder().setJob(jobName).build();
-                Using(bigquery.writer(jobId, loadConfig)) { writer =>
-                  val outputStream = Channels.newOutputStream(writer)
-                  sourceURIs
-                    .split(",")
-                    .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
-                }
-                bigquery().getJob(jobId)
+                loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIs.split(","))
               } else {
                 val loadConfig: LoadJobConfiguration =
                   bqLoadConfig(bqSchema, formatOptions, sourceURIs)
@@ -67,7 +55,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
               }
             // Blocks until this load table job completes its execution, either failing or succeeding.
             val jobResult = job.waitFor()
-            if (jobResult.isDone) {
+            if (scala.Option(jobResult.getStatus.getError()).isEmpty) {
               val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
               applyRLSAndCLS().recover { case e =>
                 Utils.logException(logger, e)
@@ -76,33 +64,15 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
               logger.info(
                 s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
               )
-              val success = !settings.appConfig.rejectAllOnError || stats.getBadRecords == 0
-              val log = AuditLog(
-                jobResult.getJobId.getJob,
-                sourceURIs,
-                BigQueryJobBase.getBqDatasetForNative(tableId),
-                tableId.getTable,
-                success = success,
-                stats.getOutputRows + stats.getBadRecords,
+              NativeBqLoadInfo(
                 stats.getOutputRows,
                 stats.getBadRecords,
-                Timestamp.from(Instant.ofEpochMilli(stats.getStartTime)),
-                stats.getEndTime - stats.getStartTime,
-                if (success) "success" else s"${stats.getBadRecords} invalid records",
-                Step.LOAD.toString,
-                cliConfig.outputDatabase,
-                settings.appConfig.tenant
+                BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
               )
-              settings.appConfig.audit.sink.getSink() match {
-                case sink: BigQuerySink =>
-                  AuditLog.sinkToBigQuery(log, sink)
-                case _ =>
-                  throw new Exception("Not Supported")
-              }
-              BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
             } else
               throw new Exception(
-                "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus.getError
+                "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus
+                  .getError()
               )
           case Right(_) =>
             throw new Exception("Should never happen")
@@ -110,6 +80,37 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
         }
       }
     }
+  }
+
+  private def loadLocalFilePathsToBQ(
+    bqSchema: BQSchema,
+    formatOptions: FormatOptions,
+    sourceURIs: Iterable[String]
+  ): Job = {
+    val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
+    val jobId: JobId = newJobId()
+    Using(bigquery.writer(jobId, loadConfig)) { writer =>
+      val outputStream = Channels.newOutputStream(writer)
+      sourceURIs
+        .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
+    }
+    bigquery().getJob(jobId)
+  }
+
+  private def newJobId(): JobId = {
+    val jobName = UUID.randomUUID().toString();
+    val jobIdBuilder = JobId.newBuilder().setJob(jobName);
+    cliConfig.outputDatabase.map(jobIdBuilder.setProject)
+    jobIdBuilder.setLocation(
+      connectionOptions.getOrElse(
+        "location",
+        throw new Exception(
+          s"location is required but not present in connection $connectionName"
+        )
+      )
+    )
+    val jobId = jobIdBuilder.build()
+    jobId
   }
 
   def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
@@ -165,9 +166,9 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           SchemaUpdateOption.ALLOW_FIELD_RELAXATION
         ).asJava
       )
-      if (!settings.appConfig.rejectAllOnError)
-        loadConfig.setMaxBadRecords(settings.appConfig.rejectMaxRecords)
     }
+    if (!settings.appConfig.rejectAllOnError)
+      loadConfig.setMaxBadRecords(settings.appConfig.rejectMaxRecords)
 
     cliConfig.outputPartition match {
       case Some(partitionField) =>
@@ -410,20 +411,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
   def runBatchQuery(wait: Boolean): Try[Job] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
-        val jobId = JobId
-          .newBuilder()
-          .setJob(
-            UUID.randomUUID.toString
-          ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(
-            connectionOptions.getOrElse(
-              "location",
-              throw new Exception(
-                s"location is required but not present in connection $connectionName"
-              )
-            )
-          )
-          .build()
+        val jobId = newJobId()
         val queryConfig =
           QueryJobConfiguration
             .newBuilder(sql)

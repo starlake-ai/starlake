@@ -23,7 +23,7 @@ This SQL file alone is sufficient to be a Starlake Transform. It instructs Starl
 named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
 
 :::note
-By default, the existing table data is overriden. To append data, use the `write` option in the `metadata/transform/kpi/_config.comet.yml` file:
+By default, the existing table data is overriden. To append data, use the `write` option in the `metadata/transform/kpi/_config.sl.yml` file:
 ```yaml
 transform:
   default:
@@ -50,7 +50,7 @@ That's it! We can now run the transform as follows:
 $ cd $HOME/myproject
 $ $HOME/starlake/starlake.sh transform --name kpi.customers_kpi
 ```
-The transform job will run against the connectionRef defined in the application.comet.yml file.
+The transform job will run against the connectionRef defined in the application.sl.yml file.
 
 ## Jinja2 Transforms
 Starlake Transforms support Jinja2 templating inside SQL requests.
@@ -69,7 +69,7 @@ But we need the french customers to be stored in the table `cust_france` and the
 
 Since by default the table is named after the SQL file name, ```bycountry.sql``` will create a table named ```bycountry```.
 We need to configure a dynamic table name based on the country name in the YAML configuration file.
-Therefore, we need to update the YAML file `metadata/transform/kpi/_config.comet.yml`.
+Therefore, we need to update the YAML file `metadata/transform/kpi/_config.sl.yml`.
 This file will instruct where the result of the SQL request will be stored.
 
 ```yaml {5-7}
@@ -107,7 +107,7 @@ The `--options` allow to define variables that will be used for substitution and
 
 :::note
 The `--options` parameter is optional. If not provided,
-the transform will be executed with the default values defined in the env.{{SL_ENV}}.comet.yml  file.
+the transform will be executed with the default values defined in the env.{{SL_ENV}}.sl.yml  file.
 :::
 
 ## Python/PySpark Transforms
@@ -149,7 +149,7 @@ if __name__ == "__main__":
 <Tabs groupId="warehouses">
 <TabItem value="bq" label="BigQuery">
 
-```yaml title="metadata/transform/kpi/_config.comet.yml"
+```yaml title="metadata/transform/kpi/_config.sl.yml"
 transform:
   tasks:
     - table: cust_{{ p_country }}
@@ -158,7 +158,7 @@ transform:
 </TabItem>
 <TabItem value="databricks" label="Databricks">
 
-```yaml title="metadata/transform/kpi/_config.comet.yml"
+```yaml title="metadata/transform/kpi/_config.sl.yml"
 transform:
   tasks:
     - table: cust_{{ p_country }}
@@ -168,7 +168,7 @@ transform:
 </TabItem>
 <TabItem value="hive" label="Hive">
 
-```yaml title="metadata/transform/kpi/_config.comet.yml"
+```yaml title="metadata/transform/kpi/_config.sl.yml"
 transform:
   tasks:
     - table: cust_{{ p_country }}
@@ -178,16 +178,16 @@ transform:
 </TabItem>
 <TabItem value="redshift" label="Redshift">
 
-```yaml title="metadata/transform/kpi/_config.comet.yml"
+```yaml title="metadata/transform/kpi/_config.sl.yml"
 transform:
   tasks:
     - table: cust_{{ p_country }}
       connectionRef: redshift
 ```
 
-Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.comet.yml file as follows:
+Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.sl.yml file as follows:
 
-```yaml title="metadata/application.comet.yml"
+```yaml title="metadata/application.sl.yml"
 connections:
   redshift:
     sparkFormat: "com.databricks.spark.redshift"
@@ -203,15 +203,15 @@ connections:
 <TabItem value="snowflake" label="Snowflake">
 
 
-```yaml title="metadata/transform/kpi/_config.comet.yml"
+```yaml title="metadata/transform/kpi/_config.sl.yml"
 transform:
   tasks:
     - table: cust_{{ p_country }}
       connectionRef: snowflake
 ```
-Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.comet.yml file as follows:
+Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.sl.yml file as follows:
 
-```yaml title="metadata/application.comet.yml"
+```yaml title="metadata/application.sl.yml"
 connections:
   snowflake:
     sparkFormat = "net.snowflake.spark.snowflake"

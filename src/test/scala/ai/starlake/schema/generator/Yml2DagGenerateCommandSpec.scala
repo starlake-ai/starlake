@@ -23,6 +23,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         schedules = List(
           DagSchedule(
             "0 0 * * *",
+            "0 0 * * *",
             List(
               DagDomain("domain1", List("table1", "table2").asJava),
               DagDomain("domain2", List("table3", "table4").asJava)
@@ -58,8 +59,8 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
 
     "dag generation" should "should produce expected file" in {
       new SpecTrait(
-        domainOrJobFilename = "position.comet.yml",
-        sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+        domainOrJobFilename = "position.sl.yml",
+        sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {

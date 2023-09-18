@@ -46,13 +46,13 @@ object Yml2DagGenerateConfig extends CliConfig[Yml2DagGenerateConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note(""),
-      opt[Option[String]]("output-dir")
-        .action((x, c) => c.copy(outputDir = x))
+      opt[String]("output-dir")
+        .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text(
           """Path for saving the resulting DAG file(s).""".stripMargin
         ),
-      opt[Option[Unit]]("clean")
+      opt[Unit]("clean")
         .action((x, c) => c.copy(clean = true))
         .optional()
         .text(

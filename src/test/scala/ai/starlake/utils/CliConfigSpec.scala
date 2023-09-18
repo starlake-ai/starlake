@@ -10,7 +10,7 @@ import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.{AutoTask2GraphVizConfig, TransformConfig}
+import ai.starlake.job.transform.{AutoTaskDependenciesConfig, TransformConfig}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.ValidateConfig
 import ai.starlake.serve.MainServerConfig
@@ -36,7 +36,7 @@ class CliConfigSpec extends TestHelper {
         "kafkaload"      -> KafkaJobConfig,
         "yml2xls"        -> Yml2XlsConfig,
         "yml2gv"         -> Yml2GraphVizConfig,
-        "jobs2gv"        -> AutoTask2GraphVizConfig,
+        "jobs2gv"        -> AutoTaskDependenciesConfig,
         "validate"       -> ValidateConfig,
         "infer-ddl"      -> Yml2DDLConfig,
         "bq-info"        -> BigQueryTablesConfig,

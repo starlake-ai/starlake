@@ -9,8 +9,8 @@ class Yml2XlsSpec extends TestHelper {
   "Yml2XLS" should "should generated all domain / schema in XLS files" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.comet.yml",
-        sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+        domainOrJobFilename = "position.sl.yml",
+        sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
@@ -34,14 +34,14 @@ class Yml2XlsSpec extends TestHelper {
 
   new WithSettings() {
     new SpecTrait(
-      domainOrJobFilename = "position.comet.yml",
-      sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+      domainOrJobFilename = "position.sl.yml",
+      sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
       datasetDomainName = "position",
       sourceDatasetPathName = "/sample/position/XPOSTBL"
     ) {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
         val yamlPath =
-          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
+          File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
         val yamlDomain = YamlSerializer
           .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))

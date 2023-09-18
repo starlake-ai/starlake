@@ -2,7 +2,7 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class XlsIntegrationSpec extends IntegrationSpecBase {
+class XlsIntegrationSpec extends BigQueryIntegrationSpecBase {
   "Convert to XLS" should "succeed" in {
     pending
     setEnv("SL_ENV", "LOCAL")

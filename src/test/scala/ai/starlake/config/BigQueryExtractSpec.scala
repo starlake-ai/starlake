@@ -41,8 +41,8 @@ class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
       }
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          domainOrJobFilename = "bqtest.sl.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
