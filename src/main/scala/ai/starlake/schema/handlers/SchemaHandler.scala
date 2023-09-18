@@ -932,77 +932,81 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
-    val directories = storage.listDirectories(DatasetArea.transform)
-    val (validJobsFile, invalidJobsFile) = directories
-      .map { directory =>
-        val configPath = new Path(directory, "_config.sl.yml")
-        if (storage.exists(configPath)) {
-          val result = loadJobTasksFromFile(configPath)
-          result match {
-            case Success(_) =>
-              logger.info(s"Successfully loaded Job $configPath")
-            case Failure(e) =>
-              logger.error(s"Failed to load Job $configPath")
-              e.printStackTrace()
+    if (storage.exists(DatasetArea.transform)) {
+      val directories = storage.listDirectories(DatasetArea.transform)
+      val (validJobsFile, invalidJobsFile) = directories
+        .map { directory =>
+          val configPath = new Path(directory, "_config.sl.yml")
+          if (storage.exists(configPath)) {
+            val result = loadJobTasksFromFile(configPath)
+            result match {
+              case Success(_) =>
+                logger.info(s"Successfully loaded Job $configPath")
+              case Failure(e) =>
+                logger.error(s"Failed to load Job $configPath")
+                e.printStackTrace()
+            }
+            result
+          } else {
+            logger.info(s"Job $directory does not have a _config.yml file")
+            val job = AutoJobDesc(directory.getName(), Nil)
+            val result = loadJobTasks(job, directory)
+            result match {
+              case Success(_) =>
+                logger.info(s"Successfully loaded Job $directory")
+              case Failure(e) =>
+                logger.error(s"Failed to load Job $directory")
+                e.printStackTrace()
+            }
+            result
           }
-          result
-        } else {
-          logger.info(s"Job $directory does not have a _config.yml file")
-          val job = AutoJobDesc(directory.getName(), Nil)
-          val result = loadJobTasks(job, directory)
-          result match {
-            case Success(_) =>
-              logger.info(s"Successfully loaded Job $directory")
-            case Failure(e) =>
-              logger.error(s"Failed to load Job $directory")
-              e.printStackTrace()
-          }
-          result
         }
-      }
-      .partition(_.isSuccess)
+        .partition(_.isSuccess)
 
-    val validJobs = validJobsFile
-      .collect { case Success(job) => job }
+      val validJobs = validJobsFile
+        .collect { case Success(job) => job }
 
-    val namePatternErrors = validJobs.filter(_.name.nonEmpty).map(_.name).flatMap { name =>
-      if (!forceJobPrefixRegex.pattern.matcher(name).matches())
-        Some(
-          ValidationMessage(
-            Error,
-            "Transform",
-            s"Transform with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
-          )
-        )
-      else
-        None
-    }
-
-    val taskNamePatternErrors =
-      validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.name)).flatMap { name =>
-        val components = name.split('.')
-        if (components.length != 2) {
+      val namePatternErrors = validJobs.filter(_.name.nonEmpty).map(_.name).flatMap { name =>
+        if (!forceJobPrefixRegex.pattern.matcher(name).matches())
           Some(
             ValidationMessage(
               Error,
-              "Task",
-              s"Tasks with name $name should be prefixed with the domain name"
-            )
-          )
-        } else if (!forceTaskPrefixRegex.pattern.matcher(components(1)).matches())
-          Some(
-            ValidationMessage(
-              Error,
-              "Task",
-              s"Tasks with name ${components(1)} in domain ${components(0)} should respect the pattern ${forceTaskPrefixRegex.regex}"
+              "Transform",
+              s"Transform with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
             )
           )
         else
           None
       }
-    this._jobs = validJobs
-    this._jobErrors = namePatternErrors ++ taskNamePatternErrors
-    (_jobErrors, _jobs)
+
+      val taskNamePatternErrors =
+        validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.name)).flatMap { name =>
+          val components = name.split('.')
+          if (components.length != 2) {
+            Some(
+              ValidationMessage(
+                Error,
+                "Task",
+                s"Tasks with name $name should be prefixed with the domain name"
+              )
+            )
+          } else if (!forceTaskPrefixRegex.pattern.matcher(components(1)).matches())
+            Some(
+              ValidationMessage(
+                Error,
+                "Task",
+                s"Tasks with name ${components(1)} in domain ${components(0)} should respect the pattern ${forceTaskPrefixRegex.regex}"
+              )
+            )
+          else
+            None
+        }
+      this._jobs = validJobs
+      this._jobErrors = namePatternErrors ++ taskNamePatternErrors
+      (_jobErrors, _jobs)
+    } else {
+      (Nil, Nil)
+    }
   }
 
   /** Find domain by name
