@@ -35,6 +35,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
+import java.util.TimeZone
 import scala.util.Try
 
 sealed case class Step(value: String) {
@@ -94,6 +95,7 @@ case class AuditLog(
 
   def asBqInsert(table: String): String = {
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    df.setTimeZone(TimeZone.getTimeZone("UTC"))
     val timestampStr = df.format(timestamp)
     val escapeStringParameter = (value: Any) =>
       value.toString.replaceAll("'", "\\\\'").replaceAll("\n", "\\\\n")
