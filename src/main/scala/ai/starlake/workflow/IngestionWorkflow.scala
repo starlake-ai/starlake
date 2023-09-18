@@ -34,7 +34,13 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.job.transform.{
+  AutoTask,
+  AutoTaskDependencies,
+  AutoTaskDependenciesConfig,
+  TaskViewDependencyNode,
+  TransformConfig
+}
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{
   LaunchHandler,
@@ -700,19 +706,50 @@ class IngestionWorkflow(
     logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
   }
 
+  def transform(
+    dependencyTree: List[TaskViewDependencyNode],
+    options: Map[String, String]
+  ): Boolean = {
+    val (parJobs, forkJoinPool) =
+      makeParallel(dependencyTree, settings.appConfig.maxParTask)
+    val res = parJobs.map { jobContext =>
+      val ok = transform(jobContext.children, options)
+      if (ok) {
+        if (jobContext.isTask()) {
+          transform(TransformConfig(jobContext.data.name, options))
+        } else
+          true
+      } else
+        false
+    }
+    forkJoinPool.foreach(_.shutdown())
+    res.forall(_ == true)
+  }
+
+  def autoJob(config: TransformConfig): Boolean = {
+    if (config.recursive) {
+      val taskConfig = AutoTaskDependenciesConfig(task = Some(config.name))
+      val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
+        .jobsDependencyTree(taskConfig)
+      dependencyTree.foreach(_.print())
+      transform(dependencyTree, config.options)
+    } else {
+      transform(config)
+    }
+  }
+
   /** Successively run each task of a job
     *
     * @param transformConfig
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
   // scalastyle:off println
-  def autoJob(transformConfig: TransformConfig): Boolean = {
+  def transform(transformConfig: TransformConfig): Boolean = {
     schemaHandler.tasks(transformConfig.reload)
     val result: Boolean = {
       val action = buildTask(transformConfig)
       val engine = action.taskDesc.getEngine()
-      logger.info(s"running with config $transformConfig")
-
+      logger.info(s"Transforming with config $transformConfig")
       engine match {
         case BQ =>
           logger.info(s"Entering $engine engine")

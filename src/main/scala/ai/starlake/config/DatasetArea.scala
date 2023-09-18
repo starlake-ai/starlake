@@ -214,7 +214,7 @@ object DatasetArea extends StrictLogging {
   }
 
   def iamPolicyTags()(implicit settings: Settings): Path =
-    new Path(DatasetArea.metadata, "iam-policy-tags.comet.yml")
+    new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
   /** @param storage
     */
@@ -285,17 +285,17 @@ object DatasetArea extends StrictLogging {
     template.getOrElse("quickstart") match {
       case "bigquery" =>
         val metadataResources = List(
-          "load/hr/_config.comet.yml",
-          "load/hr/sellers.comet.yml",
-          "load/hr/locations.comet.yml",
-          "load/sales/_config.comet.yml",
-          "load/sales/customers.comet.yml",
-          "load/sales/orders.comet.yml",
-          "transform/kpi/kpi.comet.yml",
+          "load/hr/_config.sl.yml",
+          "load/hr/sellers.sl.yml",
+          "load/hr/locations.sl.yml",
+          "load/sales/_config.sl.yml",
+          "load/sales/customers.sl.yml",
+          "load/sales/orders.sl.yml",
+          "transform/kpi/kpi.sl.yml",
           "transform/kpi/kpi.byseller.sql.j2",
-          "types/default.comet.yml",
-          "types/types.comet.yml",
-          "env.comet.yml"
+          "types/default.sl.yml",
+          "types/types.sl.yml",
+          "env.sl.yml"
         )
         copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
         val rootResources = List(
@@ -307,20 +307,20 @@ object DatasetArea extends StrictLogging {
         copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
       case "userguide" =>
         val metadataResources = List(
-          "load/hr/_config.comet.yml",
-          "load/hr/sellers.comet.yml",
-          "load/hr/locations.comet.yml",
-          "load/sales/_config.comet.yml",
-          "load/sales/customers.comet.yml",
-          "load/sales/orders.comet.yml",
-          "transform/sales_kpi/_config.comet.yml",
+          "load/hr/_config.sl.yml",
+          "load/hr/sellers.sl.yml",
+          "load/hr/locations.sl.yml",
+          "load/sales/_config.sl.yml",
+          "load/sales/customers.sl.yml",
+          "load/sales/orders.sl.yml",
+          "transform/sales_kpi/_config.sl.yml",
           "transform/sales_kpi/byseller_kpi.sql",
-          "types/default.comet.yml",
-          "types/types.comet.yml",
-          "application.comet.yml",
-          "env.comet.yml",
-          "env.BQ.comet.yml",
-          "env.FS.comet.yml"
+          "types/default.sl.yml",
+          "types/types.sl.yml",
+          "application.sl.yml",
+          "env.sl.yml",
+          "env.BQ.sl.yml",
+          "env.FS.sl.yml"
         )
         copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
         val rootResources = List(
@@ -333,13 +333,13 @@ object DatasetArea extends StrictLogging {
 
       case "quickstart" =>
         val metadataResources = List(
-          "transform/kpi/_config.comet.yml",
+          "transform/kpi/_config.sl.yml",
           "transform/kpi/customers_kpi.sql",
-          "types/default.comet.yml",
-          "application.comet.yml",
-          "env.comet.yml",
-          "env.LOCAL.comet.yml",
-          "env.BQ.comet.yml"
+          "types/default.sl.yml",
+          "application.sl.yml",
+          "env.sl.yml",
+          "env.LOCAL.sl.yml",
+          "env.BQ.sl.yml"
         )
         copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
 
@@ -350,7 +350,7 @@ object DatasetArea extends StrictLogging {
 
       /*
       val dagResources = List(
-          "dags/sample.comet.yml"
+          "dags/sample.sl.yml"
         )
         copyToFolder(dagResources, s"templates/quickstart/metadata", metadataFile.parent)
 

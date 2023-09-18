@@ -37,7 +37,6 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
         if (config.acl) aclsAsDotFile(config)
         if (config.domains) relationsAsDotFile(config)
       case _ =>
-        println(Yml2GraphVizConfig.usage())
     }
   }
 

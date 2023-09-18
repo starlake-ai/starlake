@@ -3,30 +3,32 @@ package ai.starlake.job.transform
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class AutoTask2GraphVizConfig(
+case class AutoTaskDependenciesConfig(
   outputDir: Option[String] = None,
   task: Option[String] = None,
   reload: Boolean = false,
   verbose: Boolean = false,
-  objects: Seq[String] = Seq("task", "table")
+  objects: Seq[String] = Seq("task", "table"),
+  viz: Boolean = false,
+  print: Boolean = false
 )
 
-object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
-  val command = "jobs2gv"
+object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
+  val command = "dependencies"
 
-  val parser: OParser[Unit, AutoTask2GraphVizConfig] = {
-    val builder = OParser.builder[AutoTask2GraphVizConfig]
+  val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
+    val builder = OParser.builder[AutoTaskDependenciesConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
-      note("Generate GraphViz files from Job YAML files"),
+      note("Generate Task dependencies graph"),
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Option[String]]("task")
-        .action((x, c) => c.copy(task = x))
+      opt[String]("task")
+        .action((x, c) => c.copy(task = Some(x)))
         .optional()
         .text("Compute dependencies of this job only. If not specified, compute all jobs."),
       opt[Unit]("reload")
@@ -39,6 +41,14 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
         .action((x, c) => c.copy(verbose = true))
         .optional()
         .text("Should we generate one graph per job ?"),
+      opt[Unit]("viz")
+        .action((x, c) => c.copy(viz = true))
+        .optional()
+        .text("Should we generate one graph per job ?"),
+      opt[Unit]("print")
+        .action((x, c) => c.copy(print = true))
+        .optional()
+        .text("Print dependencies as text"),
       opt[Seq[String]]("objects")
         .action((x, c) => c.copy(objects = x))
         .optional()
@@ -51,6 +61,6 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
     * @return
     *   Option of case class SchemaGenConfig.
     */
-  def parse(args: Seq[String]): Option[AutoTask2GraphVizConfig] =
-    OParser.parse(parser, args, AutoTask2GraphVizConfig())
+  def parse(args: Seq[String]): Option[AutoTaskDependenciesConfig] =
+    OParser.parse(parser, args, AutoTaskDependenciesConfig())
 }

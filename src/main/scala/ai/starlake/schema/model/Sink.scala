@@ -130,6 +130,7 @@ case class AllSinks(
   // FS
   format: Option[String] = None,
   extension: Option[String] = None,
+
   // clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
   dynamicPartitionOverwrite: Option[Boolean] = None,
@@ -137,6 +138,17 @@ case class AllSinks(
   options: Option[Map[String, String]] = None
   // JDBC
 ) {
+  def checkValidity()(settings: Settings): List[ValidationMessage] = {
+    var errors = List.empty[ValidationMessage]
+    if (connectionRef.nonEmpty && !settings.appConfig.connections.contains(connectionRef.get)) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "connectionRef",
+        "No connectionRef provided for sink. Please provide a connectionRef in the sink or in the application.conf file"
+      )
+    }
+    errors
+  }
 
   def merge(child: AllSinks): AllSinks = {
     AllSinks(
@@ -160,7 +172,9 @@ case class AllSinks(
   def toAllSinks(): AllSinks = this
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
-    val connection = settings.appConfig.connections(ref)
+
+    val connection = settings.appConfig.connections
+      .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     connection.getType() match {
       case ConnectionType.FS   => FsSink.fromAllSinks(this)
       case ConnectionType.JDBC => JdbcSink.fromAllSinks(this)

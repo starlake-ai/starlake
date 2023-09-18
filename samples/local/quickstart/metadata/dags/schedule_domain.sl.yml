@@ -1,7 +1,11 @@
 dag:
     comment: "sample dag configuration"
     template: "sample.py.j2"
-    filename: "all.py"
+    filename: "{{schedule}}-{{domain}}.py"
+    groupby:
+        - "schedule"
+        - "domain"
+        -  "table"
     options:
         profileVar: "DATAPROC_MEDIUM"
         region: "europe-west1"

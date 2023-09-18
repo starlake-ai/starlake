@@ -14,6 +14,7 @@ env = {
 }
 
 schedules= [{% for schedule in context.schedules %}
+{
   'schedule':'{{ schedule.schedule }}',
   'domains':[{% for domain in schedule.domains %}
     {
@@ -24,6 +25,7 @@ schedules= [{% for schedule in context.schedules %}
     }{% if not loop.last  %},{% endif %}
     {% endfor %}
   ]
+}{% if not loop.last  %},{% endif %}
 {% endfor %}
 ]
 

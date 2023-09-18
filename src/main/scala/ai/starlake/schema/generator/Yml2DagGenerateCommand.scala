@@ -17,7 +17,6 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(config) =>
         generateDomainDags(config)
       case _ =>
-        println(Yml2DagGenerateConfig.usage())
     }
   }
 
@@ -35,11 +34,11 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     val tableWithDagConfigAndSchedule = schemaHandler.domains().flatMap { domain =>
       domain.tables.flatMap { table =>
         val mergedMetadata = table.mergedMetadata(domain.metadata)
-        val dagRef = mergedMetadata.dagRef
-          .orElse(settings.appConfig.dagRef)
+        val dagConfigRef = mergedMetadata.dagRef
+          .orElse(settings.appConfig.dagConfigRef)
         val schedule = mergedMetadata.schedule
 
-        dagRef.map { dagRef =>
+        dagConfigRef.map { dagRef =>
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
@@ -52,6 +51,15 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
     tableWithDagConfigAndSchedule
   }
+
+  def getScheduleName(schedule: String, currentScheduleIndex: Int): (String, Int) = {
+    if (schedule.contains(" ")) {
+      ("cron" + currentScheduleIndex.toString, currentScheduleIndex + 1)
+    } else {
+      (schedule, currentScheduleIndex)
+    }
+  }
+
   private def generateDomainDags(
     config: Yml2DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -84,17 +92,29 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             s"Dag Config $dagConfigName: filename contains table but not domain, this will generate multiple dags with the same name if the same table name appear in multiple domains"
           )
         // one dag per table
+        var scheduleIndex = 1
         groupedBySchedule.foreach { case (schedule, groupedByDomain) =>
           groupedByDomain.foreach { case (domainName, tableNames) =>
             tableNames.foreach { tableName =>
               val dagDomain = DagDomain(domainName, java.util.List.of[String](tableName))
-              val schedules = List(DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain)))
+              val cron = settings.appConfig.schedulePresets.getOrElse(
+                schedule,
+                schedule
+              )
+              val schedules =
+                List(DagSchedule(schedule, cron, java.util.List.of[DagDomain](dagDomain)))
               val context = DagGenerationContext(config = dagConfig, schedules)
+
+              val (scheduleValue, nextScheduleIndex) =
+                if (filenameVars.contains("schedule")) getScheduleName(schedule, scheduleIndex)
+                else (schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(
                 dagConfig.filename,
                 schemaHandler.activeEnvVars() ++ Map(
-                  "domain" -> domainName,
-                  "table"  -> tableName
+                  "schedule" -> scheduleValue,
+                  "domain"   -> domainName,
+                  "table"    -> tableName
                 )
               )
               applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
@@ -109,18 +129,41 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           }
         }
         domainNames.foreach { domainName =>
-          val schedules = groupedBySchedule.map { case (schedule, groupedByDomain) =>
-            val tables = groupedByDomain(domainName)
-            val dagDomain = DagDomain(domainName, tables.asJava)
-            DagSchedule(schedule, java.util.List.of[DagDomain](dagDomain))
+          val schedules = groupedBySchedule.flatMap { case (schedule, groupedByDomain) =>
+            val tables = groupedByDomain.get(domainName)
+            tables.map { tableNames =>
+              val dagDomain = DagDomain(domainName, tableNames.asJava)
+              val cron = settings.appConfig.schedulePresets.getOrElse(
+                schedule,
+                schedule
+              )
+              DagSchedule(schedule, cron, java.util.List.of[DagDomain](dagDomain))
+            }
           }.toList
-
-          val context = DagGenerationContext(config = dagConfig, schedules)
-          val filename = Utils.parseJinja(
-            dagConfig.filename,
-            schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
-          )
-          applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+          if (filenameVars.contains("schedule")) {
+            var scheduleIndex = 1
+            schedules.foreach { schedule =>
+              val (scheduleValue, nextScheduleIndex) =
+                getScheduleName(schedule.schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
+              val context = DagGenerationContext(config = dagConfig, List(schedule))
+              val filename = Utils.parseJinja(
+                dagConfig.filename,
+                schemaHandler.activeEnvVars() ++ Map(
+                  "schedule" -> scheduleValue,
+                  "domain"   -> domainName
+                )
+              )
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+            }
+          } else {
+            val context = DagGenerationContext(config = dagConfig, schedules)
+            val filename = Utils.parseJinja(
+              dagConfig.filename,
+              schemaHandler.activeEnvVars() ++ Map("domain" -> domainName)
+            )
+            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+          }
         }
       } else {
         // one dag per config
@@ -132,15 +175,36 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             val dagDomains = groupedByDomain.map { case (domainName, tableNames) =>
               DagDomain(domainName, tableNames.asJava)
             }.toList
-            DagSchedule(schedule, dagDomains.asJava)
+            val cron = settings.appConfig.schedulePresets.getOrElse(
+              schedule,
+              schedule
+            )
+            DagSchedule(schedule, cron, dagDomains.asJava)
           }.toList
+          if (filenameVars.contains("schedule")) {
+            var scheduleIndex = 1
+            dagSchedules.foreach { schedule =>
+              val (scheduleValue, nextScheduleIndex) =
+                getScheduleName(schedule.schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
+              val context = DagGenerationContext(config = dagConfig, List(schedule))
+              val filename = Utils.parseJinja(
+                dagConfig.filename,
+                schemaHandler.activeEnvVars() ++ Map(
+                  "schedule" -> scheduleValue
+                )
+              )
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+            }
+          } else {
+            val context = DagGenerationContext(config = dagConfig, schedules = dagSchedules)
+            val filename = Utils.parseJinja(
+              dagConfig.filename,
+              schemaHandler.activeEnvVars()
+            )
+            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+          }
 
-          val context = DagGenerationContext(config = dagConfig, schedules = dagSchedules)
-          val filename = Utils.parseJinja(
-            dagConfig.filename,
-            schemaHandler.activeEnvVars()
-          )
-          applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
         }
       }
     }
@@ -156,7 +220,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     val jContext = context.asMap
     val paramMap = Map(
       "context" -> jContext,
-      "env"     -> jEnv
+      "env"     -> jEnv.asJava
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)

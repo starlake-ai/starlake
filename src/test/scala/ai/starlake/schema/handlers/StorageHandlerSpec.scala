@@ -29,12 +29,12 @@ import java.util.regex.Pattern
 
 class StorageHandlerSpec extends TestHelper {
 
-  lazy val pathDomain = new Path(starlakeTestRoot + "/domain.comet.yml")
+  lazy val pathDomain = new Path(starlakeTestRoot + "/domain.sl.yml")
 
-  lazy val pathType = new Path(starlakeTestRoot + "/types.comet.yml")
+  lazy val pathType = new Path(starlakeTestRoot + "/types.sl.yml")
 
-  lazy val pathBusiness = new Path(starlakeTestRoot + "/business.comet.yml")
-  lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.comet.yml")
+  lazy val pathBusiness = new Path(starlakeTestRoot + "/business.sl.yml")
+  lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.sl.yml")
 
   new WithSettings() {
     "Domain Case Class" should "be written as yaml and read correctly" in {
@@ -131,7 +131,7 @@ class StorageHandlerSpec extends TestHelper {
 
       storageHandler.write(mapper.writeValueAsString(types), pathType)
       val fileContent = readFileContent(pathType)
-      val expectedFileContent = loadTextFile(s"/expected/yml/types.comet.yml")
+      val expectedFileContent = loadTextFile(s"/expected/yml/types.sl.yml")
       fileContent shouldBe expectedFileContent
       val resultType: Types = mapper.readValue[Types](storageHandler.read(pathType))
       resultType shouldBe types
@@ -173,7 +173,7 @@ class StorageHandlerSpec extends TestHelper {
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val expected = mapper
-        .readValue(loadTextFile("/expected/yml/business.comet.yml"), classOf[AutoJobDesc])
+        .readValue(loadTextFile("/expected/yml/business.sl.yml"), classOf[AutoJobDesc])
       logger.info(readFileContent(pathBusiness))
       val actual = mapper
         .readValue(readFileContent(pathBusiness), classOf[AutoJobDesc])

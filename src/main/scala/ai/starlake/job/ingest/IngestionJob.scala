@@ -262,7 +262,7 @@ trait IngestionJob extends SparkJob {
   def run(): Try[JobResult] = {
     selectEngine() match {
       case Engine.BQ =>
-        runBQNative()
+        runBQNative().map(_.jobResult)
       case Engine.SPARK =>
         runSpark()
       case _ =>
@@ -281,82 +281,104 @@ trait IngestionJob extends SparkJob {
       .getOrElse(false)
   }
 
-  def runBQNative(): Try[JobResult] = {
-    val effectiveSchema: Schema = computeEffectiveInputSchema()
-    val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-      mergedMetadata.getWrite(),
-      effectiveSchema.merge.exists(_.key.nonEmpty)
-    )
-    val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
-    val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
-
-    val targetTableId =
-      BigQueryJobBase
-        .extractProjectDatasetAndTable(
-          schemaHandler
-            .getDatabase(domain),
-          domain.finalName,
-          effectiveSchema.finalName
-        )
-
-    val targetConfig = buildCommonNativeBQLoadConfig(
-      createDisposition,
-      writeDisposition,
-      bqSink,
-      schemaWithMergedMetadata
-    ).copy(
-      outputTableId = Some(targetTableId),
-      days = bqSink.days,
-      outputPartition = bqSink.timestamp,
-      outputClustering = bqSink.clustering.getOrElse(Nil),
-      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-      rls = effectiveSchema.rls
-    )
-
-    val result = if (requireTwoSteps(effectiveSchema, bqSink)) {
-      val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
-        schemaHandler.getDatabase(domain),
-        domain.finalName,
-        "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
+  def runBQNative(): Try[NativeBqLoadInfo] = {
+    val start = Timestamp.from(Instant.now())
+    Try {
+      val effectiveSchema: Schema = computeEffectiveInputSchema()
+      val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+        mergedMetadata.getWrite(),
+        effectiveSchema.merge.exists(_.key.nonEmpty)
       )
-      val firstStepConfig = buildCommonNativeBQLoadConfig(
+      val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
+      val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
+
+      val targetTableId =
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(
+            schemaHandler
+              .getDatabase(domain),
+            domain.finalName,
+            effectiveSchema.finalName
+          )
+
+      val targetConfig = buildCommonNativeBQLoadConfig(
         createDisposition,
         writeDisposition,
         bqSink,
         schemaWithMergedMetadata
       ).copy(
-        outputTableId = Some(firstStepTempTable),
-        outputTableDesc = Some("Temporary table created during data ingestion."),
-        days = Some(1)
+        outputTableId = Some(targetTableId),
+        days = bqSink.days,
+        outputPartition = bqSink.timestamp,
+        outputClustering = bqSink.clustering.getOrElse(Nil),
+        requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+        rls = effectiveSchema.rls
       )
-      val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
-      // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
-      val res = firstStepBigqueryJob.loadPathsToBQ(
-        firstStepBigqueryJob.getTableInfo(
-          firstStepTempTable,
-          _.bqSchemaWithIgnoreAndScript(schemaHandler)
+      if (requireTwoSteps(effectiveSchema, bqSink)) {
+        val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
+          schemaHandler.getDatabase(domain),
+          domain.finalName,
+          "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
         )
-      )
-      res match {
-        case Success(loadFileResult) =>
-          logger.info(s"First step result: $loadFileResult")
-          val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
-          val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
-          val result =
-            applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
-          targetBigqueryJob.dropTable(firstStepTempTable)
-          result
-        case Failure(exception) =>
-          Utils.logException(logger, exception)
-          res
+        val firstStepConfig = buildCommonNativeBQLoadConfig(
+          createDisposition,
+          writeDisposition,
+          bqSink,
+          schemaWithMergedMetadata
+        ).copy(
+          outputTableId = Some(firstStepTempTable),
+          outputTableDesc = Some("Temporary table created during data ingestion."),
+          days = Some(1)
+        )
+        val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
+        // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
+        val firstStepResult = firstStepBigqueryJob.loadPathsToBQ(
+          firstStepBigqueryJob.getTableInfo(
+            firstStepTempTable,
+            _.bqSchemaWithIgnoreAndScript(schemaHandler)
+          )
+        )
+        val output: Try[NativeBqLoadInfo] = firstStepResult match {
+          case Success(loadFileResult) =>
+            logger.info(s"First step result: $loadFileResult")
+            val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
+            val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
+            val secondStepResult =
+              applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
+            secondStepResult.flatMap(_ => firstStepResult) // keep loading stats
+          case res @ Failure(_) =>
+            res
+        }
+        Try(firstStepBigqueryJob.dropTable(firstStepTempTable))
+          .flatMap(_ => firstStepResult)
+          .recoverWith { case exception =>
+            Utils.logException(logger, exception)
+            firstStepResult
+          } // ignore exception but log it
+        output
+      } else {
+        val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
+        bigqueryJob.loadPathsToBQ(
+          bigqueryJob.getTableInfo(targetTableId, _.bqSchemaFinal(schemaHandler))
+        )
       }
-    } else {
-      val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
-      bigqueryJob.loadPathsToBQ(
-        bigqueryJob.getTableInfo(targetTableId, _.bqSchemaFinal(schemaHandler))
-      )
+    }.flatten match {
+      case Failure(exception) =>
+        logLoadFailureInAudit(start, exception)
+      case res @ Success(result) =>
+        result.jobResult.job.flatMap(j => Option(j.getStatus.getExecutionErrors)).foreach {
+          errors =>
+            errors.forEach(err => logger.error(f"${err.getReason} - ${err.getMessage}"))
+        }
+        val auditLog = logLoadInAudit(
+          start,
+          result.totalRows,
+          result.totalAcceptedRows,
+          result.totalRejectedRows
+        )
+        if (auditLog.success) res
+        else throw new Exception("Fail on rejected count requested")
     }
-    result
   }
 
   private def buildCommonNativeBQLoadConfig(
@@ -386,12 +408,12 @@ trait IngestionJob extends SparkJob {
     )
   }
 
-  private def computeEffectiveInputSchema() = {
-    val effectiveSchema = mergedMetadata.format match {
+  private def computeEffectiveInputSchema(): Schema = {
+    mergedMetadata.format match {
       case Some(Format.DSV) =>
         (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
           case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
-            val csvHeadersOpt = storageHandler.readAndExecute(
+            val csvHeaders = storageHandler.readAndExecute(
               new Path(sourceFile),
               Charset.forName(mergedMetadata.getEncoding())
             ) { is =>
@@ -409,29 +431,22 @@ trait IngestionJob extends SparkJob {
                 csvParserSettings.setHeaderExtractionEnabled(true)
                 val csvParser = new CsvParser(csvParserSettings)
                 csvParser.beginParsing(reader)
-                val recordOpt = Option(
-                  csvParser.parseNextRecord()
-                ) // can be None if input doesn't have any record
-                recordOpt.map(_.getMetaData.headers().toList)
-                Some(csvParser.getRecordMetadata.headers().toList)
+                // call this in order to get the headers even if there is no record
+                csvParser.parseNextRecord()
+                csvParser.getRecordMetadata.headers().toList
               }
             }
-            val effectiveAttributes = csvHeadersOpt match {
-              case Some(csvHeaders) =>
-                val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
-                val csvAttributesInOrders = csvHeaders.map(h =>
-                  attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true)))
-                )
-                // attributes not in csv input file must not be required but we don't force them to optional.
-                csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-              case _ => schema.attributes
-            }
+            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
+            val csvAttributesInOrders =
+              csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
+            // attributes not in csv input file must not be required but we don't force them to optional.
+            val effectiveAttributes =
+              csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
             schema.copy(attributes = effectiveAttributes)
           case _ => schema
         }
       case _ => schema
     }
-    effectiveSchema
   }
 
   def applySecondStepSQL(
@@ -530,7 +545,7 @@ trait IngestionJob extends SparkJob {
     sql: String
   ): List[String] = {
     val detectImpliedPartitions =
-      s"SELECT DISTINCT cast(`$partitionName` as STRING) AS $partitionName FROM ($sql)"
+      s"SELECT DISTINCT cast(date(`$partitionName`) as STRING) AS $partitionName FROM ($sql)"
     bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions)) match {
       case Failure(exception) => throw exception
       case Success(result) =>
@@ -669,6 +684,64 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+  private def logLoadFailureInAudit[T](start: Timestamp, exception: Throwable): Try[T] = {
+    val end = Timestamp.from(Instant.now())
+    val err = Utils.exceptionAsString(exception)
+    Try {
+      val log = AuditLog(
+        applicationId(),
+        Some(path.map(_.toString).mkString(",")),
+        domain.name,
+        schema.name,
+        success = false,
+        0,
+        0,
+        0,
+        start,
+        end.getTime - start.getTime,
+        err,
+        Step.LOAD.toString,
+        schemaHandler.getDatabase(domain),
+        settings.appConfig.tenant
+      )
+      AuditLog.sink(optionalAuditSession, log)
+    }
+    logger.error(err)
+    Failure(exception)
+  }
+
+  private def logLoadInAudit(
+    start: Timestamp,
+    inputCount: Long,
+    acceptedCount: Long,
+    rejectedCount: Long
+  ): AuditLog = {
+    val inputFiles = path.map(_.toString).mkString(",")
+    logger.info(
+      s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+    )
+    val end = Timestamp.from(Instant.now())
+    val success = !settings.appConfig.rejectAllOnError || rejectedCount == 0
+    val log = AuditLog(
+      applicationId(),
+      Some(inputFiles),
+      domain.name,
+      schema.name,
+      success = success,
+      inputCount,
+      acceptedCount,
+      rejectedCount,
+      start,
+      end.getTime - start.getTime,
+      if (success) "success" else s"$rejectedCount invalid records",
+      Step.LOAD.toString,
+      schemaHandler.getDatabase(domain),
+      settings.appConfig.tenant
+    )
+    AuditLog.sink(optionalAuditSession, log)
+    log
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   /////// SPARK ENGINE ONLY /////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
@@ -693,34 +766,6 @@ trait IngestionJob extends SparkJob {
         val start = Timestamp.from(Instant.now())
         runPreSql()
         val dataset = loadDataSet()
-        val inputFiles = path.map(_.toString).mkString(",")
-
-        def logFailureInAudit[T](exception: Throwable): Try[T] = {
-          val end = Timestamp.from(Instant.now())
-          val err = Utils.exceptionAsString(exception)
-          Try {
-            val log = AuditLog(
-              applicationId(),
-              inputFiles,
-              domain.name,
-              schema.name,
-              success = false,
-              0,
-              0,
-              0,
-              start,
-              end.getTime - start.getTime,
-              err,
-              Step.LOAD.toString,
-              schemaHandler.getDatabase(domain),
-              settings.appConfig.tenant
-            )
-            AuditLog.sink(optionalAuditSession, log)
-          }
-          logger.error(err)
-          Failure(exception)
-        }
-
         dataset match {
           case Success(dataset) =>
             Try {
@@ -728,35 +773,14 @@ trait IngestionJob extends SparkJob {
               val inputCount = dataset.count()
               val acceptedCount = acceptedDS.count()
               val rejectedCount = rejectedDS.count()
-              logger.info(
-                s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
-              )
-              val end = Timestamp.from(Instant.now())
-              val success = !settings.appConfig.rejectAllOnError || rejectedCount == 0
-              val log = AuditLog(
-                applicationId(),
-                inputFiles,
-                domain.name,
-                schema.name,
-                success = success,
-                inputCount,
-                acceptedCount,
-                rejectedCount,
-                start,
-                end.getTime - start.getTime,
-                if (success) "success" else s"$rejectedCount invalid records",
-                Step.LOAD.toString,
-                schemaHandler.getDatabase(domain),
-                settings.appConfig.tenant
-              )
-              AuditLog.sink(optionalAuditSession, log)
-              if (success) SparkJobResult(None)
+              val auditLog = logLoadInAudit(start, inputCount, acceptedCount, rejectedCount)
+              if (auditLog.success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
             }.recoverWith { case exception =>
-              logFailureInAudit(exception)
+              logLoadFailureInAudit(start, exception)
             }
           case Failure(exception) =>
-            logFailureInAudit(exception)
+            logLoadFailureInAudit(start, exception)
         }
     }
     // After each ingestionjob we explicitely clear the spark cache
@@ -1276,45 +1300,10 @@ trait IngestionJob extends SparkJob {
 
       val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
         case Success(sinkedDF) =>
-          val end = Timestamp.from(Instant.now())
-          val log = AuditLog(
-            applicationId(),
-            acceptedPath.toString,
-            domain.name,
-            schema.name,
-            success = true,
-            -1,
-            -1,
-            -1,
-            start,
-            end.getTime - start.getTime,
-            "success",
-            Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain),
-            settings.appConfig.tenant
-          )
-          AuditLog.sink(optionalAuditSession, log)
           sinkedDF
         case Failure(exception) =>
-          Utils.logException(logger, exception)
-          val end = Timestamp.from(Instant.now())
-          val log = AuditLog(
-            applicationId(),
-            acceptedPath.toString,
-            domain.name,
-            schema.name,
-            success = false,
-            -1,
-            -1,
-            -1,
-            start,
-            end.getTime - start.getTime,
-            Utils.exceptionAsString(exception),
-            Step.SINK_ACCEPTED.toString,
-            schemaHandler.getDatabase(domain),
-            settings.appConfig.tenant
-          )
-          AuditLog.sink(optionalAuditSession, log)
+          val err = Utils.exceptionAsString(exception)
+          logger.error(err)
           throw exception
       }
       (sinkedDF, acceptedPath)
@@ -1608,45 +1597,9 @@ trait IngestionJob extends SparkJob {
             )
           case _ => // do nothing
         }
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          rejectedPath.toString,
-          domainName,
-          schemaName,
-          success = true,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          "success",
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
-          settings.appConfig.tenant
-        )
-        AuditLog.sink(optionalAuditSession, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          applicationId(),
-          new Path(DatasetArea.rejected(domainName), schemaName).toString,
-          domainName,
-          schemaName,
-          success = false,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          Utils.exceptionAsString(exception),
-          Step.SINK_REJECTED.toString,
-          schemaHandler.getDatabase(domain),
-          settings.appConfig.tenant
-        )
-        AuditLog.sink(optionalAuditSession, log)
         Failure(exception)
     }
   }
@@ -1835,12 +1788,18 @@ object IngestionUtil {
 }
 
 object ImprovedDataFrameContext {
-
   implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
 
     def T(query: String): org.apache.spark.sql.DataFrame = {
       new SQLTransformer().setStatement(query).transform(df)
     }
   }
+}
 
+case class NativeBqLoadInfo(
+  totalAcceptedRows: Long,
+  totalRejectedRows: Long,
+  jobResult: BigQueryJobResult
+) {
+  val totalRows: Long = totalAcceptedRows + totalRejectedRows
 }
