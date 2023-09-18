@@ -172,7 +172,9 @@ case class AllSinks(
   def toAllSinks(): AllSinks = this
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
-    val connection = settings.appConfig.connections(ref)
+
+    val connection = settings.appConfig.connections
+      .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     connection.getType() match {
       case ConnectionType.FS   => FsSink.fromAllSinks(this)
       case ConnectionType.JDBC => JdbcSink.fromAllSinks(this)

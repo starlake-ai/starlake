@@ -9,7 +9,8 @@ case class TransformConfig(
   compile: Boolean = false,
   interactive: Option[String] = None,
   reload: Boolean = false,
-  drop: Boolean = false
+  drop: Boolean = false,
+  recursive: Boolean = false
 )
 
 object TransformConfig extends CliConfig[TransformConfig] {
@@ -43,6 +44,12 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .optional()
         .text(
           s"Force target table drop before insert. Default value is false"
+        ),
+      opt[Unit]("recursive")
+        .action((x, c) => c.copy(recursive = true))
+        .optional()
+        .text(
+          s"Execute all dependencies recursively. Default value is false"
         ),
       opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")

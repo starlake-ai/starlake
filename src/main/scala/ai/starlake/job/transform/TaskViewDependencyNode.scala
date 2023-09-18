@@ -1,6 +1,15 @@
 package ai.starlake.job.transform
 
-case class TaskViewDependencyNode(data: TaskViewDependency, children: List[TaskViewDependencyNode])
+case class TaskViewDependencyNode(
+  data: TaskViewDependency,
+  children: List[TaskViewDependencyNode]
+) {
+  def print(level: Int = 0): Unit = {
+    println("  " * level + data.name)
+    children.foreach(_.print(level + 1))
+  }
+  def isTask(): Boolean = data.typ == "task"
+}
 
 object TaskViewDependencyNode {
 
