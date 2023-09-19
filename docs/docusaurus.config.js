@@ -125,7 +125,7 @@ module.exports = {
                             label: 'Blog',
                             to: '/blog',
                         },
-                        {
+{
                             label: 'GitHub',
                             href: 'https://github.com/starlake-ai/starlake',
                         },
