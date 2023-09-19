@@ -1,4 +1,4 @@
-package ai.starlake.job.transform
+package ai.starlake.schema.generator
 
 case class TaskViewDependencyNode(
   data: TaskViewDependency,

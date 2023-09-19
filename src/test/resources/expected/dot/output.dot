@@ -8,7 +8,7 @@ rankdir=LR;
 
 dream_segment [label=<
 <table border="0" cellborder="1" cellspacing="0">
-<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+<tr><td port="0" bgcolor="white"><B><FONT color="black"> segment </FONT></B></td></tr>
 <tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
 <tr><td port="segmentation_label"> segmentation_label:string </td></tr>
 <tr><td port="segment_label"> segment_label:string </td></tr>
@@ -20,7 +20,7 @@ dream_segment [label=<
 
 dream_client [label=<
 <table border="0" cellborder="1" cellspacing="0">
-<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> client </FONT></B></td></tr>
+<tr><td port="0" bgcolor="white"><B><FONT color="black"> client </FONT></B></td></tr>
 <tr><td port="dream_id"><I> dream_id:long </I></td></tr>
 <tr><td port="gender"> gender:string </td></tr>
 <tr><td port="birthdate_day"> birthdate_day:long </td></tr>

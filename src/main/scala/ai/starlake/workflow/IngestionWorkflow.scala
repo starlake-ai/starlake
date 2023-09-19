@@ -34,14 +34,14 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{
-  AutoTask,
+import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.schema.generator.{
   AutoTaskDependencies,
   AutoTaskDependenciesConfig,
   TaskViewDependencyNode,
-  TransformConfig
+  Yml2DDLConfig,
+  Yml2DDLJob
 }
-import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{
   LaunchHandler,
   LocalStorageHandler,

@@ -11,7 +11,7 @@ import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.{AutoTaskDependencies, AutoTaskDependenciesConfig, TransformConfig}
+import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
@@ -85,7 +85,7 @@ class Main() extends StrictLogging {
     WatchConfig,
     Xls2YmlConfig,
     Yml2DDLConfig,
-    Yml2GraphVizConfig,
+    TableDependenciesConfig,
     Yml2XlsConfig
   )
   private def printUsage() = {
@@ -306,10 +306,13 @@ class Main() extends StrictLogging {
       case "xls2ymljob" =>
         Xls2YmlAutoJob.run(args.drop(1))
 
-      case "yml2gv" =>
-        new Yml2GraphViz(schemaHandler).run(args.drop(1))
+      case "table-dependencies" =>
+        new TableDependencies(schemaHandler).run(args.drop(1))
         true
-      case "dependencies" =>
+      case "acl-dependencies" =>
+        new AclDependencies(schemaHandler).run(args.drop(1))
+        true
+      case "task-dependencies" =>
         AutoTaskDependenciesConfig.parse(args.drop(1)) match {
           case Some(config) =>
             new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)

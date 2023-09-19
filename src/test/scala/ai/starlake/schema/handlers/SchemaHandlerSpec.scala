@@ -24,7 +24,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.job.ingest.IngestConfig
 import ai.starlake.job.sink.es.ESLoadConfig
-import ai.starlake.schema.generator.Yml2GraphViz
+import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import better.files.File
@@ -870,22 +870,22 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
-        new Yml2GraphViz(schemaHandler).run(Array.empty)
+        new TableDependencies(schemaHandler).run(Array.empty)
 
-        val tempFile = File.newTemporaryDirectory().pathAsString
-        new Yml2GraphViz(schemaHandler).run(
-          Array("--all", "--domains", "--output-dir", tempFile)
+        val tempFile = File.newTemporaryFile().pathAsString
+        new TableDependencies(schemaHandler).run(
+          Array("--all", "--output", tempFile)
         )
-        val fileContent = readFileContent(File(tempFile, "_domains.dot").pathAsString)
+        val fileContent = readFileContent(tempFile)
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
-        fileContent shouldBe expectedFileContent
+        fileContent.trim shouldBe expectedFileContent.trim
         val domains = schemaHandler.domains()
         val result = domains.head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
-                               |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+                               |<tr><td port="0" bgcolor="white"><B><FONT color="black"> segment </FONT></B></td></tr>
                                |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
                                |</table>>];
                                |
@@ -893,7 +893,7 @@ class SchemaHandlerSpec extends TestHelper {
                                |
                                |dream_client [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
-                               |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> client </FONT></B></td></tr>
+                               |<tr><td port="0" bgcolor="white"><B><FONT color="black"> client </FONT></B></td></tr>
                                |<tr><td port="dream_id"><I> dream_id:long </I></td></tr>
                                |</table>>];
                                |
@@ -915,15 +915,15 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
-        new Yml2GraphViz(schemaHandler).run(Array("--acl"))
+        new TableDependencies(schemaHandler).run(Array("--acl"))
 
-        val tempFile = File.newTemporaryDirectory().pathAsString
+        val tempFile = File.newTemporaryFile().pathAsString
 
-        new Yml2GraphViz(schemaHandler).run(
-          Array("--acl", "--output-dir", tempFile)
+        new AclDependencies(schemaHandler).run(
+          Array("--output", tempFile)
         )
 
-        val fileContent = readFileContent(File(tempFile, "_acl.dot").pathAsString)
+        val fileContent = readFileContent(tempFile)
         val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
         fileContent.trim shouldBe expectedFileContent.trim
       }

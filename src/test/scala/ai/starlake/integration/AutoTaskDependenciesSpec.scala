@@ -28,13 +28,13 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
     setEnv("SL_ROOT", "/Users/hayssams/git/public/starlake/samples/local/quickstart")
     setEnv("SL_METADATA", "/Users/hayssams/git/public/starlake/samples/local/quickstart/metadata")
     Main.main(
-      Array("yml2gv", "--acl")
+      Array("acl-dependencies")
     )
   }
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       Main.main(
-        Array("dependencies", "--viz")
+        Array("task-dependencies", "--viz")
       )
     }
   }
@@ -42,7 +42,7 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       Main.main(
-        Array("yml2gv", "--domains")
+        Array("table-dependencies")
       )
     }
   }
@@ -51,7 +51,7 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       Main.main(
         Array(
-          "dependencies",
+          "task-dependencies",
           "--viz",
           "--tasks",
           "Products.TopSellingProducts,Products.MostProfitableProducts"

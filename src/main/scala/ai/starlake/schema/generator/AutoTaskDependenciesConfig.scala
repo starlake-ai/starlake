@@ -1,4 +1,4 @@
-package ai.starlake.job.transform
+package ai.starlake.schema.generator
 
 import ai.starlake.utils.CliConfig
 import scopt.OParser
@@ -13,7 +13,7 @@ case class AutoTaskDependenciesConfig(
 )
 
 object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
-  val command = "dependencies"
+  val command = "task-dependencies"
 
   val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
     val builder = OParser.builder[AutoTaskDependenciesConfig]
@@ -22,7 +22,7 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note("Generate Task dependencies graph"),
-      opt[String]("output-file")
+      opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),

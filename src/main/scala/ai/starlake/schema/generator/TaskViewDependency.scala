@@ -1,5 +1,7 @@
-package ai.starlake.job.transform
+package ai.starlake.schema.generator
 
+import ai.starlake.job.transform.AutoTask
+import ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import ai.starlake.utils.SQLUtils
@@ -131,7 +133,7 @@ object TaskViewDependency extends StrictLogging {
             parentJobName match {
               case Some(parentJobName) =>
                 val result =
-                  TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
+                  generator.TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
                 if (typ == TASK_TYPE) {
                   // TODO We just handle one task per job which is always the case till now.
                   val task = jobs(jobName).head
