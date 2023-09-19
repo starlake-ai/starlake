@@ -6,6 +6,7 @@ title: General
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+Starlake is based on a YAML DSL (Domain Specific Language) to define the data pipelines. All these files are stored in the `metadata` folder.
 
 ## Metadata
 All the information related to a project is stored in the metadata folder. This folder is organized as follows:
@@ -84,8 +85,8 @@ Each variable has a name and a value.
 - The value is the value of the variable.
 
 We may assign a value to a variable based on the active environment.
-For example, we may want to use a different database name based on the environment we are running your job in.
-The file `metadata/env.sl.yml` is always loaded then, if the SL_ENV variable is defined then the file metadata/env.[SL_ENV].sl.yml is also loaded
+For example, we may want to use a different database name based on the environment we are running our job in.
+The file `metadata/env.sl.yml` is always loaded then, if the SL_ENV variable is defined, the file metadata/env.[SL_ENV].sl.yml is also loaded
 and values defined in this file will override the values defined in the file `metadata/env.sl.yml`.
 
 

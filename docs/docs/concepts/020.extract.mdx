@@ -23,11 +23,12 @@ The table below present the pros and cons of each mode
 
 | Criteria             | Local Access (Starlake)   | Remote Access            | Change Data Capture   |
 |----------------------|----------------|-----------------|---------------------|
-| Support large volumes of data | __Yes. Also note that starlake can take advantage of all the processing power to parallelize the extraction process__ | No, since data are pulled one record at a the over the network| __Yes. data is extracted in near realtime__ |
+| Support large volumes of data | __Yes. Also note that starlake can take advantage of all the processing power to parallelize the extraction process__ | No or extremely slow, since the data is pulled one record at a the over the network| __Yes. data is extracted in near realtime__ |
 | Network Security | __Yes. Happen close to the source database__ | No. At least one port need to be open for incoming requests over the internet | __Yes. Data is pushed from the local network__ |
 | Very simple infrastructure | __Yes. Simple command to extract the data__ | __Yes. Simple command to extract the data__ | No. Requires a middleware infrastructure, aka Kafka, Kafka connect ...|
 | Easy load to the Datwarehouse | __Yes. Exported data are loaded as files in bulk mode into the datawarehouse__ | No. Data is loaded one record at a time | No. Data need to be reconstructed before being available for use|
 | Instant availability| No. Require extraction job to be scheduled | No. Require extraction job to be scheduled | __Yes if data is reconstructed in realtime__ |
+| Summary | Fast and easy to setup. Need to be scheduled | Require extra network configuration, slow and need to be scheduled | Data available in realtime but complex to setup |
 
 ## Extraction modes
 
