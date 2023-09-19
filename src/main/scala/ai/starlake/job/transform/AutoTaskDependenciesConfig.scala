@@ -4,10 +4,9 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class AutoTaskDependenciesConfig(
-  outputDir: Option[String] = None,
-  task: Option[String] = None,
+  outputFile: Option[String] = None,
+  tasks: Option[Seq[String]] = None,
   reload: Boolean = false,
-  verbose: Boolean = false,
   objects: Seq[String] = Seq("task", "table"),
   viz: Boolean = false,
   print: Boolean = false
@@ -23,12 +22,12 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note("Generate Task dependencies graph"),
-      opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = Some(x)))
+      opt[String]("output-file")
+        .action((x, c) => c.copy(outputFile = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[String]("task")
-        .action((x, c) => c.copy(task = Some(x)))
+      opt[Seq[String]]("tasks")
+        .action((x, c) => c.copy(tasks = Some(x)))
         .optional()
         .text("Compute dependencies of this job only. If not specified, compute all jobs."),
       opt[Unit]("reload")
@@ -37,14 +36,10 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
         .text(
           "Should we reload the domains first ?"
         ),
-      opt[Unit]("verbose")
-        .action((x, c) => c.copy(verbose = true))
-        .optional()
-        .text("Should we generate one graph per job ?"),
       opt[Unit]("viz")
         .action((x, c) => c.copy(viz = true))
         .optional()
-        .text("Should we generate one graph per job ?"),
+        .text("Should we generate a dot file ?"),
       opt[Unit]("print")
         .action((x, c) => c.copy(print = true))
         .optional()

@@ -24,6 +24,13 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
+  "sample test" should "succeed" in {
+    setEnv("SL_ROOT", "/Users/hayssams/git/public/starlake/samples/local/quickstart")
+    setEnv("SL_METADATA", "/Users/hayssams/git/public/starlake/samples/local/quickstart/metadata")
+    Main.main(
+      Array("yml2gv", "--acl")
+    )
+  }
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       Main.main(
@@ -43,7 +50,12 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
   "Job GraphViz Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       Main.main(
-        Array("dependencies", "--task", "Products.TopSellingProfitableProducts")
+        Array(
+          "dependencies",
+          "--viz",
+          "--tasks",
+          "Products.TopSellingProducts,Products.MostProfitableProducts"
+        )
       )
     }
   }

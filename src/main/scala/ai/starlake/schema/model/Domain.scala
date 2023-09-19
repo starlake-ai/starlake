@@ -223,7 +223,23 @@ import scala.util.Try
       .mkString("\n")
   }
 
-  def relatedTables(): List[String] = tables.flatMap(_.relatedTables())
+  def relatedTables(tableNames: Option[Seq[String]]): List[String] = {
+    val filteredTables = filterTables(tableNames)
+    filteredTables.flatMap(_.relatedTables())
+  }
+
+  def filterTables(tableNames: Option[Seq[String]]) = {
+    val filteredTables = tableNames match {
+      case Some(tableNames) =>
+        this.tables.filter { table =>
+          tableNames
+            .exists(_.toLowerCase() == (this.name + "." + table.finalName).toLowerCase())
+        }
+
+      case None => this.tables
+    }
+    filteredTables
+  }
 
   def aclTables(): List[Schema] = tables.filter(_.hasACL())
 

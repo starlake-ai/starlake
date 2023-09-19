@@ -32,7 +32,8 @@ class AutoTaskDependencies(
   ): List[DependencyContext] = {
     val tasks =
       AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
-    val depsMap =
+    val depsMap = {
+      /*
       if (config.verbose) {
         schemaHandler
           .tasks()
@@ -40,13 +41,18 @@ class AutoTaskDependencies(
             (task.name, TaskViewDependency.taskDependencies(task.name, tasks)(schemaHandler))
           } :+ ("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
       } else {
-        val (taskName, deps) = config.task
-          .map(taskName =>
+      }
+
+       */
+      config.tasks.getOrElse(Nil) match {
+        case Nil =>
+          List("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+        case taskNames =>
+          taskNames.map(taskName =>
             (taskName, TaskViewDependency.taskDependencies(taskName, tasks)(schemaHandler))
           )
-          .getOrElse("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
-        List(taskName -> deps)
       }
+    }
     val mapper = Utils.newJsonMapper().writerWithDefaultPrettyPrinter()
 
     depsMap.map { case (jobName, allDeps) =>
@@ -62,7 +68,7 @@ class AutoTaskDependencies(
         logger.debug(mapper.writeValueAsString(relations))
       }
       DependencyContext(jobName, dedupEntities, relations)
-    }
+    }.toList
   }
 
   def jobsDependencyTree(
@@ -78,18 +84,20 @@ class AutoTaskDependencies(
 
     val relations = allDependencies.flatMap(_.relations)
     val entities = allDependencies.flatMap(_.entities)
-    val result = config.task match {
-      case Some(taskName) =>
-        val entity = entities.find(_.name == taskName).getOrElse {
-          throw new RuntimeException(s"taskName:$taskName not found")
+    val result = config.tasks match {
+      case Some(taskNames) =>
+        val taskEntities = taskNames.map { taskName =>
+          val taskEntity = entities.find(_.name == taskName).getOrElse {
+            throw new RuntimeException(s"taskName:$taskNames not found")
+          }
+          taskEntity
         }
-        List(TaskViewDependencyNode.dependencies(entity, entities, relations))
-
+        taskEntities.map(entity => TaskViewDependencyNode.dependencies(entity, entities, relations))
       case None =>
         TaskViewDependencyNode.dependencies(entities, relations)
     }
     result.foreach(_.print())
-    result
+    result.toList
   }
 
   //// DOT section
@@ -116,36 +124,44 @@ class AutoTaskDependencies(
       |}
       |""".stripMargin
 
-  def jobAsDot(config: AutoTaskDependenciesConfig): List[(String, String)] =
+  def jobAsDot(config: AutoTaskDependenciesConfig): (String, String) =
     jobAsDot(jobs(config), config)
 
   def jobAsDot(
     allDependencies: List[DependencyContext],
     config: AutoTaskDependenciesConfig
-  ): List[(String, String)] = {
-    val results: List[(String, String)] = allDependencies.map {
-      case DependencyContext(jobName, dedupEntities, relations) =>
-        val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")
-        val relationsAsDot = relations
-          .flatMap(dep => dep.relationAsDot())
-          .distinct
-          .mkString("\n")
-        (jobName, List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n"))
+  ): (String, String) = {
+    def distinctBy[A, B](xs: List[A])(f: A => B): List[A] =
+      scala.reflect.internal.util.Collections.distinctBy(xs)(f)
+
+    val dedupDependencies = allDependencies.foldLeft(DependencyContext("all", Nil, Nil)) {
+      (acc, dep) =>
+        DependencyContext(
+          dep.jobName,
+          distinctBy(acc.entities ++ dep.entities)(_.name),
+          acc.relations ++ dep.relations
+        )
     }
-    config.outputDir match {
-      case Some(outputDir) =>
-        val dir = File(outputDir)
-        dir.createDirectoryIfNotExists(createParents = true)
-        results map { case (jobName, result) =>
-          val file = File(outputDir, s"$jobName.dot")
-          file.overwrite(result)
-        }
-        results
+
+    val entitiesAsDot = dedupDependencies.entities.map(dep => dep.entityAsDot()).mkString("\n")
+    val relationsAsDot = dedupDependencies.relations
+      .flatMap(dep => dep.relationAsDot())
+      .distinct
+      .mkString("\n")
+    val result: (String, String) = (
+      dedupDependencies.jobName,
+      List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n")
+    )
+
+    val (jobName, dotContent) = result
+    config.outputFile match {
+      case Some(output) =>
+        val outputFile = File(output)
+        outputFile.parent.createDirectoryIfNotExists(createParents = true)
+        outputFile.overwrite(dotContent)
       case None =>
-        results.foreach { case (jobName, result) =>
-          println(result)
-        }
-        results
+        println(dotContent)
     }
+    result
   }
 }

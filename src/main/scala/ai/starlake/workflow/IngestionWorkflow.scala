@@ -728,7 +728,7 @@ class IngestionWorkflow(
 
   def autoJob(config: TransformConfig): Boolean = {
     if (config.recursive) {
-      val taskConfig = AutoTaskDependenciesConfig(task = Some(config.name))
+      val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
       val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
         .jobsDependencyTree(taskConfig)
       dependencyTree.foreach(_.print())

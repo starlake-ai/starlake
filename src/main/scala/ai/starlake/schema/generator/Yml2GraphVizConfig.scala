@@ -4,10 +4,12 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class Yml2GraphVizConfig(
-  includeAllAttributes: Boolean = false,
+  includeAllAttributes: Boolean = true,
   acl: Boolean = false,
   domains: Boolean = false,
-  outputDir: Option[String] = None,
+  related: Boolean = false,
+  outputFile: Option[String] = None,
+  tables: Option[Seq[String]] = None,
   reload: Boolean = false
 )
 
@@ -21,8 +23,8 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note("Generate GraphViz files from Domain / Schema YAML files"),
-      opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = Some(x)))
+      opt[String]("output")
+        .action((x, c) => c.copy(outputFile = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
       opt[Unit]("all")
@@ -48,6 +50,18 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
         .optional()
         .text(
           "Should we include entity relations in the dot file ? false by default"
+        ),
+      opt[Unit]("related")
+        .action((x, c) => c.copy(related = true))
+        .optional()
+        .text(
+          "Should we include only entities with relations to others ? false by default"
+        ),
+      opt[Seq[String]]("tables")
+        .action((x, c) => c.copy(tables = Some(x)))
+        .optional()
+        .text(
+          "Which tables should we include in the dot file ? All by default"
         )
     )
   }
