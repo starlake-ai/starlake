@@ -25,7 +25,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQu
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, JobResult, Utils}
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName, TableId}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -35,6 +35,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
+import java.util.TimeZone
 import scala.util.Try
 
 sealed case class Step(value: String) {
@@ -94,6 +95,7 @@ case class AuditLog(
 
   def asBqInsert(table: String): String = {
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    df.setTimeZone(TimeZone.getTimeZone("UTC"))
     val timestampStr = df.format(timestamp)
     val escapeStringParameter = (value: Any) =>
       value.toString.replaceAll("'", "\\\\'").replaceAll("\n", "\\\\n")
@@ -249,10 +251,14 @@ object AuditLog extends StrictLogging {
   )(implicit
     settings: Settings
   ): Try[JobResult] = {
-    val auditOutputTarget =
-      BigQueryJobBase.extractProjectDatasetAndTable(
-        settings.appConfig.audit.domain.getOrElse("audit") + ".audit"
-      )
+    val auditOutputTarget = {
+      val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
+      val auditTable = "audit"
+      settings.appConfig.audit.database match {
+        case Some(prj) => TableId.of(prj, auditDomain, auditTable)
+        case None      => TableId.of(auditDomain, auditTable)
+      }
+    }
     val bqConfig = BigQueryLoadConfig(
       Some(sink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
       Left("ignore"),
