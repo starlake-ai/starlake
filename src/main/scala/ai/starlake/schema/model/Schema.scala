@@ -461,17 +461,17 @@ case class Schema(
       }
     }
     if (fkTables.nonEmpty)
-      fkTables :+ name
+      fkTables :+ finalName
     else
       fkTables
   }
 
   def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     val isFKTable = fkTables.contains(finalName.toLowerCase)
-    if (isFKTable || includeAllAttrs) {
+    if (isFKTable) {
       val tableLabel = s"${domain}_$finalName"
       val header =
-        s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $finalName </FONT></B></td></tr>\n"""
+        s"""<tr><td port="0" bgcolor="white"><B><FONT color="black"> $finalName </FONT></B></td></tr>\n"""
       val rows =
         attributes.flatMap { attr =>
           val isPK = primaryKey.contains(attr.getFinalName())
