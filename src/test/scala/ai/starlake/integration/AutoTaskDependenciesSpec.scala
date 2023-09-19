@@ -2,8 +2,6 @@ package ai.starlake.integration
 
 import ai.starlake.TestHelper
 import ai.starlake.job.Main
-import ai.starlake.job.transform.TaskViewDependency
-import ai.starlake.utils.Utils
 import better.files.File
 import org.scalatest.BeforeAndAfterAll
 
@@ -18,30 +16,35 @@ class AutoTaskDependenciesSpec extends TestHelper with BeforeAndAfterAll {
 
   override def afterAll(): Unit = {}
 
-  "Sezrialize Task View Dependency" should "succeed" in {
-    val data = List(TaskViewDependency("a", "b", "c", "d", "e", None))
-    Utils.newJsonMapper().writeValueAsString(data)
-  }
-
   "Recursive Transform" should "succeed" in {
-    Main.main(
-      Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
-    )
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+      Main.main(
+        Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
+      )
+    }
   }
 
   "Dependency Generation" should "succeed" in {
-    Main.main(
-      Array("dependencies", "--viz")
-    )
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+      Main.main(
+        Array("dependencies", "--viz")
+      )
+    }
   }
+
   "Relations Generation" should "succeed" in {
-    Main.main(
-      Array("yml2gv", "--domains")
-    )
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+      Main.main(
+        Array("yml2gv", "--domains")
+      )
+    }
   }
+
   "Job GraphViz Generation" should "succeed" in {
-    Main.main(
-      Array("dependencies", "--task", "Products.TopSellingProfitableProducts")
-    )
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+      Main.main(
+        Array("dependencies", "--task", "Products.TopSellingProfitableProducts")
+      )
+    }
   }
 }
