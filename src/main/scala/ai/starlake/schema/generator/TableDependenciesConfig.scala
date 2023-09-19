@@ -3,21 +3,19 @@ package ai.starlake.schema.generator
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class Yml2GraphVizConfig(
+case class TableDependenciesConfig(
   includeAllAttributes: Boolean = true,
-  acl: Boolean = false,
-  domains: Boolean = false,
   related: Boolean = false,
   outputFile: Option[String] = None,
   tables: Option[Seq[String]] = None,
   reload: Boolean = false
 )
 
-object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
-  val command = "yml2gv"
+object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
+  val command = "table-dependencies"
 
-  val parser: OParser[Unit, Yml2GraphVizConfig] = {
-    val builder = OParser.builder[Yml2GraphVizConfig]
+  val parser: OParser[Unit, TableDependenciesConfig] = {
+    val builder = OParser.builder[TableDependenciesConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -39,18 +37,6 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
         .text(
           "Should we reload the domains first ?"
         ),
-      opt[Unit]("acl")
-        .action((x, c) => c.copy(acl = true))
-        .optional()
-        .text(
-          "Should we include ACLs in the dot file ? false by default"
-        ),
-      opt[Unit]("domains")
-        .action((x, c) => c.copy(domains = true))
-        .optional()
-        .text(
-          "Should we include entity relations in the dot file ? false by default"
-        ),
       opt[Unit]("related")
         .action((x, c) => c.copy(related = true))
         .optional()
@@ -71,6 +57,6 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
     * @return
     *   Option of case class SchemaGenConfig.
     */
-  def parse(args: Seq[String]): Option[Yml2GraphVizConfig] =
-    OParser.parse(parser, args, Yml2GraphVizConfig())
+  def parse(args: Seq[String]): Option[TableDependenciesConfig] =
+    OParser.parse(parser, args, TableDependenciesConfig())
 }

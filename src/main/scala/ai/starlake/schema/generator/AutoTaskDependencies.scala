@@ -1,6 +1,7 @@
-package ai.starlake.job.transform
+package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import better.files.File
@@ -88,7 +89,7 @@ class AutoTaskDependencies(
       case Some(taskNames) =>
         val taskEntities = taskNames.map { taskName =>
           val taskEntity = entities.find(_.name == taskName).getOrElse {
-            throw new RuntimeException(s"taskName:$taskNames not found")
+            throw new RuntimeException(s"taskName:$taskName not found")
           }
           taskEntity
         }

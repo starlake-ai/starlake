@@ -1,5 +1,5 @@
 ---
-sidebar_position: 20
+sidebar_position: 30
 title: bq2yml or bq-info
 ---
 
