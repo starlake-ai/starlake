@@ -426,7 +426,8 @@ trait IngestionJob extends SparkJob {
                 mergedMetadata.getQuote().headOption.foreach(format.setQuote)
                 mergedMetadata.getEscape().headOption.foreach(format.setQuoteEscape)
                 csvParserSettings.setFormat(format)
-                mergedMetadata.getSeparator()
+                // allocate twice the declared columns. If fail a strange exception is thrown: https://github.com/uniVocity/univocity-parsers/issues/247
+                csvParserSettings.setMaxColumns(schema.attributes.length * 2)
                 csvParserSettings.setNullValue(mergedMetadata.getNullValue())
                 csvParserSettings.setHeaderExtractionEnabled(true)
                 val csvParser = new CsvParser(csvParserSettings)

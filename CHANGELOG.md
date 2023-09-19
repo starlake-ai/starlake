@@ -57,7 +57,7 @@ __Feature__:
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
 - forceDomainPattern renamed in order to be overridable with environment variable
-
+- audit log was not in UTC when loaded from local
   Please run the following SQL to update your audit table on BigQuery:
 ```
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
