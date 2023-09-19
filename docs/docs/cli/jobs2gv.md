@@ -1,15 +1,15 @@
 ---
 sidebar_position: 110
-title: jobs2gv
+title: dependencies
 ---
 
 
 ## Synopsis
 
-**starlake jobs2gv [options]**
+**starlake dependencies [options]**
 
 ## Description
-Generate GraphViz files from Job YAML files
+Generate Task dependencies graph
 
 ## Parameters
 
@@ -19,5 +19,7 @@ Parameter|Cardinality|Description
 --task:`<value>`|*Optional*|Compute dependencies of this job only. If not specified, compute all jobs.
 --reload:`<value>`|*Optional*|Should we reload the domains first ?
 --verbose:`<value>`|*Optional*|Should we generate one graph per job ?
+--viz:`<value>`|*Optional*|Should we generate one graph per job ?
+--print:`<value>`|*Optional*|Print dependencies as text
 --objects:`<value>`|*Optional*|comma separated list of objects to display: task, table, view, unknown
 
