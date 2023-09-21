@@ -22,7 +22,7 @@ object Versions {
   val hadoop = "3.3.6"
   val sparkBigqueryWithDependencies = "0.32.2"
   val bigqueryConnector = "hadoop3-1.2.0"
-  val h2 = "2.2.222" // Test only
+  val h2 = "2.2.224" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.8"
   val confluentVersion = "7.5.0"
