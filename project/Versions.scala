@@ -15,14 +15,14 @@ object Versions {
   val betterFiles = "3.9.2"
   val jackson212ForSpark3 = "2.14.2"
   val pureConfig212ForSpark3 = "0.14.0"
-  val esSpark212 = "8.10.0"
+  val esSpark212 = "8.10.1"
   val scopt = "4.1.0"
   val gcsConnector = "hadoop3-2.2.17"
   val bigquery = "2.32.0"
   val hadoop = "3.3.6"
   val sparkBigqueryWithDependencies = "0.32.2"
   val bigqueryConnector = "hadoop3-1.2.0"
-  val h2 = "2.2.222" // Test only
+  val h2 = "2.2.224" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.8"
   val confluentVersion = "7.5.0"
