@@ -25,8 +25,22 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
             "0 0 * * *",
             "0 0 * * *",
             List(
-              DagDomain("domain1", List("table1", "table2").asJava),
-              DagDomain("domain2", List("table3", "table4").asJava)
+              DagDomain(
+                "domain1",
+                "finalDomain1",
+                List(
+                  TableDomain("table1", "finalTable1"),
+                  TableDomain("table2", "finalTable2")
+                ).asJava
+              ),
+              DagDomain(
+                "domain2",
+                "finalDomain2",
+                List(
+                  TableDomain("table3", "finalTable3"),
+                  TableDomain("table4", "finalTable4")
+                ).asJava
+              )
             ).asJava
           )
         )
@@ -74,7 +88,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         dagContent should include("description='sample dag configuration'")
         dagContent should include("'profileVar':'DATAPROC_MEDIUM'")
         dagContent should include("'name':'position'")
-        dagContent should include("'account'")
+        dagContent should include("'final_name':'position'")
       }
     }
   }

@@ -516,7 +516,7 @@ object Settings extends StrictLogging {
     connectionRef: String,
     schedulePresets: Map[String, String],
     refs: List[Ref],
-    dagConfigRef: Option[String],
+    dagRef: Option[String],
     maxParTask: Int
   ) extends Serializable {
 
@@ -725,7 +725,7 @@ object Settings extends StrictLogging {
             case _ =>
           }
         }
-        settings.appConfig.dagConfigRef.foreach { dagConfigRef =>
+        settings.appConfig.dagRef.foreach { dagConfigRef =>
           val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
           if (!storageHandler.exists(dagConfigPath)) {
             errors = errors :+ ValidationMessage(
