@@ -15,11 +15,17 @@ env = {
 
 schedules= [{% for schedule in context.schedules %}
   'schedule':'{{ schedule.schedule }}',
+  'cron':'{{ schedule.cron }}',
   'domains':[{% for domain in schedule.domains %}
     {
       'name':'{{ domain.name }}',
+      'final_name':'{{ domain.finalName }}',
       'tables': [{% for table in domain.tables %}
-                   '{{ table }}'{% if not loop.last  %}, {% endif %}{% endfor %}
+          {
+            'name':'{{ table.name }}',
+            'final_name':'{{ table.finalName }}'
+          }{% if not loop.last  %},{% endif %}
+          {% endfor %}
       ],
     }{% if not loop.last  %},{% endif %}
     {% endfor %}
