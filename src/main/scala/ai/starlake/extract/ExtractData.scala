@@ -4,13 +4,11 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerializer
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
-  def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+  def run(args: Array[String])(implicit settings: Settings): Unit = {
     ExtractDataConfig.parse(args) match {
       case Some(config) =>
         run(config)
@@ -29,8 +27,9 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     * @param settings
     *   : Application configuration file
     */
-  def run(config: ExtractDataConfig)(implicit settings: Settings): Unit = {
-    val schemaHandler = new SchemaHandler(settings.storageHandler())
+  def run(
+    config: ExtractDataConfig
+  )(implicit settings: Settings): Unit = {
     val content = settings
       .storageHandler()
       .read(mappingPath(config.extractConfig))

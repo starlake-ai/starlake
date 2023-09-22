@@ -17,12 +17,12 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 
 class KafkaJob(
-  val kafkaJobConfig: KafkaJobConfig
+  kafkaJobConfig: KafkaJobConfig,
+  schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
   import settings.storageHandler
   DatasetArea.initMetadata(storageHandler())
-  val schemaHandler = new SchemaHandler(storageHandler())
 
   private val topicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.topicConfigName.map(settings.appConfig.kafka.topics)

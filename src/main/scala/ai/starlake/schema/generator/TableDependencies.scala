@@ -51,7 +51,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def relationsAsDotString(config: TableDependenciesConfig): String = {
-    schemaHandler.domains(config.reload)
+    schemaHandler.domains(reload = config.reload)
     val fkTables =
       if (config.related)
         relatedTables(config.tables)

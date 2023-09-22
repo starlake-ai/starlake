@@ -312,7 +312,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def aclAsDotString(config: AclDependenciesConfig): String = {
-    val _ = schemaHandler.domains(config.reload)
+    val _ = schemaHandler.domains(reload = config.reload)
     aclPrefix + rlsAclTablesAsDot() + jobsAsDot() + tableAndAclAndRlsUsersAsDot() + aclRelationsAsDot() + rlsRelationsAsDot() + suffix
   }
 

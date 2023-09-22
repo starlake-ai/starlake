@@ -1,7 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
 
@@ -18,7 +18,7 @@ class AutoTaskSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
-        val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+        val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
         workflow.autoJob(TransformConfig(name = "result.file"))
 
         readFileContent(
@@ -44,7 +44,7 @@ class AutoTaskSpec extends TestHelper {
             new Path(this.jobMetadataRootPath, "piJob.pi.py")
           )
           val schemaHandler = new SchemaHandler(settings.storageHandler())
-          val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+          val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
           workflow.autoJob(TransformConfig(name = "piJob"))
 
           readFileContent(

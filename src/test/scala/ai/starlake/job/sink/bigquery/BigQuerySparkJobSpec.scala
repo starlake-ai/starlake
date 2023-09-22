@@ -3,7 +3,7 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
@@ -150,7 +150,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           logger.info(this.jobMetadataRootPath.toString)
 
           schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
-          val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+          val validator = new IngestionWorkflow(storageHandler, schemaHandler)
           validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
           // check that table is created correctly with the right number of lines
           private val createdTable: Table =

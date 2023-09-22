@@ -1,12 +1,12 @@
 ---
 sidebar_position: 130
-title: load
+title: watch
 ---
 
 
 ## Synopsis
 
-**starlake load [options]**
+**starlake watch [options]**
 
 ## Description
 
@@ -15,8 +15,7 @@ title: load
 
 Parameter|Cardinality|Description
 ---|---|---
---domain:`<value>`|*Optional*|Domain name
---schema:`<value>`|*Optional*|Schema name
---paths:`<value>`|*Optional*|list of comma separated paths
---options:`<value>`|*Optional*|arguments to be used as substitutions
+--include:`domain1,domain2...`|*Optional*|Domains to watch
+--schemas:`schema1,schema2,schema3...`|*Optional*|Schemas to watch
+--options:`k1=v1,k2=v2...`|*Optional*|Watch arguments to be used as substitutions
 

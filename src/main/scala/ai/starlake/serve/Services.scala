@@ -8,7 +8,7 @@ object Services {
 
   def domains()(implicit settings: Settings): List[Domain] = {
     val schemaHandler = new SchemaHandler(settings.storageHandler())
-    schemaHandler.domains(true)
+    schemaHandler.domains(reload = true)
   }
 
   def jobs()(implicit settings: Settings): List[AutoJobDesc] = {
