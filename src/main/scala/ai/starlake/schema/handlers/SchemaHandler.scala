@@ -62,6 +62,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def checkTypeDomainsJobsValidity(
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil,
     reload: Boolean = false
   )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
@@ -72,7 +74,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val typesValidity = types.map(_.checkValidity())
-    val loadedDomains = this.domains(reload)
+    val loadedDomains = this.domains(domainNames, tableNames, reload)
     val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsValidity =
       domainStructureValidity ++ loadedDomainsValidity
@@ -416,9 +418,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  def deserializedDomains(domainPath: Path, raw: Boolean = false): List[(Path, Try[Domain])] = {
+  def deserializedDomains(
+    domainPath: Path,
+    domainNames: List[String] = Nil,
+    raw: Boolean = false
+  ): List[(Path, Try[Domain])] = {
     val directories = storage.listDirectories(domainPath)
-    val domainsOnly = directories
+    val requestedDomainDirectories =
+      if (domainNames.isEmpty)
+        directories
+      else {
+        directories.filter(p => domainNames.contains(p.getName()))
+      }
+    val domainsOnly = requestedDomainDirectories
       .map { directory =>
         val configPath = new Path(directory, "_config.sl.yml")
         if (storage.exists(configPath)) {
@@ -479,23 +491,38 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domains
   }
 
-  def domains(reload: Boolean = false, raw: Boolean = false): List[Domain] = {
-    if (reload || raw) { // raw is used only for special use cases so we force it to reload
-      val (_, domains) = loadDomains(raw)
-      domains
-    } else {
-      _domains
+  def domains(
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil,
+    reload: Boolean = false,
+    raw: Boolean = false
+  ): List[Domain] = {
+    _domains match {
+      case Some(domains) =>
+        if (reload || raw) { // raw is used only for special use cases so we force it to reload
+          val (_, domains) = initDomains(domainNames, tableNames, raw)
+          domains
+        } else
+          domains
+      case None =>
+        val (_, domains) = initDomains(domainNames, tableNames, raw)
+        domains
     }
   }
 
-  private var (_domainErrors, _domains): (List[ValidationMessage], List[Domain]) = loadDomains()
+  private var (_domainErrors, _domains): (List[ValidationMessage], Option[List[Domain]]) =
+    (Nil, None)
 
-  def loadDomains(raw: Boolean = false): (List[ValidationMessage], List[Domain]) = {
-    loadDomainsFromArea(DatasetArea.load, raw)
+  private def initDomains(
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil,
+    raw: Boolean = false
+  ): (List[ValidationMessage], List[Domain]) = {
+    initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
   }
 
   def loadExternals(): (List[ValidationMessage], List[Domain]) = {
-    loadDomainsFromArea(DatasetArea.external)
+    initDomainsFromArea(DatasetArea.external)
   }
 
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
@@ -550,11 +577,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadDomainsFromArea(
+  private def initDomainsFromArea(
     area: Path,
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil,
     raw: Boolean = false
   ): (List[ValidationMessage], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = loadFullDomains(area, raw)
+    val (validDomainsFile, invalidDomainsFiles) =
+      loadFullDomains(area, domainNames, tableNames, raw)
 
     val domains = validDomainsFile
       .collect { case Success(domain) => domain }
@@ -590,8 +620,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>
-        if (!raw)
-          this._domains = nonEmptyDomains
+        if (!raw) {
+          this._domains = Some(nonEmptyDomains)
+          DatasetArea.initDomains(storage, nonEmptyDomains.map(_.name))
+
+        }
         Nil
       case Left(errors) =>
         errors
@@ -609,31 +642,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (this._domainErrors, nonEmptyDomains)
   }
 
-  private def loadFullDomains(area: Path, raw: Boolean): (List[Try[Domain]], List[Try[Domain]]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, raw)
+  private def loadFullDomains(
+    area: Path,
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil,
+    raw: Boolean
+  ): (List[Try[Domain]], List[Try[Domain]]) = {
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, domainNames, raw)
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
           val folder = path.getParent()
-          val tableRefNames =
-            storage
-              .list(folder, extension = ".sl.yml", recursive = true)
-              .map(_.getName())
-              .filter(!_.startsWith("_config."))
-
-          val schemaRefs = tableRefNames
-            .map { tableRefName =>
-              val schemaPath = new Path(folder, tableRefName)
-              YamlSerializer.deserializeSchemaRefs(
-                if (raw)
-                  storage.read(schemaPath)
-                else
-                  Utils
-                    .parseJinja(storage.read(schemaPath), activeEnvVars()),
-                schemaPath.toString
-              )
-            }
-            .flatMap(_.tables)
+          val schemaRefs = loadTableRefs(tableNames, raw, folder)
           val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
           val finalTables =
             if (raw) tables
@@ -647,6 +667,39 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
       .partition(_.isSuccess)
     (validDomainsFile, invalidDomainsFiles)
+  }
+
+  private def loadTableRefs(
+    tableNames: List[String] = Nil,
+    raw: Boolean,
+    folder: Path
+  ): List[Schema] = {
+    val tableRefNames =
+      storage
+        .list(folder, extension = ".sl.yml", recursive = true)
+        .map(_.getName())
+        .filter(!_.startsWith("_config."))
+
+    val requestedTables =
+      if (tableNames.isEmpty)
+        tableRefNames
+      else {
+        tableRefNames.filter(tableNames.map(_ + ".sl.yml").contains(_))
+      }
+    val schemaRefs = requestedTables
+      .map { tableRefName =>
+        val schemaPath = new Path(folder, tableRefName)
+        YamlSerializer.deserializeSchemaRefs(
+          if (raw)
+            storage.read(schemaPath)
+          else
+            Utils
+              .parseJinja(storage.read(schemaPath), activeEnvVars()),
+          schemaPath.toString
+        )
+      }
+      .flatMap(_.tables)
+    schemaRefs
   }
 
   private def checkVarsAreDefined(path: Path): Set[ValidationMessage] = {

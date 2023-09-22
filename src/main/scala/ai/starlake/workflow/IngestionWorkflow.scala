@@ -42,12 +42,7 @@ import ai.starlake.schema.generator.{
   Yml2DDLConfig,
   Yml2DDLJob
 }
-import ai.starlake.schema.handlers.{
-  LaunchHandler,
-  LocalStorageHandler,
-  SchemaHandler,
-  StorageHandler
-}
+import ai.starlake.schema.handlers.{LocalStorageHandler, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
@@ -100,8 +95,7 @@ private case object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHel
   */
 class IngestionWorkflow(
   storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  launchHandler: LaunchHandler
+  schemaHandler: SchemaHandler
 )(implicit settings: Settings)
     extends StrictLogging {
 
@@ -109,7 +103,30 @@ class IngestionWorkflow(
 
   JdbcDialects.registerDialect(StarlakeSnowflakeDialect)
 
-  var domains: List[Domain] = schemaHandler.domains()
+  private var _domains: Option[List[Domain]] = None
+
+  private def domains(
+    domainNames: List[String] = Nil,
+    tableNames: List[String] = Nil
+  ): List[Domain] = {
+    _domains match {
+      case None =>
+        if (domainNames.nonEmpty)
+          logger.info(s"Loading domains : ${domainNames.mkString(",")}")
+        else
+          logger.info("Loading all domains")
+        if (tableNames.nonEmpty)
+          logger.info(s"Loading tables : ${tableNames.mkString(",")}")
+        else
+          logger.info("Loading all tables")
+        val domains = schemaHandler.domains(domainNames, tableNames)
+        _domains = Some(domains)
+        domains
+      case Some(domains) =>
+        logger.info("Domains already loaded")
+        domains
+    }
+  }
 
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
     * time each domain has its own directory and is specified in the "directory" key of Domain YML
@@ -123,8 +140,8 @@ class IngestionWorkflow(
 
   def loadLanding(config: ImportConfig): Unit = {
     val filteredDomains = config.includes match {
-      case Nil => domains
-      case _   => domains.filter { d => config.includes.contains(d.name) }
+      case Nil => domains(Nil, Nil) // Load all domains & tables
+      case _   => domains(config.includes.toList, Nil)
     }
     logger.info(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
@@ -289,7 +306,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
+  def loadPending(config: LoadConfig = LoadConfig()): Boolean = {
     val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
@@ -360,8 +377,7 @@ class IngestionWorkflow(
           val (parJobs, forkJoinPool) =
             makeParallel(jobs.toList, settings.appConfig.scheduling.maxJobs)
           val res = parJobs.map { jobContext =>
-            launchHandler.ingest(
-              this,
+            ingest(
               jobContext.domain,
               jobContext.schema,
               jobContext.paths,
@@ -381,15 +397,12 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  private def domainsToWatch(config: WatchConfig): List[Domain] = {
-    val includedDomains = (config.includes, config.excludes) match {
-      case (Nil, Nil) =>
-        domains
-      case (_, Nil) =>
-        domains.filter(domain => config.includes.contains(domain.name))
-      case (Nil, _) =>
-        domains.filter(domain => !config.excludes.contains(domain.name))
-      case (_, _) => throw new Exception("Should never happen ")
+  private def domainsToWatch(config: LoadConfig): List[Domain] = {
+    val includedDomains = config.includes match {
+      case Nil =>
+        domains()
+      case _ =>
+        domains(config.includes.toList, config.schemas.toList)
     }
     logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
     includedDomains
@@ -461,7 +474,7 @@ class IngestionWorkflow(
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
       loadPending(
-        WatchConfig(
+        LoadConfig(
           includes = domainToWatch,
           schemas = schemasToWatch,
           options = config.options
@@ -478,7 +491,7 @@ class IngestionWorkflow(
         val schemaName = config.schema
         val ingestingPaths = config.paths
         val result = for {
-          domain <- domains.find(_.name == domainName)
+          domain <- domains(domainName :: Nil, schemaName :: Nil).find(_.name == domainName)
           schema <- domain.tables.find(_.name == schemaName)
         } yield ingest(domain, schema, ingestingPaths, config.options)
         result match {
@@ -499,7 +512,7 @@ class IngestionWorkflow(
     options: Map[String, String]
   ): Try[JobResult] = {
     logger.info(
-      s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
+      s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
     )
     val metadata = schema.mergedMetadata(domain.metadata)
     logger.info(
@@ -908,8 +921,7 @@ class IngestionWorkflow(
       .getOrElse(
         throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
       )
-    launchHandler.esLoad(
-      this,
+    val result = esLoad(
       ESLoadConfig(
         timestamp = sink.timestamp,
         id = sink.id,
@@ -920,6 +932,8 @@ class IngestionWorkflow(
         options = sink.getOptions()
       )
     )
+    Utils.logFailure(result, logger)
+    result.isSuccess
   }
 
   def esLoad(config: ESLoadConfig): Try[JobResult] = {
@@ -936,7 +950,7 @@ class IngestionWorkflow(
   }
 
   def kafkaload(config: KafkaJobConfig): Try[JobResult] = {
-    val res = new KafkaJob(config).run()
+    val res = new KafkaJob(config, schemaHandler).run()
     Utils.logFailure(res, logger)
   }
 
@@ -991,7 +1005,7 @@ class IngestionWorkflow(
       }
   }
 
-  def secure(config: WatchConfig): Boolean = {
+  def secure(config: LoadConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
       domain.tables.map { schema =>

@@ -97,7 +97,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new SchemaHandler(storageHandler, Map("age" -> "40"))
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
 
       workflow.autoJob(TransformConfig("user.user"))
 
@@ -202,7 +202,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
       workflow.autoJob(
         TransformConfig("user.user")
       )
@@ -258,7 +258,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
 
       workflow.autoJob(TransformConfig("user.user"))
 
@@ -312,7 +312,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
 
       workflow.autoJob(TransformConfig("user.user"))
 
@@ -371,7 +371,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
 
       workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
 

@@ -27,12 +27,11 @@ case class FreshnessStatus(
 
 object BigQueryFreshnessInfo extends StrictLogging {
   def freshness(
-    config: BigQueryTablesConfig
+    config: BigQueryTablesConfig,
+    schemaHandler: SchemaHandler
   )(implicit isettings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
       BigQueryTableInfo.extractTableInfos(config)
-    import isettings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler())
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
       val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
@@ -190,12 +189,12 @@ object BigQueryFreshnessInfo extends StrictLogging {
     }
   }
 
-  def run(args: Array[String]): List[FreshnessStatus] = {
+  def run(args: Array[String], schemaHandler: SchemaHandler): List[FreshnessStatus] = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val config =
       BigQueryTablesConfig
         .parse(args)
         .getOrElse(throw new Exception("Could not parse arguments"))
-    freshness(config)
+    freshness(config, schemaHandler)
   }
 }

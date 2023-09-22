@@ -21,8 +21,8 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
@@ -387,7 +387,7 @@ trait TestHelper
       DatasetArea.initMetadata(storageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler)
       validator
     }
 
@@ -396,7 +396,7 @@ trait TestHelper
       validator.loadPending()
     }
 
-    def secure(config: WatchConfig): Boolean = {
+    def secure(config: LoadConfig): Boolean = {
       val validator = loadWorkflow()
       validator.secure(config)
     }
@@ -446,7 +446,7 @@ trait TestHelper
       }
 
       // Load landing file
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler)
       validator.loadLanding(ImportConfig())
     }
   }

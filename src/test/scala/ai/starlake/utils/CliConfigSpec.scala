@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.extract.{BigQueryTablesConfig, ExtractDataConfig, ExtractSchemaConfig}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
@@ -32,7 +32,7 @@ class CliConfigSpec extends TestHelper {
         "extract-schema" -> ExtractSchemaConfig,
         "extract-data"   -> ExtractDataConfig,
         "transform"      -> TransformConfig,
-        "watch"          -> WatchConfig,
+        "load"           -> LoadConfig,
         "kafkaload"      -> KafkaJobConfig,
         "yml2xls"        -> Yml2XlsConfig,
         "tabledeps"      -> TableDependenciesConfig,

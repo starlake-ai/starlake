@@ -3,18 +3,17 @@ package ai.starlake.job.ingest
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class WatchConfig(
+case class LoadConfig(
   includes: Seq[String] = Seq.empty,
-  excludes: Seq[String] = Seq.empty,
   schemas: Seq[String] = Seq.empty,
   options: Map[String, String] = Map.empty
 )
 
-object WatchConfig extends CliConfig[WatchConfig] {
+object LoadConfig extends CliConfig[LoadConfig] {
   val command = "watch"
 
-  val parser: OParser[Unit, WatchConfig] = {
-    val builder = OParser.builder[WatchConfig]
+  val parser: OParser[Unit, LoadConfig] = {
+    val builder = OParser.builder[LoadConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -25,11 +24,6 @@ object WatchConfig extends CliConfig[WatchConfig] {
         .valueName("domain1,domain2...")
         .optional()
         .text("Domains to watch"),
-      opt[Seq[String]]("exclude")
-        .valueName("domain1,domain2...")
-        .optional()
-        .action((x, c) => c.copy(excludes = x))
-        .text("Domains not to watch"),
       opt[Seq[String]]("schemas")
         .valueName("schema1,schema2,schema3...")
         .optional()
@@ -43,6 +37,6 @@ object WatchConfig extends CliConfig[WatchConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[WatchConfig] =
-    OParser.parse(parser, args, WatchConfig())
+  def parse(args: Seq[String]): Option[LoadConfig] =
+    OParser.parse(parser, args, LoadConfig())
 }

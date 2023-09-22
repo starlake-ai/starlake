@@ -3,9 +3,9 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract._
-import ai.starlake.job.ingest.WatchConfig
+import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.JsonSerializer
 import ai.starlake.workflow.IngestionWorkflow
@@ -92,7 +92,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           cleanDatasets
 
           logger.info(settings.appConfig.datasets)
-          secure(WatchConfig())
+          secure(LoadConfig())
         }
         val tableFound =
           Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
@@ -148,7 +148,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           val schemaHandler = new SchemaHandler(storageHandler)
 
           val workflow =
-            new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+            new IngestionWorkflow(storageHandler, schemaHandler)
           val config = TransformConfig("bqtest.bqjobtest")
           workflow.autoJob(config) should be(true)
           workflow.autoJob(config.copy(interactive = Some("json"))) should be(true)
@@ -184,7 +184,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           val config = BigQueryTablesConfig(tables = Map("bqtest" -> List("account")))
-          val result = BigQueryFreshnessInfo.freshness(config)
+          val result = BigQueryFreshnessInfo.freshness(config, new SchemaHandler(storageHandler))
           val json = JsonSerializer.serializeObject(result)
           println(json)
 

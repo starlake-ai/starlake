@@ -3,7 +3,7 @@ package ai.starlake.job.connections
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteMode}
 import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
@@ -55,7 +55,7 @@ class ConnectionJobsSpec extends TestHelper {
       val schemaHandler = new SchemaHandler(storageHandler, Map("age" -> "10"))
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler)
 
       workflow.autoJob(TransformConfig("user"))
 

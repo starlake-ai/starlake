@@ -5,7 +5,7 @@ import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
+import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
@@ -13,7 +13,7 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, ValidateConfig}
+import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils._
@@ -82,7 +82,7 @@ class Main() extends StrictLogging {
     MetricsConfig,
     Parquet2CSVConfig,
     TransformConfig,
-    WatchConfig,
+    LoadConfig,
     Xls2YmlConfig,
     Yml2DDLConfig,
     TableDependenciesConfig,
@@ -164,9 +164,8 @@ class Main() extends StrictLogging {
     if (settings.appConfig.validateOnLoad)
       schemaHandler.checkValidity()
 
-    DatasetArea.initDomains(storageHandler(), schemaHandler.domains().map(_.name))
     val workflow =
-      new IngestionWorkflow(storageHandler(), schemaHandler, new SimpleLauncher())
+      new IngestionWorkflow(storageHandler(), schemaHandler)
 
     logger.info(s"Running Starlake $argList")
     val result = argList.head match {
@@ -207,7 +206,7 @@ class Main() extends StrictLogging {
             true
         }
       case "watch" | "load" =>
-        WatchConfig.parse(args.drop(1)) match {
+        LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
           case _ =>
@@ -285,7 +284,7 @@ class Main() extends StrictLogging {
         }
 
       case "secure" =>
-        WatchConfig.parse(args.drop(1)) match {
+        LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.secure(config)
           case _ =>
@@ -332,7 +331,7 @@ class Main() extends StrictLogging {
         ExtractBigQuerySchema.run(args.drop(1))
         true
       case "bq-freshness" =>
-        val result = BigQueryFreshnessInfo.run(args.drop(1))
+        val result = BigQueryFreshnessInfo.run(args.drop(1), schemaHandler)
         val warnFound = result.find(_.warnOrError == "WARN")
         val errFound = result.find(_.warnOrError == "ERROR")
         // scalastyle:off println
