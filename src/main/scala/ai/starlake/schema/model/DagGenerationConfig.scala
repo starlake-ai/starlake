@@ -10,13 +10,26 @@ import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
 case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
   def getSchedule(): String = schedule
+
+  def getCron(): String = cron
+
   def getDomains(): java.util.List[DagDomain] = domains
 }
 
-case class DagDomain(name: String, tables: java.util.List[String]) {
+case class DagDomain(name: String, finalName: String, tables: java.util.List[TableDomain]) {
   def getName(): String = name
-  def getTables(): java.util.List[String] = tables
+
+  def getFinalName(): String = finalName
+
+  def getTables(): java.util.List[TableDomain] = tables
 }
+
+case class TableDomain(name: String, finalName: String) {
+  def getName(): String = name
+
+  def getFinalName(): String = finalName
+}
+
 case class DagPair(name: String, value: String) {
   def getName(): String = name
   def getValue(): String = value
