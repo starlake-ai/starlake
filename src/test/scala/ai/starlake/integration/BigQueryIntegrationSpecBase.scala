@@ -15,7 +15,6 @@ class BigQueryIntegrationSpecBase extends TestHelper with BeforeAndAfterAll {
   val incomingDir = localDir / "incoming"
   val quickstartDir: File = localDir / "quickstart"
   val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
-  setEnv("SL_ROOT", quickstartDir.pathAsString)
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>

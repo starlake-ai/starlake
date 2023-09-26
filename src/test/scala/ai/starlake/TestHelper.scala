@@ -65,12 +65,33 @@ trait TestHelper
     super.afterAll()
   }
 
+  def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
+    val existingValues = envList.flatMap { case (k, _) =>
+      Option(System.getenv().get(k)).map(k -> _)
+    }
+    envList.foreach { case (k, v) => setEnv(k, v) }
+    val result = Try {
+      fun
+    }
+    envList.foreach { case (k, _) => delEnv(k) }
+    existingValues.foreach { case (k, v) => setEnv(k, v) }
+    result.get
+  }
+
   def setEnv(key: String, value: String): Unit = {
     val field = System.getenv().getClass.getDeclaredField("m")
     field.setAccessible(true)
     val map =
       field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
     map.put(key, value)
+  }
+
+  def delEnv(key: String): Unit = {
+    val field = System.getenv().getClass.getDeclaredField("m")
+    field.setAccessible(true)
+    val map =
+      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
+    map.remove(key)
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -136,7 +157,7 @@ trait TestHelper
     )
   )
 
-  val allMappings: List[FileToImport] = List(
+  val allExtracts: List[FileToImport] = List(
     FileToImport(
       "create.ssp",
       "/sample/ddl/bigquery/create.ssp",
@@ -287,16 +308,16 @@ trait TestHelper
         val viewPath = new Path(DatasetArea.views, viewToImport.name)
         deliverTestFile(viewToImport.path, viewPath)
       }
-      allMappings.foreach { mappingToImport =>
-        val path = mappingToImport.folder match {
+      allExtracts.foreach { extractToImport =>
+        val path = extractToImport.folder match {
           case None =>
-            DatasetArea.mapping.toString
+            DatasetArea.extract.toString
           case Some(folder) =>
-            DatasetArea.mapping.toString + "/" + folder
+            DatasetArea.extract.toString + "/" + folder
         }
         storageHandler.mkdirs(new Path(path))
-        val mappingPath = new Path(path, mappingToImport.name)
-        deliverTestFile(mappingToImport.path, mappingPath)
+        val extractPath = new Path(path, extractToImport.name)
+        deliverTestFile(extractToImport.path, extractPath)
       }
       allDags.foreach { dagImport =>
         val dagPath = new Path(DatasetArea.dags, dagImport.name)
