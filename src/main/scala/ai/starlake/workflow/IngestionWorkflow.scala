@@ -702,7 +702,8 @@ class IngestionWorkflow(
     AutoTask.task(
       taskDesc,
       config.options,
-      config.interactive
+      config.interactive,
+      resultPageSize = 1000
     )(
       settings,
       storageHandler,
