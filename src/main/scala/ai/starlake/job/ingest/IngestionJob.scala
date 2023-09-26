@@ -550,11 +550,12 @@ trait IngestionJob extends SparkJob {
     bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions), pageSize = Some(1000)) match {
       case Failure(exception) => throw exception
       case Success(result) =>
+        // ignore NULL partition values like in spark
         result.tableResult
           .map(_.getValues)
           .map(
             _.iterator().asScala
-              .map(_.get(partitionName).getStringValue)
+              .flatMap(r => scala.Option(r.get(partitionName)).map(_.getStringValue))
               .toList
           )
           .getOrElse(Nil)
