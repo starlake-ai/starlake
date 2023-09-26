@@ -11,6 +11,7 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
+import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -23,7 +24,11 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
 
-class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)(implicit
+class BigQueryNativeJob(
+  override val cliConfig: BigQueryLoadConfig,
+  sql: String,
+  resultPageSize: Long = 1
+)(implicit
   val settings: Settings
 ) extends JobBase
     with BigQueryJobBase {
@@ -226,7 +231,10 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     formatOptions
   }
 
-  def runInteractiveQuery(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
+  def runInteractiveQuery(
+    thisSql: scala.Option[String] = None,
+    pageSize: scala.Option[Long] = None
+  ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
         val targetSQL = thisSql.getOrElse(sql)
@@ -251,7 +259,9 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
 
-        val results = queryJob.getQueryResults()
+        val results = queryJob.getQueryResults(
+          QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+        )
         logger.info(
           s"Query large results performed successfully: ${results.getTotalRows} rows returned."
         )
@@ -322,7 +332,9 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     }
   }
 
-  def RunAndSinkAsTable(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
+  def RunAndSinkAsTable(
+    thisSql: scala.Option[String] = None
+  ): Try[BigQueryJobResult] = {
     getOrCreateDataset(None).flatMap { targetDataset =>
       Try {
         val queryConfig: QueryJobConfiguration.Builder =
@@ -389,7 +401,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
 
-        val results = jobInfo.getQueryResults()
+        val results = jobInfo.getQueryResults(QueryResultsOption.pageSize(this.resultPageSize))
         logger.info(
           s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
         )

@@ -57,7 +57,8 @@ object AutoTask extends StrictLogging {
   def task(
     taskDesc: AutoTaskDesc,
     configOptions: Map[String, String],
-    interactive: Option[String]
+    interactive: Option[String],
+    resultPageSize: Int = 1
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -70,7 +71,8 @@ object AutoTask extends StrictLogging {
         .map(_.getSink())
         .orElse(Some(AllSinks().getSink())),
       interactive,
-      taskDesc.getDatabase()
+      taskDesc.getDatabase(),
+      resultPageSize = resultPageSize
     )
   }
 }
@@ -92,7 +94,8 @@ case class AutoTask(
   commandParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String],
-  database: Option[String]
+  database: Option[String],
+  resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
   override def name: String = taskDesc.name
@@ -146,7 +149,7 @@ case class AutoTask(
           "(" + sql + ")"
         else
           sql
-      new BigQueryNativeJob(config, finalSql)
+      new BigQueryNativeJob(config, finalSql, this.resultPageSize)
     }
 
     val start = Timestamp.from(Instant.now())
