@@ -13,7 +13,6 @@ class AclDependenciesSpec extends TestHelper with BeforeAndAfterAll {
   val incomingDir = localDir / "incoming"
   val quickstartDir: File = localDir / "quickstart"
   val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
-  setEnv("SL_ROOT", quickstartDir.pathAsString)
 
   override def beforeAll(): Unit = {}
 
@@ -21,17 +20,21 @@ class AclDependenciesSpec extends TestHelper with BeforeAndAfterAll {
 
   "All ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      Main.main(
-        Array("acl-dependencies")
-      )
+      withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
+        Main.main(
+          Array("acl-dependencies")
+        )
+      }
     }
   }
 
   "Some ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      Main.main(
-        Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
-      )
+      withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
+        Main.main(
+          Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+        )
+      }
     }
   }
 }
