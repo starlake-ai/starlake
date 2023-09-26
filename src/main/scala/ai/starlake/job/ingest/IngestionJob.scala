@@ -547,7 +547,7 @@ trait IngestionJob extends SparkJob {
   ): List[String] = {
     val detectImpliedPartitions =
       s"SELECT DISTINCT cast(date(`$partitionName`) as STRING) AS $partitionName FROM ($sql)"
-    bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions)) match {
+    bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions), pageSize = Some(1000)) match {
       case Failure(exception) => throw exception
       case Success(result) =>
         result.tableResult
