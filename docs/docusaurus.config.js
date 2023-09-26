@@ -13,6 +13,7 @@ module.exports = {
 
         docs: {
             sidebar: {
+                autoCollapseCategories: true,
                 hideable: false
             }
         },
@@ -61,8 +62,8 @@ module.exports = {
                             href: 'https://github.com/starlake-ai/starlake',
                         },
                         {
-                            label: 'Discord',
-                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
+                            label: 'Slack',
+                            href: 'https://starlakeai.slack.com',
                         },
                         {
                             label: 'Stack Overflow',
@@ -79,6 +80,12 @@ module.exports = {
                     position: 'right',
                     className: 'header-download-link header-icon-link',
                     'aria-label': 'Download',
+                },
+                {
+                    href: 'https://starlakeai.slack.com',
+                    position: 'right',
+                    className: 'header-slack-link header-icon-link',
+                    'aria-label': 'Community',
                 },
                 {
                     href: 'https://github.com/starlake-ai/starlake',
@@ -109,8 +116,8 @@ module.exports = {
                             href: 'https://stackoverflow.com/questions/tagged/starlake',
                         },
                         {
-                            label: 'Discord',
-                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
+                            label: 'Slack',
+                            href: 'https://starlakeai.slack.com',
                         },
                         {
                             label: 'Twitter',
