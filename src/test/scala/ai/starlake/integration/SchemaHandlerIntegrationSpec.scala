@@ -16,7 +16,6 @@ class SchemaHandlerIntegrationSpec extends TestHelper with BeforeAndAfterAll {
   val incomingDir = localDir / "incoming"
   val quickstartDir: File = localDir / "quickstart"
   val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
-  setEnv("SL_ROOT", quickstartDir.pathAsString)
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>
@@ -38,14 +37,16 @@ class SchemaHandlerIntegrationSpec extends TestHelper with BeforeAndAfterAll {
   }
 
   "Watch single schema" should "load only this schema" in {
-    clearDataDirectories()
+    withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
+      clearDataDirectories()
 
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+      implicit val settings: Settings = Settings(ConfigFactory.load())
 
-    val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
-    val workflow =
-      new IngestionWorkflow(settings.storageHandler(), schemaHandler)
-    assert(schemaHandler.domains(List("hr"), List("locations")).length == 1)
+      val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
+      val workflow =
+        new IngestionWorkflow(settings.storageHandler(), schemaHandler)
+      assert(schemaHandler.domains(List("hr"), List("locations")).length == 1)
+    }
   }
 
 }

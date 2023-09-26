@@ -549,7 +549,7 @@ trait IngestionJob extends SparkJob {
       s"SELECT DISTINCT cast(date(`$partitionName`) as STRING) AS $partitionName FROM ($sql)"
     bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions), pageSize = Some(1000)) match {
       case Failure(exception) => throw exception
-      case Success(result) =>
+      case Success(result)    =>
         // ignore NULL partition values like in spark
         result.tableResult
           .map(_.getValues)

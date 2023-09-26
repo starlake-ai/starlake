@@ -65,12 +65,33 @@ trait TestHelper
     super.afterAll()
   }
 
+  def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
+    val existingValues = envList.flatMap { case (k, _) =>
+      Option(System.getenv().get(k)).map(k -> _)
+    }
+    envList.foreach { case (k, v) => setEnv(k, v) }
+    val result = Try {
+      fun
+    }
+    envList.foreach { case (k, _) => delEnv(k) }
+    existingValues.foreach { case (k, v) => setEnv(k, v) }
+    result.get
+  }
+
   def setEnv(key: String, value: String): Unit = {
     val field = System.getenv().getClass.getDeclaredField("m")
     field.setAccessible(true)
     val map =
       field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
     map.put(key, value)
+  }
+
+  def delEnv(key: String): Unit = {
+    val field = System.getenv().getClass.getDeclaredField("m")
+    field.setAccessible(true)
+    val map =
+      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
+    map.remove(key)
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
