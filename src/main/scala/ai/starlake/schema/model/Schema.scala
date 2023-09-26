@@ -447,10 +447,6 @@ case class Schema(
     }
   }
 
-  @JsonIgnore
-  def hasACL(): Boolean =
-    acl.nonEmpty
-
   def relatedTables(): List[String] = {
     val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
       val tab = fk.split('.')

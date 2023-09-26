@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.generator.AclDependenciesConfig
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -241,13 +242,23 @@ import scala.util.Try
     filteredTables
   }
 
-  def aclTables(): List[Schema] = tables.filter(_.hasACL())
-
-  def rlsTables(): Map[String, List[RowLevelSecurity]] =
+  def aclTables(config: AclDependenciesConfig): List[Schema] = {
+    val all = config.grantees
     tables
+      .filter { table =>
+        table.acl.nonEmpty && (all.isEmpty || table.acl.flatMap(_.grants).intersect(all).nonEmpty)
+      }
+  }
+
+  def rlsTables(config: AclDependenciesConfig): Map[String, List[RowLevelSecurity]] = {
+    val all = config.grantees
+    tables
+      .filter { table =>
+        table.rls.nonEmpty && (all.isEmpty || table.rls.flatMap(_.grants).intersect(all).nonEmpty)
+      }
       .map(t => (t.finalName, t.rls))
-      .filter { case (tableName, rls) => rls.nonEmpty }
       .toMap
+  }
 
   def policies(): List[RowLevelSecurity] = {
     tables
