@@ -260,6 +260,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               "tableName"     -> schema.finalName,
               "domain"        -> domain,
               "table"         -> schema,
+              "tableName"     -> schema.finalName,
               "partitions"    -> Nil,
               "clustered"     -> Nil,
               "primaryKeys"   -> Nil,

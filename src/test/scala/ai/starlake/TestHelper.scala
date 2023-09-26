@@ -136,7 +136,7 @@ trait TestHelper
     )
   )
 
-  val allMappings: List[FileToImport] = List(
+  val allExtracts: List[FileToImport] = List(
     FileToImport(
       "create.ssp",
       "/sample/ddl/bigquery/create.ssp",
@@ -287,16 +287,16 @@ trait TestHelper
         val viewPath = new Path(DatasetArea.views, viewToImport.name)
         deliverTestFile(viewToImport.path, viewPath)
       }
-      allMappings.foreach { mappingToImport =>
-        val path = mappingToImport.folder match {
+      allExtracts.foreach { extractToImport =>
+        val path = extractToImport.folder match {
           case None =>
-            DatasetArea.mapping.toString
+            DatasetArea.extract.toString
           case Some(folder) =>
-            DatasetArea.mapping.toString + "/" + folder
+            DatasetArea.extract.toString + "/" + folder
         }
         storageHandler.mkdirs(new Path(path))
-        val mappingPath = new Path(path, mappingToImport.name)
-        deliverTestFile(mappingToImport.path, mappingPath)
+        val extractPath = new Path(path, extractToImport.name)
+        deliverTestFile(extractToImport.path, extractPath)
       }
       allDags.foreach { dagImport =>
         val dagPath = new Path(DatasetArea.dags, dagImport.name)
