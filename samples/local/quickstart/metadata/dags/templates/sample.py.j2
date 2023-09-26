@@ -16,6 +16,7 @@ env = {
 schedules= [{% for schedule in context.schedules %}
 {
   'schedule':'{{ schedule.schedule }}',
+  'cron':'{{ schedule.cron }}',
   'domains':[{% for domain in schedule.domains %}
     {
       'name':'{{ domain.name }}',
