@@ -122,14 +122,14 @@ trait JdbcChecks {
       extends ItemStandardizer[ContinuousMetricRecord] {
 
     override def standardize(item: ContinuousMetricRecord): ContinuousMetricRecord = {
-      item.copy(cometTime = 0L, jobId = "")
+      item.copy(timestamp = 0L, jobId = "")
     }
   }
 
   implicit object DiscreteMetricRecordStandardizer extends ItemStandardizer[DiscreteMetricRecord] {
 
     override def standardize(item: DiscreteMetricRecord): DiscreteMetricRecord = {
-      item.copy(cometTime = 0L, jobId = "")
+      item.copy(timestamp = 0L, jobId = "")
     }
   }
 
@@ -138,7 +138,7 @@ trait JdbcChecks {
     private val FakeDuration = Random.nextInt(5000)
 
     override def standardize(item: FrequencyMetricRecord): FrequencyMetricRecord = {
-      item.copy(cometTime = 0L, jobId = "")
+      item.copy(timestamp = 0L, jobId = "")
       // We pretend the AuditLog entry has been generated exactly at TestStart.
     }
   }
@@ -252,7 +252,7 @@ trait JdbcChecks {
       "domain" :: "schema" :: "attribute" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
-      "count" :: "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
+      "count" :: "timestamp" :: "cometMetric" :: "jobId" :: Nil,
       continuous.to[Vector]
     ) { rs =>
       ContinuousMetricRecord(
@@ -272,8 +272,7 @@ trait JdbcChecks {
         median = rs.getDoubleOption("median"),
         percentile75 = rs.getDoubleOption("percentile75"),
         count = rs.getLong("count"),
-        cometTime = 0L, // Do not include time since iwe are in test mode
-        cometStage = rs.getString("cometStage"),
+        timestamp = 0L, // Do not include time since iwe are in test mode
         cometMetric = rs.getString("cometMetric"),
         jobId = "" // Do not include jobId in test mode
       )
@@ -284,7 +283,7 @@ trait JdbcChecks {
       "audit.discrete",
       "domain" :: "schema" :: "attribute" ::
       "missingValuesDiscrete" :: "countDistinct" :: "count" ::
-      "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
+      "timestamp" :: "cometMetric" :: "jobId" :: Nil,
       discrete.to[Vector]
     ) { rs =>
       DiscreteMetricRecord(
@@ -294,8 +293,7 @@ trait JdbcChecks {
         missingValuesDiscrete = rs.getLong("missingValuesDiscrete"),
         countDistinct = rs.getLong("countDistinct"),
         count = rs.getLong("count"),
-        cometTime = rs.getLong("cometTime"),
-        cometStage = rs.getString("cometStage"),
+        timestamp = rs.getLong("timestamp"),
         cometMetric = rs.getString("cometMetric"),
         jobId = rs.getString("jobId")
       )
@@ -306,7 +304,7 @@ trait JdbcChecks {
       "audit.frequencies",
       "domain" :: "schema" :: "attribute" ::
       "category" :: "frequency" :: "count" ::
-      "cometTime" :: "cometStage" :: "jobId" :: Nil,
+      "timestamp" :: "jobId" :: Nil,
       frequencies.to[Vector]
     ) { rs =>
       FrequencyMetricRecord(
@@ -316,8 +314,7 @@ trait JdbcChecks {
         category = rs.getString("category"),
         frequency = rs.getLong("frequency"),
         count = rs.getLong("count"),
-        cometTime = rs.getLong("cometTime"),
-        cometStage = rs.getString("cometStage"),
+        timestamp = rs.getLong("timestamp"),
         jobId = rs.getString("jobId")
       )
     }

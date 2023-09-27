@@ -22,7 +22,11 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.ExpectationJob
+import ai.starlake.job.metrics.{
+  BigQueryExpectationAssertionHandler,
+  ExpectationJob,
+  SparkExpectationAssertionHandler
+}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryJobResult,
@@ -30,7 +34,6 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryNativeJob
 }
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
@@ -142,7 +145,7 @@ case class AutoTask(
 
   def runBQ(drop: Boolean): Try[JobResult] = {
     val config = createBigQueryConfig()
-    def bqNativeJob(sql: String) = {
+    def bqNativeJob(sql: String): BigQueryNativeJob = {
       val toUpperSql = sql.toUpperCase()
       val finalSql =
         if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
@@ -214,24 +217,15 @@ case class AutoTask(
           // We execute assertions only on success
           if (settings.appConfig.expectations.active) {
             new ExpectationJob(
+              taskDesc.database,
               taskDesc.domain,
               taskDesc.table,
               taskDesc.expectations,
-              UNIT,
               storageHandler,
               schemaHandler,
               None,
               taskDesc.getEngine(),
-              expectationSql =>
-                bqNativeJob(parseJinja(expectationSql, Map.empty))
-                  .runInteractiveQuery()
-                  .map { result =>
-                    val bqResult = result.asInstanceOf[BigQueryJobResult]
-                    bqResult.tableResult
-                      .map(_.getTotalRows)
-                      .getOrElse(0L)
-                  }
-                  .getOrElse(0L)
+              new BigQueryExpectationAssertionHandler(bqNativeJob(""))
             ).run()
           }
         }
@@ -468,15 +462,15 @@ case class AutoTask(
         case Some(dataframe) =>
           if (settings.appConfig.expectations.active) {
             new ExpectationJob(
+              taskDesc.database,
               taskDesc.domain,
               taskDesc.table,
               taskDesc.expectations,
-              Stage.UNIT,
               storageHandler,
               schemaHandler,
-              Some(dataframe),
+              Some(Left(dataframe)),
               taskDesc.getEngine(),
-              sql => session.sql(sql).count()
+              new SparkExpectationAssertionHandler(session)
             ).run()
           }
 

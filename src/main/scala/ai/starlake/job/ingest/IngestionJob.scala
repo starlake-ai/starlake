@@ -1,7 +1,12 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
-import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
+import ai.starlake.job.metrics.{
+  BigQueryExpectationAssertionHandler,
+  ExpectationJob,
+  MetricsJob,
+  SparkExpectationAssertionHandler
+}
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
@@ -10,7 +15,6 @@ import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
-import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -341,6 +345,7 @@ trait IngestionJob extends SparkJob {
         val output: Try[NativeBqLoadInfo] = firstStepResult match {
           case Success(loadFileResult) =>
             logger.info(s"First step result: $loadFileResult")
+            runExpectations(firstStepTempTable, firstStepBigqueryJob)
             val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
             val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
             val secondStepResult =
@@ -941,7 +946,10 @@ trait IngestionJob extends SparkJob {
     MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
     val newBqSchema =
       BigQueryUtils.bqSchema(
-        BigQueryUtils.normalizeSchema(schema.sparkSchemaFinal(schemaHandler))
+        BigQueryUtils.normalizeCompatibleSchema(
+          schema.sparkSchemaFinal(schemaHandler),
+          existingSchema
+        )
       )
     val updatedTableDefinition =
       table.getDefinition[StandardTableDefinition].toBuilder.setSchema(newBqSchema).build()
@@ -1215,15 +1223,31 @@ trait IngestionJob extends SparkJob {
   private def runExpectations(acceptedDF: DataFrame) = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
+        schemaHandler.getDatabase(this.domain),
         this.domain.finalName,
         this.schema.finalName,
         this.schema.expectations,
-        UNIT,
         storageHandler,
         schemaHandler,
-        Some(acceptedDF),
+        Some(Left(acceptedDF)),
         SPARK,
-        sql => session.sql(sql).count()
+        new SparkExpectationAssertionHandler(session)
+      ).run().getOrElse(throw new Exception("Should never happen"))
+    }
+  }
+
+  private def runExpectations(tableId: TableId, job: BigQueryNativeJob) = {
+    if (settings.appConfig.expectations.active) {
+      new ExpectationJob(
+        schemaHandler.getDatabase(this.domain),
+        this.domain.finalName,
+        this.schema.finalName,
+        this.schema.expectations,
+        storageHandler,
+        schemaHandler,
+        Some(Right(tableId)),
+        SPARK,
+        new BigQueryExpectationAssertionHandler(job)
       ).run().getOrElse(throw new Exception("Should never happen"))
     }
   }
@@ -1233,7 +1257,6 @@ trait IngestionJob extends SparkJob {
       new MetricsJob(
         this.domain,
         this.schema,
-        Stage.UNIT,
         this.storageHandler,
         this.schemaHandler
       )

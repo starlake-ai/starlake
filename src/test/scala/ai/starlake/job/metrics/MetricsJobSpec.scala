@@ -28,8 +28,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -42,8 +41,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("jobId", StringType, nullable = true),
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
   val expectedDiscreteMetricsSchema = StructType(
@@ -64,8 +62,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -158,7 +155,6 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           |  --domain <value>   Domain Name
           |  --schema <value>   Schema Name
           |  --authInfo <value> Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey
-          |  --stage <value>    Stage (UNIT or GLOBAL)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

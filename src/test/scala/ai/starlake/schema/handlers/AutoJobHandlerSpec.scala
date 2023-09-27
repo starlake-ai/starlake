@@ -129,7 +129,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "user",
         table = "user",
         write = Some(WriteMode.OVERWRITE),
-        expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
+        expectations = Map("uniqFirstname" -> "expect_column_is_unique(firstname)"),
         python = None,
         merge = None
       )
@@ -173,7 +173,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "user",
         table = "user",
         write = Some(WriteMode.OVERWRITE),
-        expectations = Map("uniqFirstname" -> "expect_column_isunique(firstname)"),
+        expectations = Map("uniqFirstname" -> "expect_column_is_unique(firstname)"),
         python = None,
         merge = None,
         sink = Some(FsSink().toAllSinks())

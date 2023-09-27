@@ -7,8 +7,7 @@ case class FrequencyMetricRecord(
   category: String,
   frequency: Long,
   count: Long,
-  cometTime: Long,
-  cometStage: String,
+  timestamp: Long,
   jobId: String
 ) {
 
@@ -20,8 +19,7 @@ case class FrequencyMetricRecord(
       s"category=$category",
       s"frequency=$frequency",
       s"count=$count",
-      s"cometTime=$cometTime",
-      s"cometStage=$cometStage",
+      s"timestamp=$timestamp",
       s"jobId=$jobId"
     ).mkString(",")
   }
@@ -34,8 +32,7 @@ case class DiscreteMetricRecord(
   missingValuesDiscrete: Long,
   countDistinct: Long,
   count: Long,
-  cometTime: Long,
-  cometStage: String,
+  timestamp: Long,
   cometMetric: String,
   jobId: String
 ) {
@@ -48,8 +45,7 @@ case class DiscreteMetricRecord(
       s"attribute=$attribute",
       s"missingValuesDiscrete=$missingValuesDiscrete",
       s"count=$count",
-      s"cometTime=$cometTime",
-      s"cometStage=$cometStage",
+      s"timestamp=$timestamp",
       s"cometMetric=$cometMetric",
       s"jobId=$jobId"
     ).mkString(",")
@@ -73,8 +69,7 @@ case class ContinuousMetricRecord(
   median: Option[Double],
   percentile75: Option[Double],
   count: Long,
-  cometTime: Long,
-  cometStage: String,
+  timestamp: Long,
   cometMetric: String,
   jobId: String
 ) {
@@ -97,8 +92,7 @@ case class ContinuousMetricRecord(
       s"median=${median.map(_.toString).getOrElse("?")}",
       s"percentile75=${percentile75.map(_.toString).getOrElse("?")}",
       s"count=$count",
-      s"cometTime=$cometTime",
-      s"cometStage=$cometStage",
+      s"timestamp=$timestamp",
       s"cometMetric=$cometMetric",
       s"jobId=$jobId"
     ).mkString(",")

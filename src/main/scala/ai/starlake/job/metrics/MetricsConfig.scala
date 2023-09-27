@@ -1,13 +1,11 @@
 package ai.starlake.job.metrics
 
-import ai.starlake.schema.model.Stage
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class MetricsConfig(
   domain: String = "",
   schema: String = "",
-  stage: Option[Stage] = None,
   authInfo: Map[String, String] = Map.empty
 )
 
@@ -31,11 +29,7 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
       opt[Map[String, String]]("authInfo")
         .action((x, c) => c.copy(authInfo = x))
         .optional()
-        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey"),
-      opt[String]("stage")
-        .action((x, c) => c.copy(stage = Some(Stage.fromString(x))))
-        .optional()
-        .text("Stage (UNIT or GLOBAL)")
+        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey")
     )
   }
 

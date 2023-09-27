@@ -32,8 +32,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -46,8 +45,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("jobId", StringType, nullable = true),
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
   val expectedDiscreteMetricsSchema = StructType(
@@ -68,8 +66,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -275,8 +272,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             median = Some(9.0),
             percentile75 = Some(25.0),
             count = 200,
-            cometTime = 1602103587981L,
-            cometStage = "UNIT",
+            timestamp = 1602103587981L,
             cometMetric = "Continuous",
             jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
           ),
@@ -297,12 +293,11 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             median = Some(4.0),
             percentile75 = Some(4.5),
             count = 200,
-            cometTime = 1602103587981L,
-            cometStage = "UNIT",
+            timestamp = 1602103587981L,
             cometMetric = "Continuous",
             jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
           )
-        ).map(x => x.copy(cometTime = 0L, jobId = "")),
+        ).map(x => x.copy(timestamp = 0L, jobId = "")),
         List(
           DiscreteMetricRecord(
             domain = "yelp",
@@ -311,8 +306,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "city",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -323,8 +317,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "is_open",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -335,8 +328,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "postal_code",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -347,8 +339,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "state",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           )
@@ -361,8 +352,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             category = "Tempe",
             frequency = 0,
             count = 200,
-            cometTime = 1602157958121L,
-            cometStage = "UNIT",
+            timestamp = 1602157958121L,
             jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
           ),
           FrequencyMetricRecord(
@@ -372,8 +362,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             category = "North Las Vegas",
             frequency = 0,
             count = 200,
-            cometTime = 1602157958121L,
-            cometStage = "UNIT",
+            timestamp = 1602157958121L,
             jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
           )
         )

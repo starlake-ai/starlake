@@ -2,7 +2,10 @@ package ai.starlake.schema.model
 
 import com.typesafe.scalalogging.StrictLogging
 
-case class ExpectationDefinitions(expectations: Map[String, String] = Map.empty) {
+case class ExpectationItem(query: String, expect: String) {
+  def this() = this("", "") // Should never be called. Here for Jackson deserialization only
+}
+case class ExpectationDefinitions(expectations: Map[String, ExpectationItem] = Map.empty) {
   def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
   val expectationDefinitions: Map[String, ExpectationDefinition] = {
     expectations.map { case (k, v) =>
@@ -16,10 +19,15 @@ case class ExpectationDefinition(
   fullName: String,
   name: String,
   params: List[String],
-  sql: String
+  expectation: ExpectationItem
 ) {
   def this() =
-    this("", "", Nil, "") // Should never be called. Here for Jackson deserialization only
+    this(
+      "",
+      "",
+      Nil,
+      ExpectationItem("", "true")
+    ) // Should never be called. Here for Jackson deserialization only
 }
 
 object ExpectationDefinition extends StrictLogging {
@@ -35,11 +43,11 @@ object ExpectationDefinition extends StrictLogging {
     }
   }
 
-  def fromDefinition(fullName: String, sql: String): ExpectationDefinition = {
+  def fromDefinition(fullName: String, item: ExpectationItem): ExpectationDefinition = {
     val (name, params) = extractNameAndParams(fullName)
     logger.info(
-      s"Found expectation definition $fullName -> $name(${params.mkString(",")} with SQl $sql"
+      s"Found expectation definition $fullName -> $name(${params.mkString(",")} with SQl ${item.query}"
     )
-    ExpectationDefinition(fullName, name, params, sql)
+    ExpectationDefinition(fullName, name, params, item)
   }
 }
