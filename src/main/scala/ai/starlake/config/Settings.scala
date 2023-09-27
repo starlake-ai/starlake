@@ -104,8 +104,9 @@ object Settings extends StrictLogging {
 
   final case class Expectations(
     path: String,
-    active: Boolean
-  ) // sinked to audit
+    active: Boolean,
+    failOnError: Boolean
+  ) // sinked to expectations
 
   final case class Audit(
     path: String,
