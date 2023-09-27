@@ -1,6 +1,9 @@
 package ai.starlake.schema.model
 
+import ai.starlake.utils.CompilerUtils
 import com.typesafe.scalalogging.StrictLogging
+
+import scala.util.Try
 
 case class ExpectationItem(query: String, expect: String) {
   def this() = this("", "") // Should never be called. Here for Jackson deserialization only
@@ -28,6 +31,22 @@ case class ExpectationDefinition(
       Nil,
       ExpectationItem("", "true")
     ) // Should never be called. Here for Jackson deserialization only
+
+  def checkValidity(): List[ValidationMessage] = {
+    Try {
+      CompilerUtils.compile(expectation.expect)
+    } match {
+      case scala.util.Success(_) => Nil
+      case scala.util.Failure(e) =>
+        e.printStackTrace()
+        ValidationMessage(
+          Severity.Error,
+          fullName,
+          s"Expectation $fullName is invalid: ${e.getMessage}"
+        ) :: Nil
+    }
+  }
+
 }
 
 object ExpectationDefinition extends StrictLogging {
@@ -49,5 +68,11 @@ object ExpectationDefinition extends StrictLogging {
       s"Found expectation definition $fullName -> $name(${params.mkString(",")} with SQl ${item.query}"
     )
     ExpectationDefinition(fullName, name, params, item)
+  }
+
+  def checkValidity(
+    expectationDefinitions: List[ExpectationDefinition]
+  ): List[ValidationMessage] = {
+    expectationDefinitions.flatMap(_.checkValidity())
   }
 }
