@@ -2,12 +2,8 @@ package ai.starlake.integration
 
 import ai.starlake.TestHelper
 import better.files.File
-import com.google.cloud.bigquery.BigQueryOptions
-import org.scalatest.BeforeAndAfterAll
 
-class BigQueryIntegrationSpecBase extends TestHelper with BeforeAndAfterAll {
-
-  val bigquery = BigQueryOptions.newBuilder().build().getService()
+class BigQueryIntegrationSpecBase extends TestHelper {
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)

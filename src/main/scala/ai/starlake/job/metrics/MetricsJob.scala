@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
-import ai.starlake.schema.model.{Domain, Schema, Stage}
+import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -28,7 +28,6 @@ import scala.util.{Success, Try}
 class MetricsJob(
   domain: Domain,
   schema: Schema,
-  stage: Stage,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
@@ -82,8 +81,7 @@ class MetricsJob(
     domain: Domain,
     schema: Schema,
     count: Long,
-    ingestionTime: Timestamp,
-    stageState: Stage
+    ingestionTime: Timestamp
   ): MetricsDatasets = {
     def computeFrequenciesDF(discreteDataset: DataFrame) = {
       Some(
@@ -133,8 +131,7 @@ class MetricsJob(
           .withColumn("domain", lit(domain.name))
           .withColumn("schema", lit(schema.name))
           .withColumn("count", lit(count))
-          .withColumn("cometTime", lit(ingestionTime))
-          .withColumn("cometStage", lit(stageState.toString))
+          .withColumn("timestamp", lit(ingestionTime))
         logger.whenDebugEnabled {
           logger.debug(res.showString())
         }
@@ -175,8 +172,7 @@ class MetricsJob(
         domain,
         schema,
         count,
-        timestamp,
-        stage
+        timestamp
       )
 
     val metricsToSave = List(

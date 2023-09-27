@@ -70,6 +70,7 @@ trait TestHelper
       Option(System.getenv().get(k)).map(k -> _)
     }
     envList.foreach { case (k, v) => setEnv(k, v) }
+    ConfigFactory.invalidateCaches()
     val result = Try {
       fun
     }
@@ -78,7 +79,7 @@ trait TestHelper
     result.get
   }
 
-  def setEnv(key: String, value: String): Unit = {
+  private def setEnv(key: String, value: String): Unit = {
     val field = System.getenv().getClass.getDeclaredField("m")
     field.setAccessible(true)
     val map =
@@ -86,7 +87,7 @@ trait TestHelper
     map.put(key, value)
   }
 
-  def delEnv(key: String): Unit = {
+  private def delEnv(key: String): Unit = {
     val field = System.getenv().getClass.getDeclaredField("m")
     field.setAccessible(true)
     val map =
@@ -347,10 +348,6 @@ trait TestHelper
   private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
   def sparkSession(implicit settings: Settings) = sparkSessionInterest.get(settings)
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-  }
 
   abstract class SpecTrait(
     val domainOrJobFilename: String,

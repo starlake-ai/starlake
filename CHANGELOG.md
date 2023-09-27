@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.0.0:
+- **BREAKING CHANGE**
+  - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
+
+
 # 0.8.0:
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ...

@@ -35,3 +35,5 @@ table:
         type: "string"
         required: false
         rename: "lastname"
+    expectations:
+      id_occurs_twice: expect_column_occurs(id, 2)
