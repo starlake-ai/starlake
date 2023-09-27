@@ -50,15 +50,16 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
           )
 
         logger.info(resultDf.showString(truncate = 0))
-        val session = sparkSession
+        private val session = sparkSession
         import session.implicits._
-        resultDf
-          .select($"email")
-          .map(_.getString(0))
-          .collect() should contain theSameElementsAs List(
+        private val expected = List(
           "comet-test@dummy.com",
           "comet-test2@dummy.com"
         )
+        resultDf
+          .select($"email")
+          .map(_.getString(0))
+          .collect() should contain theSameElementsAs expected
       }
     }
   }

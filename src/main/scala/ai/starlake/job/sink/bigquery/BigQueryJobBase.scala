@@ -161,18 +161,21 @@ trait BigQueryJobBase extends StrictLogging {
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
-  private lazy val policyTagClient: PolicyTagManagerClient = {
+  private def policyClient(): PolicyTagManagerClient = {
     val credentialsProvider = FixedCredentialsProvider.create(bigQueryCredentials())
     val policySettings =
       PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
     PolicyTagManagerClient.create(policySettings)
-  }
 
+  }
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
-    for {
+    val client = policyClient()
+    val result = for {
       _ <- applyRLS(forceApply)
-      _ <- applyCLS(forceApply)
+      _ <- applyCLS(forceApply, client)
     } yield ()
+    client.shutdown()
+    result
   }
 
   def bigquery()(implicit settings: Settings): BigQuery = {
@@ -250,7 +253,8 @@ trait BigQueryJobBase extends StrictLogging {
     projectId: String,
     taxonomy: String,
     taxonomyRef: String,
-    accessPolicy: String
+    accessPolicy: String,
+    policyTagClient: PolicyTagManagerClient
   ) = {
     val policyTagsRequest =
       ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
@@ -272,8 +276,9 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   def applyIamPolicyTags(iamPolicyTags: IamPolicyTags)(implicit settings: Settings): Try[Unit] = {
-    Try {
-      val (location, projectId, taxonomy, taxonomyRef) = getTaxonomy(policyTagClient)
+    val client = policyClient()
+    val result = Try {
+      val (location, projectId, taxonomy, taxonomyRef) = getTaxonomy(client)
 
       val groupedPoliciyTags: Map[String, List[IamPolicyTag]] =
         iamPolicyTags.iamPolicyTags.groupBy(_.policyTag)
@@ -287,7 +292,8 @@ trait BigQueryJobBase extends StrictLogging {
           binding.build()
         }
         val iamPolicy = IAMPolicy.newBuilder().addAllBindings(bindings.asJava).build()
-        val policyTagId = getPolicyTag(location, projectId, taxonomy, taxonomyRef, policyTag)
+        val policyTagId =
+          getPolicyTag(location, projectId, taxonomy, taxonomyRef, policyTag, client)
         val request =
           SetIamPolicyRequest
             .newBuilder()
@@ -295,10 +301,12 @@ trait BigQueryJobBase extends StrictLogging {
             .setPolicy(iamPolicy)
             .setUpdateMask(FieldMask.newBuilder().addPaths("bindings").build())
             .build()
-        val createdPolicy = policyTagClient.setIamPolicy(request)
+        val createdPolicy = client.setIamPolicy(request)
         logger.info(createdPolicy.toString)
       }
     }
+    client.shutdown()
+    result
   }
 
   private def getTaxonomy(
@@ -342,7 +350,7 @@ trait BigQueryJobBase extends StrictLogging {
     (location, taxonomyProjectId, taxonomy, taxonomyRef)
   }
 
-  private def applyCLS(forceApply: Boolean)(implicit
+  private def applyCLS(forceApply: Boolean, policyTagClient: PolicyTagManagerClient)(implicit
     settings: Settings
   ): Try[Unit] = {
     Try {
@@ -382,7 +390,14 @@ trait BigQueryJobBase extends StrictLogging {
                         val policyTagId = policyTagIds.getOrElse(
                           accessPolicy, {
                             val policyTagRef =
-                              getPolicyTag(location, projectId, taxonomy, taxonomyRef, accessPolicy)
+                              getPolicyTag(
+                                location,
+                                projectId,
+                                taxonomy,
+                                taxonomyRef,
+                                accessPolicy,
+                                policyTagClient
+                              )
                             policyTagIds.put(accessPolicy, policyTagRef)
                             policyTagRef
                           }
