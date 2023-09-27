@@ -145,8 +145,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
     }
 
+    val expectationErrors = ExpectationDefinition.checkValidity(expectations().values.toList)
     val allErrorsAndWarnings =
-      settingsErrorsAndWarnings ++ TypesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+      settingsErrorsAndWarnings ++ TypesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors ++ expectationErrors
     val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
@@ -272,6 +273,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val expectations = loadExpectations("expectations.sl.yml")
     val resExpectations = loadExpectations(name + ".sl.yml")
     defaultExpectations ++ expectations ++ resExpectations
+  }
+
+  @throws[Exception]
+  def expectations(): Map[String, ExpectationDefinition] = {
+    val defaultExpectations = loadExpectations("default.sl.yml")
+    val expectations = loadExpectations("expectations.sl.yml")
+    val domainExpectations = this.domains().flatMap { domain =>
+      loadExpectations(domain.name + ".sl.yml")
+    }
+
+    defaultExpectations ++ expectations ++ domainExpectations
   }
 
   private def viewName(sqlFile: Path) =
