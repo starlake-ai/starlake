@@ -1,26 +1,72 @@
 #!/bin/bash
 
+set -e
+
+## Common
+SL_VERSION="${SL_VERSION}"
+SPARK_VERSION="${SPARK_VERSION:-3.4.1}"
+HADOOP_VERSION="${HADOOP_VERSION:-3}"
+
+## GCP
+DOWNLOAD_GCP_DEPS=${DOWNLOAD_GCP_DEPS:-1} # skip gcp dependency install stage if 0 else install gcp missing dependencies
+SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.32.2}"
+
+## AZURE
+DOWNLOAD_AZURE_DEPS=${DOWNLOAD_AZURE_DEPS:-1} # skip azure dependency install stage if 0 else install azure missing dependencies
+HADOOP_AZURE_VERSION="${HADOOP_AZURE_VERSION:-3.3.5}"
+AZURE_STORAGE_VERSION="${AZURE_STORAGE_VERSION:-8.6.6}"
+JETTY_VERSION="${JETTY_VERSION:-9.4.51.v20230217}"
+JETTY_UTIL_VERSION="${JETTY_UTIL_VERSION:-$JETTY_VERSION}"
+JETTY_UTIL_AJAX_VERSION="${JETTY_UTIL_AJAX_VERSION:-$JETTY_VERSION}"
+
+## SNOWFLAKE
+DOWNLOAD_SNOWFLAKE_DEPS=${DOWNLOAD_SNOWFLAKE_DEPS:-1}
+SPARK_SNOWFLAKE_VERSION="${SPARK_SNOWFLAKE_VERSION:-3.4}"
+SNOWFLAKE_JDBC_VERSION="${SNOWFLAKE_JDBC_VERSION:-3.14.0}"
+
+# internal variables
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 SL_ROOT="${SL_ROOT:-`pwd`}"
 SCALA_VERSION=2.12
-SPARK_VERSION="${SPARK_VERSION:-3.4.1}"
-HADOOP_VERSION="${HADOOP_VERSION:-3}"
-SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.32.2}"
+SKIP_INSTALL=1
 SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
-SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
-SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
 #SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
-SKIP_INSTALL=1
-
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export SL_MAIN=ai.starlake.job.Main
 export SL_VALIDATE_ON_LOAD=false
 
 SPARK_TGZ_NAME=$SPARK_DIR_NAME.tgz
 SPARK_TGZ_URL=https://archive.apache.org/dist/spark/spark-$SPARK_VERSION/$SPARK_TGZ_NAME
-SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/$SPARK_BQ_ARTIFACT_NAME/$SPARK_BQ_VERSION/$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
+
+## GCP
+SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
+SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
+SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/$SPARK_BQ_ARTIFACT_NAME/$SPARK_BQ_VERSION/$SPARK_BQ_JAR_NAME
+
+## AZURE
+HADOOP_AZURE_ARTIFACT_NAME=hadoop-azure
+HADOOP_AZURE_JAR_NAME=$HADOOP_AZURE_ARTIFACT_NAME-$HADOOP_AZURE_VERSION.jar
+HADOOP_AZURE_URL=https://repo1.maven.org/maven2/org/apache/hadoop/$HADOOP_AZURE_ARTIFACT_NAME/$HADOOP_AZURE_VERSION/$HADOOP_AZURE_JAR_NAME
+AZURE_STORAGE_ARTIFACT_NAME=azure-storage
+AZURE_STORAGE_JAR_NAME=$AZURE_STORAGE_ARTIFACT_NAME-$AZURE_STORAGE_VERSION.jar
+AZURE_STORAGE_URL=https://repo1.maven.org/maven2/com/microsoft/azure/$AZURE_STORAGE_ARTIFACT_NAME/$AZURE_STORAGE_VERSION/$AZURE_AZURE_STORAGE_JAR_NAME
+JETTY_UTIL_ARTIFACT_NAME=jetty-util
+JETTY_UTIL_JAR_NAME=$JETTY_UTIL_ARTIFACT_NAME-$JETTY_UTIL_VERSION.jar
+JETTY_UTIL_URL=https://repo1.maven.org/maven2/org/eclipse/jetty/$JETTY_UTIL_ARTIFACT_NAME/$JETTY_UTIL_VERSION/$JETTY_UTIL_JAR_NAME
+JETTY_UTIL_AJAX_ARTIFACT_NAME=jetty-util-ajax
+JETTY_UTIL_AJAX_JAR_NAME=$JETTY_UTIL_AJAX_ARTIFACT_NAME-$JETTY_UTIL_AJAX_VERSION.jar
+JETTY_UTIL_AJAX_URL=https://repo1.maven.org/maven2/org/eclipse/jetty/$JETTY_UTIL_AJAX_ARTIFACT_NAME/$JETTY_UTIL_AJAX_VERSION/$JETTY_UTIL_AJAX_JAR_NAME
+
+## SNOWFLAKE
+SPARK_SNOWFLAKE_ARTIFACT_NAME=spark-snowflake_$SCALA_VERSION
+SPARK_SNOWFLAKE_FULL_VERSION=$SCALA_VERSION.0-spark_$SPARK_SNOWFLAKE_VERSION
+SPARK_SNOWFLAKE_JAR_NAME=$SPARK_SNOWFLAKE_ARTIFACT_NAME-$SPARK_SNOWFLAKE_FULL_VERSION.jar
+SPARK_SNOWFLAKE_URL=https://repo1.maven.org/maven2/net/snowflake/$SPARK_SNOWFLAKE_ARTIFACT_NAME/$SPARK_SNOWFLAKE_FULL_VERSION/$SPARK_SNOWFLAKE_JAR_NAME
+SNOWFLAKE_JDBC_ARTIFACT_NAME=snowflake-jdbc
+SNOWFLAKE_JDBC_JAR_NAME=$SNOWFLAKE_JDBC_ARTIFACT_NAME-$SNOWFLAKE_JDBC_VERSION.jar
+SNOWFLAKE_JDBC_URL=https://repo1.maven.org/maven2/net/snowflake/$SNOWFLAKE_JDBC_ARTIFACT_NAME/$SNOWFLAKE_JDBC_VERSION/$SNOWFLAKE_JDBC_JAR_NAME
 
 initStarlakeInstallVariables() {
   if [[ -z "$SL_VERSION" ]]; then
@@ -43,37 +89,204 @@ checkCurrentState() {
   SPARK_DOWNLOADED=1
   SL_DOWNLOADED=1
   SPARK_BQ_DOWNLOADED=1
+  HADOOP_AZURE_DOWNLOADED=1
+  AZURE_STORAGE_DOWNLOADED=1
+  JETTY_UTIL_DOWNLOADED=1
+  JETTY_UTIL_AJAX_DOWNLOADED=1
+  SPARK_SNOWFLAKE_DOWNLOADED=1
+  SNOWFLAKE_JDBC_DOWNLOADED=1
 
-  if [[ -d "$SPARK_TARGET_FOLDER/jars" ]]
+  if [ -d "$SPARK_TARGET_FOLDER/jars" ]
   then
-    echo - spark: OK
-    SPARK_DOWNLOADED=0
-    SL_JAR_RELATIVE_PATH=$(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SL_ARTIFACT_NAME*")
-    if [[ -z "$SL_JAR_RELATIVE_PATH" ]]
+    SL_JAR_COUNT=$(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SL_ARTIFACT_NAME*" | wc -l)
+    if [[ $SL_JAR_COUNT -eq 1 ]]
     then
+      SL_JAR_RELATIVE_PATH=$(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SL_ARTIFACT_NAME*")
+      SL_INSTALLED_VERSION=$(echo $(basename "$SL_JAR_RELATIVE_PATH") | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?(-[a-zA-Z0-9]+)?)-assembly\.jar/\1/g')
+      if [[ -n "$SL_VERSION" && "$SL_INSTALLED_VERSION" = "$SL_VERSION" ]]
+      then
+        SL_JAR_NAME=$(basename "$SL_JAR_RELATIVE_PATH")
+        echo - starlake: OK
+        SL_DOWNLOADED=0
+      else
+        initStarlakeInstallVariables
+        echo - starlake: KO
+        SKIP_INSTALL=1
+      fi
+    else
       initStarlakeInstallVariables
       echo - starlake: KO
       SKIP_INSTALL=1
-    else
-      SL_JAR_NAME=$(basename "$SL_JAR_RELATIVE_PATH")
-      echo - starlake: OK
-      SL_DOWNLOADED=0
     fi
-    if [[ $(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SPARK_BQ_ARTIFACT_NAME*" | wc -l) -eq 1 ]]
+  else
+    initStarlakeInstallVariables
+    echo - starlake: KO
+    SKIP_INSTALL=1
+  fi
+  if [[ -d "$SPARK_TARGET_FOLDER/bin" ]]
+  then
+    echo - spark: OK
+    SPARK_DOWNLOADED=0
+    if [[ $DOWNLOAD_GCP_DEPS -eq 0 ]]
     then
-      echo - spark bq: OK
-      SPARK_BQ_DOWNLOADED=0
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$SPARK_BQ_JAR_NAME" ]]
+      then
+        echo - spark bq: OK
+        SPARK_BQ_DOWNLOADED=0
+      else
+        echo - spark bq: KO
+        SKIP_INSTALL=1
+      fi
     else
-      echo - spark bq: KO
-      SKIP_INSTALL=1
+      SPARK_BQ_DOWNLOADED=0
+      echo - spark bq: skipped
+    fi
+    if [[ $DOWNLOAD_AZURE_DEPS -eq 0 ]]
+    then
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$HADOOP_AZURE_JAR_NAME" ]]
+      then
+        echo - hadoop azure: OK
+        HADOOP_AZURE_DOWNLOADED=0
+      else
+        echo - hadoop azure: KO
+        SKIP_INSTALL=1
+      fi
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$AZURE_STORAGE_JAR_NAME" ]]
+      then
+        echo - azure storage: OK
+        AZURE_STORAGE_DOWNLOADED=0
+      else
+        echo - azure storage: KO
+        SKIP_INSTALL=1
+      fi
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_JAR_NAME" ]]
+      then
+        echo - jetty util: OK
+        JETTY_UTIL_DOWNLOADED=0
+      else
+        echo - jetty util: KO
+        SKIP_INSTALL=1
+      fi
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_AJAX_JAR_NAME" ]]
+      then
+        echo - jetty util ajax: OK
+        JETTY_UTIL_AJAX_DOWNLOADED=0
+      else
+        echo - jetty util ajax: KO
+        SKIP_INSTALL=1
+      fi
+    else
+      HADOOP_AZURE_DOWNLOADED=0
+      AZURE_STORAGE_DOWNLOADED=0
+      JETTY_UTIL_DOWNLOADED=0
+      JETTY_UTIL_AJAX_DOWNLOADED=0
+      echo - hadoop azure: skipped
+      echo - azure storage: skipped
+      echo - jetty util: skipped
+      echo - jetty util ajax: skipped
+    fi
+    if [[ $DOWNLOAD_SNOWFLAKE_DEPS -eq 0 ]]
+    then
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$SPARK_SNOWFLAKE_JAR_NAME" ]]
+      then
+        echo - spark snowflake: OK
+        SPARK_SNOWFLAKE_DOWNLOADED=0
+      else
+        echo - spark snowflake: KO
+        SKIP_INSTALL=1
+      fi
+      if [[ -f "$SPARK_TARGET_FOLDER/jars/$SNOWFLAKE_JDBC_JAR_NAME" ]]
+      then
+        echo - snowflake jdbc: OK
+        SNOWFLAKE_JDBC_DOWNLOADED=0
+      else
+        echo - snowflake jdbc: KO
+        SKIP_INSTALL=1
+      fi
+    else
+      SPARK_SNOWFLAKE_DOWNLOADED=0
+      SNOWFLAKE_JDBC_DOWNLOADED=0
+      echo - spark snowflake: skipped
+      echo - snowflake jdbc: skipped
     fi
 
   else
-    initStarlakeInstallVariables
     SKIP_INSTALL=1
     echo - spark: KO
-    echo - starlake: KO
-    echo - spark bq: KO
+    if [[ $DOWNLOAD_GCP_DEPS -eq 0 ]]
+    then
+      echo - spark bq: KO
+    else
+      SPARK_BQ_DOWNLOADED=0
+      echo - spark bq: skipped
+    fi
+    if [[ $DOWNLOAD_AZURE_DEPS -eq 0 ]]
+    then
+      echo - hadoop azure: ko
+      echo - azure storage: ko
+      echo - jetty util: ko
+      echo - jetty util ajax: ko
+    else
+      HADOOP_AZURE_DOWNLOADED=0
+      AZURE_STORAGE_DOWNLOADED=0
+      JETTY_UTIL_DOWNLOADED=0
+      JETTY_UTIL_AJAX_DOWNLOADED=0
+      echo - hadoop azure: skipped
+      echo - azure storage: skipped
+      echo - jetty util: skipped
+      echo - jetty util ajax: skipped
+    fi
+    if [[ $DOWNLOAD_SNOWFLAKE_DEPS -eq 0 ]]
+    then
+      echo - spark snowflake: ko
+      echo - snowflake jdbc: ko
+    else
+      SPARK_SNOWFLAKE_DOWNLOADED=0
+      SNOWFLAKE_JDBC_DOWNLOADED=0
+      echo - spark snowflake: skipped
+      echo - snowflake jdbc: skipped
+    fi
+  fi
+}
+
+clean_additional_jars() {
+  # prevent same jar with different version in classpath
+  if [[ $SL_DOWNLOADED -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$SL_ARTIFACT_NAME"*
+  fi
+  if [[ $SPARK_BQ_DOWNLOADED -eq 1 || $DOWNLOAD_GCP_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$SPARK_BQ_ARTIFACT_NAME"*
+  fi
+  if [[ $HADOOP_AZURE_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$HADOOP_AZURE_ARTIFACT_NAME"*
+  fi
+  if [[ $AZURE_STORAGE_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$AZURE_STORAGE_ARTIFACT_NAME"*
+  fi
+  if [[ $JETTY_UTIL_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_ARTIFACT_NAME"*
+    if [[ $DOWNLOAD_AZURE_DEPS -eq 0 && $JETTY_UTIL_AJAX_DOWNLOADED -eq 0 ]]
+    then
+      echo "force jetty util ajax download"
+      JETTY_UTIL_AJAX_DOWNLOADED=1
+    fi
+  fi
+  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_AJAX_ARTIFACT_NAME"*
+  fi
+  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 1 || $DOWNLOAD_SNOWFLAKE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$SPARK_SNOWFLAKE_ARTIFACT_NAME"*
+  fi
+  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 1 || $DOWNLOAD_SNOWFLAKE_DEPS -eq 1 ]]
+  then
+    rm -f "$SPARK_TARGET_FOLDER/jars/$SNOWFLAKE_JDBC_ARTIFACT_NAME"*
   fi
 }
 
@@ -90,7 +303,9 @@ initEnv() {
     curl --fail --output "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME" "$SPARK_TGZ_URL"
     tar zxf "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME" -C "$SCRIPT_DIR/bin/"
     rm -f "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME"
-    mv "$SCRIPT_DIR/bin/$SPARK_DIR_NAME" "$SPARK_TARGET_FOLDER"
+    mkdir -p "$SPARK_TARGET_FOLDER"
+    cp -rf "$SCRIPT_DIR/bin/$SPARK_DIR_NAME/"* "$SPARK_TARGET_FOLDER/"
+    rm -rf "$SCRIPT_DIR/bin/$SPARK_DIR_NAME"
     rm -f "$SPARK_TARGET_FOLDER/conf/*.xml" 2>/dev/null
     cp "$SPARK_TARGET_FOLDER/conf/log4j2.properties.template" "$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     echo "Spark Version: $SPARK_VERSION" >> "$SCRIPT_DIR/version.info"
@@ -99,7 +314,7 @@ initEnv() {
     echo "- spark: skipped"
   fi
 
-  if [[ SL_DOWNLOADED -eq 1 ]]
+  if [[ $SL_DOWNLOADED -eq 1 ]]
   then
     echo "- starlake: downloading from $SL_JAR_URL"
     curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME" "$SL_JAR_URL"
@@ -109,82 +324,145 @@ initEnv() {
     echo "- starlake: skipped"
   fi
 
-  if [[ SPARK_BQ_DOWNLOADED -eq 1 ]]
+  if [[ $SPARK_BQ_DOWNLOADED -eq 1 ]]
   then
     echo "- spark bq: downloading from $SPARK_BQ_URL"
     curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SPARK_BQ_JAR_NAME" "$SPARK_BQ_URL"
-    echo "Spark Bigquery Version Version: $SPARK_BQ_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "Spark Bigquery Version: $SPARK_BQ_VERSION" >> "$SCRIPT_DIR/version.info"
     echo "- spark bq: OK"
   else
     echo "- spark bq: skipped"
   fi
+
+  if [[ $HADOOP_AZURE_DOWNLOADED -eq 1 ]]
+  then
+    echo "- hadoop azure: downloading from $HADOOP_AZURE_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$HADOOP_AZURE_JAR_NAME" "$HADOOP_AZURE_URL"
+    echo "Hadoop Azure Version: $HADOOP_AZURE_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- hadoop azure: OK"
+  else
+    echo "- hadoop azure: skipped"
+  fi
+
+  if [[ $AZURE_STORAGE_DOWNLOADED -eq 1 ]]
+  then
+    echo "- azure storage: downloading from $AZURE_STORAGE_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$AZURE_STORAGE_JAR_NAME" "$AZURE_STORAGE_URL"
+    echo "Azure Storage Version: $AZURE_STORAGE_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- azure storage: OK"
+  else
+    echo "- azure storage: skipped"
+  fi
+  if [[ $JETTY_UTIL_DOWNLOADED -eq 1 ]]
+  then
+    echo "- jetty util: downloading from $JETTY_UTIL_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_JAR_NAME" "$JETTY_UTIL_URL"
+    echo "Jetty Util Version: $JETTY_UTIL_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- jetty util: OK"
+  else
+    echo "- jetty util: skipped"
+  fi
+  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 1 ]]
+  then
+    echo "- jetty util ajax: downloading from $JETTY_UTIL_AJAX_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$JETTY_UTIL_AJAX_JAR_NAME" "$JETTY_UTIL_AJAX_URL"
+    echo "Jetty Util Ajax Version: $JETTY_UTIL_AJAX_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- jetty util ajax: OK"
+  else
+    echo "- jetty util ajax: skipped"
+  fi
+  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 1 ]]
+  then
+    echo "- spark snowflake: downloading from $SPARK_SNOWFLAKE_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SPARK_SNOWFLAKE_JAR_NAME" "$SPARK_SNOWFLAKE_URL"
+    echo "Spark Snowflake Version: $SPARK_SNOWFLAKE_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- spark snowflake: OK"
+  else
+    echo "- spark snowflake: skipped"
+  fi
+  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 1 ]]
+  then
+    echo "- snowflake jdbc: downloading from $SNOWFLAKE_JDBC_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SNOWFLAKE_JDBC_JAR_NAME" "$SNOWFLAKE_JDBC_URL"
+    echo "Snowflake Jdbc Version: $SNOWFLAKE_JDBC_VERSION" >> "$SCRIPT_DIR/version.info"
+    echo "- snowflake jdbc: OK"
+  else
+    echo "- snowflake jdbc: skipped"
+  fi
 }
 
-checkCurrentState
-
-if [[ $SKIP_INSTALL -eq 1 ]]
-then
-  initEnv
-fi
-
-echo
-echo Launching starlake.
-echo "- JAVA_HOME=$JAVA_HOME"
-echo "- SL_ROOT=$SL_ROOT"
-echo "- SL_ENV=$SL_ENV"
-echo "- SL_MAIN=$SL_MAIN"
-echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
-echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
-echo Make sure your java home path does not contain space
+launch_starlake() {
+  echo
+  echo Launching starlake.
+  echo "- JAVA_HOME=$JAVA_HOME"
+  echo "- SL_ROOT=$SL_ROOT"
+  echo "- SL_ENV=$SL_ENV"
+  echo "- SL_MAIN=$SL_MAIN"
+  echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
+  echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
+  echo Make sure your java home path does not contain space
 
 
-#if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
-#then
-#  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
-#  then
-#    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
-#    exit 1
-#  fi
-#  if [[ -z "$AZURE_STORAGE_KEY" ]]
-#  then
-#    echo "AZURE_STORAGE_KEY should reference the storage account key"
-#    exit 1
-#  fi
-#  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
-#                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
-#                  fs.default.name=$SL_FS,
-#                  fs.defaultFS=$SL_FS"
-#fi
+  #if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
+  #then
+  #  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
+  #  then
+  #    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
+  #    exit 1
+  #  fi
+  #  if [[ -z "$AZURE_STORAGE_KEY" ]]
+  #  then
+  #    echo "AZURE_STORAGE_KEY should reference the storage account key"
+  #    exit 1
+  #  fi
+  #  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
+  #                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
+  #                  fs.default.name=$SL_FS,
+  #                  fs.defaultFS=$SL_FS"
+  #fi
 
-if [[ -z "$SL_DEBUG" ]]
-then
-  SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
-else
-  SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
-fi
+  if [[ -z "$SL_DEBUG" ]]
+  then
+    SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
+  else
+    SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+  fi
 
-if [[ "$SL_DEFAULT_LOADER" == "native" ]]
-then
-  SL_ROOT=$SL_ROOT java \
-                      --add-opens=java.base/java.lang=ALL-UNNAMED \
-                      --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
-                      --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-                      --add-opens=java.base/java.io=ALL-UNNAMED \
-                      --add-opens=java.base/java.net=ALL-UNNAMED \
-                      --add-opens=java.base/java.nio=ALL-UNNAMED \
-                      --add-opens=java.base/java.util=ALL-UNNAMED \
-                      --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-                      --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-                      --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-                      --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
-                      --add-opens=java.base/sun.security.action=ALL-UNNAMED \
-                      --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
-                      --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-                      -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties \
-                      -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
-else
-  SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-  SL_ROOT=$SL_ROOT $SPARK_SUBMIT $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
-fi
+  if [[ "$SL_DEFAULT_LOADER" == "native" ]]
+  then
+    SL_ROOT=$SL_ROOT java \
+                        --add-opens=java.base/java.lang=ALL-UNNAMED \
+                        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                        --add-opens=java.base/java.io=ALL-UNNAMED \
+                        --add-opens=java.base/java.net=ALL-UNNAMED \
+                        --add-opens=java.base/java.nio=ALL-UNNAMED \
+                        --add-opens=java.base/java.util=ALL-UNNAMED \
+                        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                        --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                        --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                        --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                        --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+                        -Dlog4j.configurationFile="$SPARK_TARGET_FOLDER/conf/log4j2.properties" \
+                        -cp "$SPARK_TARGET_FOLDER/jars/*" $SL_MAIN $@
+  else
+    SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
+    SL_ROOT=$SL_ROOT $SPARK_SUBMIT $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
+  fi
+}
 
-
+case "$1" in
+  install)
+    checkCurrentState
+    if [[ $SKIP_INSTALL -eq 1 ]]
+    then
+      clean_additional_jars
+      initEnv
+    fi
+    ;;
+  *)
+    launch_starlake "$@"
+    ;;
+esac
