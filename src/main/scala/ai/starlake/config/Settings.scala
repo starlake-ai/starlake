@@ -517,7 +517,8 @@ object Settings extends StrictLogging {
     schedulePresets: Map[String, String],
     refs: List[Ref],
     dagRef: Option[String],
-    maxParTask: Int
+    maxParTask: Int,
+    forceHalt: Boolean
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
@@ -919,7 +920,10 @@ object Settings extends StrictLogging {
       .asScala
       .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
-      .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
+      .foldLeft(initialConf) { case (conf, (key, value)) =>
+        logger.info(s"Setting key: ${key}")
+        conf.set("spark." + key, value)
+      }
       .set("spark.scheduler.mode", settings.appConfig.scheduling.mode)
 
     schedulingConfig.foreach(path => thisConf.set("spark.scheduler.allocation.file", path.toString))

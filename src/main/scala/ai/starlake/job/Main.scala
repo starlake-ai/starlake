@@ -167,7 +167,8 @@ class Main() extends StrictLogging {
     val workflow =
       new IngestionWorkflow(storageHandler(), schemaHandler)
 
-    logger.info(s"Running Starlake $argList")
+    val executedCommand = argList.mkString(" ")
+    logger.info(s"Running Starlake $executedCommand")
     val result = argList.head match {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
@@ -360,7 +361,12 @@ class Main() extends StrictLogging {
         true
     }
     // We raise an exception only on command failure not on parse args failure
-    if (!result)
+    if (result) {
+      logger.info(s"Successfully $executedCommand")
+      if (settings.appConfig.forceHalt) {
+        Runtime.getRuntime().halt(0)
+      }
+    } else
       throw new Exception(s"""Starlake failed to execute command with args ${args.mkString(",")}""")
   }
 }
