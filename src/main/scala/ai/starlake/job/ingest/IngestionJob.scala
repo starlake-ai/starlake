@@ -345,14 +345,29 @@ trait IngestionJob extends SparkJob {
         val output: Try[NativeBqLoadInfo] = firstStepResult match {
           case Success(loadFileResult) =>
             logger.info(s"First step result: $loadFileResult")
-            runExpectations(firstStepTempTable, firstStepBigqueryJob)
-            val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
-            val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
-            val secondStepResult =
-              applySecondStep(targetBigqueryJob, firstStepTempTable, targetTableSchema, schema)
-            secondStepResult.flatMap(_ => firstStepResult) // keep loading stats
+            val expectationsResult = runExpectations(firstStepTempTable, firstStepBigqueryJob)
+            val keepGoing =
+              expectationsResult.isSuccess || settings.appConfig.expectations.failOnError
+            if (keepGoing) {
+              val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
+              val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
+              val secondStepResult =
+                applySecondStep(
+                  targetBigqueryJob,
+                  firstStepTempTable,
+                  targetTableSchema,
+                  schema
+                )
+              secondStepResult.flatMap(_ => firstStepResult) // keep loading stats
+            } else {
+              expectationsResult.asInstanceOf[Try[NativeBqLoadInfo]]
+            }
           case res @ Failure(_) =>
             res
+
+          /** 362 schemas qui représentent 722Go dont certains de 40Go avec 1 CPU de et 512Mo par
+            * schema
+            */
         }
         Try(firstStepBigqueryJob.dropTable(firstStepTempTable))
           .flatMap(_ => firstStepResult)
@@ -1118,7 +1133,7 @@ trait IngestionJob extends SparkJob {
           // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
           val df = session.createDataFrame(
             session.read.format(settings.appConfig.defaultFormat).load(targetPath.toString).rdd,
-            dataset.schema
+            finalDataset.schema
           )
           storageHandler.delete(new Path(mergePath))
           logger.info(s"deleted merge file $mergePath")
@@ -1220,7 +1235,7 @@ trait IngestionJob extends SparkJob {
     nbPartitions
   }
 
-  private def runExpectations(acceptedDF: DataFrame) = {
+  private def runExpectations(acceptedDF: DataFrame): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         schemaHandler.getDatabase(this.domain),
@@ -1232,11 +1247,13 @@ trait IngestionJob extends SparkJob {
         Some(Left(acceptedDF)),
         SPARK,
         new SparkExpectationAssertionHandler(session)
-      ).run().getOrElse(throw new Exception("Should never happen"))
+      ).run()
+    } else {
+      Success(SparkJobResult(None))
     }
   }
 
-  private def runExpectations(tableId: TableId, job: BigQueryNativeJob) = {
+  private def runExpectations(tableId: TableId, job: BigQueryNativeJob): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         schemaHandler.getDatabase(this.domain),
@@ -1248,7 +1265,9 @@ trait IngestionJob extends SparkJob {
         Some(Right(tableId)),
         SPARK,
         new BigQueryExpectationAssertionHandler(job)
-      ).run().getOrElse(throw new Exception("Should never happen"))
+      ).run()
+    } else {
+      Success(SparkJobResult(None))
     }
   }
 
@@ -1314,25 +1333,35 @@ trait IngestionJob extends SparkJob {
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame =
         computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
-      runExpectations(finalAcceptedDF)
-      runMetrics(finalAcceptedDF)
-      val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
-
-      val finalMergedDf: DataFrame = runPostSQL(mergedDF)
-
-      logger.whenInfoEnabled {
-        logger.info("Final Dataframe Schema")
-        logger.info(finalMergedDf.schemaString())
-      }
-
-      val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
-        case Success(sinkedDF) =>
+      val runExpectationsResult = runExpectations(finalAcceptedDF)
+      val sinkedDF = runExpectationsResult match {
+        case Success(_) =>
+          val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
+          val finalMergedDf: DataFrame = runPostSQL(mergedDF)
+          logger.whenInfoEnabled {
+            logger.info("Final Dataframe Schema")
+            logger.info(finalMergedDf.schemaString())
+          }
+          val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
+            case Success(sinkedDF) =>
+              sinkedDF
+            case Failure(exception) =>
+              val err = Utils.exceptionAsString(exception)
+              logger.error(err)
+              throw exception
+          }
+          val end = Timestamp.from(Instant.now())
+          val inputCount = validationResult.accepted.count()
+          val acceptedCount = sinkedDF.count()
+          val rejectedCount = validationResult.rejected.count()
+          logLoadInAudit(start, inputCount, acceptedCount, rejectedCount)
           sinkedDF
         case Failure(exception) =>
           val err = Utils.exceptionAsString(exception)
           logger.error(err)
           throw exception
       }
+      runMetrics(finalAcceptedDF)
       (sinkedDF, acceptedPath)
     } else {
       (session.emptyDataFrame, new Path("invalid-path"))
