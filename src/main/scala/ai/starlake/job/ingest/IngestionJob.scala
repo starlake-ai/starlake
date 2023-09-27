@@ -555,7 +555,9 @@ trait IngestionJob extends SparkJob {
           .map(_.getValues)
           .map(
             _.iterator().asScala
-              .flatMap(r => scala.Option(r.get(partitionName)).map(_.getStringValue))
+              .flatMap(r =>
+                scala.Option(r.get(partitionName)).filterNot(_.isNull).map(_.getStringValue)
+              )
               .toList
           )
           .getOrElse(Nil)
