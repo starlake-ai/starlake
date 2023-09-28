@@ -73,7 +73,6 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
 
     "dag generation" should "should produce expected file" in {
       new SpecTrait(
-        domainOrJobFilename = "position.sl.yml",
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"

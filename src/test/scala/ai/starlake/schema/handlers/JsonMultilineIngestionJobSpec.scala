@@ -28,7 +28,6 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
     new WithSettings() {
 
       new SpecTrait(
-        domainOrJobFilename = "json-multiline.sl.yml",
         sourceDomainOrJobPathname = "/sample/jsonmultiline/json-multiline.sl.yml",
         datasetDomainName = "jsonmultiline",
         sourceDatasetPathName = "/sample/jsonmultiline/complex-multiline.json"

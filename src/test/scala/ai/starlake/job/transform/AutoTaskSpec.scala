@@ -9,11 +9,10 @@ class AutoTaskSpec extends TestHelper {
   new WithSettings() {
     "File Sink Spark Options in SQL job description " should "be applied to resulting file" in {
       new SpecTrait(
-        domainOrJobFilename = "_config.sl.yml",
+        jobFilename = Some("_config.sl.yml"),
         sourceDomainOrJobPathname = "/sample/job/sql/_config.sl.yml",
         datasetDomainName = "file",
-        sourceDatasetPathName = "",
-        isDomain = false
+        sourceDatasetPathName = ""
       ) {
         cleanMetadata
         cleanDatasets
@@ -31,11 +30,10 @@ class AutoTaskSpec extends TestHelper {
       // This test is currently run locally as part of the local sample.
       if (false) {
         new SpecTrait(
-          domainOrJobFilename = "piJob.sl.yml",
+          jobFilename = Some("piJob.sl.yml"),
           sourceDomainOrJobPathname = "/sample/job/python/piJob.sl.yml",
           datasetDomainName = "file",
-          sourceDatasetPathName = "",
-          isDomain = false
+          sourceDatasetPathName = ""
         ) {
           cleanMetadata
           cleanDatasets

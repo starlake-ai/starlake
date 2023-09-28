@@ -58,7 +58,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.sl.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
@@ -76,14 +75,13 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       }
     }
     "Secure BigQuery Tables" should "should set policies in tables" in {
-      if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+      if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
         import org.slf4j.impl.StaticLoggerBinder
         val binder = StaticLoggerBinder.getSingleton
         logger.debug(binder.getLoggerFactory.toString)
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.sl.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
@@ -104,7 +102,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     "Native BigQuery AutoJob" should "succeed" in {
       if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
         new SpecTrait(
-          domainOrJobFilename = "bqtest.sl.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
@@ -178,7 +175,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactoryClassStr)
 
         new SpecTrait(
-          domainOrJobFilename = "bqtest.sl.yml",
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
