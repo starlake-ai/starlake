@@ -65,7 +65,7 @@ object ExpectationDefinition extends StrictLogging {
   def fromDefinition(fullName: String, item: ExpectationItem): ExpectationDefinition = {
     val (name, params) = extractNameAndParams(fullName)
     logger.info(
-      s"Found expectation definition $fullName -> $name(${params.mkString(",")} with SQl ${item.query}"
+      s"Found expectation definition $fullName -> $name(${params.mkString(",")}) with SQL ${item.query}"
     )
     ExpectationDefinition(fullName, name, params, item)
   }

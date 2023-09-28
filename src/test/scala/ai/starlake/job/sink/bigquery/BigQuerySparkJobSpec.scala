@@ -46,6 +46,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             |  type = "bigquery"
             |  options {
             |    gcsBucket: starlake-app
+            |    writeMethod: indirect
             |    authType: APPLICATION_DEFAULT
             |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
             |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
@@ -57,11 +58,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
       }
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
-          domainOrJobFilename = "_config.sl.yml",
+          jobFilename = Some("_config.sl.yml"),
           sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.sl.yml",
           datasetDomainName = "SL_BQ_TEST_DS",
-          sourceDatasetPathName = "",
-          isDomain = false
+          sourceDatasetPathName = ""
         ) {
           cleanMetadata
           cleanDatasets

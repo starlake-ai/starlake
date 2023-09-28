@@ -9,7 +9,6 @@ class Yml2XlsSpec extends TestHelper {
   "Yml2XLS" should "should generated all domain / schema in XLS files" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.sl.yml",
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
@@ -34,7 +33,6 @@ class Yml2XlsSpec extends TestHelper {
 
   new WithSettings() {
     new SpecTrait(
-      domainOrJobFilename = "position.sl.yml",
       sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
       datasetDomainName = "position",
       sourceDatasetPathName = "/sample/position/XPOSTBL"

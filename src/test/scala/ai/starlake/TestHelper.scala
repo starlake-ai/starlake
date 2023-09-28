@@ -33,8 +33,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.FileUtils
-import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
@@ -49,8 +47,8 @@ import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
-import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
+import scala.reflect.io.Directory
 import scala.util.Try
 
 trait TestHelper
@@ -62,7 +60,8 @@ trait TestHelper
 
   override protected def afterAll(): Unit = {
     sparkSessionInterest.close()
-    super.afterAll()
+    val dir = new Directory(new File(starlakeTestRoot))
+    dir.deleteRecursively()
   }
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
@@ -263,7 +262,7 @@ trait TestHelper
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
       val testContent = applyTestFileSubstitutions(content)
-
+      storageHandler.mkdirs(targetPath.getParent)
       storageHandler.write(testContent, targetPath)(codec.charSet)
 
       logger.whenTraceEnabled {
@@ -282,17 +281,14 @@ trait TestHelper
 
     def cleanMetadata: Try[Unit] =
       Try {
-        val allMetadataFiles = FileUtils
-          .listFiles(
-            new File(starlakeMetadataPath),
-            TrueFileFilter.INSTANCE,
-            TrueFileFilter.INSTANCE
-          )
-          .asScala
+        val root = new Directory(new File(starlakeTestRoot))
+        root.deleteRecursively()
+        new File(starlakeTestRoot).mkdir()
 
-        allMetadataFiles
-          .foreach(_.delete())
-
+        val dir = new Directory(new File(starlakeMetadataPath))
+        dir.deleteRecursively()
+        new File(starlakeMetadataPath).mkdir()
+        DatasetArea.initMetadata(storageHandler)
         deliverTypesFiles()
       }
 
@@ -350,12 +346,12 @@ trait TestHelper
   def sparkSession(implicit settings: Settings) = sparkSessionInterest.get(settings)
 
   abstract class SpecTrait(
-    val domainOrJobFilename: String,
     val sourceDomainOrJobPathname: String,
     val datasetDomainName: String,
     val sourceDatasetPathName: String,
-    isDomain: Boolean = true // TODO refactor. false if delivering a job
+    val jobFilename: Option[String] = None
   )(implicit withSettings: WithSettings) {
+
     implicit def settings: Settings = withSettings.settings
     def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.load
@@ -363,35 +359,47 @@ trait TestHelper
 
     def cleanDatasets: Try[Unit] =
       Try {
-        val deletedFiles = FileUtils
-          .listFiles(
-            new File(starlakeDatasetsPath),
-            TrueFileFilter.INSTANCE,
-            TrueFileFilter.INSTANCE
-          )
-          .asScala
-
-        deletedFiles
-          .foreach(_.delete())
-        if (isDomain)
-          deliverSourceDomain()
-        else
-          deliverSourceJob()
+        jobFilename match {
+          case Some(filename) =>
+            deliverSourceJob()
+          case None =>
+            deliverSourceDomain()
+        }
       }
 
     def deliverSourceDomain(): Unit = {
+      deliverSourceDomain(datasetDomainName, sourceDomainOrJobPathname)
+    }
+
+    def deliverSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
       val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
 
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }
 
     def deliverSourceJob(): Unit = {
+      jobFilename.foreach(
+        deliverSourceJob(sourceDomainOrJobPathname, datasetDomainName, _)
+      )
+    }
+
+    def deliverSourceJob(
+      sourceDomainOrJobPathname: String,
+      datasetDomainName: String,
+      domainOrJobFilename: String
+    ): Unit = {
       val jobPath = new Path(jobMetadataRootPath, s"$datasetDomainName/$domainOrJobFilename")
       withSettings.deliverTestFile(sourceDomainOrJobPathname, jobPath)
 
     }
 
     protected def loadWorkflow()(implicit codec: Codec): IngestionWorkflow = {
+      loadWorkflow(datasetDomainName, sourceDatasetPathName)
+    }
+
+    protected def loadWorkflow(datasetDomainName: String, sourceDatasetPathName: String)(implicit
+      codec: Codec
+    ): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),
         new Path(sourceDatasetPathName).getName

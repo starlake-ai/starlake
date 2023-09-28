@@ -117,7 +117,6 @@ class BigQueryUtilsSpec extends TestHelper {
     "Schema" should "return the right bq schema" in {
 
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.sl.yml",
         sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"

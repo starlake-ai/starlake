@@ -35,7 +35,6 @@ class PositionIngestionJobSpec extends TestHelper {
 
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.sl.yml",
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
@@ -73,7 +72,6 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingestion of empty Position file" should "run without errors" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.sl.yml",
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/empty_position"
@@ -88,7 +86,6 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "use encoding when loading files" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "positionWithEncoding.sl.yml",
         sourceDomainOrJobPathname = "/sample/positionWithEncoding/positionWithEncoding.sl.yml",
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
@@ -109,7 +106,6 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position Regex File with ignore string" should "ignore first line" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "positionWithIgnore.sl.yml",
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.sl.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataregex-ignore.dat"
@@ -130,7 +126,6 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position UDF File with ignore string" should "ignore first line" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "positionWithIgnore.sl.yml",
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.sl.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
