@@ -16,8 +16,8 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className="button cta-btn button--outline button--primary button--lgg"
-            to="docs/intro">
-            Tutorial - 5min ⏱️
+            to="docs/quickstart/install">
+            Tutorial - 10min ⏱️
           </Link>
         </div>
       </div>

@@ -12,7 +12,6 @@ class IngestionWorkflowSpec extends TestHelper {
 
     private def loadLandingFile(landingFile: String): TestHelper#SpecTrait = {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.sl.yml",
         sourceDomainOrJobPathname = "/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = landingFile
@@ -38,7 +37,6 @@ class IngestionWorkflowSpec extends TestHelper {
 
       // Test again, but with Domain.ack defined
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.sl.yml",
         sourceDomainOrJobPathname = "/sample/DOMAIN-ACK.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = landingFile

@@ -80,7 +80,6 @@ class InferSchemaJobSpec extends TestHelper {
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.sl.yml",
         sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
