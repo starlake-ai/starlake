@@ -567,6 +567,8 @@ class KafkaJobSpec extends TestHelper {
       }
     }
 
-  kafkaTests("FILE", "/tmp/comet_offsets")
-  kafkaTests("STREAM", "comet_offsets")
+  if (sys.env.get("SL_KAFKA_TEST_DISABLE").isEmpty) {
+    kafkaTests("FILE", "/tmp/comet_offsets")
+    kafkaTests("STREAM", "comet_offsets")
+  }
 }

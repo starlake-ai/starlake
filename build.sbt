@@ -3,7 +3,11 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
-javacOptions ++= Seq("-source", "11", "-target", "11", "-Xlint")
+Test / javacOptions ++= Seq(
+  "-source", "11",
+  "-target", "11",
+  "-Xlint"
+)
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
@@ -63,8 +67,7 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
-// Assembly
-Test / fork := true
+Test / fork := false
 
 Test / parallelExecution := false
 
@@ -73,6 +76,7 @@ Compile / assembly / artifact := {
   art.withClassifier(Some("assembly"))
 }
 
+// Assembly
 addArtifact(Compile / assembly / artifact, assembly)
 
 assembly / assemblyMergeStrategy := {

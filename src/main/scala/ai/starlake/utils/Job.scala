@@ -12,8 +12,6 @@ import scala.util.{Failure, Success, Try}
 
 trait JobResult
 
-case class AirflowJobResult(response: String) extends JobResult
-
 case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from

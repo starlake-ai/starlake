@@ -27,7 +27,6 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
 
       new WithSettings() {
         new SpecTrait(
-          domainOrJobFilename = "nativesales.sl.yml",
           sourceDomainOrJobPathname = "/sample/native/nativesales.sl.yml",
           datasetDomainName = "nativesales",
           sourceDatasetPathName = "/sample/native/nativecustomers.psv"

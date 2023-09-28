@@ -16,7 +16,6 @@ class Yml2DDLSpec extends TestHelper {
 
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.sl.yml",
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
