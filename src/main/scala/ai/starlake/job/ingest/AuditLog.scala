@@ -118,7 +118,7 @@ case class AuditLog(
        |)
        |values(
        |'${escapeStringParameter(jobid)}',
-       |${paths.map(escapeStringParameter(_)).map(p => f"'$p'").getOrElse("null")},
+       |${paths.map(escapeStringParameter).map(p => f"'$p'").getOrElse("null")},
        |'${escapeStringParameter(domain)}',
        |'${escapeStringParameter(schema)}',
        |$success,
@@ -129,7 +129,7 @@ case class AuditLog(
        |$duration,
        |'${escapeStringParameter(message)}',
        |'${escapeStringParameter(step)}',
-       |'${escapeStringParameter(database)}',
+       |${database.map(escapeStringParameter).map(d => f"'$d'").getOrElse("null")},
        |'${escapeStringParameter(tenant)}'
        |)""".stripMargin
   }

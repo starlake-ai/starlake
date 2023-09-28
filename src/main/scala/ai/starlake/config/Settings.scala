@@ -519,7 +519,8 @@ object Settings extends StrictLogging {
     refs: List[Ref],
     dagRef: Option[String],
     maxParTask: Int,
-    forceHalt: Boolean
+    forceHalt: Boolean,
+    jobIdEnvName: Option[String]
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
