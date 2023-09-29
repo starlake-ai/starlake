@@ -1,11 +1,12 @@
 package ai.starlake.integration
 
-import ai.starlake.TestHelper
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.File
+import com.typesafe.config.ConfigFactory
 
-class SchemaHandlerIntegrationSpec extends TestHelper {
+class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
@@ -33,13 +34,12 @@ class SchemaHandlerIntegrationSpec extends TestHelper {
     // It works locally but not in pipeline. Wrapping it in order to use it only locally
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
-        new WithSettings() {
-          clearDataDirectories()
-          val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
-          val workflow =
-            new IngestionWorkflow(settings.storageHandler(), schemaHandler)
-          assert(schemaHandler.domains(List("hr"), List("locations")).length == 1)
-        }
+        clearDataDirectories()
+        implicit val settings: Settings = Settings(ConfigFactory.load())
+        val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
+        val workflow =
+          new IngestionWorkflow(settings.storageHandler(), schemaHandler)
+        assert(schemaHandler.domains(List("hr"), List("locations")).length == 1)
       }
     }
   }

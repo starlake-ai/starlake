@@ -13,16 +13,14 @@ class LocalBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true",
         "SL_SPARK_BIGQUERY_READ_DATA_FORMAT" -> "arrow" // until https://github.com/GoogleCloudDataproc/spark-bigquery-connector/pull/1061 is merged
       ) {
-        new WithSettings() {
-          clearDataDirectories()
-          incomingDir.copyToDirectory(quickstartDir)
-          Main.main(
-            Array("import")
-          )
-          Main.main(
-            Array("load")
-          )
-        }
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
+        Main.main(
+          Array("import")
+        )
+        Main.main(
+          Array("load")
+        )
       }
     }
   }

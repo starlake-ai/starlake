@@ -1,9 +1,8 @@
 package ai.starlake.integration
 
-import ai.starlake.TestHelper
 import better.files.File
 
-class BigQueryIntegrationSpecBase extends TestHelper {
+class BigQueryIntegrationSpecBase extends IntegrationTestBase {
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)

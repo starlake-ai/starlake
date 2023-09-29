@@ -1,10 +1,9 @@
 package ai.starlake.integration
 
-import ai.starlake.TestHelper
 import ai.starlake.job.Main
 import better.files.File
 
-class AclDependenciesSpec extends TestHelper {
+class AclDependenciesSpec extends IntegrationTestBase {
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
@@ -16,11 +15,9 @@ class AclDependenciesSpec extends TestHelper {
   "All ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
-        new WithSettings() {
-          Main.main(
-            Array("acl-dependencies")
-          )
-        }
+        Main.main(
+          Array("acl-dependencies")
+        )
       }
     }
   }
@@ -28,11 +25,9 @@ class AclDependenciesSpec extends TestHelper {
   "Some ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
-        new WithSettings() {
-          Main.main(
-            Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
-          )
-        }
+        Main.main(
+          Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+        )
       }
     }
   }

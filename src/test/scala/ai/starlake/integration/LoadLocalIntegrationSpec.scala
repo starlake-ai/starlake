@@ -10,16 +10,14 @@ class LoadLocalIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "dynamic",
       "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
     ) {
-      new WithSettings() {
-        clearDataDirectories()
-        incomingDir.copyToDirectory(quickstartDir)
-        Main.main(
-          Array("import")
-        )
-        Main.main(
-          Array("load")
-        )
-      }
+      clearDataDirectories()
+      incomingDir.copyToDirectory(quickstartDir)
+      Main.main(
+        Array("import")
+      )
+      Main.main(
+        Array("load")
+      )
     }
   }
 }
