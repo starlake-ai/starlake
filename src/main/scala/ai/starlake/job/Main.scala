@@ -366,7 +366,14 @@ class Main() extends StrictLogging {
       if (settings.appConfig.forceHalt) {
         Runtime.getRuntime().halt(0)
       }
-    } else
-      throw new Exception(s"""Starlake failed to execute command with args ${args.mkString(",")}""")
+    } else {
+      val message = s"""Starlake failed to execute command with args ${args.mkString(",")}"""
+      if (settings.appConfig.forceHalt) {
+        logger.error(message)
+        Runtime.getRuntime().halt(1)
+      } else {
+        throw new Exception(message)
+      }
+    }
   }
 }
