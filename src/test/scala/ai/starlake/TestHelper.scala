@@ -295,9 +295,6 @@ trait TestHelper
         val root = new Directory(new File(starlakeTestRoot))
         root.deleteRecursively()
         new File(starlakeTestRoot).mkdir()
-
-        val dir = new Directory(new File(starlakeMetadataPath))
-        dir.deleteRecursively()
         new File(starlakeMetadataPath).mkdir()
         DatasetArea.initMetadata(storageHandler)
         deliverTypesFiles()

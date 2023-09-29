@@ -40,7 +40,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.net.URL
 import scala.util.{Failure, Success, Try}
 
-class ASchemaHandlerSpec extends TestHelper {
+class SchemaHandlerSpec extends TestHelper {
 
   override def afterAll(): Unit = {
     super.afterAll()

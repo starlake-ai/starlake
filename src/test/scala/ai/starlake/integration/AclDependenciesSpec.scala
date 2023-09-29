@@ -16,9 +16,11 @@ class AclDependenciesSpec extends TestHelper {
   "All ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
-        Main.main(
-          Array("acl-dependencies")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("acl-dependencies")
+          )
+        }
       }
     }
   }
@@ -26,9 +28,11 @@ class AclDependenciesSpec extends TestHelper {
   "Some ACL Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
-        Main.main(
-          Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+          )
+        }
       }
     }
   }

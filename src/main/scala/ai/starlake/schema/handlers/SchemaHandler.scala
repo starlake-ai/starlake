@@ -569,6 +569,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           Utils.logException(logger, err)
           throw err
       }
+      logger.info(s"Successfully loaded Dag config $dagConfigName in $dagsConfigsPath")
       dagConfigName -> dagConfig
     }.toMap
   }

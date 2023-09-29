@@ -10,12 +10,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate", "--clean")
-      )
+        Main.main(
+          Array("dag-generate", "--clean")
+        )
+      }
     }
   }
 
@@ -26,12 +28,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate")
-      )
+        Main.main(
+          Array("dag-generate")
+        )
+      }
     }
   }
 
@@ -42,12 +46,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain_table"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate")
-      )
+        Main.main(
+          Array("dag-generate")
+        )
+      }
     }
   }
 
@@ -58,12 +64,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate")
-      )
+        Main.main(
+          Array("dag-generate")
+        )
+      }
     }
   }
 
@@ -74,12 +82,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate")
-      )
+        Main.main(
+          Array("dag-generate")
+        )
+      }
     }
   }
   "Schedule / Domain / Table Dag generation" should "succeed" in {
@@ -89,12 +99,14 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain_table"
     ) {
-      clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      new WithSettings() {
+        clearDataDirectories()
+        incomingDir.copyToDirectory(quickstartDir)
 
-      Main.main(
-        Array("dag-generate")
-      )
+        Main.main(
+          Array("dag-generate")
+        )
+      }
     }
   }
 }
