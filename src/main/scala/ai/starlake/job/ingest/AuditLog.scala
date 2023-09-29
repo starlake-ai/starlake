@@ -36,7 +36,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
 import java.util.TimeZone
-import scala.util.Try
+import scala.util.{Success, Try}
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -200,7 +200,7 @@ object AuditLog extends StrictLogging {
 
   def sink(sessionOpt: Option[SparkSession], log: AuditLog)(implicit
     settings: Settings
-  ): Unit = {
+  ): Try[JobResult] = {
     if (settings.appConfig.audit.isActive()) {
       // We sink to a file when running unit tests
       settings.appConfig.audit.sink.getSink() match {
@@ -236,9 +236,12 @@ object AuditLog extends StrictLogging {
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
         case _: FsSink =>
           sinkToFile(log, sessionOpt, settings)
+          Success(new JobResult {})
         case sink =>
           throw new Exception(s"Sink $sink not supported for AuditLog")
       }
+    } else {
+      Success(new JobResult {})
     }
   }
 
@@ -280,8 +283,6 @@ object AuditLog extends StrictLogging {
       Some("Information related to starlake executions"),
       Some(bqSchema())
     )
-    bqJob.getOrCreateTable(None, tableInfo, None)
-    val res = bqJob.runInteractiveQuery()
-    res
+    bqJob.getOrCreateTable(None, tableInfo, None).flatMap(_ => bqJob.runInteractiveQuery())
   }
 }
