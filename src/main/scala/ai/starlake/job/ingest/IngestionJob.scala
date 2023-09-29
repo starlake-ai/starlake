@@ -370,12 +370,11 @@ trait IngestionJob extends SparkJob {
             */
         }
         Try(firstStepBigqueryJob.dropTable(firstStepTempTable))
-          .flatMap(_ => firstStepResult)
+          .flatMap(_ => output)
           .recoverWith { case exception =>
             Utils.logException(logger, exception)
-            firstStepResult
+            output
           } // ignore exception but log it
-        output
       } else {
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
         bigqueryJob.loadPathsToBQ(
@@ -390,14 +389,17 @@ trait IngestionJob extends SparkJob {
           errors =>
             errors.forEach(err => logger.error(f"${err.getReason} - ${err.getMessage}"))
         }
-        val auditLog = logLoadInAudit(
+        logLoadInAudit(
           start,
           result.totalRows,
           result.totalAcceptedRows,
           result.totalRejectedRows
-        )
-        if (auditLog.success) res
-        else throw new Exception("Fail on rejected count requested")
+        ) match {
+          case Failure(exception) => throw exception
+          case Success(auditLog) =>
+            if (auditLog.success) res
+            else throw new Exception("Fail on rejected count requested")
+        }
     }
   }
 
@@ -711,25 +713,23 @@ trait IngestionJob extends SparkJob {
   private def logLoadFailureInAudit[T](start: Timestamp, exception: Throwable): Try[T] = {
     val end = Timestamp.from(Instant.now())
     val err = Utils.exceptionAsString(exception)
-    Try {
-      val log = AuditLog(
-        applicationId(),
-        Some(path.map(_.toString).mkString(",")),
-        domain.name,
-        schema.name,
-        success = false,
-        0,
-        0,
-        0,
-        start,
-        end.getTime - start.getTime,
-        err,
-        Step.LOAD.toString,
-        schemaHandler.getDatabase(domain),
-        settings.appConfig.tenant
-      )
-      AuditLog.sink(optionalAuditSession, log)
-    }
+    val log = AuditLog(
+      applicationId(),
+      Some(path.map(_.toString).mkString(",")),
+      domain.name,
+      schema.name,
+      success = false,
+      0,
+      0,
+      0,
+      start,
+      end.getTime - start.getTime,
+      err,
+      Step.LOAD.toString,
+      schemaHandler.getDatabase(domain),
+      settings.appConfig.tenant
+    )
+    Utils.logFailure(AuditLog.sink(optionalAuditSession, log), logger)
     logger.error(err)
     Failure(exception)
   }
@@ -739,7 +739,7 @@ trait IngestionJob extends SparkJob {
     inputCount: Long,
     acceptedCount: Long,
     rejectedCount: Long
-  ): AuditLog = {
+  ): Try[AuditLog] = {
     val inputFiles = path.map(_.toString).mkString(",")
     logger.info(
       s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
@@ -762,8 +762,7 @@ trait IngestionJob extends SparkJob {
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant
     )
-    AuditLog.sink(optionalAuditSession, log)
-    log
+    AuditLog.sink(optionalAuditSession, log).map(_ => log)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -797,11 +796,16 @@ trait IngestionJob extends SparkJob {
               val inputCount = dataset.count()
               val acceptedCount = acceptedDS.count()
               val rejectedCount = rejectedDS.count()
-              val auditLog = logLoadInAudit(start, inputCount, acceptedCount, rejectedCount)
-              if (auditLog.success) SparkJobResult(None)
-              else throw new Exception("Fail on rejected count requested")
+              (inputCount, acceptedCount, rejectedCount)
             }.recoverWith { case exception =>
               logLoadFailureInAudit(start, exception)
+            }.map { case (inputCount, acceptedCount, rejectedCount) =>
+              logLoadInAudit(start, inputCount, acceptedCount, rejectedCount) match {
+                case Failure(exception) => throw exception
+                case Success(auditLog) =>
+                  if (auditLog.success) SparkJobResult(None)
+                  else throw new Exception("Fail on rejected count requested")
+              }
             }
           case Failure(exception) =>
             logLoadFailureInAudit(start, exception)
@@ -1354,7 +1358,10 @@ trait IngestionJob extends SparkJob {
           val inputCount = validationResult.accepted.count()
           val acceptedCount = sinkedDF.count()
           val rejectedCount = validationResult.rejected.count()
-          logLoadInAudit(start, inputCount, acceptedCount, rejectedCount)
+          logLoadInAudit(start, inputCount, acceptedCount, rejectedCount) match {
+            case Failure(exception) => throw exception
+            case Success(_)         => // do nothing
+          }
           sinkedDF
         case Failure(exception) =>
           val err = Utils.exceptionAsString(exception)
