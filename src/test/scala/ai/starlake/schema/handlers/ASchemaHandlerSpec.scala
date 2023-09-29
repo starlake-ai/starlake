@@ -40,13 +40,13 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.net.URL
 import scala.util.{Failure, Success, Try}
 
-class SchemaHandlerSpec extends TestHelper {
+class ASchemaHandlerSpec extends TestHelper {
 
   override def afterAll(): Unit = {
+    super.afterAll()
     // We need to start it manually because we need to access the HTTP mapped port
     // in the configuration below before any test get executed.
     esContainer.stop()
-    super.afterAll()
   }
 
   private val playerSchema = StructType(

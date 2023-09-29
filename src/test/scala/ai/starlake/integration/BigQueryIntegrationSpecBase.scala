@@ -26,6 +26,7 @@ class BigQueryIntegrationSpecBase extends TestHelper {
   }
 
   override def afterAll(): Unit = {
+    super.afterAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
       clearDataDirectories()
     }

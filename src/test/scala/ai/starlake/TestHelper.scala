@@ -232,8 +232,19 @@ trait TestHelper
     fileContent.replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
   }
 
-  def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
-    op(Settings(configuration))
+  def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {
+    try {
+      op(Settings(configuration))
+    } catch {
+      case e: Throwable =>
+        logger.error("Error in test", e)
+        throw e
+    } finally {
+      SparkSession.clearActiveSession()
+      SparkSession.clearDefaultSession()
+    }
+  }
+
   def withSettings(op: Settings => Assertion): Assertion = withSettings(testConfiguration)(op)
 
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
@@ -320,10 +331,6 @@ trait TestHelper
         val dagPath = new Path(DatasetArea.dags, dagImport.name)
         deliverTestFile(dagImport.path, dagPath)
       }
-      /*applicationYmlConfig.foreach { appImport =>
-        val configPath = new Path(DatasetArea.metadata, appImport.name)
-        deliverTestFile(appImport.path, configPath)
-      }*/
     }
 
     // Init
@@ -578,6 +585,7 @@ object TestHelper {
         def release: State = if (references > 1) Latent(references - 1) else Empty
 
         def get(isettings: Settings): (SparkSession, Running) = {
+          logger.info(s"get new SparkSession instance")
           val job = new SparkJob {
             override def name: String = s"test-${UUID.randomUUID()}"
 
@@ -614,7 +622,7 @@ object TestHelper {
           )
 
         override def acquire: State = {
-          logger.debug(
+          logger.info(
             "Terminated SparkInterest sees new acquisition — clearing up old closed SparkSession"
           )
           SparkSession.clearActiveSession()
@@ -636,21 +644,21 @@ object TestHelper {
       this.synchronized {
         val (session, nstate) = state.get(settings)
         state = nstate
-        logger.trace(s"handing out SparkSession instance, now state=${nstate}")
+        logger.info(s"handing out SparkSession instance, now state=${nstate}")
         session
       }
 
     def acquire(): Unit =
       this.synchronized {
         val nstate = state.acquire
-        logger.trace(s"acquired new interest into SparkSession instance, now state=${nstate}")
+        logger.info(s"acquired new interest into SparkSession instance, now state=${nstate}")
         state = nstate
       }
 
     def release(): Unit =
       this.synchronized {
         val nstate = state.release
-        logger.trace(s"released interest from SparkSession instances, now state=${nstate}")
+        logger.info(s"released interest from SparkSession instances, now state=${nstate}")
         state = nstate
       }
   }

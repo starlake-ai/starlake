@@ -24,9 +24,9 @@ class KafkaJobSpec extends TestHelper {
   type Containers = KafkaContainer and ElasticsearchContainer
 
   override def afterAll(): Unit = {
+    super.afterAll()
     kafkaContainer.stop()
     esContainer.stop()
-    super.afterAll()
   }
 
   val esPort =
