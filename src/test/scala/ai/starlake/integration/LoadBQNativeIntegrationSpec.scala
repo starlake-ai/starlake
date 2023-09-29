@@ -14,14 +14,16 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true",
         "SL_ISSUE_SPARK_BIGQUERY_1060"                  -> ""
       ) {
-        clearDataDirectories()
-        incomingDir.copyToDirectory(quickstartDir)
-        Main.main(
-          Array("import")
-        )
-        Main.main(
-          Array("load")
-        )
+        new WithSettings() {
+          clearDataDirectories()
+          incomingDir.copyToDirectory(quickstartDir)
+          Main.main(
+            Array("import")
+          )
+          Main.main(
+            Array("load")
+          )
+        }
       }
     }
   }

@@ -12,9 +12,11 @@ class AutoTaskDependenciesSpec extends TestHelper {
   "Recursive Transform" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
-        Main.main(
-          Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
+          )
+        }
       }
     }
   }
@@ -25,18 +27,22 @@ class AutoTaskDependenciesSpec extends TestHelper {
         "SL_ROOT"     -> starbakeDir.pathAsString,
         "SL_METADATA" -> starbakeDir.pathAsString
       ) {
-        Main.main(
-          Array("acl-dependencies")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("acl-dependencies")
+          )
+        }
       }
     }
   }
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
-        Main.main(
-          Array("task-dependencies", "--viz")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("task-dependencies", "--viz")
+          )
+        }
       }
     }
   }
@@ -44,9 +50,11 @@ class AutoTaskDependenciesSpec extends TestHelper {
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
-        Main.main(
-          Array("table-dependencies")
-        )
+        new WithSettings() {
+          Main.main(
+            Array("table-dependencies")
+          )
+        }
       }
     }
   }
@@ -54,14 +62,16 @@ class AutoTaskDependenciesSpec extends TestHelper {
   "Job GraphViz Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
-        Main.main(
-          Array(
-            "task-dependencies",
-            "--viz",
-            "--tasks",
-            "Products.TopSellingProducts,Products.MostProfitableProducts"
+        new WithSettings() {
+          Main.main(
+            Array(
+              "task-dependencies",
+              "--viz",
+              "--tasks",
+              "Products.TopSellingProducts,Products.MostProfitableProducts"
+            )
           )
-        )
+        }
       }
     }
   }
