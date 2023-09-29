@@ -11,6 +11,7 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
+import com.google.cloud.RetryOption
 import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
@@ -259,7 +260,8 @@ class BigQueryNativeJob(
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
 
-        val results = queryJob.getQueryResults(
+        val jobResult = queryJob.waitFor(RetryOption.maxAttempts(0))
+        val results = jobResult.getQueryResults(
           QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
         )
         logger.info(
@@ -401,7 +403,8 @@ class BigQueryNativeJob(
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
 
-        val results = jobInfo.getQueryResults(QueryResultsOption.pageSize(this.resultPageSize))
+        val jobResult = jobInfo.waitFor()
+        val results = jobResult.getQueryResults(QueryResultsOption.pageSize(this.resultPageSize))
         logger.info(
           s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
         )
