@@ -60,38 +60,6 @@ trait TestHelper
 
   override protected def afterAll(): Unit = {
     sparkSessionInterest.close()
-    val dir = new Directory(new File(starlakeTestRoot))
-    dir.deleteRecursively()
-  }
-
-  def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
-    val existingValues = envList.flatMap { case (k, _) =>
-      Option(System.getenv().get(k)).map(k -> _)
-    }
-    envList.foreach { case (k, v) => setEnv(k, v) }
-    ConfigFactory.invalidateCaches()
-    val result = Try {
-      fun
-    }
-    envList.foreach { case (k, _) => delEnv(k) }
-    existingValues.foreach { case (k, v) => setEnv(k, v) }
-    result.get
-  }
-
-  private def setEnv(key: String, value: String): Unit = {
-    val field = System.getenv().getClass.getDeclaredField("m")
-    field.setAccessible(true)
-    val map =
-      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
-    map.put(key, value)
-  }
-
-  private def delEnv(key: String): Unit = {
-    val field = System.getenv().getClass.getDeclaredField("m")
-    field.setAccessible(true)
-    val map =
-      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
-    map.remove(key)
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -102,21 +70,24 @@ trait TestHelper
   def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
   lazy val starlakeTestRoot: String =
-    Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
-      case Some(true) =>
-        BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
-      case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+    if (sys.env.getOrElse("SL_INTERNAL_WITH_ENVS_SET", "false").toBoolean) {
+      sys.env("SL_ROOT")
+    } else {
+      Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
+        case Some(true) =>
+          BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
+        case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+      }
     }
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
   lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
+  lazy val starlakeLoadPath: String = starlakeMetadataPath + "/load"
 
   def baseConfigString =
     s"""
        |SL_ASSERTIONS_ACTIVE=true
        |SL_ROOT="${starlakeTestRoot}"
        |SL_TEST_ID="${starlakeTestId}"
-       |SL_DATASETS="${starlakeDatasetsPath}"
-       |SL_METADATA="${starlakeMetadataPath}"
        |SL_LOCK_PATH="${starlakeTestRoot}/locks"
        |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
        |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
@@ -292,10 +263,11 @@ trait TestHelper
 
     def cleanMetadata: Try[Unit] =
       Try {
-        val root = new Directory(new File(starlakeTestRoot))
-        root.deleteRecursively()
-        new File(starlakeTestRoot).mkdir()
-        new File(starlakeMetadataPath).mkdir()
+        val fload = new File(starlakeLoadPath)
+        val dir = new Directory(fload)
+        dir.deleteRecursively()
+        fload.mkdirs()
+
         DatasetArea.initMetadata(storageHandler)
         deliverTypesFiles()
       }
@@ -363,6 +335,11 @@ trait TestHelper
 
     def cleanDatasets: Try[Unit] =
       Try {
+        val fDatasets = new File(starlakeDatasetsPath)
+        val dir = new Directory(fDatasets)
+        dir.deleteRecursively()
+        new File(starlakeDatasetsPath).mkdir()
+
         jobFilename match {
           case Some(filename) =>
             deliverSourceJob()

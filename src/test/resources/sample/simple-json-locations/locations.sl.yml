@@ -1,72 +1,73 @@
 ---
-name: "locations"
-directory: "__SL_TEST_ROOT__"
-metadata:
-  mode: "FILE"
-  format: "SIMPLE_JSON"
-  multiline: true
-  array: true
-  withHeader: true
-  separator: ""
-  quote: "\""
-  escape: "\\"
-  write: "APPEND"
-  partition:
-    attributes:
-      - comet_year
-      - comet_month
-      - comet_day
-schemas:
-  - name: "locations"
-    pattern: "locations.*"
-    attributes:
-      - name: "id"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "name"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "name_upper_case"
-        type: "string"
-        script: "upper(name)"
+load:
+  name: "locations"
+  directory: "__SL_TEST_ROOT__"
+  metadata:
+    mode: "FILE"
+    format: "SIMPLE_JSON"
+    multiline: true
+    array: true
+    withHeader: true
+    separator: ""
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    partition:
+      attributes:
+        - comet_year
+        - comet_month
+        - comet_day
+  tables:
+    - name: "locations"
+      pattern: "locations.*"
+      attributes:
+        - name: "id"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "name"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "name_upper_case"
+          type: "string"
+          script: "upper(name)"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "source_file_name"
+          type: "string"
+          script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+    - name: "flat_locations"
+      pattern: "flat-locations.*"
+      metadata:
+        multiline: false
         array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-      - name: "source_file_name"
-        type: "string"
-        script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-  - name: "flat_locations"
-    pattern: "flat-locations.*"
-    metadata:
-      multiline: false
-      array: false
-    attributes:
-      - name: "id"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "name"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "name_upper_case"
-        type: "string"
-        script: "upper(name)"
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-      - name: "source_file_name"
-        type: "string"
-        script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
+      attributes:
+        - name: "id"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "name"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "name_upper_case"
+          type: "string"
+          script: "upper(name)"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "source_file_name"
+          type: "string"
+          script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
