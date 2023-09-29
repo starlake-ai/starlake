@@ -25,6 +25,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   override def afterAll(): Unit = {
+    super.afterAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
