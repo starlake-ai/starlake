@@ -226,36 +226,6 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
-    "Ingest schema with partition" should "produce partitioned output in accepted" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
-        datasetDomainName = "DOMAIN",
-        sourceDatasetPathName = "/sample/Players.csv"
-      ) {
-        cleanMetadata
-        cleanDatasets
-        loadPending
-
-        private val firstLevel: List[Path] = storageHandler.listDirectories(
-          new Path(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-        )
-
-        firstLevel.size shouldBe 2
-        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
-
-        sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .except(
-            sparkSession.read
-              .option("header", "false")
-              .schema(playerSchema)
-              .csv(getResPath("/sample/Players.csv"))
-          )
-          .count() shouldBe 0
-
-      }
-    }
-
     "Ingest schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",

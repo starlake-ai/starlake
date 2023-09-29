@@ -341,7 +341,7 @@ trait TestHelper
         new File(starlakeDatasetsPath).mkdir()
 
         jobFilename match {
-          case Some(filename) =>
+          case Some(_) =>
             deliverSourceJob()
           case None =>
             deliverSourceDomain()
