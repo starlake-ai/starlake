@@ -101,6 +101,7 @@ class SchemaHandlerSpec extends TestHelper {
           datasetDomainName = "DOMAIN",
           sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
         ) {
+          cleanMetadata
           getDomain("DOMAIN").foreach { domain =>
             val result = domain.tables.map { table =>
               table.finalName -> table.containsArrayOfRecords()
