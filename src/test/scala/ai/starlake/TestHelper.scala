@@ -45,7 +45,6 @@ import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
 import scala.io.{Codec, Source}
 import scala.reflect.io.Directory
@@ -59,7 +58,7 @@ trait TestHelper
     with DatasetLogging {
 
   override protected def afterAll(): Unit = {
-    sparkSessionInterest.close()
+    // sparkSessionInterest.close()
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -317,9 +316,22 @@ trait TestHelper
 
   }
 
-  private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
+  // private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
-  def sparkSession(implicit settings: Settings) = sparkSessionInterest.get(settings)
+  /*
+  def sparkSession(implicit settings: Settings) = {
+    sparkSessionInterest.get(settings)
+  }
+   */
+  private val _testId: String = UUID.randomUUID().toString
+
+  def sparkSession(implicit isettings: Settings): SparkSession = {
+    TestHelper.sparkSession(isettings, _testId)
+  }
+
+  def sparkSessionReset(implicit isettings: Settings): SparkSession = {
+    TestHelper.sparkSession(isettings, _testId)
+  }
 
   abstract class SpecTrait(
     val sourceDomainOrJobPathname: String,
@@ -506,146 +518,40 @@ trait TestHelper
 
 object TestHelper {
 
-  /** This class manages an interest into having an access to the (effectively global) Test
-    * SparkSession
-    */
-  private case class TestSparkSessionInterest() extends AutoCloseable {
-    private val closed = new AtomicBoolean(false)
+  private var _session: SparkSession = null
+  private var _testId: String = null
 
-    TestSparkSession.acquire()
+  def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
+    if (testId != _testId) {
+      val job = new SparkJob {
+        override def name: String = s"test-${UUID.randomUUID()}"
 
-    def get(settings: Settings): SparkSession = TestSparkSession.get(settings)
+        override implicit def settings: Settings = isettings
 
-    def close(): Unit =
-      if (!closed.getAndSet(true)) TestSparkSession.release()
+        override def run(): Try[JobResult] =
+          ??? // we just create a dummy job to get a valid Spark session
+      }
+      if (_session != null) {
+        _session.stop()
+      }
+      _session = job.session
+      _testId = testId
+    }
+    _session
   }
 
-  /** This class manages the lifetime of the SparkSession that is shared among various Suites
-    * (instances of TestHelper) that may be running concurrently.
-    *
-    * @note
-    *   certain scenarios (such as single-core test execution) can create a window where no
-    *   TestSparkSessionInterest() instances exist. In which case, SparkSessions will be closed,
-    *   destroyed and rebuilt for each Suite.
-    */
-  private object TestSparkSession extends StrictLogging {
-
-    /** This state machine manages the lifetime of the (effectively global) [[SparkSession]]
-      * instance shared between the Suites that inherit from [[TestHelper]].
-      *
-      * The allowed transitions allow for:
-      *   - registration of interest into having access to the SparkSession
-      *   - deferred creation of the SparkSession until there is an actual use
-      *   - closure of the SparkSession when there is no longer any expressed interest
-      *   - re-start of a fresh SparkSession in case additional Suites spin up after closure of the
-      *     SparkSession
-      */
-    sealed abstract class State {
-      def references: Int
-      def acquire: State
-      def get(settings: Settings): (SparkSession, State)
-      def release: State
+  def sparkSessionReset(implicit isettings: Settings): SparkSession = {
+    if (_session != null) {
+      _session.stop()
     }
-
-    object State {
-
-      case object Empty extends State {
-        def references: Int = 0
-
-        def acquire: State = Latent(1)
-
-        def release: State =
-          throw new IllegalStateException(
-            "cannot release a Global Spark Session that was never started"
-          )
-
-        override def get(settings: Settings): (SparkSession, State) =
-          throw new IllegalStateException(
-            "cannot get global SparkSession without first acquiring a lease to it"
-          ) // can we avoid this?
-      }
-
-      final case class Latent(references: Int) extends State {
-        def acquire: Latent = Latent(references + 1)
-        def release: State = if (references > 1) Latent(references - 1) else Empty
-
-        def get(isettings: Settings): (SparkSession, Running) = {
-          logger.info(s"get new SparkSession instance")
-          val job = new SparkJob {
-            override def name: String = s"test-${UUID.randomUUID()}"
-
-            override implicit def settings: Settings = isettings
-
-            override def run(): Try[JobResult] =
-              ??? // we just create a dummy job to get a valid Spark session
-          }
-          val session = job.session
-          (session, Running(references, session))
-        }
-      }
-
-      final case class Running(references: Int, session: SparkSession) extends State {
-        override def get(settings: Settings): (SparkSession, State) = (session, this)
-
-        override def acquire: State = Running(references + 1, session)
-
-        override def release: State =
-          if (references > 1) {
-            Running(references - 1, session)
-          } else {
-            session.close()
-            Terminated
-          }
-      }
-
-      case object Terminated extends State {
-        override def references: Int = 0
-
-        override def get(settings: Settings): (SparkSession, State) =
-          throw new IllegalStateException(
-            "cannot get new global SparkSession after one was created then closed"
-          )
-
-        override def acquire: State = {
-          logger.info(
-            "Terminated SparkInterest sees new acquisition — clearing up old closed SparkSession"
-          )
-          SparkSession.clearActiveSession()
-          SparkSession.clearDefaultSession()
-
-          Empty.acquire
-        }
-
-        override def release: State =
-          throw new IllegalStateException(
-            "cannot release again a Global Spark Session after it was already closed"
-          )
-      }
+    val job = new SparkJob {
+      override def name: String = s"test-${UUID.randomUUID()}"
+      override implicit def settings: Settings = isettings
+      override def run(): Try[JobResult] =
+        ??? // we just create a dummy job to get a valid Spark session
     }
-
-    private var state: State = State.Empty
-
-    def get(settings: Settings): SparkSession =
-      this.synchronized {
-        val (session, nstate) = state.get(settings)
-        state = nstate
-        logger.info(s"handing out SparkSession instance, now state=${nstate}")
-        session
-      }
-
-    def acquire(): Unit =
-      this.synchronized {
-        val nstate = state.acquire
-        logger.info(s"acquired new interest into SparkSession instance, now state=${nstate}")
-        state = nstate
-      }
-
-    def release(): Unit =
-      this.synchronized {
-        val nstate = state.release
-        logger.info(s"released interest from SparkSession instances, now state=${nstate}")
-        state = nstate
-      }
+    _session = job.session
+    _session
   }
 
   private val runtimeId: String = UUID.randomUUID().toString

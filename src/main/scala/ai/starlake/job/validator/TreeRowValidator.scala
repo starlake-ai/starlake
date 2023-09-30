@@ -63,13 +63,13 @@ object TreeRowValidator extends GenericRowValidator {
       )
     val successRDD: RDD[Row] =
       successErrorRDD
-        .filter(row => row.getAs[Boolean](CometColumns.cometSuccessColumn))
+        .filter(row => row.getAs[Boolean](CometColumns.slSuccessColumn))
         .map(row => new GenericRowWithSchema(row.toSeq.dropRight(2).toArray, schemaSparkType))
 
     val errorRDD =
       successErrorRDD
-        .filter(row => !row.getAs[Boolean](CometColumns.cometSuccessColumn))
-        .map(row => row.getAs[String](CometColumns.cometErrorMessageColumn))
+        .filter(row => !row.getAs[Boolean](CometColumns.slSuccessColumn))
+        .map(row => row.getAs[String](CometColumns.slErrorMessageColumn))
 
     val successDS = session.createDataFrame(successRDD, schemaSparkType)
     import session.implicits._
@@ -91,8 +91,8 @@ object TreeRowValidator extends GenericRowValidator {
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
         schemaSparkType.fields ++ Array(
-          StructField(CometColumns.cometSuccessColumn, BooleanType, nullable = false),
-          StructField(CometColumns.cometErrorMessageColumn, StringType, nullable = false)
+          StructField(CometColumns.slSuccessColumn, BooleanType, nullable = false),
+          StructField(CometColumns.slErrorMessageColumn, StringType, nullable = false)
         )
       )
     dataset.rdd.map { row =>

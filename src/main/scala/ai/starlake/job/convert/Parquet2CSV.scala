@@ -42,9 +42,12 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case Some(folder) => folder
     }
     allPaths.flatMap { path: Path =>
-      val successPath = new Path(path, "_SUCCESS")
-      storageHandler.exists(successPath) match {
-        case true =>
+      val fileFound = Try {
+        storageHandler.list(path, recursive = false).nonEmpty ||
+        storageHandler.listDirectories(path).nonEmpty
+      }.getOrElse(false)
+      if (fileFound) {
+        Try {
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
           val writer = session.read
@@ -64,8 +67,9 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           if (config.deleteSource)
             storageHandler.delete(path)
           Some(csvPath)
-        case false =>
-          None
+        }.getOrElse(None)
+      } else {
+        None
       }
     }
     Success(SparkJobResult(None))
