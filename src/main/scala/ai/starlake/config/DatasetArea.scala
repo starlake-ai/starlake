@@ -188,9 +188,6 @@ object DatasetArea extends StrictLogging {
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
 
-  def oldLoad(implicit settings: Settings): Path =
-    new Path(metadata, "domains")
-
   def external(implicit settings: Settings): Path =
     new Path(metadata, "external")
 
@@ -199,9 +196,6 @@ object DatasetArea extends StrictLogging {
 
   def transform(implicit settings: Settings): Path =
     new Path(metadata, "transform")
-
-  def oldTransform(implicit settings: Settings): Path =
-    new Path(metadata, "jobs")
 
   def views(implicit settings: Settings): Path =
     new Path(metadata, "views")
@@ -221,20 +215,6 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    def migrateFolder(oldPath: Path, newPath: Path): Unit = {
-      if (storage.exists(oldPath)) {
-        storage.move(oldPath, newPath)
-      }
-      if (storage.exists(oldPath)) {
-        throw new Exception(
-          s"Could not move old folder from ${oldPath} to ${newPath}"
-        )
-      }
-    }
-    val oldDomains = DatasetArea.oldLoad(settings)
-    migrateFolder(oldDomains, DatasetArea.load)
-    val oldJobs = DatasetArea.oldTransform(settings)
-    migrateFolder(oldJobs, DatasetArea.transform)
     List(metadata, types, load, external, extract, transform, expectations, views, mapping).foreach(
       storage.mkdirs
     )
