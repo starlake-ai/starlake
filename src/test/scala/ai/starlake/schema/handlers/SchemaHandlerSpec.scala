@@ -67,33 +67,135 @@ class SchemaHandlerSpec extends TestHelper {
     println(s"--------------------$port-------------------")
     ConfigFactory
       .parseString(s"""
-                    |connectionRef = "elasticsearch"
-                    |audit.sink.connectionRef = "spark"
-                    |connections.elasticsearch {
-                    |  type = "elasticsearch"
-                    |  sparkFormat = "elasticsearch"
-                    |  mode = "Append"
-                    |  options = {
-                    |    "es.nodes.wan.only": "true"
-                    |    "es.nodes": "localhost"
-                    |    "es.port": $port,
+           |connectionRef = "elasticsearch"
+           |audit.sink.connectionRef = "spark"
+           |connections.elasticsearch {
+           |  type = "elasticsearch"
+           |  sparkFormat = "elasticsearch"
+           |  mode = "Append"
+           |  options = {
+           |    "es.nodes.wan.only": "true"
+           |    "es.nodes": "localhost"
+           |    "es.port": $port,
 
-                    |    #  net.http.auth.user = ""
-                    |    #  net.http.auth.pass = ""
-                    |
-                    |    "es.net.ssl": "false"
-                    |    "es.net.ssl.cert.allow.self.signed": "false"
-                    |
-                    |    "es.batch.size.entries": "1000"
-                    |    "es.batch.size.bytes": "1mb"
-                    |    "es.batch.write.retry.count": "3"
-                    |    "es.batch.write.retry.wait": "10s"
-                    |  }
-                    |}
-                    |""".stripMargin)
+           |    #  net.http.auth.user = ""
+           |    #  net.http.auth.pass = ""
+           |
+           |    "es.net.ssl": "false"
+           |    "es.net.ssl.cert.allow.self.signed": "false"
+           |
+           |    "es.batch.size.entries": "1000"
+           |    "es.batch.size.bytes": "1mb"
+           |    "es.batch.write.retry.count": "3"
+           |    "es.batch.write.retry.wait": "10s"
+           |  }
+           |}
+           |""".stripMargin)
       .withFallback(super.testConfiguration)
   }
+  new WithSettings() {
+    "Ingest schema with merge" should "succeed" in {
+      new WithSettings() {
+        new SpecTrait(
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
+          datasetDomainName = "DOMAIN",
+          sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+        ) {
+          getDomain("DOMAIN").foreach { domain =>
+            val result = domain.tables.map { table =>
+              table.finalName -> table.containsArrayOfRecords()
+            }
+            val expected =
+              List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
+            result should contain theSameElementsAs expected
+          }
+          cleanDatasets
+          private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
+          validator.loadPending()
 
+          deleteSourceDomain("DOMAIN", "/sample/DOMAIN.sl.yml")
+          deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
+          private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
+          validator2.loadPending()
+
+          val accepted: Array[Row] = sparkSession.read
+            .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+            .collect()
+
+          // Input contains a row with an older timestamp
+          // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
+
+          val expected: Array[Row] =
+            sparkSession.read
+              .option("header", "false")
+              .option("encoding", "UTF-8")
+              .schema(playerSchema)
+              .csv(
+                getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-with-timestamp.csv")
+              )
+              .collect()
+
+          accepted should contain theSameElementsAs expected
+
+          deleteSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
+          deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
+          private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
+          validator3.loadPending()
+          val accepted2: Array[Row] = sparkSession.read
+            .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+            .collect()
+
+          // Input contains a row with an older timestamp
+          // Without MergeOptions.timestamp set, the existing data should be overridden anyway
+
+          val expected2: Array[Row] =
+            sparkSession.read
+              .option("header", "false")
+              .option("encoding", "UTF-8")
+              .schema(playerSchema)
+              .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
+              .collect()
+
+          accepted2 should contain theSameElementsAs expected2
+          deleteSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
+        }
+      }
+    }
+
+    "Ingest updated schema with merge" should "produce merged results accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+
+        deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
+        private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
+        validator.loadPending()
+
+        val accepted: Array[Row] = sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
+
+        // Input contains a row with an older timestamp
+        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
+
+        val expected: Array[Row] =
+          sparkSession.read
+            .option("encoding", "UTF-8")
+            .schema(
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT"
+            )
+            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-entitled.csv"))
+            .collect()
+
+        accepted should contain theSameElementsAs expected
+      }
+    }
+  }
   new WithSettings(esConfiguration) {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
@@ -207,111 +309,6 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
-    "Contains Array Of records" should "succeed" in {
-      new WithSettings() {
-        new SpecTrait(
-          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
-          datasetDomainName = "DOMAIN",
-          sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
-        ) {
-          getDomain("DOMAIN").foreach { domain =>
-            val result = domain.tables.map { table =>
-              table.finalName -> table.containsArrayOfRecords()
-            }
-            val expected =
-              List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
-            result should contain theSameElementsAs expected
-          }
-        }
-      }
-    }
-
-    "Ingest schema with merge" should "produce merged results accepted" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
-        datasetDomainName = "DOMAIN",
-        sourceDatasetPathName = "/sample/Players.csv"
-      ) {
-        cleanMetadata
-        cleanDatasets
-        loadPending
-        deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
-        private val validator = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator.loadPending()
-
-        val accepted: Array[Row] = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .collect()
-
-        // Input contains a row with an older timestamp
-        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
-
-        val expected: Array[Row] =
-          sparkSession.read
-            .option("header", "false")
-            .option("encoding", "UTF-8")
-            .schema(playerSchema)
-            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-with-timestamp.csv"))
-            .collect()
-
-        accepted should contain theSameElementsAs expected
-
-        deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
-        private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator2.loadPending()
-        val accepted2: Array[Row] = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .collect()
-
-        // Input contains a row with an older timestamp
-        // Without MergeOptions.timestamp set, the existing data should be overridden anyway
-
-        val expected2: Array[Row] =
-          sparkSession.read
-            .option("header", "false")
-            .option("encoding", "UTF-8")
-            .schema(playerSchema)
-            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
-            .collect()
-
-        accepted2 should contain theSameElementsAs expected2
-      }
-
-    }
-    "Ingest updated schema with merge" should "produce merged results accepted" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
-        datasetDomainName = "DOMAIN",
-        sourceDatasetPathName = "/sample/Players.csv"
-      ) {
-        cleanMetadata
-        cleanDatasets
-        loadPending
-
-        deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
-        private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
-        validator.loadPending()
-
-        val accepted: Array[Row] = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .collect()
-
-        // Input contains a row with an older timestamp
-        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
-
-        val expected: Array[Row] =
-          sparkSession.read
-            .option("encoding", "UTF-8")
-            .schema(
-              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT"
-            )
-            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-entitled.csv"))
-            .collect()
-
-        accepted should contain theSameElementsAs expected
-      }
-    }
-
     "A postsql query" should "update the resulting schema" in {
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
@@ -377,6 +374,36 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
 
+    }
+
+    "Ingest schema with partition" should "produce partitioned output in accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+
+        private val firstLevel: List[Path] = storageHandler.listDirectories(
+          new Path(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        )
+
+        firstLevel.size shouldBe 2
+        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
+
+        sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .except(
+            sparkSession.read
+              .option("header", "false")
+              .schema(playerSchema)
+              .csv(getResPath("/sample/Players.csv"))
+          )
+          .count() shouldBe 0
+
+      }
     }
 
     "Ingest Dream Segment CSV" should "produce file in accepted" in {
