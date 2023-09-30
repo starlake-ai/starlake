@@ -363,6 +363,12 @@ trait TestHelper
       storageHandler.delete(domainPath)
     }
 
+    def deleteSourceDomains(): Unit = {
+      val fload = new File(starlakeLoadPath)
+      new Directory(fload).deleteRecursively()
+      fload.mkdirs()
+    }
+
     def deliverSourceJob(): Unit = {
       jobFilename.foreach(
         deliverSourceJob(sourceDomainOrJobPathname, datasetDomainName, _)
