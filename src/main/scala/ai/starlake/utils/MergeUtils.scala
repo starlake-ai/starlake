@@ -101,7 +101,6 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         val mergedDF = allRowsWithRownum
           .where(col("rownum") === 1)
           .drop("rownum")
-
         // Compute rows that will be deleted
         val toDeleteDF = allRowsWithRownum
           .where(col("rownum") =!= 1)

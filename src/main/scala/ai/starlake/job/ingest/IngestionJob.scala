@@ -826,22 +826,33 @@ trait IngestionJob extends SparkJob {
     mergeOptions: MergeOptions
   ): (DataFrame, List[String]) = {
     val incomingSchema = schema.sparkSchemaFinal(schemaHandler)
+
+    val fileFound = Try {
+      storageHandler.list(acceptedPath, recursive = true).nonEmpty ||
+      storageHandler.listDirectories(acceptedPath).nonEmpty
+    }.getOrElse(false)
+
     val existingDF =
-      if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+      if (fileFound) {
         // Load from accepted area
         // We provide the accepted DF schema since partition columns types are inferred when parquet is loaded and might not match with the DF being ingested
-        session.read
-          .schema(
-            MergeUtils.computeCompatibleSchema(
-              session.read
-                .format(settings.appConfig.defaultFormat)
-                .load(acceptedPath.toString)
-                .schema,
-              incomingSchema
+        Try {
+          session.read
+            .schema(
+              MergeUtils.computeCompatibleSchema(
+                session.read
+                  .format(settings.appConfig.defaultFormat)
+                  .load(acceptedPath.toString)
+                  .schema,
+                incomingSchema
+              )
             )
-          )
-          .format(settings.appConfig.defaultFormat)
-          .load(acceptedPath.toString)
+            .format(settings.appConfig.defaultFormat)
+            .load(acceptedPath.toString)
+        } getOrElse {
+          logger.warn(s"Empty folder $acceptedPath")
+          session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        }
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
 
@@ -853,8 +864,9 @@ trait IngestionJob extends SparkJob {
         s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
       )
     }
-    val (finalIncomingDF, mergedDF, _) =
+    val (finalIncomingDF, mergedDF, _) = {
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
+    }
     (mergedDF, Nil)
   }
 

@@ -25,35 +25,22 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-    // TODO
-    // import com.google.cloud.bigquery.TableId
-    /*
-    it should "get table with a dataset name including project" in {
-      val tableMetadata = BigQuerySparkJob.getTable("my-project:my-dataset.my-table")
-      tableMetadata.table.get.getTableId shouldBe TableId.of("my-project", "my-dataset", "my-table")
-    }
-
-    it should "get table with default project id when dataset name doesn't include projectId" in {
-      val tableMetadata = BigQuerySparkJob.getTable("my-dataset.my-table")
-      tableMetadata.table.get.getTableId.getDataset shouldBe "my-dataset"
-      tableMetadata.table.get.getTableId.getTable shouldBe "my-table"
-    }*/
     it should "overwrite partitions dynamically" in {
 
       val bigQueryConfiguration: Config = {
         val config = ConfigFactory.parseString("""
-            |connections.spark {
-            |  sparkFormat = "bigquery"
-            |  type = "bigquery"
-            |  options {
-            |    gcsBucket: starlake-app
-            |    writeMethod: indirect
-            |    authType: APPLICATION_DEFAULT
-            |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
-            |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
-            |  }
-            |}
-            |""".stripMargin)
+                                                 |connections.spark {
+                                                 |  sparkFormat = "bigquery"
+                                                 |  type = "bigquery"
+                                                 |  options {
+                                                 |    gcsBucket: starlake-app
+                                                 |    writeMethod: indirect
+                                                 |    authType: APPLICATION_DEFAULT
+                                                 |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+                                                 |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
+                                                 |  }
+                                                 |}
+                                                 |""".stripMargin)
         val result = config.withFallback(super.testConfiguration)
         result
       }

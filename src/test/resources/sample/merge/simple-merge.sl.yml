@@ -9,14 +9,12 @@ load:
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    write: "OVERWRITE"
     partition:
       attributes:
         - comet_year
         - comet_month
         - comet_day
-    sink:
-      type: FS
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
