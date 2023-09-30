@@ -113,7 +113,7 @@ class SchemaHandlerSpec extends TestHelper {
           private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
           validator.loadPending()
 
-          deleteSourceDomain("DOMAIN", "/sample/DOMAIN.sl.yml")
+          deleteSourceDomains()
           deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
           private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
           validator2.loadPending()
@@ -137,7 +137,7 @@ class SchemaHandlerSpec extends TestHelper {
 
           accepted should contain theSameElementsAs expected
 
-          deleteSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
+          deleteSourceDomains()
           deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
           private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
           validator3.loadPending()
