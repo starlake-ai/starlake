@@ -358,6 +358,11 @@ trait TestHelper
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }
 
+    def deleteSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
+      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
+      storageHandler.delete(domainPath)
+    }
+
     def deliverSourceJob(): Unit = {
       jobFilename.foreach(
         deliverSourceJob(sourceDomainOrJobPathname, datasetDomainName, _)
