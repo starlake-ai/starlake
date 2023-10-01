@@ -116,12 +116,6 @@ class SchemaHandlerSpec extends TestHelper {
         validator.loadPending()
 
         sparkSessionReset(settings)
-        println(
-          "ypark.sql.sources.partitionOverwriteMode" + sparkSession.conf.get(
-            "spark.sql.sources.partitionOverwriteMode"
-          )
-        )
-
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
