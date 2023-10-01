@@ -93,74 +93,86 @@ class SchemaHandlerSpec extends TestHelper {
            |""".stripMargin)
       .withFallback(super.testConfiguration)
   }
+
   new WithSettings() {
     "Ingest schema with merge" should "succeed" in {
-      new WithSettings() {
-        new SpecTrait(
-          sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
-          datasetDomainName = "DOMAIN",
-          sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
-        ) {
-          cleanMetadata
-          getDomain("DOMAIN").foreach { domain =>
-            val result = domain.tables.map { table =>
-              table.finalName -> table.containsArrayOfRecords()
-            }
-            val expected =
-              List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
-            result should contain theSameElementsAs expected
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        getDomain("DOMAIN").foreach { domain =>
+          val result = domain.tables.map { table =>
+            table.finalName -> table.containsArrayOfRecords()
           }
-          cleanDatasets
-          private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
-          validator.loadPending()
-
-          deleteSourceDomains()
-          deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
-          private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-          validator2.loadPending()
-
-          val accepted: Array[Row] = sparkSession.read
-            .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-            .collect()
-
-          // Input contains a row with an older timestamp
-          // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
-
-          val expected: Array[Row] =
-            sparkSession.read
-              .option("header", "false")
-              .option("encoding", "UTF-8")
-              .schema(playerSchema)
-              .csv(
-                getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-with-timestamp.csv")
-              )
-              .collect()
-
-          accepted should contain theSameElementsAs expected
-
-          deleteSourceDomains()
-          deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
-          sparkSessionReset(settings)
-          private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-          validator3.loadPending()
-          val accepted2: Array[Row] = sparkSession.read
-            .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-            .collect()
-
-          // Input contains a row with an older timestamp
-          // Without MergeOptions.timestamp set, the existing data should be overridden anyway
-
-          val expected2: Array[Row] =
-            sparkSession.read
-              .option("header", "false")
-              .option("encoding", "UTF-8")
-              .schema(playerSchema)
-              .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
-              .collect()
-
-//          accepted2 should contain theSameElementsAs expected2
-          deleteSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
+          val expected =
+            List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
+          result should contain theSameElementsAs expected
         }
+
+        private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
+        validator.loadPending()
+
+        sparkSessionReset(settings)
+        println(
+          "ypark.sql.sources.partitionOverwriteMode" + sparkSession.conf.get(
+            "spark.sql.sources.partitionOverwriteMode"
+          )
+        )
+
+        deleteSourceDomains()
+        deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
+        private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
+        validator2.loadPending()
+
+        sparkSessionReset(settings)
+
+        val accepted: Array[Row] = sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
+
+        // Input contains a row with an older timestamp
+        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
+
+        val expected: Array[Row] =
+          sparkSession.read
+            .option("header", "false")
+            .option("encoding", "UTF-8")
+            .schema(playerSchema)
+            .csv(
+              getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-with-timestamp.csv")
+            )
+            .collect()
+
+        accepted should contain theSameElementsAs expected
+
+        deleteSourceDomains()
+        deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
+        sparkSessionReset(settings)
+        private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
+        validator3.loadPending()
+
+        sparkSessionReset(settings)
+
+        val accepted2: Array[Row] = sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
+
+        // Input contains a row with an older timestamp
+        // Without MergeOptions.timestamp set, the existing data should be overridden anyway
+
+        val expected2: Array[Row] =
+          sparkSession.read
+            .option("header", "false")
+            .option("encoding", "UTF-8")
+            .schema(playerSchema)
+            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
+            .collect()
+
+        accepted2 should contain theSameElementsAs expected2
+        deleteSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
       }
     }
 
@@ -170,6 +182,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
+        sparkSessionReset(settings)
         cleanMetadata
         cleanDatasets
         loadPending
@@ -684,7 +697,7 @@ class SchemaHandlerSpec extends TestHelper {
         val filename = "/sample/metadata/business/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
-        println(job)
+
         job.success.value.tasks.head.sql.get.trim shouldBe """{% set myList = ["col1,", "col2"] %}
                                                              |select
                                                              |{%- for x in myList %}

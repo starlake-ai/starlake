@@ -59,7 +59,6 @@ load:
     presql:
     - "SQL1"
     - "SQL2"
-    postsql: null
   comment: "Domain Comment"
   extensions:
   - ".json"

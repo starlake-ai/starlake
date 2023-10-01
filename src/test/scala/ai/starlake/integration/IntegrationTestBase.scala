@@ -27,6 +27,7 @@ class IntegrationTestBase
     delEnv("SL_INTERNAL_WITH_ENVS_SET")
     envList.foreach { case (k, _) => delEnv(k) }
     existingValues.foreach { case (k, v) => setEnv(k, v) }
+    ConfigFactory.invalidateCaches()
     result.get
   }
 

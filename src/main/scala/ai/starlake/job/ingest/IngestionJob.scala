@@ -1111,7 +1111,6 @@ trait IngestionJob extends SparkJob {
         )
       } else
         (clusteredDFWriter, dataset)
-
       // We do not output empty datasets
       if (!finalDataset.isEmpty) {
         val finalTargetDatasetWriter =
@@ -1408,8 +1407,11 @@ trait IngestionJob extends SparkJob {
         }
       }
 
-    if (settings.appConfig.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
-    else (mergedDF, partitionsToUpdate)
+    if (settings.appConfig.mergeForceDistinct) {
+      (mergedDF.distinct(), partitionsToUpdate)
+    } else {
+      (mergedDF, partitionsToUpdate)
+    }
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
