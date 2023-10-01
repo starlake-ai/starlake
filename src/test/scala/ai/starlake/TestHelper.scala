@@ -57,8 +57,10 @@ trait TestHelper
     with StrictLogging
     with DatasetLogging {
 
-  override protected def afterAll(): Unit = {
-    // sparkSessionInterest.close()
+  override protected def afterAll(): Unit = {}
+
+  override protected def beforeAll(): Unit = {
+    ConfigFactory.invalidateCaches()
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -101,6 +103,7 @@ trait TestHelper
        |""".stripMargin
 
   def testConfiguration: Config = {
+    ConfigFactory.invalidateCaches()
     val rootConfig = ConfigFactory.parseString(
       baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)
@@ -204,6 +207,7 @@ trait TestHelper
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {
     try {
+
       op(Settings(configuration))
     } catch {
       case e: Throwable =>
