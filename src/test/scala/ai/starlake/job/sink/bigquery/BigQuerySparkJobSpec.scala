@@ -14,6 +14,7 @@ import org.scalatest.BeforeAndAfterAll
 class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
   private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
+    super.beforeAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
     }
@@ -29,7 +30,9 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
 
       val bigQueryConfiguration: Config = {
         val config = ConfigFactory.parseString("""
-                                                 |connections.spark {
+                                                 |connectionRef = "sparkbq"
+                                                 |
+                                                 |connections.sparkbq {
                                                  |  sparkFormat = "bigquery"
                                                  |  type = "bigquery"
                                                  |  options {
@@ -40,6 +43,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
                                                  |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
                                                  |  }
                                                  |}
+                                                 |
                                                  |""".stripMargin)
         val result = config.withFallback(super.testConfiguration)
         result
