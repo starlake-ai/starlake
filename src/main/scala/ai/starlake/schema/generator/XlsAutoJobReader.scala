@@ -64,7 +64,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         .partition(_.predicate.toUpperCase() == "TRUE")
 
       val acl = withoutPredicate.map(rls =>
-        AccessControlEntry("roles/bigquery.dataViewer", rls.grants.toList, rls.name)
+        AccessControlEntry("roles/bigquery.dataViewer", rls.grants, rls.name)
       )
       val rls = withPredicate
 
