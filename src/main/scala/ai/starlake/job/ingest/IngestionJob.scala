@@ -574,13 +574,13 @@ trait IngestionJob extends SparkJob {
       case Success(result)    =>
         // ignore NULL partition values like in spark
         result.tableResult
-          .map(_.getValues)
+          .map(_.iterateAll())
           .map(
             _.iterator().asScala
               .flatMap(r =>
                 scala.Option(r.get(partitionName)).filterNot(_.isNull).map(_.getStringValue)
               )
-              .toList
+              .toList.sorted
           )
           .getOrElse(Nil)
     }
