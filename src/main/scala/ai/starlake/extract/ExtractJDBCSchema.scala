@@ -6,7 +6,6 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
@@ -17,8 +16,7 @@ import scala.util.{Failure, Success}
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit = schemaHandler
-  def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+  def run(args: Array[String])(implicit settings: Settings): Unit = {
     ExtractSchemaConfig.parse(args) match {
       case Some(config) =>
         run(config)
@@ -139,13 +137,13 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       }
 
       val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
-      val file = File(baseOutputDir, domainName, "_" + table.name + ".sl.yml")
+      val file = File(baseOutputDir, domainName, table.name + ".sl.yml")
       file.overwrite(content)
     }
 
     val finalDomain = domain.copy(tables = Nil)
     YamlSerializer.serializeToFile(
-      File(baseOutputDir, domainName, domainName + ".sl.yml"),
+      File(baseOutputDir, domainName, "_config.sl.yml"),
       finalDomain
     )
   }
