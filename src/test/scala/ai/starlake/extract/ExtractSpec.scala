@@ -327,6 +327,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
+      val tmpDir = File.newTemporaryDirectory()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
@@ -336,11 +337,11 @@ class ExtractSpec extends TestHelper {
           List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-h2").options,
-        File("/tmp"),
+        tmpDir,
         None,
         None
       )
-      val publicPath = File("/tmp/PUBLIC/PUBLIC.sl.yml")
+      val publicPath = tmpDir / "PUBLIC/_config.sl.yml"
       val domain =
         YamlSerializer.deserializeDomain(
           publicPath.contentAsString,
@@ -350,7 +351,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.sl.yml")
+      val tableFile = tmpDir / "PUBLIC" / "TEST_TABLE1.sl.yml"
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
@@ -388,6 +389,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
+      val tmpDir = File.newTemporaryDirectory()
       new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
         JDBCSchema(
           None,
@@ -397,11 +399,11 @@ class ExtractSpec extends TestHelper {
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-h2").options,
-        File("/tmp"),
+        tmpDir,
         None,
         None
       )
-      val publicPath = File("/tmp/PUBLIC/PUBLIC.sl.yml")
+      val publicPath = tmpDir / "PUBLIC" / "_config.sl.yml"
       val domain =
         YamlSerializer.deserializeDomain(
           publicPath.contentAsString,
@@ -411,7 +413,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.sl.yml")
+      val tableFile = File(tmpDir / "PUBLIC", "TEST_TABLE2.sl.yml")
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
