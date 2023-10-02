@@ -20,7 +20,7 @@ case class BigQueryJobResult(
     tableResult.foreach { rows =>
       val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
       val values =
-        rows.getValues.iterator().asScala.toList.map { row =>
+        rows.iterateAll().asScala.toList.map { row =>
           row
             .iterator()
             .asScala
