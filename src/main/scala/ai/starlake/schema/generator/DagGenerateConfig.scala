@@ -31,16 +31,16 @@ import scopt.OParser
   * @param privacy
   *   What privacy policies are to be applied at the pre-encrypt step ? All by default.
   */
-case class Yml2DagGenerateConfig(
+case class DagGenerateConfig(
   outputDir: Option[String] = None,
   clean: Boolean = false
 )
 
-object Yml2DagGenerateConfig extends CliConfig[Yml2DagGenerateConfig] {
+object DagGenerateConfig extends CliConfig[DagGenerateConfig] {
   val command = "dag-generate"
 
-  val parser: OParser[Unit, Yml2DagGenerateConfig] = {
-    val builder = OParser.builder[Yml2DagGenerateConfig]
+  val parser: OParser[Unit, DagGenerateConfig] = {
+    val builder = OParser.builder[DagGenerateConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -66,6 +66,6 @@ object Yml2DagGenerateConfig extends CliConfig[Yml2DagGenerateConfig] {
     * @return
     *   Option of case class SchemaGenConfig.
     */
-  def parse(args: Seq[String]): Option[Yml2DagGenerateConfig] =
-    OParser.parse(parser, args, Yml2DagGenerateConfig())
+  def parse(args: Seq[String]): Option[DagGenerateConfig] =
+    OParser.parse(parser, args, DagGenerateConfig())
 }
