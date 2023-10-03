@@ -138,7 +138,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
 
       val jobResult = job.run()
       jobResult match {
-        case scala.util.Success(SparkJobResult(Some(dfDataset))) =>
+        case scala.util.Success(SparkJobResult(Some(dfDataset), _)) =>
           BigQuerySparkWriter.sinkInAudit(
             dfDataset,
             "freshness_info",

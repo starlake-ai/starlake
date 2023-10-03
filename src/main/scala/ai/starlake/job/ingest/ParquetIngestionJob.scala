@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -117,7 +118,7 @@ class ParquetIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
 
     val orderedAttributes = reorderAttributes(dataset)
 
@@ -137,13 +138,15 @@ class ParquetIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success((_, _, rejectedRecordCount)) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (validationResult.errors, validationResult.accepted)
   }
 }
