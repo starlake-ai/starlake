@@ -10,10 +10,10 @@ import org.apache.hadoop.fs.Path
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
-class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
+class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def run(args: Array[String])(implicit settings: Settings): Unit = {
-    Yml2DagGenerateConfig.parse(args) match {
+    DagGenerateConfig.parse(args) match {
       case Some(config) =>
         generateDomainDags(config)
       case _ =>
@@ -61,7 +61,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def generateDomainDags(
-    config: Yml2DagGenerateConfig
+    config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(
       config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/load/")
@@ -101,17 +101,16 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 domain.finalName,
                 java.util.List.of[TableDomain](TableDomain(table.name, table.finalName))
               )
+              val (scheduleValue, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
               val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
-                schedule
+                scheduleValue
               )
+              val cronIfNone = if (cron == "None") null else cron
               val schedules =
-                List(DagSchedule(schedule, cron, java.util.List.of[DagDomain](dagDomain)))
+                List(DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain)))
               val context = DagGenerationContext(config = dagConfig, schedules)
 
-              val (scheduleValue, nextScheduleIndex) =
-                if (filenameVars.contains("schedule")) getScheduleName(schedule, scheduleIndex)
-                else (schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(
                 dagConfig.filename,
@@ -149,7 +148,8 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                   schedule,
                   schedule
                 )
-                DagSchedule(schedule, cron, java.util.List.of[DagDomain](dagDomain))
+                val cronIfNone = if (cron == "None") null else cron
+                DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain))
               }
             }
             .toList
@@ -186,11 +186,15 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       } else {
         // one dag per config
         groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
+          var scheduleIndex = 1
           val dagConfig = dagConfigs(dagConfigName)
           val dagTemplateName = dagConfig.template
           val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
           val dagSchedules = groupedBySchedule
             .map { case (schedule, groupedByDomain) =>
+              val (scheduleValue, nextScheduleIndex) =
+                getScheduleName(schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
               val dagDomains = groupedByDomain
                 .map { case (domain, tables) =>
                   DagDomain(
@@ -205,21 +209,18 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 schedule,
                 schedule
               )
-              DagSchedule(schedule, cron, dagDomains.asJava)
+              val cronIfNone = if (cron == "None") null else cron
+              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava)
             }
             .toList
             .sortBy(_.schedule)
           if (filenameVars.contains("schedule")) {
-            var scheduleIndex = 1
             dagSchedules.foreach { schedule =>
-              val (scheduleValue, nextScheduleIndex) =
-                getScheduleName(schedule.schedule, scheduleIndex)
-              scheduleIndex = nextScheduleIndex
               val context = DagGenerationContext(config = dagConfig, List(schedule))
               val filename = Utils.parseJinja(
                 dagConfig.filename,
                 schemaHandler.activeEnvVars() ++ Map(
-                  "schedule" -> scheduleValue
+                  "schedule" -> schedule
                 )
               )
               applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
@@ -282,7 +283,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 }
 
-object Yml2DagGenerateCommand {
+object DagGenerateCommand {
   val SCHEDULE = "schedule"
   val name = "generate"
 }
