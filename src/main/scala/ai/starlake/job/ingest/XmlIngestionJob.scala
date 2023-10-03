@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -96,7 +97,7 @@ class XmlIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     import session.implicits._
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
@@ -104,7 +105,7 @@ class XmlIngestionJob(
     mergedMetadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
-        saveRejected(rejectedDS, session.emptyDataset[String]).map { _ =>
+        saveRejected(rejectedDS, session.emptyDataset[String]).flatMap { _ =>
           saveAccepted(
             ValidationResult(
               session.emptyDataset[String],
@@ -113,11 +114,12 @@ class XmlIngestionJob(
             )
           )
         } match {
+          case Failure(exception: NullValueFoundException) =>
+            (rejectedDS, dataset, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success(_) => ;
+          case Success((_, _, rejectedRecordCount)) => (rejectedDS, dataset, rejectedRecordCount);
         }
-        (rejectedDS, dataset)
       case None =>
         val withInputFileNameDS =
           dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
@@ -141,14 +143,16 @@ class XmlIngestionJob(
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
-        saveRejected(allRejected, validationResult.rejected).map { _ =>
+        saveRejected(allRejected, validationResult.rejected).flatMap { _ =>
           saveAccepted(validationResult)
         } match {
+          case Failure(exception: NullValueFoundException) =>
+            (validationResult.errors, validationResult.accepted, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success(_) => ;
+          case Success((_, _, rejectedRecordCount)) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
         }
-        (allRejected, validationResult.accepted)
     }
   }
 
