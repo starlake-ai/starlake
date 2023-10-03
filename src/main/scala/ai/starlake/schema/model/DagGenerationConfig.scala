@@ -4,6 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.utils.Formatter.RichFormatter
 
 import java.util
+import java.util.Calendar
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
 // We add
@@ -64,8 +65,16 @@ case class DagGenerationContext(
   schedules: List[DagSchedule]
 ) {
   def asMap: util.HashMap[String, Object] = {
+    val updatedOptions = if (config.options.get("SL_TIMEZONE").isEmpty) {
+      val cal1 = Calendar.getInstance
+      val tz = cal1.getTimeZone();
+      config.options + ("SL_TIMEZONE" -> tz.getID)
+    } else {
+      config.options
+    }
+    val updatedConfig = config.copy(options = updatedOptions)
     new java.util.HashMap[String, Object]() {
-      put("config", config.asMap)
+      put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
     }
   }
