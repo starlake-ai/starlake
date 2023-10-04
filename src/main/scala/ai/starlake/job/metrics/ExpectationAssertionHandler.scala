@@ -62,7 +62,7 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
             val count = tableResult.getTotalRows
             val schema = tableResult.getSchema.getFields.asScala.map(_.getType()).toSeq
             val result = if (count == 1) {
-              val values = tableResult.getValues.asScala.head.asScala.toSeq
+              val values = tableResult.iterateAll().asScala.head.asScala.toSeq
               BigQueryUtils.anyRefToAny(values, schema)
             } else {
               null
