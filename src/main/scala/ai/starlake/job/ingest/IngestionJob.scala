@@ -16,6 +16,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
+import ai.starlake.exceptions.{DisallowRejectRecordException, NullValueFoundException}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
@@ -89,7 +90,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row])
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long)
 
   protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
     val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
@@ -342,6 +343,7 @@ trait IngestionJob extends SparkJob {
             _.bqSchemaWithIgnoreAndScript(schemaHandler)
           )
         )
+
         val output: Try[NativeBqLoadInfo] = firstStepResult match {
           case Success(loadFileResult) =>
             logger.info(s"First step result: $loadFileResult")
@@ -358,7 +360,22 @@ trait IngestionJob extends SparkJob {
                   targetTableSchema,
                   schema
                 )
-              secondStepResult.flatMap(_ => firstStepResult) // keep loading stats
+
+              def updateRejectedCount(nullCountValues: Long) = {
+                firstStepResult.map(r =>
+                  r.copy(
+                    totalAcceptedRows = r.totalAcceptedRows - nullCountValues,
+                    totalRejectedRows = r.totalRejectedRows + nullCountValues
+                  )
+                )
+              }
+              secondStepResult
+                .flatMap { case (_, nullCountValues) =>
+                  updateRejectedCount(nullCountValues)
+                } // keep loading stats
+                .recoverWith { case ex: NullValueFoundException =>
+                  updateRejectedCount(ex.nbRecord)
+                }
             } else {
               expectationsResult.asInstanceOf[Try[NativeBqLoadInfo]]
             }
@@ -398,7 +415,7 @@ trait IngestionJob extends SparkJob {
           case Failure(exception) => throw exception
           case Success(auditLog) =>
             if (auditLog.success) res
-            else throw new Exception("Fail on rejected count requested")
+            else throw new DisallowRejectRecordException()
         }
     }
   }
@@ -477,7 +494,7 @@ trait IngestionJob extends SparkJob {
     firstStepTempTableId: TableId,
     targetTableId: TableId,
     schema: Schema
-  ): Try[BigQueryJobResult] = {
+  ): Try[(BigQueryJobResult, Long)] = {
     val tempTable =
       s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
     val targetTable =
@@ -498,7 +515,7 @@ trait IngestionJob extends SparkJob {
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
     // we have sql as optional because in dynamic partition overwrite mode, if no partition exists, we do nothing
-    val (sqlOpt, asTable) = schema.merge match {
+    val mergeInstructions = schema.merge match {
       case Some(mergeOptions: MergeOptions) =>
         handleNativeMergeCases(
           bigqueryJob,
@@ -511,16 +528,18 @@ trait IngestionJob extends SparkJob {
       case None =>
         handleNativeNoMergeCases(bigqueryJob, schema, targetTable, enrichedTempTable)
     }
-    sqlOpt match {
-      case Some(sql) =>
-        logger.info(s"buildSqlSelect: $sql")
-        if (asTable)
-          bigqueryJob.RunAndSinkAsTable(sqlOpt)
-        else
-          bigqueryJob.runInteractiveQuery(sqlOpt)
-      case None =>
-        logger.info("Sink skipped")
-        Success(BigQueryJobResult(None, 0, None))
+    mergeInstructions.flatMap { case (sqlOpt, asTable, nullCountValues) =>
+      sqlOpt match {
+        case Some(sql) =>
+          logger.info(s"buildSqlSelect: $sql")
+          if (asTable)
+            bigqueryJob.RunAndSinkAsTable(sqlOpt).map(_ -> nullCountValues)
+          else
+            bigqueryJob.runInteractiveQuery(sqlOpt).map(_ -> nullCountValues)
+        case None =>
+          logger.info("Sink skipped")
+          Success(BigQueryJobResult(None, 0, None) -> nullCountValues)
+      }
     }
   }
 
@@ -529,7 +548,7 @@ trait IngestionJob extends SparkJob {
     schema: Schema,
     targetTable: String,
     enrichedTempTable: String
-  ): (Option[String], Boolean) = {
+  ): Try[(Option[String], Boolean, Long)] = {
     (
       bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
       bigqueryJob.cliConfig.outputPartition
@@ -537,52 +556,67 @@ trait IngestionJob extends SparkJob {
       case (true, Some(partitionName)) =>
         val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
         computePartitions(bigqueryJob, partitionName, sql) match {
-          case Nil =>
+          case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
+            Failure(new NullValueFoundException(nullCountValues))
+          case (Nil, nullCountValues) =>
             logger.info(
               "No partitions found in source. In dynamic partition overwrite mode, skip sink."
             )
-            None -> false
-          case allPartitions =>
+            Success(None, false, nullCountValues)
+          case (allPartitions, nullCountValues) =>
             val inPartitions = allPartitions.map(date =>
               f"'$date'"
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
-            Some(
-              schema.buildSqlMerge(
-                enrichedTempTable,
-                targetTable,
-                None,
-                schema.filter,
-                Nil,
-                List(inPartitions),
-                true
-              )
-            ) -> false
+            Success(
+              Some(
+                schema.buildSqlMerge(
+                  enrichedTempTable,
+                  targetTable,
+                  None,
+                  schema.filter,
+                  Nil,
+                  List(inPartitions),
+                  true
+                )
+              ),
+              false,
+              nullCountValues
+            )
         }
-      case _ => Some(schema.buildSqlSelect(enrichedTempTable, schema.filter)) -> true
+      case _ => Success(Some(schema.buildSqlSelect(enrichedTempTable, schema.filter)), true, 0)
     }
   }
 
+  /** return all partitions and the number of null records */
   private def computePartitions(
     bigqueryJob: BigQueryNativeJob,
     partitionName: String,
     sql: String
-  ): List[String] = {
+  ): (List[String], Long) = {
+    val totalColumnName = "total"
     val detectImpliedPartitions =
-      s"SELECT DISTINCT cast(date(`$partitionName`) as STRING) AS $partitionName FROM ($sql)"
+      s"SELECT cast(date(`$partitionName`) as STRING) AS $partitionName, countif($partitionName IS NULL) AS $totalColumnName FROM ($sql) GROUP BY $partitionName"
     bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions), pageSize = Some(1000)) match {
       case Failure(exception) => throw exception
-      case Success(result)    =>
-        // ignore NULL partition values like in spark
-        result.tableResult
-          .map(_.getValues)
+      case Success(result) =>
+        val (partitions, nullCountValues) = result.tableResult
           .map(
-            _.iterator().asScala
-              .flatMap(r =>
-                scala.Option(r.get(partitionName)).filterNot(_.isNull).map(_.getStringValue)
-              )
-              .toList
+            _.iterateAll()
+              .iterator()
+              .asScala
+              .foldLeft(List[String]() -> 0L) { case ((partitions, nullCount), row) =>
+                val updatedPartitions = scala
+                  .Option(row.get(partitionName))
+                  .filterNot(_.isNull)
+                  .map(_.getStringValue) match {
+                  case Some(value) => value +: partitions
+                  case None        => partitions
+                }
+                updatedPartitions -> (nullCount + row.get(totalColumnName).getLongValue)
+              }
           )
-          .getOrElse(Nil)
+          .getOrElse(Nil -> 0L)
+        partitions.sorted -> nullCountValues
     }
   }
 
@@ -593,7 +627,7 @@ trait IngestionJob extends SparkJob {
     targetTable: String,
     enrichedTempTable: String,
     mergeOptions: MergeOptions
-  ): (Option[String], Boolean) = {
+  ): Try[(Option[String], Boolean, Long)] = {
     val targetFilters =
       (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
         case (Some(_), Some(_)) =>
@@ -619,39 +653,49 @@ trait IngestionJob extends SparkJob {
           false
         )
         computePartitions(bigqueryJob, partitionName, sql) match {
-          case Nil =>
+          case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
+            Failure(new NullValueFoundException(nullCountValues))
+          case (Nil, nullCountValues) =>
             logger.info(
               "No partitions found in source. In dynamic partition overwrite mode, skip sink."
             )
-            None -> false
-          case allPartitions =>
+            Success(None, false, nullCountValues)
+          case (allPartitions, nullCountValues) =>
             val inPartitions = allPartitions.map(date =>
               f"'$date'"
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
-            Some(
-              schema.buildSqlMerge(
-                enrichedTempTable,
-                targetTable,
-                schema.merge,
-                schema.filter,
-                targetFilters,
-                List(inPartitions),
-                true
-              )
-            ) -> false
+            Success(
+              Some(
+                schema.buildSqlMerge(
+                  enrichedTempTable,
+                  targetTable,
+                  schema.merge,
+                  schema.filter,
+                  targetFilters,
+                  List(inPartitions),
+                  true
+                )
+              ),
+              false,
+              nullCountValues
+            )
         }
       case _ =>
-        Some(
-          schema.buildSqlMerge(
-            enrichedTempTable,
-            targetTable,
-            schema.merge,
-            schema.filter,
-            targetFilters,
-            Nil,
-            false
-          )
-        ) -> true
+        Success(
+          Some(
+            schema.buildSqlMerge(
+              enrichedTempTable,
+              targetTable,
+              schema.merge,
+              schema.filter,
+              targetFilters,
+              Nil,
+              false
+            )
+          ),
+          true,
+          0
+        )
     }
   }
 
@@ -660,7 +704,7 @@ trait IngestionJob extends SparkJob {
     firstStepTempTableId: TableId,
     incomingTableSchema: BQSchema,
     schema: Schema
-  ): Try[BigQueryJobResult] = {
+  ): Try[(BigQueryJobResult, Long)] = {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, incomingTableSchema)
@@ -792,11 +836,11 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
-              val (rejectedDS, acceptedDS) = ingest(dataset)
+              val (rejectedDS, acceptedDS, rejectedCount) = ingest(dataset)
               val inputCount = dataset.count()
-              val acceptedCount = acceptedDS.count()
-              val rejectedCount = rejectedDS.count()
-              (inputCount, acceptedCount, rejectedCount)
+              val totalAcceptedCount = acceptedDS.count() - rejectedCount
+              val totalRejectedCount = rejectedDS.count() + rejectedCount
+              (inputCount, totalAcceptedCount, totalRejectedCount)
             }.recoverWith { case exception =>
               logLoadFailureInAudit(start, exception)
             }.map { case (inputCount, acceptedCount, rejectedCount) =>
@@ -804,7 +848,7 @@ trait IngestionJob extends SparkJob {
                 case Failure(exception) => throw exception
                 case Success(auditLog) =>
                   if (auditLog.success) SparkJobResult(None)
-                  else throw new Exception("Fail on rejected count requested")
+                  else throw new DisallowRejectRecordException()
               }
             }
           case Failure(exception) =>
@@ -1318,7 +1362,7 @@ trait IngestionJob extends SparkJob {
     */
   protected def saveAccepted(
     validationResult: ValidationResult
-  ): (DataFrame, Path) = {
+  ): Try[(DataFrame, Path, Long)] = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
@@ -1349,40 +1393,22 @@ trait IngestionJob extends SparkJob {
       val finalAcceptedDF: DataFrame =
         computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
       val runExpectationsResult = runExpectations(finalAcceptedDF)
-      val sinkedDF = runExpectationsResult match {
-        case Success(_) =>
+      runExpectationsResult
+        .flatMap { _ =>
           val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
           val finalMergedDf: DataFrame = runPostSQL(mergedDF)
           logger.whenInfoEnabled {
             logger.info("Final Dataframe Schema")
             logger.info(finalMergedDf.schemaString())
           }
-          val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
-            case Success(sinkedDF) =>
-              sinkedDF
-            case Failure(exception) =>
-              val err = Utils.exceptionAsString(exception)
-              logger.error(err)
-              throw exception
-          }
-          val end = Timestamp.from(Instant.now())
-          val inputCount = validationResult.accepted.count()
-          val acceptedCount = sinkedDF.count()
-          val rejectedCount = validationResult.rejected.count()
-          logLoadInAudit(start, inputCount, acceptedCount, rejectedCount) match {
-            case Failure(exception) => throw exception
-            case Success(_)         => // do nothing
-          }
-          sinkedDF
-        case Failure(exception) =>
-          val err = Utils.exceptionAsString(exception)
-          logger.error(err)
-          throw exception
-      }
-      runMetrics(finalAcceptedDF)
-      (sinkedDF, acceptedPath)
+          sinkAccepted(finalMergedDf, partitionsToUpdate)
+        }
+        .map { case (sinkedDF, rejectedRecordCount) =>
+          runMetrics(finalAcceptedDF)
+          (sinkedDF, acceptedPath, rejectedRecordCount)
+        }
     } else {
-      (session.emptyDataFrame, new Path("invalid-path"))
+      Success(session.emptyDataFrame, new Path("invalid-path"), 0)
     }
   }
 
@@ -1488,18 +1514,18 @@ trait IngestionJob extends SparkJob {
   private def sinkAccepted(
     mergedDF: DataFrame,
     partitionsToUpdate: List[String]
-  ): Try[DataFrame] = {
-    Try {
+  ): Try[(DataFrame, Long)] = {
+    val result: Try[Try[(DataFrame, Long)]] = Try {
       (mergedMetadata.getSink(), getConnectionType()) match {
         case (sink: EsSink, _) =>
-          esSink(mergedDF, sink)
+          Success(esSink(mergedDF, sink) -> 0)
         case (sink: BigQuerySink, _) =>
           bqSink(mergedDF, partitionsToUpdate, sink)
         case (_, ConnectionType.KAFKA) =>
-          kafkaSink(mergedDF)
+          Success(kafkaSink(mergedDF) -> 0)
 
         case (sink: JdbcSink, _) =>
-          genericSink(mergedDF, sink)
+          Success(genericSink(mergedDF, sink) -> 0)
 
         case (_, ConnectionType.FS) =>
           val acceptedPath =
@@ -1512,12 +1538,13 @@ trait IngestionJob extends SparkJob {
             schema.merge.isDefined,
             settings.appConfig.defaultFormat
           )
-          sinkedDF
+          Success(sinkedDF -> 0)
         case (_, st: ConnectionType) =>
           logger.trace(s"Unsupported Sink $st")
-          mergedDF
+          Success(mergedDF -> 0)
       }
     }
+    result.flatten
   }
 
   private def kafkaSink(mergedDF: DataFrame): DataFrame = {
@@ -1558,7 +1585,7 @@ trait IngestionJob extends SparkJob {
     mergedDF: DataFrame,
     partitionsToUpdate: List[String],
     sink: BigQuerySink
-  ): DataFrame = {
+  ): Try[(DataFrame, Long)] = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
       schema.merge.exists(_.key.nonEmpty)
@@ -1600,12 +1627,10 @@ trait IngestionJob extends SparkJob {
       tableSchema,
       schema.comment
     ).run()
-    res match {
-      case Success(_) => ;
-      case Failure(e) =>
-        throw e
+    res.map {
+      case jobResult: SparkJobResult => mergedDF -> jobResult.rejectedCount
+      case el                        => throw new RuntimeException(f"$el should never happen")
     }
-    mergedDF
   }
 
   @nowarn

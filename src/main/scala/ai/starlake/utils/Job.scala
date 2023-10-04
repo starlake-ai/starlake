@@ -12,7 +12,7 @@ import scala.util.{Failure, Success, Try}
 
 trait JobResult
 
-case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
+case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from
   * application.conf.

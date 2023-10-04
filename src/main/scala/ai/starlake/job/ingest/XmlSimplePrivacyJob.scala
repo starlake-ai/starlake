@@ -1,5 +1,6 @@
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{PrivacyLevels, Settings}
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -8,7 +9,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.util.regex.Pattern
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Used only to apply data masking rules (privacy) on one or more simple elements in XML data. The
   * input XML file is read as a text file. Privacy rules are applied on the resulting DataFrame and
@@ -58,7 +59,7 @@ class XmlSimplePrivacyJob(
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val privacyAttributes = schema.attributes.filter(_.getPrivacy() != PrivacyLevel.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session).toDF()
@@ -70,8 +71,13 @@ class XmlSimplePrivacyJob(
         session.emptyDataset[String],
         acceptedPrivacyDF
       )
-    )
-    (session.emptyDataset[String], acceptedPrivacyDF)
+    ) match {
+      case Failure(exception: NullValueFoundException) =>
+        (session.emptyDataset[String], acceptedPrivacyDF, exception.nbRecord)
+      case Failure(exception) => throw exception
+      case Success((_, _, rejectedRecordCount)) =>
+        (session.emptyDataset[String], acceptedPrivacyDF, rejectedRecordCount);
+    }
   }
 
   override def name: String = "XML-SimplePrivacyJob"
