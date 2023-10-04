@@ -5,6 +5,8 @@
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
 
+__Improvement__:
+  - Count null partition rows as rejected with dynamic partition overwrite
 
 # 0.8.0:
 - ** DEPRECATED **

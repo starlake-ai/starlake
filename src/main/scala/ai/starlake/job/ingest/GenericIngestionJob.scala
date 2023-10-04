@@ -20,13 +20,13 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
-
 import java.sql._
 import java.time.LocalDateTime
 import java.util.Properties
@@ -291,7 +291,7 @@ class GenericIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val orderedAttributes = reorderAttributes(dataset)
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
     val validationResult = flatRowValidator.validate(
@@ -308,14 +308,16 @@ class GenericIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success((_, _, rejectedRecordCount)) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (validationResult.errors, validationResult.accepted)
   }
 }
 
