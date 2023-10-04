@@ -74,9 +74,11 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         .filter(_.startsWith("serviceAccount:"))
         .map(_.substring("serviceAccount:".length))
 
-    val formattedUsers = allUsers.map { user => s"""${formatDotName(user)}[label = "$user"]""" }
+    val formattedUsers = allUsers.map { user =>
+      s"""${formatDotName(user)}[shape=plain label = "$user"]"""
+    }
     val formattedGroups = allGroups.map { group =>
-      s"""${formatDotName(group)}[label = "$group"]"""
+      s"""${formatDotName(group)}[shape=plain label = "$group"]"""
     }
     val formattedSa = allSa.map { sa => s"""${formatDotName(sa)}[label = "$sa"]""" }
 
@@ -147,7 +149,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         val tablesAsDot = tables.map { table =>
           val tableLabel = s"${domain}_$table"
           val header =
-            s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $table </FONT></B></td></tr>\n"""
+            s"""<tr><td port="0" bgcolor="#00008B"><B><FONT color="black"> $table </FONT></B></td></tr>\n"""
           s"""
              |$tableLabel [label=<
              |<table border="0" cellborder="1" cellspacing="0">
@@ -186,7 +188,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         val tablesAsDot = tables.map { table =>
           val tableLabel = s"${domain}_$table"
           val header =
-            s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $table </FONT></B></td></tr>\n"""
+            s"""<tr><td port="0" bgcolor="white"><B><FONT color="black"> $table </FONT></B></td></tr>\n"""
           s"""
            |$tableLabel [label=<
            |<table border="0" cellborder="1" cellspacing="0">
@@ -244,7 +246,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
     val allRelations = aclTaskRelations ++ aclTablesRelations
     val dotAclRoles = allRelations.map { case (name, role, schema, domain) =>
-      s"""${domain}_${schema}_acl_${formatDotName(role)} [shape=invhouse, label = "$role"]"""
+      s"""${domain}_${schema}_acl_${formatDotName(role)} [shape=ellipse, label = "$role"]"""
     }.toSet
 
     val dotAclRolesRelations = allRelations.map { case (name, role, schema, domain) =>
