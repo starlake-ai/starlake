@@ -368,7 +368,7 @@ object JDBCUtils extends LazyLogging {
                       foreignKey = foreignKey
                     )
                   }
-                }.to[ListBuffer]
+                }.to(ListBuffer)
 
                 // remove duplicates
                 // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns

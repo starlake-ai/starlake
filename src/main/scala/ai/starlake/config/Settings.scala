@@ -920,7 +920,7 @@ object Settings extends StrictLogging {
     val thisConf = settings.sparkConfig
       .entrySet()
       .asScala
-      .to[Vector]
+      .to(Vector)
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) =>
         logger.info(s"Setting key: ${key}")
