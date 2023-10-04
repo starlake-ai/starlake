@@ -20,7 +20,7 @@
 
 package ai.starlake.job.infer
 
-import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
+import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
 import ai.starlake.schema.model.{Attribute, Domain, Format, Position}
 import better.files.File
@@ -30,45 +30,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 import java.util.regex.Pattern
 import scala.io.Source
 import scala.util.Try
-
-/** *
-  *
-  * @param domainName
-  *   : name of the domain
-  * @param schemaName
-  *   : name of the schema
-  * @param dataPath
-  *   : path to the dataset to infer schema from. format is /path/to/read
-  * @param savePath
-  *   : path to save the yaml file. format is /path/to/save
-  * @param header
-  *   : option of boolean to check if header should be included (false by default)
-  */
-class InferSchema(
-  domainName: String,
-  schemaName: String,
-  pattern: Option[String],
-  comment: Option[String],
-  dataPath: String,
-  saveDir: String,
-  header: Boolean = false,
-  format: Option[Format] = None
-)(implicit settings: Settings) {
-  def run(): Try[File] = {
-    val dir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir
-    (new InferSchemaJob).infer(
-      domainName = domainName,
-      schemaName = schemaName,
-      pattern = pattern,
-      comment = comment,
-      dataPath = dataPath,
-      saveDir = dir,
-      withHeader = header,
-      forceFormat = format
-    )
-  }
-
-}
 
 /** * Infers the schema of a given datapath, domain name, schema name.
   */
