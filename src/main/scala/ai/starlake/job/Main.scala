@@ -7,7 +7,6 @@ import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
 import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
@@ -68,7 +67,6 @@ class Main() extends StrictLogging {
   val configs: List[CliConfig[_]] = List(
     AutoTaskDependenciesConfig,
     BootstrapConfig,
-    BigQueryLoadConfig,
     BigQueryTablesConfig,
     ProjectCompareConfig,
     JdbcConnectionLoadConfig,
@@ -234,14 +232,6 @@ class Main() extends StrictLogging {
         KafkaJobConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.kafkaload(config).isSuccess
-          case _ =>
-            true
-        }
-
-      case "bqload" =>
-        BigQueryLoadConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.bqload(config.asBigqueryLoadConfig()).isSuccess
           case _ =>
             true
         }
