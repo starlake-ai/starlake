@@ -21,7 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.infer.{InferSchema, InferSchemaConfig}
+import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
@@ -665,16 +665,18 @@ class IngestionWorkflow(
 
   def inferSchema(config: InferSchemaConfig): Try[File] = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    val result = new InferSchema(
+    val saveDir = config.outputDir.getOrElse(DatasetArea.load.toString)
+
+    val result = (new InferSchemaJob).infer(
       domainName = config.domainName,
       schemaName = config.schemaName,
       pattern = None,
       comment = None,
       dataPath = config.inputPath,
-      saveDir = config.outputDir.getOrElse(DatasetArea.load.toString),
-      header = config.withHeader,
-      format = config.format
-    ).run()
+      saveDir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir,
+      withHeader = config.withHeader,
+      forceFormat = config.format
+    )
     Utils.logFailure(result, logger)
     result
   }
