@@ -35,13 +35,7 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
-import ai.starlake.schema.generator.{
-  AutoTaskDependencies,
-  AutoTaskDependenciesConfig,
-  TaskViewDependencyNode,
-  Yml2DDLConfig,
-  Yml2DDLJob
-}
+import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{LocalStorageHandler, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
@@ -49,7 +43,6 @@ import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -940,14 +933,6 @@ class IngestionWorkflow(
   def esLoad(config: ESLoadConfig): Try[JobResult] = {
     val res = new ESLoadJob(config, storageHandler, schemaHandler).run()
     Utils.logFailure(res, logger)
-  }
-
-  def bqload(
-    config: BigQueryLoadConfig,
-    maybeSchema: Option[BQSchema] = None,
-    maybeTableDescription: Option[String] = None
-  ): Try[JobResult] = {
-    new BigQuerySparkJob(config, maybeSchema, maybeTableDescription).run()
   }
 
   def kafkaload(config: KafkaJobConfig): Try[JobResult] = {

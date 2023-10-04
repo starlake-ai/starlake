@@ -6,7 +6,6 @@ import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
 import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
@@ -21,7 +20,6 @@ class CliConfigSpec extends TestHelper {
     "Generate Documentation" should "succeed" in {
       val configMap = Map[String, CliConfig[_]](
         "import"         -> ImportConfig,
-        "bqload"         -> BigQueryLoadConfig,
         "esload"         -> ESLoadConfig,
         "infer-schema"   -> InferSchemaConfig,
         "load"           -> IngestConfig,
