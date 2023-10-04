@@ -159,16 +159,17 @@ class JsonIngestionJob(
 
     import session.implicits._
     val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
+    rejectedDS.cache()
 
     saveRejected(rejectedDS, validationResult.rejected).flatMap { _ =>
       saveAccepted(validationResult) // prefer to let Spark compute the final schema
     } match {
       case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
+        (validationResult.errors.union(rejectedDS), validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
       case Success((_, _, rejectedRecordCount)) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+        (validationResult.errors.union(rejectedDS), validationResult.accepted, rejectedRecordCount);
     }
   }
 
