@@ -114,6 +114,7 @@ object Sink {
 case class AllSinks(
   // All sinks
   connectionRef: Option[String] = None,
+  // depending on the connection.type coming from the connection ref, some of the options below may be required
   // BigQuery
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
