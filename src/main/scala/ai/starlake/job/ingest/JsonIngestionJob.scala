@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
@@ -103,7 +104,7 @@ class JsonIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val rdd: RDD[Row] = dataset.rdd
 
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
@@ -159,14 +160,16 @@ class JsonIngestionJob(
     import session.implicits._
     val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
 
-    saveRejected(rejectedDS, validationResult.rejected).map { _ =>
+    saveRejected(rejectedDS, validationResult.rejected).flatMap { _ =>
       saveAccepted(validationResult) // prefer to let Spark compute the final schema
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success((_, _, rejectedRecordCount)) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (rejectedDS, validationResult.accepted)
   }
 
   override def name: String = "JsonJob"

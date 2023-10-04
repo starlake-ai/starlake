@@ -803,15 +803,15 @@ class IngestionWorkflow(
         case custom =>
           logger.info(s"Entering $custom engine")
           (action.runSpark(transformConfig.drop), transformConfig.interactive) match {
-            case (Success((SparkJobResult(None), _)), _) =>
+            case (Success((SparkJobResult(None, _), _)), _) =>
               true
-            case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>
+            case (Success((SparkJobResult(Some(dataFrame), _), _)), Some(_)) =>
               // For interactive display. Used by the VSCode plugin
               logger.info("""START QUERY SQL""")
               dataFrame.show(false)
               logger.info("""END QUERY SQL""")
               true
-            case (Success((SparkJobResult(maybeDataFrame), sqlSource)), None) =>
+            case (Success((SparkJobResult(maybeDataFrame, _), sqlSource)), None) =>
               val sinkOption = action.sink
               logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
               sinkOption match {
