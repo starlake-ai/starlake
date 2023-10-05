@@ -1,15 +1,63 @@
-/** @type {import('@docusaurus/types').DocusaurusConfig} */
-module.exports = {
+// @ts-check
+// Note: type annotations allow type checking and IDEs autocompletion
+
+const lightCodeTheme = require('prism-react-renderer/themes/github');
+const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+
+/** @type {import('@docusaurus/types').Config} */
+const config = {
     title: "Supercharge your data pipelines",
     tagline: 'So your data just keep moving',
+    favicon: 'img/favicon.ico',
+
     url: 'https://starlake-ai.github.io',
     baseUrl: process.env.BASE_URL || '/',
-    onBrokenLinks: 'throw',
-    onBrokenMarkdownLinks: 'warn',
-    favicon: 'img/favicon.ico',
+
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
-    themeConfig: {
+
+    onBrokenLinks: 'throw',
+    onBrokenMarkdownLinks: 'warn',
+
+    // Even if you don't use internalization, you can use this field to set useful
+    // metadata like html lang. For example, if your site is Chinese, you may want
+    // to replace "en" with "zh-Hans".
+    i18n: {
+        defaultLocale: 'en',
+        locales: ['en'],
+    },
+    presets: [
+        [
+            'classic',
+            ({
+                docs: {
+                    sidebarPath: require.resolve('./sidebars.js'),
+                    // Please change this to your repo.
+                    editUrl:
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
+                },
+                blog: {
+                    showReadingTime: true,
+                    // Please change this to your repo.
+                    editUrl:
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
+                },
+                theme: {
+                    customCss: require.resolve('./src/css/custom.css'),
+                },
+                googleAnalytics: {
+                    trackingID: 'UA-207943293-1',
+                    // Optional fields.
+                    anonymizeIP: true // Should IPs be anonymized?
+                },
+                gtag: {
+                    trackingID: 'G-FYS72XYD48',
+                    anonymizeIP: true,
+                },
+            }),
+        ],
+    ],
+    themeConfig: ({
 
         docs: {
             sidebar: {
@@ -19,8 +67,8 @@ module.exports = {
         },
         prism: {
             additionalLanguages: ['java', 'scala', 'sql', 'powershell', 'python'],
-            theme: require('prism-react-renderer/themes/github'),
-            darkTheme: require('prism-react-renderer/themes/dracula'),
+            theme: lightCodeTheme,
+            darkTheme: darkCodeTheme
         },
         navbar: {
             title: 'Starlake',
@@ -31,26 +79,10 @@ module.exports = {
             },
             items: [
                 {
+                    type: 'docSidebar',
+                    sidebarId: 'starlakeSidebar',
                     label: 'Documentation',
-                    position: 'left',
-                    items: [
-                        {
-                            label: 'Quickstart',
-                            to: '/docs/quickstart/install'
-                        },
-                        {
-                            label: 'User Guide',
-                            to: '/docs/userguide/example'
-                        },
-                        {
-                            to: '/docs/reference/configuration',
-                            label: 'Reference'
-                        },
-                        {
-                            to: '/docs/cli/import',
-                            label: 'CLI'
-                        },
-                    ]
+                    position: 'left'
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
@@ -141,38 +173,8 @@ module.exports = {
             ],
             copyright: `By the way, Starlake is serverless.`,
         },
-    },
-    presets: [
-        [
-            '@docusaurus/preset-classic',
-            {
-                googleAnalytics: {
-                    trackingID: 'UA-207943293-1',
-                    // Optional fields.
-                    anonymizeIP: true // Should IPs be anonymized?
-                },
-                gtag: {
-                    trackingID: 'G-FYS72XYD48',
-                    anonymizeIP: true,
-                },
-                docs: {
-                    sidebarPath: require.resolve('./sidebars.js'),
-                    // Please change this to your repo.
-                    editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
-                },
-                blog: {
-                    showReadingTime: true,
-                    // Please change this to your repo.
-                    editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
-                },
-                theme: {
-                    customCss: require.resolve('./src/css/custom.css'),
-                },
-            },
-        ],
-    ],
+    }),
+
     plugins: [
         // ... Your other plugins.
         [
@@ -191,3 +193,5 @@ module.exports = {
         ],
     ]
 };
+
+module.exports = config;
