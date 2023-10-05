@@ -81,7 +81,7 @@ const config = {
                 {
                     type: 'docSidebar',
                     sidebarId: 'starlakeSidebar',
-                    label: 'Documentation',
+                    label: 'Docs',
                     position: 'left'
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
