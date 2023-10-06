@@ -5,8 +5,10 @@ import scopt.OParser
 
 case class AclDependenciesConfig(
   grantees: List[String] = Nil,
+  tables: List[String] = Nil,
   outputFile: Option[String] = None,
-  reload: Boolean = false
+  reload: Boolean = false,
+  svg: Boolean = false
 )
 object AclDependenciesConfig extends CliConfig[AclDependenciesConfig] {
   val command = "acl-dependencies"
@@ -34,6 +36,20 @@ object AclDependenciesConfig extends CliConfig[AclDependenciesConfig] {
         .optional()
         .text(
           "Should we reload the domains first ?"
+        ),
+      opt[Unit]("svg")
+        .action((x, c) => c.copy(svg = true))
+        .optional()
+        .text(
+          "Should we generate SVG files ?"
+        ),
+      opt[Seq[String]]("tables")
+        .action { (x, c) =>
+          c.copy(tables = x.toList)
+        }
+        .optional()
+        .text(
+          "Which tables should we include in the dot file ? All by default"
         )
     )
   }

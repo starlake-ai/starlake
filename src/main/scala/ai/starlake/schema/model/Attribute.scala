@@ -84,7 +84,6 @@ case class Attribute(
   accessPolicy: Option[String] = None
 ) extends Named
     with LazyLogging {
-
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   override def toString: String =

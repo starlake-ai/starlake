@@ -1,7 +1,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Schema
+import ai.starlake.schema.model.{RowLevelSecurity, Schema}
+import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
@@ -117,12 +118,27 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     usersSubgraph + groupsSubgraph + saSubgraph + domainsSubgraph
   }
 
-  private def rlsTables(config: AclDependenciesConfig) = {
-    schemaHandler
-      .domains()
-      .map(d => d.finalName -> d.rlsTables(config))
-      .filter { case (domainName, rls) => rls.nonEmpty }
-      .toMap
+  /** @param config
+    * @return
+    *   Map[domainName, Map[tableName, List[RowLevelSecurity]]]
+    */
+  private def rlsTables(
+    config: AclDependenciesConfig
+  ): Map[String, Map[String, List[RowLevelSecurity]]] = {
+    if (config.tables.nonEmpty) {
+      val domains = config.tables.map { t => t.split('.').head }
+      schemaHandler
+        .domains()
+        .filter(d => domains.contains(d.finalName))
+        .map(d => d.finalName -> d.rlsTables(config))
+        .toMap
+    } else {
+      schemaHandler
+        .domains()
+        .map(d => d.finalName -> d.rlsTables(config))
+        .filter { case (domainName, rls) => rls.nonEmpty }
+        .toMap
+    }
   }
 
   private def jobsAsDot(config: AclDependenciesConfig): String = {
@@ -177,7 +193,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       domain -> rlsMap.keySet
     }
 
-    val aclTableNames = schemaHandler
+    val aclTableNames: Map[String, Set[String]] = schemaHandler
       .domains()
       .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(x => x.finalName))
       .toMap
@@ -338,9 +354,15 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def aclAsDotString(config: AclDependenciesConfig): String = {
     val _ = schemaHandler.domains(reload = config.reload)
-    aclPrefix + rlsAclTablesAsDot(config) + jobsAsDot(config) + tableAndAclAndRlsUsersAsDot(
-      config
-    ) + aclRelationsAsDot(config) + rlsRelationsAsDot(config) + suffix
+    val dotStr =
+      aclPrefix + rlsAclTablesAsDot(config) + jobsAsDot(config) + tableAndAclAndRlsUsersAsDot(
+        config
+      ) + aclRelationsAsDot(config) + rlsRelationsAsDot(config) + suffix
+    if (config.svg) {
+      Utils.dot2Svg(dotStr)
+    } else {
+      dotStr
+    }
   }
 
   private def save(config: TableDependenciesConfig, result: String): Unit = {

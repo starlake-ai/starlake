@@ -125,9 +125,21 @@ class AutoTaskDependencies(
       |}
       |""".stripMargin
 
-  def jobAsDot(config: AutoTaskDependenciesConfig): (String, String) =
-    jobAsDot(jobs(config), config)
+  def jobAsDot(config: AutoTaskDependenciesConfig, svg: Boolean = false): (String, String) = {
+    val (jobName, dotContent) = jobAsDot(jobs(config), config)
+    if (svg) {
+      val svgContent = Utils.dot2Svg(dotContent)
+      (jobName, svgContent)
+    } else {
+      (jobName, dotContent)
+    }
+  }
 
+  /** @param allDependencies
+    * @param config
+    * @return
+    *   (jobName, dotContent)
+    */
   def jobAsDot(
     allDependencies: List[DependencyContext],
     config: AutoTaskDependenciesConfig

@@ -243,16 +243,35 @@ import scala.util.Try
   }
 
   def aclTables(config: AclDependenciesConfig): List[Schema] = {
+    val filteredTables = if (config.tables.nonEmpty) {
+      tables.filter { table =>
+        config.tables.exists(
+          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
+        )
+      }
+    } else {
+      tables
+    }
     val all = config.grantees
-    tables
+    filteredTables
       .filter { table =>
         table.acl.nonEmpty && (all.isEmpty || table.acl.flatMap(_.grants).intersect(all).nonEmpty)
       }
   }
 
   def rlsTables(config: AclDependenciesConfig): Map[String, List[RowLevelSecurity]] = {
+    val filteredTables = if (config.tables.nonEmpty) {
+      tables.filter { table =>
+        config.tables.exists(
+          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
+        )
+      }
+    } else {
+      tables
+    }
+
     val all = config.grantees
-    tables
+    filteredTables
       .filter { table =>
         table.rls.nonEmpty && (all.isEmpty || table.rls.flatMap(_.grants).intersect(all).nonEmpty)
       }

@@ -43,7 +43,6 @@ import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
@@ -664,7 +663,6 @@ class IngestionWorkflow(
   }
 
   def inferSchema(config: InferSchemaConfig): Try[File] = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
     val saveDir = config.outputDir.getOrElse(DatasetArea.load.toString)
 
     val result = (new InferSchemaJob).infer(

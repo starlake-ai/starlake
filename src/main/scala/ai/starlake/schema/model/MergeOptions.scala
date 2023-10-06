@@ -25,6 +25,7 @@ case class MergeOptions(
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None
 ) {
+
   @JsonIgnore
   private val lastPat =
     Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)

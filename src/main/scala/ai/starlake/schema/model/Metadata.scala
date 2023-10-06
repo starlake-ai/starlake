@@ -103,6 +103,7 @@ case class Metadata(
   fillWithDefaultValue: Boolean = true,
   schedule: Option[String] = None
 ) {
+
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
   def getSink()(implicit settings: Settings): Sink = {

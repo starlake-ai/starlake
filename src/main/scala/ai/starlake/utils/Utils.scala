@@ -24,6 +24,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.{Attribute, ValidationMessage, WriteMode}
 import ai.starlake.utils.Formatter._
+import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
@@ -38,6 +39,7 @@ import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.reflect.runtime.universe
+import scala.sys.process.Process
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -327,4 +329,20 @@ object Utils extends StrictLogging {
   def keepAlphaNum(domain: String): String = {
     domain.replaceAll("[^\\p{Alnum}]", "_")
   }
+
+  def dot2Svg(str: String): String = {
+    val dotFile = File.newTemporaryFile("graph_", ".dot.tmp")
+    dotFile.write(str)
+    val svgFile = File.newTemporaryFile("graph_", ".svg.tmp")
+    val p = Process(s"dot -Tsvg ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
+    val exitCode = p.run().exitValue()
+    val result = svgFile.contentAsString
+    dotFile.delete(swallowIOExceptions = false)
+    svgFile.delete(swallowIOExceptions = false)
+    if (exitCode != 0) {
+      throw new Exception(s"Failed to convert to SVG. Exited with error code $exitCode")
+    }
+    result
+  }
+
 }

@@ -81,6 +81,7 @@ case class Schema(
   filter: Option[String] = None,
   patternSample: Option[String] = None
 ) extends Named {
+
   def this() = this(
     "",
     Pattern.compile("."),
