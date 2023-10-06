@@ -20,7 +20,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
                      |""".stripMargin
 
   private def formatDotName(name: String) = {
-    name.replaceAll("[^\\p{Alnum}]", "_")
+    Utils.keepAlphaNum(name)
   }
 
   def run(args: Array[String]): Unit = {
