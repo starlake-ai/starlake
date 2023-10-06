@@ -52,7 +52,8 @@ case class JDBCSchemas(
             fetchSize = schema.fetchSize.orElse(default.flatMap(_.fetchSize)),
             stringPartitionFunc =
               schema.stringPartitionFunc.orElse(default.flatMap(_.stringPartitionFunc)),
-            fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport))
+            fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport)),
+            sanitizeName = schema.sanitizeName.orElse(default.flatMap(_.sanitizeName))
           )
           .fillWithDefaultValues()
       }))
@@ -90,7 +91,8 @@ case class JDBCSchema(
   connectionOptions: Map[String, String] = Map.empty,
   fetchSize: Option[Int] = None,
   stringPartitionFunc: Option[String] = None,
-  fullExport: Option[Boolean] = None
+  fullExport: Option[Boolean] = None,
+  sanitizeName: Option[Boolean] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -99,7 +101,8 @@ case class JDBCSchema(
   def fillWithDefaultValues(): JDBCSchema = {
     copy(
       tableTypes = if (tableTypes.isEmpty) JDBCSchema.defaultTableTypes else tableTypes,
-      fullExport = Some(false)
+      fullExport = if (fullExport.isEmpty) Some(false) else fullExport,
+      sanitizeName = if (sanitizeName.isEmpty) Some(false) else sanitizeName
     )
   }
 }

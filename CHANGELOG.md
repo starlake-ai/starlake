@@ -7,6 +7,9 @@
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite
+  - **BREAKING CHANGE** Extract-schema sanitize domain name if sanitizeName is true. Have same value for domain name and its folder. By default sanitizaName is false.
+  - 'directory' is not mandatory in extract template
+  - load individual domain only in extract-schema
 
 # 0.8.0:
 - ** DEPRECATED **

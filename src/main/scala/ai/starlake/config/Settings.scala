@@ -43,6 +43,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import pureconfig.generic.auto._
 
 import java.io.ObjectStreamException
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, UUID}
 import scala.collection.JavaConverters._
@@ -533,15 +534,19 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     lazy val fileSystem: String = {
-      val index = root.indexOf(":")
-      if (index < 0)
-        "file://"
-      else {
-        val fs = root.substring(0, index)
-        // get bucket name
-        val endIndex = root.indexOf("/", index + 3)
-        val bucketName = root.substring(index + 3, endIndex)
-        s"$fs://$bucketName"
+      val protocolSeperator = "://"
+      if (root.matches("^\\w+?:\\/\\/.*")) { // check if it follows URI pattern
+        val uri = new URI(root)
+        uri.getScheme match {
+          case "file" => uri.getScheme + protocolSeperator
+          case scheme =>
+            // get bucket name
+            val bucketName =
+              root.substring(scheme.length + protocolSeperator.length).takeWhile(_ != '/')
+            s"$scheme$protocolSeperator$bucketName"
+        }
+      } else {
+        s"file$protocolSeperator"
       }
     }
 
