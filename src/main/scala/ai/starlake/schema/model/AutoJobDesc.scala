@@ -50,6 +50,7 @@ import ai.starlake.schema.model.Severity._
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
+  comment: Option[String] = None,
   default: Option[AutoTaskDesc] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only

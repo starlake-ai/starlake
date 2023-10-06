@@ -51,6 +51,11 @@ case class AutoTaskDesc(
   parseSQL: Option[Boolean] = None
 ) extends Named {
 
+  @JsonIgnore
+  def getTablePartName(): String = {
+    this.name.split('.').last
+  }
+
   def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
 
   def merge(child: AutoTaskDesc): AutoTaskDesc = {
