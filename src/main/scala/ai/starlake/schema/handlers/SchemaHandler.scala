@@ -460,9 +460,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           (configPath, domainWithName)
 
         } else {
-          (configPath, Success(Domain(directory.getName())))
+          (
+            configPath,
+            Failure(new RuntimeException(s"Config file not found in ${directory.toString}"))
+          )
         }
-
       }
     val domains = domainsOnly.map { case (configPath, domainOnly) =>
       // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
@@ -1083,7 +1085,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     *   Unique Domain referenced by this name.
     */
   def getDomain(name: String, raw: Boolean = false): Option[Domain] =
-    domains(raw = raw).find(_.name == name)
+    domains(domainNames = List(name), raw = raw).find(_.name == name)
 
   /** Return all schemas for a domain
     *
