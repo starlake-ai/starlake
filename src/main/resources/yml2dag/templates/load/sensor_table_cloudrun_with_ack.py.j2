@@ -5,7 +5,8 @@
 # - global_ack_file_path: the path to the ack file to wait for
 # - ack_wait_timeout: the time to wait in seconds
 # - schedule: the schedule airflow variable where value is a cron
-#
+# Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
+
 
 import os
 import re
@@ -41,7 +42,23 @@ options = {
     {% endfor %}
 }
 
-SL_ENV_VARS = Variable.get(options["sl_env_var"], default_var={}, deserialize_json=True)
+class MissingEnvironmentVariable(Exception):
+    pass
+
+def get_context_var(var_name, **kwargs):
+    if hasattr(options, var_name):
+        return getattr(options, var_name)
+    elif Variable.get(var_name, **kwargs) is not None:
+        return Variable.get(var_name)
+    elif os.getenv(var_name) is not None:
+        return os.getenv(var_name)
+    else:
+        raise MissingEnvironmentVariable(f"{var_name} does not exist")
+
+
+# SL_ENV_VARS is a map of env vars to add to the cloud run job
+SL_ENV_VARS = get_context_var(get_context_var("sl_env_var"), default_var={}, deserialize_json=True)
+cloud_run_job_region = get_context_var('cloud_run_job_region')
 
 schedules = [{% for schedule in context.schedules %}
   {
@@ -64,39 +81,53 @@ schedules = [{% for schedule in context.schedules %}
 
 
 class StarlakeCloudRunJobAsyncOperator(BashOperator):
+    '''
 
+    This operator executes a cloud run job and does not wait for its completion.
+    '''
     def __init__(self, *, domain: str, table: str, **kwargs) -> None:
         update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'"
                                    for i, (key, value) in enumerate(SL_ENV_VARS.items())])
-        super().__init__(bash_command=(f"gcloud beta run jobs execute {options['cloud_run_job_name']} "
-                                       f"--args 'watch --include {domain} --schemas {table}' "
+        cloud_run_job_name = get_context_var('cloud_run_job_name')
+        super().__init__(bash_command=(f"gcloud beta run jobs execute {cloud_run_job_name} "
+                                       f"--args 'load --include {domain} --schemas {table}' "
                                        f"{update_env_vars} "
-                                       "--region {{'{{var.json.CLOUD_RUN_CONFIG.region}}'}} --format='get(metadata.name)'"),
+                                       f"--region {cloud_run_job_region} --format='get(metadata.name)'"),
                          do_xcom_push=True,
                          **kwargs)
 
 
 class CloudRunJobCompletionSensor(BashSensor):
-
+    '''
+    This sensor checks the completion of a cloud run job.
+    '''
     def __init__(self, *, source_task_id: str, **kwargs) -> None:
-        super().__init__(bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region europe-west1 --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
+        super().__init__(bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
                          mode="reschedule",
                          #retry_exit_code=1, available in 2.6. Implies to combine this sensor and the bottom operator
                          **kwargs)
 
 
 class CloudRunJobCheckStatusOperator(BashOperator):
-
+    '''
+    This operator checks the status of a cloud run job and fails if it is not successful.
+    '''
     def __init__(self, *, source_task_id: str, domain: str, table: str, **kwargs) -> None:
-        super().__init__(bash_command=f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region europe-west1 --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\"",
+        super().__init__(bash_command=f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\"",
                          outlets=[Dataset(keep_ascii_only(f'{PROJECT_ID_IDA}.{domain}.{table}'))],
                          **kwargs)
 
 def keep_ascii_only(text):
+    '''
+    This function removes non-ascii characters from a string.
+    '''
     return re.sub(r'[^\x00-\x7F]+', '_', text)
 
 
 def sanitize_id(id: str):
+    '''
+    This function sanitizes a string to be used as an id.
+    '''
     return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", id.replace("$", "S")))
 
 
@@ -106,6 +137,9 @@ def watcher():
 
 
 def generate_dag_name(schedule):
+    '''
+    This function generates the dag name from the filename generated by starlake
+    '''
     base_dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "")
     return (f"{base_dag_name}-{schedule['cron']}" if len(schedules) > 1 else base_dag_name)
 
@@ -136,11 +170,11 @@ for schedule in schedules:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
                     load_task = StarlakeCloudRunJobAsyncOperator(task_id=load_task_id, domain=domain["name"], table=table["name"])
-                    with TaskGroup(group_id=f'{load_task_id}_sensors') as task_completion_sensors:
-                        sensor_id = load_task_id + '_sensor'
-                        check_id = load_task_id + '_check'
-                        completion_sensor = CloudRunJobCompletionSensor(task_id=sensor_id, source_task_id=load_task.task_id)
-                        job_status = CloudRunJobCheckStatusOperator(task_id=check_id, source_task_id=load_task.task_id, domain=domain["final_name"], table=table["name"])
+                    with TaskGroup(group_id=f'{load_task_id}_wait') as task_completion_sensors:
+                        check_completion_id = load_task_id + '_check_completion'
+                        get_completion_status_id = load_task_id + '_get_completion_status'
+                        completion_sensor = CloudRunJobCompletionSensor(task_id=check_completion_id, source_task_id=load_task.task_id)
+                        job_status = CloudRunJobCheckStatusOperator(task_id=get_completion_status_id, source_task_id=load_task.task_id, domain=domain["final_name"], table=table["name"])
                         completion_sensor >> job_status
                     load_task >> task_completion_sensors
             return domain_load_tasks

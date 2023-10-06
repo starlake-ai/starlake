@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
@@ -50,17 +51,22 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
-  def relationsAsDotString(config: TableDependenciesConfig): String = {
+  def relationsAsDotString(config: TableDependenciesConfig, svg: Boolean = false): String = {
     schemaHandler.domains(reload = config.reload)
     val fkTables =
       if (config.related)
-        relatedTables(config.tables)
+        relatedTables(config.tables).toSet.union(filterTables(config.tables).toSet)
       else
         filterTables(config.tables)
     val dots =
       schemaHandler
         .domains()
         .map(_.asDot(config.includeAllAttributes, fkTables.map(_.toLowerCase).toSet))
-    prefix + dots.mkString("\n") + suffix
+    val dotStr = prefix + dots.mkString("\n") + suffix
+    if (svg) {
+      Utils.dot2Svg(dotStr)
+    } else {
+      dotStr
+    }
   }
 }

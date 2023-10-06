@@ -1,7 +1,3 @@
----
-sidebar_position: 1
----
-
 # How to contribute
 
 This guide documents the best way to make various types of contribution to Starlake Data Pipeline, including what is required before submitting a code change.
