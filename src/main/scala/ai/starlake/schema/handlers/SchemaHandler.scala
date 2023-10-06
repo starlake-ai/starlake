@@ -391,15 +391,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .getOrElse(settings.appConfig.env)
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
-    val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
 
-    // We subsittute values defined in the current profile with variables defined
-    // in the default env file
     val localEnvVars =
-      loadEnv(envsCometPath)
-        .map(_.env)
-        .getOrElse(Map.empty)
-        .mapValues(_.richFormat(sys.env, globalEnvVars ++ cometDateVars))
+      if (activeEnvName.nonEmpty) {
+        val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
+
+        // We subsittute values defined in the current profile with variables defined
+        // in the default env file
+
+        loadEnv(envsCometPath)
+          .map(_.env)
+          .getOrElse(Map.empty)
+          .mapValues(_.richFormat(sys.env, globalEnvVars ++ cometDateVars))
+      } else
+        Map.empty[String, String]
 
     // Please note below how profile specific vars override default profile vars.
     val activeEnvVars = sys.env ++ cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv

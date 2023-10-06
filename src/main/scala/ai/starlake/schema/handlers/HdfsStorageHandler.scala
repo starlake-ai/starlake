@@ -249,6 +249,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    pathSecurityCheck(path)
     readAndExecute(path, charset) { is =>
       IOUtils.toString(is)
     }
@@ -264,6 +265,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     val output: T = Using.resource(new InputStreamReader(currentFS.open(path), charset)) { stream =>
       action(stream)
@@ -279,6 +281,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute file path
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
+    pathSecurityCheck(path)
     val os: FSDataOutputStream = getOutputStream(path).asInstanceOf[FSDataOutputStream]
     os.write(data.getBytes(charset))
     os.close()
@@ -292,12 +295,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute file path
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
+    pathSecurityCheck(path)
     val os: OutputStream = getOutputStream(path)
     os.write(data, 0, data.length)
     os.close()
   }
 
   def listDirectories(path: Path): List[Path] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
   }
@@ -324,6 +329,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     exclude: Option[Pattern],
     sortByName: Boolean = false
   ): List[Path] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     logger.info(s"list($path, $extension, $since)")
     Try {
@@ -366,6 +372,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @return
     */
   override def copy(src: Path, dst: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dst)
     FileUtil.copy(fs(src), src, fs(dst), dst, false, conf)
   }
 
@@ -378,6 +386,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @return
     */
   def move(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
     val currentFS = fs(src)
     delete(dest)
     mkdirs(dest.getParent)
@@ -390,6 +399,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute path of file to delete
     */
   def delete(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.delete(path, true)
   }
@@ -400,6 +410,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   Absolute path of folder to create
     */
   def mkdirs(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.mkdirs(path)
   }
@@ -412,6 +423,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   destination file path
     */
   def copyFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     currentFS.copyFromLocalFile(source, dest)
   }
@@ -424,6 +437,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   Local file path
     */
   def copyToLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     currentFS.copyToLocalFile(source, dest)
   }
@@ -437,6 +452,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   destination file path
     */
   def moveFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     if (currentFS.getScheme() == "file")
       currentFS.moveFromLocalFile(source, dest)
@@ -445,31 +462,37 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   def exists(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.exists(path)
   }
 
   def blockSize(path: Path): Long = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getDefaultBlockSize(path)
   }
 
   def spaceConsumed(path: Path): Long = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getContentSummary(path).getSpaceConsumed
   }
 
   def lastModified(path: Path): Timestamp = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getFileStatus(path).getModificationTime
   }
 
   def touchz(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     Try(currentFS.create(path, false).close())
   }
 
   def touch(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     Try(currentFS.setTimes(path, System.currentTimeMillis(), -1))
   }
