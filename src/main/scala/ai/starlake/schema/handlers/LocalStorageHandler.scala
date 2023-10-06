@@ -54,6 +54,7 @@ class LocalStorageHandler(implicit
     *   FSDataOutputStream
     */
   private def getOutputStream(path: Path): OutputStream = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.delete(true)
     file.newOutputStream()
@@ -67,6 +68,7 @@ class LocalStorageHandler(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    pathSecurityCheck(path)
     readAndExecute(path, charset) { is =>
       IOUtils.toString(is)
     }
@@ -82,6 +84,7 @@ class LocalStorageHandler(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.fileInputStream
       .map { is =>
@@ -98,6 +101,7 @@ class LocalStorageHandler(implicit
     *   : Absolute file path
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.parent.createDirectories()
     file.overwrite(data)
@@ -111,12 +115,14 @@ class LocalStorageHandler(implicit
     *   : Absolute file path
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.parent.createDirectories()
     file.writeByteArray(data)
   }
 
   def listDirectories(path: Path): List[Path] = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.list.filter(_.isDirectory).map(f => new Path(f.pathAsString)).toList
   }
@@ -143,6 +149,7 @@ class LocalStorageHandler(implicit
     exclude: Option[Pattern],
     sortByName: Boolean = false // sort by time by default
   ): List[Path] = {
+    pathSecurityCheck(path)
     logger.info(s"list($path, $extension, $since)")
     Try {
       if (exists(path)) {
@@ -189,6 +196,8 @@ class LocalStorageHandler(implicit
     * @return
     */
   override def copy(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     mkdirs(dest.getParent)
@@ -205,6 +214,8 @@ class LocalStorageHandler(implicit
     * @return
     */
   def move(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     fdest.delete(true)
@@ -219,6 +230,7 @@ class LocalStorageHandler(implicit
     *   : Absolute path of file to delete
     */
   def delete(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.delete(true)
     true
@@ -230,6 +242,7 @@ class LocalStorageHandler(implicit
     *   Absolute path of folder to create
     */
   def mkdirs(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.createDirectories()
     true
@@ -243,6 +256,8 @@ class LocalStorageHandler(implicit
     *   destination file path
     */
   def copyFromLocal(src: Path, dest: Path): Unit = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     fdest.delete(true)
@@ -269,10 +284,13 @@ class LocalStorageHandler(implicit
     *   destination file path
     */
   def moveFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     this.move(source, dest)
   }
 
   def exists(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.exists
   }
@@ -282,21 +300,25 @@ class LocalStorageHandler(implicit
   }
 
   def spaceConsumed(path: Path): Long = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.size()
   }
 
   def lastModified(path: Path): Timestamp = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.lastModifiedTime.toEpochMilli
   }
 
   def touchz(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     Try(file.touch())
   }
 
   def touch(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     touchz(path)
   }
 

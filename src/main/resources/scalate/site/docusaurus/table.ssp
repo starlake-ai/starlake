@@ -1,0 +1,50 @@
+<%@ val table: ai.starlake.schema.model.Schema %>
+<%@ val schemaHandler: ai.starlake.schema.handlers.SchemaHandler %>
+<%@ val relationsSVG: String %>
+<%@ val aclSVG: String %>
+
+
+<%@ val samplePattern: String = if (table.patternSample.isDefined) "("+table.patternSample.get+")" else "" %>
+
+# ${ table.finalName }
+
+${ table.comment.getOrElse("No description provided") }
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+<Tabs groupId="table">
+<TabItem value="general" label="General">
+
+| Property | Value |
+| --- | ----------- |
+| Name | ${ table.name } |
+| Pattern | ${ table.pattern.pattern()}  ${samplePattern} |
+| Tags | ${ table.tags.toList.sorted.mkString(",") } |
+| Primary Key | ${ table.primaryKey.mkString(",") } |
+
+
+
+</TabItem>
+
+<TabItem value="attributes" label="Attributes">
+
+| Name | Rename | Type | Required | Key | Default | Tags | Script | Position | Metric |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+#for (attr <- table.attributes)
+| ${attr.name} | ${attr.rename.getOrElse("")} | ${attr.`type`} | ${attr.required} | ${attr.foreignKey.getOrElse("")} | ${attr.default.getOrElse("")} | ${attr.tags.toList.sorted.mkString(",")} | ${attr.script.getOrElse("")} | ${attr.position.map(p => p.first+","+p.last)} | ${attr.metricType.map(_.value).getOrElse("")} | 
+#end
+
+</TabItem>
+
+<TabItem value="relations" label="Relations">
+
+![Exemple de bannière](./${relationsSVG})
+
+![Exemple de bannière](./${aclSVG})
+
+
+
+</TabItem>
+</Tabs>
