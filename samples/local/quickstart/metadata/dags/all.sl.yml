@@ -1,6 +1,6 @@
 dag:
     comment: "sample dag configuration"
-    template: "sl_bash.py.j2"
+    template: "load/sl_bash.py.j2"
     filename: "all.py"
     options:
         profileVar: "DATAPROC_MEDIUM"

@@ -1,0 +1,37 @@
+<%@ val task: ai.starlake.schema.model.AutoTaskDesc %>
+<%@ val schemaHandler: ai.starlake.schema.handlers.SchemaHandler %>
+<%@ val relationsSVG: String %>
+<%@ val aclSVG: String %>
+
+
+# ${ task.getTablePartName() }
+
+${ task.comment.getOrElse("No description provided") }
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+<Tabs groupId="table">
+<TabItem value="general" label="General">
+
+| Property | Value |
+| --- | ----------- |
+| Name | ${ task.name } |
+| Write Mode | ${ task.write.map(_.value).getOrElse("")} |
+| Tags | ${ task.tags.toList.sorted.mkString(",") } |
+
+</TabItem>
+
+
+
+<TabItem value="relations" label="Relations">
+
+![Exemple de bannière](./${relationsSVG})
+
+![Exemple de bannière](./${aclSVG})
+
+
+
+</TabItem>
+</Tabs>
