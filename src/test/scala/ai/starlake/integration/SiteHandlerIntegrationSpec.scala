@@ -45,13 +45,13 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
         clearDataDirectories()
         implicit val settings: Settings = Settings(ConfigFactory.load())
         val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
-        val siteHandler = new SiteHandler(schemaHandler)
-        siteHandler.run(
-          SiteConfig(
-            docusaurusFolder,
-            templateName = Some("docusaurus")
-          )
+        val config = SiteConfig(
+          docusaurusFolder,
+          templateName = Some("docusaurus")
         )
+
+        val siteHandler = new SiteHandler(config, schemaHandler)
+        siteHandler.run()
       }
     }
   }

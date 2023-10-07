@@ -5,8 +5,10 @@ import ai.starlake.schema.model.{Project, ProjectDiff}
 import org.apache.hadoop.fs.Path
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
+import scala.util.Try
+
 object ProjectCompare {
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
     ProjectCompareConfig.parse(args) match {
       case Some(config) =>
         compare(config)

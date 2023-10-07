@@ -7,6 +7,8 @@ import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.util.Try
+
 object Xls2YmlAutoJob extends LazyLogging {
 
   def generateSchema(
@@ -37,19 +39,17 @@ object Xls2YmlAutoJob extends LazyLogging {
     serializeToFile(File(outputPath, s"$fileName.sl.yml"), autotask)
   }
 
-  def run(args: Array[String]): Boolean = {
+  def run(args: Array[String]): Try[Unit] = Try {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
         config.files.foreach(generateSchema(_, config.policyFile, config.outputPath))
-        true
       case _ =>
-        false
     }
   }
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2YmlAutoJob.run(args)
-    System.exit(if (result) 0 else 1)
+    Xls2YmlAutoJob.run(args)
+    System.exit(0)
   }
 }

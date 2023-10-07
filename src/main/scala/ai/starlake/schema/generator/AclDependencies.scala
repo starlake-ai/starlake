@@ -6,6 +6,8 @@ import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.util.Try
+
 class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
   private val aclPrefix = """
@@ -23,7 +25,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     Utils.keepAlphaNum(name)
   }
 
-  def run(args: Array[String]): Unit = {
+  def run(args: Array[String]): Try[Unit] = Try {
     AclDependenciesConfig.parse(args) match {
       case Some(config) =>
         aclsAsDotFile(config)

@@ -130,7 +130,7 @@ class IngestionWorkflow(
     * the domain YML file.
     */
 
-  def loadLanding(config: ImportConfig): Unit = {
+  def loadLanding(config: ImportConfig): Try[Unit] = Try {
     val filteredDomains = config.includes match {
       case Nil => domains(Nil, Nil) // Load all domains & tables
       case _   => domains(config.includes.toList, Nil)
@@ -298,7 +298,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def loadPending(config: LoadConfig = LoadConfig()): Boolean = {
+  def loadPending(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
     val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
@@ -461,7 +461,7 @@ class IngestionWorkflow(
 
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def load(config: IngestConfig): Boolean = {
+  def load(config: IngestConfig): Try[Boolean] = {
     if (config.domain.isEmpty || config.schema.isEmpty) {
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
@@ -487,10 +487,9 @@ class IngestionWorkflow(
           schema <- domain.tables.find(_.name == schemaName)
         } yield ingest(domain, schema, ingestingPaths, config.options)
         result match {
-          case None | Some(Success(_)) => true
+          case None | Some(Success(_)) => Success(true)
           case Some(Failure(exception)) =>
-            Utils.logException(logger, exception)
-            false
+            Failure(exception)
         }
       }
     }
@@ -704,7 +703,7 @@ class IngestionWorkflow(
     )
   }
 
-  def compileAutoJob(config: TransformConfig): Unit = {
+  def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
@@ -733,7 +732,7 @@ class IngestionWorkflow(
     res.forall(_ == true)
   }
 
-  def autoJob(config: TransformConfig): Boolean = {
+  def autoJob(config: TransformConfig): Try[Boolean] = Try {
     if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
       val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
@@ -972,24 +971,20 @@ class IngestionWorkflow(
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
   }
-  def applyIamPolicies(): Boolean = {
+  def applyIamPolicies(): Try[Unit] = {
     val ignore = BigQueryLoadConfig(
       connectionRef = None,
       outputDatabase = None
     )
     schemaHandler
       .iamPolicyTags()
-      .exists { iamPolicyTags =>
-        val res = new BigQuerySparkJob(ignore).applyIamPolicyTags(iamPolicyTags)
-        res.recover { case e =>
-          Utils.logException(logger, e)
-          throw e
-        }
-        res.isSuccess
+      .map { iamPolicyTags =>
+        new BigQuerySparkJob(ignore).applyIamPolicyTags(iamPolicyTags)
       }
+      .getOrElse(Success(()))
   }
 
-  def secure(config: LoadConfig): Boolean = {
+  def secure(config: LoadConfig): Try[Boolean] = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
       domain.tables.map { schema =>
@@ -1045,6 +1040,9 @@ class IngestionWorkflow(
         }
       }
     }
-    !result.exists(_.isFailure)
+    if (result.exists(_.isFailure))
+      Failure(new Exception("Some errors occurred during secure"))
+    else
+      Success(true)
   }
 }

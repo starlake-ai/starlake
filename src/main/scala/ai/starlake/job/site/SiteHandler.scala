@@ -9,13 +9,16 @@ import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
-class SiteHandler(schemaHandler: SchemaHandler)(implicit val settings: Settings)
+import scala.util.Try
+
+class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val settings: Settings)
     extends StrictLogging {
-  def run(config: SiteConfig): Unit = {
+  def run(): Try[Unit] = Try {
     config.outputPath.createDirectoryIfNotExists()
     buildDomains(config)
     buildJobs(config)
   }
+
   def buildDomains(config: SiteConfig) = {
     var domainIndex = 1
 

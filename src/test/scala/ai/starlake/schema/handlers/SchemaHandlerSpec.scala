@@ -218,7 +218,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
 
-        assert(loadPending)
+        assert(loadPending.isSuccess)
 
         // Check Archived
         readFileContent(

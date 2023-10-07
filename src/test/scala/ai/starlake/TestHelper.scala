@@ -425,17 +425,17 @@ trait TestHelper
       validator
     }
 
-    def loadPending(implicit codec: Codec): Boolean = {
+    def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
       validator.loadPending()
     }
 
-    def secure(config: LoadConfig): Boolean = {
+    def secure(config: LoadConfig): Try[Boolean] = {
       val validator = loadWorkflow()
       validator.secure(config)
     }
 
-    def load(config: IngestConfig): Boolean = {
+    def load(config: IngestConfig): Try[Boolean] = {
       val validator = loadWorkflow()
       validator.load(config)
     }

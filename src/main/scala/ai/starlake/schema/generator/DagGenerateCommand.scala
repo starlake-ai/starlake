@@ -9,10 +9,11 @@ import org.apache.hadoop.fs.Path
 
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
 
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
     DagGenerateConfig.parse(args) match {
       case Some(config) =>
         generateDomainDags(config)

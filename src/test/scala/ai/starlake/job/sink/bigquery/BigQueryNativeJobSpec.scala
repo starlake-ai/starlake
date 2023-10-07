@@ -148,10 +148,10 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler)
           val config = TransformConfig("bqtest.bqjobtest")
-          workflow.autoJob(config) should be(true)
-          workflow.autoJob(config.copy(interactive = Some("json"))) should be(true)
-          workflow.autoJob(config.copy(interactive = Some("csv"))) should be(true)
-          workflow.autoJob(config.copy(interactive = Some("table"))) should be(true)
+          workflow.autoJob(config).isSuccess should be(true)
+          workflow.autoJob(config.copy(interactive = Some("json"))).isSuccess should be(true)
+          workflow.autoJob(config.copy(interactive = Some("csv"))).isSuccess should be(true)
+          workflow.autoJob(config.copy(interactive = Some("table"))).isSuccess should be(true)
         }
       }
     }
