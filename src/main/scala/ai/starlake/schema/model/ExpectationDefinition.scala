@@ -33,24 +33,31 @@ case class ExpectationDefinition(
     ) // Should never be called. Here for Jackson deserialization only
 
   def checkValidity(): List[ValidationMessage] = {
+    val (name, params) = ExpectationDefinition.extractNameAndParams(fullName)
+    val sampleExpectation = params.fold(expectation.expect) { (acc, param) =>
+      acc.replace(param, "1")
+    }
     Try {
-      CompilerUtils.compile(expectation.expect)
+      CompilerUtils.compile(sampleExpectation)
     } match {
       case scala.util.Success(_) => Nil
       case scala.util.Failure(e) =>
-        e.printStackTrace()
         ValidationMessage(
-          Severity.Error,
+          Severity.Warning,
           fullName,
-          s"Expectation $fullName is invalid: ${e.getMessage}"
+          s"Could not validate expectation $fullName in $sampleExpectation : ${e.getMessage}"
         ) :: Nil
     }
   }
-
 }
 
 object ExpectationDefinition extends StrictLogging {
 
+  /** Extracts the name and parameters from a full expectation definition
+    * @param fullName
+    * @return
+    *   (name, params)
+    */
   def extractNameAndParams(fullName: String): (String, List[String]) = {
     fullName
       .split('(') match {

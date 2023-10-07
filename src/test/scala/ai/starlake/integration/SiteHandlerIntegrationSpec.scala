@@ -38,22 +38,19 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
   }
 
   "Generate Docusaurus site" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      // select quickstart or starbake here
-      withEnvs("SL_ROOT" -> projectDir.pathAsString) {
-        // withEnvs("SL_ROOT" -> projectDir.pathAsString, "SL_METADATA" -> projectDir.pathAsString) {
-        clearDataDirectories()
-        implicit val settings: Settings = Settings(ConfigFactory.load())
-        val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
-        val config = SiteConfig(
-          docusaurusFolder,
-          templateName = Some("docusaurus")
-        )
+    // select quickstart or starbake here
+    withEnvs("SL_ROOT" -> projectDir.pathAsString) {
+      // withEnvs("SL_ROOT" -> projectDir.pathAsString, "SL_METADATA" -> projectDir.pathAsString) {
+      clearDataDirectories()
+      implicit val settings: Settings = Settings(ConfigFactory.load())
+      val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
+      val config = SiteConfig(
+        docusaurusFolder,
+        templateName = Some("docusaurus")
+      )
 
-        val siteHandler = new SiteHandler(config, schemaHandler)
-        siteHandler.run()
-      }
+      val siteHandler = new SiteHandler(config, schemaHandler)
+      siteHandler.run()
     }
   }
-
 }
