@@ -493,17 +493,19 @@ object JDBCUtils extends LazyLogging {
     }
 
     // Generate the domain with a dummy watch directory
+    val database = domainTemplate.flatMap(_.database)
     val incomingDir = domainTemplate
-      .map { dom =>
-        DatasetArea
-          .substituteDomainAndSchemaInPath(
-            jdbcSchema.schema,
-            "",
-            dom.resolveDirectory()
-          )
-          .toString
+      .flatMap { dom =>
+        dom.resolveDirectoryOpt().map { dir =>
+          DatasetArea
+            .substituteDomainAndSchemaInPath(
+              jdbcSchema.schema,
+              "",
+              dir
+            )
+            .toString
+        }
       }
-      .getOrElse(s"/${jdbcSchema.schema}")
 
     val normalizedDomainName = Utils.keepAlphaNum(jdbcSchema.schema)
     val rename = domainTemplate
@@ -517,11 +519,15 @@ object JDBCUtils extends LazyLogging {
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
-      name = jdbcSchema.schema,
+      database = database,
+      name = jdbcSchema.sanitizeName match {
+        case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
+        case _          => jdbcSchema.schema
+      },
       rename = rename,
       metadata = domainTemplate
         .flatMap(_.metadata)
-        .map(_.copy(directory = Some(incomingDir), ack = ack)),
+        .map(_.copy(directory = incomingDir, ack = ack)),
       tables = cometSchema.toList,
       comment = None,
       ack = None
@@ -634,7 +640,10 @@ object JDBCUtils extends LazyLogging {
     val colNameQuoteAudit = getColNameQuote(auditConnectionOptions("url"))
 
     // Some database accept strange chars (aka DB2). We get rid of them
-    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+    val domainName = jdbcSchema.sanitizeName match {
+      case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
+      case _          => jdbcSchema.schema
+    }
     baseOutputDir.createDirectories()
     val outputDir = File(baseOutputDir, domainName)
     outputDir.createDirectories()

@@ -190,6 +190,8 @@ class ExtractSpec extends TestHelper {
           |      - "VIEW"
           |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
           |    pattern: "{{schema}}-{{table}}.*"
+          |    fullExport: true
+          |    sanitizeName: true
           |  jdbcSchemas:
           |    - tables:
           |        - name: "user"
@@ -222,7 +224,8 @@ class ExtractSpec extends TestHelper {
             ),
             template = Some("/my-templates/domain-template.yml"),
             pattern = Some("{{schema}}-{{table}}.*"),
-            fullExport = Some(false)
+            fullExport = Some(true),
+            sanitizeName = Some(true)
           )
         ),
         default = Some(
@@ -235,7 +238,9 @@ class ExtractSpec extends TestHelper {
               "VIEW"
             ),
             template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*")
+            pattern = Some("{{schema}}-{{table}}.*"),
+            fullExport = Some(true),
+            sanitizeName = Some(true)
           )
         ),
         connection = Map.empty
@@ -289,7 +294,8 @@ class ExtractSpec extends TestHelper {
             ),
             template = Some("/my-templates/domain-template.yml"),
             pattern = Some("{{schema}}-{{table}}.*"),
-            fullExport = Some(false)
+            fullExport = Some(false),
+            sanitizeName = Some(false)
           )
         ),
         default = Some(
