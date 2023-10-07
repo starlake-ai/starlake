@@ -295,7 +295,7 @@ class SchemaHandlerSpec extends TestHelper {
         ) {
           cleanMetadata
           cleanDatasets
-          loadPending shouldBe true
+          loadPending.isSuccess shouldBe true
         }
       }
     }
@@ -313,7 +313,7 @@ class SchemaHandlerSpec extends TestHelper {
           )
           cleanMetadata
           cleanDatasets
-          load(IngestConfig("DOMAIN.sl.yml", "User", List(targetPath))) shouldBe true
+          load(IngestConfig("DOMAIN.sl.yml", "User", List(targetPath))).isSuccess shouldBe true
         }
       }
     }

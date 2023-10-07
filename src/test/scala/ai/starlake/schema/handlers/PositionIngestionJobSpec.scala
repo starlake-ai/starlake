@@ -79,7 +79,7 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         logger.info(settings.appConfig.datasets)
-        loadPending shouldBe true
+        loadPending.isSuccess shouldBe true
       }
     }
   }

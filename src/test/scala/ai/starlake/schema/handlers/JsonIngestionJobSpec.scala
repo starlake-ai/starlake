@@ -114,7 +114,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         cleanMetadata
         cleanDatasets
-        loadPending shouldBe false
+        loadPending.getOrElse(false) shouldBe false
       }
     }
   }

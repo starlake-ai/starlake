@@ -143,7 +143,9 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
 
           schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
           val validator = new IngestionWorkflow(storageHandler, schemaHandler)
-          validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
+          validator
+            .autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions"))
+            .isSuccess shouldBe true
           // check that table is created correctly with the right number of lines
           private val createdTable: Table =
             bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
@@ -153,9 +155,11 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .getTimePartitioning
             .getField
             .shouldBe("DOB")
-          validator.autoJob(
-            TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite")
-          ) shouldBe true
+          validator
+            .autoJob(
+              TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite")
+            )
+            .isSuccess shouldBe true
           private val updatedTable: Table =
             bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
           // check that table is appended with new partitions
