@@ -1,7 +1,8 @@
 package ai.starlake.integration
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.{SchemaHandler, SiteConfig, SiteHandler}
+import ai.starlake.job.site.{SiteConfig, SiteHandler}
+import ai.starlake.schema.handlers.SchemaHandler
 import better.files.File
 import com.typesafe.config.ConfigFactory
 
@@ -17,6 +18,10 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
   // select quickstart or starbake here
   val projectDir = quickstartDir
   // val projectDir = starbakeDir
+
+  // select docusaurus folder
+  val docusaurusFolder =
+    File(System.getProperty("user.home") + "/tmp/docusaurus/my-website/docs")
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>
@@ -43,8 +48,8 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
         val siteHandler = new SiteHandler(schemaHandler)
         siteHandler.run(
           SiteConfig(
-            File(System.getProperty("user.home") + "/tmp/docusaurus/my-website/docs"),
-            "docusaurus"
+            docusaurusFolder,
+            templateName = Some("docusaurus")
           )
         )
       }
