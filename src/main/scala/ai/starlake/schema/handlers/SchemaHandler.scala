@@ -130,7 +130,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def checkValidity(
     config: ValidateConfig = ValidateConfig()
-  ): (Int, Int) = {
+  ): Try[(Int, Int)] = Try {
     val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
     val TypesDomainsJobsErrorsAndWarnings =
       checkTypeDomainsJobsValidity(reload = config.reload)(storage)

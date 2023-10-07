@@ -5,6 +5,8 @@ import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.util.Try
+
 class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
   val prefix = """
@@ -28,7 +30,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     schemaHandler.domains().flatMap(_.filterTables(tables).map(_.finalName))
   }
 
-  def run(args: Array[String]): Unit = {
+  def run(args: Array[String]): Try[Unit] = Try {
     TableDependenciesConfig.parse(args) match {
       case Some(config) =>
         relationsAsDotFile(config)

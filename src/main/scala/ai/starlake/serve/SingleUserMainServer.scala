@@ -7,9 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
 
+import scala.util.Try
+
 object SingleUserMainServer {
   val mapper: ObjectMapper = Utils.newJsonMapper()
-  def serve(config: MainServerConfig): Unit = {
+  def serve(config: MainServerConfig): Try[Unit] = Try {
 
     val server = new Server(config.port)
     val handler = new ServletHandler()

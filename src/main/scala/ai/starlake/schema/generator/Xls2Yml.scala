@@ -7,6 +7,8 @@ import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.util.Try
+
 object Xls2Yml extends LazyLogging {
 
   def writeDomainsAsYaml(inputPath: String, outputPath: Option[String] = None)(implicit
@@ -40,7 +42,7 @@ object Xls2Yml extends LazyLogging {
     serializeToFile(File(outputPath, s"${fileName}.sl.yml"), iamPolicyTags)
   }
 
-  def run(args: Array[String]): Boolean = {
+  def run(args: Array[String]): Try[Boolean] = Try {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
@@ -71,8 +73,7 @@ object Xls2Yml extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2Yml.run(args)
-    if (!result) throw new Exception("Xls2Yml failed!")
+    Xls2Yml.run(args)
   }
 }
 

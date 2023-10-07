@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.util.Try
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
   val implicitSettings = settings
@@ -104,7 +105,7 @@ object ExtractBigQuerySchema {
       external.project -> extractor.extractDatasets()
     }.toMap
   }
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val config =
       BigQueryTablesConfig

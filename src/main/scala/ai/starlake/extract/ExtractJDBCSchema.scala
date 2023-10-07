@@ -11,12 +11,12 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.regex.Pattern
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit = schemaHandler
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
     ExtractSchemaConfig.parse(args) match {
       case Some(config) =>
         run(config)

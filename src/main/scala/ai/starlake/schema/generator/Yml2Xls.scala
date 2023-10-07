@@ -9,9 +9,11 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
+import scala.util.Try
+
 class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
-  def run(args: Array[String]): Unit = {
+  def run(args: Array[String]): Try[Unit] = Try {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     Yml2XlsConfig.parse(args) match {
       case Some(config) =>

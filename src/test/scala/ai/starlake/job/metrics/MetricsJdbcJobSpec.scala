@@ -377,7 +377,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       ) {
         cleanMetadata
         cleanDatasets
-        assert(loadPending)
+        assert(loadPending.isSuccess)
 
         val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
           settings.appConfig.audit.getConnectionRef(),

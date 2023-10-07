@@ -7,6 +7,8 @@ import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.util.Try
+
 case class DependencyContext(
   jobName: String,
   entities: List[TaskViewDependency],
@@ -18,7 +20,7 @@ class AutoTaskDependencies(
   storageHandler: StorageHandler
 ) extends StrictLogging {
 
-  def run(config: AutoTaskDependenciesConfig): Unit = {
+  def run(config: AutoTaskDependenciesConfig): Try[Unit] = Try {
     val allDependencies: List[DependencyContext] = jobs(config)
     if (config.print) jobsDependencyTree(allDependencies, config)
     if (config.viz) jobAsDot(allDependencies, config)
