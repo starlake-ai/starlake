@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.{Utils, YamlSerializer}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
@@ -55,10 +55,6 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
             .read(mappingPath(ymlTemplate))
           YamlSerializer.deserializeDomain(content, ymlTemplate) match {
             case Success(domain) =>
-              if (domain.resolveDirectoryOpt().isEmpty)
-                throw new Exception(
-                  "Domain metadata directory property is mandatory in template file."
-                )
               domain
             case Failure(e) => throw e
           }
@@ -87,18 +83,21 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
   ): Unit = {
-    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+    val domainName = jdbcSchema.sanitizeName match {
+      case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
+      case _          => jdbcSchema.schema
+    }
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
     val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
-    val domain = extractedDomain.copy(metadata =
-      Metadata
+    val domain = extractedDomain.copy(
+      database = extractedDomain.database.orElse(currentDomain.flatMap(_.database)),
+      metadata = Metadata
         .mergeAll(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
         .copy(fillWithDefaultValue = false)
         .asOption()
     )
     val tables = domain.tables
-    val tableRefs = tables.map("_" + _.name)
     tables.foreach { table =>
       val restoredTable =
         currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
