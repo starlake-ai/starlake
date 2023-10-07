@@ -132,7 +132,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     config: ValidateConfig = ValidateConfig()
   ): Try[(Int, Int)] = Try {
     val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
-    val TypesDomainsJobsErrorsAndWarnings =
+    val typesDomainsJobsErrorsAndWarnings =
       checkTypeDomainsJobsValidity(reload = config.reload)(storage)
     val deserErrors = deserializedDomains(DatasetArea.load)
       .filter { case (path, res) =>
@@ -147,7 +147,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val expectationErrors = ExpectationDefinition.checkValidity(expectations().values.toList)
     val allErrorsAndWarnings =
-      settingsErrorsAndWarnings ++ TypesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors ++ expectationErrors
+      settingsErrorsAndWarnings ++ typesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors ++ expectationErrors
     val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
@@ -164,7 +164,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
       logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
       allErrorsAndWarnings.foreach { err =>
-        logger.error(err.message)
+        if (err.severity == Warning)
+          logger.warn(err.message)
+        else
+          logger.error(err.message)
         output.foreach(_.appendLine(err.message))
       }
       logger.error(s"END VALIDATION RESULTS")

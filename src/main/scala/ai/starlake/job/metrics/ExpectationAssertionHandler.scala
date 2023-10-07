@@ -25,7 +25,6 @@ trait ExpectationAssertionHandler extends StrictLogging {
     val assertionResult = assertionFunction(context)
     context ++ Map("assertion" -> assertionResult)
   }
-
 }
 
 class SparkExpectationAssertionHandler(session: SparkSession) extends ExpectationAssertionHandler {
