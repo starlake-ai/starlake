@@ -35,15 +35,15 @@ class ConnectionLoadJob(
         else SaveMode.Append
       val dfw = sourceDF.write
         .format(cliConfig.format)
+        .option("dbtable", cliConfig.outputTable)
 
       val finalDfw =
         if (cliConfig.format == "jdbc")
           dfw
             .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-            .option("dbtable", cliConfig.outputTable)
         else
           dfw
-      sourceDF.show(false)
+
       finalDfw
         .mode(writeMode.toString)
         .options(cliConfig.options)

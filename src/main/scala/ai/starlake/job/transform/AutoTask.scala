@@ -35,6 +35,7 @@ import ai.starlake.job.sink.bigquery.{
 }
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging

@@ -4,7 +4,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
-import ai.starlake.utils.SQLUtils
+import ai.starlake.sql.SQLUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
