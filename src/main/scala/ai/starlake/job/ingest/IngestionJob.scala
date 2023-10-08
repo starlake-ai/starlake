@@ -55,6 +55,8 @@ trait IngestionJob extends SparkJob {
       case "native" =>
         logger.warn(s"Unexpected '$loader' loader !!!")
         validatorClass
+      case _ =>
+        throw new Exception(s"Unexpected '$loader' loader !!!")
     }
     Utils.loadInstance[GenericRowValidator](validatorClassName)
   }

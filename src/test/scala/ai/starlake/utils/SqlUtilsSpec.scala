@@ -2,6 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.{Engine, Refs}
+import ai.starlake.sql.SQLUtils
 
 class SqlUtilsSpec extends TestHelper {
   new WithSettings() {

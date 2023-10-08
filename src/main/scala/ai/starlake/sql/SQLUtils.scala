@@ -1,7 +1,8 @@
-package ai.starlake.utils
+package ai.starlake.sql
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
+import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.StatementVisitorAdapter

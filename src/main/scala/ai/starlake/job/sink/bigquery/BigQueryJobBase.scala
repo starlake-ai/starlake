@@ -2,8 +2,9 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
-import ai.starlake.utils.{SQLUtils, Utils}
+import ai.starlake.utils.Utils
 import better.files.File
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.Credentials
@@ -13,7 +14,7 @@ import com.google.auth.oauth2.{
   ServiceAccountCredentials,
   UserCredentials
 }
-import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
+import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
