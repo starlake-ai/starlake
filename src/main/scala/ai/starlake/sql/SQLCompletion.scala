@@ -1,3 +1,2 @@
-package ai.starlake.sql class SQLCompletion {
-
-}
+package ai.starlake.sql
+class SQLCompletion {}
