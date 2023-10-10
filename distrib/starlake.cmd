@@ -3,6 +3,10 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
+if "%SL_ROOT%"=="" set "SL_ROOT=!cd!"
+if exist "%SL_ROOT%\sl_versions.cmd" (
+    call "%SL_ROOT%\sl_versions.cmd"
+)
 if exist "%SCRIPT_DIR%versions.cmd" (
     call "%SCRIPT_DIR%versions.cmd"
 )
@@ -41,12 +45,14 @@ if "%SPARK_SNOWFLAKE_VERSION%"=="" set "SPARK_SNOWFLAKE_VERSION=%SPARK_SNOWFLAKE
 if "%SNOWFLAKE_JDBC_VERSION%"=="" set "SNOWFLAKE_JDBC_VERSION=%SNOWFLAKE_JDBC_DEFAULT_VERSION%"
 
 :: Internal variables
-if "%SL_ROOT%"=="" set "SL_ROOT=!cd!"
 set "SCALA_VERSION=2.12"
 set "SKIP_INSTALL=1"
 set "SL_ARTIFACT_NAME=starlake-spark3_!SCALA_VERSION!"
 set "SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_MAJOR_VERSION%"
 set "SPARK_TARGET_FOLDER=!SCRIPT_DIR!bin\spark"
+set "SPARK_EXTRA_LIB_FOLDER=!SCRIPT_DIR!bin\spark-extra-lib"
+set "DEPS_EXTRA_LIB_FOLDER=!SPARK_EXTRA_LIB_FOLDER!\deps"
+set "STARLAKE_EXTRA_LIB_FOLDER=!SPARK_EXTRA_LIB_FOLDER!\sl"
 if "%SPARK_DRIVER_MEMORY%"=="" set "SPARK_DRIVER_MEMORY=4G"
 set "SL_MAIN=ai.starlake.job.Main"
 set "SL_VALIDATE_ON_LOAD=false"
@@ -54,6 +60,7 @@ if not "%SL_VERSION%"=="" SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assemb
 
 set "SPARK_TGZ_NAME=%SPARK_DIR_NAME%.tgz"
 set "SPARK_TGZ_URL=https://archive.apache.org/dist/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%"
+set "SPARK_JAR_NAME=spark-core_!SCALA_VERSION!-!SPARK_VERSION!.jar"
 set "HADOOP_DLL_URL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_VERSION%/bin/hadoop.dll"
 set "WINUTILS_EXE_URL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_VERSION%/bin/winutils.exe"
 
@@ -92,21 +99,24 @@ set "SNOWFLAKE_JDBC_URL=https://repo1.maven.org/maven2/net/snowflake/%SNOWFLAKE_
 set "SKIP_INSTALL=0"
 
 if "%~1"=="install" (
-    call :checkCurrentState
+    call :check_current_state
     call :clean_additional_jars
     if !SKIP_INSTALL! equ 1 (
-        call :initEnv
+        call :init_env
     )
     call :save_installed_versions
+    call :save_contextual_versions
     echo. 
-    echo Installation done. If any errors happen during installation. Please try to install again or open an issue.
+    echo Installation done. You're ready to enjoy Starlake!
+    echo If any errors happen during installation. Please try to install again or open an issue.
 ) else (
+    call :save_contextual_versions
     call :launch_starlake %*
 )
 
 goto :eof
 
-:initStarlakeInstallVariables
+:init_starlake_install_variables
 if "%SL_VERSION%"=="" (
 @REM     for /f %%v in ('powershell -command "& { (Invoke-RestMethod -Uri 'https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:%SL_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').response.docs} | ForEach-Object { $_.v } | %%{[System.Version]$_} | sort | Select-Object -Last 1 | %%{$_.ToString()}"') do (
     for /f %%v in ('powershell -command "& { (Invoke-RestMethod -Uri 'https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:%SL_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').response.docs.v | sort {[version] $_} -Descending | Select-Object -First 1}"') do (
@@ -122,7 +132,7 @@ if "!SL_VERSION:SNAPSHOT=!"=="!SL_VERSION!" (
 )
 goto :eof
 
-:checkCurrentState
+:check_current_state
 echo -------------------
 echo   Current state
 echo -------------------
@@ -141,260 +151,211 @@ set "JETTY_UTIL_AJAX_DOWNLOADED=1"
 set "SPARK_SNOWFLAKE_DOWNLOADED=1"
 set "SNOWFLAKE_JDBC_DOWNLOADED=1"
 
-if exist "%SPARK_TARGET_FOLDER%\jars" (
-    rem Initialize variables
-    set "SL_JAR_COUNT=0"
-    set "SL_INSTALLED_VERSION="
+if exist "%HADOOP_HOME%" (
+    echo - hadoop: OK
+    set "HADOOP_DOWNLOADED=0"
 
-    rem Count files matching the pattern
-    for %%f in ("%SPARK_TARGET_FOLDER%\jars\%SL_ARTIFACT_NAME%*") do (
-        set /a "SL_JAR_COUNT+=1"
-        set "SL_INSTALLED_JAR_NAME=%%~nf"
-        set "SL_INSTALLED_VERSION=!SL_INSTALLED_JAR_NAME!"
-        set "SL_INSTALLED_VERSION=!SL_INSTALLED_VERSION:%SL_ARTIFACT_NAME%-=!"
-        set "SL_INSTALLED_VERSION=!SL_INSTALLED_VERSION:-assembly=!"
+    if exist "%HADOOP_HOME%\bin\hadoop.dll" (
+        echo - hadoop dll: OK
+        set "HADOOP_DLL_DOWNLOADED=0"
+    ) else (
+        set "SKIP_INSTALL=1"
+        echo - hadoop dll: KO
     )
 
-    rem Check if only one file was found
-    if !SL_JAR_COUNT! equ 1 (
-        rem Check if SL_VERSION is set and matches SL_INSTALLED_VERSION
-        if defined SL_VERSION (
-            if "!SL_INSTALLED_VERSION!" equ "!SL_VERSION!" (
-                echo - starlake: OK
-                set "SL_DOWNLOADED=0"
-            ) else (
-                call :initStarlakeInstallVariables
-                echo - starlake: KO
-                set "SKIP_INSTALL=1"
-            )
+    if exist "%HADOOP_HOME%\bin\winutils.exe" (
+        echo - hadoop winutils: OK
+        set "HADOOP_WINUTILS_DOWNLOADED=0"
+    ) else (
+        set "SKIP_INSTALL=1"
+        echo - hadoop winutils: KO
+    )
+) else (
+    set "SKIP_INSTALL=1"
+    echo - hadoop: KO
+    echo - hadoop dll: KO
+    echo - hadoop winutils: KO
+)
+
+if exist "%STARLAKE_EXTRA_LIB_FOLDER%" (
+    if not "%SL_JAR_NAME%" == "" (
+        if exist "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" (
+            echo - starlake: OK
+            set "SL_DOWNLOADED=0"
         ) else (
-            call :initStarlakeInstallVariables
+            call :init_starlake_install_variables
             echo - starlake: KO
             set "SKIP_INSTALL=1"
         )
     ) else (
-        call :initStarlakeInstallVariables
+        call :init_starlake_install_variables
         echo - starlake: KO
         set "SKIP_INSTALL=1"
     )
 ) else (
-    call :initStarlakeInstallVariables
+    call :init_starlake_install_variables
     echo - starlake: KO
     set "SKIP_INSTALL=1"
 )
 
-if exist "%HADOOP_HOME%" (
-    ECHO - hadoop: OK
-    SET "HADOOP_DOWNLOADED=0"
-
-    if exist "%HADOOP_HOME%\bin\hadoop.dll" (
-        ECHO - hadoop dll: OK
-        SET "HADOOP_DLL_DOWNLOADED=0"
-    ) else (
-        set "SKIP_INSTALL=1"
-        ECHO - hadoop dll: KO
-    )
-
-    if exist "%HADOOP_HOME%\bin\winutils.exe" (
-        ECHO - hadoop winutils: OK
-        SET "HADOOP_WINUTILS_DOWNLOADED=0"
-    ) else (
-        SET "SKIP_INSTALL=1"
-        ECHO - hadoop winutils: KO
-    )
-) else (
-    set "SKIP_INSTALL=1"
-    ECHO - hadoop: KO
-    ECHO - hadoop dll: KO
-    ECHO - hadoop winutils: KO
-)
-
-if exist "%SPARK_TARGET_FOLDER%\bin" (
+if exist "%SPARK_TARGET_FOLDER%\jars\%SPARK_JAR_NAME%" (
     echo - spark: OK
     set "SPARK_DOWNLOADED=0"
+) else (
+    echo - spark: KO
+    set "SKIP_INSTALL=1"
+)
 
-    if %DOWNLOAD_GCP_DEPS% equ 0 (
-        if exist "%SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_JAR_NAME%" (
-            echo - spark bq: OK
-            set "SPARK_BQ_DOWNLOADED=0"
-        ) else (
-            echo - spark bq: KO
-            set "SKIP_INSTALL=1"
-        )
-    ) else (
+if %DOWNLOAD_GCP_DEPS% equ 0 (
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_JAR_NAME%" (
+        echo - spark bq: OK
         set "SPARK_BQ_DOWNLOADED=0"
-        echo - spark bq: skipped
-    )
-
-    if %DOWNLOAD_AZURE_DEPS% equ 0 (
-        if exist "%SPARK_TARGET_FOLDER%\jars\%HADOOP_AZURE_JAR_NAME%" (
-            echo - hadoop azure: OK
-            set "HADOOP_AZURE_DOWNLOADED=0"
-        ) else (
-            echo - hadoop azure: KO
-            set "SKIP_INSTALL=1"
-        )
-
-        if exist "%SPARK_TARGET_FOLDER%\jars\%AZURE_STORAGE_JAR_NAME%" (
-            echo - azure storage: OK
-            set "AZURE_STORAGE_DOWNLOADED=0"
-        ) else (
-            echo - azure storage: KO
-            set "SKIP_INSTALL=1"
-        )
-
-        if exist "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_JAR_NAME%" (
-            echo - jetty util: OK
-            set "JETTY_UTIL_DOWNLOADED=0"
-        ) else (
-            echo - jetty util: KO
-            set "SKIP_INSTALL=1"
-        )
-
-        if exist "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_AJAX_JAR_NAME%" (
-            echo - jetty util ajax: OK
-            set "JETTY_UTIL_AJAX_DOWNLOADED=0"
-        ) else (
-            echo - jetty util ajax: KO
-            set "SKIP_INSTALL=1"
-        )
     ) else (
-        set "HADOOP_AZURE_DOWNLOADED=0"
-        set "AZURE_STORAGE_DOWNLOADED=0"
-        set "JETTY_UTIL_DOWNLOADED=0"
-        set "JETTY_UTIL_AJAX_DOWNLOADED=0"
-        echo - hadoop azure: skipped
-        echo - azure storage: skipped
-        echo - jetty util: skipped
-        echo - jetty util ajax: skipped
-    )
-
-    if %DOWNLOAD_SNOWFLAKE_DEPS% equ 0 (
-        if exist "%SPARK_TARGET_FOLDER%\jars\%SPARK_SNOWFLAKE_JAR_NAME%" (
-            echo - spark snowflake: OK
-            set "SPARK_SNOWFLAKE_DOWNLOADED=0"
-        ) else (
-            echo - spark snowflake: KO
-            set "SKIP_INSTALL=1"
-        )
-
-        if exist "%SPARK_TARGET_FOLDER%\jars\%SNOWFLAKE_JDBC_JAR_NAME%" (
-            echo - snowflake jdbc: OK
-            set "SNOWFLAKE_JDBC_DOWNLOADED=0"
-        ) else (
-            echo - snowflake jdbc: KO
-            set "SKIP_INSTALL=1"
-        )
-    ) else (
-        set "SPARK_SNOWFLAKE_DOWNLOADED=0"
-        set "SNOWFLAKE_JDBC_DOWNLOADED=0"
-        echo - spark snowflake: skipped
-        echo - snowflake jdbc: skipped
+        echo - spark bq: KO
+        set "SKIP_INSTALL=1"
     )
 ) else (
-    set "SKIP_INSTALL=1"
-    echo - spark: KO
+    set "SPARK_BQ_DOWNLOADED=0"
+    echo - spark bq: skipped
+)
 
-    if %DOWNLOAD_GCP_DEPS% equ 0 (
-        echo - spark bq: KO
-    ) else (
-        set "SPARK_BQ_DOWNLOADED=0"
-        echo - spark bq: skipped
-    )
-
-    if %DOWNLOAD_AZURE_DEPS% equ 0 (
-        echo - hadoop azure: KO
-        echo - azure storage: KO
-        echo - jetty util: KO
-        echo - jetty util ajax: KO
-    ) else (
+if %DOWNLOAD_AZURE_DEPS% equ 0 (
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_JAR_NAME%" (
+        echo - hadoop azure: OK
         set "HADOOP_AZURE_DOWNLOADED=0"
-        set "AZURE_STORAGE_DOWNLOADED=0"
-        set "JETTY_UTIL_DOWNLOADED=0"
-        set "JETTY_UTIL_AJAX_DOWNLOADED=0"
-        echo - hadoop azure: skipped
-        echo - azure storage: skipped
-        echo - jetty util: skipped
-        echo - jetty util ajax: skipped
+    ) else (
+        echo - hadoop azure: KO
+        set "SKIP_INSTALL=1"
     )
 
-    if %DOWNLOAD_SNOWFLAKE_DEPS% equ 0 (
-        echo - spark snowflake: KO
-        echo - snowflake jdbc: KO
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_JAR_NAME%" (
+        echo - azure storage: OK
+        set "AZURE_STORAGE_DOWNLOADED=0"
     ) else (
-        set "SPARK_SNOWFLAKE_DOWNLOADED=0"
-        set "SNOWFLAKE_JDBC_DOWNLOADED=0"
-        echo - spark snowflake: skipped
-        echo - snowflake jdbc: skipped
+        echo - azure storage: KO
+        set "SKIP_INSTALL=1"
     )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_JAR_NAME%" (
+        echo - jetty util: OK
+        set "JETTY_UTIL_DOWNLOADED=0"
+    ) else (
+        echo - jetty util: KO
+        set "SKIP_INSTALL=1"
+    )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_JAR_NAME%" (
+        echo - jetty util ajax: OK
+        set "JETTY_UTIL_AJAX_DOWNLOADED=0"
+    ) else (
+        echo - jetty util ajax: KO
+        set "SKIP_INSTALL=1"
+    )
+) else (
+    set "HADOOP_AZURE_DOWNLOADED=0"
+    set "AZURE_STORAGE_DOWNLOADED=0"
+    set "JETTY_UTIL_DOWNLOADED=0"
+    set "JETTY_UTIL_AJAX_DOWNLOADED=0"
+    echo - hadoop azure: skipped
+    echo - azure storage: skipped
+    echo - jetty util: skipped
+    echo - jetty util ajax: skipped
+)
+
+if %DOWNLOAD_SNOWFLAKE_DEPS% equ 0 (
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_JAR_NAME%" (
+        echo - spark snowflake: OK
+        set "SPARK_SNOWFLAKE_DOWNLOADED=0"
+    ) else (
+        echo - spark snowflake: KO
+        set "SKIP_INSTALL=1"
+    )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_JAR_NAME%" (
+        echo - snowflake jdbc: OK
+        set "SNOWFLAKE_JDBC_DOWNLOADED=0"
+    ) else (
+        echo - snowflake jdbc: KO
+        set "SKIP_INSTALL=1"
+    )
+) else (
+    set "SPARK_SNOWFLAKE_DOWNLOADED=0"
+    set "SNOWFLAKE_JDBC_DOWNLOADED=0"
+    echo - spark snowflake: skipped
+    echo - snowflake jdbc: skipped
 )
 goto :eof
 
 :clean_additional_jars
-if exist "%SPARK_TARGET_FOLDER%\jars" (
-    if "%SL_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SL_ARTIFACT_NAME%*" 2> nul
-    )
+if "%SL_DOWNLOADED%"=="1" (
+    del /q "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" 2> nul
+)
+if "%SPARK_DOWNLOADED%"=="1" (
+    rmdir /s /q "%SPARK_TARGET_FOLDER%" 2> nul
+)
 
-    if "%DOWNLOAD_GCP_DEPS%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_ARTIFACT_NAME%*" 2> nul
-    )
+if "%DOWNLOAD_GCP_DEPS%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%SPARK_BQ_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_ARTIFACT_NAME%*" 2> nul
-    )
+if "%SPARK_BQ_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%DOWNLOAD_AZURE_DEPS%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%HADOOP_AZURE_ARTIFACT_NAME%*" 2> nul
-        del /q "%SPARK_TARGET_FOLDER%\jars\%AZURE_STORAGE_ARTIFACT_NAME%*" 2> nul
-        del /q "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_ARTIFACT_NAME%*" 2> nul
-        del /q "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_AJAX_ARTIFACT_NAME%*" 2> nul
-    )
+if "%DOWNLOAD_AZURE_DEPS%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%HADOOP_AZURE_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%HADOOP_AZURE_ARTIFACT_NAME%*" 2> nul
-    )
+if "%HADOOP_AZURE_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%AZURE_STORAGE_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%AZURE_STORAGE_ARTIFACT_NAME%*" 2> nul
-    )
+if "%AZURE_STORAGE_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%JETTY_UTIL_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_ARTIFACT_NAME%*" 2> nul
-        
-        if "%DOWNLOAD_AZURE_DEPS%"=="0" (
-            if "%JETTY_UTIL_AJAX_DOWNLOADED%"=="0" (
-                echo force jetty util ajax download
-                set "JETTY_UTIL_AJAX_DOWNLOADED=1"
-            )
+if "%JETTY_UTIL_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_ARTIFACT_NAME%*" 2> nul
+
+    if "%DOWNLOAD_AZURE_DEPS%"=="0" (
+        if "%JETTY_UTIL_AJAX_DOWNLOADED%"=="0" (
+            echo force jetty util ajax download
+            set "JETTY_UTIL_AJAX_DOWNLOADED=1"
         )
     )
+)
 
-    if "%JETTY_UTIL_AJAX_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_AJAX_ARTIFACT_NAME%*" 2> nul
-    )
+if "%JETTY_UTIL_AJAX_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%DOWNLOAD_SNOWFLAKE_DEPS%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SPARK_SNOWFLAKE_ARTIFACT_NAME%*" 2> nul
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SNOWFLAKE_JDBC_ARTIFACT_NAME%*" 2> nul
-    )
+if "%DOWNLOAD_SNOWFLAKE_DEPS%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%SPARK_SNOWFLAKE_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SPARK_SNOWFLAKE_ARTIFACT_NAME%*" 2> nul
-    )
+if "%SPARK_SNOWFLAKE_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_ARTIFACT_NAME%*" 2> nul
+)
 
-    if "%SNOWFLAKE_JDBC_DOWNLOADED%"=="1" (
-        del /q "%SPARK_TARGET_FOLDER%\jars\%SNOWFLAKE_JDBC_ARTIFACT_NAME%*" 2> nul
-    )
+if "%SNOWFLAKE_JDBC_DOWNLOADED%"=="1" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_ARTIFACT_NAME%*" 2> nul
 )
 goto :eof
 
-:initEnv
+:init_env
 echo.
 echo -------------------
 echo      Install
 echo -------------------
 echo.
+
+if not exist "%SCRIPT_DIR%bin" mkdir "%SCRIPT_DIR%bin"
+if not exist "%STARLAKE_EXTRA_LIB_FOLDER%" mkdir "%STARLAKE_EXTRA_LIB_FOLDER%"
+if not exist "%DEPS_EXTRA_LIB_FOLDER%" mkdir "%DEPS_EXTRA_LIB_FOLDER%"
 
 if !HADOOP_DOWNLOADED! equ 1 (
     if not exist "%HADOOP_HOME%\bin" mkdir "%HADOOP_HOME%\bin"
@@ -419,8 +380,15 @@ if !HADOOP_WINUTILS_DOWNLOADED! equ 1 (
     echo - hadoop winutils: skipped
 )
 
+if !SL_DOWNLOADED! equ 1 (
+    echo - starlake: downloading from %SL_JAR_URL%
+    powershell -command "Start-BitsTransfer -Source %SL_JAR_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%"
+    echo - starlake: OK
+) else (
+    echo - starlake: skipped
+)
+
 if !SPARK_DOWNLOADED! equ 1 (
-    if not exist "%SCRIPT_DIR%bin" mkdir "%SCRIPT_DIR%bin"
     echo - spark: downloading from %SPARK_TGZ_URL%
     powershell -command "Start-BitsTransfer -Source %SPARK_TGZ_URL% -Destination %SCRIPT_DIR%bin\%SPARK_TGZ_NAME%"
     @REM windows tar doesn't support quoting directory with -C arguments, that is why we jump into it before unarchive
@@ -434,22 +402,17 @@ if !SPARK_DOWNLOADED! equ 1 (
     rmdir /s /q "%SCRIPT_DIR%bin\%SPARK_DIR_NAME%"
     del /q "%SPARK_TARGET_FOLDER%\conf\*.xml" 2>nul
     copy "%SPARK_TARGET_FOLDER%\conf\log4j2.properties.template" "%SPARK_TARGET_FOLDER%\conf\log4j2.properties" > nul
+    set "DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER=!DEPS_EXTRA_LIB_FOLDER:\=\\!"
+    echo spark.driver.extraClassPath !DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER!\\* > "%SPARK_TARGET_FOLDER%\conf\spark-defaults.conf"
+    echo spark.executor.extraClassPath !DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER!\\* >> "%SPARK_TARGET_FOLDER%\conf\spark-defaults.conf"
     echo - spark: OK
 ) else (
     echo - spark: skipped
 )
 
-if !SL_DOWNLOADED! equ 1 (
-    echo - starlake: downloading from %SL_JAR_URL%
-    powershell -command "Start-BitsTransfer -Source %SL_JAR_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%SL_JAR_NAME%"
-    echo - starlake: OK
-) else (
-    echo - starlake: skipped
-)
-
 if !SPARK_BQ_DOWNLOADED! equ 1 (
     echo - spark bq: downloading from %SPARK_BQ_URL%
-    powershell -command "Start-BitsTransfer -Source %SPARK_BQ_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SPARK_BQ_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SPARK_BQ_JAR_NAME%"
     echo - spark bq: OK
 ) else (
     echo - spark bq: skipped
@@ -457,7 +420,7 @@ if !SPARK_BQ_DOWNLOADED! equ 1 (
 
 if !HADOOP_AZURE_DOWNLOADED! equ 1 (
     echo - hadoop azure: downloading from %HADOOP_AZURE_URL%
-    powershell -command "Start-BitsTransfer -Source %HADOOP_AZURE_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%HADOOP_AZURE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %HADOOP_AZURE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_JAR_NAME%"
     echo - hadoop azure: OK
 ) else (
     echo - hadoop azure: skipped
@@ -465,7 +428,7 @@ if !HADOOP_AZURE_DOWNLOADED! equ 1 (
 
 if !AZURE_STORAGE_DOWNLOADED! equ 1 (
     echo - azure storage: downloading from %AZURE_STORAGE_URL%
-    powershell -command "Start-BitsTransfer -Source %AZURE_STORAGE_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%AZURE_STORAGE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %AZURE_STORAGE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_JAR_NAME%"
     echo - azure storage: OK
 ) else (
     echo - azure storage: skipped
@@ -473,7 +436,7 @@ if !AZURE_STORAGE_DOWNLOADED! equ 1 (
 
 if !JETTY_UTIL_DOWNLOADED! equ 1 (
     echo - jetty util: downloading from %JETTY_UTIL_URL%
-    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%JETTY_UTIL_JAR_NAME%"
     echo - jetty util: OK
 ) else (
     echo - jetty util: skipped
@@ -481,7 +444,7 @@ if !JETTY_UTIL_DOWNLOADED! equ 1 (
 
 if !JETTY_UTIL_AJAX_DOWNLOADED! equ 1 (
     echo - jetty util ajax: downloading from %JETTY_UTIL_AJAX_URL%
-    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_AJAX_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%JETTY_UTIL_AJAX_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_AJAX_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_JAR_NAME%"
     echo - jetty util ajax: OK
 ) else (
     echo - jetty util ajax: skipped
@@ -489,7 +452,7 @@ if !JETTY_UTIL_AJAX_DOWNLOADED! equ 1 (
 
 if !SPARK_SNOWFLAKE_DOWNLOADED! equ 1 (
     echo - spark snowflake: downloading from %SPARK_SNOWFLAKE_URL%
-    powershell -command "Start-BitsTransfer -Source %SPARK_SNOWFLAKE_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%SPARK_SNOWFLAKE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SPARK_SNOWFLAKE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_JAR_NAME%"
     echo - spark snowflake: OK
 ) else (
     echo - spark snowflake: skipped
@@ -497,7 +460,7 @@ if !SPARK_SNOWFLAKE_DOWNLOADED! equ 1 (
 
 if !SNOWFLAKE_JDBC_DOWNLOADED! equ 1 (
     echo - snowflake jdbc: downloading from %SNOWFLAKE_JDBC_URL%
-    powershell -command "Start-BitsTransfer -Source %SNOWFLAKE_JDBC_URL% -Destination %SPARK_TARGET_FOLDER%\jars\%SNOWFLAKE_JDBC_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SNOWFLAKE_JDBC_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_JAR_NAME%"
     echo - snowflake jdbc: OK
 ) else (
     echo - snowflake jdbc: skipped
@@ -529,12 +492,27 @@ if !DOWNLOAD_SNOWFLAKE_DEPS! equ 0 (
 )
 goto :eof
 
+:save_contextual_versions
+if not "%SL_ROOT%\" == "%SCRIPT_DIR%" (
+    if not "%SL_VERSION%" == "" (
+        echo @echo off > "%SL_ROOT%\sl_versions.cmd"
+        echo set "SL_VERSION=!SL_VERSION!" >> "%SL_ROOT%\sl_versions.cmd"
+
+        echo #!/bin/bash > "%SL_ROOT%\sl_versions.sh"
+        echo set -e >> "%SL_ROOT%\sl_versions.sh"
+        echo SL_VERSION=!SL_VERSION! >> "%SL_ROOT%\sl_versions.sh"
+    )
+)
+goto :eof
+
 :launch_starlake
-if exist "%SPARK_TARGET_FOLDER%\bin" (
+if exist "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" (
     @REM Transform windows path to unix path for java
     set "SL_ROOT=!SL_ROOT:\=/!"
     set "SCRIPT_DIR=!SCRIPT_DIR:\=/!"
     set "UNIX_SPARK_TARGET_FOLDER=!SPARK_TARGET_FOLDER:\=/!"
+    set "UNIX_DEPS_EXTRA_LIB_FOLDER=!DEPS_EXTRA_LIB_FOLDER:\=/!"
+    set "UNIX_STARLAKE_EXTRA_LIB_FOLDER=!STARLAKE_EXTRA_LIB_FOLDER:\=/!"
     echo.
     echo Launching starlake.
     echo - HADOOP_HOME=!HADOOP_HOME!
@@ -574,11 +552,12 @@ if exist "%SPARK_TARGET_FOLDER%\bin" (
         set "SPARK_OPTIONS=-Dlog4j.configurationFile="!SPARK_TARGET_FOLDER!\conf\log4j2.properties""
         rem Add any additional options you need for your Java application here
         set "JAVA_OPTIONS=!JAVA_OPTIONS! !SPARK_OPTIONS!"
-        java !JAVA_OPTIONS! -cp "!UNIX_SPARK_TARGET_FOLDER!/jars/*" !SL_MAIN! %*
+
+        java !JAVA_OPTIONS! -cp "!UNIX_SPARK_TARGET_FOLDER!/jars/*;!UNIX_DEPS_EXTRA_LIB_FOLDER!/*;!UNIX_STARLAKE_EXTRA_LIB_FOLDER!/!SL_JAR_NAME!" !SL_MAIN! %*
     ) else (
         set "SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd"
         @REM spark-submit cmd handles windows path
-        !SPARK_SUBMIT! !SPARK_EXTRA_PACKAGES! --driver-java-options "!SPARK_DRIVER_OPTIONS!" !SPARK_CONF_OPTIONS! --class !SL_MAIN! "!SPARK_TARGET_FOLDER!\jars\!SL_JAR_NAME!" %*
+        !SPARK_SUBMIT! !SPARK_EXTRA_PACKAGES! --driver-java-options "!SPARK_DRIVER_OPTIONS!" !SPARK_CONF_OPTIONS! --class !SL_MAIN! "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" %*
     )
 ) else (
     call :print_install_usage

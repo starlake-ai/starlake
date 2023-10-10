@@ -5,6 +5,10 @@
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
 
+__Feature__:
+- CLI now support multiple version of starlake at once and use the correct one based on sl_versions.sh/cmd in SL_ROOT
+- CLI can now upgrade all components except HADOOP extra elements on windows 
+
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite
   - **BREAKING CHANGE** Extract-schema sanitize domain name if sanitizeName is true. Have same value for domain name and its folder. By default sanitizaName is false.

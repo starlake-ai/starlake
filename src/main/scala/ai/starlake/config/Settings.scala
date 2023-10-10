@@ -793,7 +793,7 @@ object Settings extends StrictLogging {
     }
 
     logger.info(
-      "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT"))
+      "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )
     logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
