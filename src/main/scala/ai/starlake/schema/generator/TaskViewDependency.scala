@@ -69,7 +69,7 @@ object TaskViewDependency extends StrictLogging {
     val viewDependencies: List[SimpleEntry] =
       schemaHandler
         .views()
-        .mapValues(SQLUtils.extractRefsInSQL)
+        .mapValues(SQLUtils.extractRefsInFromAndJoin)
         .map { case (viewName, dependencies) =>
           SimpleEntry(viewName, VIEW_TYPE, dependencies)
         }

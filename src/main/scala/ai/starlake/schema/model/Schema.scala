@@ -691,6 +691,11 @@ case class Schema(
     )
   }
 
+  def containGrantees(grantees: List[String]): List[String] = {
+    val intersection = this.acl.flatMap(_.grants).intersect(grantees)
+    intersection
+  }
+
 }
 
 object Schema {

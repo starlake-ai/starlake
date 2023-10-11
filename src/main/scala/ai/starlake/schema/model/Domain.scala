@@ -255,7 +255,7 @@ import scala.util.Try
     val all = config.grantees
     filteredTables
       .filter { table =>
-        table.acl.nonEmpty && (all.isEmpty || table.acl.flatMap(_.grants).intersect(all).nonEmpty)
+        table.acl.nonEmpty && (all.isEmpty || table.containGrantees(all).nonEmpty)
       }
   }
 

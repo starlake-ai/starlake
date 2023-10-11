@@ -55,11 +55,24 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def relationsAsDotString(config: TableDependenciesConfig, svg: Boolean = false): String = {
     schemaHandler.domains(reload = config.reload)
+    // we check if we have tables or domains
+    val finalTables = config.tables
+      .map {
+        _.flatMap { item =>
+          if (item.contains('.')) {
+            List(item) // it's already a table
+          } else {
+            // we have a domain, let's get all the tables
+            schemaHandler.findTableNames(item, "").map(t => s"$item.${t}")
+          }
+        }.toList
+      }
+
     val fkTables =
       if (config.related)
-        relatedTables(config.tables).toSet.union(filterTables(config.tables).toSet)
+        relatedTables(finalTables).toSet.union(filterTables(finalTables).toSet)
       else
-        filterTables(config.tables)
+        filterTables(finalTables)
     val dots =
       schemaHandler
         .domains()

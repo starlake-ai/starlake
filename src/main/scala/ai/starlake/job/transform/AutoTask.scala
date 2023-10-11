@@ -576,7 +576,7 @@ case class AutoTask(
     logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
 
   def dependencies(): List[String] = {
-    val result = SQLUtils.extractRefsInSQL(parseJinja(taskDesc.getSql(), Map.empty))
+    val result = SQLUtils.extractRefsInFromAndJoin(parseJinja(taskDesc.getSql(), Map.empty))
     logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
     result
   }
