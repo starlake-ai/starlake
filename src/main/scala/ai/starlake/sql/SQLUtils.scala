@@ -31,7 +31,7 @@ object SQLUtils extends StrictLogging {
     * JOIN identifier
     */
   //
-  def extractRefsInSQL(sql: String): List[String] = {
+  def extractRefsInFromAndJoin(sql: String): List[String] = {
     val froms =
       fromsRegex
         .findAllMatchIn(sql)
@@ -51,8 +51,21 @@ object SQLUtils extends StrictLogging {
 
     val joins = joinRegex.findAllMatchIn(sql).map(_.group(1)).toList
     // val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
+    // val cteRegex = "(?i)\\s+WITH\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
+    // val cteNameRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
+
+    // def extractCTEsFromSQL(sql: String): List[String] = {
+    //  val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
+    //  ctes.map(_.replaceAll("`", ""))
+    // }
 
     (froms ++ joins).map(_.replaceAll("`", ""))
+  }
+
+  def extractRefsInFromCTEs(sql: String): List[String] = {
+    val cteRegex = "(?i)\\s+WITH\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
+    val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
+    ctes
   }
 
   def extractColumnNames(sql: String): List[String] = {
