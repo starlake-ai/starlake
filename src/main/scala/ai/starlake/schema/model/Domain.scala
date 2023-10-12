@@ -224,22 +224,22 @@ import scala.util.Try
       .mkString("\n")
   }
 
-  def relatedTables(tableNames: Option[Seq[String]]): List[String] = {
-    val filteredTables = filterTables(tableNames)
-    filteredTables.flatMap(_.relatedTables())
+  def foreignTables(tableNames: Seq[String]): List[String] = {
+    // get tables included in tableNames
+    val tableSchemas = getTables(tableNames)
+    // get all tables referenced in foreign keys
+    tableSchemas
+      .flatMap(_.foreignTables(this.finalName))
   }
 
-  def filterTables(tableNames: Option[Seq[String]]) = {
-    val filteredTables = tableNames match {
-      case Some(tableNames) =>
-        this.tables.filter { table =>
-          tableNames
-            .exists(_.toLowerCase() == (this.name + "." + table.finalName).toLowerCase())
-        }
-
-      case None => this.tables
+  def getTables(tableNames: Seq[String]): List[Schema] = {
+    val filteredTables = tableNames.flatMap { tableName =>
+      this.tables.filter { table =>
+        tableNames
+          .exists(_.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase())
+      }
     }
-    filteredTables
+    filteredTables.toList
   }
 
   def aclTables(config: AclDependenciesConfig): List[Schema] = {
@@ -252,13 +252,18 @@ import scala.util.Try
     } else {
       tables
     }
-    val all = config.grantees
+
     filteredTables
       .filter { table =>
-        table.acl.nonEmpty && (all.isEmpty || table.containGrantees(all).nonEmpty)
+        table.acl.nonEmpty && (config.all || table.containGrantees(config.grantees).nonEmpty)
       }
   }
 
+  /** Get all the tables with RLS defined and the RLS grants match the grantees defined in the
+    * config or if config.all is true then return all the tables with RLS defined
+    * @param config
+    * @return
+    */
   def rlsTables(config: AclDependenciesConfig): Map[String, List[RowLevelSecurity]] = {
     val filteredTables = if (config.tables.nonEmpty) {
       tables.filter { table =>
@@ -270,10 +275,13 @@ import scala.util.Try
       tables
     }
 
-    val all = config.grantees
     filteredTables
       .filter { table =>
-        table.rls.nonEmpty && (all.isEmpty || table.rls.flatMap(_.grants).intersect(all).nonEmpty)
+        table.rls.nonEmpty && (config.all ||
+        table.rls
+          .flatMap(_.grants)
+          .intersect(config.grantees)
+          .nonEmpty)
       }
       .map(t => (t.finalName, t.rls))
       .toMap

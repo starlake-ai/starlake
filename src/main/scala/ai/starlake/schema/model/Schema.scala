@@ -403,7 +403,11 @@ case class Schema(
     }
   }
 
-  private def dotRelation(attr: Attribute, domain: String): Option[String] = {
+  private def dotRelation(
+    attr: Attribute,
+    domain: String,
+    tableNames: Set[String]
+  ): Option[String] = {
     val tableLabel = s"${domain}_$name"
     attr.foreignKey match {
       case None => None
@@ -420,7 +424,11 @@ case class Schema(
               s"Invalid number of parts in relation $ref in domain $domain and table $name"
             )
         }
-        Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
+        val fullRefName = refDomain + "." + refSchema
+        if (tableNames.contains(fullRefName.toLowerCase()))
+          Some(s"$tableLabel:${attr.getFinalName()} -> ${refDomain}_$refSchema:$refAttr")
+        else
+          None
     }
   }
 
@@ -448,13 +456,13 @@ case class Schema(
     }
   }
 
-  def relatedTables(): List[String] = {
+  def foreignTables(domainNamePrefix: String): List[String] = {
     val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
       val tab = fk.split('.')
       tab.length match {
-        case 3 => tab(1) // reference to domain.table.column
-        case 2 => tab(0) // reference to table.column
-        case 1 => tab(0) // reference to table
+        case 3 => tab(1) + "." + tab(1) // reference to domain.table.column
+        case 2 => domainNamePrefix + "." + tab(0) // reference to table.column
+        case 1 => domainNamePrefix + "." + tab(0) // reference to table
       }
     }
     if (fkTables.nonEmpty)
@@ -463,22 +471,23 @@ case class Schema(
       fkTables
   }
 
-  def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
-    val isFKTable = fkTables.contains(finalName.toLowerCase)
-    if (isFKTable) {
-      val tableLabel = s"${domain}_$finalName"
+  def asDot(domainName: String, includeAllAttrs: Boolean, tableNames: Set[String]): String = {
+    val fullName = domainName + "." + this.finalName
+    val includeTable = tableNames.contains(fullName.toLowerCase)
+    if (includeTable) {
+      val tableLabel = s"${domainName}_$finalName"
       val header =
         s"""<tr><td port="0" bgcolor="white"><B><FONT color="black"> $finalName </FONT></B></td></tr>\n"""
+      val relations = attributes
+        .flatMap { attr => dotRelation(attr, domainName, tableNames) }
+        .mkString("\n")
+
       val rows =
         attributes.flatMap { attr =>
           val isPK = primaryKey.contains(attr.getFinalName())
           val isFK = attr.foreignKey.isDefined
           dotRow(attr, isPK, isFK, includeAllAttrs)
         } mkString "\n"
-
-      val relations = attributes
-        .flatMap { attr => dotRelation(attr, domain) }
-        .mkString("\n")
 
       s"""
          |$tableLabel [label=<

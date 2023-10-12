@@ -513,86 +513,32 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domains
   }
 
-  def findTableNames(domainName: Option[String], tableNamePrefix: String): List[String] = {
-    val loadedTables = {
+  def findTableNames(domainName: Option[String]): List[String] = {
+    val tablesFromDomain = {
       domainName match {
         case Some(domainName) => {
           domains()
             .find(_.finalName.toLowerCase() == domainName.toLowerCase())
-            .map(_.tables.map(_.finalName))
+            .map { d => d.tables.map(d.finalName + "." + _.finalName) }
             .getOrElse(Nil)
         }
         case None =>
-          domains().flatMap(_.tables.map(_.finalName))
+          domains().flatMap(d => d.tables.map(d.finalName + "." + _.finalName))
       }
     }
 
-    val tables =
-      if (loadedTables.isEmpty) {
+    val tablesFromDomainOrTasks =
+      if (tablesFromDomain.isEmpty) {
         domainName match {
           case Some(domainName) =>
-            tasks().filter(_.domain.toLowerCase() == domainName.toLowerCase()).map(_.table)
+            tasks().filter(_.domain.toLowerCase() == domainName.toLowerCase()).map(_.name)
           case None =>
-            tasks().map(_.table)
+            tasks().map(_.name)
         }
       } else
-        loadedTables
+        tablesFromDomain
 
-    tables.filter { name =>
-      name.toLowerCase().startsWith(tableNamePrefix.toLowerCase())
-    }
-  }
-
-  /** @param domainName
-    * @param tableName
-    * @param ColumnPrefix
-    * @return
-    */
-  def findTableColumnNames(
-    domainName: Option[String],
-    tableName: String,
-    ColumnPrefix: String
-  ): List[String] = {
-    val loadedTables = {
-      domainName match {
-        case Some(domainName) => {
-          domains()
-            .find(_.finalName.toLowerCase() == domainName.toLowerCase())
-            .map(_.tables.map(_.finalName))
-            .getOrElse(Nil)
-        }
-        case None =>
-          domains().flatMap(_.tables.map(_.finalName))
-      }
-    }
-
-    val tables =
-      if (loadedTables.isEmpty)
-        tasks().filter(_.domain.toLowerCase() == domainName.toLowerCase()).map(_.table)
-      else
-        loadedTables
-
-    tables.filter { name =>
-      name.toLowerCase().startsWith(tableNamePrefix.toLowerCase())
-    }
-
-  }
-
-  def findTableNames(tableNamePrefix: String): List[String] = {
-    val loadedTables = domains().flatMap(_.tables.map(_.finalName))
-    val taskTables = tasks().map(_.table)
-
-    (loadedTables ++ taskTables)
-      .filter { table =>
-        table.toLowerCase().startsWith(tableNamePrefix.toLowerCase())
-      }
-  }
-
-  def findDomainNames(domainNamePrefix: String): List[String] = {
-    (domains().map(_.finalName) ++ tasks().map(_.domain))
-      .filter { name =>
-        name.toLowerCase().startsWith(domainNamePrefix.toLowerCase())
-      }
+    tablesFromDomainOrTasks
   }
 
   def domains(
