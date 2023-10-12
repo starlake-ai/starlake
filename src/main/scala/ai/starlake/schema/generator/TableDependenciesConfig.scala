@@ -8,7 +8,8 @@ case class TableDependenciesConfig(
   related: Boolean = false,
   outputFile: Option[String] = None,
   tables: Option[Seq[String]] = None,
-  reload: Boolean = false
+  reload: Boolean = false,
+  all: Boolean = false
 )
 
 object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
@@ -48,6 +49,14 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
         .optional()
         .text(
           "Which tables should we include in the dot file ? All by default"
+        ),
+      opt[Unit]("all")
+        .action { (x, c) =>
+          c.copy(all = true)
+        }
+        .optional()
+        .text(
+          "Include all tables in the dot file ? None by default"
         )
     )
   }

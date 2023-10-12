@@ -9,7 +9,8 @@ case class AutoTaskDependenciesConfig(
   reload: Boolean = false,
   objects: Seq[String] = Seq("task", "table"),
   viz: Boolean = false,
-  print: Boolean = false
+  print: Boolean = false,
+  all: Boolean = false
 )
 
 object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
@@ -47,7 +48,15 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
       opt[Seq[String]]("objects")
         .action((x, c) => c.copy(objects = x))
         .optional()
-        .text("comma separated list of objects to display: task, table, view, unknown")
+        .text("comma separated list of objects to display: task, table, view, unknown"),
+      opt[Unit]("all")
+        .action { (x, c) =>
+          c.copy(all = true)
+        }
+        .optional()
+        .text(
+          "Incldeu all tasks  in the dot file ? None by default"
+        )
     )
   }
 

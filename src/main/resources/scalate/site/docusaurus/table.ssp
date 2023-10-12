@@ -30,10 +30,10 @@ import TabItem from '@theme/TabItem';
 
 <TabItem value="attributes" label="Attributes">
 
-| Name | Rename | Type | Required | Key | Default | Tags | Script | Position | Metric |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Name | Rename | Type | Required | Key | Description | Default | Tags | Script | Position | Metric |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 #for (attr <- table.attributes)
-| ${attr.name} | ${attr.rename.getOrElse("")} | ${attr.`type`} | ${attr.required} | ${attr.foreignKey.getOrElse("")} | ${attr.default.getOrElse("")} | ${attr.tags.toList.sorted.mkString(",")} | ${attr.script.getOrElse("")} | ${attr.position.map(p => p.first+","+p.last)} | ${attr.metricType.map(_.value).getOrElse("")} | 
+| ${attr.name} | ${attr.rename.getOrElse("")} | ${attr.`type`} | ${attr.required} | ${attr.foreignKey.getOrElse("")} | ${attr.comment.getOrElse("").replaceAll("\\|", " ")} | ${attr.default.getOrElse("")} | ${attr.tags.toList.sorted.mkString(",")} | ${attr.script.getOrElse("")} | ${attr.position.map(p => p.first+","+p.last)} | ${attr.metricType.map(_.value).getOrElse("")} |
 #end
 
 </TabItem>

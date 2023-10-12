@@ -49,7 +49,10 @@ class AutoTaskDependencies(
        */
       config.tasks.getOrElse(Nil) match {
         case Nil =>
-          List("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+          if (config.all)
+            List("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+          else
+            Nil
         case taskNames =>
           taskNames.map(taskName =>
             (taskName, TaskViewDependency.taskDependencies(taskName, tasks)(schemaHandler))
@@ -97,7 +100,11 @@ class AutoTaskDependencies(
         }
         taskEntities.map(entity => TaskViewDependencyNode.dependencies(entity, entities, relations))
       case None =>
-        TaskViewDependencyNode.dependencies(entities, relations)
+        if (config.all)
+          TaskViewDependencyNode.dependencies(entities, relations)
+        else
+          Nil
+
     }
     result.foreach(_.print())
     result.toList

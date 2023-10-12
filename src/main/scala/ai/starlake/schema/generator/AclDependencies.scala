@@ -33,8 +33,12 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
-  private def tableAndAclAndRlsUsersAsDot(config: AclDependenciesConfig) = {
-    val aclTables = schemaHandler.domains().map(d => d.finalName -> d.aclTables(config).toSet).toMap
+  private def granteesAsDot(config: AclDependenciesConfig) = {
+    val aclTables = schemaHandler
+      .domains()
+      .map(d => d.finalName -> d.aclTables(config).toSet)
+      .toMap
+      .filter(_._2.nonEmpty)
     val aclTableGrants = aclTables.values.flatten
       .flatMap(_.acl)
       .flatMap(_.grants)
@@ -44,9 +48,23 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTableGrants =
       rlsTables(config).values.flatten.flatMap(_._2).flatMap(_.grants).map(_.toLowerCase()).toSet
 
-    val aclTasks = schemaHandler.tasks().filter(_.acl.nonEmpty)
-    val rlsTasks = schemaHandler.tasks().filter(_.rls.nonEmpty)
+    val aclTasks = schemaHandler.tasks().filter { task =>
+      val taskToInclude = config.tables.exists(
+        _.toLowerCase() == task.name.toLowerCase()
+      )
 
+      taskToInclude && task.acl.nonEmpty && (config.all || config.grantees
+        .intersect(task.acl.flatMap(_.grants))
+        .nonEmpty)
+    }
+    val rlsTasks = schemaHandler.tasks().filter { task =>
+      val taskToInclude = config.tables.exists(
+        _.toLowerCase() == task.name.toLowerCase()
+      )
+
+      taskToInclude && task.rls.nonEmpty &&
+      (config.all || config.grantees.intersect(task.acl.flatMap(_.grants)).nonEmpty)
+    }
     val aclTaskGrants =
       aclTasks
         .map(_.acl)
@@ -60,15 +78,19 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         .flatMap(_.map(_.grants))
         .flatten
         .toSet
+
     val allGrants = rlsTableGrants ++ aclTableGrants ++ rlsTaskGrants ++ aclTaskGrants
     val filteredGrants = allGrants.filter { grant =>
-      config.grantees.isEmpty || config.grantees.contains(grant)
+      config.all || config.grantees.contains(grant)
     }
     usersAsDot(filteredGrants)
   }
 
   private def usersAsDot(allGrants: Set[String]): String = {
-    val allUsers = allGrants.filter(_.startsWith("user:")).map(_.substring("user:".length))
+    val notPrefixedUsers = allGrants.filterNot(_.contains(":"))
+    val allUsers = notPrefixedUsers.union(
+      allGrants.filter(_.startsWith("user:")).map(_.substring("user:".length))
+    )
     val allGroups = allGrants.filter(_.startsWith("group:")).map(_.substring("group:".length))
     val allDomains = allGrants.filter(_.startsWith("domain:")).map(_.substring("domain:".length))
     val allSa =
@@ -122,7 +144,8 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
   /** @param config
     * @return
-    *   Map[domainName, Map[tableName, List[RowLevelSecurity]]]
+    *   Map of domain nad RLS tables in this domain: Map[domainName, Map[tableName,
+    *   List[RowLevelSecurity]]]
     */
   private def rlsTables(
     config: AclDependenciesConfig
@@ -147,7 +170,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val allTasks = schemaHandler.tasks()
     val all = config.grantees
     val rlsAclTasks = allTasks.filter { desc =>
-      all.isEmpty || config.grantees.intersect(desc.acl).nonEmpty || config.grantees
+      config.all || config.grantees.intersect(desc.acl).nonEmpty || config.grantees
         .intersect(desc.rls)
         .nonEmpty
     }
@@ -190,18 +213,24 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       )
   }
 
+  /** @param config
+    * @return
+    */
   private def rlsAclTablesAsDot(config: AclDependenciesConfig): String = {
+    // All tables that have an RLS
     val rlsTableNames: Map[String, Set[String]] = rlsTables(config).map { case (domain, rlsMap) =>
       domain -> rlsMap.keySet
     }
 
+    // All tables that have an ACL
     val aclTableNames: Map[String, Set[String]] = schemaHandler
       .domains()
-      .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(x => x.finalName))
+      .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(_.finalName))
       .toMap
+//      .filter { case (domainName, rls) => rls.nonEmpty }
 
-    val tables: Map[String, Set[String]] = rlsTableNames ++ aclTableNames
-    tables.toList
+    val tablesWithACLOrRLS: Map[String, Set[String]] = rlsTableNames ++ aclTableNames
+    tablesWithACLOrRLS.toList
       .map { case (domain, tables) =>
         val tablesAsDot = tables.map { table =>
           val tableLabel = s"${domain}_$table"
@@ -230,12 +259,13 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def aclRelationsAsDot(config: AclDependenciesConfig): String = {
-    val all = config.grantees
     val aclTables = schemaHandler
       .domains()
       .map(d => d.finalName -> d.aclTables(config).toSet)
+      .filter(_._2.nonEmpty)
       .toMap
-    val aclTablesRelations = aclTables.toList.flatMap { case (domainName, schemas) =>
+
+    val aclTablesRelations = aclTables.flatMap { case (domainName, schemas) =>
       schemas.flatMap { schema =>
         val acls = schema.acl
         val schemaName = schema.finalName
@@ -244,17 +274,20 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
             ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
           }
           .filter { case (userName, aceRole, schemaName, domainName) =>
-            all.isEmpty || all.contains(userName)
+            config.all || config.grantees.contains(userName)
           }
       }
     }
 
-    val allTasks = schemaHandler.tasks()
+    val allTasks = schemaHandler.tasks().filter { task =>
+      config.tables.exists(_.toLowerCase() == task.name.toLowerCase())
+    }
+
     // val aclAclTasks = allTasks.filter(_.acl.nonEmpty) ++ allTasks.filter(_.rls.nonEmpty)
     val aclAclTasks = allTasks.filter { desc =>
-      all.isEmpty || all.intersect(desc.acl.flatMap(_.grants)).nonEmpty || all
-        .intersect(desc.rls.flatMap(_.grants))
-        .nonEmpty
+      config.all ||
+      config.grantees.intersect(desc.acl.flatMap(_.grants)).nonEmpty ||
+      config.grantees.intersect(desc.rls.flatMap(_.grants)).nonEmpty
     }
     val aclTaskRelations = aclAclTasks.flatMap { desc =>
       desc.acl.flatMap { ace =>
@@ -277,9 +310,11 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         )} -> ${domain}_${schema}_acl_${formatDotName(role)}"""
     }.toSet
 
-    mkstr(dotAclRoles.toList, ";\n") +
-    mkstr(dotAclRolesRelations.toList, ";\n") +
-    mkstr(dotAclRelations.toList, ";\n")
+    val result =
+      mkstr(dotAclRoles.toList, ";\n") +
+      mkstr(dotAclRolesRelations.toList, ";\n") +
+      mkstr(dotAclRelations.toList, ";\n")
+    result
   }
   private def mkstr(list: List[String], sep: String): String =
     if (list.isEmpty) ""
@@ -291,7 +326,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       schemaHandler
         .domains()
         .map(d => d.finalName -> d.rlsTables(config))
-        .filter { case (domainName, rls) => rls.nonEmpty }
+        .filter(_._2.nonEmpty)
         .toMap
 
     val rlsTableRelations = rlsTables.toList.flatMap { case (domainName, tablesMap) =>
@@ -357,9 +392,12 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   def aclAsDotString(config: AclDependenciesConfig): String = {
     val _ = schemaHandler.domains(reload = config.reload)
     val dotStr =
-      aclPrefix + rlsAclTablesAsDot(config) + jobsAsDot(config) + tableAndAclAndRlsUsersAsDot(
-        config
-      ) + aclRelationsAsDot(config) + rlsRelationsAsDot(config) + suffix
+      aclPrefix +
+      rlsAclTablesAsDot(config) +
+      jobsAsDot(config) +
+      granteesAsDot(config) +
+      aclRelationsAsDot(config) +
+      rlsRelationsAsDot(config) + suffix
     if (config.svg) {
       Utils.dot2Svg(dotStr)
     } else {

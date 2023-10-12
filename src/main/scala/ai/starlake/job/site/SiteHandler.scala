@@ -22,7 +22,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   def buildDomains(config: SiteConfig) = {
     var domainIndex = 1
 
-    val domainPaths = config.outputPath / "0001.load"
+    val domainPaths = config.outputPath / "1000.load"
     domainPaths.delete(swallowIOExceptions = true)
     domainPaths.createDirectoryIfNotExists()
     val category =
@@ -61,13 +61,15 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
          |  "label": "${domain.finalName}",
          |  "link": {
          |    "type": "generated-index",
-         |    "description": "${domain.comment.getOrElse("Description not provided")}"
+         |    "description": "${domain.comment
+          .map(_.replaceAll("\"", "'"))
+          .getOrElse("Description not provided")}"
          |  }
          |}
          |""".stripMargin
     File(domainFolder, "_category_.json").writeText(category)
     var tableIndex = 1
-    domain.tables.foreach { table =>
+    domain.tables.sortBy(_.finalName).foreach { table =>
       val formattedIndex = "%04d".format(tableIndex)
       tableIndex = tableIndex + 1
       val tableFolder = File(domainFolder, s"$formattedIndex.${table.finalName}.mdx")
@@ -91,7 +93,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
 
   def buildJobs(config: SiteConfig): Unit = {
     var jobIndex = 1
-    val jobPaths = config.outputPath / "0002.transform"
+    val jobPaths = config.outputPath / "1100.transform"
     jobPaths.delete(swallowIOExceptions = true)
     jobPaths.createDirectoryIfNotExists()
     val category =
@@ -190,7 +192,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
       outputFile = None,
       tables = tables,
       reload = false,
-      svg = true
+      svg = true,
+      all = true
     )
 
     val service = new AclDependencies(schemaHandler)

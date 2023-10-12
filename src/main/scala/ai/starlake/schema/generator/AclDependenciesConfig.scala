@@ -8,7 +8,8 @@ case class AclDependenciesConfig(
   tables: List[String] = Nil,
   outputFile: Option[String] = None,
   reload: Boolean = false,
-  svg: Boolean = false
+  svg: Boolean = false,
+  all: Boolean = false
 )
 object AclDependenciesConfig extends CliConfig[AclDependenciesConfig] {
   val command = "acl-dependencies"
@@ -50,6 +51,14 @@ object AclDependenciesConfig extends CliConfig[AclDependenciesConfig] {
         .optional()
         .text(
           "Which tables should we include in the dot file ? All by default"
+        ),
+      opt[Unit]("all")
+        .action { (x, c) =>
+          c.copy(all = true)
+        }
+        .optional()
+        .text(
+          "Include all ACL in the dot file ? None by default"
         )
     )
   }
