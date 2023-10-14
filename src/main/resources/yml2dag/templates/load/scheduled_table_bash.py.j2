@@ -75,8 +75,6 @@ def keep_ascii_only(text):
 def sanitize_id(id: str):
     return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", id.replace("$", "S")))
 
-starlake_path = get_context_var("SL_STARLAKE_PATH")
-starlake_root = get_context_var("SL_ROOT")
 
 default_args = {
     'owner': 'airflow',
