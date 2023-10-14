@@ -29,11 +29,6 @@ options = {
     {% endfor %}
 }
 
-env = {
-    {% for variable in env %}'{{ variable.name }}':'{{ variable.value }}'{% if not loop.last  %}, {% endif %}
-    {% endfor %}
-}
-
 schedules= [{% for schedule in context.schedules %}
     {
         'schedule': '{{ schedule.schedule }}',
@@ -121,9 +116,9 @@ for schedule in schedules:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
                     load_task = BashOperator(task_id=load_task_id,
-                                             env={"SL_ROOT":starlake_root} ,
-                                             bash_command=starlake_path + ' import', dag=dag)
-
+                                             bash_command=get_context_var("SL_STARLAKE_PATH") + ' --domains ' + domain["name"] + ' --tables ' + table["name"] + ' load',
+                                             cwd=get_context_var("SL_ROOT"),
+                                             dag=dag)
                     load_task
             return domain_load_tasks
 

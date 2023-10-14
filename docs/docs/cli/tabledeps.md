@@ -20,4 +20,5 @@ Parameter|Cardinality|Description
 --reload:`<value>`|*Optional*|Should we reload the domains first ?
 --related:`<value>`|*Optional*|Should we include only entities with relations to others ? false by default
 --tables:`<value>`|*Optional*|Which tables should we include in the dot file ? All by default
+--all:`<value>`|*Optional*|Include all tables in the dot file ? None by default
 
