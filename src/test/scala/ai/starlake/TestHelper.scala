@@ -163,18 +163,18 @@ trait TestHelper
   val allDags: List[FileToImport] = List(
     FileToImport(
       "sample.sl.yml",
-      "/yml2dag//sample.sl.yml"
+      "/dag/sample.sl.yml"
     ),
     FileToImport(
       "sample.py.j2",
-      "/yml2dag/templates/sample.py.j2"
+      "/scalate/dag/sample.py.j2"
     )
   )
 
   val applicationYmlConfig: List[FileToImport] = List(
     FileToImport(
       "application.sl.yml",
-      "/config//application.sl.yml"
+      "/config/application.sl.yml"
     )
   )
 
