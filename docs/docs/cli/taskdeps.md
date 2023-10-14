@@ -21,4 +21,5 @@ Parameter|Cardinality|Description
 --viz:`<value>`|*Optional*|Should we generate a dot file ?
 --print:`<value>`|*Optional*|Print dependencies as text
 --objects:`<value>`|*Optional*|comma separated list of objects to display: task, table, view, unknown
+--all:`<value>`|*Optional*|Incldeu all tasks  in the dot file ? None by default
 

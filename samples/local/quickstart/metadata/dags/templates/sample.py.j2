@@ -8,11 +8,6 @@ options = {
 }
 
 
-env = {
-    {% for variable in env %}'{{ variable.name }}':'{{ variable.value }}'{% if not loop.last  %}, {% endif %}
-    {% endfor %}
-}
-
 schedules= [{% for schedule in context.schedules %}
 {
   'schedule': '{{ schedule.schedule }}',

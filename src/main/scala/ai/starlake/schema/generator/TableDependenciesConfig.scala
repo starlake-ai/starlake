@@ -26,7 +26,7 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
         .action((x, c) => c.copy(outputFile = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Unit]("all")
+      opt[Unit]("all-attrs")
         .action((x, c) => c.copy(includeAllAttributes = true))
         .optional()
         .text(
@@ -48,7 +48,7 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
         .action((x, c) => c.copy(tables = Some(x)))
         .optional()
         .text(
-          "Which tables should we include in the dot file ? All by default"
+          "Which tables should we include in the dot file ?"
         ),
       opt[Unit]("all")
         .action { (x, c) =>

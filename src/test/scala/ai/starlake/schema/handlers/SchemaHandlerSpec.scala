@@ -833,8 +833,6 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
-        new TableDependencies(schemaHandler).run(Array.empty)
-
         val tempFile = File.newTemporaryFile().pathAsString
         new TableDependencies(schemaHandler).run(
           Array("--all", "--output", tempFile)
@@ -843,7 +841,7 @@ class SchemaHandlerSpec extends TestHelper {
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent.trim shouldBe expectedFileContent.trim
         val domains = schemaHandler.domains()
-        val result = domains.head.asDot(false, Set("segment", "client"))
+        val result = domains.head.asDot(false, Set("dream.segment", "dream.client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
@@ -877,12 +875,12 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
-        new TableDependencies(schemaHandler).run(Array("--acl"))
+        new AclDependencies(schemaHandler).run(Array("--all"))
 
         val tempFile = File.newTemporaryFile().pathAsString
 
         new AclDependencies(schemaHandler).run(
-          Array("--output", tempFile)
+          Array("--all", "--output", tempFile)
         )
 
         val fileContent = readFileContent(tempFile)
