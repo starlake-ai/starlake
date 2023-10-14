@@ -29,25 +29,20 @@ options = {
     {% endfor %}
 }
 
-env = {
-    {% for variable in env %}'{{ variable.name }}':'{{ variable.value }}'{% if not loop.last  %}, {% endif %}
-    {% endfor %}
-}
-
 schedules= [{% for schedule in context.schedules %}
     {
         'schedule': '{{ schedule.schedule }}',
         'cron': {% if schedule.cron is not none %}'{{ schedule.cron }}'{% else %}None{% endif %},
-        'domains': [{% for domain in schedule.domains %}
-        {
-            'name':'{{ domain.name }}',
-            'tables': [{% for table in domain.tables %}
-                {
-                    'name': '{{ table.name }}',
-                    'final_name': '{{ table.final_name }}'
-                }{% if not loop.last  %},{% endif %}{% endfor %}
-            ]
-        }{% if not loop.last  %},{% endif %}
+    'domains': [{% for domain in schedule.domains %}
+    {
+        'name':'{{ domain.name }}',
+        'tables': [{% for table in domain.tables %}
+            {
+                'name': '{{ table.name }}',
+                'final_name': '{{ table.final_name }}'
+            }{% if not loop.last  %},{% endif %}{% endfor %}
+        ]
+    }{% if not loop.last  %},{% endif %}
     {% endfor %}
 ]
 }{% if not loop.last  %},{% endif %}
@@ -80,8 +75,6 @@ def keep_ascii_only(text):
 def sanitize_id(id: str):
     return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", id.replace("$", "S")))
 
-starlake_path = get_context_var("SL_STARLAKE_PATH")
-starlake_root = get_context_var("SL_ROOT")
 
 default_args = {
     'owner': 'airflow',
@@ -121,9 +114,9 @@ for schedule in schedules:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
                     load_task = BashOperator(task_id=load_task_id,
-                                             env={"SL_ROOT":starlake_root} ,
-                                             bash_command=starlake_path + ' import', dag=dag)
-
+                                             bash_command=get_context_var("SL_STARLAKE_PATH") + ' --domains ' + domain["name"] + ' --tables ' + table["name"] + ' load',
+                                             cwd=get_context_var("SL_ROOT"),
+                                             dag=dag)
                     load_task
             return domain_load_tasks
 

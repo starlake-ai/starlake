@@ -303,7 +303,7 @@ class IngestionWorkflow(
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
-      val (resolved, unresolved) = pending(domain.name, config.schemas.toList)
+      val (resolved, unresolved) = pending(domain.name, config.tables.toList)
       unresolved.foreach { case (_, path) =>
         val targetPath =
           new Path(DatasetArea.unresolved(domain.name), path.getName)
@@ -390,11 +390,11 @@ class IngestionWorkflow(
   }
 
   private def domainsToWatch(config: LoadConfig): List[Domain] = {
-    val includedDomains = config.includes match {
+    val includedDomains = config.domains match {
       case Nil =>
         domains()
       case _ =>
-        domains(config.includes.toList, config.schemas.toList)
+        domains(config.domains.toList, config.tables.toList)
     }
     logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
     includedDomains
@@ -467,8 +467,8 @@ class IngestionWorkflow(
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
       loadPending(
         LoadConfig(
-          includes = domainToWatch,
-          schemas = schemasToWatch,
+          domains = domainToWatch,
+          tables = schemasToWatch,
           options = config.options
         )
       )
