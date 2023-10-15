@@ -434,6 +434,8 @@ object Settings extends StrictLogging {
     file: String
   )
 
+  case class DagRef(load: Option[String], transform: Option[String])
+
   case class AccessPolicies(apply: Boolean, location: String, database: String, taxonomy: String)
 
   /** @param datasets
@@ -518,7 +520,7 @@ object Settings extends StrictLogging {
     connectionRef: String,
     schedulePresets: Map[String, String],
     refs: List[Ref],
-    dagRef: Option[String],
+    dagRef: Option[DagRef],
     maxParTask: Int,
     forceHalt: Boolean,
     jobIdEnvName: Option[String]
@@ -733,7 +735,13 @@ object Settings extends StrictLogging {
             case _ =>
           }
         }
-        settings.appConfig.dagRef.foreach { dagConfigRef =>
+
+        val dagRef: List[String] =
+          settings.appConfig.dagRef
+            .map(ref => List(ref.load.toList, ref.transform.toList).flatten)
+            .getOrElse(Nil)
+
+        dagRef.foreach { dagConfigRef =>
           val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
           if (!storageHandler.exists(dagConfigPath)) {
             errors = errors :+ ValidationMessage(
