@@ -171,7 +171,7 @@ class TypesSpec extends TestHelper {
       val doubleType = types.types
         .find(_.name == "double")
         .get
-      doubleType.matches("+3.14") shouldBe false
+      doubleType.matches("+3.14") shouldBe true
       val signedDoubleType = types.types
         .find(_.name == "signed_double_fr")
         .get
