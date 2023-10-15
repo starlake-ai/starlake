@@ -1,5 +1,6 @@
 application:
-  dagRef: {{ dag_ref }}
+  dagRef:
+    load: {{ dag_ref }}
   loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   accessPolicies:
     apply: true
