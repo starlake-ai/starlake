@@ -36,7 +36,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       domain.tables.flatMap { table =>
         val mergedMetadata = table.mergedMetadata(domain.metadata)
         val dagConfigRef = mergedMetadata.dagRef
-          .orElse(settings.appConfig.dagRef)
+          .orElse(settings.appConfig.dagRef.flatMap(_.load))
         val schedule = mergedMetadata.schedule
 
         dagConfigRef.map { dagRef =>
