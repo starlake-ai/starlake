@@ -300,10 +300,10 @@ object Settings extends StrictLogging {
     }
 
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!Connection.allstorageOptions.contains(_))
+      options.filterKeys(!Connection.allstorageOptions.contains(_)).toMap
 
     def authOptions(): Map[String, String] =
-      options.filterKeys(Connection.allstorageOptions.contains(_))
+      options.filterKeys(Connection.allstorageOptions.contains(_)).toMap
 
     def getJdbcEngineName(): Option[String] = {
       val url = options.get("url")
@@ -775,11 +775,11 @@ object Settings extends StrictLogging {
     }
   }
 
-  implicit val sinkHint = new FieldCoproductHint[Sink]("type") {
+  implicit val sinkHint: FieldCoproductHint[Sink] = new FieldCoproductHint[Sink]("type") {
     override def fieldValue(name: String) = name
   }
 
-  implicit val storageLevelReader =
+  implicit val storageLevelReader: ConfigReader[StorageLevel] =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
   /** @param config
@@ -933,7 +933,7 @@ object Settings extends StrictLogging {
     val thisConf = settings.sparkConfig
       .entrySet()
       .asScala
-      .to[Vector]
+      .toVector
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) =>
         logger.info(s"Setting key: ${key}")

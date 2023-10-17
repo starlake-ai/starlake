@@ -133,22 +133,22 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
       dfs.reduce(_ union _)
   }
 
-  override def commit(end: Offset) {
+  override def commit(end: Offset): Unit = {
     // discards [0, end] lines, since they have been consumed
     val optEnd = convertToLongOffset(end);
     optEnd match {
-      case Some(LongOffset(iOffset: Long)) ⇒
+      case Some(LongOffset(iOffset: Long)) =>
         if (iOffset >= 0) {
           this.synchronized {
             streamBuffer.trimStart(iOffset.toInt - consumerOffset);
             consumerOffset = iOffset.toInt;
           }
         }
-      case _ ⇒ throw new Exception(s"Cannot commit with end offset => $end");
+      case _ => throw new Exception(s"Cannot commit with end offset => $end");
     }
   }
 
-  override def stop() {
+  override def stop(): Unit = {
     server.stop(30)
   }
 }

@@ -165,13 +165,13 @@ object Metrics extends StrictLogging {
   private def customMetricUDF(
     e: Column,
     metricName: String,
-    metricFunction: (String, Column*) => Column,
+    metricFunction: (String, Seq[Column]) => Column,
     approxMethod: String,
     approxValue: Double
   ): Column = {
 
     val aliasMetric: String = metricName + "(" + e.toString() + ")"
-    metricFunction(approxMethod, e, lit(approxValue)).as(aliasMetric)
+    metricFunction(approxMethod, Seq(e, lit(approxValue))).as(aliasMetric)
   }
 
   /** Customize percentile of order 0.25 of the column e

@@ -11,7 +11,9 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
   val localDir = starlakeDir / "samples" / "local"
-  val quickstartDir: File = localDir / "quickstart"
+  val quickstartDir: File = File(
+    "/Users/hayssams/git/starlake-internal/customers/bpceps/gni/output"
+  )
   val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
   val directoriesToClear = List("site")
 
@@ -50,7 +52,13 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
       )
 
       val siteHandler = new SiteHandler(config, schemaHandler)
-      siteHandler.run()
+      siteHandler.run() match {
+        case scala.util.Success(_) => logger.info("Site generated successfully")
+        case scala.util.Failure(e) =>
+          e.printStackTrace()
+          logger.error("Site generation failed", e)
+          throw e
+      }
     }
   }
 }
