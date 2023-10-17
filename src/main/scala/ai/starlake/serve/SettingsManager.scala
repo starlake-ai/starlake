@@ -10,7 +10,7 @@ class SettingsWatcherThread(
 ) extends Thread {
   private val ONE_MINUTE = 1000 * 60
   private val TEN_MINUTES = ONE_MINUTE * 10
-  override def run() {
+  override def run(): Unit = {
     while (true) {
       Thread.sleep(ONE_MINUTE)
       val currentTime = System.currentTimeMillis()

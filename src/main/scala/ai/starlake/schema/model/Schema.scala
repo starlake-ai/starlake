@@ -29,7 +29,21 @@ import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{
+  ArrayType,
+  BooleanType,
+  ByteType,
+  DateType,
+  DecimalType,
+  DoubleType,
+  IntegerType,
+  LongType,
+  ShortType,
+  StringType,
+  StructField,
+  StructType,
+  TimestampType
+}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
@@ -275,7 +289,7 @@ case class Schema(
     domainMetaData: Option[Metadata],
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     val forceTablePrefixRegex = settings.appConfig.forceTablePattern.r
     if (!forceTablePrefixRegex.pattern.matcher(name).matches())
       errorList += ValidationMessage(
