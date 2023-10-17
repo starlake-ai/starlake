@@ -113,8 +113,7 @@ object Dependencies {
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-dataplex" % Versions.gcpDataplex excludeAll (jacksonExclusions: _*)
+    "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*)
   )
 
   val esSpark212 = Seq(
