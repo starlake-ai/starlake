@@ -52,9 +52,9 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     }
     val session =
       if (settings.appConfig.isHiveCompatible())
-        SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
+        SparkSession.builder().config(config).enableHiveSupport().getOrCreate()
       else {
-        SparkSession.builder.config(config).getOrCreate()
+        SparkSession.builder().config(config).getOrCreate()
       }
 
     logger.info("Spark Version -> " + session.version)

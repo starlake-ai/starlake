@@ -23,9 +23,8 @@ import java.time.{Instant, ZoneId}
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-import scala.collection.mutable.ListBuffer
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.collection.mutable
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
 object JDBCUtils extends LazyLogging {
@@ -368,7 +367,7 @@ object JDBCUtils extends LazyLogging {
                       foreignKey = foreignKey
                     )
                   }
-                }.to[ListBuffer]
+                }.toList
 
                 // remove duplicates
                 // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
@@ -378,7 +377,7 @@ object JDBCUtils extends LazyLogging {
                     else partialResult :+ element
                   }
 
-                val columns = removeDuplicatesColumns(attrs.toList)
+                val columns = removeDuplicatesColumns(attrs)
 
                 logger.whenDebugEnabled {
                   columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
