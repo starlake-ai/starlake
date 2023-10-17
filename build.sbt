@@ -15,7 +15,9 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.18"
 
-ThisBuild / crossScalaVersions := List(scala212)
+lazy val scala213 = "2.13.12"
+
+ThisBuild / crossScalaVersions := List(scala212, scala213)
 
 organization := "ai.starlake"
 
@@ -31,6 +33,7 @@ libraryDependencies ++= {
   val (spark, jackson, esSpark, pureConfigs) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
+      case Some((2, 13)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
@@ -47,6 +50,7 @@ name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => "3"
+      case Some((2, 13)) => "3"
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
