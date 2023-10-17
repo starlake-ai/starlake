@@ -11,9 +11,7 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
   val localDir = starlakeDir / "samples" / "local"
-  val quickstartDir: File = File(
-    "/Users/hayssams/git/starlake-internal/customers/bpceps/gni/output"
-  )
+  val quickstartDir: File = localDir / "quickstart"
   val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
   val directoriesToClear = List("site")
 
