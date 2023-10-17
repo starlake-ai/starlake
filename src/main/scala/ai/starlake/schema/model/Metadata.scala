@@ -335,7 +335,7 @@ case class Metadata(
     schemaHandler: SchemaHandler
   ): Either[List[ValidationMessage], Boolean] = {
     def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
       errorList += ValidationMessage(

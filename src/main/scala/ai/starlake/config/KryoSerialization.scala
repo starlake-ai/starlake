@@ -10,7 +10,7 @@ import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.storage.StorageLevel
 
 class KryoSerialization extends KryoRegistrator {
-  override def registerClasses(kryo: Kryo) {
+  override def registerClasses(kryo: Kryo): Unit = {
     kryo.register(classOf[Settings])
     kryo.register(classOf[AppConfig])
     kryo.register(classOf[Metrics])

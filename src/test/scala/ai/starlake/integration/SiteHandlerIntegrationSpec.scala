@@ -50,7 +50,13 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
       )
 
       val siteHandler = new SiteHandler(config, schemaHandler)
-      siteHandler.run()
+      siteHandler.run() match {
+        case scala.util.Success(_) => logger.info("Site generated successfully")
+        case scala.util.Failure(e) =>
+          e.printStackTrace()
+          logger.error("Site generation failed", e)
+          throw e
+      }
     }
   }
 }
