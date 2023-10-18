@@ -599,4 +599,3 @@ echo   starlake.cmd install
 echo.
 echo Once installed, 'versions.cmd' will be generated and pin dependencies' version.
 echo.
-goto :eof
