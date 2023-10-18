@@ -527,9 +527,9 @@ if exist "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" (
     PATH|FIND /i "!HADOOP_HOME!\bin"    >nul || SET PATH=!path!;!HADOOP_HOME!\bin
 
     if not defined SL_DEBUG (
-        set "SPARK_DRIVER_OPTIONS=-Dlog4j.configuration=file://!SCRIPT_DIR!bin/spark/conf/log4j2.properties"
+        set "SPARK_DRIVER_OPTIONS=-Dlog4j.configurationFile=file:///!SCRIPT_DIR!bin/spark/conf/log4j2.properties"
     ) else (
-        set "SPARK_DRIVER_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://!SPARK_DIR!/conf/log4j2.properties"
+        set "SPARK_DRIVER_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile=file:///!SPARK_DIR!/conf/log4j2.properties"
     )
 
     if "%SL_DEFAULT_LOADER%" == "native" (
