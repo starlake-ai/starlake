@@ -214,6 +214,7 @@ class BigQuerySparkJob(
                 updatedPartitions -> (nullCount + row.getLong(1))
               }
             if (nullCountValues > 0 && settings.appConfig.rejectAllOnError) {
+              logger.error("Null value found in partition")
               Failure(new NullValueFoundException(nullCountValues))
             } else {
               cliConfig.partitionsToUpdate match {
