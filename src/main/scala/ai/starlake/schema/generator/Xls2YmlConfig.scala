@@ -25,12 +25,6 @@ import scopt.OParser
 
 /** @param files
   *   List of Excel files
-  * @param encryption
-  *   Should pre & post encryption YAML be generated ?
-  * @param delimiter
-  *   : Delimiter to use on generated CSV file after pre-encryption.
-  * @param privacy
-  *   What privacy policies are to be applied at the pre-encrypt step ? All by default.
   */
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,

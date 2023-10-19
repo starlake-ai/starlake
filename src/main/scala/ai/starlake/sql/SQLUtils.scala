@@ -362,7 +362,7 @@ object SQLUtils extends StrictLogging {
             .getOrElse((None, ""))
         } else { // nameCountMatch == 0
           logger.info(s"Table $table not found in any domain or task; This is probably a CTE")
-          (None, "")
+          (None, domainComponent.getOrElse(""))
         }
         val databaseName = database
           .orElse(settings.appConfig.getDefaultDatabase())

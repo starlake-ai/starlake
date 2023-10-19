@@ -1008,6 +1008,9 @@ object PrivacyLevels {
 
   private var allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
 
+  def resetAllPrivacy(): Unit =
+    allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+
   @transient
   def allPrivacyLevels(
     options: Map[String, String]
