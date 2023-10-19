@@ -160,36 +160,36 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     )
   }
 
-  private def buildTableSVG(tables: List[String]): String = {
+  private def buildTableSVG(relationsSVGFile: File, tables: List[String]): Unit = {
     val config = new TableDependenciesConfig(
       includeAllAttributes = false,
       related = true,
-      outputFile = None,
+      outputFile = Some(relationsSVGFile),
       tables = Some(tables),
-      reload = false
+      reload = false,
+      svg = true
     )
 
     val service = new TableDependencies(schemaHandler)
-    val svgContent = service.relationsAsDotString(config, svg = true)
-    svgContent
+    service.relationsAsDotFile(config)
   }
 
-  private def buildTaskSVG(tasks: List[String]): String = {
+  private def buildTaskSVG(outputFile: File, tasks: List[String]): Unit = {
     val config =
       AutoTaskDependenciesConfig(
+        outputFile = Some(outputFile),
         tasks = Some(tasks),
         viz = true,
-        outputFile = None
+        svg = true
       )
 
     val service = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    val (jobName, svgContent) = service.jobAsDot(config, svg = true)
-    svgContent
+    service.jobAsDot(config)
   }
 
-  private def buildACLSVG(tables: List[String]): String = {
+  private def buildACLSVG(aclSVGFile: File, tables: List[String]): Unit = {
     val config = new AclDependenciesConfig(
-      outputFile = None,
+      outputFile = Some(aclSVGFile),
       tables = tables,
       reload = false,
       svg = true,
@@ -197,8 +197,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     )
 
     val service = new AclDependencies(schemaHandler)
-    val svgContent = service.aclAsDotString(config)
-    svgContent
+    service.aclsAsDotFile(config)
   }
 
   lazy val sspEngine: TemplateEngine = new TemplateEngine()
@@ -209,13 +208,12 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     table: Schema,
     config: SiteConfig
   ): Unit = {
-    val relationsSVG = buildTableSVG(List(s"${domain.finalName}.${table.finalName}"))
     val relationsSVGFile = File(outputFile.parent, table.finalName + "-relations.svg")
-    relationsSVGFile.writeText(relationsSVG)
+    val relationsSVG =
+      buildTableSVG(relationsSVGFile, List(s"${domain.finalName}.${table.finalName}"))
 
-    val aclSVG = buildACLSVG(List(s"${domain.finalName}.${table.finalName}"))
     val aclSVGFile = File(outputFile.parent, table.finalName + "-acl.svg")
-    aclSVGFile.writeText(aclSVG)
+    val aclSVG = buildACLSVG(aclSVGFile, List(s"${domain.finalName}.${table.finalName}"))
     val paramMap = Map(
       "table"         -> table,
       "schemaHandler" -> schemaHandler,
@@ -238,13 +236,11 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     outputFile: File,
     config: SiteConfig
   ): Unit = {
-    val relationsSVG = buildTaskSVG(List(taskDesc.name))
     val relationsSVGFile = File(outputFile.parent, taskDesc.name + "-relations.svg")
-    relationsSVGFile.writeText(relationsSVG)
+    buildTaskSVG(relationsSVGFile, List(taskDesc.name))
 
-    val aclSVG = buildACLSVG(List(s"${jobDesc.name}.${taskDesc.name}"))
     val aclSVGFile = File(outputFile.parent, taskDesc.name + "-acl.svg")
-    aclSVGFile.writeText(aclSVG)
+    val aclSVG = buildACLSVG(aclSVGFile, List(s"${jobDesc.name}.${taskDesc.name}"))
     val paramMap = Map(
       "task"          -> taskDesc,
       "schemaHandler" -> schemaHandler,

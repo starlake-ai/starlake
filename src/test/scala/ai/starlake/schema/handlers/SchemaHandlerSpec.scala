@@ -828,7 +828,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
-        File(starlakeMetadataPath + "/load").delete(true)
+        File(starlakeMetadataPath + "/load").delete(swallowIOExceptions = true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
@@ -870,7 +870,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
-        File(starlakeMetadataPath + "/load").delete(true)
+        File(starlakeMetadataPath + "/load").delete(swallowIOExceptions = true)
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())

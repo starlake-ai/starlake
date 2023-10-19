@@ -1,6 +1,6 @@
 package ai.starlake.serve
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{PrivacyLevels, Settings}
 import better.files.File
 import com.typesafe.config.ConfigFactory
 
@@ -50,6 +50,8 @@ object SettingsManager {
     gcpProject: Option[String]
   ): Settings = {
     val sessionId = uniqueId(root, metadata, env)
+
+    PrivacyLevels.resetAllPrivacy()
 
     val sysProps = System.getProperties()
     val outFile = File(root, "out")

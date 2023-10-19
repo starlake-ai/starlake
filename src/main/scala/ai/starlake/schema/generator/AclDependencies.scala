@@ -3,7 +3,6 @@ package ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{RowLevelSecurity, Schema}
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
@@ -379,39 +378,26 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def aclsAsDotFile(config: AclDependenciesConfig): Unit = {
-    val result: String = aclAsDotString(config)
-    config.outputFile match {
-      case None => println(result)
-      case Some(output) =>
-        val outputFile = File(output)
-        outputFile.parent.createDirectories()
-        outputFile.overwrite(result)
-    }
-  }
+    val domains = schemaHandler.domains(reload = config.reload)
+    val configWithFinalTables =
+      if (config.tables.length == 1 && !config.tables.head.contains('.')) {
+        config.copy(tables = domains.flatMap(_.tables).map(_.finalName))
+      } else {
+        config
+      }
 
-  def aclAsDotString(config: AclDependenciesConfig): String = {
-    val _ = schemaHandler.domains(reload = config.reload)
     val dotStr =
       aclPrefix +
-      rlsAclTablesAsDot(config) +
-      jobsAsDot(config) +
-      granteesAsDot(config) +
-      aclRelationsAsDot(config) +
-      rlsRelationsAsDot(config) + suffix
-    if (config.svg) {
-      Utils.dot2Svg(dotStr)
-    } else {
-      dotStr
-    }
-  }
-
-  private def save(config: TableDependenciesConfig, result: String): Unit = {
-    config.outputFile match {
-      case None => println(result)
-      case Some(output) =>
-        val outputFile = File(output)
-        outputFile.parent.createDirectories()
-        outputFile.overwrite(result)
-    }
+      rlsAclTablesAsDot(configWithFinalTables) +
+      jobsAsDot(configWithFinalTables) +
+      granteesAsDot(configWithFinalTables) +
+      aclRelationsAsDot(configWithFinalTables) +
+      rlsRelationsAsDot(configWithFinalTables) + suffix
+    if (configWithFinalTables.svg)
+      Utils.dot2Svg(configWithFinalTables.outputFile, dotStr)
+    else if (configWithFinalTables.png)
+      Utils.dot2Png(configWithFinalTables.outputFile, dotStr)
+    else
+      Utils.save(configWithFinalTables.outputFile, dotStr)
   }
 }

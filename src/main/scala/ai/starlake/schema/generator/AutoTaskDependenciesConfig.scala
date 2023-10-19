@@ -1,15 +1,18 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.utils.CliConfig
+import better.files.File
 import scopt.OParser
 
 case class AutoTaskDependenciesConfig(
-  outputFile: Option[String] = None,
+  outputFile: Option[File] = None,
   tasks: Option[Seq[String]] = None,
   reload: Boolean = false,
   objects: Seq[String] = Seq("task", "table"),
   viz: Boolean = false,
   print: Boolean = false,
+  svg: Boolean = false,
+  png: Boolean = false,
   all: Boolean = false
 )
 
@@ -24,7 +27,7 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
       head("starlake", command, "[options]"),
       note("Generate Task dependencies graph"),
       opt[String]("output")
-        .action((x, c) => c.copy(outputFile = Some(x)))
+        .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
       opt[Seq[String]]("tasks")
@@ -41,6 +44,18 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
         .action((x, c) => c.copy(viz = true))
         .optional()
         .text("Should we generate a dot file ?"),
+      opt[Unit]("svg")
+        .action((x, c) => c.copy(svg = true))
+        .optional()
+        .text(
+          "Should we generate SVG files ?"
+        ),
+      opt[Unit]("png")
+        .action((x, c) => c.copy(png = true))
+        .optional()
+        .text(
+          "Should we generate PNG files ?"
+        ),
       opt[Unit]("print")
         .action((x, c) => c.copy(print = true))
         .optional()
@@ -55,7 +70,7 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
         }
         .optional()
         .text(
-          "Incldeu all tasks  in the dot file ? None by default"
+          "Include all tasks  in the dot file ? None by default"
         )
     )
   }

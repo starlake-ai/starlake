@@ -1,14 +1,17 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.utils.CliConfig
+import better.files.File
 import scopt.OParser
 
 case class TableDependenciesConfig(
   includeAllAttributes: Boolean = true,
   related: Boolean = false,
-  outputFile: Option[String] = None,
+  outputFile: Option[File] = None,
   tables: Option[Seq[String]] = None,
   reload: Boolean = false,
+  svg: Boolean = false,
+  png: Boolean = false,
   all: Boolean = false
 )
 
@@ -23,7 +26,7 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
       head("starlake", command, "[options]"),
       note("Generate GraphViz files from Domain / Schema YAML files"),
       opt[String]("output")
-        .action((x, c) => c.copy(outputFile = Some(x)))
+        .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
       opt[Unit]("all-attrs")
@@ -37,6 +40,18 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
         .optional()
         .text(
           "Should we reload the domains first ?"
+        ),
+      opt[Unit]("svg")
+        .action((x, c) => c.copy(svg = true))
+        .optional()
+        .text(
+          "Should we generate SVG files ?"
+        ),
+      opt[Unit]("png")
+        .action((x, c) => c.copy(png = true))
+        .optional()
+        .text(
+          "Should we generate PNG files ?"
         ),
       opt[Unit]("related")
         .action((x, c) => c.copy(related = true))

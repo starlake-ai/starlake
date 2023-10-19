@@ -2,7 +2,6 @@ package ai.starlake.schema.generator
 
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
@@ -50,22 +49,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
-  private def relationsAsDotFile(config: TableDependenciesConfig): Unit = {
-    val result: String = relationsAsDotString(config)
-    save(config, result)
-  }
-
-  private def save(config: TableDependenciesConfig, result: String): Unit = {
-    config.outputFile match {
-      case None => println(result)
-      case Some(output) =>
-        val outputFile = File(output)
-        outputFile.parent.createDirectories()
-        outputFile.overwrite(result)
-    }
-  }
-
-  def relationsAsDotString(config: TableDependenciesConfig, svg: Boolean = false): String = {
+  def relationsAsDotFile(config: TableDependenciesConfig): Unit = {
     schemaHandler.domains(reload = config.reload)
     // we check if we have tables or domains
     val finalTables = config.tables match {
@@ -101,10 +85,11 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         .domains()
         .map(_.asDot(config.includeAllAttributes, allTables.map(_.toLowerCase)))
     val dotStr = prefix + dots.mkString("\n") + suffix
-    if (svg) {
-      Utils.dot2Svg(dotStr)
-    } else {
-      dotStr
-    }
+    if (config.svg)
+      Utils.dot2Svg(config.outputFile, dotStr)
+    else if (config.png)
+      Utils.dot2Png(config.outputFile, dotStr)
+    else
+      Utils.save(config.outputFile, dotStr)
   }
 }

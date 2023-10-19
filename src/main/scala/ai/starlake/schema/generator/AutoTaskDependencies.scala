@@ -4,7 +4,6 @@ import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.Try
@@ -21,7 +20,7 @@ class AutoTaskDependencies(
 ) extends StrictLogging {
 
   def run(config: AutoTaskDependenciesConfig): Try[Unit] = Try {
-    val allDependencies: List[DependencyContext] = jobs(config)
+    val allDependencies: List[DependencyContext] = tasks(config)
     if (config.print) jobsDependencyTree(allDependencies, config)
     if (config.viz) jobAsDot(allDependencies, config)
   }
@@ -30,7 +29,7 @@ class AutoTaskDependencies(
     * @return
     *   List[DependencyContext(jobName, dedupEntities, relations)]
     */
-  def jobs(
+  def tasks(
     config: AutoTaskDependenciesConfig
   ): List[DependencyContext] = {
     val tasks =
@@ -53,7 +52,18 @@ class AutoTaskDependencies(
             List("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
           else
             Nil
-        case taskNames =>
+        case taskOrDomainNames =>
+          val taskNames =
+            if (taskOrDomainNames.size == 1) {
+              val taskOrDomainName = taskOrDomainNames.head
+              if (taskOrDomainName.contains('.'))
+                taskOrDomainNames
+              else {
+                tasks.filter(_.taskDesc.domain == taskOrDomainName).map(_.taskDesc.name)
+              }
+            } else {
+              taskOrDomainNames
+            }
           taskNames.map(taskName =>
             (taskName, TaskViewDependency.taskDependencies(taskName, tasks)(schemaHandler))
           )
@@ -80,7 +90,7 @@ class AutoTaskDependencies(
   def jobsDependencyTree(
     config: AutoTaskDependenciesConfig
   ): List[TaskViewDependencyNode] = {
-    jobsDependencyTree(jobs(config), config)
+    jobsDependencyTree(tasks(config), config)
   }
 
   def jobsDependencyTree(
@@ -134,14 +144,8 @@ class AutoTaskDependencies(
       |}
       |""".stripMargin
 
-  def jobAsDot(config: AutoTaskDependenciesConfig, svg: Boolean = false): (String, String) = {
-    val (jobName, dotContent) = jobAsDot(jobs(config), config)
-    if (svg) {
-      val svgContent = Utils.dot2Svg(dotContent)
-      (jobName, svgContent)
-    } else {
-      (jobName, dotContent)
-    }
+  def jobAsDot(config: AutoTaskDependenciesConfig): Unit = {
+    jobAsDot(tasks(config), config)
   }
 
   /** @param allDependencies
@@ -152,7 +156,7 @@ class AutoTaskDependencies(
   def jobAsDot(
     allDependencies: List[DependencyContext],
     config: AutoTaskDependenciesConfig
-  ): (String, String) = {
+  ): Unit = {
     def distinctBy[A, B](xs: List[A])(f: A => B): List[A] =
       scala.reflect.internal.util.Collections.distinctBy(xs)(f)
 
@@ -170,20 +174,13 @@ class AutoTaskDependencies(
       .flatMap(dep => dep.relationAsDot())
       .distinct
       .mkString("\n")
-    val result: (String, String) = (
-      dedupDependencies.jobName,
-      List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n")
-    )
+    val dotContent = List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n")
 
-    val (jobName, dotContent) = result
-    config.outputFile match {
-      case Some(output) =>
-        val outputFile = File(output)
-        outputFile.parent.createDirectoryIfNotExists(createParents = true)
-        outputFile.overwrite(dotContent)
-      case None =>
-        println(dotContent)
-    }
-    result
+    if (config.svg)
+      Utils.dot2Svg(config.outputFile, dotContent)
+    else if (config.png)
+      Utils.dot2Png(config.outputFile, dotContent)
+    else
+      Utils.save(config.outputFile, dotContent)
   }
 }

@@ -39,7 +39,7 @@ import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.reflect.runtime.universe
-import scala.sys.process.Process
+import scala.sys.process.{Process, ProcessLogger}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -330,19 +330,57 @@ object Utils extends StrictLogging {
     domain.replaceAll("[^\\p{Alnum}]", "_")
   }
 
-  def dot2Svg(str: String): String = {
+  def dot2Svg(outputFile: Option[File], str: String): Unit = {
+    dot2Format(outputFile, str, "svg")
+  }
+
+  def dot2Png(outputFile: Option[File], str: String): Unit = {
+    dot2Format(outputFile, str, "png")
+  }
+
+  def save(outputFile: Option[File], result: String): Unit = {
+    outputFile match {
+      case None => println(result)
+      case Some(outputFile) =>
+        outputFile.parent.createDirectories()
+        outputFile.overwrite(result)
+    }
+  }
+
+  private def dot2Format(outputFile: Option[File], str: String, format: String): Unit = {
     val dotFile = File.newTemporaryFile("graph_", ".dot.tmp")
     dotFile.write(str)
-    val svgFile = File.newTemporaryFile("graph_", ".svg.tmp")
-    val p = Process(s"dot -Tsvg ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
-    val exitCode = p.run().exitValue()
-    val result = svgFile.contentAsString
-    dotFile.delete(swallowIOExceptions = false)
-    svgFile.delete(swallowIOExceptions = false)
+    val svgFile =
+      outputFile match {
+        case Some(outputFile) =>
+          outputFile.parent.createDirectories()
+          outputFile
+        case None =>
+          File.newTemporaryFile("graph_", ".svg.tmp")
+      }
+    val stdout = new StringBuilder
+    val stderr = new StringBuilder
+    val logger = ProcessLogger(stdout append _, stderr append _)
+    val p = Process(s"dot -T$format ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
+    val exitCode = p.run(logger).exitValue()
     if (exitCode != 0) {
-      throw new Exception(s"Failed to convert to SVG. Exited with error code $exitCode")
+      throw new Exception(
+        s"""
+          ${stdout.toString()}
+          ${stderr.toString()}
+          Exited with status code $exitCode.
+          --> Please make sure that GraphViz is installed and available in your PATH
+          """
+      )
     }
-    result
+    dotFile.delete(swallowIOExceptions = false)
+    outputFile match {
+      case None =>
+        svgFile.delete(swallowIOExceptions = false)
+        println(svgFile.contentAsString)
+
+      case Some(_) =>
+    }
   }
 
 }
