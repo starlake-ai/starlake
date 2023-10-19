@@ -10,7 +10,9 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
 
   "Recursive Transform" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
+      withEnvs(
+        "SL_ROOT" -> starbakeDir.pathAsString /*/* , "SL_METADATA" -> starbakeDir.pathAsString */ */
+      ) {
         Main.main(
           Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
         )
@@ -32,7 +34,9 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   }
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
+      withEnvs(
+        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+      ) {
         Main.main(
           Array("task-dependencies", "--viz")
         )
@@ -42,7 +46,9 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
 
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
+      withEnvs(
+        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+      ) {
         Main.main(
           Array("table-dependencies")
         )
@@ -52,7 +58,9 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
 
   "Job GraphViz Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-      withEnvs("SL_ROOT" -> starbakeDir.pathAsString, "SL_METADATA" -> starbakeDir.pathAsString) {
+      withEnvs(
+        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+      ) {
         Main.main(
           Array(
             "task-dependencies",
