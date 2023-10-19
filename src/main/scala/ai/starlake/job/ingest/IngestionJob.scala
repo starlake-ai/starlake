@@ -559,6 +559,7 @@ trait IngestionJob extends SparkJob {
         val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
         computePartitions(bigqueryJob, partitionName, sql) match {
           case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
+            logger.error("Null value found in partition")
             Failure(new NullValueFoundException(nullCountValues))
           case (Nil, nullCountValues) =>
             logger.info(
@@ -656,6 +657,7 @@ trait IngestionJob extends SparkJob {
         )
         computePartitions(bigqueryJob, partitionName, sql) match {
           case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
+            logger.error("Null value found in partition")
             Failure(new NullValueFoundException(nullCountValues))
           case (Nil, nullCountValues) =>
             logger.info(
