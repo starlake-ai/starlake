@@ -22,6 +22,7 @@ object SingleUserMainServer {
 
   val core = new Main()
 
+  case class DomainItem(name: String, tables: List[String])
   def run(
     root: String,
     metadata: Option[String],
@@ -39,6 +40,19 @@ object SingleUserMainServer {
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
         SingleUserMainServer.mapper.writeValueAsString(Services.domains()(settings))
+      case "table-names" =>
+        val domains = Services.domains()(settings)
+        val tableNames =
+          domains.map { domain =>
+            DomainItem(domain.finalName, domain.tables.map(_.finalName).sorted)
+          }
+        val jobs = Services.jobs()(settings)
+        val taskNames =
+          jobs.map { job =>
+            DomainItem(job.name, job.tasks.map(_.table).sorted)
+          }
+        val all = tableNames ++ taskNames
+        SingleUserMainServer.mapper.writeValueAsString(all.sortBy(_.name))
       case "jobs" =>
         SingleUserMainServer.mapper.writeValueAsString(Services.jobs()(settings))
       case "types" =>
