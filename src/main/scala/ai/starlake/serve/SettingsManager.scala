@@ -35,6 +35,14 @@ object SettingsManager {
   private val watcherThread = new SettingsWatcherThread(settingsMap, settingsTimeMap)
   watcherThread.start()
 
+  def reset(): Unit = {
+    settingsTimeMap.synchronized {
+      settingsTimeMap.clear()
+    }
+    settingsMap.synchronized {
+      settingsMap.clear()
+    }
+  }
   private def uniqueId(
     root: String,
     metadata: Option[String],

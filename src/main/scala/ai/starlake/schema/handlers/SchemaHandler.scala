@@ -43,6 +43,10 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
+case class TableWithNameOnly(name: String, attrs: List[String])
+
+case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
+
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
   * @param storage
@@ -1184,4 +1188,30 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
+
+  def getObjectNames()(implicit settings: Settings): List[DomainWithNameOnly] = {
+    val domains = this.domains()
+    val tableNames =
+      domains.map { domain =>
+        DomainWithNameOnly(
+          domain.finalName,
+          domain.tables
+            .map { table =>
+              TableWithNameOnly(table.finalName, table.attributes.map(_.getFinalName()).sorted)
+            }
+            .sortBy(_.name)
+        )
+      }
+    val jobs = this.jobs()
+    val taskNames =
+      jobs.map { job =>
+        DomainWithNameOnly(
+          job.name,
+          job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
+        )
+      }
+    val all = tableNames ++ taskNames
+    val result = all.sortBy(_.name)
+    result
+  }
 }
