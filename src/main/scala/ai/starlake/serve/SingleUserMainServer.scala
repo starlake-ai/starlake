@@ -22,7 +22,6 @@ object SingleUserMainServer {
 
   val core = new Main()
 
-  case class DomainItem(name: String, tables: List[String])
   def run(
     root: String,
     metadata: Option[String],
@@ -36,27 +35,18 @@ object SingleUserMainServer {
       case "quit" | "exit" =>
         System.exit(0)
         "" // makes the compiler happy
-      case "version"   => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
+      case "version" => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
+      case "reload" =>
+        SingleUserMainServer.mapper.writeValueAsString(SettingsManager.reset())
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
-        SingleUserMainServer.mapper.writeValueAsString(Services.domains()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.domains()(settings))
       case "table-names" =>
-        val domains = Services.domains()(settings)
-        val tableNames =
-          domains.map { domain =>
-            DomainItem(domain.finalName, domain.tables.map(_.finalName).sorted)
-          }
-        val jobs = Services.jobs()(settings)
-        val taskNames =
-          jobs.map { job =>
-            DomainItem(job.name, job.tasks.map(_.table).sorted)
-          }
-        val all = tableNames ++ taskNames
-        SingleUserMainServer.mapper.writeValueAsString(all.sortBy(_.name))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.objectNames()(settings))
       case "jobs" =>
-        SingleUserMainServer.mapper.writeValueAsString(Services.jobs()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.jobs()(settings))
       case "types" =>
-        SingleUserMainServer.mapper.writeValueAsString(Services.types()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types()(settings))
       case _ =>
         core.run(args)(settings)
         SingleUserMainServer.mapper.writeValueAsString(

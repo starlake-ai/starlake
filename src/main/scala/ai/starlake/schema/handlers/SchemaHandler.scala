@@ -43,6 +43,10 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
+case class TableWithNameOnly(name: String, attrs: List[String])
+
+case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
+
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
   * @param storage
@@ -268,7 +272,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   @throws[Exception]
-  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.sl.yml")
+  def externalSources(): List[ExternalDatabase] = loadExternalSources("_config.sl.yml")
 
   @throws[Exception]
   def expectations(name: String): Map[String, ExpectationDefinition] = {
@@ -571,8 +575,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
   }
 
-  def loadExternals(): (List[ValidationMessage], List[Domain]) = {
-    initDomainsFromArea(DatasetArea.external)
+  def loadExternals(): List[Domain] = {
+    loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
+      case (list, Nil) => list.collect { case Success(domain) => domain }
+      case (list, errors) =>
+        errors.foreach {
+          case Failure(err) =>
+            logger.warn(
+              s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+            )
+          case Success(_) => // ignore
+        }
+        list.collect { case Success(domain) => domain }
+    }
   }
 
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
@@ -1184,4 +1199,32 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
+
+  def getObjectNames(): List[DomainWithNameOnly] = {
+
+    val domains = this.domains() ++ this.loadExternals()
+    val tableNames =
+      domains.map { domain =>
+        DomainWithNameOnly(
+          domain.finalName,
+          domain.tables
+            .map { table =>
+              TableWithNameOnly(table.finalName, table.attributes.map(_.getFinalName()).sorted)
+            }
+            .sortBy(_.name)
+        )
+      }
+    val jobs = this.jobs()
+    val taskNames =
+      jobs
+        .map { job =>
+          DomainWithNameOnly(
+            job.name,
+            job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
+          )
+        }
+    val all = tableNames ++ taskNames
+    val result = all.sortBy(_.name)
+    result
+  }
 }

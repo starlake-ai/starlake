@@ -5,7 +5,6 @@ import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
-import ai.starlake.utils.YamlSerializer
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
@@ -50,15 +49,15 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   def extractDataset(dataset: Dataset): Domain = {
     val datasetId = dataset.getDatasetId()
     val bqTables = bigquery.listTables(datasetId, TableListOption.pageSize(10000))
-    val allTables = bqTables.iterateAll.asScala
+    val allDatawareTables = bqTables.iterateAll.asScala
     val datasetName = dataset.getDatasetId.getDataset()
     val tables =
       config.tables.get(datasetName) match {
+        case Some(tables) if tables.contains("*") =>
+          allDatawareTables
         case Some(tables) =>
-          allTables.filter(t =>
-            config.tables(dataset.getDatasetId.getDataset()).contains(t.getTableId.getTable())
-          )
-        case None => allTables
+          allDatawareTables.filter(t => tables.exists(_.equalsIgnoreCase(t.getTableId.getTable())))
+        case None => allDatawareTables
       }
 
     val schemas = tables.flatMap { bqTable =>
@@ -111,12 +110,13 @@ object ExtractBigQuerySchema {
       BigQueryTablesConfig
         .parse(args.toSeq)
         .getOrElse(throw new Exception("Could not parse arguments"))
+    extractAndSaveTables(config)
+  }
+
+  def extractAndSaveTables(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val domains = new ExtractBigQuerySchema(config).extractDatasets()
     domains.foreach { domain =>
-      val domainYaml = YamlSerializer.serialize(domain)
-      if (settings.storageHandler().exists(DatasetArea.external))
-        settings.storageHandler().delete(DatasetArea.external)
-      settings.storageHandler().write(domainYaml, DatasetArea.external)
+      domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
     }
   }
 }
