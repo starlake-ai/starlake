@@ -19,5 +19,4 @@ Parameter|Cardinality|Description
 --connection:`<value>`|*Optional*|Connection to use
 --tables:`<value>`|*Optional*|List of datasetName.tableName1,datasetName.tableName2 ...
 --persist:`<value>`|*Optional*|Persist results ?
---jobs:`<value>`|*Optional*|List of job names
 
