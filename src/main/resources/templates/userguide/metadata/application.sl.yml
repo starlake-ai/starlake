@@ -1,0 +1,37 @@
+application:
+  connectionRef: {{ myConnection }}
+  # loader: "spark" # "spark" or "native"
+
+  audit:
+    sink:
+      connectionRef: {{ myConnection }}
+
+  accessPolicies:
+    apply: true
+    location: EU
+
+  spark:
+    datasource:
+      bigquery:
+        allowFieldAddition: "true"
+        allowFieldRelaxation: "true"
+
+  connections:
+    bigquery:
+      type: "bigquery"
+      options:
+        gcsBucket: "starlake-app"
+        # temporaryGcsBucket: "starlake-app" default to gcsBucket
+
+        authType: "APPLICATION_DEFAULT"
+        #authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes, default to https://www.googleapis.com/auth/cloud-platform
+
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/me.json"
+
+        #authType: "ACCESS_TOKEN"
+        #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    LocalFileSystem:
+      type: "fs"
+
+

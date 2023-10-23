@@ -1,0 +1,14 @@
+transform:
+  name: "user"
+  views:
+    user_View: "accepted/user"
+  tasks:
+    - domain: "business/user"
+      table: "user"
+      write: "OVERWRITE"
+      sql: |
+        select firstname,
+          lastname,
+          age
+        from user_View
+        where age={{age}}

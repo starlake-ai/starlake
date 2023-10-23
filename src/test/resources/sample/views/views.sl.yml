@@ -1,0 +1,6 @@
+views:
+  database: mydb
+  schema: my_schema
+  source:
+    name: my_view
+

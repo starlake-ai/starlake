@@ -1,0 +1,100 @@
+---
+sidebar_position: 10
+---
+
+# General
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Starlake is based on a YAML DSL (Domain Specific Language) to define the data pipelines. All these files are stored in the `metadata` folder.
+
+## Metadata
+All the information related to a project is stored in the metadata folder. This folder is organized as follows:
+
+- __metadata/extract__: this directory contains all the extraction rules such as which tables and columns need to be extracted from an existing database.
+
+- __metadata/load__: this directory contains all the information related to load jobs. A load job is a job that load files from disk,
+validate the input records and store them in the target datawarehouse
+
+- __metadata/transform__: this directory contains all the information related to transform jobs.
+A transform job is a job that run against existing tables on the target database and write the result in a target table.
+These are usually jobs that compute KPIs by aggregating values from different fact tables and or apply specific transformations to do some cleaning.
+
+- __metadata/types__: this is a companion directory to the metadata/load directory.
+It contains all the custom types validation you wish to apply on the records loaded from a file.
+We may require a record column to have a specific length or to verify a specific pattern like an email for example.
+This allows to go much further than simply checking the input against standard python or java types.
+
+- __metadata/expectations__: This directory contains a library of expectations we may want to use in our project.
+Expectations are used to validate the data we load into our datawarehouse.
+For example, we may want to check that the number of records loaded in a table is greater than 0.
+
+- __metadata/connections.sl.yml__: This file contains all the connections to our datawarehouse, although usually we just have one connection.
+
+- __metadata/refs.sl.yml__: In your SQL transforms, we may be joining tables coming from different domains or databases.
+In that case, we normally need to reference our tables by their full names such as: `project-id.domain.my-table`.
+The refs file allows us to make our query more readable by allowing to map the name `my-table` to its full name.
+
+- __metadata/env.[SL_ENV].sl.yml__: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
+The SL_ENV env var activates a specific env file making it possible to assign to variables, values based on the active environment.
+
+
+## Domains
+
+Whether we load files or apply operations on tables, our load and transform jobs will end up writing to a table hosted in a domain.
+
+A domain is a synonym to :
+- a schema in some databases such as Postgres or Snowflake
+- a database in Databricks
+- A dataset in BigQuery.
+
+Since tables are necessarily hosted in a domain, Starlake need to create a domain if it does not exist before it stores the data into the table.
+The domain name is specified by the folder name where the table is defined.
+For example, if we have a table defined in the following path: `metadata/transform/my-domain/my-table.sl.yml`, then the domain name will be `my-domain`.
+
+:::note
+
+We may still overload the domain name in the file `metadata/transform/my-domain/_config.sl.yml` by specifying a different domain name in the `name` property.
+
+:::
+
+
+## Tables
+
+Any load or transform job that will end up writing to a table `my-table` in the domain `my-domain`
+is defined in the file `metadata/load/my-domain/my-table.sl.yml` for load jobs and in the file `metadata/transform/my-domain/my-table.sl.yml` for transform jobs.
+
+:::note
+
+We may still overload the table name in the file `my-table.sl.yml` by specifying a different table name in the `name` property.
+
+:::
+
+## Connections
+
+Connections are defined in the file `metadata/connections.sl.yml`. This file contains a list of connections.
+Each connection has a name and a type.
+- The type is the type of the database we want to connect to: JDBC, BigQuery, Databricks, Spark, Hive, Filesystem ect ...
+- The name is the name we will use to reference the connection in our load and transform jobs.
+
+## Environments
+
+Environments are defined in the file `metadata/env.[SL_ENV].sl.yml`. This file contains a list of variables.
+Each variable has a name and a value.
+- The name is the name we will use to reference the variable in our jobs using the syntax `{{variable}}` or `${variable}`.
+- The value is the value of the variable.
+
+We may assign a value to a variable based on the active environment.
+For example, we may want to use a different database name based on the environment we are running our job in.
+The file `metadata/env.sl.yml` is always loaded then, if the SL_ENV variable is defined, the file metadata/env.[SL_ENV].sl.yml is also loaded
+and values defined in this file will override the values defined in the file `metadata/env.sl.yml`.
+
+
+## Refs
+
+Refs are used essentially in SQL transform jobs. They allow to reference a table by its name instead of its full name.
+
+For example, if we have a table `my-table` in the domain `my-domain`, we may reference it in our SQL query by using the syntax `my-table` instead of `my-domain.my-table` or `my-database.my-domain.my-table`.
+
+Refs are also useful to implicitly reference a table in a different domain or database based on the environment our job is running in: DEV or PROD for example.

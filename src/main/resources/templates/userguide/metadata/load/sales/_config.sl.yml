@@ -1,0 +1,9 @@
+load:
+  name: "sales"
+  metadata:
+    directory: "{{root_path}}/incoming/sales"
+    format: "DSV"
+    withHeader: true
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"

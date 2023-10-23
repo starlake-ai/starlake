@@ -1,0 +1,16 @@
+transform:
+  tasks:
+    - domain: result
+      table: file
+      write: OVERWRITE
+      sql: |
+        select '  Name' as name,'Last Name   ' as lastName, '' as emptColumn
+      sink:
+        format: csv
+        coalesce: true
+        connectedRef: "spark"
+        options:
+          emptyValue: ""
+          delimiter: "|"
+          ignoreLeadingWhiteSpace: false
+          ignoreTrailingWhiteSpace: false

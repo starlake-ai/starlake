@@ -1,0 +1,10 @@
+---
+name: "hello"
+type: "string"
+array: false
+required: true
+privacy: "NONE"
+position:
+  first: 1
+  last: 2
+ignore: false

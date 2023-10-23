@@ -1,0 +1,13 @@
+external:
+  - database: myProjectId
+    domains:
+      - name: dataset1
+        tables:
+          - table1
+          - table2
+          - table3
+      - name: dataset2
+        tables:
+          - table1
+          - table2
+          - table3

@@ -1,0 +1,11 @@
+---
+transform:
+  name: "business_with_vars"
+  tasks:
+    - sql: "select * from {{DOMAIN}}.{{SCHEMA}} where '{{Y}}-{{M}}' like '2022-01'"
+      domain: "dream2"
+      dataset: "client2"
+      write: "OVERWRITE"
+      partition:
+        - "year"
+        - "month"

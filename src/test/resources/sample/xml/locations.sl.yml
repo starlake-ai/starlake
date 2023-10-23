@@ -1,0 +1,44 @@
+---
+name: "locations"
+directory: "__SL_TEST_ROOT__"
+metadata:
+  mode: "FILE"
+  format: "XML"
+  multiline: true
+  array: true
+  withHeader: true
+  separator: ""
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  xml:
+    rowTag: element
+  partition:
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
+tables:
+  - name: "locations"
+    pattern: "locations.*"
+    attributes:
+      - name: "_continent"
+        type: "string"
+        required: false
+        privacy: "MD5"
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "name"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "seconds"
+        type: "epoch_second"
+        required: true
+        privacy: "NONE"
+      - name: "millis"
+        type: "epoch_milli"
+        required: true
+        privacy: "NONE"

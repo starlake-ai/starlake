@@ -1,0 +1,6 @@
+load:
+  name: "hr"
+  directory: "{{root_path}}/incoming/hr"
+  metadata:
+    mode: "FILE"
+    format: "JSON"

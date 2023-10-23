@@ -1,0 +1,10 @@
+---
+transform:
+  name: "invalid"
+  tasks:
+    - domain: "dream2"
+      table: "client2"
+      write: "OVERWRITE"
+      partition:
+        - "year"
+        - "month"

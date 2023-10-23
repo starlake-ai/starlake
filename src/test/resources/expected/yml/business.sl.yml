@@ -1,0 +1,18 @@
+---
+transform:
+  name: "business1"
+  tasks:
+    - sql: "select * from domain"
+      domain: "DOMAIN"
+      table: "ANALYSE"
+      write: "OVERWRITE"
+      partition:
+        - "comet_year"
+        - "comet_month"
+      presql: null
+      postsql: null
+      rls:
+        - name: "myrls"
+          predicate: "TRUE"
+          grants:
+            - "user:hayssam.saleh@ebiznext.com"

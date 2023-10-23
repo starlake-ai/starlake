@@ -1,0 +1,47 @@
+package ai.starlake.sql
+
+import ai.starlake.TestHelper
+import ai.starlake.integration.IntegrationTestBase
+import ai.starlake.schema.handlers.SchemaHandler
+import better.files.File
+
+class SQLCompletionSpec extends IntegrationTestBase with TestHelper {
+  val starlakeDir = File(".")
+  logger.info(starlakeDir.pathAsString)
+  val localDir = starlakeDir / "samples" / "local"
+  val incomingDir = localDir / "incoming"
+  val quickstartDir: File = localDir / "quickstart"
+  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
+
+  withEnvs("SL_ROOT" -> quickstartDir.pathAsString) {
+    new WithSettings() {
+
+      "SQLCompletion for domains" should "return the list of domains" in {
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val sqlCompletion = new SQLCompletion(schemaHandler)
+        val sql = "SELECT * FROM "
+        val cursorPosition = sql.length
+        val tables = sqlCompletion.getObjects(sql, cursorPosition)
+        tables should contain theSameElementsAs List("sales", "hr", "sales_kpi")
+      }
+
+      "SQLCompletion for tables" should "return the list of tables" in {
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val sqlCompletion = new SQLCompletion(schemaHandler)
+        val sql = "SELECT * FROM hr."
+        val cursorPosition = sql.length
+        val tables = sqlCompletion.getObjects(sql, cursorPosition)
+        tables should contain theSameElementsAs List("locations", "sellers")
+      }
+
+      "SQLCompletion for columns" should "return the list of tables" in {
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val sqlCompletion = new SQLCompletion(schemaHandler)
+        val sql = "WITH CTE1 AS (SELECT X FROM Y), CTE2 AS(SELECT A FROM B) SELECT  FROM hr.sellers"
+        val cursorPosition = 7
+        val tables = sqlCompletion.getObjects(sql, cursorPosition)
+        tables should contain theSameElementsAs List("locations", "sellers")
+      }
+    }
+  }
+}
