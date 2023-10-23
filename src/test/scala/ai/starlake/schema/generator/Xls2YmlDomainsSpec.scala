@@ -93,7 +93,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
           )
         )
       val xlsTable = complexReader.getDomain().get.tables.head
-      val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
       val yamlPath =
         File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
 

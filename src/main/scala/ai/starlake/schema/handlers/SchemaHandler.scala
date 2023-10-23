@@ -272,7 +272,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   @throws[Exception]
-  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.sl.yml")
+  def externalSources(): List[ExternalDatabase] = loadExternalSources("_config.sl.yml")
 
   @throws[Exception]
   def expectations(name: String): Map[String, ExpectationDefinition] = {
@@ -575,8 +575,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
   }
 
-  def loadExternals(): (List[ValidationMessage], List[Domain]) = {
-    initDomainsFromArea(DatasetArea.external)
+  def loadExternals(): List[Domain] = {
+    loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
+      case (list, Nil) => list.collect { case Success(domain) => domain }
+      case (list, errors) =>
+        errors.foreach {
+          case Failure(err) =>
+            logger.warn(
+              s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+            )
+          case Success(_) => // ignore
+        }
+        list.collect { case Success(domain) => domain }
+    }
   }
 
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
@@ -1189,8 +1200,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // SL_DATABASE
   // default database
 
-  def getObjectNames()(implicit settings: Settings): List[DomainWithNameOnly] = {
-    val domains = this.domains()
+  def getObjectNames(): List[DomainWithNameOnly] = {
+
+    val domains = this.domains() ++ this.loadExternals()
     val tableNames =
       domains.map { domain =>
         DomainWithNameOnly(
@@ -1204,12 +1216,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     val jobs = this.jobs()
     val taskNames =
-      jobs.map { job =>
-        DomainWithNameOnly(
-          job.name,
-          job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
-        )
-      }
+      jobs
+        .map { job =>
+          DomainWithNameOnly(
+            job.name,
+            job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
+          )
+        }
     val all = tableNames ++ taskNames
     val result = all.sortBy(_.name)
     result
