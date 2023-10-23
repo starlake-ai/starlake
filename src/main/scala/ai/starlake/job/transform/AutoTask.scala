@@ -21,6 +21,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.{
   BigQueryExpectationAssertionHandler,
@@ -33,6 +34,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
+import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
@@ -229,6 +231,18 @@ case class AutoTask(
               new BigQueryExpectationAssertionHandler(bqNativeJob(""))
             ).run()
           }
+        }
+        Try {
+          val config = BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
+          ExtractBigQuerySchema.extractAndSaveTables(config)
+        } match {
+          case Success(_) =>
+            logger.info(
+              s"Successfully wrote domain ${taskDesc.domain}.${taskDesc.table} to ${DatasetArea.external}"
+            )
+          case Failure(e) =>
+            logger.warn(s"Failed to write domain ${taskDesc.domain} to ${DatasetArea.external}")
+            throw e
         }
         jobResult
       case _ =>

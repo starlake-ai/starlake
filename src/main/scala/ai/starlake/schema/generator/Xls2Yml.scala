@@ -23,13 +23,7 @@ object Xls2Yml extends LazyLogging {
   def writeDomainAsYaml(domain: Domain, basePath: File): Unit = {
     logger.info(s"""Generated schemas:
          |${serialize(domain)}""".stripMargin)
-    val folder = File(basePath, domain.name)
-    folder.createIfNotExists(asDirectory = true, createParents = true)
-    domain.tables foreach { schema =>
-      serializeToFile(File(folder, s"${schema.name}.sl.yml"), schema)
-    }
-    val domainDataOnly = domain.copy(tables = Nil)
-    serializeToFile(File(folder, s"_config.sl.yml"), domainDataOnly)
+    domain.writeDomainAsYaml(basePath)
   }
 
   def writeIamPolicyTagsAsYaml(
