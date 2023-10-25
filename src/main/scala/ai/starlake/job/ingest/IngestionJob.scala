@@ -281,7 +281,7 @@ trait IngestionJob extends SparkJob {
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
-  def requireTwoSteps(schema: Schema, sink: BigQuerySink): Boolean = {
+  private def requireTwoSteps(schema: Schema, sink: BigQuerySink): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty || sink.dynamicPartitionOverwrite
@@ -351,7 +351,7 @@ trait IngestionJob extends SparkJob {
             logger.info(s"First step result: $loadFileResult")
             val expectationsResult = runExpectations(firstStepTempTable, firstStepBigqueryJob)
             val keepGoing =
-              expectationsResult.isSuccess || settings.appConfig.expectations.failOnError
+              expectationsResult.isSuccess || !settings.appConfig.expectations.failOnError
             if (keepGoing) {
               val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
               val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
@@ -495,7 +495,7 @@ trait IngestionJob extends SparkJob {
     bigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableId: TableId,
-    schema: Schema
+    starlakeSchema: Schema
   ): Try[(BigQueryJobResult, Long)] = {
     val tempTable =
       s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
@@ -504,7 +504,7 @@ trait IngestionJob extends SparkJob {
     val sourceUris =
       bigqueryJob.cliConfig.source.left.getOrElse(throw new Exception("Should never happen"))
 
-    val enrichedTempTable =
+    val tempTableWithInputFileName =
       s"""
          |(
          | SELECT *, '${sourceUris.replace(
@@ -517,18 +517,23 @@ trait IngestionJob extends SparkJob {
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
     // we have sql as optional because in dynamic partition overwrite mode, if no partition exists, we do nothing
-    val mergeInstructions = schema.merge match {
+    val mergeInstructions = starlakeSchema.merge match {
       case Some(mergeOptions: MergeOptions) =>
         handleNativeMergeCases(
           bigqueryJob,
           targetTableId,
-          schema,
+          starlakeSchema,
           targetTable,
-          enrichedTempTable,
+          tempTableWithInputFileName,
           mergeOptions
         )
       case None =>
-        handleNativeNoMergeCases(bigqueryJob, schema, targetTable, enrichedTempTable)
+        handleNativeNoMergeCases(
+          bigqueryJob,
+          starlakeSchema,
+          targetTable,
+          tempTableWithInputFileName
+        )
     }
     mergeInstructions.flatMap { case (sqlOpt, asTable, nullCountValues) =>
       sqlOpt match {
@@ -626,18 +631,20 @@ trait IngestionJob extends SparkJob {
   private def handleNativeMergeCases(
     bigqueryJob: BigQueryNativeJob,
     targetTableId: TableId,
-    schema: Schema,
+    starlakeSchema: Schema,
     targetTable: String,
-    enrichedTempTable: String,
+    tempTableWithInputFileName: String,
     mergeOptions: MergeOptions
   ): Try[(Option[String], Boolean, Long)] = {
     val targetFilters =
       (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
         case (Some(_), Some(_)) =>
-          val partitions = {
+          val existingPartitions = {
             bigqueryJob.bigquery().listPartitions(targetTableId).asScala.toList
           }
-          mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnvVars(), options).toList
+          mergeOptions
+            .buidlBQQuery(existingPartitions, schemaHandler.activeEnvVars(), options)
+            .toList
         case _ => Nil
       }
     (
@@ -646,11 +653,11 @@ trait IngestionJob extends SparkJob {
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, "WRITE_TRUNCATE", Some(partitionName)) =>
-        val sql = schema.buildSqlMerge(
-          enrichedTempTable,
+        val sql = starlakeSchema.buildSqlMerge(
+          tempTableWithInputFileName,
           targetTable,
-          schema.merge,
-          schema.filter,
+          starlakeSchema.merge,
+          starlakeSchema.filter,
           targetFilters,
           Nil,
           false
@@ -670,11 +677,11 @@ trait IngestionJob extends SparkJob {
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
             Success(
               Some(
-                schema.buildSqlMerge(
-                  enrichedTempTable,
+                starlakeSchema.buildSqlMerge(
+                  tempTableWithInputFileName,
                   targetTable,
-                  schema.merge,
-                  schema.filter,
+                  starlakeSchema.merge,
+                  starlakeSchema.filter,
                   targetFilters,
                   List(inPartitions),
                   true
@@ -687,11 +694,11 @@ trait IngestionJob extends SparkJob {
       case _ =>
         Success(
           Some(
-            schema.buildSqlMerge(
-              enrichedTempTable,
+            starlakeSchema.buildSqlMerge(
+              tempTableWithInputFileName,
               targetTable,
-              schema.merge,
-              schema.filter,
+              starlakeSchema.merge,
+              starlakeSchema.filter,
               targetFilters,
               Nil,
               false
@@ -706,13 +713,13 @@ trait IngestionJob extends SparkJob {
   private def applySecondStep(
     targetBigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
-    incomingTableSchema: BQSchema,
-    schema: Schema
+    targetTableSchema: BQSchema,
+    starlakeSchema: Schema
   ): Try[(BigQueryJobResult, Long)] = {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
-        updateTargetTableSchema(targetBigqueryJob, incomingTableSchema)
-        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId, schema)
+        updateTargetTableSchema(targetBigqueryJob, targetTableSchema)
+        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId, starlakeSchema)
       }
       .getOrElse(throw new Exception("Should never happen"))
   }
