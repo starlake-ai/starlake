@@ -167,7 +167,7 @@ trait TestHelper
     ),
     FileToImport(
       "sample.py.j2",
-      "/scalate/dag/sample.py.j2"
+      "/templates/dag/sample.py.j2"
     )
   )
 

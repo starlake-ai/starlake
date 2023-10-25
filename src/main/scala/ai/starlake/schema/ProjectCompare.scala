@@ -34,9 +34,9 @@ object ProjectCompare {
     val engine: TemplateEngine = new TemplateEngine
     val (path, content) = templatePath match {
       case None =>
-        val stream = getClass.getResourceAsStream("/scalate/project-compare.ssp")
+        val stream = getClass.getResourceAsStream("/templates/project-compare.ssp")
         val templateContent = scala.io.Source.fromInputStream(stream).mkString
-        ("/scalate/project-compare.ssp", templateContent)
+        ("/templates/project-compare.ssp", templateContent)
       case Some(path) =>
         val templateContent = settings.storageHandler().read(new Path(path))
         (path, templateContent)
