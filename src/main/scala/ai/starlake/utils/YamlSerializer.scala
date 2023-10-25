@@ -69,10 +69,13 @@ object YamlSerializer extends LazyLogging {
         extractNode
     jdbcNode match {
       case objectNode: ObjectNode =>
-        YamlSerializer.renameField(objectNode, "globalJdbcSchema", "default")
-        logger.warn(
-          "'globalJdbcSchema' has been renamed to 'default'"
-        )
+        val globalJdbcSchemaNode = objectNode.path("globalJdbcSchema")
+        if (!globalJdbcSchemaNode.isMissingNode) {
+          YamlSerializer.renameField(objectNode, "globalJdbcSchema", "default")
+          logger.warn(
+            "'globalJdbcSchema' has been renamed to 'default'"
+          )
+        }
       case _ =>
     }
     if (
