@@ -90,9 +90,9 @@ trait CliConfig[T] extends CommandConfig {
       )
 
     // TODO keep the lines below until we depreciate Scala 2.11
-    //     We'll replace it by --> val template = Source.fromResource("scalate/cli/md-cli.mustache").mkString
+    //     We'll replace it by --> val template = Source.fromResource("templates/cli/md-cli.mustache").mkString
 
-    val stream = getClass.getResourceAsStream("/scalate/cli/md-cli.mustache")
+    val stream = getClass.getResourceAsStream("/templates/cli/md-cli.mustache")
     val template = scala.io.Source.fromInputStream(stream).mkString
 
     engine.layout(

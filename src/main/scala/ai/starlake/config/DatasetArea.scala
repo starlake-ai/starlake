@@ -260,7 +260,7 @@ object DatasetArea extends StrictLogging {
     incomingFolder.createDirectories()
     val vscodeFolder = File(metadataFile.parent, ".vscode")
     vscodeFolder.createDirectories()
-    copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
+    copyToFolder(List("extensions.json"), s"bootstrap", vscodeFolder)
 
     template.getOrElse("quickstart") match {
       case "bigquery" =>
@@ -277,14 +277,14 @@ object DatasetArea extends StrictLogging {
           "types/types.sl.yml",
           "env.sl.yml"
         )
-        copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
+        copyToFolder(metadataResources, s"bootstrap/bigquery/metadata", metadataFile)
         val rootResources = List(
           "incoming/locations-2018-01-01.json",
           "incoming/sellers-2018-01-01.json",
           "incoming/customers-2018-01-01.psv",
           "incoming/orders-2018-01-01.csv"
         )
-        copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
+        copyToFolder(rootResources, s"bootstrap/bigquery", metadataFile.parent)
       case "userguide" =>
         val metadataResources = List(
           "load/hr/_config.sl.yml",
@@ -302,14 +302,14 @@ object DatasetArea extends StrictLogging {
           "env.BQ.sl.yml",
           "env.FS.sl.yml"
         )
-        copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
+        copyToFolder(metadataResources, s"bootstrap/userguide/metadata", metadataFile)
         val rootResources = List(
           "incoming/locations-2018-01-01.json",
           "incoming/sellers-2018-01-01.json",
           "incoming/customers-2018-01-01.psv",
           "incoming/orders-2018-01-01.csv"
         )
-        copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
+        copyToFolder(rootResources, s"bootstrap/userguide", metadataFile.parent)
 
       case "quickstart" =>
         val metadataResources = List(
@@ -321,18 +321,18 @@ object DatasetArea extends StrictLogging {
           "env.LOCAL.sl.yml",
           "env.BQ.sl.yml"
         )
-        copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
+        copyToFolder(metadataResources, s"bootstrap/quickstart/metadata", metadataFile)
 
         val rootResources = List(
           "incoming/customers-2018-01-01.psv"
         )
-        copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
+        copyToFolder(rootResources, s"bootstrap/quickstart", metadataFile.parent)
 
       /*
       val dagResources = List(
           "dags/sample.sl.yml"
         )
-        copyToFolder(dagResources, s"templates/quickstart/metadata", metadataFile.parent)
+        copyToFolder(dagResources, s"bootstrap/quickstart/metadata", metadataFile.parent)
 
        */
       case _ => // do nothing
