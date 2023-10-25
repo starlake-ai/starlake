@@ -926,12 +926,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               (taskName, filename, ext)
             }
         }
-    val ymlFiles = allFiles.filter(_._3 == "sl.yml")
-    val sqlPyFiles = allFiles.filter(x =>
-      (x._3 == "sql" || x._3 == "sql.j2" || x._3 == "py")
-      && !ymlFiles.exists(_._1 == x._1)
-      && !jobDesc.tasks.exists(_.name == x._1)
-    )
+    val ymlFiles = allFiles.filter { case (taskName, filename, ext) => ext == "sl.yml" }
+    val sqlPyFiles = allFiles.filter { case (taskName, filename, ext) =>
+      (ext == "sql" || ext == "sql.j2" || ext == "py") &&
+      !ymlFiles.exists(_._1 == taskName) &&
+      !jobDesc.tasks.exists(_.name == taskName)
+    }
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
       extension match {

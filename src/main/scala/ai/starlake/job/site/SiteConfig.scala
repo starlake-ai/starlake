@@ -23,11 +23,11 @@ object SiteConfig extends CliConfig[SiteConfig] {
         .optional(),
       opt[String]("template-name")
         .action((x, c) => c.copy(templateName = Some(x)))
-        .text("Template to use. See scalate/site/ folder for available templates")
+        .text("Template to use. See templates/site/ folder for available templates")
         .optional(),
       opt[String]("template-path")
         .action((x, c) => c.copy(templatePath = Some(File(x))))
-        .text("Custom template path to use. See scalate/site/ folder for folder structure")
+        .text("Custom template path to use. See templates/site/ folder for folder structure")
         .optional()
     )
   }
@@ -56,7 +56,7 @@ case class SiteConfig(
   private def templateContentFromResource(templateType: String): (String, String) = {
     templateName match {
       case Some(name) =>
-        val sspResource = s"/scalate/site/$name/$templateType.ssp"
+        val sspResource = s"/templates/site/$name/$templateType.ssp"
         val stream = getClass.getResourceAsStream(sspResource)
         (sspResource, scala.io.Source.fromInputStream(stream).mkString)
       case None =>

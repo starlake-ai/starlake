@@ -329,7 +329,6 @@ class BigQuerySparkJob(
         throw e
       }
       (cliConfig.sqlSource, maybeSchema) match {
-        case (Some(sql), None) => getFieldsDescriptionSource(sql) // case of a Transformation (Job)
         // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
         case (None, Some(bqSchema)) => // case of Load (Ingestion)
           val fieldsDescription = BigQuerySchemaConverters
@@ -342,7 +341,7 @@ class BigQuerySparkJob(
           throw new Exception(
             "Should never happen, SqlSource or TableSchema should be set exclusively"
           )
-        case (None, None) =>
+        case (_, None) => // case of a transformation job
         // Do nothing
       }
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
