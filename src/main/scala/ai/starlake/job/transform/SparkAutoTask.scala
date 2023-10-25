@@ -7,7 +7,7 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.{SparkJobResult, Utils}
+import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.hadoop.fs.Path
@@ -36,6 +36,11 @@ class SparkAutoTask(
       drop,
       resultPageSize
     ) {
+
+  override def run(): Try[JobResult] = {
+
+    runSpark()
+  }
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(false)
@@ -185,6 +190,7 @@ class SparkAutoTask(
         sink match {
           case _: EsSink =>
             sinkToES()
+
           case fsSink: FsSink =>
             maybeDataFrame.exists(dataframe => this.sinkToFS(dataframe, fsSink))
 
@@ -269,7 +275,7 @@ class SparkAutoTask(
     }
   }
 
-  def runSpark(): Try[(SparkJobResult, String)] = {
+  def runSpark(): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
       val localViews =
@@ -306,7 +312,7 @@ class SparkAutoTask(
       }
       dataframe match {
         case None =>
-          (SparkJobResult(None), sqlWithParameters)
+          SparkJobResult(None)
         case Some(dataframe) =>
           if (settings.appConfig.expectations.active) {
             new ExpectationJob(
@@ -324,13 +330,13 @@ class SparkAutoTask(
 
           postSql.foreach(req => session.sql(req))
           // Let us return the Dataframe so that it can be piped to another sink
-          (SparkJobResult(Some(dataframe)), sqlWithParameters)
+          SparkJobResult(Some(dataframe))
       }
 
     }
     val end = Timestamp.from(Instant.now())
     res match {
-      case Success((jobResult, _)) =>
+      case Success(jobResult) =>
         val end = Timestamp.from(Instant.now())
         val jobResultCount = jobResult.dataframe match {
           case None => -1

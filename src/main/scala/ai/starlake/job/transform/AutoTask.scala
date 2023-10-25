@@ -107,9 +107,8 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
   override def name: String = taskDesc.name
-  override def run(): Try[JobResult] = {
-    throw new Exception("Should never happen !!! Call runBQ or runSpark directly")
-  }
+
+  def run(): Try[JobResult]
 
   def sink(maybeDataFrame: Option[DataFrame]): Boolean
 
