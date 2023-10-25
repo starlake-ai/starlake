@@ -43,7 +43,8 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
-              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}"
+              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}. Dag config founds ${dagConfigs.keys
+                  .mkString(",")}"
             )
           )
           TableWithDagConfig(domain, table, dagRef, dagConfig, schedule)
