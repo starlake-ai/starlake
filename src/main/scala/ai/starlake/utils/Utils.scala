@@ -348,39 +348,44 @@ object Utils extends StrictLogging {
   }
 
   private def dot2Format(outputFile: Option[File], str: String, format: String): Unit = {
-    val dotFile = File.newTemporaryFile("graph_", ".dot.tmp")
-    dotFile.write(str)
-    val svgFile =
-      outputFile match {
-        case Some(outputFile) =>
-          outputFile.parent.createDirectories()
-          outputFile
-        case None =>
-          File.newTemporaryFile("graph_", ".svg.tmp")
-      }
-    val stdout = new StringBuilder
-    val stderr = new StringBuilder
-    val logger = ProcessLogger(stdout append _, stderr append _)
-    val p = Process(s"dot -T$format ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
-    val exitCode = p.run(logger).exitValue()
-    if (exitCode != 0) {
-      throw new Exception(
-        s"""
+    Try {
+      val dotFile = File.newTemporaryFile("graph_", ".dot.tmp")
+      dotFile.write(str)
+      val svgFile =
+        outputFile match {
+          case Some(outputFile) =>
+            outputFile.parent.createDirectories()
+            outputFile
+          case None =>
+            File.newTemporaryFile("graph_", ".svg.tmp")
+        }
+      val stdout = new StringBuilder
+      val stderr = new StringBuilder
+      val logger = ProcessLogger(stdout append _, stderr append _)
+      val p = Process(s"dot -T$format ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
+      val exitCode = p.run(logger).exitValue()
+      if (exitCode != 0) {
+        throw new Exception(
+          s"""
           ${stdout.toString()}
           ${stderr.toString()}
           Exited with status code $exitCode.
           --> Please make sure that GraphViz is installed and available in your PATH
           """
-      )
-    }
-    dotFile.delete(swallowIOExceptions = false)
-    outputFile match {
-      case None =>
-        svgFile.delete(swallowIOExceptions = false)
-        println(svgFile.contentAsString)
+        )
+      }
+      dotFile.delete(swallowIOExceptions = false)
+      outputFile match {
+        case None =>
+          svgFile.delete(swallowIOExceptions = false)
+          println(svgFile.contentAsString)
 
-      case Some(_) =>
+        case Some(_) =>
+      }
     }
+  } match {
+    case Success(_) =>
+    case Failure(e) =>
+      logger.error(s"Error while converting dot to $format", Utils.exceptionAsString(e))
   }
-
 }
