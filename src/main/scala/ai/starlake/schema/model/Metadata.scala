@@ -176,9 +176,6 @@ case class Metadata(
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
 
   @JsonIgnore
-  def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
-
-  @JsonIgnore
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
   @JsonIgnore

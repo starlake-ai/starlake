@@ -20,6 +20,7 @@
 
 package ai.starlake.schema.handlers
 
+import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
@@ -35,8 +36,12 @@ import scala.util.Try
 /** Interface required by any filesystem manager
   */
 trait StorageHandler extends StrictLogging {
+  val starApiIsActive: Boolean = {
+    Try(Utils.loadInstance("ai.starlake.api.Application")).isSuccess
+
+  }
   protected def pathSecurityCheck(path: Path): Unit = {
-    if (path.toString.contains("..")) {
+    if (starApiIsActive && path.toString.contains("..")) {
       throw new Exception(s"Security check: Path cannot contain '..'. File $path")
     }
   }

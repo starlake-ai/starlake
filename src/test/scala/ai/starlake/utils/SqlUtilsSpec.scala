@@ -278,7 +278,7 @@ class SqlUtilsSpec extends TestHelper {
           |) as SL_INTERNAL_SOURCE ON SL_INTERNAL_SOURCE.transaction_id = SL_INTERNAL_SINK.transaction_id
           |WHEN MATCHED THEN UPDATE SET transaction_id = SL_INTERNAL_SOURCE.transaction_id, transaction_date = SL_INTERNAL_SOURCE.transaction_date, amount = SL_INTERNAL_SOURCE.amount, location_info = SL_INTERNAL_SOURCE.location_info, seller_info = SL_INTERNAL_SOURCE.seller_info
           |
-          |WHEN NOT MATCHED THEN INSERT ("transaction_id","transaction_date","amount","location_info","seller_info") VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
+          |WHEN NOT MATCHED THEN INSERT (transaction_id,transaction_date,amount,location_info,seller_info) VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
           |""".stripMargin.replaceAll("\\s", ""))
     }
   }

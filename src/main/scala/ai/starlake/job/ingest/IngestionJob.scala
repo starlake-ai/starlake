@@ -1,6 +1,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
+import ai.starlake.exceptions.{DisallowRejectRecordException, NullValueFoundException}
 import ai.starlake.job.metrics.{
   BigQueryExpectationAssertionHandler,
   ExpectationJob,
@@ -16,8 +17,8 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
-import ai.starlake.exceptions.{DisallowRejectRecordException, NullValueFoundException}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
@@ -42,7 +43,6 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 import java.nio.charset.Charset
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
-import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try, Using}
@@ -325,7 +325,7 @@ trait IngestionJob extends SparkJob {
         val firstStepTempTable = BigQueryJobBase.extractProjectDatasetAndTable(
           schemaHandler.getDatabase(domain),
           domain.finalName,
-          "zztmp_" + effectiveSchema.finalName + "_" + UUID.randomUUID().toString.replace("-", "")
+          SQLUtils.temporaryTableName(effectiveSchema.finalName)
         )
         val firstStepConfig = buildCommonNativeBQLoadConfig(
           createDisposition,
@@ -1103,12 +1103,7 @@ trait IngestionJob extends SparkJob {
               .getOrElse(Map.empty)
             (
               partitionColumns,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                partitionColumns
-              ),
+              nbFsPartitions(dataset),
               sinkClustering,
               sinkOptions.getOrElse(Map.empty),
               dynamicPartitionOverwrite
@@ -1116,12 +1111,7 @@ trait IngestionJob extends SparkJob {
           case _ =>
             (
               mergedMetadata.partition,
-              nbFsPartitions(
-                dataset,
-                writeFormat,
-                targetPath,
-                mergedMetadata.partition
-              ),
+              nbFsPartitions(dataset),
               mergedMetadata.getClustering(),
               Map.empty[String, String],
               Map.empty[String, String]
@@ -1260,49 +1250,12 @@ trait IngestionJob extends SparkJob {
   }
 
   private def nbFsPartitions(
-    dataset: DataFrame,
-    writeFormat: String,
-    targetPath: Path,
-    sinkPartition: Option[Partition]
+    dataset: DataFrame
   ): Int = {
-    val tmpPath = new Path(s"${targetPath.toString}.tmp")
-    val nbPartitions =
-      sinkPartition.map(_.getSampling()).getOrElse(mergedMetadata.getSamplingStrategy()) match {
-        case 0.0 => // default partitioning
-          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
-            1
-          else
-            dataset.rdd.getNumPartitions
-        case fraction if fraction > 0.0 && fraction < 1.0 =>
-          // Use sample to determine partitioning
-          val count = dataset.count()
-          val minFraction =
-            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
-              fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-              2 / count
-            else
-              0
-
-          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
-          partitionedDatasetWriter(
-            sampledDataset,
-            sinkPartition.map(_.getAttributes()).getOrElse(mergedMetadata.getPartitionAttributes())
-          )
-            .mode(SaveMode.ErrorIfExists)
-            .format(writeFormat)
-            .option("path", tmpPath.toString)
-            .save()
-          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
-          val blocksize = storageHandler.blockSize(tmpPath)
-          storageHandler.delete(tmpPath)
-          Math.max(consumed / blocksize, 1).toInt
-        case count if count >= 1.0 =>
-          count.toInt
-      }
-    nbPartitions
+    if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
+      1
+    else
+      dataset.rdd.getNumPartitions
   }
 
   private def runExpectations(acceptedDF: DataFrame): Try[JobResult] = {

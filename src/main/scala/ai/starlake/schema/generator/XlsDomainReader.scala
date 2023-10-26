@@ -186,7 +186,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
               case _ =>
                 Some(
                   Partition(
-                    sampling = partitionSamplingOpt,
                     attributes = partitionColumns
                   )
                 )
