@@ -54,7 +54,7 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
       node.get(field) == null || node.get(field).isNull
 
     def deserializeListOfString(field: String) = {
-      if (isNull("attributes")) Nil
+      if (isNull(field)) Nil
       else
         node
           .get(field)
