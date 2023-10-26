@@ -62,9 +62,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
         .map(_.attributes)
         .get
         .sorted shouldEqual List("comet_day", "comet_hour", "comet_month", "comet_year")
-      s1MaybePartitions
-        .flatMap(_.sampling)
-        .get shouldEqual 10.0
 
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
@@ -75,9 +72,6 @@ class Xls2YmlDomainsSpec extends TestHelper {
         .map(_.attributes)
         .get
         .sorted shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
-      s2MaybePartitions
-        .flatMap(_.sampling)
-        .get shouldEqual 0.0
     }
 
     val reader = new XlsDomainReader(

@@ -120,12 +120,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(10).setCellValue(metadata.encoding.getOrElse(""))
       schemaRow
         .createCell(11)
-        .setCellValue(metadata.partition.map(_.getSampling().toString).getOrElse(""))
+        .setCellValue("")
 
       val partitionColumns = metadata.sink match {
         case Some(sink) =>
           sink.timestamp
-            .map(timestamp => Some(Partition(None, List(timestamp))))
+            .map(timestamp => Some(Partition(List(timestamp))))
             .getOrElse(metadata.partition)
         case _ => metadata.partition
       }

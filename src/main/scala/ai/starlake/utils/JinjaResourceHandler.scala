@@ -9,13 +9,18 @@ import java.nio.charset.Charset
 import scala.tools.nsc.io.File
 
 class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator {
+
+  private def isAbsolute(path: String): Boolean = {
+    // linux of windows absolute path
+    path.startsWith(File.separator) || path.contains(":")
+  }
   override def getString(
     fullName: String,
     encoding: Charset,
     interpreter: JinjavaInterpreter
   ): String = {
     val path =
-      if (fullName.startsWith(File.separator) || fullName.contains(":"))
+      if (isAbsolute(fullName))
         new Path(fullName)
       else
         new Path(settings.appConfig.metadata, fullName)
