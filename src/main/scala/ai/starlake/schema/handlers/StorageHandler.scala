@@ -41,7 +41,6 @@ trait StorageHandler extends StrictLogging {
 
   }
   protected def pathSecurityCheck(path: Path): Unit = {
-
     if (starApiIsActive && path.toString.contains("..")) {
       throw new Exception(s"Security check: Path cannot contain '..'. File $path")
     }
