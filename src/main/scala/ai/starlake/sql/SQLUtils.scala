@@ -9,6 +9,7 @@ import net.sf.jsqlparser.statement.StatementVisitorAdapter
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 
+import java.util.UUID
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
 import scala.util.matching.Regex
@@ -113,10 +114,14 @@ object SQLUtils extends StrictLogging {
   }
 
   private def buildWhenNotMatchedInsert(sql: String): String = {
+    val columnNamesString = getColumnNames(sql)
+    s"""WHEN NOT MATCHED THEN INSERT $columnNamesString VALUES $columnNamesString"""
+  }
+
+  def getColumnNames(sql: String): String = {
     val columnNames = SQLUtils.extractColumnNames(sql)
-    val columnNamesString = columnNames.map(colName => s""""$colName"""").mkString("(", ",", ")")
-    val columnValuesString = columnNames.mkString("(", ",", ")")
-    s"""WHEN NOT MATCHED THEN INSERT $columnNamesString VALUES $columnValuesString"""
+    val columnNamesString = columnNames.mkString("(", ",", ")")
+    columnNamesString
   }
 
   private def buildWhenMatchedUpdate(sql: String) = {
@@ -375,5 +380,8 @@ object SQLUtils extends StrictLogging {
     }
 
   }
+
+  def temporaryTableName(tableName: String): String =
+    "zztmp_" + tableName + "_" + UUID.randomUUID().toString.replace("-", "")
 
 }

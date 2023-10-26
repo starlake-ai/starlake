@@ -114,59 +114,97 @@ abstract class AutoTask(
 
   def buildAllSQLQueries(
     tableExists: Boolean,
+    partitionColumn: Option[String],
+    destinationTable: Option[String],
     localViews: List[String] = Nil // for local development mode only
-  ): (List[String], String, List[String]) = {
+  ): (List[String], String, List[String], Boolean) = {
     // available jinja variables to build sql query depending on
     // whether the table exists or not.
     val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
-    val sql = Utils.parseJinja(taskDesc.getSql(), allVars)
-    val mergeSql =
+    val selectStatement = Utils.parseJinja(taskDesc.getSql(), allVars)
+    val (mergeSql, asSelect) =
       if (!tableExists) {
-        if (taskDesc.parseSQL.getOrElse(true))
-          SQLUtils.buildSingleSQLQuery(
-            sql,
-            schemaHandler.refs(),
-            schemaHandler.domains(),
-            schemaHandler.tasks(),
-            localViews,
-            taskDesc.getEngine()
-          )
-        else
-          sql
+        val select =
+          if (taskDesc.parseSQL.getOrElse(true))
+            SQLUtils.buildSingleSQLQuery(
+              selectStatement,
+              schemaHandler.refs(),
+              schemaHandler.domains(),
+              schemaHandler.tasks(),
+              localViews,
+              taskDesc.getEngine()
+            )
+          else
+            selectStatement
+        (select, true)
       } else {
-        taskDesc.merge match {
-          case Some(options) =>
-            val mergeSql =
-              SQLUtils.buildMergeSql(
-                sql,
-                options.key,
-                taskDesc.getDatabase(),
-                taskDesc.domain,
-                taskDesc.table,
-                taskDesc.getEngine(),
-                localViews.nonEmpty
-              )
-            logger.info(s"Merge SQL: $mergeSql")
-            mergeSql
-          case None =>
-            if (taskDesc.parseSQL.getOrElse(true))
-              SQLUtils.buildSingleSQLQuery(
-                sql,
-                schemaHandler.refs(),
-                schemaHandler.domains(),
-                schemaHandler.tasks(),
-                localViews,
-                taskDesc.getEngine()
-              )
-            else
-              sql
+        val (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition) = {
+          taskDesc.merge match {
+            case Some(options) =>
+              val mergeSql =
+                SQLUtils.buildMergeSql(
+                  selectStatement,
+                  options.key,
+                  taskDesc.getDatabase(),
+                  taskDesc.domain,
+                  taskDesc.table,
+                  taskDesc.getEngine(),
+                  localViews.nonEmpty
+                )
+              logger.info(s"Merge SQL: $mergeSql")
+              (mergeSql, false)
+            case None =>
+              val select =
+                if (taskDesc.parseSQL.getOrElse(true))
+                  SQLUtils.buildSingleSQLQuery(
+                    selectStatement,
+                    schemaHandler.refs(),
+                    schemaHandler.domains(),
+                    schemaHandler.tasks(),
+                    localViews,
+                    taskDesc.getEngine()
+                  )
+                else
+                  selectStatement
+              (select, true)
+          }
         }
+        val (finalSql, asSelect) = {
+          (partitionColumn, destinationTable) match {
+            case (Some(partitionColumn), Some(destinationTable)) =>
+              val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
+              val columnNamesString =
+                SQLUtils.getColumnNames(selectStatement)
+              val mergeSQL =
+                s"""
+                 |declare incoming_partitions array<date>;
+                 |
+                 |create temporary table $tempTable as ($sqlBeforeDynamicPartition);
+                 |
+                 |set (incoming_partitions) = (
+                 |  select as struct array_agg(distinct date($partitionColumn))
+                 |  from $tempTable
+                 |);
+                 |
+                 |merge into $destinationTable dest
+                 |using $tempTable src
+                 |on false
+                 |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
+                 |when not matched then insert $columnNamesString values $columnNamesString
+                 |""".stripMargin
+              logger.info(mergeSQL)
+              (mergeSQL, false)
+            case (_, _) =>
+              (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition)
+          }
+        }
+        (finalSql, asSelect)
       }
 
     val preSql = parseJinja(taskDesc.presql, allVars)
     val postSql = parseJinja(taskDesc.postsql, allVars)
 
-    (preSql, s"(\n$mergeSql\n)", postSql)
+    (preSql, mergeSql, postSql, asSelect)
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(

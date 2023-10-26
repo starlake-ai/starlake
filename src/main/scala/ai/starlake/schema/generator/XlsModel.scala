@@ -39,7 +39,7 @@ trait XlsModel {
     "_merge_keys"         -> "Merge columns",
     "_description"        -> "Description",
     "_encoding"           -> "File encoding (UTF-8 by default)",
-    "_sampling"           -> "Sampling strategy",
+    "_sampling"           -> "Sampling strategy(obsolete)",
     "_partitioning"       -> "partition columns",
     "_sink"               -> "Sink Type",
     "_clustering"         -> "Clustering columns",

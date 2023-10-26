@@ -49,26 +49,13 @@ class SparkAutoTask(
     // Target Path exist only if a storage area has been defined at task or job level
     // To execute a task without writing to disk simply avoid the area at the job and task level
 
-    val sinkPartition =
-      sink.partition.getOrElse(Partition(sampling = None, attributes = taskDesc.partition))
-
-    val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
-    val nbPartitions = sinkPartitionSampling match {
-      case 0.0 =>
-        dataframe.rdd.getNumPartitions
-      case count if count >= 1.0 =>
-        count.toInt
-      case count =>
-        throw new Exception(s"Invalid partition value $count in Sink $sink")
-    }
+    val sinkPartition = sink.partition.getOrElse(Partition(attributes = taskDesc.partition))
 
     val partitionedDF =
       if (coalesce)
         dataframe.repartition(1)
-      else if (sinkPartitionSampling == 0)
-        dataframe
       else
-        dataframe.repartition(nbPartitions)
+        dataframe
 
     val partitionedDFWriter =
       partitionedDatasetWriter(
@@ -291,8 +278,9 @@ class SparkAutoTask(
 
       val tableExists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
 
-      val (preSql, sqlWithParameters, postSql) =
-        buildAllSQLQueries(tableExists, localViews)
+      val dynamicPartitionOverwrite = None // Handled by Spark save options.
+      val (preSql, sqlWithParameters, postSql, asTable) =
+        buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.getEngine()}")
