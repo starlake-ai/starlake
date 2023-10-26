@@ -238,7 +238,7 @@ class BigQueryNativeJob(
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
-        val targetSQL = thisSql.getOrElse(sql)
+        val targetSQL = thisSql.getOrElse(sql).trim()
         val queryConfig: QueryJobConfiguration.Builder =
           QueryJobConfiguration
             .newBuilder(targetSQL)
@@ -255,12 +255,12 @@ class BigQueryNativeJob(
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
         val queryJob = bigquery().create(JobInfo.of(finalConfiguration))
+        val jobResult = queryJob.waitFor(RetryOption.maxAttempts(0))
         val totalBytesProcessed = queryJob
           .getStatistics()
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
 
-        val jobResult = queryJob.waitFor(RetryOption.maxAttempts(0))
         val results = jobResult.getQueryResults(
           QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
         )

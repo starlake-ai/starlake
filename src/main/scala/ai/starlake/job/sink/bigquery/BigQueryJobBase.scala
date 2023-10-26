@@ -1001,34 +1001,26 @@ trait BigQueryJobBase extends StrictLogging {
 object BigQueryJobBase {
 
   private def getBqDatasetId(tableId: TableId): DatasetId = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), "")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     scala.Option(projectId) match {
       case Some(_) => DatasetId.of(tableId.getProject, tableId.getDataset)
       case None    => DatasetId.of(tableId.getDataset)
     }
   }
 
-  def getBqDatasetForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
-    projectId match {
-      case None            => tableId.getDataset
-      case Some(projectId) => s"${projectId}${tableId.getDataset}"
-    }
-  }
-
   def getBqTableForSpark(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ":")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     projectId match {
       case None            => s"${tableId.getDataset}.${tableId.getTable}"
-      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"${projectId}:${tableId.getDataset}.${tableId.getTable}"
     }
   }
 
   def getBqTableForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     projectId match {
       case None            => s"${tableId.getDataset}.${tableId.getTable}"
-      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"`${projectId}.${tableId.getDataset}.${tableId.getTable}`"
     }
   }
 
@@ -1088,8 +1080,7 @@ object BigQueryJobBase {
   }
 
   private def getProjectIdPrefix(
-    projectId: scala.Option[String],
-    separator: String
+    projectId: scala.Option[String]
   ): scala.Option[String] =
-    projectId.filter(_.trim.nonEmpty).map(_ + separator)
+    projectId.filter(_.trim.nonEmpty)
 }

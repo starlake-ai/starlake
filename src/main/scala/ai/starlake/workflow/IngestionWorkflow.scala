@@ -706,7 +706,7 @@ class IngestionWorkflow(
   def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
-    val (_, mainSQL, _) = action.buildAllSQLQueries(false)
+    val (_, mainSQL, _, _) = action.buildAllSQLQueries(false, None, None)
     val output = settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
     output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
     logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")

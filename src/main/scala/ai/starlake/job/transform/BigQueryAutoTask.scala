@@ -11,7 +11,7 @@ import ai.starlake.job.sink.bigquery.{
 }
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, Engine, Schema, Sink}
+import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, Utils}
 import org.apache.spark.sql.DataFrame
 
@@ -22,7 +22,7 @@ import scala.util.{Failure, Success, Try}
 class BigQueryAutoTask(
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
-  sink: Option[Sink],
+  sinkConfig: Option[Sink],
   interactive: Option[String],
   database: Option[String],
   drop: Boolean,
@@ -31,30 +31,41 @@ class BigQueryAutoTask(
     extends AutoTask(
       taskDesc,
       commandParameters,
-      sink,
+      sinkConfig,
       interactive,
       database,
       drop,
       resultPageSize
     ) {
   override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
-    // Should be called for Spark only
+    // Should be called for Spark only since sinking  to BQ is handled by the BQ Query
     false
   }
 
+  val connectionRef =
+    sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+
+  val bqSink = taskDesc.sink
+    .map(_.getSink())
+    .getOrElse(BigQuerySink(connectionRef = Some(connectionRef)))
+    .asInstanceOf[BigQuerySink]
+
+  val tableId = BigQueryJobBase
+    .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
+
+  val fullTableName = BigQueryJobBase.getBqTableForNative(tableId)
+
   private def createBigQueryConfig(): BigQueryLoadConfig = {
-    val connectionRef = sink.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
     val bqSink =
       taskDesc.sink
         .map(_.getSink())
         .getOrElse(BigQuerySink(connectionRef = Some(connectionRef)))
         .asInstanceOf[BigQuerySink]
+
+    tableId.toString
     BigQueryLoadConfig(
       connectionRef = Some(connectionRef),
-      outputTableId = Some(
-        BigQueryJobBase
-          .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
-      ),
+      outputTableId = Some(tableId),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       outputPartition = bqSink.timestamp,
@@ -76,23 +87,23 @@ class BigQueryAutoTask(
     )
   }
 
+  private def bqNativeJob(config: BigQueryLoadConfig, sql: String): BigQueryNativeJob = {
+    val toUpperSql = sql.toUpperCase()
+    val finalSql =
+      if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
+        "(" + sql + ")"
+      else
+        sql
+    new BigQueryNativeJob(config, finalSql, this.resultPageSize)
+  }
+
   def runBQ(): Try[JobResult] = {
     val config = createBigQueryConfig()
-
-    def bqNativeJob(sql: String): BigQueryNativeJob = {
-      val toUpperSql = sql.toUpperCase()
-      val finalSql =
-        if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
-          "(" + sql + ")"
-        else
-          sql
-      new BigQueryNativeJob(config, finalSql, this.resultPageSize)
-    }
 
     val start = Timestamp.from(Instant.now())
     if (drop) {
       logger.info(s"Truncating table ${taskDesc.domain}.${taskDesc.table}")
-      bqNativeJob("ignore sql").dropTable(
+      bqNativeJob(config, "ignore sql").dropTable(
         taskDesc.getDatabase(),
         taskDesc.domain,
         taskDesc.table
@@ -100,29 +111,34 @@ class BigQueryAutoTask(
     }
     logger.info(s"running BQ Query  start time $start")
     val tableExists =
-      bqNativeJob("ignore sql").tableExists(
+      bqNativeJob(config, "ignore sql").tableExists(
         taskDesc.getDatabase(),
         taskDesc.domain,
         taskDesc.table
       )
+
     logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildAllSQLQueries(tableExists)
+    val (preSql, mainSql, postSql, mainIsSelect) =
+      buildAllSQLQueries(tableExists, bqSink.timestamp, Some(fullTableName))
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
 
     val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
         logger.info(s"Running PreSQL BQ Query: $sql")
-        bqNativeJob(sql).runInteractiveQuery()
+        bqNativeJob(config, sql).runInteractiveQuery()
       }
     presqlResult.foreach(Utils.logFailure(_, logger))
 
     logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
     val jobResult: Try[JobResult] = interactive match {
       case None =>
-        bqNativeJob(mainSql).run()
+        if (mainIsSelect)
+          bqNativeJob(config, mainSql).run()
+        else
+          bqNativeJob(config, mainSql).runInteractiveQuery()
       case Some(_) =>
-        bqNativeJob(mainSql).runInteractiveQuery()
+        bqNativeJob(config, mainSql).runInteractiveQuery()
     }
 
     Utils.logFailure(jobResult, logger)
@@ -133,7 +149,7 @@ class BigQueryAutoTask(
     val postsqlResult: List[Try[JobResult]] =
       postSql.map { sql =>
         logger.info(s"Running PostSQL BQ Query: $sql")
-        bqNativeJob(sql).runInteractiveQuery()
+        bqNativeJob(config, sql).runInteractiveQuery()
       }
     postsqlResult.foreach(Utils.logFailure(_, logger))
 
@@ -159,7 +175,7 @@ class BigQueryAutoTask(
               schemaHandler,
               None,
               taskDesc.getEngine(),
-              new BigQueryExpectationAssertionHandler(bqNativeJob(""))
+              new BigQueryExpectationAssertionHandler(bqNativeJob(config, ""))
             ).run()
           }
         }
@@ -183,7 +199,6 @@ class BigQueryAutoTask(
         Failure(err)
     }
   }
-
   override def run(): Try[JobResult] = {
     runBQ()
   }
