@@ -49,7 +49,6 @@ class ExpectationJob(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   inputData: Option[Either[DataFrame, TableId]],
-  engine: Engine,
   sqlRunner: ExpectationAssertionHandler
 )(implicit val settings: Settings)
     extends SparkJob {
@@ -69,14 +68,19 @@ class ExpectationJob(
 
   override def run(): Try[JobResult] = {
     var bqSlThisCTE = ""
-    inputData.foreach { dataset =>
-      dataset match {
-        case Left(df) =>
-          df.createOrReplaceTempView("SL_THIS")
-        case Right(tableId) =>
-          val tableName = BigQueryUtils.tableIdToString(tableId)
-          bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
-      }
+    inputData match {
+      case Some(Left(df)) =>
+        df.createOrReplaceTempView("SL_THIS")
+      case Some(Right(tableId)) =>
+        val tableName = BigQueryUtils.tableIdToString(tableId)
+        bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
+      case None =>
+        val tableName = database match {
+          case Some(db) => s"$db.$domainName.$schemaName"
+          case None     => s"$domainName.$schemaName"
+        }
+        bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
+
     }
 
     val expectationLibrary = schemaHandler.expectations(domainName)
@@ -160,7 +164,6 @@ class ExpectationJob(
         DatasetArea.expectations(domainName, schemaName),
         lockPath(settings.appConfig.expectations.path),
         storageHandler,
-        engine,
         session
       )
     }

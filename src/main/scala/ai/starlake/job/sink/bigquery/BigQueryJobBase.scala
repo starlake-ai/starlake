@@ -554,7 +554,7 @@ trait BigQueryJobBase extends StrictLogging {
     dropTable(tableId)
   }
 
-  private def getTableId(
+  def getTableId(
     databaseName: scala.Option[String],
     datasetName: String,
     tableName: String

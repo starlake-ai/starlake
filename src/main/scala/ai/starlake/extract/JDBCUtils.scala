@@ -75,7 +75,7 @@ object JDBCUtils extends LazyLogging {
     * @tparam T
     * @return
     */
-  private def withJDBCConnection[T](
+  def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     assert(
@@ -89,14 +89,28 @@ object JDBCUtils extends LazyLogging {
       properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
-    try {
+    val result = Try {
       f(connection)
+    }
+
+    Try(connection.close()) match {
+      case Success(_) => logger.debug(s"Closed connection $url")
+      case Failure(exception) =>
+        logger.warn(s"Could not close connection to $url", exception)
+    }
+    result match {
+      case Failure(exception) =>
+        throw exception
+      case Success(value) => value
+    }
+  }
+
+  def applyScript(script: String, connection: java.sql.Connection): Boolean = {
+    val statement = connection.createStatement()
+    try {
+      statement.execute(script)
     } finally {
-      Try(connection.close()) match {
-        case Success(_) => logger.debug(s"Closed connection $url")
-        case Failure(exception) =>
-          logger.warn(s"Could not close connection to $url", exception)
-      }
+      statement.close()
     }
   }
 
