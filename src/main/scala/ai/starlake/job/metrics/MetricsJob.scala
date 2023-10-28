@@ -3,7 +3,6 @@ package ai.starlake.job.metrics
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
@@ -192,7 +191,6 @@ class MetricsJob(
             new Path(savePath, table.toString),
             lockPath(settings.appConfig.metrics.path),
             storageHandler,
-            SPARK,
             session
           )
         case None =>

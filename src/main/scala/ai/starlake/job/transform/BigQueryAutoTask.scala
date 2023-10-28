@@ -25,7 +25,7 @@ class BigQueryAutoTask(
   sinkConfig: Option[Sink],
   interactive: Option[String],
   database: Option[String],
-  drop: Boolean,
+  truncate: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -34,16 +34,13 @@ class BigQueryAutoTask(
       sinkConfig,
       interactive,
       database,
-      drop,
+      truncate,
       resultPageSize
     ) {
   override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
     // Should be called for Spark only since sinking  to BQ is handled by the BQ Query
     false
   }
-
-  val connectionRef =
-    sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
 
   val bqSink = taskDesc.sink
     .map(_.getSink())
@@ -67,7 +64,7 @@ class BigQueryAutoTask(
       connectionRef = Some(connectionRef),
       outputTableId = Some(tableId),
       createDisposition = createDisposition,
-      writeDisposition = writeDisposition,
+      writeDisposition = if (truncate) "WRITE_TRUNCATE" else writeDisposition,
       outputPartition = bqSink.timestamp,
       outputClustering = bqSink.clustering.getOrElse(Nil),
       days = bqSink.days,
@@ -101,17 +98,13 @@ class BigQueryAutoTask(
     val config = createBigQueryConfig()
 
     val start = Timestamp.from(Instant.now())
-    if (drop) {
-      logger.info(s"Truncating table ${taskDesc.domain}.${taskDesc.table}")
-      bqNativeJob(config, "ignore sql").dropTable(
-        taskDesc.getDatabase(),
-        taskDesc.domain,
-        taskDesc.table
-      )
+    if (truncate) {
+      // nothing to do, config is created with write_truncate in that case
     }
-    logger.info(s"running BQ Query  start time $start")
+    logger.info(s"running BQ Query start time $start")
+    val jobRunner = bqNativeJob(config, "ignore sql")
     val tableExists =
-      bqNativeJob(config, "ignore sql").tableExists(
+      jobRunner.tableExists(
         taskDesc.getDatabase(),
         taskDesc.domain,
         taskDesc.table
@@ -173,8 +166,9 @@ class BigQueryAutoTask(
               taskDesc.expectations,
               storageHandler,
               schemaHandler,
-              None,
-              taskDesc.getEngine(),
+              Some(
+                Right(jobRunner.getTableId(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table))
+              ),
               new BigQueryExpectationAssertionHandler(bqNativeJob(config, ""))
             ).run()
           }

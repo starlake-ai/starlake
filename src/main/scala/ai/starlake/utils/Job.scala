@@ -2,17 +2,61 @@ package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.model.{ConnectionType, Metadata}
+import better.files.File
+import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
+import scala.jdk.CollectionConverters.mapAsJavaMapConverter
 import scala.util.{Failure, Success, Try}
 
-trait JobResult
+trait JobResult {
+  def prettyPrint(
+    format: String,
+    headers: List[String],
+    values: List[List[String]],
+    output: Option[File]
+  ): Unit = {
+    format match {
+      case "csv" =>
+        (headers :: values).foreach { row =>
+          output.foreach(_.appendLine(row.toString.mkString(",")))
+          println(row.toString.mkString(","))
+        }
+
+      case "table" =>
+        headers :: values match {
+          case Nil =>
+            output.foreach(_.appendLine("Result is empty."))
+            println("Result is empty.")
+          case _ =>
+            output.foreach(_.appendLine(TableFormatter.format(headers :: values)))
+            println(TableFormatter.format(headers :: values))
+        }
+
+      case "json" =>
+        values.foreach { value =>
+          val map = headers.zip(value).toMap
+          val json = new Gson().toJson(map.asJava)
+          output.foreach(_.appendLine(json))
+          println(json)
+        }
+    }
+  }
+}
 
 case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
+case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
+  def show(format: String, rootServe: scala.Option[String]): Unit = {
+    val output = rootServe.map(File(_, "run.log"))
+    output.foreach(_.overwrite(s""))
+    prettyPrint(format, headers, rows, output)
+  }
+
+}
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from
   * application.conf.
@@ -35,8 +79,13 @@ trait JobBase extends StrictLogging with DatasetLogging {
     *   : Spark Dataframe for Spark Jobs None otherwise
     */
   def run(): Try[JobResult]
+
 }
 
+/** All Spark Job extend this trait. Build Spark session using spark variables from
+  * application.conf. Make sure all variables are lazy since we do not want to build a spark session
+  * for any of the other services
+  */
 trait SparkJob extends JobBase {
 
   protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {

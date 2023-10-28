@@ -281,8 +281,9 @@ object Settings extends StrictLogging {
       else {
         val tpe = getType()
         tpe match {
-          case ConnectionType.BQ => Engine.BQ
-          case _                 => Engine.SPARK
+          case ConnectionType.BQ   => Engine.BQ
+          case ConnectionType.JDBC => Engine.JDBC
+          case _                   => Engine.SPARK
         }
       }
     }
@@ -310,7 +311,8 @@ object Settings extends StrictLogging {
       url.flatMap { url => if (url.startsWith("jdbc:")) Some(url.split(':')(1)) else None }
     }
 
-    def isSnowflake: Boolean = getJdbcEngineName().contains("snowflake")
+    def isSnowflake(): Boolean = getJdbcEngineName().contains("snowflake")
+    def isRedshift(): Boolean = getJdbcEngineName().contains("redshift")
   }
 
   object Connection {

@@ -24,7 +24,7 @@ class SparkAutoTask(
   sinkConfig: Option[Sink],
   interactive: Option[String],
   database: Option[String],
-  drop: Boolean,
+  truncate: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -33,7 +33,7 @@ class SparkAutoTask(
       sinkConfig,
       interactive,
       database,
-      drop,
+      truncate,
       resultPageSize
     ) {
 
@@ -41,6 +41,44 @@ class SparkAutoTask(
 
     runSpark()
   }
+
+  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
+    Try {
+      if (forceApply || settings.appConfig.accessPolicies.apply) {
+        val sqls = extractHiveTableAcl()
+        sqls.foreach { sql =>
+          logger.info(sql)
+          session.sql(sql)
+        }
+      }
+    }
+
+  private def extractHiveTableAcl(): List[String] = {
+
+    if (settings.appConfig.isHiveCompatible()) {
+      taskDesc.acl.flatMap { ace =>
+        if (Utils.isRunningInDatabricks()) {
+          /*
+        GRANT
+          privilege_type [, privilege_type ] ...
+          ON (CATALOG | DATABASE <database-name> | TABLE <table-name> | VIEW <view-name> | FUNCTION <function-name> | ANONYMOUS FUNCTION | ANY FILE)
+          TO principal
+
+        privilege_type
+          : SELECT | CREATE | MODIFY | READ_METADATA | CREATE_NAMED_FUNCTION | ALL PRIVILEGES
+           */
+          ace.asDatabricksSql(fullTableName)
+        } else { // Hive
+          ace.asHiveSql(fullTableName)
+        }
+      }
+    } else {
+      Nil
+    }
+  }
+
+  val hiveDB = taskDesc.getHiveDB()
+  val fullTableName = s"$hiveDB.${taskDesc.table}"
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(false)
@@ -80,8 +118,8 @@ class SparkAutoTask(
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
-      if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite)
-        session.sql(s"drop table if exists $tableName")
+      if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite && tableExists)
+        session.sql(s"truncate table $tableName")
       finalDataset.saveAsTable(fullTableName)
       val tableTagPairs =
         Utils.extractTags(this.taskDesc.tags) + ("comment" -> taskDesc.comment.getOrElse(""))
@@ -172,94 +210,99 @@ class SparkAutoTask(
   override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
     val sinkOption = this.sinkConfig
     logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
-    sinkOption match {
-      case Some(sink) =>
-        sink match {
-          case _: EsSink =>
-            sinkToES()
+    maybeDataFrame match {
+      case None =>
+        logger.info("No dataframe to sink. Sink done natively by to the source")
+        true
+      case Some(dataframe) =>
+        sinkOption match {
+          case Some(sink) =>
+            sink match {
+              case _: EsSink =>
+                sinkToES()
 
-          case fsSink: FsSink =>
-            maybeDataFrame.exists(dataframe => this.sinkToFS(dataframe, fsSink))
+              case fsSink: FsSink =>
+                this.sinkToFS(dataframe, fsSink)
 
-          case bqSink: BigQuerySink =>
-            val source = maybeDataFrame
-              .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
-              .getOrElse(Left(this.taskDesc.getTargetPath().toString))
-            val (createDisposition, writeDisposition) = {
-              Utils.getDBDisposition(
-                this.taskDesc.getWrite(),
-                hasMergeKeyDefined = false
-              )
-            }
-            val bqLoadConfig =
-              BigQueryLoadConfig(
-                connectionRef =
-                  Some(bqSink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
-                source = source,
-                outputTableId = Some(
-                  BigQueryJobBase.extractProjectDatasetAndTable(
-                    this.taskDesc.database,
-                    this.taskDesc.domain,
-                    this.taskDesc.table
+              case bqSink: BigQuerySink =>
+                val source = Right(Utils.setNullableStateOfColumn(dataframe, nullable = true))
+                val (createDisposition, writeDisposition) = {
+                  Utils.getDBDisposition(
+                    this.taskDesc.getWrite(),
+                    hasMergeKeyDefined = false
                   )
-                ),
-                sourceFormat = settings.appConfig.defaultFormat,
-                createDisposition = createDisposition,
-                writeDisposition = writeDisposition,
-                outputPartition = bqSink.timestamp,
-                outputClustering = bqSink.clustering.getOrElse(Nil),
-                days = bqSink.days,
-                requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                rls = this.taskDesc.rls,
-                acl = this.taskDesc.acl,
-                starlakeSchema = Some(Schema.fromTaskDesc(this.taskDesc)),
-                // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                sqlSource = None,
-                attributesDesc = this.taskDesc.attributesDesc,
-                outputDatabase = this.taskDesc.database
-              )
-            val result =
-              new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment).run()
-            result.isSuccess
+                }
+                val bqLoadConfig =
+                  BigQueryLoadConfig(
+                    connectionRef = Some(connectionRef),
+                    source = source,
+                    outputTableId = Some(
+                      BigQueryJobBase.extractProjectDatasetAndTable(
+                        this.taskDesc.database,
+                        this.taskDesc.domain,
+                        this.taskDesc.table
+                      )
+                    ),
+                    sourceFormat = settings.appConfig.defaultFormat,
+                    createDisposition = createDisposition,
+                    writeDisposition = writeDisposition,
+                    outputPartition = bqSink.timestamp,
+                    outputClustering = bqSink.clustering.getOrElse(Nil),
+                    days = bqSink.days,
+                    requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                    rls = this.taskDesc.rls,
+                    acl = this.taskDesc.acl,
+                    starlakeSchema = Some(Schema.fromTaskDesc(this.taskDesc)),
+                    // outputTableDesc = action.taskDesc.comment.getOrElse(""),
+                    sqlSource = None,
+                    attributesDesc = this.taskDesc.attributesDesc,
+                    outputDatabase = this.taskDesc.database
+                  )
+                val result =
+                  new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment).run()
+                result.isSuccess
 
-          case jdbcSink: JdbcSink =>
-            val jdbcName =
-              jdbcSink.connectionRef.getOrElse(settings.appConfig.connectionRef)
-            val source = maybeDataFrame
-              .map(df => Right(df))
-              .getOrElse(Left(this.taskDesc.getTargetPath().toString))
-            val (createDisposition, writeDisposition) = {
-              Utils.getDBDisposition(
-                this.taskDesc.getWrite(),
-                hasMergeKeyDefined = false
-              )
-            }
-            val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-              jdbcName,
-              settings.appConfig,
-              source,
-              outputTable = this.taskDesc.domain + "." + this.taskDesc.table,
-              createDisposition = CreateDisposition.valueOf(createDisposition),
-              writeDisposition = WriteDisposition.valueOf(writeDisposition),
-              createTableIfAbsent = false
-            )
+              case jdbcSink: JdbcSink =>
+                val jdbcName = connectionRef
+                val source = Right(dataframe)
+                val (createDisposition, writeDisposition) = {
+                  Utils.getDBDisposition(
+                    this.taskDesc.getWrite(),
+                    hasMergeKeyDefined = false
+                  )
+                }
+                val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+                  jdbcName,
+                  settings.appConfig,
+                  source,
+                  outputTable = this.taskDesc.domain + "." + this.taskDesc.table,
+                  createDisposition = CreateDisposition.valueOf(createDisposition),
+                  writeDisposition = WriteDisposition.valueOf(writeDisposition),
+                  createTableIfAbsent = false
+                )
 
-            val res = new ConnectionLoadJob(jdbcConfig).run()
-            res match {
-              case Success(_) => true
-              case Failure(e) => logger.error("JDBCLoad Failed", e); false
+                val res = new ConnectionLoadJob(jdbcConfig).run()
+                res match {
+                  case Success(_) => true
+                  case Failure(e) => logger.error("JDBCLoad Failed", e); false
+                }
+              case _ =>
+                logger.warn(
+                  s"No supported Sink is activated for this job $sink, dumping to console"
+                )
+                dataframe.write.format("console").save()
+                true
             }
-          case _ =>
-            logger.warn(s"No supported Sink is activated for this job $sink")
-            maybeDataFrame.foreach { dataframe =>
-              dataframe.write.format("console").save()
-            }
+          case None =>
+            logger.warn("Sink is not activated for this job")
             true
         }
-      case None =>
-        logger.warn("Sink is not activated for this job")
-        true
     }
+  }
+
+  private lazy val tableExists = {
+
+    session.catalog.tableExists(taskDesc.domain, taskDesc.table)
   }
 
   def runSpark(): Try[SparkJobResult] = {
@@ -276,8 +319,6 @@ class SparkAutoTask(
           Nil
         }
 
-      val tableExists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
-
       val dynamicPartitionOverwrite = None // Handled by Spark save options.
       val (preSql, sqlWithParameters, postSql, asTable) =
         buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, localViews)
@@ -286,7 +327,7 @@ class SparkAutoTask(
       logger.info(s"running sql request using ${taskDesc.getEngine()}")
       val dataframe = (taskDesc.sql, taskDesc.python) match {
         case (Some(sql), None) =>
-          Some(runSqlSpark(sqlWithParameters))
+          runSqlSpark(sqlWithParameters)
         case (None, Some(pythonFile)) =>
           runPySpark(pythonFile)
         case (None, None) =>
@@ -311,7 +352,6 @@ class SparkAutoTask(
               storageHandler,
               schemaHandler,
               Some(Left(dataframe)),
-              taskDesc.getEngine(),
               new SparkExpectationAssertionHandler(session)
             ).run()
           }
@@ -331,6 +371,7 @@ class SparkAutoTask(
           case Some(dataframe) =>
             dataframe.count()
         }
+        applyHiveTableAcl()
         logAuditSuccess(start, end, jobResultCount)
       case Failure(e) =>
         logAuditFailure(start, end, e)
@@ -369,19 +410,18 @@ class SparkAutoTask(
       None
   }
 
-  private def runSqlSpark(sqlWithParameters: String): DataFrame = {
-    val connectionRef =
-      sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
-    val connection = settings.appConfig.connections(connectionRef)
-    connection.getType() match {
-      case ConnectionType.FS =>
-        session.sql(sqlWithParameters)
-      case _ =>
-        session.read
-          .format(connection.getSparkFormat())
-          .option("query", sqlWithParameters)
-          .options(connection.options)
-          .load()
-    }
+  private def runSqlSpark(sqlWithParameters: String): Option[DataFrame] = {
+    val df =
+      connection.getType() match {
+        case ConnectionType.FS =>
+          session.sql(sqlWithParameters)
+        case _ =>
+          session.read
+            .format(connection.getSparkFormat())
+            .option("query", sqlWithParameters)
+            .options(connection.options)
+            .load()
+      }
+    Some(df)
   }
 }

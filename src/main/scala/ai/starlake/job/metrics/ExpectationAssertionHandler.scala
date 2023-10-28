@@ -12,6 +12,7 @@ import scala.util.{Failure, Success}
 trait ExpectationAssertionHandler extends StrictLogging {
   def handle(sql: String, assertion: String): Map[String, Any]
 
+  def buildCTE(): Unit = {}
   protected def submitExpectation(
     assertion: String,
     count: Long,
@@ -86,6 +87,33 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
       case Failure(e) =>
         throw e
     }
+  }
+
+}
+
+/** result.iterateAll().forEach(rows -> rows.forEach(row -> System.out.println(row.getValue())));
+  *
+  * @param runner
+  */
+class JdbcExpectationAssertionHandler(connection: java.sql.Connection)
+    extends ExpectationAssertionHandler {
+  override def handle(sql: String, assertion: String): Map[String, Any] = {
+    val statement = connection.createStatement()
+    var count = 0
+    var results = Seq.empty[Seq[Any]]
+    try {
+      val rs = statement.executeQuery(sql)
+      val rsMetaData = rs.getMetaData()
+      val colCount = rsMetaData.getColumnCount()
+      while (rs.next()) {
+        count = count + 1
+        val cols = for (i <- 1 to colCount) yield rs.getObject(i)
+        results = results :+ cols
+      }
+    } finally {
+      statement.close()
+    }
+    submitExpectation(assertion, count, results, results)
   }
 
 }

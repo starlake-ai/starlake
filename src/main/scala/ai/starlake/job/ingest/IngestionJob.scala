@@ -14,7 +14,6 @@ import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
@@ -154,7 +153,9 @@ trait IngestionJob extends SparkJob {
   }
 
   private def extractHiveTableAcl(): List[String] = {
+
     if (settings.appConfig.isHiveCompatible()) {
+      val fullTableName = schemaHandler.getFullTableName(domain, schema)
       schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
           /*
@@ -166,20 +167,9 @@ trait IngestionJob extends SparkJob {
         privilege_type
           : SELECT | CREATE | MODIFY | READ_METADATA | CREATE_NAMED_FUNCTION | ALL PRIVILEGES
            */
-          ace.grants.map { grant =>
-            val principal =
-              if (grant.indexOf('@') > 0 && !grant.startsWith("`")) s"`$grant`" else grant
-            s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO $principal"
-          }
+          ace.asDatabricksSql(fullTableName)
         } else { // Hive
-          ace.grants.map { grant =>
-            val principal =
-              if (grant.startsWith("user:"))
-                s"USER ${grant.substring("user:".length)}"
-              else if (grant.startsWith("group:") || grant.startsWith("role:"))
-                s"ROLE ${grant.substring("group:".length)}"
-            s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO $principal"
-          }
+          ace.asHiveSql(fullTableName)
         }
       }
     } else {
@@ -189,31 +179,28 @@ trait IngestionJob extends SparkJob {
 
   def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
     Try {
-      if (forceApply || settings.appConfig.accessPolicies.apply)
-        applySql(extractHiveTableAcl())
+      if (forceApply || settings.appConfig.accessPolicies.apply) {
+        val sqls = extractHiveTableAcl()
+        sqls.foreach { sql =>
+          logger.info(sql)
+          session.sql(sql)
+        }
+      }
     }
 
-  private def applySql(sqls: List[String]): Unit = sqls.foreach { sql =>
-    logger.info(sql)
-    session.sql(sql)
-  }
-
-  private def extractSnowflakeTableAcl(): List[String] =
+  private def extractJdbcAcl(): List[String] = {
+    val fullTableName = schemaHandler.getFullTableName(domain, schema)
     schema.acl.flatMap { ace =>
       /*
         https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
         https://hevodata.com/learn/snowflake-grant-role-to-user/
        */
-      ace.grants.map { principal =>
-        s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO ROLE $principal"
-      }
+      ace.asJdbcSql(fullTableName)
     }
+  }
 
-  def applySnowflakeTableAcl(forceApply: Boolean = false): Try[Unit] =
-    Try {
-      if (forceApply || settings.appConfig.accessPolicies.apply)
-        applySql(extractSnowflakeTableAcl())
-    }
+  def applyJdbcAcl(connection: Settings.Connection, forceApply: Boolean = false): Try[Unit] =
+    AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
 
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig(
@@ -557,7 +544,7 @@ trait IngestionJob extends SparkJob {
     enrichedTempTable: String
   ): Try[(Option[String], Boolean, Long)] = {
     (
-      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
+      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(true),
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, Some(partitionName)) =>
@@ -648,7 +635,7 @@ trait IngestionJob extends SparkJob {
         case _ => Nil
       }
     (
-      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(false),
+      bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(true),
       bigqueryJob.cliConfig.writeDisposition,
       bigqueryJob.cliConfig.outputPartition
     ) match {
@@ -1268,7 +1255,6 @@ trait IngestionJob extends SparkJob {
         storageHandler,
         schemaHandler,
         Some(Left(acceptedDF)),
-        SPARK,
         new SparkExpectationAssertionHandler(session)
       ).run()
     } else {
@@ -1286,7 +1272,6 @@ trait IngestionJob extends SparkJob {
         storageHandler,
         schemaHandler,
         Some(Right(tableId)),
-        SPARK,
         new BigQueryExpectationAssertionHandler(job)
       ).run()
     } else {

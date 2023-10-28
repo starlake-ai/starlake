@@ -1,5 +1,6 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings.Connection
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
@@ -125,12 +126,20 @@ case class AutoTaskDesc(
   }
 
   def getEngine()(implicit settings: Settings): Engine = {
+    getConnection().getEngine()
+  }
+
+  def getConnection()(implicit settings: Settings): Connection = {
     val connectionRef =
       sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig
       .connection(connectionRef)
       .getOrElse(throw new Exception("Connection not found"))
-    connection.getEngine()
+    connection
+  }
+
+  def getConnectionType()(implicit settings: Settings): ConnectionType = {
+    getConnection().getType()
   }
 }
 
