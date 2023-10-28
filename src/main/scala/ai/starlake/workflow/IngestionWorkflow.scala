@@ -694,7 +694,7 @@ class IngestionWorkflow(
       taskDesc,
       config.options,
       config.interactive,
-      config.drop,
+      config.truncate,
       resultPageSize = 1000
     )(
       settings,
@@ -754,11 +754,10 @@ class IngestionWorkflow(
     schemaHandler.tasks(transformConfig.reload)
     val result: Boolean = {
       val action = buildTask(transformConfig)
-      val engine = action.taskDesc.getEngine()
       logger.info(s"Transforming with config $transformConfig")
-      engine match {
+      logger.info(s"Entering ${action.taskDesc.getEngine()} engine")
+      action.taskDesc.getEngine() match {
         case BQ =>
-          logger.info(s"Entering $engine engine")
           val result = action.run()
           transformConfig.interactive match {
             case None =>
@@ -790,6 +789,24 @@ class IngestionWorkflow(
               output.foreach(_.overwrite(Utils.exceptionAsString(e)))
           }
           result.isSuccess
+        case Engine.JDBC =>
+          (action.run(), transformConfig.interactive) match {
+            case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
+              logger.info("""START INTERACTIVE SQL""")
+              jdbcJobResult.show(format, settings.appConfig.rootServe)
+              logger.info("""END INTERACTIVE SQL""")
+              true // Sink already done in JDBC
+            case (Failure(exception), _) =>
+              val output =
+                settings.appConfig.rootServe.map(rootServe =>
+                  File(File(rootServe), "transform.log")
+                )
+              output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
+              exception.printStackTrace()
+              false
+            case (Success(_), _) =>
+              throw new Exception("Should never happen")
+          }
         case custom =>
           logger.info(s"Entering $custom engine")
 
@@ -802,8 +819,6 @@ class IngestionWorkflow(
               true
             case (Success(SparkJobResult(maybeDataFrame, _)), None) =>
               action.sink(maybeDataFrame)
-            case (Success(_), _) =>
-              true
             case (Failure(exception), _) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
@@ -812,6 +827,9 @@ class IngestionWorkflow(
               output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
+            case (Success(_), _) =>
+              throw new Exception("Should never happen")
+
           }
       }
     }
@@ -899,10 +917,7 @@ class IngestionWorkflow(
               val connectionName = jdbcSink.connectionRef
                 .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
               val connection = settings.appConfig.connections(connectionName)
-              if (connection.isSnowflake)
-                dummyIngestionJob.applySnowflakeTableAcl()
-              else
-                Success(true) // ignore other jdbc connection types
+              dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
               val config = BigQueryLoadConfig(

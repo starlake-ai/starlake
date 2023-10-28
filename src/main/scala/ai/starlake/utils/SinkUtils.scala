@@ -24,28 +24,23 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     savePath: Path,
     lockPath: Path,
     storageHandler: StorageHandler,
-    engine: Engine,
     session: SparkSession
   ): Try[Unit] = {
     // We sink to a file when running unit tests
     sinkType match {
       case ConnectionType.FS =>
-        if (engine == Engine.SPARK) {
-          val waitTimeMillis = settings.appConfig.lock.timeout
-          val locker = new FileLock(lockPath, storageHandler)
-          locker.tryExclusively(waitTimeMillis) {
-            appendToFile(
-              storageHandler,
-              session,
-              dataframe,
-              savePath,
-              settings.appConfig.audit.domain.getOrElse("audit"),
-              table
-            )
-          }
-        } else
-          Success(())
-
+        val waitTimeMillis = settings.appConfig.lock.timeout
+        val locker = new FileLock(lockPath, storageHandler)
+        locker.tryExclusively(waitTimeMillis) {
+          appendToFile(
+            storageHandler,
+            session,
+            dataframe,
+            savePath,
+            settings.appConfig.audit.domain.getOrElse("audit"),
+            table
+          )
+        }
       case ConnectionType.BQ =>
         Try {
           sinkToBigQuery(

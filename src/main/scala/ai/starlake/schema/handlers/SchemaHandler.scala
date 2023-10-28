@@ -1195,6 +1195,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def getFullTableName(domain: Domain, schema: Schema)(implicit
+    settings: Settings
+  ): String = {
+    val databaseName = domain.database.orElse(settings.appConfig.getDefaultDatabase())
+    databaseName match {
+      case Some(db) =>
+        s"$db.${domain.finalName}.${schema.finalName}"
+      case None =>
+        s"${domain.finalName}.${schema.finalName}"
+    }
+  }
+
   def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
     domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
