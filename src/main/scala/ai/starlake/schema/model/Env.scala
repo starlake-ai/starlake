@@ -26,13 +26,14 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
   def asTuple(): (String, String, String) = (database, domain, table)
 
   val tableNamingQuotes = Map(
+    Engine.JDBC.toString  -> ("", "."),
     Engine.SPARK.toString -> ("`", ":"),
-    "SNOWFLAKE"           -> ("\"", "."),
     Engine.BQ.toString    -> ("`", ".")
   )
 
   def toSQLString(engine: Engine, isFilesystem: Boolean) = {
-    val (quote, separator) = tableNamingQuotes.getOrElse(engine.toString, "")
+    val (quote, separator) =
+      tableNamingQuotes.getOrElse(engine.toString, tableNamingQuotes(Engine.JDBC.toString))
     if (!isFilesystem) {
       if (database.isEmpty) {
         if (domain.isEmpty) {

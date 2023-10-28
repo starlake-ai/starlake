@@ -23,7 +23,6 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils._
@@ -32,57 +31,6 @@ import org.apache.spark.sql.DataFrame
 
 import java.sql.Timestamp
 import scala.util.Try
-
-object AutoTask extends StrictLogging {
-  def unauthenticatedTasks(reload: Boolean)(implicit
-    settings: Settings,
-    storageHandler: StorageHandler,
-    schemaHandler: SchemaHandler
-  ): List[AutoTask] = {
-    schemaHandler
-      .tasks(reload)
-      .map(task(_, Map.empty, None, false))
-  }
-
-  def task(
-    taskDesc: AutoTaskDesc,
-    configOptions: Map[String, String],
-    interactive: Option[String],
-    drop: Boolean,
-    resultPageSize: Int = 1
-  )(implicit
-    settings: Settings,
-    storageHandler: StorageHandler,
-    schemaHandler: SchemaHandler
-  ): AutoTask = {
-    taskDesc.getEngine() match {
-      case BQ =>
-        new BigQueryAutoTask(
-          taskDesc,
-          configOptions,
-          taskDesc.sink
-            .map(_.getSink())
-            .orElse(Some(AllSinks().getSink())),
-          interactive,
-          taskDesc.getDatabase(),
-          drop = drop,
-          resultPageSize = resultPageSize
-        )
-      case _ =>
-        new SparkAutoTask(
-          taskDesc,
-          configOptions,
-          taskDesc.sink
-            .map(_.getSink())
-            .orElse(Some(AllSinks().getSink())),
-          interactive,
-          taskDesc.getDatabase(),
-          drop = drop,
-          resultPageSize = resultPageSize
-        )
-    }
-  }
-}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
   * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
@@ -102,15 +50,23 @@ abstract class AutoTask(
   val sinkConfig: Option[Sink],
   val interactive: Option[String],
   val database: Option[String],
-  val drop: Boolean = false,
+  val truncate: Boolean = false,
   val resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
-  override def name: String = taskDesc.name
+
+  def fullTableName: String
 
   def run(): Try[JobResult]
 
   def sink(maybeDataFrame: Option[DataFrame]): Boolean
+
+  override def name: String = taskDesc.name
+
+  protected val connectionRef: String =
+    sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+
+  protected val connection: Settings.Connection = settings.appConfig.connections(connectionRef)
 
   def buildAllSQLQueries(
     tableExists: Boolean,
@@ -265,4 +221,67 @@ abstract class AutoTask(
 
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(taskDesc.getWrite(), hasMergeKeyDefined = false)
+}
+
+object AutoTask extends StrictLogging {
+  def unauthenticatedTasks(reload: Boolean)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): List[AutoTask] = {
+    schemaHandler
+      .tasks(reload)
+      .map(task(_, Map.empty, None, false))
+  }
+
+  def task(
+    taskDesc: AutoTaskDesc,
+    configOptions: Map[String, String],
+    interactive: Option[String],
+    drop: Boolean,
+    resultPageSize: Int = 1
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): AutoTask = {
+    taskDesc.getEngine() match {
+      case Engine.BQ =>
+        new BigQueryAutoTask(
+          taskDesc,
+          configOptions,
+          taskDesc.sink
+            .map(_.getSink())
+            .orElse(Some(AllSinks().getSink())),
+          interactive,
+          taskDesc.getDatabase(),
+          truncate = drop,
+          resultPageSize = resultPageSize
+        )
+      case Engine.JDBC =>
+        new JdbcAutoTask(
+          taskDesc,
+          configOptions,
+          taskDesc.sink
+            .map(_.getSink())
+            .orElse(Some(AllSinks().getSink())),
+          interactive,
+          taskDesc.getDatabase(),
+          truncate = drop,
+          resultPageSize = resultPageSize
+        )
+      case _ =>
+        new SparkAutoTask(
+          taskDesc,
+          configOptions,
+          taskDesc.sink
+            .map(_.getSink())
+            .orElse(Some(AllSinks().getSink())),
+          interactive,
+          taskDesc.getDatabase(),
+          truncate = drop,
+          resultPageSize = resultPageSize
+        )
+    }
+  }
 }
