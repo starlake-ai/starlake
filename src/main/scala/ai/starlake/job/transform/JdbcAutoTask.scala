@@ -4,9 +4,10 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JDBCUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Sink}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult}
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.SaveMode
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
@@ -16,26 +17,17 @@ import scala.util.{Failure, Success, Try}
 class JdbcAutoTask(
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
-  sinkConfig: Option[Sink],
   interactive: Option[String],
-  database: Option[String],
   truncate: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
-      sinkConfig,
       interactive,
-      database,
       truncate,
       resultPageSize
     ) {
-
-  override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
-    // Should be called for Spark only since sinking  to BQ is handled by the BQ Query
-    false
-  }
 
   def extractJdbcAcl(): List[String] = {
     taskDesc.acl.flatMap { ace =>
@@ -55,9 +47,38 @@ class JdbcAutoTask(
   }
 
   def tableExists(conn: java.sql.Connection): Boolean = {
+    val databaseMetadata = conn.getMetaData()
     val rs =
-      conn.getMetaData().getTables(taskDesc.database.orNull, taskDesc.domain, taskDesc.table, null)
-    rs.next()
+      databaseMetadata.getTables(
+        taskDesc.database.orNull,
+        taskDesc.domain.toUpperCase(), // JDBC require tables and schema in uppercase
+        taskDesc.table.toUpperCase(),
+        Array[String]("TABLE")
+      )
+    val ok = rs.next()
+    rs.close()
+    if (!ok && taskDesc._auditTableName.isDefined) {
+      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+      val connectionRef =
+        this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+
+      val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
+      val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
+      val entry = taskDesc._auditTableName.getOrElse(
+        throw new Exception(
+          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
+        )
+      )
+      val scriptTemplate = engine.tables(entry).createSql
+      JDBCUtils.applyScript(s"CREATE SCHEMA IF NOT EXISTS $fullDomainName", conn)
+
+      val script = scriptTemplate.richFormat(
+        Map("table" -> fullTableName),
+        Map.empty
+      )
+      JDBCUtils.applyScript(script, conn)
+    }
+    ok
   }
 
   def runSqls(conn: Connection, sqls: List[String]): Unit = {
@@ -165,7 +186,7 @@ class JdbcAutoTask(
           if (isMerge(sqlWithParameters))
             sqlWithParameters
           else
-            s"INSERT INTO $fullTableName} $sqlWithParameters"
+            s"INSERT INTO $fullTableName $sqlWithParameters"
         val insertSqls =
           if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite) {
             if (materializedView) {

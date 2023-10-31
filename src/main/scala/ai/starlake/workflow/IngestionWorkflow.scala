@@ -760,15 +760,6 @@ class IngestionWorkflow(
         case BQ =>
           val result = action.run()
           transformConfig.interactive match {
-            case None =>
-              val sink = action.taskDesc.sink.map(_.getSink())
-              sink match {
-                case Some(sink) if sink.getConnectionType() == ConnectionType.BQ =>
-                  logger.info("Sinking to BQ done")
-                case _ =>
-                  // TODO Sinking not supported
-                  logger.info(s"Sinking defaulted to BQ.")
-              }
             case Some(format) =>
               result.map { result =>
                 val bqJobResult = result.asInstanceOf[BigQueryJobResult]
@@ -776,7 +767,7 @@ class IngestionWorkflow(
                 bqJobResult.show(format, settings.appConfig.rootServe)
                 logger.info("END INTERACTIVE SQL")
               }
-            // No sink on interactive queries. Results displayed in console output
+            case None =>
           }
           Utils.logFailure(result, logger)
           result match {
@@ -796,6 +787,8 @@ class IngestionWorkflow(
               jdbcJobResult.show(format, settings.appConfig.rootServe)
               logger.info("""END INTERACTIVE SQL""")
               true // Sink already done in JDBC
+            case (Success(_), _) =>
+              true
             case (Failure(exception), _) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
@@ -804,8 +797,6 @@ class IngestionWorkflow(
               output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
-            case (Success(_), _) =>
-              throw new Exception("Should never happen")
           }
         case custom =>
           logger.info(s"Entering $custom engine")
@@ -817,8 +808,8 @@ class IngestionWorkflow(
               dataFrame.show(false)
               logger.info("""END INTERACTIVE SQL""")
               true
-            case (Success(SparkJobResult(maybeDataFrame, _)), None) =>
-              action.sink(maybeDataFrame)
+            case (Success(_), None) =>
+              true
             case (Failure(exception), _) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
@@ -829,7 +820,6 @@ class IngestionWorkflow(
               false
             case (Success(_), _) =>
               throw new Exception("Should never happen")
-
           }
       }
     }

@@ -127,6 +127,9 @@ object DatasetArea extends StrictLogging {
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
 
+  def audit(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.audit.path)
+
   def expectations(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.expectations.path)
 
@@ -152,13 +155,13 @@ object DatasetArea extends StrictLogging {
   }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "discrete")
+    DatasetArea.metrics(domain, "discrete")
 
   def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "continuous")
+    DatasetArea.metrics(domain, "continuous")
 
   def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "frequencies")
+    DatasetArea.metrics(domain, "frequencies")
 
   /** Default target folder for autojobs applied to datasets in this domain
     *

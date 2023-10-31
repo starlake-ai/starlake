@@ -9,6 +9,7 @@ import ai.starlake.job.metrics.{
   SparkExpectationAssertionHandler
 }
 import ai.starlake.job.sink.bigquery._
+import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
@@ -771,7 +772,7 @@ trait IngestionJob extends SparkJob {
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant
     )
-    Utils.logFailure(AuditLog.sink(optionalAuditSession, log), logger)
+    AuditLog.sink(optionalAuditSession, log)(settings, storageHandler, schemaHandler)
     logger.error(err)
     Failure(exception)
   }
@@ -804,7 +805,7 @@ trait IngestionJob extends SparkJob {
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant
     )
-    AuditLog.sink(optionalAuditSession, log).map(_ => log)
+    AuditLog.sink(optionalAuditSession, log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -1601,6 +1602,10 @@ trait IngestionJob extends SparkJob {
   protected def saveRejected(
     errMessagesDS: Dataset[String],
     rejectedLinesDS: Dataset[String]
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
   ): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
@@ -1632,8 +1637,7 @@ trait IngestionJob extends SparkJob {
       errMessagesDS,
       domainName,
       schemaName,
-      now,
-      mergedMetadata
+      now
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
         settings.appConfig.audit.sink.getSink() match {
@@ -1683,9 +1687,12 @@ object IngestionUtil {
     rejectedDS: Dataset[String],
     domainName: String,
     schemaName: String,
-    now: Timestamp,
-    mergedMetadata: Metadata
-  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
+    now: Timestamp
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Try[(Dataset[Row], Path)] = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
@@ -1706,49 +1713,32 @@ object IngestionUtil {
       .limit(settings.appConfig.audit.maxErrors)
       .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
 
-    val res =
-      settings.appConfig.audit.sink.getSink() match {
-        case _: BigQuerySink =>
-          BigQuerySparkWriter.sinkInAudit(
-            rejectedDF,
-            "rejected",
-            Some(
-              "Contains all rejections occurred during ingestion phase in order to give more insight on how to fix data ingestion"
-            ),
-            Some(bigqueryRejectedSchema()),
-            WriteMode.APPEND
-          )
-
-        case _: JdbcSink =>
-          val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-            settings.appConfig.audit.getConnectionRef(),
-            settings.appConfig,
-            Right(rejectedDF),
-            settings.appConfig.audit.domain.getOrElse("audit") + ".rejected",
-            CreateDisposition.CREATE_IF_NEEDED,
-            WriteDisposition.WRITE_APPEND
-          )
-
-          new ConnectionLoadJob(jdbcConfig).run()
-
-        case _: EsSink =>
-          // TODO Sink Rejected Log to ES
-          throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-
-        case _: FsSink =>
-          // We save in the caller
-          // TODO rewrite this one
-          Success(())
-        case _ =>
-          Failure(
-            new Exception(
-              s"Sink ${settings.appConfig.audit.sink.getSink().getClass.getSimpleName} not supported"
-            )
-          )
-      }
-    res match {
-      case Success(_) => Success(rejectedDF, rejectedPath)
-      case Failure(e) => Failure(e)
+    val taskDesc =
+      AutoTaskDesc(
+        name = s"metrics-$applicationId-rejected",
+        sql = None,
+        database = settings.appConfig.audit.getDatabase(),
+        domain = settings.appConfig.audit.domain.getOrElse("audit"),
+        table = "rejected",
+        write = Some(WriteMode.APPEND),
+        partition = Nil,
+        presql = Nil,
+        postsql = Nil,
+        sink = Some(settings.appConfig.audit.sink),
+        parseSQL = Some(false),
+        _auditTableName = Some("rejected")
+      )
+    val autoTask = new SparkAutoTask(
+      taskDesc,
+      Map.empty,
+      None,
+      truncate = false
+    )
+    val res = autoTask.sink(Some(rejectedDF))
+    if (res) {
+      Success(rejectedDF, rejectedPath)
+    } else {
+      Failure(new Exception("Failed to save rejected"))
     }
   }
 

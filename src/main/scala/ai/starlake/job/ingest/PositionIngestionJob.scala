@@ -109,7 +109,11 @@ class PositionIngestionJob(
       settings.appConfig.sinkReplayToFile,
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
-    saveRejected(validationResult.errors, validationResult.rejected).flatMap { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected)(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
       case Failure(exception: NullValueFoundException) =>

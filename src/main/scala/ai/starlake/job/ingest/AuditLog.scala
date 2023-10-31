@@ -21,21 +21,16 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
+import ai.starlake.job.transform.AutoTask
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.{FileLock, JobResult, Utils}
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName, TableId}
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
+import ai.starlake.utils.{JobResult, Utils}
+import com.google.cloud.bigquery.StandardSQLTypeName
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 import scala.util.{Success, Try}
 
 sealed case class Step(value: String) {
@@ -74,6 +69,49 @@ case class AuditLog(
   database: Option[String],
   tenant: String
 ) {
+  def asSelect(engineName: Engine)(implicit settings: Settings): String = {
+    import ai.starlake.utils.Formatter._
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString.toLowerCase())
+      .flatMap(_.tables("audit").selectSql)
+      .getOrElse("""
+             SELECT
+               '{{jobid}}' as JOBID,
+               '{{paths}}' as PATHS,
+               '{{domain}}' as DOMAIN,
+               '{{schema}}' as SCHEMA,
+               {{success}} as SUCCESS,
+               {{count}} as COUNT,
+               {{countAccepted}} as COUNTACCEPTED,
+               {{countRejected}} as COUNTREJECTED,
+               TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
+               {{duration}} as DURATION,
+               '{{message}}' as MESSAGE,
+               '{{step}}' as STEP,
+               '{{database}}' as DATABASE,
+               '{{tenant}}' as TENANT
+           """)
+    val selectStatement = template.richFormat(
+      Map(
+        "jobid"         -> jobid,
+        "paths"         -> paths.map(p => p.replaceAll("'", "-")).getOrElse("null"),
+        "domain"        -> domain.replaceAll("'", "-"),
+        "schema"        -> schema.replaceAll("'", "-"),
+        "success"       -> success,
+        "count"         -> count,
+        "countAccepted" -> countAccepted,
+        "countRejected" -> countRejected,
+        "timestamp"     -> timestamp.toString(),
+        "duration"      -> duration,
+        "message"       -> message.replaceAll("'", "-").replaceAll("\n", " "),
+        "step"          -> step,
+        "database"      -> database.getOrElse(""),
+        "tenant"        -> tenant.replaceAll("'", "-")
+      ),
+      Map.empty
+    )
+    selectStatement
+  }
 
   override def toString(): String =
     s"""
@@ -92,47 +130,6 @@ case class AuditLog(
        |database=$database
        |tenant=$tenant
        |""".stripMargin.split('\n').mkString(",")
-
-  def asBqInsert(table: String): String = {
-    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    df.setTimeZone(TimeZone.getTimeZone("UTC"))
-    val timestampStr = df.format(timestamp)
-    val escapeStringParameter = (value: Any) =>
-      value.toString.replaceAll("'", "\\\\'").replaceAll("\n", "\\\\n")
-    s"""
-       |insert into `$table`(
-       | jobid,
-       | paths,
-       | domain,
-       | schema,
-       | success,
-       | count,
-       | countAccepted,
-       | countRejected,
-       | timestamp,
-       | duration,
-       | message,
-       | step,
-       | database,
-       | tenant
-       |)
-       |values(
-       |'${escapeStringParameter(jobid)}',
-       |${paths.map(escapeStringParameter).map(p => f"'$p'").getOrElse("null")},
-       |'${escapeStringParameter(domain)}',
-       |'${escapeStringParameter(schema)}',
-       |$success,
-       |$count,
-       |$countAccepted,
-       |$countRejected,
-       |'${escapeStringParameter(timestampStr)}',
-       |$duration,
-       |'${escapeStringParameter(message)}',
-       |'${escapeStringParameter(step)}',
-       |${database.map(escapeStringParameter).map(d => f"'$d'").getOrElse("null")},
-       |'${escapeStringParameter(tenant)}'
-       |)""".stripMargin
-  }
 }
 
 object AuditLog extends StrictLogging {
@@ -154,135 +151,39 @@ object AuditLog extends StrictLogging {
     ("tenant", StandardSQLTypeName.STRING, StringType)
   )
 
-  private def bqSchema(): BQSchema = {
-    val fields = auditCols.map { case (name, tpe, _) =>
-      Field
-        .newBuilder(name, tpe)
-        .setMode(Field.Mode.NULLABLE)
-        .setDescription("")
-        .build()
-    }
-    BQSchema.of(fields: _*)
-  }
-
-  private def sinkToFile(
-    log: AuditLog,
-    sessionOpt: Option[SparkSession],
-    settings: Settings
-  ): Unit = {
-    val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
-    import session.implicits._
-    val lockPath = new Path(settings.appConfig.audit.path, s"audit.lock")
-    val locker = new FileLock(lockPath, settings.storageHandler())
-    locker.doExclusively() {
-      val auditPath = new Path(settings.appConfig.audit.path, s"ingestion-log")
-      val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
-      logger.info(s"Saving audit to path $auditPath")
-      if (settings.appConfig.hive) {
-        val hiveDB = settings.appConfig.audit.domain.getOrElse("audit")
-        val tableName = "audit"
-        val fullTableName = s"$hiveDB.$tableName"
-        session.sql(s"create database if not exists $hiveDB")
-        session.sql(s"use $hiveDB")
-        logger.info(s"Saving audit to table $fullTableName")
-        dfWriter
-          .format(settings.appConfig.defaultAuditWriteFormat)
-          .saveAsTable(fullTableName)
-      } else {
-        logger.info(s"Saving audit to file $auditPath")
-        dfWriter
-          .format(settings.appConfig.defaultAuditWriteFormat)
-          .option("path", auditPath.toString)
-          .save()
-      }
-    }
-  }
-
   def sink(sessionOpt: Option[SparkSession], log: AuditLog)(implicit
-    settings: Settings
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
   ): Try[JobResult] = {
     if (settings.appConfig.audit.isActive()) {
-      // We sink to a file when running unit tests
-      settings.appConfig.audit.sink.getSink() match {
-        case sink: JdbcSink =>
-          val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
-          val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
-          import session.implicits._
-          val auditDF = session
-            .createDataFrame(
-              auditTypedRDD.toDF().rdd,
-              StructType(
-                auditCols.map { case (name, _, sparkType) =>
-                  StructField(name = name, dataType = sparkType, nullable = true)
-                }
-              )
-            )
-            .toDF(auditCols.map { case (name, _, _) => name }: _*)
-          val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-            sink.connectionRef.getOrElse(settings.appConfig.connectionRef),
-            settings.appConfig,
-            Right(auditDF),
-            settings.appConfig.audit.domain.getOrElse("audit") + ".audit",
-            CreateDisposition.CREATE_IF_NEEDED,
-            WriteDisposition.WRITE_APPEND
-          )
-          new ConnectionLoadJob(jdbcConfig).run()
-
-        case sink: BigQuerySink =>
-          val res = sinkToBigQuery(log, sink)
-          Utils.logFailure(res, logger)
-        case _: EsSink =>
-          // TODO Sink Audit Log to ES
-          throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: FsSink =>
-          sinkToFile(log, sessionOpt, settings)
-          Success(new JobResult {})
-        case sink =>
-          throw new Exception(s"Sink $sink not supported for AuditLog")
-      }
+      val selectSql =
+        log.asSelect(settings.appConfig.audit.getSink().getConnection().getJdbcEngineName())
+      val auditTaskDesc = AutoTaskDesc(
+        name = s"audit-${log.jobid}",
+        sql = Some(selectSql),
+        database = settings.appConfig.audit.getDatabase(),
+        domain = settings.appConfig.audit.domain.getOrElse("audit"),
+        table = "audit",
+        write = Some(WriteMode.APPEND),
+        partition = Nil,
+        presql = Nil,
+        postsql = Nil,
+        sink = Some(settings.appConfig.audit.sink),
+        parseSQL = Some(false),
+        _auditTableName = Some("audit")
+      )
+      val task = AutoTask
+        .task(
+          auditTaskDesc,
+          Map.empty,
+          None,
+          drop = false
+        )
+      val res = task.run()
+      Utils.logFailure(res, logger)
     } else {
       Success(new JobResult {})
     }
-  }
-
-  private def getDatabase()(implicit settings: Settings): Option[String] =
-    settings.appConfig.audit.getDatabase()
-
-  def sinkToBigQuery(
-    log: AuditLog,
-    sink: BigQuerySink
-  )(implicit
-    settings: Settings
-  ): Try[JobResult] = {
-    val auditOutputTarget = {
-      val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
-      val auditTable = "audit"
-      settings.appConfig.audit.database match {
-        case Some(prj) => TableId.of(prj, auditDomain, auditTable)
-        case None      => TableId.of(auditDomain, auditTable)
-      }
-    }
-    val bqConfig = BigQueryLoadConfig(
-      Some(sink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
-      Left("ignore"),
-      Some(auditOutputTarget),
-      None,
-      Nil,
-      settings.appConfig.defaultFormat,
-      "CREATE_IF_NEEDED",
-      "WRITE_APPEND",
-      None,
-      outputDatabase = getDatabase()
-    )
-    val bqJob = new BigQueryNativeJob(
-      bqConfig,
-      log.asBqInsert(BigQueryJobBase.getBqTableForNative(auditOutputTarget))
-    )
-    val tableInfo = TableInfo(
-      auditOutputTarget,
-      Some("Information related to starlake executions"),
-      Some(bqSchema())
-    )
-    bqJob.getOrCreateTable(None, tableInfo, None).flatMap(_ => bqJob.runInteractiveQuery())
   }
 }
