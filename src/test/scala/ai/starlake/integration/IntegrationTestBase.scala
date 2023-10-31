@@ -1,5 +1,6 @@
 package ai.starlake.integration
 
+import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.BeforeAndAfterAll
@@ -13,6 +14,12 @@ class IntegrationTestBase
     with Matchers
     with BeforeAndAfterAll
     with StrictLogging {
+
+  val starlakeDir = File(".")
+  logger.info(starlakeDir.pathAsString)
+  val samplesDir = starlakeDir / "samples"
+  val localDir = samplesDir / "spark"
+  val incomingDir = samplesDir / "incoming"
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
     val existingValues = envList.flatMap { case (k, _) =>

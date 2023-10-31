@@ -13,7 +13,6 @@ import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, Utils}
-import org.apache.spark.sql.DataFrame
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -22,25 +21,17 @@ import scala.util.{Failure, Success, Try}
 class BigQueryAutoTask(
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
-  sinkConfig: Option[Sink],
   interactive: Option[String],
-  database: Option[String],
   truncate: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
-      sinkConfig,
       interactive,
-      database,
       truncate,
       resultPageSize
     ) {
-  override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
-    // Should be called for Spark only since sinking  to BQ is handled by the BQ Query
-    false
-  }
 
   val bqSink = taskDesc.sink
     .map(_.getSink())

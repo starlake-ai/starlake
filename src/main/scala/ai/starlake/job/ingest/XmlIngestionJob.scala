@@ -105,7 +105,11 @@ class XmlIngestionJob(
     mergedMetadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
-        saveRejected(rejectedDS, session.emptyDataset[String]).flatMap { _ =>
+        saveRejected(rejectedDS, session.emptyDataset[String])(
+          settings,
+          storageHandler,
+          schemaHandler
+        ).flatMap { _ =>
           saveAccepted(
             ValidationResult(
               session.emptyDataset[String],
@@ -143,7 +147,11 @@ class XmlIngestionJob(
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
-        saveRejected(allRejected, validationResult.rejected).flatMap { _ =>
+        saveRejected(allRejected, validationResult.rejected)(
+          settings,
+          storageHandler,
+          schemaHandler
+        ).flatMap { _ =>
           saveAccepted(validationResult)
         } match {
           case Failure(exception: NullValueFoundException) =>

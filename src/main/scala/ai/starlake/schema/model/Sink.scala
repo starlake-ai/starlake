@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.Connection
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -80,11 +81,18 @@ class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
 sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
+
   def getConnectionType()(implicit
     settings: Settings
   ): ConnectionType = {
+    getConnection().getType()
+  }
+
+  def getConnection()(implicit
+    settings: Settings
+  ): Connection = {
     val ref = connectionRef.getOrElse(settings.appConfig.connectionRef)
-    settings.appConfig.connections(ref).getType()
+    settings.appConfig.connections(ref)
   }
 
   @JsonIgnore

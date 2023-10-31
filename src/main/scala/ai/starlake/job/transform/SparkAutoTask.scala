@@ -21,25 +21,27 @@ import scala.util.{Failure, Success, Try}
 class SparkAutoTask(
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
-  sinkConfig: Option[Sink],
   interactive: Option[String],
-  database: Option[String],
   truncate: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
-      sinkConfig,
       interactive,
-      database,
       truncate,
       resultPageSize
     ) {
 
   override def run(): Try[JobResult] = {
 
-    runSpark()
+    val res = runSpark()
+    res match {
+      case Success(jobResult) if interactive.isEmpty =>
+        sink(jobResult.dataframe)
+      case Failure(_) =>
+    }
+    res
   }
 
   def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
@@ -80,7 +82,7 @@ class SparkAutoTask(
   val hiveDB = taskDesc.getHiveDB()
   val fullTableName = s"$hiveDB.${taskDesc.table}"
 
-  def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
+  private def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(false)
     val targetPath = taskDesc.getTargetPath()
     logger.info(s"About to write resulting dataset to $targetPath")
@@ -181,7 +183,7 @@ class SparkAutoTask(
     }
   }
 
-  def sinkToES(): Boolean = {
+  private def sinkToES(): Boolean = {
     val targetPath =
       new Path(DatasetArea.path(this.taskDesc.domain), this.taskDesc.table)
     val sink: EsSink = this.taskDesc.sink
@@ -207,7 +209,7 @@ class SparkAutoTask(
     res.isSuccess
   }
 
-  override def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
+  def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
     val sinkOption = this.sinkConfig
     logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
     maybeDataFrame match {
@@ -417,7 +419,7 @@ class SparkAutoTask(
           session.sql(sqlWithParameters)
         case _ =>
           session.read
-            .format(connection.getSparkFormat())
+            .format(connection.sparkFormat.getOrElse(throw new Exception("Should never happen")))
             .option("query", sqlWithParameters)
             .options(connection.options)
             .load()

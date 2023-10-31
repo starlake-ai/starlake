@@ -27,7 +27,6 @@ import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.DataFrame
 
 import java.sql.Timestamp
 import scala.util.Try
@@ -47,19 +46,19 @@ import scala.util.Try
 abstract class AutoTask(
   val taskDesc: AutoTaskDesc,
   val commandParameters: Map[String, String],
-  val sinkConfig: Option[Sink],
   val interactive: Option[String],
-  val database: Option[String],
   val truncate: Boolean = false,
   val resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  val sinkConfig = taskDesc.getSinkConfig()
+
   def fullTableName: String
 
   def run(): Try[JobResult]
 
-  def sink(maybeDataFrame: Option[DataFrame]): Boolean
+  // def sink(maybeDataFrame: Option[DataFrame]): Boolean
 
   override def name: String = taskDesc.name
 
@@ -79,60 +78,55 @@ abstract class AutoTask(
     val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
     val selectStatement = Utils.parseJinja(taskDesc.getSql(), allVars)
     val (mergeSql, asSelect) =
-      if (!tableExists) {
-        val select =
-          if (taskDesc.parseSQL.getOrElse(true))
+      if (taskDesc.parseSQL.getOrElse(true)) {
+        if (!tableExists) {
+          val select =
             SQLUtils.buildSingleSQLQuery(
               selectStatement,
               schemaHandler.refs(),
               schemaHandler.domains(),
               schemaHandler.tasks(),
               localViews,
-              taskDesc.getEngine()
+              taskDesc.getConnection()
             )
-          else
-            selectStatement
-        (select, true)
-      } else {
-        val (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition) = {
-          taskDesc.merge match {
-            case Some(options) =>
-              val mergeSql =
-                SQLUtils.buildMergeSql(
-                  selectStatement,
-                  options.key,
-                  taskDesc.getDatabase(),
-                  taskDesc.domain,
-                  taskDesc.table,
-                  taskDesc.getEngine(),
-                  localViews.nonEmpty
-                )
-              logger.info(s"Merge SQL: $mergeSql")
-              (mergeSql, false)
-            case None =>
-              val select =
-                if (taskDesc.parseSQL.getOrElse(true))
+          (select, true)
+        } else {
+          val (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition) = {
+            taskDesc.merge match {
+              case Some(options) =>
+                val mergeSql =
+                  SQLUtils.buildMergeSql(
+                    selectStatement,
+                    options.key,
+                    taskDesc.getDatabase(),
+                    taskDesc.domain,
+                    taskDesc.table,
+                    taskDesc.getConnection(),
+                    localViews.nonEmpty
+                  )
+                logger.info(s"Merge SQL: $mergeSql")
+                (mergeSql, false)
+              case None =>
+                val select =
                   SQLUtils.buildSingleSQLQuery(
                     selectStatement,
                     schemaHandler.refs(),
                     schemaHandler.domains(),
                     schemaHandler.tasks(),
                     localViews,
-                    taskDesc.getEngine()
+                    taskDesc.getConnection()
                   )
-                else
-                  selectStatement
-              (select, true)
+                (select, true)
+            }
           }
-        }
-        val (finalSql, asSelect) = {
-          (partitionColumn, destinationTable) match {
-            case (Some(partitionColumn), Some(destinationTable)) =>
-              val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
-              val columnNamesString =
-                SQLUtils.getColumnNames(selectStatement)
-              val mergeSQL =
-                s"""
+          val (finalSql, asSelect) = {
+            (partitionColumn, destinationTable) match {
+              case (Some(partitionColumn), Some(destinationTable)) =>
+                val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
+                val columnNamesString =
+                  SQLUtils.getColumnNames(selectStatement)
+                val mergeSQL =
+                  s"""
                  |declare incoming_partitions array<date>;
                  |
                  |create temporary table $tempTable as ($sqlBeforeDynamicPartition);
@@ -148,13 +142,16 @@ abstract class AutoTask(
                  |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
                  |when not matched then insert $columnNamesString values $columnNamesString
                  |""".stripMargin
-              logger.info(mergeSQL)
-              (mergeSQL, false)
-            case (_, _) =>
-              (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition)
+                logger.info(mergeSQL)
+                (mergeSQL, false)
+              case (_, _) =>
+                (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition)
+            }
           }
+          (finalSql, asSelect)
         }
-        (finalSql, asSelect)
+      } else {
+        (selectStatement, true)
       }
 
     val preSql = parseJinja(taskDesc.presql, allVars)
@@ -188,23 +185,25 @@ abstract class AutoTask(
     success: Boolean,
     message: String
   ): Unit = {
-    val log = AuditLog(
-      applicationId(),
-      Some(this.name),
-      this.taskDesc.domain,
-      this.taskDesc.table,
-      success,
-      jobResultCount,
-      -1,
-      -1,
-      start,
-      end.getTime - start.getTime,
-      message,
-      Step.TRANSFORM.toString,
-      taskDesc.getDatabase(),
-      settings.appConfig.tenant
-    )
-    AuditLog.sink(optionalAuditSession, log)
+    if (taskDesc._auditTableName.isEmpty) { // avoid recursion when logging audit
+      val log = AuditLog(
+        applicationId(),
+        Some(this.name),
+        this.taskDesc.domain,
+        this.taskDesc.table,
+        success,
+        jobResultCount,
+        -1,
+        -1,
+        start,
+        end.getTime - start.getTime,
+        message,
+        Step.TRANSFORM.toString,
+        taskDesc.getDatabase(),
+        settings.appConfig.tenant
+      )
+      AuditLog.sink(optionalAuditSession, log)
+    }
   }
 
   def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =
@@ -250,11 +249,7 @@ object AutoTask extends StrictLogging {
         new BigQueryAutoTask(
           taskDesc,
           configOptions,
-          taskDesc.sink
-            .map(_.getSink())
-            .orElse(Some(AllSinks().getSink())),
           interactive,
-          taskDesc.getDatabase(),
           truncate = drop,
           resultPageSize = resultPageSize
         )
@@ -262,11 +257,7 @@ object AutoTask extends StrictLogging {
         new JdbcAutoTask(
           taskDesc,
           configOptions,
-          taskDesc.sink
-            .map(_.getSink())
-            .orElse(Some(AllSinks().getSink())),
           interactive,
-          taskDesc.getDatabase(),
           truncate = drop,
           resultPageSize = resultPageSize
         )
@@ -274,11 +265,7 @@ object AutoTask extends StrictLogging {
         new SparkAutoTask(
           taskDesc,
           configOptions,
-          taskDesc.sink
-            .map(_.getSink())
-            .orElse(Some(AllSinks().getSink())),
           interactive,
-          taskDesc.getDatabase(),
           truncate = drop,
           resultPageSize = resultPageSize
         )

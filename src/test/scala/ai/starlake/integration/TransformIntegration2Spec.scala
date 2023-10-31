@@ -11,11 +11,11 @@ class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
 
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> quickstartDir.pathAsString,
+        "SL_ROOT" -> localDir.pathAsString,
         "SL_ENV"  -> "BQ"
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(quickstartDir)
+        incomingDir.copyToDirectory(localDir)
         Main.main(
           Array("transform", "--name", "bqtest.table1")
         )

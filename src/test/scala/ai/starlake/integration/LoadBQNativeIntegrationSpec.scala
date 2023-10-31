@@ -7,7 +7,7 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
 
     "Import / Load / Transform BQ NATIVE" should "succeed" in {
       withEnvs(
-        "SL_ROOT"                                       -> quickstartDir.pathAsString,
+        "SL_ROOT"                                       -> localDir.pathAsString,
         "SL_ENV"                                        -> "BQ-NATIVE",
         "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "dynamic",
@@ -15,7 +15,7 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_ISSUE_SPARK_BIGQUERY_1060"                  -> ""
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(quickstartDir)
+        incomingDir.copyToDirectory(localDir)
         Main.main(
           Array("import")
         )

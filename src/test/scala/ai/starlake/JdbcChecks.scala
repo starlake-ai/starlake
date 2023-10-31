@@ -212,6 +212,7 @@ trait JdbcChecks {
         val name = rsmd.getColumnName(i)
         println(name)
       }
+
       val item = AuditLog(
         sparkSession.sparkContext.applicationId,
         Some(rs.getString("paths")),

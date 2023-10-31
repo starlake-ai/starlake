@@ -106,7 +106,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           discreteMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
+            .distinct()
+            .collect()
         discreteMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "city"),
           ("yelp", "business", "is_open"),
@@ -123,7 +124,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           continuousMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
+            .distinct()
+            .collect()
 
         continuousMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "review_count"),
@@ -139,8 +141,9 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           freqMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
-
+            .distinct()
+            .collect()
+        freqMetricsDf.show(false)
         freqMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "city")
         )
