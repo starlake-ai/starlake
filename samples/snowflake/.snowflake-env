@@ -1,6 +1,5 @@
 export SNOWFLAKE_ACCOUNT=qbuqrgc-or28005
-export SNOWFLAKE_USER=hayssams
-export SNOWFLAKE_PASSWORD=quttir-siqdes-1qurnA
+export SNOWFLAKE_USER=me
+export SNOWFLAKE_PASSWORD=my-password
 export SNOWFLAKE_WAREHOUSE=COMPUTE_WH
-export SNOWFLAKE_DB=starlake1
-export SL_ENV=SNOWFLAKE
+export SNOWFLAKE_DB=starlake

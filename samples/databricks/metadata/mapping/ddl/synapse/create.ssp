@@ -1,0 +1,49 @@
+<%@ val domain: String %>
+<%@ val schema: String %>
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val newAttributes: List[Map[String, Any]] %>
+<%@ val alterAttributes: List[Map[String, Any]] %>
+<%@ val alterCommentAttributes: List[Map[String, Any]] %>
+<%@ val alterRequiredAttributes: List[Map[String, Any]] %>
+<%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
+<%@ val droppedAttributes: List[Map[String, Any]] %>
+<%@ val domainComment: String = ""  %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val primaryKeys: List[String] %>
+<%
+    val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty
+    val isPartitionDefined: Boolean = partitions.nonEmpty
+
+    def attributeDDL(attr:Map[String, Any]):String = {
+        val required = if (attr("required").toString.toBoolean) "NOT NULL" else ""
+        val attrName = attr("name")
+        val attrType = attr("type")
+
+        attr("nodeType") match {
+            case "leaf" =>
+                s"""$attrName $attrType $required"""
+            case "node" =>
+              val fields = attr("fields").asInstanceOf[List[Map[String, Any]]]
+                val ddlFields = fields.map(field => attributeDDL(field)).mkString(",")
+                s"""$attrName $attrType<$ddlFields> $required"""
+            case _ => throw new Exception("Should never happen")
+        }
+    }
+%>
+
+CREATE TABLE ${domain}.${schema} (
+#{
+    val attributesCount = attributes.length
+    var attributesIndex = 1
+}#
+#for (attribute <- attributes)
+    #{
+        val attributeComment = attribute("comment") // Not supported by Synapse
+        val attributeSuffix = if (attributesIndex == attributesCount) "" else ","
+        attributesIndex = attributesIndex + 1
+    }#
+    ${attributeDDL(attribute)} ${attributeSuffix}
+#end
+);
+
