@@ -90,7 +90,7 @@ trait TestHelper
        |SL_ROOT="${starlakeTestRoot}"
        |SL_TEST_ID="${starlakeTestId}"
        |SL_LOCK_PATH="${starlakeTestRoot}/locks"
-       |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+       |SL_METRICS_PATH="${starlakeTestRoot}/audit/metrics/{{schema}}"
        |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
        |SL_UDFS="ai.starlake.udf.TestUdf"
        |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"

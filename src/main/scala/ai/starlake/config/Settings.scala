@@ -115,7 +115,8 @@ object Settings extends StrictLogging {
     maxErrors: Int,
     database: Option[String],
     domain: Option[String],
-    active: Option[Boolean]
+    active: Option[Boolean],
+    sql: Option[String]
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
@@ -141,9 +142,11 @@ object Settings extends StrictLogging {
   final case class Connection(
     `type`: Option[String],
     sparkFormat: Option[String] = None,
+    quote: Option[String] = None,
+    separator: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
-    def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
+    def this() = this(Some(ConnectionType.JDBC.value), None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
@@ -248,29 +251,6 @@ object Settings extends StrictLogging {
       }
       errors
     }
-    def getSparkFormat(): String = {
-      this.getType() match {
-        case ConnectionType.JDBC =>
-          sparkFormat
-            .orElse {
-              val engineName = getJdbcEngineName()
-              engineName.map { name =>
-                name.toLowerCase() match {
-                  case "snowflake" => "jdbc"
-                  case "redshift"  => name
-                  case _           => "jdbc"
-                }
-              }
-            }
-            .getOrElse("jdbc")
-        case ConnectionType.ES    => sparkFormat.getOrElse("elasticsearch")
-        case ConnectionType.BQ    => sparkFormat.getOrElse("bigquery")
-        case ConnectionType.KAFKA => sparkFormat.getOrElse("kafka")
-        case ConnectionType.FS    => sparkFormat.getOrElse("parquet")
-        case _                    => sparkFormat.getOrElse("")
-
-      }
-    }
 
     /** The engine is Spark when sparkFormat is defined or when the connection type is not bigquery
       * @return
@@ -301,18 +281,26 @@ object Settings extends StrictLogging {
     }
 
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(!Connection.allstorageOptions.contains(_))
 
     def authOptions(): Map[String, String] =
-      options.filterKeys(Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(Connection.allstorageOptions.contains(_))
 
-    def getJdbcEngineName(): Option[String] = {
-      val url = options.get("url")
-      url.flatMap { url => if (url.startsWith("jdbc:")) Some(url.split(':')(1)) else None }
+    def getJdbcEngineName(): Engine = {
+      val engineName = sparkFormat match {
+        case None | Some("jdbc") =>
+          this.`type`.getOrElse(throw new Exception("Should never happen")) match {
+            case "jdbc"            => options("url").split(':')(1)
+            case "bigquery" | "bq" => "bigquery"
+            case _                 => "spark"
+          }
+        case Some(_) => "spark"
+      }
+      Engine.fromString(engineName)
     }
 
-    def isSnowflake(): Boolean = getJdbcEngineName().contains("snowflake")
-    def isRedshift(): Boolean = getJdbcEngineName().contains("redshift")
+    def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+    def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
   }
 
   object Connection {
@@ -359,7 +347,11 @@ object Settings extends StrictLogging {
       *   pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL
       *   does
       */
-    final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
+    final case class TableDdl(
+      createSql: String,
+      pingSql: Option[String],
+      selectSql: Option[String] = None
+    ) {
 
       def effectivePingSql(tableName: String): String =
         pingSql.getOrElse(s"select count(*) from $tableName where 1=0")

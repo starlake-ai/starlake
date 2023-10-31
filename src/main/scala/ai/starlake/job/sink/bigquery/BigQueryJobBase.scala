@@ -468,7 +468,7 @@ trait BigQueryJobBase extends StrictLogging {
              | CREATE ROW ACCESS POLICY
              |  $name
              | ON
-             |  `$outputTable`
+             |  $outputTable
              | GRANT TO
              |  (${grants.mkString("\"", "\",\"", "\"")})
              | FILTER USING

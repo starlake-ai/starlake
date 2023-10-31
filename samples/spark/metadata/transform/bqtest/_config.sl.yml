@@ -1,0 +1,8 @@
+transform:
+  default:
+    write: OVERWRITE
+    sink:
+      timestamp:  due
+      dynamicPartitionOverwrite: true
+
+
