@@ -49,7 +49,8 @@ case class AutoTaskDesc(
   merge: Option[MergeOptions] = None,
   schedule: Option[String] = None,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
-  parseSQL: Option[Boolean] = None
+  parseSQL: Option[Boolean] = None,
+  _auditTableName: Option[String] = None
 ) extends Named {
 
   @JsonIgnore
@@ -112,7 +113,20 @@ case class AutoTaskDesc(
     */
   @JsonIgnore
   def getTargetPath()(implicit settings: Settings): Path = {
-    new Path(DatasetArea.business(domain), table)
+    val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
+    if (domain == auditDomain) {
+      table match {
+        case "continuous" | "discrete" | "frequencies" =>
+          DatasetArea.metrics(domain, table)
+        case "audit" =>
+          DatasetArea.audit(domain, table)
+        case "rejected" =>
+          new Path(DatasetArea.rejected(domain), table)
+        case _ =>
+          throw new Exception(s"$table: Audit table name not supported")
+      }
+    } else
+      new Path(DatasetArea.business(domain), table)
   }
 
   @JsonIgnore
@@ -141,6 +155,9 @@ case class AutoTaskDesc(
   def getConnectionType()(implicit settings: Settings): ConnectionType = {
     getConnection().getType()
   }
+
+  def getSinkConfig()(implicit settings: Settings): Option[Sink] =
+    this.sink.map(_.getSink()).orElse(Some(AllSinks().getSink()))
 }
 
 object AutoTaskDesc {

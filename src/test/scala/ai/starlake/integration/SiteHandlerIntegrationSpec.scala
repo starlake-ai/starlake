@@ -8,15 +8,11 @@ import com.typesafe.config.ConfigFactory
 
 class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
-  val starlakeDir = File(".")
-  logger.info(starlakeDir.pathAsString)
-  val localDir = starlakeDir / "samples" / "local"
-  val quickstartDir: File = localDir / "quickstart"
   val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
   val directoriesToClear = List("site")
 
   // select quickstart or starbake here
-  val projectDir = quickstartDir
+  val projectDir = localDir
   // val projectDir = starbakeDir
 
   // select docusaurus folder

@@ -1,6 +1,7 @@
 package ai.starlake.sql
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
@@ -139,7 +140,7 @@ object SQLUtils extends StrictLogging {
     database: Option[String],
     domain: String,
     table: String,
-    engine: Engine,
+    connection: Connection,
     isFilesystem: Boolean
   )(implicit settings: Settings): String = {
 
@@ -154,9 +155,9 @@ object SQLUtils extends StrictLogging {
 
         val fullTableName = database match {
           case Some(db) =>
-            OutputRef(db, domain, table).toSQLString(engine, isFilesystem)
+            OutputRef(db, domain, table).toSQLString(connection, isFilesystem)
           case None =>
-            OutputRef("", domain, table).toSQLString(engine, isFilesystem)
+            OutputRef("", domain, table).toSQLString(connection, isFilesystem)
         }
         s"""MERGE INTO
            |$fullTableName as SL_INTERNAL_SINK
@@ -176,7 +177,7 @@ object SQLUtils extends StrictLogging {
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     localViews: List[String],
-    engine: Engine
+    connection: Connection
   )(implicit
     settings: Settings
   ): String = {
@@ -190,7 +191,7 @@ object SQLUtils extends StrictLogging {
         localViews,
         SQLUtils.fromsRegex,
         "FROM",
-        engine
+        connection
       )
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
@@ -201,7 +202,7 @@ object SQLUtils extends StrictLogging {
         localViews,
         SQLUtils.joinRegex,
         "JOIN",
-        engine
+        connection
       )
     joinAndFromResolved
   }
@@ -214,7 +215,7 @@ object SQLUtils extends StrictLogging {
     localViews: List[String],
     fromOrJoinRegex: Regex,
     keyword: String,
-    engine: Engine
+    connection: Connection
   )(implicit
     settings: Settings
   ): String = {
@@ -251,7 +252,7 @@ object SQLUtils extends StrictLogging {
               domains,
               tasks,
               ctes,
-              engine,
+              connection,
               localViews.nonEmpty
             )
             source = source.replaceAll(tableFound, resolvedTableName)
@@ -271,7 +272,7 @@ object SQLUtils extends StrictLogging {
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     ctes: List[String],
-    engine: Engine,
+    connection: Connection,
     isFilesystem: Boolean
   )(implicit
     settings: Settings
@@ -294,13 +295,13 @@ object SQLUtils extends StrictLogging {
         val databaseDomainTableRef =
           activeEnvRefs
             .getOutputRef(tableTuple)
-            .map(_.toSQLString(engine, isFilesystem))
+            .map(_.toSQLString(connection, isFilesystem))
         val resolvedTableName = databaseDomainTableRef.getOrElse {
           resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
             case Success((database, domain, table)) =>
               ai.starlake.schema.model
                 .OutputRef(database, domain, table)
-                .toSQLString(engine, isFilesystem)
+                .toSQLString(connection, isFilesystem)
             case Failure(e) =>
               Utils.logException(logger, e)
               throw e

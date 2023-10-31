@@ -1,7 +1,8 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{Engine, Refs}
+import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.model.Refs
 import ai.starlake.sql.SQLUtils
 
 class SqlUtilsSpec extends TestHelper {
@@ -141,7 +142,7 @@ class SqlUtilsSpec extends TestHelper {
           Nil,
           SQLUtils.fromsRegex,
           "FROM",
-          Engine.SPARK
+          new Connection(Some("SPARK"), Some("parquet"), None, None, Map.empty)
         )
       resultSQL should equal(
         """with mycte as (
@@ -216,7 +217,7 @@ class SqlUtilsSpec extends TestHelper {
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",
-          Engine.BQ,
+          new Connection(Some("BQ"), None, None, None, Map.empty),
           false
         )
       sqlMerge.replaceAll("\\s", "") should be("""

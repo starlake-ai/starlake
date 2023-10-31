@@ -32,7 +32,13 @@ import com.fasterxml.jackson.databind.{
 @JsonSerialize(using = classOf[EngineSerializer])
 @JsonDeserialize(using = classOf[EngineDeserializer])
 sealed abstract class Engine(value: String) {
-  override def toString: String = value
+  override def toString: String =
+    value match {
+      case "BQ"    => "bigquery"
+      case "JDBC"  => "jdbc"
+      case "SPARK" => "spark"
+      case _       => value
+    }
 }
 
 object Engine {
