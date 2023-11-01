@@ -52,7 +52,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       }
       .foreach { jdbcSchema =>
         assert(config.numPartitions > 0)
-        JDBCUtils.extractData(
+        JdbcDbUtils.extractData(
           schemaHandler,
           jdbcSchema,
           connectionOptions ++ jdbcSchema.connectionOptions,

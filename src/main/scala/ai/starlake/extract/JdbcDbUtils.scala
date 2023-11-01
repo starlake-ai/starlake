@@ -7,6 +7,7 @@ import ai.starlake.utils.Utils
 import au.com.bytecode.opencsv.CSVWriter
 import better.files.{using, File}
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.sql.jdbc.JdbcDialects
 
 import java.sql.Types._
 import java.sql.{
@@ -27,7 +28,7 @@ import scala.collection.mutable
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
-object JDBCUtils extends LazyLogging {
+object JdbcDbUtils extends LazyLogging {
 
   type TableRemarks = String
   type Columns = List[Attribute]
@@ -103,6 +104,18 @@ object JDBCUtils extends LazyLogging {
         throw exception
       case Success(value) => value
     }
+  }
+
+  def tableExists(conn: SQLConnection, url: String, table: String): Boolean = {
+    val dialect = JdbcDialects.get(url)
+    Try {
+      val statement = conn.prepareStatement(dialect.getTableExistsQuery(table))
+      try {
+        statement.executeQuery()
+      } finally {
+        statement.close()
+      }
+    }.isSuccess
   }
 
   @throws[Exception]
@@ -698,7 +711,7 @@ object JDBCUtils extends LazyLogging {
       // Map tables to columns and primary keys
       implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(parallelism)
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
-        JDBCUtils.extractJDBCTables(
+        JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema,
           connectionOptions,
           skipRemarks = true,

@@ -184,7 +184,7 @@ case class Schema(
     * @return
     *   Spark Catalyst Schema
     */
-  def sparkSchemaFinal(schemaHandler: SchemaHandler): StructType =
+  def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
 
   private def sparkSchemaWithCondition(
@@ -248,7 +248,7 @@ case class Schema(
     sparkSchemaWithCondition(schemaHandler, _ => true)
 
   def bqSchemaFinal(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkSchemaFinal(schemaHandler))
+    BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
   }
 
   def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
