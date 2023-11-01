@@ -289,7 +289,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connectionRef.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, settings.appConfig.connections(conn).options)
+          conn => JDBCUtils.execute(sqlScript, settings.appConfig.connections(conn).options)
         )
     }
 

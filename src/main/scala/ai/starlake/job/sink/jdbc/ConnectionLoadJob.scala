@@ -5,8 +5,9 @@ import ai.starlake.extract.JDBCUtils
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class ConnectionLoadJob(
   cliConfig: JdbcConnectionLoadConfig
@@ -28,7 +29,7 @@ class ConnectionLoadJob(
           case Right(df)  => df
         }
       val outputDomain = cliConfig.outputTable.split("\\.")(0)
-      val sql = s"CREATE SCHEMA IF NOT EXISTS $outputDomain"
+      val createSchemaSql = s"CREATE SCHEMA IF NOT EXISTS $outputDomain"
       val jdbcOptions =
         if (cliConfig.format == "snowflake") {
           cliConfig.options.flatMap { case (k, v) =>
@@ -51,12 +52,32 @@ class ConnectionLoadJob(
           cliConfig.options
       JDBCUtils.withJDBCConnection(jdbcOptions) { conn =>
         val stmt = conn.createStatement()
-        stmt.execute(sql)
+        stmt.execute(createSchemaSql)
         stmt.close()
+        // Some database do not support truncate during save
+        // Truncate should be done manually in pre-sql
+        // https://stackoverflow.com/questions/59451275/how-to-generate-a-spark-sql-truncate-query-without-only
+        if (jdbcOptions.get("supportTruncateOnInsert").contains("false")) {
+          val jdbcDialect = jdbcOptions.get("url") match {
+            case Some(url) =>
+              JdbcDialects.get(url)
+            case None =>
+              logger.warn("No url found in jdbc options. Using TRUNCATE TABLE")
+              new JdbcDialect {
+                override def canHandle(url: String): Boolean = true
+              }
+          }
+          val truncateSql = jdbcDialect.getTruncateQuery(cliConfig.outputTable)
+
+          // do not fail on exception. Truncate may fail is table does not exist
+          JDBCUtils.execute(truncateSql, conn) match {
+            case Failure(e) =>
+              logger.warn(s"Truncate failed on table ${cliConfig.outputTable} with error $e")
+            case Success(_) =>
+              logger.info(s"Truncate done on table ${cliConfig.outputTable}")
+          }
+        }
       }
-      // Some database do not support truncate during save
-      // Truncate should be done manually in pre-sql
-      // https://stackoverflow.com/questions/59451275/how-to-generate-a-spark-sql-truncate-query-without-only
       val writeMode =
         if (cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE) SaveMode.Overwrite
         else SaveMode.Append
