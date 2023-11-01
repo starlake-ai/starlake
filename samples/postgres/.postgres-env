@@ -1,6 +1,5 @@
-export SNOWFLAKE_ACCOUNT=qbuqrgc-or28005
-export SNOWFLAKE_USER=hayssams
-export SNOWFLAKE_PASSWORD=quttir-siqdes-1qurnA
-export SNOWFLAKE_WAREHOUSE=COMPUTE_WH
-export SNOWFLAKE_DB=starlake1
-export SL_ENV=SNOWFLAKE
+export POSTGRES_DATABASE=starlake
+export DATABASE_USER=postgres
+export DATABASE_PASSWORD=azizam
+export POSTGRES_HOST=127.0.0.1
+export POSTGRES_PORT=5432

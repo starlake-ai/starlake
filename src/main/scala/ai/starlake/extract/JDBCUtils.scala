@@ -105,13 +105,14 @@ object JDBCUtils extends LazyLogging {
     }
   }
 
-  def applyScript(script: String, connection: java.sql.Connection): Boolean = {
+  @throws[Exception]
+  def execute(script: String, connection: java.sql.Connection): Try[Boolean] = {
     val statement = connection.createStatement()
-    try {
+    val result = Try {
       statement.execute(script)
-    } finally {
-      statement.close()
     }
+    statement.close()
+    result
   }
 
   /** RUn the sql statement in the context of a connection
@@ -120,7 +121,7 @@ object JDBCUtils extends LazyLogging {
     * @param settings
     * @return
     */
-  def applyScript(script: String, connectionOptions: Map[String, String])(implicit
+  def execute(script: String, connectionOptions: Map[String, String])(implicit
     settings: Settings
   ): Boolean = {
     withJDBCConnection(connectionOptions) { conn =>
@@ -1559,14 +1560,6 @@ object LastExportUtils extends LazyLogging {
     stmt.close()
     result
   }
-
-  def executeUpdate(stmt: PreparedStatement): Try[Int] =
-    Try {
-      val count = stmt.executeUpdate()
-      stmt.close()
-      count
-    }
-
 }
 
 case class DeltaRow(

@@ -8,11 +8,16 @@ import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult}
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
+
+private object NoopDialect extends JdbcDialect {
+  override def canHandle(url: String): Boolean = true
+}
 
 class JdbcAutoTask(
   taskDesc: AutoTaskDesc,
@@ -51,13 +56,25 @@ class JdbcAutoTask(
     val rs =
       databaseMetadata.getTables(
         taskDesc.database.orNull,
-        taskDesc.domain.toUpperCase(), // JDBC require tables and schema in uppercase
+        taskDesc.domain.toUpperCase(), // Uppercase is the standard in JDBC
         taskDesc.table.toUpperCase(),
         Array[String]("TABLE")
       )
-    val ok = rs.next()
+
+    // try with lowercase because some database convert to lowercase (eq. postgres)
+    val ok = rs.next() ||
+      databaseMetadata
+        .getTables(
+          taskDesc.database.orNull,
+          taskDesc.domain.toLowerCase(),
+          taskDesc.table.toLowerCase(),
+          Array[String]("TABLE")
+        )
+        .next()
     rs.close()
+
     if (!ok && taskDesc._auditTableName.isDefined) {
+      // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
       logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
       val connectionRef =
         this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
@@ -70,24 +87,40 @@ class JdbcAutoTask(
         )
       )
       val scriptTemplate = engine.tables(entry).createSql
-      JDBCUtils.applyScript(s"CREATE SCHEMA IF NOT EXISTS $fullDomainName", conn)
+      createSchema(fullDomainName, conn)
 
       val script = scriptTemplate.richFormat(
         Map("table" -> fullTableName),
         Map.empty
       )
-      JDBCUtils.applyScript(script, conn)
+      JDBCUtils.execute(script, conn) match {
+        case Success(_) =>
+        case Failure(e) =>
+          logger.error(s"Error creating table $fullTableName", e)
+          throw e
+      }
     }
     ok
   }
 
+  @throws[Exception]
+  private def createSchema(domainName: String, conn: Connection): Unit = {
+    JDBCUtils.execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.error(s"Error creating schema $domainName", e)
+        throw e
+    }
+  }
+
+  @throws[Exception]
   def runSqls(conn: Connection, sqls: List[String]): Unit = {
     sqls.foreach { req =>
-      val stmt = conn.createStatement()
-      try {
-        stmt.execute(req)
-      } finally {
-        stmt.close()
+      JDBCUtils.execute(req, conn) match {
+        case Success(_) =>
+        case Failure(e) =>
+          logger.error(s"Error running sql $req", e)
+          throw e
       }
     }
 
@@ -129,8 +162,20 @@ class JdbcAutoTask(
               stmt.close()
             }
           case None =>
+            val jdbcDialect =
+              connection.options.get("url") match {
+                case Some(url) =>
+                  val jdbcDialect = JdbcDialects.get(url)
+                  logger.info(s"JDBC dialect $jdbcDialect")
+                  jdbcDialect
+                case None =>
+                  logger.warn("No url found in jdbc options. Using default dialect")
+                  new JdbcDialect {
+                    override def canHandle(url: String): Boolean = true
+                  }
+              }
             runSqls(conn, preSql)
-            runMainSql(sqlWithParameters, conn)
+            runMainSql(sqlWithParameters, conn, jdbcDialect)
             if (settings.appConfig.expectations.active) {
               new ExpectationJob(
                 taskDesc.database,
@@ -165,14 +210,19 @@ class JdbcAutoTask(
 
   val fullTableName = s"$fullDomainName.${taskDesc.table}"
 
-  def isMerge(sql: String) = sql.toLowerCase().contains("merge into")
+  def isMerge(sql: String) = {
+    sql.toLowerCase().contains("merge into")
+  }
+
   private def runMainSql(
     sqlWithParameters: String,
-    conn: java.sql.Connection
+    conn: java.sql.Connection,
+    jdbcDialect: JdbcDialect
   ): Unit = {
 
     // TODO: Make optional DOMAIN creation
-    JDBCUtils.applyScript(s"CREATE SCHEMA IF NOT EXISTS $fullDomainName", conn)
+
+    createSchema(fullDomainName, conn)
     val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
     val finalSqls =
       if (!tableExists(conn)) { // We are sure that there is no merge in the sql belows
@@ -196,21 +246,21 @@ class JdbcAutoTask(
               )
             } else {
               List(
-                s"TRUNCATE TABLE $fullTableName",
+                jdbcDialect.getTruncateQuery(fullTableName),
                 mainSql
               )
             }
           } else {
             val dropSqls =
               if (truncate)
-                List(s"TRUNCATE TABLE $fullTableName")
+                List(jdbcDialect.getTruncateQuery(fullTableName))
               else
                 Nil
             dropSqls ++ List(mainSql)
           }
         insertSqls
       }
-    finalSqls.foreach(sql => JDBCUtils.applyScript(sql, conn))
+    finalSqls.foreach(sql => JDBCUtils.execute(sql, conn))
     applyJdbcAcl(connection, forceApply = true)
   }
 }
