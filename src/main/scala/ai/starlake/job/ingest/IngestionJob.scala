@@ -11,7 +11,7 @@ import ai.starlake.job.metrics.{
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -868,7 +868,7 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, List[String]) = {
-    val incomingSchema = schema.sparkSchemaFinal(schemaHandler)
+    val incomingSchema = schema.finalSparkSchema(schemaHandler)
 
     val fileFound = Try {
       storageHandler.list(acceptedPath, recursive = true).nonEmpty ||
@@ -936,7 +936,7 @@ trait IngestionJob extends SparkJob {
       BigQuerySparkJob.getTable(domain.finalName + "." + schema.finalName)
     val existingDF = tableMetadata.table
       .map { table =>
-        val incomingSchema = BigQueryUtils.normalizeSchema(schema.sparkSchemaFinal(schemaHandler))
+        val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
         val updatedTable = updateBqTableSchema(table, incomingSchema)
         val bqTable = s"${domain.finalName}.${schema.finalName}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
@@ -1021,7 +1021,7 @@ trait IngestionJob extends SparkJob {
     val newBqSchema =
       BigQueryUtils.bqSchema(
         BigQueryUtils.normalizeCompatibleSchema(
-          schema.sparkSchemaFinal(schemaHandler),
+          schema.finalSparkSchema(schemaHandler),
           existingSchema
         )
       )
@@ -1522,7 +1522,7 @@ trait IngestionJob extends SparkJob {
       writeDisposition = writeDisposition
     )
 
-    val res = new ConnectionLoadJob(jdbcConfig).run()
+    val res = new sparkJdbcLoader(jdbcConfig).run()
     res match {
       case Success(_) => ;
       case Failure(e) =>

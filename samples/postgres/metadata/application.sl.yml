@@ -9,6 +9,7 @@ application:
         supportTruncateOnInsert: false
         user: {{DATABASE_USER}}
         password: {{DATABASE_PASSWORD}}
+        quoteIdentifiers: false
     spark-postgres:
       type: jdbc
       sparkFormat: jdbc
@@ -18,3 +19,4 @@ application:
         supportTruncateOnInsert: false
         user: {{DATABASE_USER}}
         password: {{DATABASE_PASSWORD}}
+        quoteIdentifiers: false

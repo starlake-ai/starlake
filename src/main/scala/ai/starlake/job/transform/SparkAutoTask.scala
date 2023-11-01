@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
@@ -283,7 +283,7 @@ class SparkAutoTask(
                   createTableIfAbsent = false
                 )
 
-                val res = new ConnectionLoadJob(jdbcConfig).run()
+                val res = new sparkJdbcLoader(jdbcConfig).run()
                 res match {
                   case Success(_) => true
                   case Failure(e) => logger.error("JDBCLoad Failed", e); false

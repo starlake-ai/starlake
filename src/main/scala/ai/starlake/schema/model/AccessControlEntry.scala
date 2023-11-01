@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.JDBCUtils
+import ai.starlake.extract.JdbcDbUtils
 
 import scala.util.Try
 
@@ -41,7 +41,7 @@ object AccessControlEntry {
   ): Try[Unit] =
     Try {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
-        JDBCUtils.withJDBCConnection(connection.options) { conn =>
+        JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
           sqls.foreach { sql =>
             val stmt = conn.createStatement()
             stmt.execute(sql)

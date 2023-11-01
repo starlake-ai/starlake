@@ -32,7 +32,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQuerySparkJob
 }
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator._
@@ -837,7 +837,7 @@ class IngestionWorkflow(
   }
 
   def jdbcload(config: JdbcConnectionLoadConfig): Try[JobResult] = {
-    val loadJob = new ConnectionLoadJob(config)
+    val loadJob = new sparkJdbcLoader(config)
     val res = loadJob.run()
     Utils.logFailure(res, logger)
   }

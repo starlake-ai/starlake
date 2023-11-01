@@ -1,7 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.JDBCUtils
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
@@ -14,10 +14,6 @@ import java.sql.{Connection, Timestamp}
 import java.time.Instant
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
-
-private object NoopDialect extends JdbcDialect {
-  override def canHandle(url: String): Boolean = true
-}
 
 class JdbcAutoTask(
   taskDesc: AutoTaskDesc,
@@ -52,60 +48,46 @@ class JdbcAutoTask(
   }
 
   def tableExists(conn: java.sql.Connection): Boolean = {
-    val databaseMetadata = conn.getMetaData()
-    val rs =
-      databaseMetadata.getTables(
-        taskDesc.database.orNull,
-        taskDesc.domain.toUpperCase(), // Uppercase is the standard in JDBC
-        taskDesc.table.toUpperCase(),
-        Array[String]("TABLE")
-      )
+    val url = connection.options("url")
+    JdbcDbUtils.tableExists(conn, url, fullTableName)
+  }
 
-    // try with lowercase because some database convert to lowercase (eq. postgres)
-    val ok = rs.next() ||
-      databaseMetadata
-        .getTables(
-          taskDesc.database.orNull,
-          taskDesc.domain.toLowerCase(),
-          taskDesc.table.toLowerCase(),
-          Array[String]("TABLE")
+  private def prepareTarget(conn: java.sql.Connection, exists: Boolean): Boolean = {
+    if (!exists) {
+      if (taskDesc._auditTableName.isDefined) {
+        // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
+        logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+        val connectionRef =
+          this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+
+        val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
+        val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
+        val entry = taskDesc._auditTableName.getOrElse(
+          throw new Exception(
+            s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
+          )
         )
-        .next()
-    rs.close()
+        val scriptTemplate = engine.tables(entry).createSql
+        createSchema(fullDomainName, conn)
 
-    if (!ok && taskDesc._auditTableName.isDefined) {
-      // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
-      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-      val connectionRef =
-        this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
-
-      val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
-      val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
-      val entry = taskDesc._auditTableName.getOrElse(
-        throw new Exception(
-          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
+        val script = scriptTemplate.richFormat(
+          Map("table" -> fullTableName),
+          Map.empty
         )
-      )
-      val scriptTemplate = engine.tables(entry).createSql
-      createSchema(fullDomainName, conn)
-
-      val script = scriptTemplate.richFormat(
-        Map("table" -> fullTableName),
-        Map.empty
-      )
-      JDBCUtils.execute(script, conn) match {
-        case Success(_) =>
-        case Failure(e) =>
-          logger.error(s"Error creating table $fullTableName", e)
-          throw e
+        JdbcDbUtils.execute(script, conn) match {
+          case Success(_) =>
+          case Failure(e) =>
+            logger.error(s"Error creating table $fullTableName", e)
+            throw e
+        }
       }
     }
-    ok
+    exists
   }
 
   @throws[Exception]
   private def createSchema(domainName: String, conn: Connection): Unit = {
-    JDBCUtils.execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+    JdbcDbUtils.execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $domainName", e)
@@ -116,7 +98,7 @@ class JdbcAutoTask(
   @throws[Exception]
   def runSqls(conn: Connection, sqls: List[String]): Unit = {
     sqls.foreach { req =>
-      JDBCUtils.execute(req, conn) match {
+      JdbcDbUtils.execute(req, conn) match {
         case Success(_) =>
         case Failure(e) =>
           logger.error(s"Error running sql $req", e)
@@ -128,7 +110,7 @@ class JdbcAutoTask(
   def runJDBC(): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
-      JDBCUtils.withJDBCConnection(connection.options) { conn =>
+      JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
         val dynamicPartitionOverwrite = None // No partition in snowflake
         val (preSql, sqlWithParameters, postSql, asTable) =
           buildAllSQLQueries(tableExists(conn), dynamicPartitionOverwrite, None, Nil)
@@ -224,8 +206,10 @@ class JdbcAutoTask(
 
     createSchema(fullDomainName, conn)
     val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
+    val exists = tableExists(conn)
+    prepareTarget(conn, exists)
     val finalSqls =
-      if (!tableExists(conn)) { // We are sure that there is no merge in the sql belows
+      if (!exists) { // We are sure that there is no merge in the sql belows
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else
@@ -260,7 +244,7 @@ class JdbcAutoTask(
           }
         insertSqls
       }
-    finalSqls.foreach(sql => JDBCUtils.execute(sql, conn))
+    finalSqls.foreach(sql => JdbcDbUtils.execute(sql, conn))
     applyJdbcAcl(connection, forceApply = true)
   }
 }
