@@ -6,7 +6,7 @@ import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult}
+import ai.starlake.utils.{JdbcJobResult, JobResult, Utils}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 
@@ -206,10 +206,9 @@ class JdbcAutoTask(
 
     createSchema(fullDomainName, conn)
     val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
-    val exists = tableExists(conn)
-    prepareTarget(conn, exists)
+    prepareTarget(conn, tableExists(conn))
     val finalSqls =
-      if (!exists) { // We are sure that there is no merge in the sql belows
+      if (!tableExists(conn)) { // Table may have been created by the preapreTarget method so we test it again
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else
@@ -244,7 +243,8 @@ class JdbcAutoTask(
           }
         insertSqls
       }
-    finalSqls.foreach(sql => JdbcDbUtils.execute(sql, conn))
+    val results = finalSqls.map(sql => JdbcDbUtils.execute(sql, conn))
+    results.filter(_.isFailure).foreach(_.failed.foreach(e => Utils.logException(logger, e)))
     applyJdbcAcl(connection, forceApply = true)
   }
 }

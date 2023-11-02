@@ -52,6 +52,10 @@ class sparkJdbcLoader(
   def runJDBC(): Try[SparkJobResult] = {
     val inputPath = cliConfig.sourceFile
     logger.info(s"Input path $inputPath")
+
+    val writeMode =
+      if (cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE) SaveMode.Overwrite
+      else SaveMode.Append
     Try {
       val sourceDF =
         inputPath match {
@@ -62,29 +66,27 @@ class sparkJdbcLoader(
       val createSchemaSql = s"CREATE SCHEMA IF NOT EXISTS $outputDomain"
       JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
         JdbcDbUtils.execute(createSchemaSql, conn)
-        truncateTable(conn, jdbcOptions)
+        if (writeMode == SaveMode.Overwrite)
+          truncateTable(conn, jdbcOptions)
         val url = jdbcOptions("url")
         val exists = tableExists(conn, url, cliConfig.outputTable)
         val schema = sourceDF.schema
         if (SparkUtils.isFlat(schema) && exists) {
           val existingSchema = SparkUtils.getSchemaOption(conn, jdbcOptions, cliConfig.outputTable)
           val addedSchema = SparkUtils.added(schema, existingSchema.getOrElse(schema))
-          val deletedSchema = SparkUtils.deleted(schema, existingSchema.getOrElse(schema))
+          val deletedSchema = SparkUtils.dropped(schema, existingSchema.getOrElse(schema))
           val alterTableDropColumns =
             SparkUtils.alterTableDropColumnsString(deletedSchema, cliConfig.outputTable)
           val alterTableAddColumns =
             SparkUtils.alterTableAddColumnsString(addedSchema, cliConfig.outputTable)
-          alterTableDropColumns.foreach(JdbcDbUtils.execute(_, conn))
-          alterTableAddColumns.foreach(JdbcDbUtils.execute(_, conn))
+          alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+          alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
         } else {
           val optionsWrite = new JdbcOptionsInWrite(url, cliConfig.outputTable, jdbcOptions)
           SparkUtils.createTable(conn, cliConfig.outputTable, schema, false, optionsWrite)
         }
       }
 
-      val writeMode =
-        if (cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE) SaveMode.Overwrite
-        else SaveMode.Append
       val dfw = sourceDF.write
         .format(cliConfig.format)
         .option("dbtable", cliConfig.outputTable)

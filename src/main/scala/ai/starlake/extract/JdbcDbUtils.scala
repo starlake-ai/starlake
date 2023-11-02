@@ -115,7 +115,32 @@ object JdbcDbUtils extends LazyLogging {
       } finally {
         statement.close()
       }
-    }.isSuccess
+    } match {
+      case Failure(e) =>
+        logger.warn(s"Table $table does not exist , ${e.getMessage}")
+        false
+      case Success(_) => true
+    }
+  }
+
+  @throws[Exception]
+  def executeAlterTable(script: String, connection: java.sql.Connection): Boolean = {
+    val metadata = connection.getMetaData()
+    val isAutoCommit = connection.getAutoCommit()
+    if (!metadata.supportsTransactions) {
+      throw new Exception("Database does not support alter table feature")
+    } else {
+      connection.setAutoCommit(false)
+    }
+    val statement = connection.createStatement()
+    try {
+      val res = statement.execute(script)
+      connection.commit()
+      res
+    } finally {
+      statement.close()
+      connection.setAutoCommit(isAutoCommit)
+    }
   }
 
   @throws[Exception]
@@ -123,6 +148,12 @@ object JdbcDbUtils extends LazyLogging {
     val statement = connection.createStatement()
     val result = Try {
       statement.execute(script)
+    }
+    result match {
+      case Failure(exception) =>
+        logger.error(s"Error running sql $script", exception)
+        throw exception
+      case Success(value) => value
     }
     statement.close()
     result
