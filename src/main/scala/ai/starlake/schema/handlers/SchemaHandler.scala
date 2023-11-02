@@ -576,20 +576,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def loadExternals(): List[Domain] = {
-    loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
-      case (list, Nil) => list.collect { case Success(domain) => domain }
-      case (list, errors) =>
-        errors.foreach {
-          case Failure(err) =>
-            logger.warn(
-              s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
-            )
-          case Success(_) => // ignore
-        }
-        list.collect { case Success(domain) => domain }
-    }
+    if (storage.exists(DatasetArea.external)) {
+      loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
+        case (list, Nil) => list.collect { case Success(domain) => domain }
+        case (list, errors) =>
+          errors.foreach {
+            case Failure(err) =>
+              logger.warn(
+                s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+              )
+            case Success(_) => // ignore
+          }
+          list.collect { case Success(domain) => domain }
+      }
+    } else
+      Nil
   }
-
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths = storage.list(path = dagPath, extension = ".sl.yml", recursive = false)
     dagsConfigsPaths.map { dagsConfigsPath =>

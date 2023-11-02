@@ -12,16 +12,16 @@ import java.sql.{Connection, SQLException}
 object SparkUtils extends StrictLogging {
   def added(incoming: StructType, existing: StructType): StructType = {
     val incomingFields = incoming.fields.map(_.name).toSet
-    val existingFields = existing.fields.map(_.name).toSet
-    val newFields = incomingFields.diff(existingFields)
+    val existingFields = existing.fields.map(_.name.toLowerCase()).toSet
+    val newFields = incomingFields.filter(f => !existingFields.contains(f.toLowerCase()))
     val fields = incoming.fields.filter(f => newFields.contains(f.name))
     StructType(fields)
   }
 
-  def deleted(incoming: StructType, existing: StructType): StructType = {
-    val incomingFields = incoming.fields.map(_.name).toSet
+  def dropped(incoming: StructType, existing: StructType): StructType = {
+    val incomingFields = incoming.fields.map(_.name.toLowerCase()).toSet
     val existingFields = existing.fields.map(_.name).toSet
-    val deletedFields = existingFields.diff(incomingFields)
+    val deletedFields = existingFields.filter(f => !incomingFields.contains(f.toLowerCase()))
     val fields = existing.fields.filter(f => deletedFields.contains(f.name))
     StructType(fields)
   }

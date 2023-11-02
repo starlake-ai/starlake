@@ -123,7 +123,11 @@ object Settings extends StrictLogging {
     def getConnectionRef()(implicit settings: Settings): String =
       this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-    def getSink()(implicit settings: Settings) = this.sink.getSink()
+    def getConnection()(implicit settings: Settings): Connection =
+      settings.appConfig.connections(this.getConnectionRef())
+
+    def getSink()(implicit settings: Settings) =
+      this.sink.getSink()
 
     def getDatabase()(implicit settings: Settings): Option[String] =
       this.database.orElse(settings.appConfig.getDefaultDatabase())
@@ -816,14 +820,15 @@ object Settings extends StrictLogging {
     withDefaultSchdules
   }
 
+  val defaultCronPresets = Map(
+    "hourly"  -> "0 * * * *",
+    "daily"   -> "0 0 * * *",
+    "weekly"  -> "0 0 * * 1",
+    "monthly" -> "0 0 1 * *",
+    "yearly"  -> "0 0 1 1 *"
+  )
+
   def addDefaultSchedules(settings: Settings): Settings = {
-    val defaultCronPresets = Map(
-      "hourly"  -> "0 * * * *",
-      "daily"   -> "0 0 * * *",
-      "weekly"  -> "0 0 * * 1",
-      "monthly" -> "0 0 1 * *",
-      "yearly"  -> "0 0 1 1 *"
-    )
     val schedules = settings.appConfig.schedulePresets ++ defaultCronPresets
     settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
