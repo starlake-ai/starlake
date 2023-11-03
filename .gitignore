@@ -146,3 +146,7 @@ distrib/bin
 /samples/extract/drivers/
 /distrib/version.info
 samples/local/quickstart/metadata/dags/generated
+samples/templates/bigquery/datasets
+samples/templates/postgres/datasets
+samples/templates/spark/metadata/dags/generated
+samples/any-source-any-sink/datasets

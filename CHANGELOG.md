@@ -8,6 +8,7 @@
 __Feature__:
 - CLI now support multiple version of starlake at once and use the correct one based on sl_versions.sh/cmd in SL_ROOT
 - CLI can now upgrade all components except HADOOP extra elements on windows 
+- Support any JDBC compliant database
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite
