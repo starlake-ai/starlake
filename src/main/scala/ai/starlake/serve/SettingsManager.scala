@@ -83,7 +83,7 @@ object SettingsManager {
               sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
           }
           ConfigFactory.invalidateCaches()
-          val settings = Settings(ConfigFactory.load())
+          val settings = Settings(Settings.referenceConfig)
           settingsMap.put(sessionId, settings)
           settings
         }

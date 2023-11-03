@@ -4,7 +4,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer._
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
@@ -37,7 +36,7 @@ object Xls2Yml extends LazyLogging {
   }
 
   def run(args: Array[String]): Try[Boolean] = Try {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
         config.job match {

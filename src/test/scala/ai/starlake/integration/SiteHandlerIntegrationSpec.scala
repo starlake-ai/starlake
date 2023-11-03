@@ -4,7 +4,6 @@ import ai.starlake.config.Settings
 import ai.starlake.job.site.{SiteConfig, SiteHandler}
 import ai.starlake.schema.handlers.SchemaHandler
 import better.files.File
-import com.typesafe.config.ConfigFactory
 
 class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
@@ -38,7 +37,7 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
     withEnvs("SL_ROOT" -> projectDir.pathAsString) {
       // withEnvs("SL_ROOT" -> projectDir.pathAsString, "SL_METADATA" -> projectDir.pathAsString) {
       clearDataDirectories()
-      implicit val settings: Settings = Settings(ConfigFactory.load())
+      implicit val settings: Settings = Settings(Settings.referenceConfig)
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
       val config = SiteConfig(
         docusaurusFolder,
