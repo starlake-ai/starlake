@@ -69,7 +69,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   private def bigQueryCredentials(): Credentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
+    logger.info(s"Using ${connectionOptions("authType")} Credentials")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
         val scopes = connectionOptions
@@ -78,7 +78,13 @@ trait BigQueryJobBase extends StrictLogging {
         val cred = GoogleCredentials
           .getApplicationDefault()
           .createScoped(scopes: _*)
-        cred.refresh()
+        Try {
+          cred.refresh()
+        } match {
+          case Failure(e) =>
+            logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+          case Success(_) =>
+        }
         cred
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val credentialsStream = getJsonKeyStream()

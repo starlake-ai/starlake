@@ -19,7 +19,6 @@ import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.nowarn
@@ -56,7 +55,7 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    val settings: Settings = Settings(ConfigFactory.load())
+    val settings: Settings = Settings(Settings.referenceConfig)
     logger.debug(settings.toString)
     new Main().run(args)(settings)
   }

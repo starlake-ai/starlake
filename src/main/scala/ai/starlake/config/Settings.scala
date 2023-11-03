@@ -51,6 +51,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
+  val referenceConfig = ConfigFactory.load()
 
   /** datasets in the data pipeline go through several stages and are stored on disk at each of
     * these stages. This setting allow to customize the folder names of each of these stages.

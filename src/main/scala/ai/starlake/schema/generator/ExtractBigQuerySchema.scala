@@ -8,7 +8,6 @@ import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
-import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
@@ -105,7 +104,7 @@ object ExtractBigQuerySchema {
     }.toMap
   }
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     val config =
       BigQueryTablesConfig
         .parse(args.toSeq)

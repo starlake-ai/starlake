@@ -3,7 +3,6 @@ package ai.starlake.integration
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
-import com.typesafe.config.ConfigFactory
 
 class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
@@ -29,7 +28,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
     // It works locally but not in pipeline. Wrapping it in order to use it only locally
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       clearDataDirectories()
-      implicit val settings: Settings = Settings(ConfigFactory.load())
+      implicit val settings: Settings = Settings(Settings.referenceConfig)
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
       val workflow =
         new IngestionWorkflow(settings.storageHandler(), schemaHandler)

@@ -7,7 +7,6 @@ import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, Table}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
@@ -190,7 +189,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
   }
 
   def run(args: Array[String], schemaHandler: SchemaHandler): Try[List[FreshnessStatus]] = Try {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     val config =
       BigQueryTablesConfig
         .parse(args)

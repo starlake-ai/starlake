@@ -1,7 +1,6 @@
 package com.ebiznext.comet.job
 
 import ai.starlake.config.Settings
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 object Main extends StrictLogging {
@@ -10,7 +9,7 @@ object Main extends StrictLogging {
       "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
     )
     Thread.sleep(10 * 1000)
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     new ai.starlake.job.Main().run(args)
   }
 }

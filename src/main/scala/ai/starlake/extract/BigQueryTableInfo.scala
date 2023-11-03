@@ -26,7 +26,6 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
@@ -170,7 +169,7 @@ object BigQueryTableInfo extends StrictLogging {
   }
 
   def run(args: Array[String]): Try[Unit] = Try {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     val config =
       BigQueryTablesConfig.parse(args).getOrElse(throw new Exception("Could not parse arguments"))
     sink(config)
