@@ -1,7 +1,0 @@
-export SL_BIN_DIR="$(pwd)/../../distrib"
-export SL_ROOT="$(pwd)"
-export SL_METRICS_ACTIVE=true
-export SL_ASSERTIONS_ACTIVE=true
-export SL_CONNECTION=databricks
-
-source ./.databricks-env

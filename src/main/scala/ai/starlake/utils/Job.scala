@@ -24,7 +24,7 @@ trait JobResult {
       case "csv" =>
         (headers :: values).foreach { row =>
           output.foreach(_.appendLine(row.toString.mkString(",")))
-          println(row.toString.mkString(","))
+          println(row.mkString(","))
         }
 
       case "table" =>

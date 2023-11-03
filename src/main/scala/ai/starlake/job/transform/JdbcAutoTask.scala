@@ -128,8 +128,6 @@ class JdbcAutoTask(
                 headerAsSeq.append(rs.getMetaData.getColumnName(i))
                 i += 1
               }
-              val rowAsSeq = new ListBuffer[String]
-              result.append(rowAsSeq.toList)
               while (rs.next) {
                 val rowAsSeq = new ListBuffer[String]
                 var i = 1
