@@ -9,7 +9,7 @@ class LocalBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_ROOT"                                       -> localDir.pathAsString,
         "SL_ENV"                                        -> "BQ",
         "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
-        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "dynamic",
+        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
         "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
       ) {
         clearDataDirectories()

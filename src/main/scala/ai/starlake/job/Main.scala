@@ -56,7 +56,6 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    DeprecatedChecks.cometEnvVars()
     val settings: Settings = Settings(ConfigFactory.load())
     logger.debug(settings.toString)
     new Main().run(args)(settings)

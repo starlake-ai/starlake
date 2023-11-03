@@ -968,11 +968,11 @@ trait IngestionJob extends SparkJob {
     val partitionOverwriteMode = {
       sink.dynamicPartitionOverwrite
         .map {
-          case true  => "static"
-          case false => "dynamic"
+          case true  => "STATIC"
+          case false => "DYNAMIC"
         }
         .getOrElse(
-          session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+          session.conf.get("spark.sql.sources.partitionOverwriteMode", "STATIC").toUpperCase()
         )
     }
     val partitionsToUpdate = (
@@ -981,7 +981,7 @@ trait IngestionJob extends SparkJob {
       settings.appConfig.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(timestamp), true) if !existingDF.isEmpty =>
+      case ("DYNAMIC", Some(timestamp), true) if !existingDF.isEmpty =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           BigQueryUtils.computePartitionsToUpdateAfterMerge(finalIncomingDF, toDeleteDF, timestamp)
@@ -989,7 +989,7 @@ trait IngestionJob extends SparkJob {
           s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
         )
         partitionsToUpdate
-      case ("static", _, _) | ("dynamic", _, _) =>
+      case ("STATIC", _, _) | ("DYNAMIC", _, _) =>
         Nil
       case (_, _, _) =>
         throw new Exception("Should never happen")
@@ -1085,8 +1085,8 @@ trait IngestionJob extends SparkJob {
             val sinkOptions = fsSink.options.orElse(None)
             val dynamicPartitionOverwrite = fsSink.dynamicPartitionOverwrite
               .map {
-                case true  => Map("partitionOverwriteMode" -> "dynamic")
-                case false => Map("partitionOverwriteMode" -> "static")
+                case true  => Map("partitionOverwriteMode" -> "DYNAMIC")
+                case false => Map("partitionOverwriteMode" -> "STATIC")
               }
               .getOrElse(Map.empty)
             (

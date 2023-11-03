@@ -173,20 +173,20 @@ class BigQuerySparkJob(
 
       val partitionOverwriteMode =
         if (bqTable.endsWith("SL_BQ_TEST_DS.SL_BQ_TEST_TABLE_DYNAMIC"))
-          "dynamic" // Force during testing
+          "DYNAMIC" // Force during testing
         else
           cliConfig.dynamicPartitionOverwrite
             .map {
-              case true  => "dynamic"
-              case false => "static"
+              case true  => "DYNAMIC"
+              case false => "STATIC"
             }
             .getOrElse(
-              session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+              session.conf.get("spark.sql.sources.partitionOverwriteMode", "STATIC").toUpperCase()
             )
 
       val output: Try[Long] =
         (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
-          case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          case ("WRITE_TRUNCATE", Some(partitionField), "DYNAMIC") =>
             // Partitioned table
             logger.info(s"overwriting partition $partitionField in The BQ Table $bqTable")
             // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
@@ -284,7 +284,7 @@ class BigQuerySparkJob(
             }
           case (writeDisposition, _, partitionOverwriteMode) =>
             assert(
-              partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
+              partitionOverwriteMode == "STATIC" || partitionOverwriteMode == "DYNAMIC",
               s"""Only dynamic or static are values values for property
                    |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
             )

@@ -104,7 +104,7 @@ incomingDF.write
 
 To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :
 ```scala
-spark.conf.set("spark.sql.sources.partitionOverwriteMode","dynamic")
+spark.conf.set("spark.sql.sources.partitionOverwriteMode","DYNAMIC")
 ```
 
 Unfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).
@@ -248,8 +248,8 @@ The 4 ingestion strategies described above are supported through the settings be
 <TabItem value="overwrite" label="Overwrite">
 
 ```json {2} title="application.conf"
-// When set to "static" all partitions are truncated before data is written in overwrite mode.
-spark.sql.sources.partitionOverwriteMode = "static"
+// When set to "STATIC" all partitions are truncated before data is written in overwrite mode.
+spark.sql.sources.partitionOverwriteMode = "STATIC"
 ```
 
 ```yaml {8} title="Schema Definition File"
@@ -278,7 +278,7 @@ spark.sql.sources.partitionOverwriteMode = "static"
 
 ```json title="application.conf"
 // Irrelevant since we are only appending data afterwards
-spark.sql.sources.partitionOverwriteMode = "static" // or "dynamic"
+spark.sql.sources.partitionOverwriteMode = "STATIC" // or "DYNAMIC"
 ```
 
 ```yaml {8} title="Schema Definition File"
@@ -306,8 +306,8 @@ spark.sql.sources.partitionOverwriteMode = "static" // or "dynamic"
 <TabItem value="partitioned-overwrite" label="Dynamic partition Overwrite">
 
 ```json {2} title="application.conf"
-// When set to "dynamic", only partitions that are  affected will be truncated in overwrite mode.
-spark.sql.sources.partitionOverwriteMode = "dynamic"
+// When set to "DYNAMIC", only partitions that are  affected will be truncated in overwrite mode.
+spark.sql.sources.partitionOverwriteMode = "DYNAMIC"
 ```
 
 ```yaml {8} title="Schema Definition File"
@@ -336,7 +336,7 @@ spark.sql.sources.partitionOverwriteMode = "dynamic"
 
 ```json title="application.conf"
 // Irrelevant since we are truncating manually and  appending data afterwards
-spark.sql.sources.partitionOverwriteMode = "dynamic" // or static
+spark.sql.sources.partitionOverwriteMode = "DYNAMIC" // or STATIC
 ```
 
 ```yaml {8,9,12,13} title="Schema Definition File"
