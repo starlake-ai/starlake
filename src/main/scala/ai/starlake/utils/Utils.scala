@@ -254,7 +254,12 @@ object Utils extends StrictLogging {
 
   def jinjava(implicit settings: Settings) = {
     if (_jinjava == null) {
-      val res = new Jinjava()
+      val curClassLoader = Thread.currentThread.getContextClassLoader
+      val res =
+        try {
+          Thread.currentThread.setContextClassLoader(this.getClass.getClassLoader)
+          new Jinjava()
+        } finally Thread.currentThread.setContextClassLoader(curClassLoader)
       res.setResourceLocator(new JinjaResourceHandler())
       _jinjava = res
     }
@@ -262,6 +267,10 @@ object Utils extends StrictLogging {
   }
 
   private var _jinjava: Jinjava = null
+
+  def resetJinjaClassLoader(): Unit = {
+    _jinjava = null
+  }
 
   def parseJinja(str: String, params: Map[String, Any])(implicit settings: Settings): String =
     parseJinja(

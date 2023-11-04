@@ -60,7 +60,8 @@ trait TestHelper
   override protected def afterAll(): Unit = {}
 
   override protected def beforeAll(): Unit = {
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
+
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -103,7 +104,7 @@ trait TestHelper
        |""".stripMargin
 
   def testConfiguration: Config = {
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
     val rootConfig = ConfigFactory.parseString(
       baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)

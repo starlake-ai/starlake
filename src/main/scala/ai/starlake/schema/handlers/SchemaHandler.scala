@@ -888,6 +888,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   private def loadJobDesc(jobPath: Path): AutoJobDesc = {
+    logger.info("Loading job " + jobPath)
     val fileContent = storage.read(jobPath)
     val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
     val rootNode = mapper.readTree(rootContent)

@@ -364,7 +364,7 @@ class Main() extends StrictLogging {
         if (settings.appConfig.forceHalt) {
           Runtime.getRuntime().halt(1)
         } else {
-          throw new Exception(message)
+          throw exception
         }
       case Success(_) =>
         logger.info(s"Successfully $executedCommand")

@@ -1,7 +1,7 @@
 package ai.starlake.integration
 
+import ai.starlake.config.Settings
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -27,14 +27,14 @@ class IntegrationTestBase
     }
     envList.foreach { case (k, v) => setEnv(k, v) }
     setEnv("SL_INTERNAL_WITH_ENVS_SET", "true")
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
     val result = Try {
       fun
     }
     delEnv("SL_INTERNAL_WITH_ENVS_SET")
     envList.foreach { case (k, _) => delEnv(k) }
     existingValues.foreach { case (k, v) => setEnv(k, v) }
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
     result.get
   }
 
