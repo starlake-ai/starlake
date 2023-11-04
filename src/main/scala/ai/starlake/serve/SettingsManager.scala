@@ -1,8 +1,8 @@
 package ai.starlake.serve
 
 import ai.starlake.config.{PrivacyLevels, Settings}
+import ai.starlake.utils.Utils
 import better.files.File
-import com.typesafe.config.ConfigFactory
 
 class SettingsWatcherThread(
   settingsMap: scala.collection.mutable.Map[String, Settings],
@@ -59,7 +59,7 @@ object SettingsManager {
     gcpProject: Option[String]
   ): Settings = {
     val sessionId = uniqueId(root, metadata, env)
-
+    Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 
     val sysProps = System.getProperties()
@@ -82,7 +82,7 @@ object SettingsManager {
             case _ =>
               sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
           }
-          ConfigFactory.invalidateCaches()
+          Settings.invalidateCaches()
           val settings = Settings(Settings.referenceConfig)
           settingsMap.put(sessionId, settings)
           settings
