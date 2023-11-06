@@ -9,6 +9,7 @@ import ai.starlake.job.metrics.{
   SparkExpectationAssertionHandler
 }
 import ai.starlake.job.sink.bigquery._
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
@@ -272,8 +273,11 @@ trait IngestionJob extends SparkJob {
   private def requireTwoSteps(schema: Schema, sink: BigQuerySink): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
-      .hasTransformOrIgnoreOrScriptColumns() || schema.merge.nonEmpty || schema.filter.nonEmpty || sink.dynamicPartitionOverwrite
-      .getOrElse(false)
+      .hasTransformOrIgnoreOrScriptColumns() ||
+    schema.merge.nonEmpty ||
+    schema.filter.nonEmpty ||
+    sink.dynamicPartitionOverwrite.getOrElse(false) ||
+    settings.appConfig.archive
   }
 
   def runBQNative(): Try[NativeBqLoadInfo] = {
@@ -371,10 +375,30 @@ trait IngestionJob extends SparkJob {
             }
           case res @ Failure(_) =>
             res
+        }
+        if (settings.appConfig.archive) {
+          val req = "SELECT * FROM %s, %s as JOBID".format(firstStepTempTable, applicationId())
+          val taskDesc = AutoTaskDesc(
+            s"archive-${applicationId()}",
+            Some(req),
+            database = schemaHandler.getDatabase(domain),
+            domain.finalName + settings.appConfig.area.archive,
+            schema.finalName + settings.appConfig.area.archive,
+            Some(WriteMode.APPEND),
+            sink = Some(mergedMetadata.getSink().toAllSinks())
+          )
 
-          /** 362 schemas qui représentent 722Go dont certains de 40Go avec 1 CPU de et 512Mo par
-            * schema
-            */
+          val autoTask = AutoTask.task(
+            taskDesc,
+            Map.empty,
+            None,
+            truncate = false
+          )(
+            settings,
+            storageHandler,
+            schemaHandler
+          )
+          autoTask.run()
         }
         Try(firstStepBigqueryJob.dropTable(firstStepTempTable))
           .flatMap(_ => output)

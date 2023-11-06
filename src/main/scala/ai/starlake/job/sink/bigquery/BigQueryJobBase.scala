@@ -68,40 +68,49 @@ trait BigQueryJobBase extends StrictLogging {
       .getOrElse(throw new Exception("GCP Project ID must be defined"))
   }
 
-  private def bigQueryCredentials(): Credentials = {
+  private def bigQueryCredentials(): scala.Option[Credentials] = {
     logger.info(s"Using ${connectionOptions("authType")} Credentials")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
-        val scopes = connectionOptions
-          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-          .split(',')
-        val cred = GoogleCredentials
-          .getApplicationDefault()
-          .createScoped(scopes: _*)
-        Try {
-          cred.refresh()
-        } match {
-          case Failure(e) =>
-            logger.warn(s"Error refreshing credentials: ${e.getMessage}")
-          case Success(_) =>
+        val refreshToken =
+          Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
+        if (refreshToken) {
+          val scopes = connectionOptions
+            .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+            .split(',')
+          val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
+          Try {
+            cred.refresh()
+          } match {
+            case Failure(e) =>
+              logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+              None
+            case Success(_) =>
+              Some(cred)
+          }
+        } else {
+          None
         }
-        cred
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val credentialsStream = getJsonKeyStream()
-        ServiceAccountCredentials.fromStream(credentialsStream)
+        scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
+
       case "USER_CREDENTIALS" =>
         val clientId = connectionOptions("clientId")
         val clientSecret = connectionOptions("clientSecret")
         val refreshToken = connectionOptions("refreshToken")
-        UserCredentials
+        val cred = UserCredentials
           .newBuilder()
           .setClientId(clientId)
           .setClientSecret(clientSecret)
           .setRefreshToken(refreshToken)
           .build()
+        scala.Option(cred)
+
       case "ACCESS_TOKEN" =>
         val accessToken = connectionOptions("gcpAccessToken")
-        GoogleCredentials.create(new AccessToken(accessToken, null))
+        val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
+        scala.Option(cred)
     }
   }
 
@@ -169,9 +178,15 @@ trait BigQueryJobBase extends StrictLogging {
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
   private def policyClient(): PolicyTagManagerClient = {
-    val credentialsProvider = FixedCredentialsProvider.create(bigQueryCredentials())
+    val credentials = bigQueryCredentials()
     val policySettings =
-      PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
+      credentials match {
+        case None =>
+          PolicyTagManagerSettings.newBuilder().build()
+        case Some(credentials) =>
+          val credentialsProvider = FixedCredentialsProvider.create(credentials)
+          PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
+      }
     PolicyTagManagerClient.create(policySettings)
 
   }
@@ -192,10 +207,13 @@ trait BigQueryJobBase extends StrictLogging {
         val bqOptionsBuilder = BigQueryOptions.newBuilder()
         val credentials = bigQueryCredentials()
         val bqOptions = bqOptionsBuilder.setProjectId(projectId)
-        val bqService = bqOptions
-          .setCredentials(credentials)
-          .build()
-          .getService()
+        val bqService =
+          credentials match {
+            case None =>
+              bqOptions.build().getService()
+            case Some(credentials) =>
+              bqOptions.setCredentials(credentials).build().getService()
+          }
         _bigquery = Some(bqService)
         bqService
       case Some(bqService) =>
@@ -445,7 +463,7 @@ trait BigQueryJobBase extends StrictLogging {
       cliConfig.outputTableId match {
         case Some(outputTableId) =>
           val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
-          s"DROP ALL ROW ACCESS POLICIES ON `$outputTable`"
+          s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
         case None =>
           throw new RuntimeException("TableId must be defined in order to revoke privileges")
       }

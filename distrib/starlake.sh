@@ -16,12 +16,14 @@ fi
 ## default versions
 SPARK_DEFAULT_VERSION="3.4.1"
 HADOOP_DEFAULT_VERSION="3"
-SPARK_BQ_DEFAULT_VERSION="0.33.0"
+SPARK_BQ_DEFAULT_VERSION="0.34.0"
 HADOOP_AZURE_DEFAULT_VERSION="3.3.5"
 AZURE_STORAGE_DEFAULT_VERSION="8.6.6"
 JETTY_DEFAULT_VERSION="9.4.51.v20230217"
 SPARK_SNOWFLAKE_DEFAULT_VERSION="3.4"
 SNOWFLAKE_JDBC_DEFAULT_VERSION="3.14.0"
+SNOWFLAKE_JDBC_DEFAULT_VERSION="3.14.0"
+POSTGRESQL_DEFAULT_VERSION="42.5.4"
 
 ## Common
 SL_VERSION="${SL_VERSION}"
@@ -29,11 +31,11 @@ SPARK_VERSION="${SPARK_VERSION:-$SPARK_DEFAULT_VERSION}"
 HADOOP_VERSION="${HADOOP_VERSION:-$HADOOP_DEFAULT_VERSION}"
 
 ## GCP
-DOWNLOAD_GCP_DEPS=${DOWNLOAD_GCP_DEPS:-1} # skip gcp dependency install stage if 0 else install gcp missing dependencies
+ENABLE_GCP=${ENABLE_GCP:-0} # skip gcp dependency install stage if 0 else install gcp missing dependencies
 SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-$SPARK_BQ_DEFAULT_VERSION}"
 
 ## AZURE
-DOWNLOAD_AZURE_DEPS=${DOWNLOAD_AZURE_DEPS:-1} # skip azure dependency install stage if 0 else install azure missing dependencies
+ENABLE_AZURE=${ENABLE_AZURE:-0} # skip azure dependency install stage if 0 else install azure missing dependencies
 HADOOP_AZURE_VERSION="${HADOOP_AZURE_VERSION:-$HADOOP_AZURE_DEFAULT_VERSION}"
 AZURE_STORAGE_VERSION="${AZURE_STORAGE_VERSION:-$AZURE_STORAGE_DEFAULT_VERSION}"
 JETTY_VERSION="${JETTY_VERSION:-$JETTY_DEFAULT_VERSION}"
@@ -41,9 +43,13 @@ JETTY_UTIL_VERSION="${JETTY_UTIL_VERSION:-$JETTY_VERSION}"
 JETTY_UTIL_AJAX_VERSION="${JETTY_UTIL_AJAX_VERSION:-$JETTY_VERSION}"
 
 ## SNOWFLAKE
-DOWNLOAD_SNOWFLAKE_DEPS=${DOWNLOAD_SNOWFLAKE_DEPS:-1}
+ENABLE_SNOWFLAKE=${ENABLE_SNOWFLAKE:-0}
 SPARK_SNOWFLAKE_VERSION="${SPARK_SNOWFLAKE_VERSION:-$SPARK_SNOWFLAKE_DEFAULT_VERSION}"
 SNOWFLAKE_JDBC_VERSION="${SNOWFLAKE_JDBC_VERSION:-$SNOWFLAKE_JDBC_DEFAULT_VERSION}"
+
+## POSTGRESQL
+ENABLE_POSTGRESQL=${ENABLE_POSTGRESQL:-0}
+POSTGRESQL_VERSION="${POSTGRESQL_VERSION:-$POSTGRESQL_DEFAULT_VERSION}"
 
 # internal variables
 SCALA_VERSION=2.12
@@ -95,9 +101,17 @@ SNOWFLAKE_JDBC_ARTIFACT_NAME=snowflake-jdbc
 SNOWFLAKE_JDBC_JAR_NAME=$SNOWFLAKE_JDBC_ARTIFACT_NAME-$SNOWFLAKE_JDBC_VERSION.jar
 SNOWFLAKE_JDBC_URL=https://repo1.maven.org/maven2/net/snowflake/$SNOWFLAKE_JDBC_ARTIFACT_NAME/$SNOWFLAKE_JDBC_VERSION/$SNOWFLAKE_JDBC_JAR_NAME
 
+# POSTGRESQL
+POSTGRESQL_ARTIFACT_NAME=postgresql
+POSTGRESQL_JAR_NAME=$POSTGRESQL_ARTIFACT_NAME-$POSTGRESQL_VERSION.jar
+POSTGRESQL_URL=https://repo1.maven.org/maven2/org/postgresql/$POSTGRESQL_ARTIFACT_NAME/$POSTGRESQL_VERSION/$POSTGRESQL_JAR_NAME
+
 init_starlake_install_variables() {
   if [[ -z "$SL_VERSION" ]]; then
-      SL_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$SL_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
+    echo "searching for last starlake version, please wait ..."
+    SL_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$SL_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
+    echo got version $SL_VERSION
+  echo "-------------------"
   fi
   SL_JAR_NAME=$SL_ARTIFACT_NAME-$SL_VERSION-assembly.jar
   if [[ "$SL_VERSION" == *"SNAPSHOT"* ]]
@@ -113,97 +127,105 @@ check_current_state() {
   echo "   Current state   "
   echo "-------------------"
 
-  SPARK_DOWNLOADED=1
-  SL_DOWNLOADED=1
-  SPARK_BQ_DOWNLOADED=1
-  HADOOP_AZURE_DOWNLOADED=1
-  AZURE_STORAGE_DOWNLOADED=1
-  JETTY_UTIL_DOWNLOADED=1
-  JETTY_UTIL_AJAX_DOWNLOADED=1
-  SPARK_SNOWFLAKE_DOWNLOADED=1
-  SNOWFLAKE_JDBC_DOWNLOADED=1
+  SPARK_DOWNLOADED=0
+  SL_DOWNLOADED=0
+  SPARK_BQ_DOWNLOADED=0
+  HADOOP_AZURE_DOWNLOADED=0
+  AZURE_STORAGE_DOWNLOADED=0
+  JETTY_UTIL_DOWNLOADED=0
+  JETTY_UTIL_AJAX_DOWNLOADED=0
+  SPARK_SNOWFLAKE_DOWNLOADED=0
+  SNOWFLAKE_JDBC_DOWNLOADED=0
+  POSTGRESQL_DOWNLOADED=0
 
+# STARLAKE
   if [[ -d "$STARLAKE_EXTRA_LIB_FOLDER" && -n "$SL_JAR_NAME" && -f "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" ]]
   then
-    echo - starlake: OK
-    SL_DOWNLOADED=0
+    echo - starlake: found
+    SL_DOWNLOADED=1
   else
     init_starlake_install_variables
-    echo - starlake: KO
+    echo - starlake: not found
     SKIP_INSTALL=1
   fi
+
+# SPARK
   if [[ -f "$SPARK_TARGET_FOLDER/jars/$SPARK_JAR_NAME" ]]
   then
-    echo - spark: OK
-    SPARK_DOWNLOADED=0
+    echo - spark: found
+    SPARK_DOWNLOADED=1
   else
-    echo - spark: KO
+    echo - spark: not found
     SKIP_INSTALL=1
   fi
-  if [[ $DOWNLOAD_GCP_DEPS -eq 0 ]]
+  if [[ $ENABLE_GCP -eq 1 ]]
   then
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_BQ_JAR_NAME" ]]
     then
-      echo - spark bq: OK
-      SPARK_BQ_DOWNLOADED=0
+      echo - spark bq: found
+      SPARK_BQ_DOWNLOADED=1
     else
-      echo - spark bq: KO
+      echo - spark bq: not found
       SKIP_INSTALL=1
     fi
   else
     SPARK_BQ_DOWNLOADED=0
     echo - spark bq: skipped
   fi
-  if [[ $DOWNLOAD_AZURE_DEPS -eq 0 ]]
+
+# AZURE
+  if [[ $ENABLE_AZURE -eq 1 ]]
   then
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$HADOOP_AZURE_JAR_NAME" ]]
     then
-      echo - hadoop azure: OK
-      HADOOP_AZURE_DOWNLOADED=0
+      echo - hadoop azure: found
+      HADOOP_AZURE_DOWNLOADED=1
     else
-      echo - hadoop azure: KO
+      echo - hadoop azure: not found
       SKIP_INSTALL=1
     fi
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$AZURE_STORAGE_JAR_NAME" ]]
     then
-      echo - azure storage: OK
-      AZURE_STORAGE_DOWNLOADED=0
+      echo - azure storage: found
+      AZURE_STORAGE_DOWNLOADED=1
     else
-      echo - azure storage: KO
+      echo - azure storage: not found
       SKIP_INSTALL=1
     fi
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_JAR_NAME" ]]
     then
-      echo - jetty util: OK
-      JETTY_UTIL_DOWNLOADED=0
+      echo - jetty util: found
+      JETTY_UTIL_DOWNLOADED=1
     else
-      echo - jetty util: KO
+      echo - jetty util: not found
       SKIP_INSTALL=1
     fi
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_AJAX_JAR_NAME" ]]
     then
-      echo - jetty util ajax: OK
-      JETTY_UTIL_AJAX_DOWNLOADED=0
+      echo - jetty util ajax: found
+      JETTY_UTIL_AJAX_DOWNLOADED=1
     else
-      echo - jetty util ajax: KO
+      echo - jetty util ajax: not found
       SKIP_INSTALL=1
     fi
   else
-    HADOOP_AZURE_DOWNLOADED=0
-    AZURE_STORAGE_DOWNLOADED=0
-    JETTY_UTIL_DOWNLOADED=0
-    JETTY_UTIL_AJAX_DOWNLOADED=0
+    HADOOP_AZURE_DOWNLOADED=1
+    AZURE_STORAGE_DOWNLOADED=1
+    JETTY_UTIL_DOWNLOADED=1
+    JETTY_UTIL_AJAX_DOWNLOADED=1
     echo - hadoop azure: skipped
     echo - azure storage: skipped
     echo - jetty util: skipped
     echo - jetty util ajax: skipped
   fi
-  if [[ $DOWNLOAD_SNOWFLAKE_DEPS -eq 0 ]]
+
+# SNOWFLAKE
+  if [[ $ENABLE_SNOWFLAKE -eq 1 ]]
   then
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_SNOWFLAKE_JAR_NAME" ]]
     then
       echo - spark snowflake: OK
-      SPARK_SNOWFLAKE_DOWNLOADED=0
+      SPARK_SNOWFLAKE_DOWNLOADED=1
     else
       echo - spark snowflake: KO
       SKIP_INSTALL=1
@@ -211,61 +233,81 @@ check_current_state() {
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$SNOWFLAKE_JDBC_JAR_NAME" ]]
     then
       echo - snowflake jdbc: OK
-      SNOWFLAKE_JDBC_DOWNLOADED=0
+      SNOWFLAKE_JDBC_DOWNLOADED=1
     else
       echo - snowflake jdbc: KO
       SKIP_INSTALL=1
     fi
   else
-    SPARK_SNOWFLAKE_DOWNLOADED=0
-    SNOWFLAKE_JDBC_DOWNLOADED=0
+    SPARK_SNOWFLAKE_DOWNLOADED=1
+    SNOWFLAKE_JDBC_DOWNLOADED=1
     echo - spark snowflake: skipped
     echo - snowflake jdbc: skipped
+  fi
+
+# POSTGRESQL
+  if [[ $ENABLE_POSTGRESQL -eq 1 ]]
+  then
+    if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$POSTGRESQL_JAR_NAME" ]]
+    then
+      echo - postgresql: OK
+      POSTGRESQL_DOWNLOADED=1
+    else
+      echo - postgresql: KO
+      SKIP_INSTALL=1
+    fi
+  else
+    POSTGRESQL_DOWNLOADED=1
+    echo - postgresql: skipped
   fi
 }
 
 clean_additional_jars() {
   # prevent same jar with different version in classpath
-  if [[ $SL_DOWNLOADED -eq 1 ]]
+  if [[ $SL_DOWNLOADED -eq 0 ]]
   then
     rm -f "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME"
   fi
-  if [[ $SPARK_DOWNLOADED -eq 1 ]]
+  if [[ $SPARK_DOWNLOADED -eq 0 ]]
   then
     rm -rf "$SPARK_TARGET_FOLDER"
   fi
-  if [[ $SPARK_BQ_DOWNLOADED -eq 1 || $DOWNLOAD_GCP_DEPS -eq 1 ]]
+  if [[ $SPARK_BQ_DOWNLOADED -eq 0 || $ENABLE_GCP -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_BQ_ARTIFACT_NAME"*
   fi
-  if [[ $HADOOP_AZURE_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  if [[ $HADOOP_AZURE_DOWNLOADED -eq 0 || $ENABLE_AZURE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$HADOOP_AZURE_ARTIFACT_NAME"*
   fi
-  if [[ $AZURE_STORAGE_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  if [[ $AZURE_STORAGE_DOWNLOADED -eq 0 || $ENABLE_AZURE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$AZURE_STORAGE_ARTIFACT_NAME"*
   fi
-  if [[ $JETTY_UTIL_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  if [[ $JETTY_UTIL_DOWNLOADED -eq 0 || $ENABLE_AZURE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_ARTIFACT_NAME"*
-    if [[ $DOWNLOAD_AZURE_DEPS -eq 0 && $JETTY_UTIL_AJAX_DOWNLOADED -eq 0 ]]
+    if [[ $ENABLE_AZURE -eq 1 && $JETTY_UTIL_AJAX_DOWNLOADED -eq 1 ]]
     then
       echo "force jetty util ajax download"
-      JETTY_UTIL_AJAX_DOWNLOADED=1
+      JETTY_UTIL_AJAX_DOWNLOADED=0
     fi
   fi
-  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 1 || $DOWNLOAD_AZURE_DEPS -eq 1 ]]
+  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 0 || $ENABLE_AZURE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_AJAX_ARTIFACT_NAME"*
   fi
-  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 1 || $DOWNLOAD_SNOWFLAKE_DEPS -eq 1 ]]
+  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 0 || $ENABLE_SNOWFLAKE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_SNOWFLAKE_ARTIFACT_NAME"*
   fi
-  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 1 || $DOWNLOAD_SNOWFLAKE_DEPS -eq 1 ]]
+  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 0 || $ENABLE_SNOWFLAKE -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$SNOWFLAKE_JDBC_ARTIFACT_NAME"*
+  fi
+  if [[ $POSTGRESQL_DOWNLOADED -eq 0 || $ENABLE_POSTGRESQL -eq 0 ]]
+  then
+    rm -f "$DEPS_EXTRA_LIB_FOLDER/$POSTGRESQL_ARTIFACT_NAME"*
   fi
 }
 
@@ -276,7 +318,7 @@ init_env() {
   echo "-------------------"
   mkdir -p "$SCRIPT_DIR/bin" "$STARLAKE_EXTRA_LIB_FOLDER" "$DEPS_EXTRA_LIB_FOLDER"
 
-  if [[ $SL_DOWNLOADED -eq 1 ]]
+  if [[ $SL_DOWNLOADED -eq 0 ]]
   then
     echo "- starlake: downloading from $SL_JAR_URL"
     curl --fail --output "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$SL_JAR_URL"
@@ -285,7 +327,7 @@ init_env() {
     echo "- starlake: skipped"
   fi
 
-  if [[ $SPARK_DOWNLOADED -eq 1 ]]
+  if [[ $SPARK_DOWNLOADED -eq 0 ]]
   then
     echo ""
     echo "- spark: downloading from $SPARK_TGZ_URL"
@@ -306,7 +348,7 @@ EOF
     echo "- spark: skipped"
   fi
 
-  if [[ $SPARK_BQ_DOWNLOADED -eq 1 ]]
+  if [[ $SPARK_BQ_DOWNLOADED -eq 0 ]]
   then
     echo "- spark bq: downloading from $SPARK_BQ_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$SPARK_BQ_JAR_NAME" "$SPARK_BQ_URL"
@@ -315,7 +357,7 @@ EOF
     echo "- spark bq: skipped"
   fi
 
-  if [[ $HADOOP_AZURE_DOWNLOADED -eq 1 ]]
+  if [[ $HADOOP_AZURE_DOWNLOADED -eq 0 ]]
   then
     echo "- hadoop azure: downloading from $HADOOP_AZURE_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$HADOOP_AZURE_JAR_NAME" "$HADOOP_AZURE_URL"
@@ -324,7 +366,7 @@ EOF
     echo "- hadoop azure: skipped"
   fi
 
-  if [[ $AZURE_STORAGE_DOWNLOADED -eq 1 ]]
+  if [[ $AZURE_STORAGE_DOWNLOADED -eq 0 ]]
   then
     echo "- azure storage: downloading from $AZURE_STORAGE_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$AZURE_STORAGE_JAR_NAME" "$AZURE_STORAGE_URL"
@@ -332,7 +374,7 @@ EOF
   else
     echo "- azure storage: skipped"
   fi
-  if [[ $JETTY_UTIL_DOWNLOADED -eq 1 ]]
+  if [[ $JETTY_UTIL_DOWNLOADED -eq 0 ]]
   then
     echo "- jetty util: downloading from $JETTY_UTIL_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_JAR_NAME" "$JETTY_UTIL_URL"
@@ -340,7 +382,7 @@ EOF
   else
     echo "- jetty util: skipped"
   fi
-  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 1 ]]
+  if [[ $JETTY_UTIL_AJAX_DOWNLOADED -eq 0 ]]
   then
     echo "- jetty util ajax: downloading from $JETTY_UTIL_AJAX_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$JETTY_UTIL_AJAX_JAR_NAME" "$JETTY_UTIL_AJAX_URL"
@@ -348,7 +390,7 @@ EOF
   else
     echo "- jetty util ajax: skipped"
   fi
-  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 1 ]]
+  if [[ $SPARK_SNOWFLAKE_DOWNLOADED -eq 0 ]]
   then
     echo "- spark snowflake: downloading from $SPARK_SNOWFLAKE_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$SPARK_SNOWFLAKE_JAR_NAME" "$SPARK_SNOWFLAKE_URL"
@@ -356,13 +398,21 @@ EOF
   else
     echo "- spark snowflake: skipped"
   fi
-  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 1 ]]
+  if [[ $SNOWFLAKE_JDBC_DOWNLOADED -eq 0 ]]
   then
     echo "- snowflake jdbc: downloading from $SNOWFLAKE_JDBC_URL"
     curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$SNOWFLAKE_JDBC_JAR_NAME" "$SNOWFLAKE_JDBC_URL"
     echo "- snowflake jdbc: OK"
   else
     echo "- snowflake jdbc: skipped"
+  fi
+  if [[ $POSTGRESQL_DOWNLOADED -eq 0 ]]
+  then
+    echo "- postgresql: downloading from $POSTGRESQL_URL"
+    curl --fail --output "$DEPS_EXTRA_LIB_FOLDER/$POSTGRESQL_JAR_NAME" "$POSTGRESQL_URL"
+    echo "- postgresql: OK"
+  else
+    echo "- postgresql: skipped"
   fi
 }
 
@@ -376,12 +426,12 @@ print_install_usage() {
 
   # GCP
   echo
-  echo 'DOWNLOAD_GCP_DEPS: enable or disable gcp dependencies (0 or 1). Default 1 - disabled'
+  echo 'ENABLE_GCP: enable or disable gcp dependencies (1 or 0). Default 0 - disabled'
   echo - SPARK_BQ_VERSION: default $SPARK_BQ_DEFAULT_VERSION
 
   # AZURE
   echo
-  echo 'DOWNLOAD_AZURE_DEPS: enable or disable azure dependencies (0 or 1). Default 1 - disabled'
+  echo 'ENABLE_AZURE: enable or disable azure dependencies (1 or 0). Default 0 - disabled'
   echo - HADOOP_AZURE_VERSION: default $HADOOP_AZURE_DEFAULT_VERSION
   echo - AZURE_STORAGE_VERSION: default $AZURE_STORAGE_DEFAULT_VERSION
   echo - JETTY_VERSION: default $JETTY_DEFAULT_VERSION
@@ -390,13 +440,25 @@ print_install_usage() {
 
   # SNOWFLAKE
   echo
-  echo 'DOWNLOAD_SNOWFLAKE_DEPS: enable or disable snowflake dependencies (0 or 1). Default 1 - disabled'
+  echo 'ENABLE_SNOWFLAKE: enable or disable snowflake dependencies (1 or 0). Default 0 - disabled'
   echo - SPARK_SNOWFLAKE_VERSION: default $SPARK_SNOWFLAKE_DEFAULT_VERSION
   echo - SNOWFLAKE_JDBC_VERSION: default $SNOWFLAKE_JDBC_DEFAULT_VERSION
   echo
   echo Example:
   echo
-  echo   DOWNLOAD_GCP_DEPS=0 starlake.sh install
+  echo   ENABLE_SNOWFLAKE=1 starlake.sh install
+  echo
+  echo "Once installed, 'versions.sh' will be generated and pin dependencies' version."
+  echo
+
+  # POSTGRESQL
+  echo
+  echo 'ENABLE_POSTGRESQL: enable or disable snowflake dependencies (1 or 0). Default 0 - disabled'
+  echo - POSTGRESQL_VERSION: default $POSTGRESQL_DEFAULT_VERSION
+  echo
+  echo Example:
+  echo
+  echo   ENABLE_POSTGRESQL=1 starlake.sh install
   echo
   echo "Once installed, 'versions.sh' will be generated and pin dependencies' version."
   echo
@@ -408,13 +470,13 @@ save_installed_versions(){
   echo SL_VERSION="\${SL_VERSION:-${SL_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   echo SPARK_VERSION="\${SPARK_VERSION:-${SPARK_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   echo HADOOP_VERSION="\${HADOOP_VERSION:-${HADOOP_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
-  echo DOWNLOAD_GCP_DEPS="\${DOWNLOAD_GCP_DEPS:-${DOWNLOAD_GCP_DEPS}}" >> "${SCRIPT_DIR}/versions.sh"
-  if [[ $DOWNLOAD_GCP_DEPS -eq 0 ]]
+  echo ENABLE_GCP="\${ENABLE_GCP:-${ENABLE_GCP}}" >> "${SCRIPT_DIR}/versions.sh"
+  if [[ $ENABLE_GCP -eq 1 ]]
   then
       echo SPARK_BQ_VERSION="\${SPARK_BQ_VERSION:-${SPARK_BQ_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   fi
-  echo DOWNLOAD_AZURE_DEPS="\${DOWNLOAD_AZURE_DEPS:-${DOWNLOAD_AZURE_DEPS}}" >> "${SCRIPT_DIR}/versions.sh"
-  if [[ DOWNLOAD_AZURE_DEPS -eq 0 ]]
+  echo ENABLE_AZURE="\${ENABLE_AZURE:-${ENABLE_AZURE}}" >> "${SCRIPT_DIR}/versions.sh"
+  if [[ ENABLE_AZURE -eq 1 ]]
   then
       echo HADOOP_AZURE_VERSION="\${HADOOP_AZURE_VERSION:-${HADOOP_AZURE_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
       echo AZURE_STORAGE_VERSION="\${AZURE_STORAGE_VERSION:-${AZURE_STORAGE_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
@@ -424,11 +486,15 @@ save_installed_versions(){
       echo "  JETTY_UTIL_AJAX_VERSION=\"\${JETTY_UTIL_AJAX_VERSION:-${JETTY_UTIL_AJAX_VERSION}}\"" >> "${SCRIPT_DIR}/versions.sh"
       echo 'fi' >> "${SCRIPT_DIR}/versions.sh"
   fi
-  echo DOWNLOAD_SNOWFLAKE_DEPS="\${DOWNLOAD_SNOWFLAKE_DEPS:-${DOWNLOAD_SNOWFLAKE_DEPS}}" >> "${SCRIPT_DIR}/versions.sh"
-  if [[ DOWNLOAD_SNOWFLAKE_DEPS -eq 0 ]]
+  echo ENABLE_SNOWFLAKE="\${ENABLE_SNOWFLAKE:-${ENABLE_SNOWFLAKE}}" >> "${SCRIPT_DIR}/versions.sh"
+  if [[ ENABLE_SNOWFLAKE -eq 1 ]]
   then
       echo SPARK_SNOWFLAKE_VERSION="\${SPARK_SNOWFLAKE_VERSION:-${SPARK_SNOWFLAKE_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
       echo SNOWFLAKE_JDBC_VERSION="\${SNOWFLAKE_JDBC_VERSION:-${SNOWFLAKE_JDBC_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
+  fi
+  if [[ ENABLE_POSTGRESQL -eq 1 ]]
+  then
+      echo POSTGRESQL_VERSION="\${POSTGRESQL_VERSION:-${POSTGRESQL_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   fi
 }
 

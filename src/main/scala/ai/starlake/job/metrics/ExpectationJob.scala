@@ -233,7 +233,7 @@ class ExpectationJob(
           taskDesc,
           Map.empty,
           None,
-          drop = false
+          truncate = false
         )(settings, storageHandler, schemaHandler)
       val res = task.run()
       Utils.logFailure(res, logger)
