@@ -178,7 +178,7 @@ object AuditLog extends StrictLogging {
           auditTaskDesc,
           Map.empty,
           None,
-          drop = false
+          truncate = false
         )
       val res = task.run()
       Utils.logFailure(res, logger)

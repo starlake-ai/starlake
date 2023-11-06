@@ -237,7 +237,7 @@ object AutoTask extends StrictLogging {
     taskDesc: AutoTaskDesc,
     configOptions: Map[String, String],
     interactive: Option[String],
-    drop: Boolean,
+    truncate: Boolean,
     resultPageSize: Int = 1
   )(implicit
     settings: Settings,
@@ -250,7 +250,7 @@ object AutoTask extends StrictLogging {
           taskDesc,
           configOptions,
           interactive,
-          truncate = drop,
+          truncate = truncate,
           resultPageSize = resultPageSize
         )
       case Engine.JDBC =>
@@ -258,7 +258,7 @@ object AutoTask extends StrictLogging {
           taskDesc,
           configOptions,
           interactive,
-          truncate = drop,
+          truncate = truncate,
           resultPageSize = resultPageSize
         )
       case _ =>
@@ -266,7 +266,7 @@ object AutoTask extends StrictLogging {
           taskDesc,
           configOptions,
           interactive,
-          truncate = drop,
+          truncate = truncate,
           resultPageSize = resultPageSize
         )
     }
