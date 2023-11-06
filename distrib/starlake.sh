@@ -339,10 +339,6 @@ init_env() {
     rm -rf "$SCRIPT_DIR/bin/$SPARK_DIR_NAME"
     rm -f "$SPARK_TARGET_FOLDER/conf/*.xml" 2>/dev/null
     cp "$SPARK_TARGET_FOLDER/conf/log4j2.properties.template" "$SPARK_TARGET_FOLDER/conf/log4j2.properties"
-    cat <<EOF > "$SPARK_TARGET_FOLDER/conf/spark-defaults.conf"
-spark.driver.extraClassPath $DEPS_EXTRA_LIB_FOLDER/*
-spark.executor.extraClassPath $DEPS_EXTRA_LIB_FOLDER/*
-EOF
     echo "- spark: OK"
   else
     echo "- spark: skipped"
@@ -571,8 +567,15 @@ launch_starlake() {
                           -Dlog4j.configurationFile="$SPARK_TARGET_FOLDER/conf/log4j2.properties" \
                           -cp "$SPARK_TARGET_FOLDER/jars/*:$DEPS_EXTRA_LIB_FOLDER/*:$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" $SL_MAIN $@
     else
+      extra_classpath="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME"
+      extra_jars="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME"
+      if [ $(ls "$DEPS_EXTRA_LIB_FOLDER/"*.jar | wc -l) -ne 0 ]
+      then
+        extra_classpath="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME:$(echo "$DEPS_EXTRA_LIB_FOLDER/"*.jar | tr ' ' ':')"
+        extra_jars="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME,$(echo "$DEPS_EXTRA_LIB_FOLDER/"*.jar | tr ' ' ',')"
+      fi
       SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-      SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class "$SL_MAIN" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
+      SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --jars "$extra_jars" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
     fi
   else
     print_install_usage
