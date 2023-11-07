@@ -89,7 +89,7 @@ trait BigQueryJobBase extends StrictLogging {
               Some(cred)
           }
         } else {
-          None
+          scala.Option(GoogleCredentials.getApplicationDefault())
         }
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val credentialsStream = getJsonKeyStream()

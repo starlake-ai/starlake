@@ -2,7 +2,7 @@ load:
   name: "nativesales"
   directory: "{{TEMPORARY_GCS_BUCKET}}/test/sales"
   metadata:
-    validator: ai.starlake.job.validator.NativeValidator
+    loader: "native"
     mode: "FILE"
     format: "DSV"
     withHeader: true
@@ -10,7 +10,6 @@ load:
     escape: "\\"
     write: "APPEND"
     sink:
-      type: BQ
       timestamp: signup
   tables:
     - name: "nativecustomers"
@@ -50,7 +49,4 @@ load:
           script: "current_timestamp()"
           type: "timestamp"
           required: false
-        - name: "filename"
-          script: "input_file_name()"
-          type: "string"
-          required: false
+

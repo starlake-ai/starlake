@@ -277,7 +277,7 @@ trait IngestionJob extends SparkJob {
     schema.merge.nonEmpty ||
     schema.filter.nonEmpty ||
     sink.dynamicPartitionOverwrite.getOrElse(false) ||
-    settings.appConfig.archive
+    settings.appConfig.archiveTable
   }
 
   def runBQNative(): Try[NativeBqLoadInfo] = {
@@ -330,13 +330,13 @@ trait IngestionJob extends SparkJob {
           days = Some(1)
         )
         val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
-        // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
-        val firstStepResult = firstStepBigqueryJob.loadPathsToBQ(
-          firstStepBigqueryJob.getTableInfo(
-            firstStepTempTable,
-            _.bqSchemaWithIgnoreAndScript(schemaHandler)
-          )
+        val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
+          firstStepTempTable,
+          _.bqSchemaWithIgnoreAndScript(schemaHandler)
         )
+        // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
+        val firstStepResult =
+          firstStepBigqueryJob.loadPathsToBQ(firstStepTableInfo)
 
         val output: Try[NativeBqLoadInfo] = firstStepResult match {
           case Success(loadFileResult) =>
@@ -376,14 +376,35 @@ trait IngestionJob extends SparkJob {
           case res @ Failure(_) =>
             res
         }
-        if (settings.appConfig.archive) {
-          val req = "SELECT * FROM %s, %s as JOBID".format(firstStepTempTable, applicationId())
+        if (settings.appConfig.archiveTable) {
+          val (
+            archiveDatabaseName: _root_.scala.Option[_root_.java.lang.String],
+            archiveDomainName: String,
+            archiveTableName: String
+          ) = getArchiveTableComponents()
+
+          val targetTable = OutputRef(
+            firstStepTempTable.getProject(),
+            firstStepTempTable.getDataset(),
+            firstStepTempTable.getTable()
+          ).toSQLString(mergedMetadata.getSink().getConnection(), false)
+          val firstStepFields = firstStepTableInfo.maybeSchema
+            .map { schema =>
+              schema.getFields.asScala.map(_.getName)
+            }
+            .getOrElse(
+              throw new Exception(
+                "Should never happen in Ingestion mode. We know the fields we are loading using the yml files"
+              )
+            )
+          val req =
+            s"SELECT ${firstStepFields.mkString(",")}, '${applicationId()}' as JOBID FROM $targetTable"
           val taskDesc = AutoTaskDesc(
             s"archive-${applicationId()}",
             Some(req),
-            database = schemaHandler.getDatabase(domain),
-            domain.finalName + settings.appConfig.area.archive,
-            schema.finalName + settings.appConfig.area.archive,
+            database = archiveDatabaseName,
+            archiveDomainName,
+            archiveTableName,
             Some(WriteMode.APPEND),
             sink = Some(mergedMetadata.getSink().toAllSinks())
           )
@@ -432,6 +453,33 @@ trait IngestionJob extends SparkJob {
             else throw new DisallowRejectRecordException()
         }
     }
+  }
+
+  private def getArchiveTableComponents(): (Option[String], String, String) = {
+    val fullArchiveTableName = Utils.parseJinja(
+      settings.appConfig.archiveTablePattern,
+      Map("domain" -> domain.finalName, "table" -> schema.finalName)
+    )
+    val archiveTableComponents = fullArchiveTableName.split('.')
+    val (archiveDatabaseName, archiveDomainName, archiveTableName) =
+      if (archiveTableComponents.length == 3) {
+        (
+          Some(archiveTableComponents(0)),
+          archiveTableComponents(1),
+          archiveTableComponents(2)
+        )
+      } else if (archiveTableComponents.length == 2) {
+        (
+          schemaHandler.getDatabase(domain),
+          archiveTableComponents(0),
+          archiveTableComponents(1)
+        )
+      } else {
+        throw new Exception(
+          s"Archive table name must be in the format <domain>.<table> but got $fullArchiveTableName"
+        )
+      }
+    (archiveDatabaseName, archiveDomainName, archiveTableName)
   }
 
   private def buildCommonNativeBQLoadConfig(

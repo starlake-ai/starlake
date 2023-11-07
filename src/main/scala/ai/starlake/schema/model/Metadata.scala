@@ -131,7 +131,7 @@ case class Metadata(
        |extensions:${extensions}
        |ack:${ack}
        |options:${options}
-       |validator:${loader}
+       |loader:${loader}
        |dag:${dagRef}
        |freshness:${freshness}
        |nullValue:${nullValue}

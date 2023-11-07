@@ -2,6 +2,7 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.BeforeAndAfterAll
 
 class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
@@ -19,14 +20,39 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
+  val bigQueryConfiguration: Config = {
+    val config = ConfigFactory.parseString("""
+        |udfs: ""
+        |audit {
+        |  active = true
+        |  sink {
+        |    connectionRef = "bqtest"
+        |  }
+        |}
+        |
+        |connectionRef: bqtest
+        |connections.bqtest {
+        |  type = "bigquery"
+        |  options {
+        |    gcsBucket: starlake-app
+        |    location: EU
+        |    authType: APPLICATION_DEFAULT
+        |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
+        |  }
+        |}
+        |""".stripMargin)
+    val result = config.withFallback(super.testConfiguration)
+    result
+  }
   "Ingest to BigQuery" should "be ingested and stored in a BigQuery table using native mode" in {
-    if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)
       logger.debug(binder.getLoggerFactoryClassStr)
 
-      new WithSettings() {
+      new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/native/nativesales.sl.yml",
           datasetDomainName = "nativesales",
