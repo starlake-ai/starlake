@@ -12,7 +12,7 @@ class SettingsManagerSpec extends TestHelper {
       val oldMetadata = settings.appConfig.metadata
       val oldRoot = settings.appConfig.root
       val oldDatabase = settings.appConfig.database
-      val settings2 =
+      val (settings2, isNew) =
         SettingsManager.getUpdatedSettings(
           "/tmp/my/settings/home",
           Some("test-metadata"),

@@ -188,9 +188,15 @@ object Settings extends StrictLogging {
             )
           }
         case ConnectionType.BQ =>
+          if (!options.contains("location")) {
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "Connection",
+              s"Connection type $tpe requires a location"
+            )
+          }
           if (this.sparkFormat.isDefined) {
-            val isIndirectWriteMethod =
-              options.get("writeMethod").getOrElse("indirect").equals("indirect")
+            val isIndirectWriteMethod = options.getOrElse("writeMethod", "indirect") == "indirect"
             if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
@@ -220,7 +226,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Warning,
                   "Connection",
-                  s"requires an authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
+                  s"authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
                 )
               }
             case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
@@ -239,7 +245,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken"
+                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken options"
                 )
               }
             case "ACCESS_TOKEN" =>
@@ -248,7 +254,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a gcpAccessToken"
+                  s"Connection type $tpe requires a gcpAccessToken option"
                 )
               }
             case _ =>

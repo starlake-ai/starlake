@@ -1,6 +1,5 @@
 package ai.starlake.serve
 
-import ai.starlake.job.Main
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -20,8 +19,6 @@ object SingleUserMainServer {
     server.start()
   }
 
-  val core = new Main()
-
   def run(
     root: String,
     metadata: Option[String],
@@ -29,7 +26,7 @@ object SingleUserMainServer {
     env: Option[String],
     gcpProject: Option[String]
   ): String = {
-    val settings =
+    val (settings, reload) =
       SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
     val response = args.head match {
       case "quit" | "exit" =>
@@ -40,15 +37,15 @@ object SingleUserMainServer {
         SingleUserMainServer.mapper.writeValueAsString(SettingsManager.reset())
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
-        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.domains()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.domains(reload)(settings))
       case "table-names" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.objectNames()(settings))
       case "jobs" =>
-        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.jobs()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.jobs(reload)(settings))
       case "types" =>
-        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types(reload)(settings))
       case _ =>
-        core.run(args)(settings)
+        SingleUserServices.core(args, reload)(settings)
         SingleUserMainServer.mapper.writeValueAsString(
           Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
         )

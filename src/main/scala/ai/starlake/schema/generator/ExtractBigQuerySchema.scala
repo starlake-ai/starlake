@@ -52,11 +52,12 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     val datasetName = dataset.getDatasetId.getDataset()
     val tables =
       config.tables.get(datasetName) match {
+        case None =>
+          allDatawareTables
         case Some(tables) if tables.contains("*") =>
           allDatawareTables
         case Some(tables) =>
           allDatawareTables.filter(t => tables.exists(_.equalsIgnoreCase(t.getTableId.getTable())))
-        case None => allDatawareTables
       }
 
     val schemas = tables.flatMap { bqTable =>
