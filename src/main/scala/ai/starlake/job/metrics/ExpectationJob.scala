@@ -37,6 +37,7 @@ case class ExpectationReport(
 
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
+    timestamp.setNanos(0)
     val template = settings.appConfig.jdbcEngines
       .get(engineName.toString)
       .flatMap(_.tables("expectations").selectSql)

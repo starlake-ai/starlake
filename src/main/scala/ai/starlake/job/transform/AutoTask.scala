@@ -77,7 +77,7 @@ abstract class AutoTask(
     // whether the table exists or not.
     val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
     val selectStatement = Utils.parseJinja(taskDesc.getSql(), allVars)
-    val (mergeSql, asSelect) =
+    val (mergeSql, isSelect) =
       if (taskDesc.parseSQL.getOrElse(true)) {
         if (!tableExists) {
           val select =
@@ -91,7 +91,7 @@ abstract class AutoTask(
             )
           (select, true)
         } else {
-          val (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition) = {
+          val (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition) = {
             taskDesc.merge match {
               case Some(options) =>
                 val mergeSql =
@@ -119,7 +119,7 @@ abstract class AutoTask(
                 (select, true)
             }
           }
-          val (finalSql, asSelect) = {
+          val (finalSql, isSelectAfterDynamicPartition) = {
             (partitionColumn, destinationTable) match {
               case (Some(partitionColumn), Some(destinationTable)) =>
                 val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
@@ -127,28 +127,29 @@ abstract class AutoTask(
                   SQLUtils.getColumnNames(selectStatement)
                 val mergeSQL =
                   s"""
-                 |declare incoming_partitions array<date>;
-                 |
-                 |create temporary table $tempTable as ($sqlBeforeDynamicPartition);
-                 |
-                 |set (incoming_partitions) = (
-                 |  select as struct array_agg(distinct date($partitionColumn))
-                 |  from $tempTable
-                 |);
-                 |
-                 |merge into $destinationTable dest
-                 |using $tempTable src
-                 |on false
-                 |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
-                 |when not matched then insert $columnNamesString values $columnNamesString
-                 |""".stripMargin
+                       |declare incoming_partitions array<date>;
+                       |
+                       |create temporary table $tempTable as ($sqlBeforeDynamicPartition);
+                       |
+                       |set (incoming_partitions) = (
+                       |  select as struct array_agg(distinct date($partitionColumn))
+                       |  from $tempTable
+                       |);
+                       |
+                       |merge into $destinationTable dest
+                       |using $tempTable src
+                       |on false
+                       |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
+                       |when not matched then insert $columnNamesString values $columnNamesString
+                       |""".stripMargin
                 logger.info(mergeSQL)
                 (mergeSQL, false)
               case (_, _) =>
-                (sqlBeforeDynamicPartition, asSelectBeforeDynamicPartition)
+                (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition)
             }
+
           }
-          (finalSql, asSelect)
+          (finalSql, isSelectAfterDynamicPartition)
         }
       } else {
         (selectStatement, true)
@@ -157,7 +158,7 @@ abstract class AutoTask(
     val preSql = parseJinja(taskDesc.presql, allVars)
     val postSql = parseJinja(taskDesc.postsql, allVars)
 
-    (preSql, mergeSql, postSql, asSelect)
+    (preSql, mergeSql, postSql, isSelect)
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(

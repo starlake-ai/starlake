@@ -57,7 +57,8 @@ class BigQueryNativeJob(
                 val loadConfig: LoadJobConfiguration =
                   bqLoadConfig(bqSchema, formatOptions, sourceURIs)
                 // Load data from a GCS CSV file into the table
-                bigquery().create(JobInfo.of(loadConfig))
+                val jobId = newJobIdWithLocation()
+                bigquery().create(JobInfo.newBuilder(loadConfig).setJobId(jobId).build())
               }
             // Blocks until this load table job completes its execution, either failing or succeeding.
             val jobResult = job.waitFor()
@@ -94,7 +95,7 @@ class BigQueryNativeJob(
     sourceURIs: Iterable[String]
   ): Job = {
     val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
-    val jobId: JobId = newJobId()
+    val jobId: JobId = newJobIdWithLocation()
     Using(bigquery.writer(jobId, loadConfig)) { writer =>
       val outputStream = Channels.newOutputStream(writer)
       sourceURIs
@@ -103,7 +104,7 @@ class BigQueryNativeJob(
     bigquery().getJob(jobId)
   }
 
-  private def newJobId(): JobId = {
+  private def newJobIdWithLocation(): JobId = {
     val jobName = UUID.randomUUID().toString();
     val jobIdBuilder = JobId.newBuilder().setJob(jobName);
     cliConfig.outputDatabase.map(jobIdBuilder.setProject)
@@ -254,7 +255,9 @@ class BigQueryNativeJob(
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
-        val queryJob = bigquery().create(JobInfo.of(finalConfiguration))
+        val jobId = newJobIdWithLocation()
+        val queryJob =
+          bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
         val jobResult = queryJob.waitFor(RetryOption.maxAttempts(0))
         val totalBytesProcessed = queryJob
           .getStatistics()
@@ -279,7 +282,8 @@ class BigQueryNativeJob(
     settings.appConfig
       .getUdfs()
       .foreach { udf =>
-        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
+        if (udf.contains("://")) // make sure it's a URI
+          queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
       }
     queryConfig
   }
@@ -397,7 +401,9 @@ class BigQueryNativeJob(
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
         logger.info(s"Executing BQ Query $sql")
         val finalConfiguration = queryConfigWithUDF.setDestinationTable(tableId).build()
-        val jobInfo = bigquery().create(JobInfo.of(finalConfiguration))
+        val jobId = newJobIdWithLocation()
+        val jobInfo =
+          bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
         val totalBytesProcessed = jobInfo
           .getStatistics()
           .asInstanceOf[QueryStatistics]
@@ -426,7 +432,7 @@ class BigQueryNativeJob(
   def runBatchQuery(wait: Boolean): Try[Job] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
-        val jobId = newJobId()
+        val jobId = newJobIdWithLocation()
         val queryConfig =
           QueryJobConfiguration
             .newBuilder(sql)
