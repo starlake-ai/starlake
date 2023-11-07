@@ -1505,11 +1505,13 @@ object LastExportUtils extends LazyLogging {
          |  from $auditSchema.SL_LAST_EXPORT
          |where
          |  ${colNameQuote}domain${colNameQuote} = ?
-         |  and ${colNameQuote}schema${colNameQuote} = ?""".stripMargin
+         |  and ${colNameQuote}schema${colNameQuote} = ?
+         |  and ${colNameQuote}step${colNameQuote} = ?""".stripMargin
     logger.debug(lastExtractionSQL)
     val preparedStatement = conn.prepareStatement(lastExtractionSQL)
     preparedStatement.setString(1, domain)
     preparedStatement.setString(2, schema)
+    preparedStatement.setString(3, "ALL")
     val rs = preparedStatement.executeQuery()
     if (rs.next()) {
       Option(rs.getTimestamp(1))

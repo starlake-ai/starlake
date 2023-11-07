@@ -17,6 +17,9 @@ __Improvement__:
   - 'directory' is not mandatory in extract template
   - load individual domain only in extract-schema
 
+__Bug Fix__:
+- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.  
+
 # 0.8.0:
 - ** DEPRECATED **
   - All date time related variables are now deprecated aka; comet_date, comet_year ...
