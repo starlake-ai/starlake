@@ -36,6 +36,7 @@ object SettingsManager {
   watcherThread.start()
 
   def reset(): Boolean = {
+    lastSettingsId = ""
     settingsTimeMap.synchronized {
       settingsTimeMap.clear()
     }
@@ -44,6 +45,9 @@ object SettingsManager {
     }
     true
   }
+
+  var lastSettingsId: String = ""
+
   private def uniqueId(
     root: String,
     metadata: Option[String],
@@ -57,7 +61,7 @@ object SettingsManager {
     metadata: Option[String],
     env: Option[String],
     gcpProject: Option[String]
-  ): Settings = {
+  ): (Settings, Boolean) = {
     val sessionId = uniqueId(root, metadata, env)
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
@@ -69,7 +73,7 @@ object SettingsManager {
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("database", gcpProject)
     }
-    val currentSettings = settingsMap.getOrElse(
+    val updatedSession = settingsMap.getOrElse(
       sessionId, {
         settingsMap.synchronized {
           sysProps.setProperty("root-serve", outFile.pathAsString)
@@ -90,6 +94,8 @@ object SettingsManager {
       }
     )
     settingsTimeMap.put(sessionId, System.currentTimeMillis())
-    currentSettings
+    val isNew = sessionId != lastSettingsId
+    lastSettingsId = sessionId
+    (updatedSession, isNew)
   }
 }

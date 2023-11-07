@@ -144,8 +144,14 @@ class Main() extends StrictLogging {
     }
 
     val schemaHandler = new SchemaHandler(storageHandler(), cliEnv)
+    run(args, schemaHandler)
+  }
+
+  def run(args: Array[String], schemaHandler: SchemaHandler)(implicit settings: Settings): Unit = {
+    import settings.storageHandler
 
     // handle non existing project commands
+    val argList = args.toList
     argList.head match {
       case "bootstrap" =>
         BootstrapConfig.parse(args.drop(1)) match {
