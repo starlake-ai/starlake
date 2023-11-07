@@ -106,7 +106,7 @@ if "%~1"=="install" (
     )
     call :save_installed_versions
     call :save_contextual_versions
-    echo. 
+    echo.
     echo Installation done. You're ready to enjoy Starlake!
     echo If any errors happen during installation. Please try to install again or open an issue.
 ) else (
@@ -402,9 +402,6 @@ if !SPARK_DOWNLOADED! equ 1 (
     rmdir /s /q "%SCRIPT_DIR%bin\%SPARK_DIR_NAME%"
     del /q "%SPARK_TARGET_FOLDER%\conf\*.xml" 2>nul
     copy "%SPARK_TARGET_FOLDER%\conf\log4j2.properties.template" "%SPARK_TARGET_FOLDER%\conf\log4j2.properties" > nul
-    set "DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER=!DEPS_EXTRA_LIB_FOLDER:\=\\!"
-    echo spark.driver.extraClassPath !DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER!\\* > "%SPARK_TARGET_FOLDER%\conf\spark-defaults.conf"
-    echo spark.executor.extraClassPath !DOUBLESLASH_DEPS_EXTRA_LIB_FOLDER!\\* >> "%SPARK_TARGET_FOLDER%\conf\spark-defaults.conf"
     echo - spark: OK
 ) else (
     echo - spark: skipped
@@ -412,7 +409,7 @@ if !SPARK_DOWNLOADED! equ 1 (
 
 if !SPARK_BQ_DOWNLOADED! equ 1 (
     echo - spark bq: downloading from %SPARK_BQ_URL%
-    powershell -command "Start-BitsTransfer -Source %SPARK_BQ_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SPARK_BQ_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SPARK_BQ_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_JAR_NAME%"
     echo - spark bq: OK
 ) else (
     echo - spark bq: skipped
@@ -420,7 +417,7 @@ if !SPARK_BQ_DOWNLOADED! equ 1 (
 
 if !HADOOP_AZURE_DOWNLOADED! equ 1 (
     echo - hadoop azure: downloading from %HADOOP_AZURE_URL%
-    powershell -command "Start-BitsTransfer -Source %HADOOP_AZURE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %HADOOP_AZURE_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AZURE_JAR_NAME%"
     echo - hadoop azure: OK
 ) else (
     echo - hadoop azure: skipped
@@ -428,7 +425,7 @@ if !HADOOP_AZURE_DOWNLOADED! equ 1 (
 
 if !AZURE_STORAGE_DOWNLOADED! equ 1 (
     echo - azure storage: downloading from %AZURE_STORAGE_URL%
-    powershell -command "Start-BitsTransfer -Source %AZURE_STORAGE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %AZURE_STORAGE_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%AZURE_STORAGE_JAR_NAME%"
     echo - azure storage: OK
 ) else (
     echo - azure storage: skipped
@@ -436,7 +433,7 @@ if !AZURE_STORAGE_DOWNLOADED! equ 1 (
 
 if !JETTY_UTIL_DOWNLOADED! equ 1 (
     echo - jetty util: downloading from %JETTY_UTIL_URL%
-    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%JETTY_UTIL_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_JAR_NAME%"
     echo - jetty util: OK
 ) else (
     echo - jetty util: skipped
@@ -444,7 +441,7 @@ if !JETTY_UTIL_DOWNLOADED! equ 1 (
 
 if !JETTY_UTIL_AJAX_DOWNLOADED! equ 1 (
     echo - jetty util ajax: downloading from %JETTY_UTIL_AJAX_URL%
-    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_AJAX_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %JETTY_UTIL_AJAX_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%JETTY_UTIL_AJAX_JAR_NAME%"
     echo - jetty util ajax: OK
 ) else (
     echo - jetty util ajax: skipped
@@ -452,7 +449,7 @@ if !JETTY_UTIL_AJAX_DOWNLOADED! equ 1 (
 
 if !SPARK_SNOWFLAKE_DOWNLOADED! equ 1 (
     echo - spark snowflake: downloading from %SPARK_SNOWFLAKE_URL%
-    powershell -command "Start-BitsTransfer -Source %SPARK_SNOWFLAKE_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SPARK_SNOWFLAKE_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%SPARK_SNOWFLAKE_JAR_NAME%"
     echo - spark snowflake: OK
 ) else (
     echo - spark snowflake: skipped
@@ -460,7 +457,7 @@ if !SPARK_SNOWFLAKE_DOWNLOADED! equ 1 (
 
 if !SNOWFLAKE_JDBC_DOWNLOADED! equ 1 (
     echo - snowflake jdbc: downloading from %SNOWFLAKE_JDBC_URL%
-    powershell -command "Start-BitsTransfer -Source %SNOWFLAKE_JDBC_URL% -Destination %STARLAKE_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_JAR_NAME%"
+    powershell -command "Start-BitsTransfer -Source %SNOWFLAKE_JDBC_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_JAR_NAME%"
     echo - snowflake jdbc: OK
 ) else (
     echo - snowflake jdbc: skipped
@@ -555,9 +552,17 @@ if exist "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" (
 
         java !JAVA_OPTIONS! -cp "!UNIX_SPARK_TARGET_FOLDER!/jars/*;!UNIX_DEPS_EXTRA_LIB_FOLDER!/*;!UNIX_STARLAKE_EXTRA_LIB_FOLDER!/!SL_JAR_NAME!" !SL_MAIN! %*
     ) else (
+        set "extra_classpath=!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!"
+        set "extra_jars=!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!"
+
+        for %%F in ("!DEPS_EXTRA_LIB_FOLDER!\"*.jar) do (
+            echo %%F
+            set "extra_classpath=!extra_classpath!;%%F"
+            set "extra_jars=!extra_jars!,%%F"
+        )
         set "SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd"
         @REM spark-submit cmd handles windows path
-        !SPARK_SUBMIT! !SPARK_EXTRA_PACKAGES! --driver-java-options "!SPARK_DRIVER_OPTIONS!" !SPARK_CONF_OPTIONS! --class !SL_MAIN! "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" %*
+        !SPARK_SUBMIT! !SPARK_EXTRA_PACKAGES! --driver-java-options "!SPARK_DRIVER_OPTIONS!" !SPARK_CONF_OPTIONS! --driver-class-path "!extra_classpath!" --class !SL_MAIN! --jars "!extra_jars!" "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" %*
     )
 ) else (
     call :print_install_usage
