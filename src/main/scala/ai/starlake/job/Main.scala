@@ -2,7 +2,7 @@ package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract._
-import ai.starlake.job.bootstrap.BootstrapConfig
+import ai.starlake.job.bootstrap.{Bootstrap, BootstrapConfig}
 import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
@@ -156,7 +156,7 @@ class Main() extends StrictLogging {
       case "bootstrap" =>
         BootstrapConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            DatasetArea.bootstrap(config.template)
+            Bootstrap.bootstrap(config.template)
           case None =>
             false
 

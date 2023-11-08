@@ -21,13 +21,14 @@
 package ai.starlake.config
 
 import ai.starlake.TestHelper
+import ai.starlake.job.bootstrap.Bootstrap
 import better.files.File
 
 class DatasetAreaSpec extends TestHelper {
 
   new WithSettings() {
     "bootstrap" should "generate data correctly" in {
-      DatasetArea.bootstrap(None)
+      Bootstrap.bootstrap(None)
       assertCommonStructure(settings)
       assertFoldersExist(
         settings,
@@ -36,7 +37,7 @@ class DatasetAreaSpec extends TestHelper {
     }
 
     "bootstrap quickstart" should "generate data correctly" in {
-      DatasetArea.bootstrap(Some("quickstart"))
+      Bootstrap.bootstrap(Some("quickstart"))
       assertCommonStructure(settings)
       assertExistence(
         settings,
@@ -57,7 +58,7 @@ class DatasetAreaSpec extends TestHelper {
     }
 
     "bootstrap userguide" should "generate data correctly" in {
-      DatasetArea.bootstrap(Some("userguide"))
+      Bootstrap.bootstrap(Some("userguide"))
       assertCommonStructure(settings)
       assertExistence(
         settings,

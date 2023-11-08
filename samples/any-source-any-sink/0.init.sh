@@ -1,1 +1,0 @@
-cp -rv ../incoming $PWD

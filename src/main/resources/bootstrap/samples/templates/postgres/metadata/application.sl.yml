@@ -1,0 +1,22 @@
+application:
+  connectionRef: {{connection}}
+  connections:
+    postgres:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
+        driver: "org.postgresql.Driver"
+        supportTruncateOnInsert: false
+        user: {{DATABASE_USER}}
+        password: {{DATABASE_PASSWORD}}
+        quoteIdentifiers: false
+    spark-postgres:
+      type: jdbc
+      sparkFormat: jdbc
+      options:
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
+        driver: "org.postgresql.Driver"
+        supportTruncateOnInsert: false
+        user: {{DATABASE_USER}}
+        password: {{DATABASE_PASSWORD}}
+        quoteIdentifiers: false
