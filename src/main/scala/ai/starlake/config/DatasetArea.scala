@@ -23,12 +23,10 @@ package ai.starlake.config
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
-import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the SL_DATASETS env var or datasets application property
@@ -231,114 +229,6 @@ object DatasetArea extends StrictLogging {
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
-    }
-  }
-
-  def bootstrap(template: Option[String])(implicit settings: Settings): Unit = {
-    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: File): Unit = {
-      resources.foreach { resource =>
-        logger.info(s"copying $resource")
-        val source = Source.fromResource(s"$resourceFolder/$resource")
-        if (source == null)
-          throw new Exception(s"Resource $resource not found in assembly")
-
-        val lines: Iterator[String] = source.getLines()
-        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
-        targetFile.parent.createDirectories()
-        val contents =
-          lines.mkString("\n").replace("__SL_TEST_ROOT__", metadata.getParent.toString)
-        targetFile.overwrite(contents)
-      }
-    }
-
-    initMetadata(settings.storageHandler())
-    List("out", "diagrams", "diagrams/load", "diagrams/acl", "diagrams/transform").foreach {
-      folder =>
-        val root = File(settings.appConfig.metadata).parent
-        File(root.pathAsString, folder.split('/'): _*).createDirectories()
-    }
-    val metadataFile = File(metadata.toString)
-    metadataFile.createDirectories()
-    val incomingFolder = File(metadataFile.parent, "incoming")
-    incomingFolder.createDirectories()
-    val vscodeFolder = File(metadataFile.parent, ".vscode")
-    vscodeFolder.createDirectories()
-    copyToFolder(List("extensions.json"), s"bootstrap", vscodeFolder)
-
-    template.getOrElse("quickstart") match {
-      case "bigquery" =>
-        val metadataResources = List(
-          "load/hr/_config.sl.yml",
-          "load/hr/sellers.sl.yml",
-          "load/hr/locations.sl.yml",
-          "load/sales/_config.sl.yml",
-          "load/sales/customers.sl.yml",
-          "load/sales/orders.sl.yml",
-          "transform/kpi/kpi.sl.yml",
-          "transform/kpi/kpi.byseller.sql.j2",
-          "types/default.sl.yml",
-          "types/types.sl.yml",
-          "env.sl.yml"
-        )
-        copyToFolder(metadataResources, s"bootstrap/bigquery/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"bootstrap/bigquery", metadataFile.parent)
-      case "userguide" =>
-        val metadataResources = List(
-          "load/hr/_config.sl.yml",
-          "load/hr/sellers.sl.yml",
-          "load/hr/locations.sl.yml",
-          "load/sales/_config.sl.yml",
-          "load/sales/customers.sl.yml",
-          "load/sales/orders.sl.yml",
-          "transform/sales_kpi/_config.sl.yml",
-          "transform/sales_kpi/byseller_kpi.sql",
-          "types/default.sl.yml",
-          "types/types.sl.yml",
-          "application.sl.yml",
-          "env.sl.yml",
-          "env.BQ.sl.yml",
-          "env.FS.sl.yml"
-        )
-        copyToFolder(metadataResources, s"bootstrap/userguide/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"bootstrap/userguide", metadataFile.parent)
-
-      case "quickstart" =>
-        val metadataResources = List(
-          "transform/kpi/_config.sl.yml",
-          "transform/kpi/customers_kpi.sql",
-          "types/default.sl.yml",
-          "application.sl.yml",
-          "env.sl.yml",
-          "env.LOCAL.sl.yml",
-          "env.BQ.sl.yml"
-        )
-        copyToFolder(metadataResources, s"bootstrap/quickstart/metadata", metadataFile)
-
-        val rootResources = List(
-          "incoming/customers-2018-01-01.psv"
-        )
-        copyToFolder(rootResources, s"bootstrap/quickstart", metadataFile.parent)
-
-      /*
-      val dagResources = List(
-          "dags/sample.sl.yml"
-        )
-        copyToFolder(dagResources, s"bootstrap/quickstart/metadata", metadataFile.parent)
-
-       */
-      case _ => // do nothing
     }
   }
 }

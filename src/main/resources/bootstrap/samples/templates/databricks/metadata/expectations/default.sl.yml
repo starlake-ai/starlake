@@ -1,0 +1,15 @@
+expectations:
+  expect_column_is_unique(col):
+    query: |
+      SELECT max(cnt) 
+      FROM (SELECT col, count(*) as cnt FROM sl_this 
+      GROUP BY col 
+      HAVING cnt > 1)
+    expect: result == 0
+
+  only_one_admin(col):
+    query: |
+      SELECT col, count(*) as cnt 
+      FROM sl_this 
+      GROUP BY col
+    expect: results.find(_(0) == "ADMIN").get.apply(1) == 1

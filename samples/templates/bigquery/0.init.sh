@@ -1,1 +1,1 @@
-cp -rv ../incoming $PWD
+cp -rv ./sample-data/* $PWD/incoming

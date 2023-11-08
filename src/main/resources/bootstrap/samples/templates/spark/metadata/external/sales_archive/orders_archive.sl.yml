@@ -1,0 +1,35 @@
+---
+table:
+  name: "orders_archive"
+  pattern: "ignore"
+  attributes:
+  - name: "id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "customer_id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "amount"
+    type: "decimal"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "seller_id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "JOBID"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
