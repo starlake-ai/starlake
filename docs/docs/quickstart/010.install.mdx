@@ -11,31 +11,9 @@ The script will in turn download required dependencies and copy them to the bin 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
-``` shell
-
-$ mkdir $HOME/starlake
-$ cd $HOME/starlake
-$ bash  < (curl -s https://raw.githubusercontent.com/starlake-ai/starlake/master/setup.sh)
-
-    _____ _______       _____  _               _  ________
-    / ____|__   __|/\   |  __ \| |        /\   | |/ /  ____|
-    | (___    | |  /  \  | |__) | |       /  \  | ' /| |__
-    \___ \   | | / /\ \ |  _  /| |      / /\ \ |  < |  __|
-    ____) |  | |/ ____ \| | \ \| |____ / ____ \| . \| |____
-    |_____/   |_/_/    \_\_|  \_\______/_/    \_\_|\_\______|
-
-
-    Where do you want to install Starlake? [/Users/me/starlake]: /Users/me/starlake
-    Last 5 available versions:
-    1.0.1-SNAPSHOT
-    1.0.0
-    0.8.1
-    0.8.0
-    0.7.4
-    0.7.3
-    Which version do you want to install? [1.0.0]:
-
-
+```shell
+sh <(curl https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.sh)
+starlake help
 ```
 
 </TabItem>
@@ -43,10 +21,8 @@ $ bash  < (curl -s https://raw.githubusercontent.com/starlake-ai/starlake/master
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\> mkdir %userprofile%\starlake
-c:\> cd %userprofile%\starlake
-c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
-c:\users\me\starlake> starlake install
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.ps1").Content
+starlake help
 ```
 
 </TabItem>

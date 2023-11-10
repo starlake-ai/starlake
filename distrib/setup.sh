@@ -81,14 +81,16 @@ install_starlake() {
 
 
 add_starlake_to_path() {
-    if [ -f "$HOME/.zshrc" ] || [ -f "$HOME/.bashrc" ]; then
-        if [ -f "$HOME/.zshrc" ]; then
+
+
+    if [[ "$SHELL" == *zsh* ]] || [[ "$SHELL" == *bash* ]]; then
+        if [[ "$SHELL" == *zsh* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.zshrc; then
                 echo -e "\nexport PATH=$INSTALL_DIR:\$PATH" >> ~/.zshrc
             fi
             zsh ~/.zshrc
         fi
-        if [ -f "$HOME/.bashrc" ]; then
+        if [[ "$SHELL" == *bash* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.bashrc; then
                 echo -e "\nexport PATH=$INSTALL_DIR:\$PATH" >> ~/.bashrc
             fi
@@ -96,7 +98,7 @@ add_starlake_to_path() {
         fi
         echo "Starlake has been added to your PATH."
     else
-        echo "Could not find .zshrc or .bashrc file. Please add the following line to your shell configuration file manually:"
+        echo "Could not detect what shell you're using. Please add the following line to your shell configuration file manually:"
         echo "export PATH=$INSTALL_DIR:\$PATH"
     fi
 }
