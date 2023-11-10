@@ -57,7 +57,7 @@ SKIP_INSTALL=0
 SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
-SPARK_EXTRA_LIB_FOLDER=$SCRIPT_DIR/bin/spark-extra-lib
+SPARK_EXTRA_LIB_FOLDER=$SCRIPT_DIR/bin
 DEPS_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/deps
 STARLAKE_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/sl
 #SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
@@ -108,6 +108,15 @@ POSTGRESQL_URL=https://repo1.maven.org/maven2/org/postgresql/$POSTGRESQL_ARTIFAC
 
 init_starlake_install_variables() {
   if [[ -z "$SL_VERSION" ]]; then
+    if [[ ENABLE_BIGQUERY -eq 0 && ENABLE_AZURE -eq 0 && ENABLE_SNOWFLAKE -eq 0 && ENABLE_POSTGRESQL -eq 0 ]]
+    then
+      echo "No dependency enabled, all dependency will be installed"
+      ENABLE_BIGQUERY=1
+      ENABLE_AZURE=1
+      ENABLE_SNOWFLAKE=1
+      ENABLE_POSTGRESQL=1
+    fi
+
     echo "searching for last starlake version, please wait ..."
     SL_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$SL_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
     echo got version $SL_VERSION
@@ -120,6 +129,7 @@ init_starlake_install_variables() {
   else
     SL_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_$SCALA_VERSION/$SL_VERSION/$SL_JAR_NAME
   fi
+
 }
 
 check_current_state() {
@@ -158,7 +168,7 @@ check_current_state() {
     echo - spark: not found
     SKIP_INSTALL=1
   fi
-  if [[ $ENABLE_GCP -eq 1 ]]
+  if [[ $ENABLE_BIGQUERY -eq 1 ]]
   then
     if [[ -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_BQ_JAR_NAME" ]]
     then
@@ -272,7 +282,7 @@ clean_additional_jars() {
   then
     rm -rf "$SPARK_TARGET_FOLDER"
   fi
-  if [[ $SPARK_BQ_DOWNLOADED -eq 0 || $ENABLE_GCP -eq 0 ]]
+  if [[ $SPARK_BQ_DOWNLOADED -eq 0 || $ENABLE_BIGQUERY -eq 0 ]]
   then
     rm -f "$DEPS_EXTRA_LIB_FOLDER/$SPARK_BQ_ARTIFACT_NAME"*
   fi
@@ -422,7 +432,7 @@ print_install_usage() {
 
   # GCP
   echo
-  echo 'ENABLE_GCP: enable or disable gcp dependencies (1 or 0). Default 0 - disabled'
+  echo 'ENABLE_BIGQUERY: enable or disable gcp dependencies (1 or 0). Default 0 - disabled'
   echo - SPARK_BQ_VERSION: default $SPARK_BQ_DEFAULT_VERSION
 
   # AZURE
@@ -466,8 +476,8 @@ save_installed_versions(){
   echo SL_VERSION="\${SL_VERSION:-${SL_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   echo SPARK_VERSION="\${SPARK_VERSION:-${SPARK_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   echo HADOOP_VERSION="\${HADOOP_VERSION:-${HADOOP_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
-  echo ENABLE_GCP="\${ENABLE_GCP:-${ENABLE_GCP}}" >> "${SCRIPT_DIR}/versions.sh"
-  if [[ $ENABLE_GCP -eq 1 ]]
+  echo ENABLE_BIGQUERY="\${ENABLE_BIGQUERY:-${ENABLE_BIGQUERY}}" >> "${SCRIPT_DIR}/versions.sh"
+  if [[ $ENABLE_BIGQUERY -eq 1 ]]
   then
       echo SPARK_BQ_VERSION="\${SPARK_BQ_VERSION:-${SPARK_BQ_VERSION}}" >> "${SCRIPT_DIR}/versions.sh"
   fi

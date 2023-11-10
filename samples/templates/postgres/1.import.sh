@@ -1,2 +1,2 @@
 source ./env.sh
-$SL_BIN_DIR/starlake.sh import
+$SL_HOME/starlake.sh import

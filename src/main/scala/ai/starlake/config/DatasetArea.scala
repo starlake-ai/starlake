@@ -198,16 +198,6 @@ object DatasetArea extends StrictLogging {
   def transform(implicit settings: Settings): Path =
     new Path(metadata, "transform")
 
-  def views(implicit settings: Settings): Path =
-    new Path(metadata, "views")
-
-  def views(viewsPath: String)(implicit settings: Settings): Path = {
-    if (viewsPath.startsWith("/"))
-      new Path(views, viewsPath.drop(1))
-    else
-      new Path(views, viewsPath)
-  }
-
   def iamPolicyTags()(implicit settings: Settings): Path =
     new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
@@ -216,9 +206,10 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, load, external, extract, transform, expectations, views, mapping).foreach(
-      storage.mkdirs
-    )
+    List(metadata, types, load, external, extract, transform, expectations, mapping)
+      .foreach(
+        storage.mkdirs
+      )
 
   }
 

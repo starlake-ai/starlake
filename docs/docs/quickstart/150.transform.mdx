@@ -45,8 +45,8 @@ transform:
 That's it! We can now run the transform as follows:
 
 ```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.customers_kpi
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.customers_kpi
 ```
 The transform job will run against the connectionRef defined in the application.sl.yml file.
 
@@ -85,16 +85,16 @@ transform:
 <TabItem value="france" label="French customers table">
 
 ```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=France
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.bycountry --options p_country=France
 ```
 
 </TabItem>
 <TabItem value="usa" label="American customers table">
 
 ```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=USA
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.bycountry --options p_country=USA
 ```
 
 </TabItem>

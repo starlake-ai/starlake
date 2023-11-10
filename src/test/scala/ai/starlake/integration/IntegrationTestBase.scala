@@ -15,11 +15,13 @@ class IntegrationTestBase
     with BeforeAndAfterAll
     with StrictLogging {
 
+  implicit val copyOptions = File.CopyOptions(overwrite = true)
+
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
   val templates = starlakeDir / "samples" / "templates"
   val localDir = templates / "spark"
-  val incomingDir = templates / "incoming"
+  val incomingDir = templates / "sample-data"
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
     val existingValues = envList.flatMap { case (k, _) =>

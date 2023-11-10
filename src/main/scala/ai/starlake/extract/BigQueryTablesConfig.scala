@@ -32,7 +32,7 @@ object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note(""),
-      opt[String]("write_mode")
+      opt[String]("write")
         .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
         .text(s"One of ${WriteMode.writes}")
         .optional(),

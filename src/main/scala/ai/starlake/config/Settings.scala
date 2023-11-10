@@ -536,7 +536,8 @@ object Settings extends StrictLogging {
     forceHalt: Boolean,
     jobIdEnvName: Option[String],
     archiveTablePattern: String,
-    archiveTable: Boolean
+    archiveTable: Boolean,
+    version: String
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =

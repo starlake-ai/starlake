@@ -1,0 +1,6 @@
+application:
+  connectionRef: "localFilesystem"
+  connections:
+    localFilesystem:
+      type: "fs"
+

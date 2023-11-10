@@ -1,4 +1,4 @@
-export SL_BIN_DIR="$(pwd)/../../../distrib"
+
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G
 export SL_FS=file://
@@ -37,7 +37,7 @@ fi
 
 # AZURE_STORAGE_ACCOUNT=starlakestoraccnt
 # AZURE_STORAGE_CONTAINER=starlakecontainer
-export SL_BIN_DIR="$PWD/../../distrib"
+
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G
 export SL_FS="wasbs://$AZURE_STORAGE_CONTAINER@$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/"

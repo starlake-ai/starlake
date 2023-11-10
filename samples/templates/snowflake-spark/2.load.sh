@@ -1,2 +1,2 @@
 source ./env.sh
-$SL_BIN_DIR/starlake.sh watch
+$SL_HOME/starlake.sh watch

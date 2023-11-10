@@ -11,33 +11,24 @@ starlake bootstrap CLI command from there:
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
-```sh
-$ mkdir $HOME/myproject
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh bootstrap
+```
+$ mkdir $HOME/quickstart
+$ cd $HOME/quickstart
+$ starlake bootstrap
 ```
 
 </TabItem>
 <TabItem value="windows" label="Windows">
 
-```powershell
-c:\> mkdir %userprofile%\myproject
-c:\> cd %userprofile%\myproject
-c:\users\me\myproject> %userprofile%\starlake\starlake.cmd bootstrap --template quickstart
+```
+c:\> mkdir c:\quickstart
+c:\> cd c:\quickstart
+c:\> starlake bootstrap
 ```
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-We first need to mount the project folder in the container et explicitly set the SL_ROOT env variable to bootstrap the project
-
-```sh
-$ mkdir $HOME/myproject
-$ docker run -e SL_ROOT=/app/myproject       \
-             -v $HOME/myproject:/app/myproject  \
-             -it starlake bootstrap             \
-             --template quickstart
-```
-
+TODO
 </TabItem>
 
 </Tabs>
@@ -47,61 +38,106 @@ $ docker run -e SL_ROOT=/app/myproject       \
 By default, the project will be created in the current working directory.
 To bootstrap the project in a different folder set SL_ROOT env variable to that folder:
 
+
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```
-$ SL_ROOT=/my/other/project $HOME/starlake/starlake.sh bootstrap
+$ SL_ROOT=/my/other/location starlake bootstrap
 ```
 
 </TabItem>
 <TabItem value="windows" label="Windows">
 
 ```
-c:\> export SL_ROOT=c:\my\other\project
-c:\> %userprofile%\starlake\starlake.cmd bootstrap
+c:\> set SL_ROOT=c:\my\other\location
+c:\> starlake bootstrap
 ```
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-In Docker you always need to pass the SL_ROOT env variable before running starlake as decribed in the command above.
-
+TODO
 </TabItem>
 </Tabs>
 
 :::
 
-
-This will create a default project hierarchy that allow you to start extracting, loading and transforming data.
+The ```bootstrap``` command will ask you to select a project template from the list below:
 
 ```
-myproject/
-├── diagrams
-│   ├── acl
-│   ├── domains
-│   └── jobs
-├── incoming
-│   └── customers-2018-01-01.psv
+Please choose a template:
+  0. initializer
+  1. quickstart
+  2. starbake
+  q. quit
+=> 1
+```
+Please choose `1. quickstart` to create a project that comes with sample datasets and be able to follow this tutorial.
+starlake will then create a default project hierarchy that allow you to start extracting, loading and transforming data.
+
+
+``` text {2,5,7,8,9,10}
+.
 ├── metadata
 │   ├── application.sl.yml
 │   ├── env.sl.yml
-│   ├── env.BQ.sl.yml
-│   ├── env.LOCAL.sl.yml
 │   ├── expectations
+│   │   └── expectations.sl.yml
 │   ├── extract
 │   ├── load
 │   ├── transform
-│   │   ├── customers_kpi.sql
-│   │   └── _config.sl.yml
-│   ├── mapping
 │   ├── types
-│   │   └── default.sl.yml
-│   └── views
-└── out
+│   │   ├── default.sl.yml
+└── sample-data
+    ├── hr
+    │   ├── locations-2018-01-01.json
+    │   └── sellers-2018-01-01.json
+    └── sales
+        ├── customers-2018-01-01.psv
+        └── orders-2018-01-01.csv
+
 ```
 
 ## Understanding the project hierarchy
 
-- The `diagrams` folder holds all the entity/relations and access control views you will be able to interactively create using Starlake WYSIWYG tooling.
 - The `incoming` folder host all the files you will want to load into your warehouse. This is explained in more detail in the [Move data section](load)
-- The `metadata` folder contains the extract, load and transform jobs Starlake will apply to incoming files.
+- The `metadata` folder contains the __extract__, __load__ and __transform__ configuration files
+- The `sample-data` folder contains sample data that you can use to test your project
+- The `expectations` folder contains the expectations configuration files used for validating the data loaded / transformed in your warehouse
+
+## Project configuration
+
+The project configuration is stored in the `metadata/application.sl.yml` file. This file contains the project version and the list of connections to the different data sinks.
+
+
+This application configuration file contains multiple connections:
+- Each connection is a sink where data can be loaded/transformed
+- The active connection to use for loading/transforming data is specified in the connectionRef property of the application section
+- The connectionRef property can be set to any of the connection names defined in the connections section below.
+- The example below set the active connectionRef using the `connection`variable defined in the environment configuration file (see [Environment configuration](env))
+
+```yaml
+
+application:
+  version: "1.0.0"
+  # the connection to use for loading/transforming data. See connections section below
+  connectionRef: "localFilesystem"
+  connections:
+    localFilesystem:
+      type: "fs"
+
+```
+
+## Next steps
+
+That's it, we are ready to go. Let's start by [loading some data](load) into our warehouse and then [transforming it](transform) to make it ready for analysis.
+
+:::note
+
+In a real world, your data would be stored in a database and not in your local filesystem.
+
+The example above is just to show you how to get started quickly.
+
+The extract, load and transform steps are independent and you could skip any of them if you don't need to extract, load or transform data.
+
+:::

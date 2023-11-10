@@ -15,7 +15,7 @@ title: bq2yml or bq-info
 
 Parameter|Cardinality|Description
 ---|---|---
---write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+--write:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
 --connection:`<value>`|*Optional*|Connection to use
 --tables:`<value>`|*Optional*|List of datasetName.tableName1,datasetName.tableName2 ...
 --persist:`<value>`|*Optional*|Persist results ?

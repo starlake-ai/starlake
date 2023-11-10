@@ -14,7 +14,7 @@ class TransformIntegrationSnowflakeSpec extends BigQueryIntegrationSpecBase {
         clearDataDirectories()
         incomingDir.copyToDirectory(localDir)
         Main.main(
-          Array("transform", "--name", "kpi.test1")
+          Array("transform", "--name", "kpi.byseller")
         )
       }
     }

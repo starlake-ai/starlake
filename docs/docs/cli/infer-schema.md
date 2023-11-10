@@ -19,6 +19,7 @@ Parameter|Cardinality|Description
 --table:`<value>`|*Required*|Table Name
 --input:`<value>`|*Required*|Dataset Input Path
 --output-dir:`<value>`|*Optional*|Domain YAML Output Path
+--write:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
 --format:`<value>`|*Optional*|Force input file format
 --with-header:`<value>`|*Optional*|Does the file contain a header (For CSV files only)
 

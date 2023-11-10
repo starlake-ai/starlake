@@ -39,7 +39,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.annotation.nowarn
-import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -84,7 +83,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       domainStructureValidity ++ loadedDomainsValidity
     val domainsVarsValidity = checkDomainsVars()
     val jobsVarsValidity = checkJobsVars() // job vars may be defined at runtime.
-    val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
+    val allErrors = typesValidity ++ domainsValidity
 
     val errs = allErrors.flatMap {
       case Left(values) => values
@@ -184,36 +183,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (errorCount, warningCount)
   }
 
-  def checkViewsValidity(): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
-    val viewsPath = DatasetArea.views
-    val sqlFiles =
-      storage.list(viewsPath, extension = ".sql", recursive = true) ++
-      storage.list(viewsPath, extension = ".sql.j2", recursive = true)
-
-    val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
-    // Check Domain name validity
-    sqlFiles.foreach { sqlFile =>
-      val name = viewName(sqlFile)
-      if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
-        errorList += ValidationMessage(
-          Error,
-          "View",
-          s"View with name $name should respect the pattern ${forceViewPrefixRegex.regex}"
-        )
-      }
-    }
-
-    duplicates.foreach { duplicate =>
-      errorList += ValidationMessage(Error, "View", s"Found duplicate views => $duplicate")
-    }
-
-    if (errorList.nonEmpty)
-      Left(errorList.toList)
-    else
-      Right(true)
-
-  }
   def loadTypes(filename: String): List[Type] = {
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")
@@ -319,17 +288,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val allFiles = j2Files ++ sqlFiles
     allFiles
   }
-
-  private def loadSqlJ2Files(path: Path): Map[String, String] = {
-    val allFiles = listSqlj2Files(path)
-    allFiles.map { sqlFile =>
-      loadSqlJ2File(sqlFile)
-    }.toMap
-  }
-
-  def views(): Map[String, String] = loadSqlJ2Files(DatasetArea.views)
-
-  def view(viewName: String): Option[String] = loadSqlJ2File(DatasetArea.views, viewName)
 
   val cometDateVars: Map[String, String] = {
     val today = LocalDateTime.now
