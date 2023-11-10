@@ -1,9 +1,0 @@
-dag:
-    comment: "sample dag configuration"
-    template: "load/scheduled_table_bash.py.j2"
-    filename: "all.py"
-    options:
-        profileVar: "DATAPROC_MEDIUM"
-        region: "europe-west1"
-        envVar: "SL_ENV"
-        jarFileUrisVar: "SL_JARS"

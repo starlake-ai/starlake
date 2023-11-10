@@ -28,7 +28,7 @@ for /f %%i in ('powershell -Command "[System.Version]::new('%HADOOP_VERSION%').M
 if "%HADOOP_HOME%"=="" set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
 
 :: GCP
-if "%ENABLE_GCP%"=="" set "ENABLE_GCP=0"
+if "%ENABLE_BIGQUERY%"=="" set "ENABLE_BIGQUERY=0"
 if "%SPARK_BQ_VERSION%"=="" set "SPARK_BQ_VERSION=%SPARK_BQ_DEFAULT_VERSION%"
 
 :: AZURE
@@ -206,7 +206,7 @@ if exist "%SPARK_TARGET_FOLDER%\jars\%SPARK_JAR_NAME%" (
     set "SKIP_INSTALL=1"
 )
 
-if %ENABLE_GCP% equ 1 (
+if %ENABLE_BIGQUERY% equ 1 (
     if exist "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_JAR_NAME%" (
         echo - spark bq: OK
         set "SPARK_BQ_DOWNLOADED=1"
@@ -294,7 +294,7 @@ if "%SPARK_DOWNLOADED%"=="0" (
     rmdir /s /q "%SPARK_TARGET_FOLDER%" 2> nul
 )
 
-if "%ENABLE_GCP%"=="0" (
+if "%ENABLE_BIGQUERY%"=="0" (
     del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_BQ_ARTIFACT_NAME%*" 2> nul
 )
 
@@ -469,8 +469,8 @@ echo @echo off > "%SCRIPT_DIR%versions.cmd"
 echo if "%%SL_VERSION%%"=="" set "SL_VERSION=!SL_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
 echo if "%%SPARK_VERSION%%"=="" set "SPARK_VERSION=!SPARK_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
 echo if "%%HADOOP_VERSION%%"=="" set "HADOOP_VERSION=!HADOOP_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
-echo if "%%ENABLE_GCP%%"=="" set "ENABLE_GCP=!ENABLE_GCP!" >> "%SCRIPT_DIR%versions.cmd"
-if !ENABLE_GCP! equ 0 (
+echo if "%%ENABLE_BIGQUERY%%"=="" set "ENABLE_BIGQUERY=!ENABLE_BIGQUERY!" >> "%SCRIPT_DIR%versions.cmd"
+if !ENABLE_BIGQUERY! equ 0 (
     echo if "%%SPARK_BQ_VERSION%%"=="" set "SPARK_BQ_VERSION=!SPARK_BQ_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
 )
 echo if "%%ENABLE_AZURE%%"=="" set "ENABLE_AZURE=!ENABLE_AZURE!" >> "%SCRIPT_DIR%versions.cmd"
@@ -579,7 +579,7 @@ echo HADOOP_VERSION: default %HADOOP_DEFAULT_VERSION%
 
 :: GCP
 echo.
-echo ENABLE_GCP: enable or disable gcp dependencies ^(0 or 1^). Default 1  - disabled
+echo ENABLE_BIGQUERY: enable or disable gcp dependencies ^(0 or 1^). Default 1  - disabled
 echo - SPARK_BQ_VERSION: default %SPARK_BQ_DEFAULT_VERSION%
 
 :: AZURE
@@ -599,7 +599,7 @@ echo - SNOWFLAKE_JDBC_VERSION: default %SNOWFLAKE_JDBC_DEFAULT_VERSION%
 echo.
 echo Example:
 echo.
-echo   set ENABLE_GCP=0
+echo   set ENABLE_BIGQUERY=0
 echo   starlake.cmd install
 echo.
 echo Once installed, 'versions.cmd' will be generated and pin dependencies' version.

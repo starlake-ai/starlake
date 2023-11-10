@@ -189,21 +189,19 @@ object InferSchemaHandler {
     settings: Settings
   ): Try[File] = Try {
 
-    /** load: metadata: directory: "{{root_path}}/incoming"
+    /** load: metadata: directory: "{{incoming_path}}"
       */
     val domainFolder = File(saveDir, domain.name)
     domainFolder.createDirectories()
     val configPath = File(domainFolder, "_config.sl.yml")
     if (!configPath.exists) {
-      val config = Domain(
-        name = domain.name,
-        metadata = Some(
-          Metadata(
-            directory = Some(s"{{root_path}}/incoming")
-          )
-        )
-      )
-      YamlSerializer.serializeToFile(configPath, config)
+      // minimal config file
+      val configData = s"""
+         |load:
+         |  metadata:
+         |    directory: "{{incoming_path}}/${domain.name}"
+         |""".stripMargin
+      configPath.overwrite(configData)
     }
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")

@@ -671,7 +671,8 @@ class IngestionWorkflow(
       dataPath = config.inputPath,
       saveDir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir,
       withHeader = config.withHeader,
-      forceFormat = config.format
+      forceFormat = config.format,
+      writeMode = config.write.getOrElse(WriteMode.OVERWRITE)
     )
     Utils.logFailure(result, logger)
     result

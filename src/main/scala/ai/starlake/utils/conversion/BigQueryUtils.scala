@@ -5,6 +5,7 @@ import com.google.cloud.bigquery.{FieldValue, LegacySQLTypeName, Schema => BQSch
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.types._
+import org.threeten.extra.PeriodDuration
 
 /** [X] whatever Conversion between [X] Schema and BigQuery Schema
   */
@@ -92,35 +93,35 @@ object BigQueryUtils {
     fieldsWithSchema.map { case (field, schema) =>
       schema match {
         case LegacySQLTypeName.BYTES =>
-          field.getBytesValue
+          Option(field).map(_.getBytesValue).getOrElse(Array[Byte]())
         case LegacySQLTypeName.STRING =>
-          field.getStringValue
+          Option(field).map(_.getStringValue).getOrElse("")
         case LegacySQLTypeName.INTEGER =>
-          field.getLongValue
+          Option(field).map(_.getLongValue).getOrElse(0L)
         case LegacySQLTypeName.FLOAT =>
-          field.getDoubleValue
+          Option(field).map(_.getDoubleValue).getOrElse(0.0)
         case LegacySQLTypeName.NUMERIC =>
-          field.getNumericValue
+          Option(field).map(_.getNumericValue).getOrElse(BigDecimal(0))
         case LegacySQLTypeName.BIGNUMERIC =>
-          field.getNumericValue
+          Option(field).map(_.getNumericValue).getOrElse(BigDecimal(0))
         case LegacySQLTypeName.BOOLEAN =>
-          field.getBooleanValue
+          Option(field).map(_.getBooleanValue).getOrElse(false)
         case LegacySQLTypeName.TIMESTAMP =>
-          field.getTimestampValue
+          Option(field).map(_.getTimestampValue).getOrElse(0L)
         case LegacySQLTypeName.DATE =>
-          field.getStringValue
+          Option(field).map(_.getStringValue).getOrElse("")
         case LegacySQLTypeName.GEOGRAPHY =>
-          field.getStringValue
+          Option(field).map(_.getStringValue).getOrElse("")
         case LegacySQLTypeName.TIME =>
-          field.getStringValue
+          Option(field).map(_.getStringValue).getOrElse("")
         case LegacySQLTypeName.DATETIME =>
-          field.getTimestampValue
+          Option(field).map(_.getTimestampValue).getOrElse(0L)
         case LegacySQLTypeName.RECORD =>
-          field.getRecordValue
+          field.getRecordValue()
         case LegacySQLTypeName.JSON =>
-          field.getStringValue
+          Option(field).map(_.getStringValue).getOrElse("")
         case LegacySQLTypeName.INTERVAL =>
-          field.getPeriodDuration
+          Option(field).map(_.getPeriodDuration).getOrElse(PeriodDuration.ZERO)
         case _ =>
           field
       }

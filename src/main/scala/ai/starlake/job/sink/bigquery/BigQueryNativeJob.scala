@@ -462,27 +462,4 @@ class BigQueryNativeJob(
       }
     }
   }
-
-  @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
-  def createViews(views: Map[String, String], udf: scala.Option[String]): Unit = {
-    views.foreach { case (key, value) =>
-      val viewQuery: ViewDefinition.Builder =
-        ViewDefinition.newBuilder(value).setUseLegacySql(false)
-      val viewDefinition = udf
-        .map { udf =>
-          viewQuery
-            .setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
-        }
-        .getOrElse(viewQuery)
-      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-      val viewRef = scala.Option(bigquery().getTable(tableId))
-      if (viewRef.isEmpty) {
-        logger.info(s"View $tableId does not exist, creating it!")
-        bigquery().create(TableInfo.of(tableId, viewDefinition.build()))
-        logger.info(s"View $tableId created")
-      } else {
-        logger.info(s"View $tableId already exist")
-      }
-    }
-  }
 }

@@ -4,7 +4,6 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
-import ai.starlake.sql.SQLUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
@@ -66,132 +65,115 @@ object TaskViewDependency extends StrictLogging {
       jobs.mapValues(_.flatMap(_.dependencies())).toList.map { case (jobName, dependencies) =>
         SimpleEntry(jobName, TASK_TYPE, dependencies)
       }
-    val viewDependencies: List[SimpleEntry] =
-      schemaHandler
-        .views()
-        .mapValues(SQLUtils.extractRefsInFromAndJoin)
-        .map { case (viewName, dependencies) =>
-          SimpleEntry(viewName, VIEW_TYPE, dependencies)
-        }
-        .toList
 
-    val jobAndViewDeps = (jobDependencies ++ viewDependencies).flatMap {
-      case SimpleEntry(jobName, typ, parentRefs) =>
-        logger.info(
-          s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
-        )
-        if (parentRefs.isEmpty)
-          List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, ""))
-        else {
-          parentRefs.map { parentSQLRef =>
-            val parts = parentSQLRef.split('.')
-            // is it a job ?
-            val parentJobName = parts.length match {
-              case 1 =>
-                val tablePart = parts.last // == 0
-                val refs = tasks.filter(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase())
-                if (refs.size > 1) {
-                  throw new Exception(
-                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
-                        .map(_.name)
-                        .mkString(",")}.
+    val jobAndViewDeps = jobDependencies.flatMap { case SimpleEntry(jobName, typ, parentRefs) =>
+      logger.info(
+        s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
+      )
+      if (parentRefs.isEmpty)
+        List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, ""))
+      else {
+        parentRefs.map { parentSQLRef =>
+          val parts = parentSQLRef.split('.')
+          // is it a job ?
+          val parentJobName = parts.length match {
+            case 1 =>
+              val tablePart = parts.last // == 0
+              val refs = tasks.filter(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase())
+              if (refs.size > 1) {
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
+                      .map(_.name)
+                      .mkString(",")}.
                      |Make sure references in your SQL are unambiguous or fully qualified.
                      |""".stripMargin
-                  )
+                )
 
-                } else
-                  refs.headOption.map(_.name)
+              } else
+                refs.headOption.map(_.name)
 
-              case 2 | 3 =>
-                val domainPart = parts.dropRight(1).last
-                val tablePart = parts.last
-                tasks
-                  .find(task =>
-                    task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
-                    task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase()
-                  )
-                  .map(_.name)
-              case _ =>
-                val errors = schemaHandler.checkJobsVars().mkString("\n")
+            case 2 | 3 =>
+              val domainPart = parts.dropRight(1).last
+              val tablePart = parts.last
+              tasks
+                .find(task =>
+                  task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
+                  task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase()
+                )
+                .map(_.name)
+            case _ =>
+              val errors = schemaHandler.checkJobsVars().mkString("\n")
 
-                // Strange. This should never happen as far as I know. Let's make it clear
-                if (parts.length == 0)
-                  throw new Exception(
-                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': No part found.
+              // Strange. This should never happen as far as I know. Let's make it clear
+              if (parts.length == 0)
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': No part found.
                      |Make sure variables defined in your job have a default value in the selected env profile.
                      |$errors""".stripMargin
-                  )
-                else
-                  // Strange. This should never happen as far as I know. Let's make it clear
-                  throw new Exception(
-                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName'. Too many parts.
+                )
+              else
+                // Strange. This should never happen as far as I know. Let's make it clear
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName'. Too many parts.
                        |Make sure variables defined in your job have a default value in the selected env profile.
                        |$errors""".stripMargin
-                  )
-
-            }
-            parentJobName match {
-              case Some(parentJobName) =>
-                val result =
-                  generator.TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
-                if (typ == TASK_TYPE) {
-                  // TODO We just handle one task per job which is always the case till now.
-                  val task = jobs(jobName).head
-                  val sink = task.taskDesc.domain + "." + task.taskDesc.table
-                  result.copy(sink = Some(sink))
-                } else result
-              case None =>
-                // is it a table ?
-                val domains = schemaHandler.domains()
-                val parentTable = parts.length match {
-                  case 1 =>
-                    val tablePart = parts.last // == 0
-                    val parentDomain: Option[Domain] = domains
-                      .find(domain =>
-                        domain.tables.exists(_.name.toLowerCase() == tablePart.toLowerCase())
-                      )
-                    parentDomain.map(domain => (domain.name, tablePart))
-
-                  case 2 | 3 =>
-                    val domainPart = parts.dropRight(1).last
-                    val tablePart = parts.last
-                    val theDomain: Option[Domain] = domains
-                      .find(_.name.toLowerCase() == domainPart.toLowerCase())
-                    val parentDomainFound = theDomain.exists(
-                      _.tables.exists(table => table.name.toLowerCase() == tablePart.toLowerCase())
-                    )
-                    if (parentDomainFound)
-                      Some((domainPart, tablePart))
-                    else
-                      None
-                  case _ =>
-                    // Strange. This should never happen as far as I know. Let's log it
-                    throw new Exception(s"unknown $parentSQLRef syntax. Too many parts")
-                }
-                parentTable match {
-                  case Some((parentDomainName, parentTableName)) =>
-                    TaskViewDependency(
-                      jobName,
-                      typ,
-                      parentDomainName + "." + parentTableName,
-                      TABLE_TYPE,
-                      parentSQLRef
-                    )
-                  case None =>
-                    val found =
-                      schemaHandler
-                        .views()
-                        .keys
-                        .exists(_.toLowerCase() == parentSQLRef.toLowerCase())
-                    if (found)
-                      TaskViewDependency(jobName, typ, parentSQLRef, VIEW_TYPE, parentSQLRef)
-                    else
-                      TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
-                }
-            }
+                )
 
           }
+          parentJobName match {
+            case Some(parentJobName) =>
+              val result =
+                generator.TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
+              if (typ == TASK_TYPE) {
+                // TODO We just handle one task per job which is always the case till now.
+                val task = jobs(jobName).head
+                val sink = task.taskDesc.domain + "." + task.taskDesc.table
+                result.copy(sink = Some(sink))
+              } else result
+            case None =>
+              // is it a table ?
+              val domains = schemaHandler.domains()
+              val parentTable = parts.length match {
+                case 1 =>
+                  val tablePart = parts.last // == 0
+                  val parentDomain: Option[Domain] = domains
+                    .find(domain =>
+                      domain.tables.exists(_.name.toLowerCase() == tablePart.toLowerCase())
+                    )
+                  parentDomain.map(domain => (domain.name, tablePart))
+
+                case 2 | 3 =>
+                  val domainPart = parts.dropRight(1).last
+                  val tablePart = parts.last
+                  val theDomain: Option[Domain] = domains
+                    .find(_.name.toLowerCase() == domainPart.toLowerCase())
+                  val parentDomainFound = theDomain.exists(
+                    _.tables.exists(table => table.name.toLowerCase() == tablePart.toLowerCase())
+                  )
+                  if (parentDomainFound)
+                    Some((domainPart, tablePart))
+                  else
+                    None
+                case _ =>
+                  // Strange. This should never happen as far as I know. Let's log it
+                  throw new Exception(s"unknown $parentSQLRef syntax. Too many parts")
+              }
+              parentTable match {
+                case Some((parentDomainName, parentTableName)) =>
+                  TaskViewDependency(
+                    jobName,
+                    typ,
+                    parentDomainName + "." + parentTableName,
+                    TABLE_TYPE,
+                    parentSQLRef
+                  )
+                case None =>
+                  TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
+              }
+          }
+
         }
+      }
     }
     val tableNames = jobAndViewDeps.filter(_.parentTyp == TABLE_TYPE).groupBy(_.parent).keys
     val tableDeps = tableNames.map(TaskViewDependency(_, TABLE_TYPE, "", UNKNOWN_TYPE, ""))

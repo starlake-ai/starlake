@@ -15,5 +15,5 @@ source ./env."${SL_ENV}".sh
 
 
 
-SL_INTERNAL_SUBSTITUTE_VARS=false $SL_BIN_DIR/starlake.sh yml2xls --xls $SL_ROOT/metadata/load
+SL_INTERNAL_SUBSTITUTE_VARS=false $SL_HOME/starlake.sh yml2xls --xls $SL_ROOT/metadata/load
 

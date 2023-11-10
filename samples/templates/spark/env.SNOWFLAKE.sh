@@ -1,4 +1,4 @@
-export SL_BIN_DIR="$(pwd)/../../../distrib"
+
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G
 export SL_ROOT="$(pwd)/quickstart"

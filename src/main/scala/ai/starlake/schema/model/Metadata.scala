@@ -86,7 +86,7 @@ case class Metadata(
   separator: Option[String] = None,
   quote: Option[String] = None,
   escape: Option[String] = None,
-  /* @deprecated("use sink", "1.0.0") */ write: Option[WriteMode] = None,
+  write: Option[WriteMode] = None,
   /* @deprecated("use sink", "1.0.0") */ partition: Option[Partition] = None,
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,

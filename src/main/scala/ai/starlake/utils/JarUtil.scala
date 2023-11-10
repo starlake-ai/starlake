@@ -1,49 +1,85 @@
 package ai.starlake.utils
 
-import java.io.{BufferedReader, IOException, InputStreamReader}
+import ai.starlake.job.Main
+
+import java.io.{File, IOException}
+import java.net.URISyntaxException
+import java.util.jar.JarFile
 import scala.collection.mutable.ListBuffer
 
 object JarUtil {
   @throws[IOException]
   def getResourceFiles(path: String): List[String] = {
     val filenames = ListBuffer[String]()
-    val in = getResourceAsStream(path)
-    val br = new BufferedReader(new InputStreamReader(in))
-    try {
-      var resource: String = br.readLine()
-      while (resource != null) {
-        val resPath = s"$path/$resource"
-        if (isDirectory(resPath)) {
-          getResourceFiles(s"$resPath").foreach(it => filenames.append(it))
-        } else {
-          filenames.append(resPath)
+    val jarFile = new File(
+      classOf[Main].getProtectionDomain().getCodeSource().getLocation().getPath()
+    )
+    if (jarFile.isFile()) { // Run with JAR file
+      val jar = new JarFile(jarFile)
+      val entries = jar.entries // gives ALL entries in jar
+
+      while (entries.hasMoreElements) {
+        val entry = entries.nextElement()
+        val name = entry.getName()
+        if (!entry.isDirectory() && name.startsWith(path)) { // filter according to the path
+          filenames.append(name)
         }
-        resource = br.readLine()
       }
-    } finally {
-      if (in != null) in.close()
-      if (br != null) br.close()
+      jar.close()
+    } else { // Run with IDE
+      val url = classOf[Main].getResource("/" + path)
+      if (url != null) {
+        val apps = new File(url.toURI)
+        val pathWithSlash =
+          if (path.endsWith("/"))
+            path
+          else
+            path + "/"
+        for (app <- apps.listFiles) {
+          if (app.isDirectory) {
+            getResourceFiles(pathWithSlash + app.getName()).foreach(filenames.append(_))
+          } else {
+            filenames.append(pathWithSlash + app.getName())
+          }
+        }
+      }
     }
     filenames.toList
   }
 
   @throws[IOException]
   def getResourceFolders(path: String): List[String] = {
+    val pathLevel = path.count(_ == '/')
+    val pathLen = path.length
     val filenames = ListBuffer[String]()
-    val in = getResourceAsStream(path)
-    val br = new BufferedReader(new InputStreamReader(in))
-    try {
-      var resource: String = br.readLine()
-      while (resource != null) {
-        val resPath = s"$path/$resource"
-        if (isDirectory(resPath)) {
-          filenames.append(resource)
+    val jarFile = new File(
+      classOf[Main].getProtectionDomain().getCodeSource().getLocation().getPath()
+    )
+    if (jarFile.isFile()) { // Run with JAR file
+      val jar = new JarFile(jarFile)
+      val entries = jar.entries // gives ALL entries in jar
+
+      while (entries.hasMoreElements) {
+        val entry = entries.nextElement()
+        val name = entry.getName()
+        val nameLevel = name.count(_ == '/')
+        if (nameLevel == pathLevel + 1 && entry.isDirectory() && name.startsWith(path)) { // filter according to the path
+          filenames.append(name.substring(pathLen, name.length - 1)) // remove trailing slash
         }
-        resource = br.readLine()
       }
-    } finally {
-      if (in != null) in.close()
-      if (br != null) br.close()
+      jar.close()
+    } else { // Run with IDE
+      val url = classOf[Main].getResource("/" + path)
+      if (url != null) try {
+        val apps = new File(url.toURI)
+        for (app <- apps.listFiles) {
+          filenames.append(app.getName())
+        }
+      } catch {
+        case ex: URISyntaxException =>
+
+        // never happens
+      }
     }
     filenames.toList
   }
@@ -66,9 +102,10 @@ object JarUtil {
   private def getContextClassLoader() = Thread.currentThread.getContextClassLoader()
 
   def main(args: Array[String]): Unit = {
-    val files = getResourceFiles("bootstrap/samples/templates/any-source-any-sink")
-    files.foreach(println)
-    val folders = getResourceFolders("bootstrap/samples/templates")
+    // val files = getResourceFiles("bootstrap/samples/templates/any-source-any-sink")
+    // files.foreach(println)
+    val folders = getResourceFolders("bootstrap/samples/templates/")
     folders.foreach(println)
   }
+
 }

@@ -150,17 +150,6 @@ trait TestHelper
     )
   )
 
-  val allViews: List[FileToImport] = List(
-    FileToImport(
-      "default.sl.yml",
-      "/sample/views/default.sl.yml"
-    ),
-    FileToImport(
-      "types.sl.yml",
-      "/sample/views/views.sl.yml"
-    )
-  )
-
   val allDags: List[FileToImport] = List(
     FileToImport(
       "sample.sl.yml",
@@ -284,10 +273,6 @@ trait TestHelper
       allExpectations.foreach { assertionToImport =>
         val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
         deliverTestFile(assertionToImport.path, expectationPath)
-      }
-      allViews.foreach { viewToImport =>
-        val viewPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, viewPath)
       }
       allExtracts.foreach { extractToImport =>
         val path = extractToImport.folder match {

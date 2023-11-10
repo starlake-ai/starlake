@@ -13,4 +13,4 @@ esac
 # shellcheck disable=SC1090
 source ./env."${SL_ENV}".sh
 
-$SL_BIN_DIR/starlake.sh transform --name sales_kpi.byseller_kpi
+$SL_HOME/starlake.sh transform --name sales_kpi.byseller_kpi
