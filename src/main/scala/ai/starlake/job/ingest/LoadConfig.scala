@@ -10,7 +10,7 @@ case class LoadConfig(
 )
 
 object LoadConfig extends CliConfig[LoadConfig] {
-  val command = "watch"
+  val command = "load"
 
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]

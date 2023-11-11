@@ -18,12 +18,13 @@ and have to be loaded incrementally.
 The store locations and sellers are provided by the "hr" department as respectively JSONL and JSON files
 and have to be loaded in full load mode.
 
-#### customers dataset
+#### Sample datasets
 
-``File customers-2018-01-01.psv from "sales" department``
 
 <Tabs groupId="files">
 <TabItem value="sales/customers" label="customers">
+
+```File customers-2018-01-01.psv from "sales" department```
 
 |id|signup|contact|birthdate|firstname|lastname|country|
 |---|---|---|---|---|---|---|
@@ -45,6 +46,10 @@ and have to be loaded in full load mode.
 </TabItem>
 <TabItem value="sales/orders" label="orders">
 
+
+```File orders-2018-01-01.psv from "sales" department```
+
+
 |order_id|customer_id|amount|seller_id|
 |---|---|---|---|
 |12345|A009701|123.65|AQZERD|
@@ -53,6 +58,10 @@ and have to be loaded in full load mode.
 
 </TabItem>
 <TabItem value="hr/sellers" label="sellers">
+
+
+```File sellers-2018-01-01.psv from "hr" department```
+
 
 ``` json
 [
@@ -63,6 +72,8 @@ and have to be loaded in full load mode.
 
 </TabItem>
 <TabItem value="hr/locations" label="locations">
+
+```File locations-2018-01-01.psv from "hr" department```
 
 ``` json
 {  "id":"1", "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France"} }
@@ -89,24 +100,28 @@ Instead of writing this file by hand, we may infer his YAML configuration file u
 
 ```sh
 $ cd $HOME/quickstart
+
 $ starlake infer-schema                                 \
     --domain sales                                      \
     --table customers                                   \
     --input sample-data/sales/customers-2018-01-01.psv  \
     --write APPEND                                      \
     --with-header
+
 $ starlake infer-schema                                 \
     --domain sales                                      \
     --table orders                                      \
     --input sample-data/sales/orders-2018-01-01.csv     \
     --write APPEND                                      \
     --with-header
+
 $ starlake infer-schema                                 \
     --domain hr                                         \
     --table locations                                   \
     --input sample-data/hr/locations-2018-01-01.json    \
     --write OVERWRITE                                   \
     --with-header
+
 $ starlake infer-schema                                 \
     --domain hr                                         \
     --table sellers                                     \
@@ -389,6 +404,28 @@ table:
 
 </TabItem>
 </Tabs>
+
+The generated files are located in the `metadata/load` folder.
+
+``` text {4-12}
+metadata
+├── application.sl.yml
+├── env.sl.yml
+├── load
+│   ├── hr
+│   │   ├── _config.sl.yml
+│   │   ├── locations.sl.yml
+│   │   └── sellers.sl.yml
+│   └── sales
+│       ├── _config.sl.yml
+│       ├── customers.sl.yml
+│       └── orders.sl.yml
+└── types
+    ├── default.sl.yml
+    └── types.sl.yml
+```
+
+
 
 ## Environment variables
 The environment file `metadata/env.sl.yml` define your project variables.

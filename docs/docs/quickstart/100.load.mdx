@@ -50,9 +50,9 @@ $ docker run                                                  \
 The sample data files has now been moved to the `quickstart/datasets/pending/sales` directory.
 
 :::note
-
 This step is optional and does not need to be run if your files directly arrive in the `datasets/pending/sales` folder.
-Also note that all these source directories may be [redefined](../reference/configuration).
+
+Also note that the pending directory  (`${SL_ROOT}/datasets/pending` by default) location may be [redefined](../reference/configuration).
 
 :::
 
@@ -135,7 +135,7 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        location: "EU" # EU or US or ..
+        location: "us-central1" # europe-west1 or EU or US or ..
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE

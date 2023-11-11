@@ -32,7 +32,7 @@ For example, we may want to check that the number of records loaded in a table i
 In that case, we normally need to reference our tables by their full names such as: `project-id.domain.my-table`.
 The refs file allows us to make our query more readable by allowing to map the name `my-table` to its full name.
 
-- __metadata/env.[SL_ENV].sl.yml__: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
+- __metadata/env.{{SL_ENV}}.sl.yml__: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
 The SL_ENV env var activates a specific env file making it possible to assign to variables, values based on the active environment.
 
 

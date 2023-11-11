@@ -214,7 +214,7 @@ class Main() extends StrictLogging {
           case _ =>
             Success(())
         }
-      case "watch" | "load" =>
+      case "load" =>
         LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
