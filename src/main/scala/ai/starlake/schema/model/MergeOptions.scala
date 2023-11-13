@@ -21,7 +21,7 @@ import ai.starlake.utils.Formatter._
   *   filter incoming data after all transformations have been done
   */
 case class MergeOptions(
-  key: List[String],
+  key: List[String] = Nil,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None
 ) {

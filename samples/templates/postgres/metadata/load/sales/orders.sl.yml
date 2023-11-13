@@ -15,6 +15,7 @@
       - name: "customer_id"
         type: "customerid"
         required: true
+        foreignKey: customers
       - name: "amount"
         type: "decimal"
         required: true
