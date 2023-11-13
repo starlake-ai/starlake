@@ -1,12 +1,12 @@
 ---
-sidebar_position: 120
-title: watch
+sidebar_position: 130
+title: load
 ---
 
 
 ## Synopsis
 
-**starlake watch [options]**
+**starlake load [options]**
 
 ## Description
 

@@ -443,18 +443,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           if (raw) {
             domain
           } else {
-            val tables = domain.tables.map { table =>
-              table.copy(
-                rls = table.rls.map(rls => {
-                  val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
-                  rls.copy(grants = grants)
-                }),
-                acl = table.acl.map(acl => {
-                  val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
-                  acl.copy(grants = grants)
-                })
-              )
-            }
+            val tables = domain.tables.map { table => table.normalize() }
             val metadata = domain.metadata.getOrElse(Metadata())
             // ideally the emptyNull field should set during object construction but the settings
             // object is not available in the Metadata object

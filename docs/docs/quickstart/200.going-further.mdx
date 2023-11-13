@@ -1,0 +1,334 @@
+# Going Further
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+## Incremental updates
+Sometimes, we want to alter existing data by adding new records or updating existing ones. This is called an incremental update or upsert.
+
+This is useful when we have a large amount of data and we want to avoid reloading the entire data set every time we want to update our data warehouse.
+
+In this section, we will see how to do incremental updates.
+
+
+### Upserts at load time
+We've seen that we may overwrite or append the data in a table when we load it, but what if for some existing records,
+we want to update the data in a table ?
+
+This is done using the `merge` attribute in the table configuration file. In this example, we will use the
+`merge` attribute to upsert records in the `sales.customers`.
+
+The `merge.timestamp` attribute is used to recognize the most recent record concerning a customer identified by the columns listed in `merge.key` . If not specified, new records (the records being loaded) are considered
+to be the most recent ones. In our case, the `signup` date will used as the merge timestamp for the records identified by their column `id`.
+
+
+This is the content of the `metadata/load/customers.sl.yml` file once the `merge` attribute is added (highlighted lines):
+
+```yaml title="metadata/load/sales/customers.sl.yml" {3-5}
+---
+table:
+  merge:
+    timestamp: signup
+    key: [id]
+  pattern: "customers.*.psv" # This property is a regular expression that will be used to match the file name.
+                             # Please replace it by the adequate file pattern eq. customers-.*.psv if required
+  attributes:         # Description of the fields to recognize
+    - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
+      type: "string"    # expected type
+      array: false      # is it an array (false by default, ignored in DSV files) ?
+      required: false   # Is this field required in the source (false by default, change it accordingly) ?
+      privacy: "NONE"   # Should we encrypt this field before loading to the warehouse (No encryption by default )?
+      ignore: false     # Should this field be excluded (false by default) ?
+    - name: "signup"    # second attribute
+      type: "timestamp" # recognized type by analyzing input.
+    - name: "contact"
+      type: "string"
+      # ...
+    - name: "birthdate"
+      type: "date"      # recognized as semantic type date.
+      # ...
+    - name: "firstname"
+      type: "string"
+      # ...
+    - name: "lastname"
+      type: "string"
+      # ...
+    - name: "country"
+      type: "string"
+      # ...               # and so on ...
+  metadata:
+    mode: "FILE"
+    format: "DSV"         # detected format
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: "|"        # detected separator
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+
+```
+
+
+### Upserts in transformations
+
+You may also be willing to upsert the data in a table during a transformation. 
+This works the same way as for the load time upserts, but the `merge` attribute is added to the table in the transformation configuration file file.
+
+Say we did not use the merge strategy at load time and that after appending the data to the `sales.customers` table,
+we want to create a table `silver.customers_last_signup` containing the most recent data for each customer. 
+We can do this using the `merge` attribute in the transformation configuration file.
+
+
+<Tabs groupId="transform">
+
+<TabItem value="sql" label="SQL">
+
+```sql title="metadata/transform/silver/unique_customers.sql"
+
+SELECT * FROM sales.customers
+
+```
+</TabItem>
+
+<TabItem value="unique" label="Configuration">
+
+```yaml title="metadata/transform/silver/unique_customers.sl.yml"
+transform:
+  default:
+    write: OVERWRITE
+  tasks:
+    - name: customers_last_signup
+      write: APPEND
+      merge:
+        timestamp: signup
+        key: [id]
+```
+</TabItem>
+
+</Tabs>
+
+## Access Control
+
+Once loaded in the data warehouse, the data is accessible to all users. You may want to restrict access to some tables or rows to some users or groups of users.
+This is done using the access control attributes. 
+
+
+### Table Level Access Control
+
+To restrict access at the table level, you can use the `acl` attribute in the table configuration file (load or transform).
+
+```yaml 
+    acl:
+      - role: viewer
+        grants:
+          - "user:me@me.com"
+          - "user:you@me.com"
+      - role: owner
+        grants:
+          - "user:me@you.com"
+          - "user:you@you.com"
+```
+
+
+### Row level security
+
+Row level security (RLS) allows you to restrict access to some rows in a table. This is done using the `rls` attribute in the table configuration file (load or transform).
+
+```yaml
+    rls:
+      - name: "USA only"
+        predicate: "country = 'USA'"
+        grants:
+          - "group:mygroup"
+```
+
+## Relationships
+
+
+### Tables relationships
+Using relationships may greatly improve readabilty and  query performance. 
+
+Tables are related to each other using foreign keys. This is done using the `primaryKey` and the `foreignKey` attributes in the table configuration file.
+
+
+
+We add a primary key to the `customers` and `sellers` tables and two foreign keys to the `orders` table as show below.
+
+<Tabs groupId="relationships">
+<TabItem value="sales.customers" label="sales.customers">
+
+```yaml {9-10}
+table:
+    name: "customers"
+    pattern: "customers-.*.psv"
+    metadata:
+      separator: "|"
+      partition:
+        attributes:
+          - signup
+    primaryKey:
+      - id
+    attributes:
+      - name: "id"
+        type: "customerid"
+        required: true
+      - name: "signup"
+        type: "timestamp"
+        required: false
+      - name: "contact"
+        type: "email"
+        required: false
+      - name: "birthdate"
+        type: "date"
+        required: false
+      - name: "name1"
+        type: "string"
+        required: false
+        rename: "firstname"
+      - name: "name2"
+        type: "string"
+        required: false
+        rename: "lastname"
+```
+
+</TabItem>
+<TabItem value="sales.orders" label="sales.orders">
+
+```yaml {18,25}
+  table:
+    name: "orders"
+    pattern: "orders-.*.csv"
+    merge:
+      key:
+        - "id"
+      delete: "customer_id is null"
+    metadata:
+      separator: ","
+    attributes:
+      - name: "order_id"
+        type: "string"
+        required: true
+        rename: "id"
+      - name: "customer_id"
+        type: "customerid"
+        required: true
+        foreignKey: customers   # foreign key to the customers table in the same dataset
+      - name: "amount"
+        type: "decimal"
+        required: true
+      - name: "seller_id"
+        type: "string"
+        required: false
+        foreignKey: hr.sellers  # foreign key to the hr.sellers table in the different dataset
+```
+</TabItem>
+
+<TabItem value="hr.sellers" label="hr.sellers">
+
+```yaml {4,5}
+table:
+  name: "sellers"
+  pattern: "sellers-.*.json"
+  primaryKey:
+    - id
+  metadata:
+    array: true
+    format: "SIMPLE_JSON"
+    write: "APPEND"
+  attributes:
+    - name: "id"
+      type: "string"
+      required: true
+      accessPolicy: PII
+    - name: "seller_email"
+      type: "email"
+      required: true
+    - name: "location_id"
+      type: "long"
+      required: true
+```
+
+</TabItem>
+</Tabs>
+
+To display the relationships between the tables, download the [GraphViz tool](https://graphviz.org/download/) and run the following command:
+
+```bash
+$ starlake table-dependencies --svg --output relationships.svg
+```
+
+The resulting file should look like:
+
+![](/img/quickstart/load.png)
+
+### Tasks relationships / Data lineage
+
+Starlake infer by analyzing the SQL queries the dependencies between the tasks. You can display tasks dependecies in texte mode or in graph mode.
+
+To display the dependencies for the `kpi.customers_kpi` task, run the following command:
+
+```bash
+
+$ starlake task-dependencies --print --tasks kpi.customers_kpi 
+
+kpi.customers_kpi
+  sales.customers
+
+```
+
+This shows that the `kpi.customers_kpi` task depends on the `sales.customers` table/task. It is also possible to display the dependencies in graph mode using the `--viz` option.
+
+```bash
+
+$ starlake task-dependencies --viz  --tasks kpi.customers_kpi  --output lineage.svg
+
+```
+
+![](/img/quickstart/lineage.png)
+
+A much more meaningful graph can be obtained by using a more reaslistic example. The example below comes from the starbake project:
+
+```bash
+$ starlake task-dependencies --print  --tasks Products.TopSellingProducts,Products.MostProfitableProducts
+
+Products.TopSellingProducts
+  Products.ProductPerformance
+    starbake.Orders
+    starbake.Products
+Products.MostProfitableProducts
+  Products.ProductProfitability
+    starbake.Orders
+    starbake.Products
+    starbake.Ingredients
+```
+
+```bash
+$ starlake task-dependencies --viz  --svg --tasks Products.TopSellingProducts,Products.MostProfitableProducts  --output lineage.svg
+
+```
+
+![](/img/quickstart/starkake-tasks-deps.png)
+
+
+## Orchestration
+
+### Data loading
+
+### Data transformation
+
+## Metrics
+
+### Load metrics
+
+### Transformation metrics
+
+## Expectations
+
+## Docusaurus integration
+
+

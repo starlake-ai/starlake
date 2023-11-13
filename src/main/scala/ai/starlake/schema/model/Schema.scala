@@ -105,6 +105,11 @@ case class Schema(
     None
   ) // Should never be called. Here for Jackson deserialization only
 
+  @JsonIgnore
+  def isPrimaryKey(name: String): Boolean = {
+    primaryKey.contains(name) || merge.exists(_.key.contains(name))
+  }
+
   def containsRepeatedOrNestedFields(): Boolean = {
     attributes.exists(_.isNestedOrRepeatedField())
   }
@@ -498,7 +503,7 @@ case class Schema(
 
       val rows =
         attributes.flatMap { attr =>
-          val isPK = primaryKey.contains(attr.getFinalName())
+          val isPK = isPrimaryKey(attr.getFinalName())
           val isFK = attr.foreignKey.isDefined
           dotRow(attr, isPK, isFK, includeAllAttrs)
         } mkString "\n"
@@ -517,6 +522,24 @@ case class Schema(
     } else {
       ""
     }
+  }
+
+  def normalize(): Schema = {
+    this.copy(
+      rls = this.rls.map(rls => {
+        val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+        rls.copy(grants = grants)
+      }),
+      acl = this.acl.map(acl => {
+        val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+        acl.copy(grants = grants)
+      }),
+      merge = this.merge.map(merge =>
+        if (merge.key.isEmpty) merge.copy(key = this.primaryKey) else merge
+      ),
+      primaryKey =
+        if (this.primaryKey == Nil) this.merge.map(_.key).getOrElse(Nil) else this.primaryKey
+    )
   }
 
   /** @param table

@@ -64,7 +64,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         Main.main(
           Array(
             "task-dependencies",
-            "--viz",
+            "--print",
             "--tasks",
             "Products.TopSellingProducts,Products.MostProfitableProducts"
           )

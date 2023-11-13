@@ -12,7 +12,7 @@ case class TableDependenciesConfig(
   reload: Boolean = false,
   svg: Boolean = false,
   png: Boolean = false,
-  all: Boolean = false
+  all: Boolean = true
 )
 
 object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
@@ -71,7 +71,7 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
         }
         .optional()
         .text(
-          "Include all tables in the dot file ? None by default"
+          "Include all tables in the dot file ? All by default"
         )
     )
   }
