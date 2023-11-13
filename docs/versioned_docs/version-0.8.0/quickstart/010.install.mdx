@@ -15,13 +15,8 @@ The script will in turn download required dependencies and copy them to the bin 
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```shell
-$ mkdir $HOME/starlake
-$ cd $HOME/starlake
-$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-$ chmod +x starlake.sh
-$ ./starlake.sh
-$
-
+sh <(curl https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.sh)
+starlake help
 ```
 
 </TabItem>
@@ -29,10 +24,8 @@ $
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\> mkdir %userprofile%\starlake
-c:\> cd %userprofile%\starlake
-c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
-c:\users\me\starlake> starlake
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.ps1").Content
+starlake help
 ```
 
 </TabItem>
