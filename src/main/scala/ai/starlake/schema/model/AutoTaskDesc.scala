@@ -50,7 +50,9 @@ case class AutoTaskDesc(
   schedule: Option[String] = None,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
-  _auditTableName: Option[String] = None
+  _auditTableName: Option[String] = None,
+  startPartition: Option[String] = None,
+  endPartition: Option[String] = None
 ) extends Named {
 
   @JsonIgnore

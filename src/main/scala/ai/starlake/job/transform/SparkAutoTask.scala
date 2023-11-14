@@ -7,6 +7,7 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -15,7 +16,9 @@ import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
-import java.time.{Instant, LocalDateTime}
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.{Instant, LocalDate, LocalDateTime}
 import scala.util.{Failure, Success, Try}
 
 class SparkAutoTask(
@@ -234,6 +237,33 @@ class SparkAutoTask(
                     hasMergeKeyDefined = false
                   )
                 }
+                val partitionsToUpdate: Option[List[String]] = {
+                  taskDesc.startPartition.flatMap(ld =>
+                    Try(
+                      LocalDate.parse(
+                        ld.richFormat(schemaHandler.activeEnvVars(), commandParameters),
+                        DateTimeFormatter.ISO_LOCAL_DATE
+                      )
+                    ).toOption
+                  ) match {
+                    case Some(start) =>
+                      val end = taskDesc.endPartition
+                        .flatMap(ld =>
+                          Try(
+                            LocalDate.parse(
+                              ld.richFormat(schemaHandler.activeEnvVars(), commandParameters),
+                              DateTimeFormatter.ISO_LOCAL_DATE
+                            )
+                          ).toOption
+                        )
+                        .getOrElse(LocalDate.now())
+                      val partitions: List[String] =
+                        (for (i <- Range.inclusive(0, ChronoUnit.DAYS.between(start, end).toInt))
+                          yield start.plusDays(i).format(DateTimeFormatter.ISO_LOCAL_DATE)).toList
+                      Some(partitions)
+                    case _ => None
+                  }
+                }
                 val bqLoadConfig =
                   BigQueryLoadConfig(
                     connectionRef = Some(connectionRef),
@@ -258,7 +288,8 @@ class SparkAutoTask(
                     // outputTableDesc = action.taskDesc.comment.getOrElse(""),
                     sqlSource = None,
                     attributesDesc = this.taskDesc.attributesDesc,
-                    outputDatabase = this.taskDesc.database
+                    outputDatabase = this.taskDesc.database,
+                    partitionsToUpdate = partitionsToUpdate.getOrElse(Nil)
                   )
                 val result =
                   new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment).run()
