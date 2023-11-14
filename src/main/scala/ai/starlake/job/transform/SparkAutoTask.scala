@@ -259,7 +259,9 @@ class SparkAutoTask(
                         .getOrElse(LocalDate.now())
                       val partitions: List[String] =
                         (for (i <- Range.inclusive(0, ChronoUnit.DAYS.between(start, end).toInt))
-                          yield start.plusDays(i).format(DateTimeFormatter.ISO_LOCAL_DATE)).toList
+                          yield start
+                            .plusDays(i)
+                            .format(DateTimeFormatter.ofPattern("yyyyMMdd"))).toList
                       Some(partitions)
                     case _ => None
                   }
