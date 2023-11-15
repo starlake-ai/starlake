@@ -91,7 +91,7 @@ const config = {
                     items: [
                         {
                             label: 'GitHub',
-                            href: 'https://github.com/starlake-ai/starlake',
+                            href: 'https://github.com/starlake-ai/starlake/',
                         },
                         {
                             label: 'Slack',

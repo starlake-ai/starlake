@@ -9,6 +9,7 @@ import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
+import ai.starlake.job.site.SiteConfig
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.ValidateConfig
@@ -19,27 +20,27 @@ class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
       val configMap = Map[String, CliConfig[_]](
+        "validate"           -> ValidateConfig,
         "import"             -> ImportConfig,
-        "esload"             -> ESLoadConfig,
+        "extract-schema"     -> ExtractSchemaConfig,
+        "extract-data"       -> ExtractDataConfig,
         "infer-schema"       -> InferSchemaConfig,
+        "load"               -> LoadConfig,
+        "transform"          -> TransformConfig,
+        "table-dependencies" -> TableDependenciesConfig,
+        "acl-dependencies"   -> AclDependenciesConfig,
+        "task-dependencies"  -> AutoTaskDependenciesConfig,
+        "site"               -> SiteConfig,
+        "esload"             -> ESLoadConfig,
         "ingest"             -> IngestConfig,
         "metrics"            -> MetricsConfig,
         "parquet2csv"        -> Parquet2CSVConfig,
         "cnxload"            -> JdbcConnectionLoadConfig,
-        "xls2yml"            -> Xls2YmlConfig,
-        "extract-schema"     -> ExtractSchemaConfig,
-        "extract-data"       -> ExtractDataConfig,
-        "transform"          -> TransformConfig,
-        "load"               -> LoadConfig,
-        "kafkaload"          -> KafkaJobConfig,
         "yml2xls"            -> Yml2XlsConfig,
-        "table-dependencies" -> TableDependenciesConfig,
-        "acl-dependencies"   -> AclDependenciesConfig,
-        "task-dependencies"  -> AutoTaskDependenciesConfig,
-        "validate"           -> ValidateConfig,
+        "xls2yml"            -> Xls2YmlConfig,
+        "kafkaload"          -> KafkaJobConfig,
         "infer-ddl"          -> Yml2DDLConfig,
         "bq-info"            -> BigQueryTablesConfig,
-        "bq-freshness"       -> BigQueryTablesConfig,
         "serve"              -> MainServerConfig // ,
         // "yml2dag"        -> Yml2DagConfigForMain
       )

@@ -1,12 +1,12 @@
 ---
-sidebar_position: 30
-title: bq2yml or bq-info
+sidebar_position: 20
+title: bq-info / bq-freshness
 ---
 
 
 ## Synopsis
 
-**starlake bq2yml or bq-info [options]**
+**starlake bq-info / bq-freshness [options]**
 
 ## Description
 
