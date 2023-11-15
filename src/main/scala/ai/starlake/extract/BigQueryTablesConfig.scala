@@ -12,7 +12,7 @@ case class BigQueryTablesConfig(
 )
 
 object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
-  val command = "bq2yml or bq-info"
+  val command = "bq-info / bq-freshness"
 
   private def buildTablesMap(tables: Seq[String]): Map[String, List[String]] = {
     tables
