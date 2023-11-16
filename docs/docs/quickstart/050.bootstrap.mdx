@@ -28,7 +28,14 @@ c:\> starlake bootstrap
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-TODO
+
+```
+$ mkdir $HOME/quickstart
+$ cd $HOME/quickstart
+$ docker run  -v `pwd`:/app/quickstart -e SL_ROOT=/app/quickstart -it starlake bootstrap
+```
+
+
 </TabItem>
 
 </Tabs>
@@ -56,7 +63,14 @@ c:\> starlake bootstrap
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-TODO
+You are always required to set the SL_ROOT env var when using Docker
+
+```
+$ mkdir $HOME/quickstart
+$ cd $HOME/quickstart
+$ docker run  -v `pwd`:/app/quickstart -e SL_ROOT=/app/quickstart -it starlake bootstrap
+```
+
 </TabItem>
 </Tabs>
 

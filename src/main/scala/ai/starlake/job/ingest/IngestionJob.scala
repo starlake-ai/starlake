@@ -261,10 +261,14 @@ trait IngestionJob extends SparkJob {
         runBQNative().map(_.jobResult)
       case Engine.SPARK =>
         runSpark()
+      case Engine.JDBC =>
+        runJDBC()
       case _ =>
         throw new Exception("should never happen")
     }
   }
+
+  def runJDBC(): Try[JdbcJobResult] = ???
 
   ///////////////////////////////////////////////////////////////////////////
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////

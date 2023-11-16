@@ -114,7 +114,7 @@ object FlatRowValidator extends GenericRowValidator {
 
     val rejectedInputLinesRDD = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
 
-    implicit val enc = RowEncoder.apply(sparkType)
+    implicit val enc = RowEncoder.encoderFor(sparkType)
     val acceptedRDD: RDD[Row] = checkedRDD
       .filter(_.isAccepted)
       .map { rowResult =>

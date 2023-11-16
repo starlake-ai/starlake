@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.analysis.TypeCoercion.numericPrecedence
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
@@ -37,6 +36,8 @@ import com.fasterxml.jackson.core.JsonParser.Feature
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
 object JsonIngestionUtil {
+  val numericPrecedence: IndexedSeq[NumericType] =
+    IndexedSeq(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
 
   private val structFieldComparator = new Comparator[StructField] {
 
