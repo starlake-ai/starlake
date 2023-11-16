@@ -2,7 +2,6 @@ package ai.starlake
 
 import java.sql.{DriverManager, ResultSet, SQLException, Timestamp}
 import java.time.Instant
-
 import ai.starlake.ResultSetScala.toResultSetExtra
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest._

@@ -13,6 +13,7 @@ import org.apache.spark.sql.DataFrame
 
 import java.sql.Timestamp
 import java.time.Instant
+import java.util.regex.Pattern
 import scala.util.{Failure, Success, Try}
 
 case class ExpectationReport(
@@ -73,6 +74,29 @@ case class ExpectationReport(
     )
     selectStatement
   }
+}
+
+object ExpectationReport {
+  val starlakeSchema = Schema(
+    name = "expectations",
+    pattern = Pattern.compile("ignore"),
+    attributes = List(
+      Attribute("jobid", "string"),
+      Attribute("database", "string"),
+      Attribute("domain", "string"),
+      Attribute("schema", "string"),
+      Attribute("timestamp", "timestamp"),
+      Attribute("name", "string"),
+      Attribute("params", "string"),
+      Attribute("sql", "string"),
+      Attribute("count", "long"),
+      Attribute("exception", "string"),
+      Attribute("success", "boolean")
+    ),
+    None,
+    None,
+    None
+  )
 }
 
 /** Record expectation execution
