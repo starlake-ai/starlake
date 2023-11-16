@@ -339,7 +339,8 @@ class BigQueryNativeJob(
   }
 
   def RunAndSinkAsTable(
-    thisSql: scala.Option[String] = None
+    thisSql: scala.Option[String] = None,
+    targetTableSchema: scala.Option[BQSchema] = None
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(None).flatMap { targetDataset =>
       Try {
@@ -414,7 +415,6 @@ class BigQueryNativeJob(
         logger.info(
           s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
         )
-
         val table = bigquery().getTable(tableId)
         setTagsOnTable(table)
 
@@ -423,7 +423,13 @@ class BigQueryNativeJob(
           throw new Exception(e)
         }
         updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
-        updateColumnsDescription(getFieldsDescriptionSource(sql))
+        targetTableSchema
+          .map(updateColumnsDescription)
+          .getOrElse(
+            updateColumnsDescription(
+              BigQueryJobBase.dictToBQSchema(getFieldsDescriptionSource(sql))
+            )
+          )
         BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobInfo))
       }
     }
