@@ -1,8 +1,8 @@
 package org.apache.spark.sql.catalyst.parser
 
-import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
-
 object ParserSQL {
+  /*
+  import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
   case class Deps(tables: List[String], aliases: Map[String, List[String]]) {
     def addTable(name: String): Deps = copy(tables = name :: tables)
 
@@ -31,7 +31,7 @@ object ParserSQL {
 
     val depsBuilder = new SqlBaseParserBaseVisitor[Deps] {
       override def visitTableName(ctx: SqlBaseParser.TableNameContext): Deps =
-        super.visitTableName(ctx).addTable(ctx.multipartIdentifier.getText)
+        super.visitTableName(ctx).addTable(ctx.identifierReference().getText())
 
       override def visitNamedQuery(ctx: SqlBaseParser.NamedQueryContext): Deps =
         super.visitNamedQuery(ctx).toAlias(ctx.name.getText)
@@ -62,4 +62,5 @@ object ParserSQL {
     val tables = if (sqlWithoutSpecificBQ.nonEmpty) parse(sqlWithoutSpecificBQ) else Nil
     tables.map(_.replaceAll("`", "")) // bigquery project.dataset.table no legacy sql
   }
+   */
 }

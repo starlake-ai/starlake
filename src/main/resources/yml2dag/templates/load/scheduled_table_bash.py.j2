@@ -53,13 +53,15 @@ schedules= [{% for schedule in context.schedules %}
 class MissingEnvironmentVariable(Exception):
     pass
 
-def get_context_var(var_name):
+def get_context_var(var_name, default_value=None):
     if hasattr(options, var_name):
         return getattr(options, var_name)
-    elif Variable.get(var_name) is not None:
+    elif Variable.get(var_name, default_var=None) is not None:
         return Variable.get(var_name)
     elif os.getenv(var_name) is not None:
         return os.getenv(var_name)
+    elif default_value is not None:
+        return default_value
     else:
         raise MissingEnvironmentVariable(f"{var_name} does not exist")
 
