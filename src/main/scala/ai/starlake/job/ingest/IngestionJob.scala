@@ -559,6 +559,7 @@ trait IngestionJob extends SparkJob {
     bigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableId: TableId,
+    targetTableSchema: BQSchema,
     starlakeSchema: Schema
   ): Try[(BigQueryJobResult, Long)] = {
     val tempTable =
@@ -604,7 +605,7 @@ trait IngestionJob extends SparkJob {
         case Some(sql) =>
           logger.info(s"buildSqlSelect: $sql")
           if (asTable)
-            bigqueryJob.RunAndSinkAsTable(sqlOpt).map(_ -> nullCountValues)
+            bigqueryJob.RunAndSinkAsTable(sqlOpt, Some(targetTableSchema)).map(_ -> nullCountValues)
           else
             bigqueryJob.runInteractiveQuery(sqlOpt).map(_ -> nullCountValues)
         case None =>
@@ -783,7 +784,13 @@ trait IngestionJob extends SparkJob {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, targetTableSchema)
-        applySecondStepSQL(targetBigqueryJob, firstStepTempTableId, targetTableId, starlakeSchema)
+        applySecondStepSQL(
+          targetBigqueryJob,
+          firstStepTempTableId,
+          targetTableId,
+          targetTableSchema,
+          starlakeSchema
+        )
       }
       .getOrElse(throw new Exception("Should never happen"))
   }
