@@ -1163,7 +1163,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // default database
 
   def getObjectNames(): List[DomainWithNameOnly] = {
-
     val domains = this.domains() ++ this.loadExternals()
     val tableNames =
       domains.map { domain =>

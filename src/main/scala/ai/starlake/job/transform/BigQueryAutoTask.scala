@@ -165,8 +165,16 @@ class BigQueryAutoTask(
           }
         }
         Try {
-          val config = BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
-          ExtractBigQuerySchema.extractAndSaveTables(config)
+          val isTableInAuditDomain =
+            taskDesc.domain == settings.appConfig.audit.domain.getOrElse("audit")
+          if (isTableInAuditDomain) {
+            logger.info(
+              s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"
+            )
+          } else {
+            val config = BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
+            ExtractBigQuerySchema.extractAndSaveTables(config)
+          }
         } match {
           case Success(_) =>
             logger.info(
@@ -174,7 +182,7 @@ class BigQueryAutoTask(
             )
           case Failure(e) =>
             logger.warn(s"Failed to write domain ${taskDesc.domain} to ${DatasetArea.external}")
-            throw e
+            logger.warn(Utils.exceptionAsString(e))
         }
         jobResult
       case _ =>
