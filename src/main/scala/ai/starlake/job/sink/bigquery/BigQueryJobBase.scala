@@ -820,29 +820,53 @@ trait BigQueryJobBase extends StrictLogging {
 
   /** Update columns description from source tables in sql or from yaml job with attributes
     * information
+    *
     * @param dictField
     *   Map of columns and their descriptions
     * @return
     *   Table with columns description updated
     */
   def updateColumnsDescription(
-    dictField: Map[String, String]
+    schema: BQSchema
   )(implicit settings: Settings): Table = {
     recoverBigqueryException {
       val tableTarget = bigquery().getTable(tableId)
       val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-      val (fieldList, descriptionChanged) = tableSchema.getFields
-        .iterator()
-        .asScala
-        .toList
-        .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
-          val targetDescription = dictField.getOrElse(field.getName, field.getDescription)
-          val fieldDescriptionHasChange =
-            scala.Option(targetDescription) != scala.Option(field.getDescription)
-          (fields :+ field.toBuilder
-            .setDescription(targetDescription)
-            .build()) -> (changed || fieldDescriptionHasChange)
-        }
+      def buildSchema(
+        originalFields: FieldList,
+        incomingSchema: FieldList
+      ): (List[Field], Boolean) = {
+        originalFields
+          .iterator()
+          .asScala
+          .toList
+          .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
+            val targetDescription = Try(incomingSchema.get(field.getName).getDescription)
+              .getOrElse(field.getDescription)
+            val fieldDescriptionHasChange =
+              scala.Option(targetDescription) != scala.Option(field.getDescription)
+
+            val subFieldsUpdatedDescription: scala.Option[(List[Field], Boolean)] = Try(
+              scala.Option(incomingSchema.get(field.getName).getSubFields)
+            ).getOrElse(None) match {
+              case Some(subFields) =>
+                scala.Option(field.getSubFields).map(buildSchema(_, subFields))
+              case None => None
+            }
+            val fieldBuilder = field.toBuilder
+              .setDescription(targetDescription)
+            subFieldsUpdatedDescription.foreach { case (subFields, _) =>
+              fieldBuilder.setType(field.getType, FieldList.of(subFields.asJava))
+            }
+            (fields :+ fieldBuilder
+              .build()) -> (changed || subFieldsUpdatedDescription
+              .map { case (_, subfieldHasChanged) =>
+                subfieldHasChanged || fieldDescriptionHasChange
+              }
+              .getOrElse(fieldDescriptionHasChange))
+          }
+      }
+      val (fieldList, descriptionChanged) = buildSchema(tableSchema.getFields, schema.getFields)
       if (descriptionChanged) {
         logger.info(s"$bqTable's column description has changed")
         bigquery.update(
@@ -1023,6 +1047,21 @@ trait BigQueryJobBase extends StrictLogging {
 }
 
 object BigQueryJobBase {
+
+  def dictToBQSchema(dictField: Map[String, String]): BQSchema = {
+    // we don't know the type of field so we put string by default
+    BQSchema.of(
+      dictField
+        .map { case (fieldName, description) =>
+          Field
+            .newBuilder(fieldName, StandardSQLTypeName.STRING)
+            .setDescription(description)
+            .build()
+        }
+        .toList
+        .asJava
+    )
+  }
 
   private def getBqDatasetId(tableId: TableId): DatasetId = {
     val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
