@@ -22,6 +22,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
+import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -1163,7 +1165,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // default database
 
   def getObjectNames(): List[DomainWithNameOnly] = {
-    val domains = this.domains() ++ this.loadExternals()
+    val domains = this.domains() ++ this.loadExternals() ++ List(this.auditTables)
     val tableNames =
       domains.map { domain =>
         DomainWithNameOnly(
@@ -1188,4 +1190,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val result = all.sortBy(_.name)
     result
   }
+
+  val auditTables: Domain =
+    Domain(
+      settings.appConfig.audit.domain.getOrElse("audit"),
+      tables = List(
+        AuditLog.starlakeSchema,
+        ExpectationReport.starlakeSchema,
+        RejectedRecord.starlakeSchema
+      )
+    )
 }

@@ -150,3 +150,4 @@ samples/templates/bigquery/datasets
 samples/templates/postgres/datasets
 samples/templates/spark/metadata/dags/generated
 samples/any-source-any-sink/datasets
+distrib/deps

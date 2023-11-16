@@ -31,6 +31,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
+import java.util.regex.Pattern
 import scala.util.{Success, Try}
 
 sealed case class Step(value: String) {
@@ -150,6 +151,25 @@ object AuditLog extends StrictLogging {
     ("step", StandardSQLTypeName.STRING, StringType),
     ("database", StandardSQLTypeName.STRING, StringType),
     ("tenant", StandardSQLTypeName.STRING, StringType)
+  )
+
+  val starlakeSchema = Schema(
+    name = "audit",
+    pattern = Pattern.compile("ignore"),
+    attributes = auditCols.map { case (name, _, dataType) =>
+      val tpe = dataType match {
+        case StringType  => "string"
+        case BooleanType => "boolean"
+        case LongType    => "long"
+        case TimestampType =>
+          "timestamp"
+        case _ => throw new RuntimeException(s"Unsupported type $dataType")
+      }
+      Attribute(name, tpe)
+    },
+    None,
+    None,
+    None
   )
 
   def sink(sessionOpt: Option[SparkSession], log: AuditLog)(implicit
