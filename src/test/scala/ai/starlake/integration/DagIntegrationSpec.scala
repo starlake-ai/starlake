@@ -5,13 +5,13 @@ import ai.starlake.job.Main
 class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
   "All Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate", "--clean")
@@ -21,13 +21,13 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Domain Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -37,13 +37,13 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Domain / Table Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain_table"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -53,13 +53,13 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Schedule Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -69,13 +69,13 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Schedule / Domain Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -84,13 +84,13 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
   }
   "Schedule / Domain / Table Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> quickstartDir.pathAsString,
+      "SL_ROOT"                     -> localDir.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain_table"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(quickstartDir)
+      incomingDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")

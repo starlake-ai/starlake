@@ -173,20 +173,20 @@ class BigQuerySparkJob(
 
       val partitionOverwriteMode =
         if (bqTable.endsWith("SL_BQ_TEST_DS.SL_BQ_TEST_TABLE_DYNAMIC"))
-          "dynamic" // Force during testing
+          "DYNAMIC" // Force during testing
         else
           cliConfig.dynamicPartitionOverwrite
             .map {
-              case true  => "dynamic"
-              case false => "static"
+              case true  => "DYNAMIC"
+              case false => "STATIC"
             }
             .getOrElse(
-              session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+              session.conf.get("spark.sql.sources.partitionOverwriteMode", "STATIC").toUpperCase()
             )
 
       val output: Try[Long] =
         (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
-          case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          case ("WRITE_TRUNCATE", Some(partitionField), "DYNAMIC") =>
             // Partitioned table
             logger.info(s"overwriting partition $partitionField in The BQ Table $bqTable")
             // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
@@ -214,6 +214,7 @@ class BigQuerySparkJob(
                 updatedPartitions -> (nullCount + row.getLong(1))
               }
             if (nullCountValues > 0 && settings.appConfig.rejectAllOnError) {
+              logger.error("Null value found in partition")
               Failure(new NullValueFoundException(nullCountValues))
             } else {
               cliConfig.partitionsToUpdate match {
@@ -283,7 +284,7 @@ class BigQuerySparkJob(
             }
           case (writeDisposition, _, partitionOverwriteMode) =>
             assert(
-              partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
+              partitionOverwriteMode == "STATIC" || partitionOverwriteMode == "DYNAMIC",
               s"""Only dynamic or static are values values for property
                    |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
             )
@@ -328,7 +329,6 @@ class BigQuerySparkJob(
         throw e
       }
       (cliConfig.sqlSource, maybeSchema) match {
-        case (Some(sql), None) => getFieldsDescriptionSource(sql) // case of a Transformation (Job)
         // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
         case (None, Some(bqSchema)) => // case of Load (Ingestion)
           val fieldsDescription = BigQuerySchemaConverters
@@ -336,12 +336,12 @@ class BigQuerySparkJob(
             .fields
             .map(f => f.name -> f.getComment().getOrElse(""))
             .toMap[String, String]
-          updateColumnsDescription(fieldsDescription)
+          updateColumnsDescription(BigQueryJobBase.dictToBQSchema(fieldsDescription))
         case (Some(_), Some(_)) =>
           throw new Exception(
             "Should never happen, SqlSource or TableSchema should be set exclusively"
           )
-        case (None, None) =>
+        case (_, None) => // case of a transformation job
         // Do nothing
       }
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc

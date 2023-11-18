@@ -1,5 +1,6 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings.Connection
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
@@ -48,7 +49,8 @@ case class AutoTaskDesc(
   merge: Option[MergeOptions] = None,
   schedule: Option[String] = None,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
-  parseSQL: Option[Boolean] = None
+  parseSQL: Option[Boolean] = None,
+  _auditTableName: Option[String] = None
 ) extends Named {
 
   @JsonIgnore
@@ -111,7 +113,20 @@ case class AutoTaskDesc(
     */
   @JsonIgnore
   def getTargetPath()(implicit settings: Settings): Path = {
-    new Path(DatasetArea.business(domain), table)
+    val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
+    if (domain == auditDomain) {
+      table match {
+        case "continuous" | "discrete" | "frequencies" =>
+          DatasetArea.metrics(domain, table)
+        case "audit" =>
+          DatasetArea.audit(domain, table)
+        case "rejected" =>
+          new Path(DatasetArea.rejected(domain), table)
+        case _ =>
+          throw new Exception(s"$table: Audit table name not supported")
+      }
+    } else
+      new Path(DatasetArea.business(domain), table)
   }
 
   @JsonIgnore
@@ -125,13 +140,24 @@ case class AutoTaskDesc(
   }
 
   def getEngine()(implicit settings: Settings): Engine = {
+    getConnection().getEngine()
+  }
+
+  def getConnection()(implicit settings: Settings): Connection = {
     val connectionRef =
       sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig
       .connection(connectionRef)
       .getOrElse(throw new Exception("Connection not found"))
-    connection.getEngine()
+    connection
   }
+
+  def getConnectionType()(implicit settings: Settings): ConnectionType = {
+    getConnection().getType()
+  }
+
+  def getSinkConfig()(implicit settings: Settings): Option[Sink] =
+    this.sink.map(_.getSink()).orElse(Some(AllSinks().getSink()))
 }
 
 object AutoTaskDesc {

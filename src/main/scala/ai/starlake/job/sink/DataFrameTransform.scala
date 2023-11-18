@@ -1,10 +1,10 @@
 package ai.starlake.job.sink
 
 import ai.starlake.config.Settings
-import com.typesafe.config.ConfigFactory
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import org.apache.spark.sql.functions.{array, col, lit, struct}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import scala.collection.JavaConverters._
 
 trait DataFrameTransform {
@@ -17,7 +17,7 @@ object IdentityDataFrameTransformer extends DataFrameTransform {
 
 object HeaderDataFrameTransformer extends DataFrameTransform {
   private val avroSerializer = new KafkaAvroSerializer()
-  val settings = Settings(ConfigFactory.load())
+  val settings = Settings(Settings.referenceConfig)
   avroSerializer.configure(settings.appConfig.kafka.serverOptions.asJava, false)
   override def transform(dataFrame: DataFrame, session: SparkSession): DataFrame = {
     import session.implicits._

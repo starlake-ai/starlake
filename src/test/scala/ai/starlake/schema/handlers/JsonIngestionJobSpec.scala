@@ -162,7 +162,6 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
                      |audit {
                      |  active = true
                      |  sink {
-                     |    type = "JdbcSink"
                      |    connectionRef = "test-h2"
                      |  }
                      |}
@@ -187,7 +186,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.appConfig.getDefaultDatabase(),
+      settings.appConfig.getDefaultDatabase().orElse(Some("")),
       settings.appConfig.tenant
     ) :: Nil
 
@@ -221,7 +220,6 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
                      |
                      |audit {
                      |  sink {
-                     |    type = "JdbcSink"
                      |    connectionRef = "test-h2"
                      |  }
                      |}
@@ -246,7 +244,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.appConfig.getDefaultDatabase(),
+      settings.appConfig.getDefaultDatabase().orElse(Some("")),
       settings.appConfig.tenant
     ) :: Nil
 

@@ -1,8 +1,8 @@
 package ai.starlake.serve
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{PrivacyLevels, Settings}
+import ai.starlake.utils.Utils
 import better.files.File
-import com.typesafe.config.ConfigFactory
 
 class SettingsWatcherThread(
   settingsMap: scala.collection.mutable.Map[String, Settings],
@@ -35,6 +35,19 @@ object SettingsManager {
   private val watcherThread = new SettingsWatcherThread(settingsMap, settingsTimeMap)
   watcherThread.start()
 
+  def reset(): Boolean = {
+    lastSettingsId = ""
+    settingsTimeMap.synchronized {
+      settingsTimeMap.clear()
+    }
+    settingsMap.synchronized {
+      settingsMap.clear()
+    }
+    true
+  }
+
+  var lastSettingsId: String = ""
+
   private def uniqueId(
     root: String,
     metadata: Option[String],
@@ -48,8 +61,10 @@ object SettingsManager {
     metadata: Option[String],
     env: Option[String],
     gcpProject: Option[String]
-  ): Settings = {
+  ): (Settings, Boolean) = {
     val sessionId = uniqueId(root, metadata, env)
+    Utils.resetJinjaClassLoader()
+    PrivacyLevels.resetAllPrivacy()
 
     val sysProps = System.getProperties()
     val outFile = File(root, "out")
@@ -58,7 +73,7 @@ object SettingsManager {
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("database", gcpProject)
     }
-    val currentSettings = settingsMap.getOrElse(
+    val updatedSession = settingsMap.getOrElse(
       sessionId, {
         settingsMap.synchronized {
           sysProps.setProperty("root-serve", outFile.pathAsString)
@@ -71,14 +86,16 @@ object SettingsManager {
             case _ =>
               sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
           }
-          ConfigFactory.invalidateCaches()
-          val settings = Settings(ConfigFactory.load())
+          Settings.invalidateCaches()
+          val settings = Settings(Settings.referenceConfig)
           settingsMap.put(sessionId, settings)
           settings
         }
       }
     )
     settingsTimeMap.put(sessionId, System.currentTimeMillis())
-    currentSettings
+    val isNew = sessionId != lastSettingsId
+    lastSettingsId = sessionId
+    (updatedSession, isNew)
   }
 }

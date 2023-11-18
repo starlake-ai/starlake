@@ -51,6 +51,13 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
+  private var _referenceConfig: Config = ConfigFactory.load()
+  def referenceConfig: Config = _referenceConfig
+  private val referenceClassLoader = Thread.currentThread().getContextClassLoader
+  def invalidateCaches() = {
+    ConfigFactory.invalidateCaches()
+    _referenceConfig = ConfigFactory.load(referenceClassLoader)
+  }
 
   /** datasets in the data pipeline go through several stages and are stored on disk at each of
     * these stages. This setting allow to customize the folder names of each of these stages.
@@ -115,14 +122,19 @@ object Settings extends StrictLogging {
     maxErrors: Int,
     database: Option[String],
     domain: Option[String],
-    active: Option[Boolean]
+    active: Option[Boolean],
+    sql: Option[String]
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
     def getConnectionRef()(implicit settings: Settings): String =
       this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-    def getSink()(implicit settings: Settings) = this.sink.getSink()
+    def getConnection()(implicit settings: Settings): Connection =
+      settings.appConfig.connections(this.getConnectionRef())
+
+    def getSink()(implicit settings: Settings) =
+      this.sink.getSink()
 
     def getDatabase()(implicit settings: Settings): Option[String] =
       this.database.orElse(settings.appConfig.getDefaultDatabase())
@@ -141,9 +153,11 @@ object Settings extends StrictLogging {
   final case class Connection(
     `type`: Option[String],
     sparkFormat: Option[String] = None,
+    quote: Option[String] = None,
+    separator: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
-    def this() = this(Some(ConnectionType.JDBC.value), None, Map.empty)
+    def this() = this(Some(ConnectionType.JDBC.value), None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
@@ -174,9 +188,15 @@ object Settings extends StrictLogging {
             )
           }
         case ConnectionType.BQ =>
+          if (!options.contains("location")) {
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "Connection",
+              s"Connection type $tpe requires a location"
+            )
+          }
           if (this.sparkFormat.isDefined) {
-            val isIndirectWriteMethod =
-              options.get("writeMethod").getOrElse("indirect").equals("indirect")
+            val isIndirectWriteMethod = options.getOrElse("writeMethod", "indirect") == "indirect"
             if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
@@ -206,7 +226,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Warning,
                   "Connection",
-                  s"requires an authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
+                  s"authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
                 )
               }
             case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
@@ -225,7 +245,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken"
+                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken options"
                 )
               }
             case "ACCESS_TOKEN" =>
@@ -234,7 +254,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a gcpAccessToken"
+                  s"Connection type $tpe requires a gcpAccessToken option"
                 )
               }
             case _ =>
@@ -248,29 +268,6 @@ object Settings extends StrictLogging {
       }
       errors
     }
-    def getSparkFormat(): String = {
-      this.getType() match {
-        case ConnectionType.JDBC =>
-          sparkFormat
-            .orElse {
-              val engineName = getJdbcEngineName()
-              engineName.map { name =>
-                name.toLowerCase() match {
-                  case "snowflake" => "jdbc"
-                  case "redshift"  => name
-                  case _           => "jdbc"
-                }
-              }
-            }
-            .getOrElse("jdbc")
-        case ConnectionType.ES    => sparkFormat.getOrElse("elasticsearch")
-        case ConnectionType.BQ    => sparkFormat.getOrElse("bigquery")
-        case ConnectionType.KAFKA => sparkFormat.getOrElse("kafka")
-        case ConnectionType.FS    => sparkFormat.getOrElse("parquet")
-        case _                    => sparkFormat.getOrElse("")
-
-      }
-    }
 
     /** The engine is Spark when sparkFormat is defined or when the connection type is not bigquery
       * @return
@@ -281,8 +278,9 @@ object Settings extends StrictLogging {
       else {
         val tpe = getType()
         tpe match {
-          case ConnectionType.BQ => Engine.BQ
-          case _                 => Engine.SPARK
+          case ConnectionType.BQ   => Engine.BQ
+          case ConnectionType.JDBC => Engine.JDBC
+          case _                   => Engine.SPARK
         }
       }
     }
@@ -300,17 +298,26 @@ object Settings extends StrictLogging {
     }
 
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(!Connection.allstorageOptions.contains(_))
 
     def authOptions(): Map[String, String] =
-      options.filterKeys(Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(Connection.allstorageOptions.contains(_))
 
-    def getJdbcEngineName(): Option[String] = {
-      val url = options.get("url")
-      url.flatMap { url => if (url.startsWith("jdbc:")) Some(url.split(':')(1)) else None }
+    def getJdbcEngineName(): Engine = {
+      val engineName = sparkFormat match {
+        case None | Some("jdbc") =>
+          this.`type`.getOrElse(throw new Exception("Should never happen")) match {
+            case "jdbc"            => options("url").split(':')(1)
+            case "bigquery" | "bq" => "bigquery"
+            case _                 => "spark"
+          }
+        case Some(_) => "spark"
+      }
+      Engine.fromString(engineName)
     }
 
-    def isSnowflake: Boolean = getJdbcEngineName().contains("snowflake")
+    def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+    def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
   }
 
   object Connection {
@@ -357,7 +364,11 @@ object Settings extends StrictLogging {
       *   pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL
       *   does
       */
-    final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
+    final case class TableDdl(
+      createSql: String,
+      pingSql: Option[String],
+      selectSql: Option[String] = None
+    ) {
 
       def effectivePingSql(tableName: String): String =
         pingSql.getOrElse(s"select count(*) from $tableName where 1=0")
@@ -523,7 +534,10 @@ object Settings extends StrictLogging {
     dagRef: Option[DagRef],
     maxParTask: Int,
     forceHalt: Boolean,
-    jobIdEnvName: Option[String]
+    jobIdEnvName: Option[String],
+    archiveTablePattern: String,
+    archiveTable: Boolean,
+    version: String
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
@@ -822,14 +836,15 @@ object Settings extends StrictLogging {
     withDefaultSchdules
   }
 
+  val defaultCronPresets = Map(
+    "hourly"  -> "0 * * * *",
+    "daily"   -> "0 0 * * *",
+    "weekly"  -> "0 0 * * 1",
+    "monthly" -> "0 0 1 * *",
+    "yearly"  -> "0 0 1 1 *"
+  )
+
   def addDefaultSchedules(settings: Settings): Settings = {
-    val defaultCronPresets = Map(
-      "hourly"  -> "0 * * * *",
-      "daily"   -> "0 0 * * *",
-      "weekly"  -> "0 0 * * 1",
-      "monthly" -> "0 0 1 * *",
-      "yearly"  -> "0 0 1 1 *"
-    )
     val schedules = settings.appConfig.schedulePresets ++ defaultCronPresets
     settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
@@ -1007,6 +1022,9 @@ object PrivacyLevels {
   }
 
   private var allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+
+  def resetAllPrivacy(): Unit =
+    allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
 
   @transient
   def allPrivacyLevels(

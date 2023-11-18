@@ -22,6 +22,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
+import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -39,9 +41,12 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.annotation.nowarn
-import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
+
+case class TableWithNameOnly(name: String, attrs: List[String])
+
+case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
@@ -80,7 +85,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       domainStructureValidity ++ loadedDomainsValidity
     val domainsVarsValidity = checkDomainsVars()
     val jobsVarsValidity = checkJobsVars() // job vars may be defined at runtime.
-    val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
+    val allErrors = typesValidity ++ domainsValidity
 
     val errs = allErrors.flatMap {
       case Left(values) => values
@@ -180,36 +185,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (errorCount, warningCount)
   }
 
-  def checkViewsValidity(): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
-    val viewsPath = DatasetArea.views
-    val sqlFiles =
-      storage.list(viewsPath, extension = ".sql", recursive = true) ++
-      storage.list(viewsPath, extension = ".sql.j2", recursive = true)
-
-    val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
-    // Check Domain name validity
-    sqlFiles.foreach { sqlFile =>
-      val name = viewName(sqlFile)
-      if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
-        errorList += ValidationMessage(
-          Error,
-          "View",
-          s"View with name $name should respect the pattern ${forceViewPrefixRegex.regex}"
-        )
-      }
-    }
-
-    duplicates.foreach { duplicate =>
-      errorList += ValidationMessage(Error, "View", s"Found duplicate views => $duplicate")
-    }
-
-    if (errorList.nonEmpty)
-      Left(errorList.toList)
-    else
-      Right(true)
-
-  }
   def loadTypes(filename: String): List[Type] = {
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")
@@ -268,7 +243,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   @throws[Exception]
-  def externalSources(): List[ExternalDatabase] = loadExternalSources("default.sl.yml")
+  def externalSources(): List[ExternalDatabase] = loadExternalSources("_config.sl.yml")
 
   @throws[Exception]
   def expectations(name: String): Map[String, ExpectationDefinition] = {
@@ -315,17 +290,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val allFiles = j2Files ++ sqlFiles
     allFiles
   }
-
-  private def loadSqlJ2Files(path: Path): Map[String, String] = {
-    val allFiles = listSqlj2Files(path)
-    allFiles.map { sqlFile =>
-      loadSqlJ2File(sqlFile)
-    }.toMap
-  }
-
-  def views(): Map[String, String] = loadSqlJ2Files(DatasetArea.views)
-
-  def view(viewName: String): Option[String] = loadSqlJ2File(DatasetArea.views, viewName)
 
   val cometDateVars: Map[String, String] = {
     val today = LocalDateTime.now
@@ -481,18 +445,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           if (raw) {
             domain
           } else {
-            val tables = domain.tables.map { table =>
-              table.copy(
-                rls = table.rls.map(rls => {
-                  val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
-                  rls.copy(grants = grants)
-                }),
-                acl = table.acl.map(acl => {
-                  val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
-                  acl.copy(grants = grants)
-                })
-              )
-            }
+            val tables = domain.tables.map { table => table.normalize() }
             val metadata = domain.metadata.getOrElse(Metadata())
             // ideally the emptyNull field should set during object construction but the settings
             // object is not available in the Metadata object
@@ -571,10 +524,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
   }
 
-  def loadExternals(): (List[ValidationMessage], List[Domain]) = {
-    initDomainsFromArea(DatasetArea.external)
+  def loadExternals(): List[Domain] = {
+    if (storage.exists(DatasetArea.external)) {
+      loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
+        case (list, Nil) => list.collect { case Success(domain) => domain }
+        case (list, errors) =>
+          errors.foreach {
+            case Failure(err) =>
+              logger.warn(
+                s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+              )
+            case Success(_) => // ignore
+          }
+          list.collect { case Success(domain) => domain }
+      }
+    } else
+      Nil
   }
-
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths = storage.list(path = dagPath, extension = ".sl.yml", recursive = false)
     dagsConfigsPaths.map { dagsConfigsPath =>
@@ -871,6 +837,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   private def loadJobDesc(jobPath: Path): AutoJobDesc = {
+    logger.info("Loading job " + jobPath)
     val fileContent = storage.read(jobPath)
     val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
     val rootNode = mapper.readTree(rootContent)
@@ -911,12 +878,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               (taskName, filename, ext)
             }
         }
-    val ymlFiles = allFiles.filter(_._3 == "sl.yml")
-    val sqlPyFiles = allFiles.filter(x =>
-      (x._3 == "sql" || x._3 == "sql.j2" || x._3 == "py")
-      && !ymlFiles.exists(_._1 == x._1)
-      && !jobDesc.tasks.exists(_.name == x._1)
-    )
+    val ymlFiles = allFiles.filter { case (taskName, filename, ext) => ext == "sl.yml" }
+    val sqlPyFiles = allFiles.filter { case (taskName, filename, ext) =>
+      (ext == "sql" || ext == "sql.j2" || ext == "py") &&
+      !ymlFiles.exists(_._1 == taskName) &&
+      !jobDesc.tasks.exists(_.name == taskName)
+    }
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
       extension match {
@@ -1180,8 +1147,57 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def getFullTableName(domain: Domain, schema: Schema)(implicit
+    settings: Settings
+  ): String = {
+    val databaseName = domain.database.orElse(settings.appConfig.getDefaultDatabase())
+    databaseName match {
+      case Some(db) =>
+        s"$db.${domain.finalName}.${schema.finalName}"
+      case None =>
+        s"${domain.finalName}.${schema.finalName}"
+    }
+  }
+
   def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
     domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
+
+  def getObjectNames(): List[DomainWithNameOnly] = {
+    val domains = this.domains() ++ this.loadExternals() ++ List(this.auditTables)
+    val tableNames =
+      domains.map { domain =>
+        DomainWithNameOnly(
+          domain.finalName,
+          domain.tables
+            .map { table =>
+              TableWithNameOnly(table.finalName, table.attributes.map(_.getFinalName()).sorted)
+            }
+            .sortBy(_.name)
+        )
+      }
+    val jobs = this.jobs()
+    val taskNames =
+      jobs
+        .map { job =>
+          DomainWithNameOnly(
+            job.name,
+            job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
+          )
+        }
+    val all = tableNames ++ taskNames
+    val result = all.sortBy(_.name)
+    result
+  }
+
+  val auditTables: Domain =
+    Domain(
+      settings.appConfig.audit.domain.getOrElse("audit"),
+      tables = List(
+        AuditLog.starlakeSchema,
+        ExpectationReport.starlakeSchema,
+        RejectedRecord.starlakeSchema
+      )
+    )
 }

@@ -68,34 +68,49 @@ trait BigQueryJobBase extends StrictLogging {
       .getOrElse(throw new Exception("GCP Project ID must be defined"))
   }
 
-  private def bigQueryCredentials(): Credentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
+  private def bigQueryCredentials(): scala.Option[Credentials] = {
+    logger.info(s"Using ${connectionOptions("authType")} Credentials")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
-        val scopes = connectionOptions
-          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-          .split(',')
-        val cred = GoogleCredentials
-          .getApplicationDefault()
-          .createScoped(scopes: _*)
-        cred.refresh()
-        cred
+        val refreshToken =
+          Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
+        if (refreshToken) {
+          val scopes = connectionOptions
+            .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+            .split(',')
+          val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
+          Try {
+            cred.refresh()
+          } match {
+            case Failure(e) =>
+              logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+              None
+            case Success(_) =>
+              Some(cred)
+          }
+        } else {
+          scala.Option(GoogleCredentials.getApplicationDefault())
+        }
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val credentialsStream = getJsonKeyStream()
-        ServiceAccountCredentials.fromStream(credentialsStream)
+        scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
+
       case "USER_CREDENTIALS" =>
         val clientId = connectionOptions("clientId")
         val clientSecret = connectionOptions("clientSecret")
         val refreshToken = connectionOptions("refreshToken")
-        UserCredentials
+        val cred = UserCredentials
           .newBuilder()
           .setClientId(clientId)
           .setClientSecret(clientSecret)
           .setRefreshToken(refreshToken)
           .build()
+        scala.Option(cred)
+
       case "ACCESS_TOKEN" =>
         val accessToken = connectionOptions("gcpAccessToken")
-        GoogleCredentials.create(new AccessToken(accessToken, null))
+        val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
+        scala.Option(cred)
     }
   }
 
@@ -163,9 +178,15 @@ trait BigQueryJobBase extends StrictLogging {
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
   private def policyClient(): PolicyTagManagerClient = {
-    val credentialsProvider = FixedCredentialsProvider.create(bigQueryCredentials())
+    val credentials = bigQueryCredentials()
     val policySettings =
-      PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
+      credentials match {
+        case None =>
+          PolicyTagManagerSettings.newBuilder().build()
+        case Some(credentials) =>
+          val credentialsProvider = FixedCredentialsProvider.create(credentials)
+          PolicyTagManagerSettings.newBuilder().setCredentialsProvider(credentialsProvider).build()
+      }
     PolicyTagManagerClient.create(policySettings)
 
   }
@@ -186,10 +207,13 @@ trait BigQueryJobBase extends StrictLogging {
         val bqOptionsBuilder = BigQueryOptions.newBuilder()
         val credentials = bigQueryCredentials()
         val bqOptions = bqOptionsBuilder.setProjectId(projectId)
-        val bqService = bqOptions
-          .setCredentials(credentials)
-          .build()
-          .getService()
+        val bqService =
+          credentials match {
+            case None =>
+              bqOptions.build().getService()
+            case Some(credentials) =>
+              bqOptions.setCredentials(credentials).build().getService()
+          }
         _bigquery = Some(bqService)
         bqService
       case Some(bqService) =>
@@ -439,7 +463,7 @@ trait BigQueryJobBase extends StrictLogging {
       cliConfig.outputTableId match {
         case Some(outputTableId) =>
           val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
-          s"DROP ALL ROW ACCESS POLICIES ON `$outputTable`"
+          s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
         case None =>
           throw new RuntimeException("TableId must be defined in order to revoke privileges")
       }
@@ -468,7 +492,7 @@ trait BigQueryJobBase extends StrictLogging {
              | CREATE ROW ACCESS POLICY
              |  $name
              | ON
-             |  `$outputTable`
+             |  $outputTable
              | GRANT TO
              |  (${grants.mkString("\"", "\",\"", "\"")})
              | FILTER USING
@@ -554,7 +578,7 @@ trait BigQueryJobBase extends StrictLogging {
     dropTable(tableId)
   }
 
-  private def getTableId(
+  def getTableId(
     databaseName: scala.Option[String],
     datasetName: String,
     tableName: String
@@ -796,29 +820,53 @@ trait BigQueryJobBase extends StrictLogging {
 
   /** Update columns description from source tables in sql or from yaml job with attributes
     * information
+    *
     * @param dictField
     *   Map of columns and their descriptions
     * @return
     *   Table with columns description updated
     */
   def updateColumnsDescription(
-    dictField: Map[String, String]
+    schema: BQSchema
   )(implicit settings: Settings): Table = {
     recoverBigqueryException {
       val tableTarget = bigquery().getTable(tableId)
       val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-      val (fieldList, descriptionChanged) = tableSchema.getFields
-        .iterator()
-        .asScala
-        .toList
-        .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
-          val targetDescription = dictField.getOrElse(field.getName, field.getDescription)
-          val fieldDescriptionHasChange =
-            scala.Option(targetDescription) != scala.Option(field.getDescription)
-          (fields :+ field.toBuilder
-            .setDescription(targetDescription)
-            .build()) -> (changed || fieldDescriptionHasChange)
-        }
+      def buildSchema(
+        originalFields: FieldList,
+        incomingSchema: FieldList
+      ): (List[Field], Boolean) = {
+        originalFields
+          .iterator()
+          .asScala
+          .toList
+          .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
+            val targetDescription = Try(incomingSchema.get(field.getName).getDescription)
+              .getOrElse(field.getDescription)
+            val fieldDescriptionHasChange =
+              scala.Option(targetDescription) != scala.Option(field.getDescription)
+
+            val subFieldsUpdatedDescription: scala.Option[(List[Field], Boolean)] = Try(
+              scala.Option(incomingSchema.get(field.getName).getSubFields)
+            ).getOrElse(None) match {
+              case Some(subFields) =>
+                scala.Option(field.getSubFields).map(buildSchema(_, subFields))
+              case None => None
+            }
+            val fieldBuilder = field.toBuilder
+              .setDescription(targetDescription)
+            subFieldsUpdatedDescription.foreach { case (subFields, _) =>
+              fieldBuilder.setType(field.getType, FieldList.of(subFields.asJava))
+            }
+            (fields :+ fieldBuilder
+              .build()) -> (changed || subFieldsUpdatedDescription
+              .map { case (_, subfieldHasChanged) =>
+                subfieldHasChanged || fieldDescriptionHasChange
+              }
+              .getOrElse(fieldDescriptionHasChange))
+          }
+      }
+      val (fieldList, descriptionChanged) = buildSchema(tableSchema.getFields, schema.getFields)
       if (descriptionChanged) {
         logger.info(s"$bqTable's column description has changed")
         bigquery.update(
@@ -1000,35 +1048,42 @@ trait BigQueryJobBase extends StrictLogging {
 
 object BigQueryJobBase {
 
+  def dictToBQSchema(dictField: Map[String, String]): BQSchema = {
+    // we don't know the type of field so we put string by default
+    BQSchema.of(
+      dictField
+        .map { case (fieldName, description) =>
+          Field
+            .newBuilder(fieldName, StandardSQLTypeName.STRING)
+            .setDescription(description)
+            .build()
+        }
+        .toList
+        .asJava
+    )
+  }
+
   private def getBqDatasetId(tableId: TableId): DatasetId = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), "")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     scala.Option(projectId) match {
       case Some(_) => DatasetId.of(tableId.getProject, tableId.getDataset)
       case None    => DatasetId.of(tableId.getDataset)
     }
   }
 
-  def getBqDatasetForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
-    projectId match {
-      case None            => tableId.getDataset
-      case Some(projectId) => s"${projectId}${tableId.getDataset}"
-    }
-  }
-
   def getBqTableForSpark(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ":")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     projectId match {
       case None            => s"${tableId.getDataset}.${tableId.getTable}"
-      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"${projectId}:${tableId.getDataset}.${tableId.getTable}"
     }
   }
 
   def getBqTableForNative(tableId: TableId): String = {
-    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject), ".")
+    val projectId = getProjectIdPrefix(scala.Option(tableId.getProject))
     projectId match {
       case None            => s"${tableId.getDataset}.${tableId.getTable}"
-      case Some(projectId) => s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+      case Some(projectId) => s"`${projectId}.${tableId.getDataset}.${tableId.getTable}`"
     }
   }
 
@@ -1088,8 +1143,7 @@ object BigQueryJobBase {
   }
 
   private def getProjectIdPrefix(
-    projectId: scala.Option[String],
-    separator: String
+    projectId: scala.Option[String]
   ): scala.Option[String] =
-    projectId.filter(_.trim.nonEmpty).map(_ + separator)
+    projectId.filter(_.trim.nonEmpty)
 }

@@ -17,8 +17,20 @@ We create a file `metadata/transform/kpi/customers_kpi.sql` with the following c
 select count(*) cnt from sales.customers
 ```
 
+
+
 This SQL file alone is sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
 named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
+
+That's it! We can now run the transform as follows:
+
+```sh
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.customers_kpi
+```
+The transform job will run against the connectionRef defined in the application.sl.yml file.
+The result of the query will be stored in the table `kpi.customers_kpi` in the `datasets` folder.
+
 
 :::note
 By default, the existing table data is overriden. To append data, use the `write` option in the `metadata/transform/kpi/_config.sl.yml` file:
@@ -42,12 +54,6 @@ transform:
 
 :::
 
-That's it! We can now run the transform as follows:
-
-```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.customers_kpi
-```
 The transform job will run against the connectionRef defined in the application.sl.yml file.
 
 ## Jinja2 Transforms
@@ -82,35 +88,35 @@ transform:
 ```
 
 <Tabs groupId="customers">
-<TabItem value="france" label="French customers table">
-
-```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=France
-```
-
-</TabItem>
 <TabItem value="usa" label="American customers table">
 
 ```sh
-$ cd $HOME/myproject
-$ $HOME/starlake/starlake.sh transform --name kpi.bycountry --options p_country=USA
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.bycountry --options p_country=USA
+```
+
+</TabItem>
+<TabItem value="france" label="French customers table">
+
+```sh
+$ cd $HOME/quickstart
+$ starlake transform --name kpi.bycountry --options p_country=France
 ```
 
 </TabItem>
 </Tabs>
 
-The `--options` allow to define variables that will be used for substitution and thus allowing a query to be parameterized.
+The `--options` argument may hold a comma separated list of variables / values pairs  that will be used for substitution and thus allowing a query to be parameterized.
 
 
 :::note
 The `--options` parameter is optional. If not provided,
-the transform will be executed with the default values defined in the env.{{SL_ENV}}.sl.yml  file.
+the transform will be executed with the default values defined in the `env.sl.yml` and if `env.{{SL_ENV}}.sl.yml` files if they can be found in the `metadata` folder.
 :::
 
 ## Python/PySpark Transforms
-You mays also use Python/PySpark to create your transforms. The output of the job must be a Spark DataFrame registered as a temporary view named `SL_THIS`.
-The dataframe will be saved in a table named after the filename.
+You mays also use Python/PySpark to create your transforms. The output of the job must be a PySpark DataFrame registered as a temporary view named `SL_THIS`.
+The dataframe will be saved in a table named after the filename following the same naming rules as the SQL transforms.
 Below is an example:
 
 ```python title="metadata/transform/kpi/pi.py"
@@ -142,92 +148,5 @@ if __name__ == "__main__":
     df.registerTempTable("SL_THIS")
 ```
 ## Targeting another datawarehouse
-
-
-<Tabs groupId="warehouses">
-<TabItem value="bq" label="BigQuery">
-
-```yaml title="metadata/transform/kpi/_config.sl.yml"
-transform:
-  tasks:
-    - table: cust_{{ p_country }}
-      connectionRef: bigquery
-```
-</TabItem>
-<TabItem value="databricks" label="Databricks">
-
-```yaml title="metadata/transform/kpi/_config.sl.yml"
-transform:
-  tasks:
-    - table: cust_{{ p_country }}
-      connectionRef: databricks
-```
-
-</TabItem>
-<TabItem value="hive" label="Hive">
-
-```yaml title="metadata/transform/kpi/_config.sl.yml"
-transform:
-  tasks:
-    - table: cust_{{ p_country }}
-      connectionRef: spark
-```
-
-</TabItem>
-<TabItem value="redshift" label="Redshift">
-
-```yaml title="metadata/transform/kpi/_config.sl.yml"
-transform:
-  tasks:
-    - table: cust_{{ p_country }}
-      connectionRef: redshift
-```
-
-Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.sl.yml file as follows:
-
-```yaml title="metadata/application.sl.yml"
-connections:
-  redshift:
-    sparkFormat: "com.databricks.spark.redshift"
-    options:
-      url: "jdbc:redshift://redshifthost:5439/database",
-      user: "username",
-      password: "pass",
-      tempdir: "s3n://path/for/temp/data",
-      aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
-```
-
-</TabItem>
-<TabItem value="snowflake" label="Snowflake">
-
-
-```yaml title="metadata/transform/kpi/_config.sl.yml"
-transform:
-  tasks:
-    - table: cust_{{ p_country }}
-      connectionRef: snowflake
-```
-Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.sl.yml file as follows:
-
-```yaml title="metadata/application.sl.yml"
-connections:
-  snowflake:
-    sparkFormat = "net.snowflake.spark.snowflake"
-    options:
-      url: "jdbc:snowflake://myorganization-myaccount.snowflakecomputing.com/",
-      user: "username",
-      password: "pass",
-      account: "myorganization-myaccount",
-      warehouse: "mywh",
-      autopushdown: "off" # to pushdown set to 'on'
-      db: "mydb",
-      schema: "public"
-
-```
-
-
-</TabItem>
-
-</Tabs>
-
+Set the `connectionRef` property to the right value in the `metadata/application.sl.yml` file as explained previously in the [load step section](load#loading-the-data-into-a-different-store) .
 

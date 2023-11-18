@@ -2,6 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JDBCSchemas
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{
   AutoJobDesc,
   AutoTaskDesc,
@@ -17,6 +18,7 @@ import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.{Failure, Success, Try}
@@ -67,10 +69,13 @@ object YamlSerializer extends LazyLogging {
         extractNode
     jdbcNode match {
       case objectNode: ObjectNode =>
-        YamlSerializer.renameField(objectNode, "globalJdbcSchema", "default")
-        logger.warn(
-          "'globalJdbcSchema' has been renamed to 'default'"
-        )
+        val globalJdbcSchemaNode = objectNode.path("globalJdbcSchema")
+        if (!globalJdbcSchemaNode.isMissingNode) {
+          YamlSerializer.renameField(objectNode, "globalJdbcSchema", "default")
+          logger.warn(
+            "'globalJdbcSchema' has been renamed to 'default'"
+          )
+        }
       case _ =>
     }
     if (
@@ -96,13 +101,29 @@ object YamlSerializer extends LazyLogging {
     mapper.writeValue(targetFile.toJava, Task(autoTaskDesc))
   }
 
-  def serializeToFile(targetFile: File, domain: Domain): Unit = {
+  def serializeDomain(domain: Domain): String = {
     case class Load(load: Domain)
-    mapper.writeValue(targetFile.toJava, Load(domain))
+    mapper.writeValueAsString(Load(domain))
+  }
+
+  def serializeToFile(targetFile: File, domain: Domain): Unit = {
+    val domainAsString = serializeDomain(domain)
+    targetFile.overwrite(domainAsString)
   }
 
   def serializeToFile(targetFile: File, schema: ModelSchema): File = {
     targetFile.overwrite(serializeTable(schema))
+  }
+
+  def serializeToPath(targetPath: Path, domain: Domain)(implicit storage: StorageHandler): Unit = {
+    val domainAsString = serializeDomain(domain)
+    storage.write(domainAsString, targetPath)
+  }
+
+  def serializeToPath(targetPath: Path, schema: ModelSchema)(implicit
+    storage: StorageHandler
+  ): Unit = {
+    storage.write(serializeTable(schema), targetPath)
   }
 
   def serializeTable(schema: ModelSchema): String = {

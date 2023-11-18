@@ -23,12 +23,10 @@ package ai.starlake.config
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
-import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the SL_DATASETS env var or datasets application property
@@ -127,6 +125,9 @@ object DatasetArea extends StrictLogging {
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
 
+  def audit(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.audit.path)
+
   def expectations(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.expectations.path)
 
@@ -152,13 +153,13 @@ object DatasetArea extends StrictLogging {
   }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "discrete")
+    DatasetArea.metrics(domain, "discrete")
 
   def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "continuous")
+    DatasetArea.metrics(domain, "continuous")
 
   def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "frequencies")
+    DatasetArea.metrics(domain, "frequencies")
 
   /** Default target folder for autojobs applied to datasets in this domain
     *
@@ -197,16 +198,6 @@ object DatasetArea extends StrictLogging {
   def transform(implicit settings: Settings): Path =
     new Path(metadata, "transform")
 
-  def views(implicit settings: Settings): Path =
-    new Path(metadata, "views")
-
-  def views(viewsPath: String)(implicit settings: Settings): Path = {
-    if (viewsPath.startsWith("/"))
-      new Path(views, viewsPath.drop(1))
-    else
-      new Path(views, viewsPath)
-  }
-
   def iamPolicyTags()(implicit settings: Settings): Path =
     new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
@@ -215,9 +206,10 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, load, external, extract, transform, expectations, views, mapping).foreach(
-      storage.mkdirs
-    )
+    List(metadata, types, load, external, extract, transform, expectations, mapping)
+      .foreach(
+        storage.mkdirs
+      )
 
   }
 
@@ -228,114 +220,6 @@ object DatasetArea extends StrictLogging {
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
-    }
-  }
-
-  def bootstrap(template: Option[String])(implicit settings: Settings): Unit = {
-    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: File): Unit = {
-      resources.foreach { resource =>
-        logger.info(s"copying $resource")
-        val source = Source.fromResource(s"$resourceFolder/$resource")
-        if (source == null)
-          throw new Exception(s"Resource $resource not found in assembly")
-
-        val lines: Iterator[String] = source.getLines()
-        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
-        targetFile.parent.createDirectories()
-        val contents =
-          lines.mkString("\n").replace("__SL_TEST_ROOT__", metadata.getParent.toString)
-        targetFile.overwrite(contents)
-      }
-    }
-
-    initMetadata(settings.storageHandler())
-    List("out", "diagrams", "diagrams/load", "diagrams/acl", "diagrams/transform").foreach {
-      folder =>
-        val root = File(settings.appConfig.metadata).parent
-        File(root.pathAsString, folder.split('/'): _*).createDirectories()
-    }
-    val metadataFile = File(metadata.toString)
-    metadataFile.createDirectories()
-    val incomingFolder = File(metadataFile.parent, "incoming")
-    incomingFolder.createDirectories()
-    val vscodeFolder = File(metadataFile.parent, ".vscode")
-    vscodeFolder.createDirectories()
-    copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
-
-    template.getOrElse("quickstart") match {
-      case "bigquery" =>
-        val metadataResources = List(
-          "load/hr/_config.sl.yml",
-          "load/hr/sellers.sl.yml",
-          "load/hr/locations.sl.yml",
-          "load/sales/_config.sl.yml",
-          "load/sales/customers.sl.yml",
-          "load/sales/orders.sl.yml",
-          "transform/kpi/kpi.sl.yml",
-          "transform/kpi/kpi.byseller.sql.j2",
-          "types/default.sl.yml",
-          "types/types.sl.yml",
-          "env.sl.yml"
-        )
-        copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
-      case "userguide" =>
-        val metadataResources = List(
-          "load/hr/_config.sl.yml",
-          "load/hr/sellers.sl.yml",
-          "load/hr/locations.sl.yml",
-          "load/sales/_config.sl.yml",
-          "load/sales/customers.sl.yml",
-          "load/sales/orders.sl.yml",
-          "transform/sales_kpi/_config.sl.yml",
-          "transform/sales_kpi/byseller_kpi.sql",
-          "types/default.sl.yml",
-          "types/types.sl.yml",
-          "application.sl.yml",
-          "env.sl.yml",
-          "env.BQ.sl.yml",
-          "env.FS.sl.yml"
-        )
-        copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
-
-      case "quickstart" =>
-        val metadataResources = List(
-          "transform/kpi/_config.sl.yml",
-          "transform/kpi/customers_kpi.sql",
-          "types/default.sl.yml",
-          "application.sl.yml",
-          "env.sl.yml",
-          "env.LOCAL.sl.yml",
-          "env.BQ.sl.yml"
-        )
-        copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
-
-        val rootResources = List(
-          "incoming/customers-2018-01-01.psv"
-        )
-        copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
-
-      /*
-      val dagResources = List(
-          "dags/sample.sl.yml"
-        )
-        copyToFolder(dagResources, s"templates/quickstart/metadata", metadataFile.parent)
-
-       */
-      case _ => // do nothing
     }
   }
 }

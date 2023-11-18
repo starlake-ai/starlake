@@ -1,12 +1,12 @@
 ---
-sidebar_position: 30
-title: bq2yml or bq-info
+sidebar_position: 20
+title: bq-info / bq-freshness
 ---
 
 
 ## Synopsis
 
-**starlake bq2yml or bq-info [options]**
+**starlake bq-info / bq-freshness [options]**
 
 ## Description
 
@@ -15,9 +15,8 @@ title: bq2yml or bq-info
 
 Parameter|Cardinality|Description
 ---|---|---
---write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+--write:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
 --connection:`<value>`|*Optional*|Connection to use
 --tables:`<value>`|*Optional*|List of datasetName.tableName1,datasetName.tableName2 ...
 --persist:`<value>`|*Optional*|Persist results ?
---jobs:`<value>`|*Optional*|List of job names
 

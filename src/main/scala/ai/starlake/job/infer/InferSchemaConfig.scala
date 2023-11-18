@@ -19,7 +19,7 @@
  */
 package ai.starlake.job.infer
 
-import ai.starlake.schema.model.Format
+import ai.starlake.schema.model.{Format, WriteMode}
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
@@ -29,7 +29,8 @@ case class InferSchemaConfig(
   inputPath: String = "",
   outputDir: Option[String] = None,
   withHeader: Boolean = false,
-  format: Option[Format] = None
+  format: Option[Format] = None,
+  write: Option[WriteMode] = None
 )
 
 object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
@@ -57,6 +58,10 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Domain YAML Output Path"),
+      opt[String]("write")
+        .action((x, c) => c.copy(write = Some(WriteMode.fromString(x))))
+        .text(s"One of ${WriteMode.writes}")
+        .optional(),
       opt[String]("format")
         .action((x, c) => c.copy(format = Some(Format.fromString(x))))
         .optional()

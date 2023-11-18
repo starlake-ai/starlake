@@ -86,7 +86,7 @@ case class Metadata(
   separator: Option[String] = None,
   quote: Option[String] = None,
   escape: Option[String] = None,
-  /* @deprecated("use sink", "1.0.0") */ write: Option[WriteMode] = None,
+  write: Option[WriteMode] = None,
   /* @deprecated("use sink", "1.0.0") */ partition: Option[Partition] = None,
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
@@ -131,7 +131,7 @@ case class Metadata(
        |extensions:${extensions}
        |ack:${ack}
        |options:${options}
-       |validator:${loader}
+       |loader:${loader}
        |dag:${dagRef}
        |freshness:${freshness}
        |nullValue:${nullValue}
@@ -174,9 +174,6 @@ case class Metadata(
 
   @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
-
-  @JsonIgnore
-  def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
   @JsonIgnore
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)

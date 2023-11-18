@@ -32,7 +32,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQuerySparkJob
 }
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadJob, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator._
@@ -42,7 +42,6 @@ import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
@@ -59,7 +58,7 @@ import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
-private case object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
+private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
   override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:snowflake:")
   // override def quoteIdentifier(column: String): String = column
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
@@ -672,7 +671,8 @@ class IngestionWorkflow(
       dataPath = config.inputPath,
       saveDir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir,
       withHeader = config.withHeader,
-      forceFormat = config.format
+      forceFormat = config.format,
+      writeMode = config.write.getOrElse(WriteMode.OVERWRITE)
     )
     Utils.logFailure(result, logger)
     result
@@ -695,6 +695,7 @@ class IngestionWorkflow(
       taskDesc,
       config.options,
       config.interactive,
+      config.truncate,
       resultPageSize = 1000
     )(
       settings,
@@ -706,7 +707,7 @@ class IngestionWorkflow(
   def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
-    val (_, mainSQL, _) = action.buildAllSQLQueries(false, Nil)
+    val (_, mainSQL, _, _) = action.buildAllSQLQueries(false, None, None)
     val output = settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
     output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
     logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
@@ -754,23 +755,12 @@ class IngestionWorkflow(
     schemaHandler.tasks(transformConfig.reload)
     val result: Boolean = {
       val action = buildTask(transformConfig)
-      val engine = action.taskDesc.getEngine()
       logger.info(s"Transforming with config $transformConfig")
-      engine match {
+      logger.info(s"Entering ${action.taskDesc.getEngine()} engine")
+      action.taskDesc.getEngine() match {
         case BQ =>
-          logger.info(s"Entering $engine engine")
-          val result = action.runBQ(transformConfig.drop)
+          val result = action.run()
           transformConfig.interactive match {
-            case None =>
-              val sink = action.taskDesc.sink.map(_.getSink())
-              logger.info(s"BQ Job succeeded. sinking data to $sink")
-              sink match {
-                case Some(sink) if sink.getConnectionType() == ConnectionType.BQ =>
-                  logger.info("Sinking to BQ done")
-                case _ =>
-                  // TODO Sinking not supported
-                  logger.info(s"Sinking defaulted to BQ.")
-              }
             case Some(format) =>
               result.map { result =>
                 val bqJobResult = result.asInstanceOf[BigQueryJobResult]
@@ -778,7 +768,7 @@ class IngestionWorkflow(
                 bqJobResult.show(format, settings.appConfig.rootServe)
                 logger.info("END INTERACTIVE SQL")
               }
-            // No sink on interactive queries. Results displayed in console output
+            case None =>
           }
           Utils.logFailure(result, logger)
           result match {
@@ -790,143 +780,51 @@ class IngestionWorkflow(
                 )
               output.foreach(_.overwrite(Utils.exceptionAsString(e)))
           }
-
           result.isSuccess
-        case custom =>
-          logger.info(s"Entering $custom engine")
-          (action.runSpark(transformConfig.drop), transformConfig.interactive) match {
-            case (Success((SparkJobResult(None, _), _)), _) =>
+        case Engine.JDBC =>
+          (action.run(), transformConfig.interactive) match {
+            case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
+              logger.info("""START INTERACTIVE SQL""")
+              jdbcJobResult.show(format, settings.appConfig.rootServe)
+              logger.info("""END INTERACTIVE SQL""")
+              true // Sink already done in JDBC
+            case (Success(_), _) =>
               true
-            case (Success((SparkJobResult(Some(dataFrame), _), _)), Some(_)) =>
-              // For interactive display. Used by the VSCode plugin
-              logger.info("""START QUERY SQL""")
-              dataFrame.show(false)
-              logger.info("""END QUERY SQL""")
-              true
-            case (Success((SparkJobResult(maybeDataFrame, _), sqlSource)), None) =>
-              val sinkOption = action.sink
-              logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
-              sinkOption match {
-                case Some(sink) =>
-                  sink match {
-                    case _: EsSink =>
-                      saveToES(action)
-                    case fsSink: FsSink =>
-                      maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
-
-                    case bqSink: BigQuerySink =>
-                      val source = maybeDataFrame
-                        .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
-                        .getOrElse(Left(action.taskDesc.getTargetPath().toString))
-                      val (createDisposition, writeDisposition) = {
-                        Utils.getDBDisposition(
-                          action.taskDesc.getWrite(),
-                          hasMergeKeyDefined = false
-                        )
-                      }
-                      val bqLoadConfig =
-                        BigQueryLoadConfig(
-                          connectionRef =
-                            Some(bqSink.connectionRef.getOrElse(settings.appConfig.connectionRef)),
-                          source = source,
-                          outputTableId = Some(
-                            BigQueryJobBase.extractProjectDatasetAndTable(
-                              action.taskDesc.database,
-                              action.taskDesc.domain,
-                              action.taskDesc.table
-                            )
-                          ),
-                          sourceFormat = settings.appConfig.defaultFormat,
-                          createDisposition = createDisposition,
-                          writeDisposition = writeDisposition,
-                          outputPartition = bqSink.timestamp,
-                          outputClustering = bqSink.clustering.getOrElse(Nil),
-                          days = bqSink.days,
-                          requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                          rls = action.taskDesc.rls,
-                          acl = action.taskDesc.acl,
-                          starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
-                          // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                          sqlSource = Some(sqlSource),
-                          attributesDesc = action.taskDesc.attributesDesc,
-                          outputDatabase = action.taskDesc.database
-                        )
-                      val result =
-                        new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()
-                      result.isSuccess
-
-                    case jdbcSink: JdbcSink =>
-                      val jdbcName =
-                        jdbcSink.connectionRef.getOrElse(settings.appConfig.connectionRef)
-                      val source = maybeDataFrame
-                        .map(df => Right(df))
-                        .getOrElse(Left(action.taskDesc.getTargetPath().toString))
-                      val (createDisposition, writeDisposition) = {
-                        Utils.getDBDisposition(
-                          action.taskDesc.getWrite(),
-                          hasMergeKeyDefined = false
-                        )
-                      }
-                      val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
-                        jdbcName,
-                        settings.appConfig,
-                        source,
-                        outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
-                        createDisposition = CreateDisposition.valueOf(createDisposition),
-                        writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                        createTableIfAbsent = false
-                      )
-
-                      val res = new ConnectionLoadJob(jdbcConfig).run()
-                      res match {
-                        case Success(_) => true
-                        case Failure(e) => logger.error("JDBCLoad Failed", e); false
-                      }
-                    case _ =>
-                      logger.warn(s"No supported Sink is activated for this job $sink")
-                      maybeDataFrame.foreach { dataframe =>
-                        dataframe.write.format("console").save()
-                      }
-                      true
-                  }
-                case None =>
-                  logger.warn("Sink is not activated for this job")
-                  true
-              }
             case (Failure(exception), _) =>
               val output =
-                settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "run.log"))
+                settings.appConfig.rootServe.map(rootServe =>
+                  File(File(rootServe), "transform.log")
+                )
               output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
           }
+        case custom =>
+          logger.info(s"Entering $custom engine")
+
+          (action.run(), transformConfig.interactive) match {
+            case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
+              // For interactive display. Used by the VSCode plugin
+              logger.info("""START INTERACTIVE SQL""")
+              dataFrame.show(false)
+              logger.info("""END INTERACTIVE SQL""")
+              true
+            case (Success(_), None) =>
+              true
+            case (Failure(exception), _) =>
+              val output =
+                settings.appConfig.rootServe.map(rootServe =>
+                  File(File(rootServe), "transform.log")
+                )
+              output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
+              exception.printStackTrace()
+              false
+            case (Success(_), _) =>
+              throw new Exception("Should never happen")
+          }
       }
     }
     result
-  }
-
-  private def saveToES(action: AutoTask): Boolean = {
-    val targetPath =
-      new Path(DatasetArea.path(action.taskDesc.domain), action.taskDesc.table)
-    val sink: EsSink = action.taskDesc.sink
-      .map(_.getSink())
-      .map(_.asInstanceOf[EsSink])
-      .getOrElse(
-        throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
-      )
-    val result = esLoad(
-      ESLoadConfig(
-        timestamp = sink.timestamp,
-        id = sink.id,
-        format = settings.appConfig.defaultFormat,
-        domain = action.taskDesc.domain,
-        schema = action.taskDesc.table,
-        dataset = Some(Left(targetPath)),
-        options = sink.getOptions()
-      )
-    )
-    Utils.logFailure(result, logger)
-    result.isSuccess
   }
 
   def esLoad(config: ESLoadConfig): Try[JobResult] = {
@@ -940,7 +838,7 @@ class IngestionWorkflow(
   }
 
   def jdbcload(config: JdbcConnectionLoadConfig): Try[JobResult] = {
-    val loadJob = new ConnectionLoadJob(config)
+    val loadJob = new sparkJdbcLoader(config)
     val res = loadJob.run()
     Utils.logFailure(res, logger)
   }
@@ -1010,10 +908,7 @@ class IngestionWorkflow(
               val connectionName = jdbcSink.connectionRef
                 .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
               val connection = settings.appConfig.connections(connectionName)
-              if (connection.isSnowflake)
-                dummyIngestionJob.applySnowflakeTableAcl()
-              else
-                Success(true) // ignore other jdbc connection types
+              dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
               val config = BigQueryLoadConfig(

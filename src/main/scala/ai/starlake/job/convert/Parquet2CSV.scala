@@ -4,7 +4,6 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.WriteMode.ERROR_IF_EXISTS
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
-import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Success, Try}
@@ -79,7 +78,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 object Parquet2CSV {
 
   def main(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
 
     import settings.storageHandler
     Parquet2CSVConfig.parse(args) match {

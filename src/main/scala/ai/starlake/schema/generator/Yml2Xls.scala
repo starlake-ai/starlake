@@ -4,7 +4,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -14,7 +13,7 @@ import scala.util.Try
 class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
   def run(args: Array[String]): Try[Unit] = Try {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
     Yml2XlsConfig.parse(args) match {
       case Some(config) =>
         generateXls(config.domains, config.xlsDirectory)
@@ -120,12 +119,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(10).setCellValue(metadata.encoding.getOrElse(""))
       schemaRow
         .createCell(11)
-        .setCellValue(metadata.partition.map(_.getSampling().toString).getOrElse(""))
+        .setCellValue("")
 
       val partitionColumns = metadata.sink match {
         case Some(sink) =>
           sink.timestamp
-            .map(timestamp => Some(Partition(None, List(timestamp))))
+            .map(timestamp => Some(Partition(List(timestamp))))
             .getOrElse(metadata.partition)
         case _ => metadata.partition
       }

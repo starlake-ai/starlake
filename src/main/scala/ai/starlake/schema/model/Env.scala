@@ -1,5 +1,6 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.model.Ref.anyRefPattern
 import com.fasterxml.jackson.annotation.JsonCreator
 
@@ -26,13 +27,36 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
   def asTuple(): (String, String, String) = (database, domain, table)
 
   val tableNamingQuotes = Map(
+    Engine.JDBC.toString  -> ("", "."),
     Engine.SPARK.toString -> ("`", ":"),
-    "SNOWFLAKE"           -> ("\"", "."),
     Engine.BQ.toString    -> ("`", ".")
   )
 
-  def toSQLString(engine: Engine, isFilesystem: Boolean) = {
-    val (quote, separator) = tableNamingQuotes.getOrElse(engine.toString, "")
+  def toSQLString(connection: Settings.Connection, isFilesystem: Boolean) = {
+    val engine =
+      if (connection.getType() == ConnectionType.BQ)
+        Engine.BQ
+      else if (connection.getType() == ConnectionType.JDBC)
+        Engine.JDBC
+      else
+        Engine.SPARK
+
+    val (quote, separator) =
+      (connection.quote, connection.separator) match {
+        case (Some(quote), Some(separator)) =>
+          (quote, separator)
+        case (Some(quote), None) =>
+          val (ignoreQuote, separator) =
+            tableNamingQuotes.getOrElse(engine.toString, tableNamingQuotes(Engine.JDBC.toString))
+          (quote, separator)
+        case (None, Some(separator)) =>
+          val (quote, ignoreSeparator) =
+            tableNamingQuotes.getOrElse(engine.toString, tableNamingQuotes(Engine.JDBC.toString))
+          (quote, separator)
+        case (None, None) =>
+          tableNamingQuotes.getOrElse(engine.toString, tableNamingQuotes(Engine.JDBC.toString))
+      }
+
     if (!isFilesystem) {
       if (database.isEmpty) {
         if (domain.isEmpty) {

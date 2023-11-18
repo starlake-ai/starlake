@@ -9,7 +9,7 @@ case class TransformConfig(
   compile: Boolean = false,
   interactive: Option[String] = None,
   reload: Boolean = false,
-  drop: Boolean = false,
+  truncate: Boolean = false,
   recursive: Boolean = false
 )
 
@@ -39,11 +39,11 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(reload = true))
         .optional()
         .text("Reload YAML  files. Used in server mode"),
-      opt[Boolean]("drop")
-        .action((x, c) => c.copy(drop = x))
+      opt[Boolean]("truncate")
+        .action((x, c) => c.copy(truncate = x))
         .optional()
         .text(
-          s"Force target table drop before insert. Default value is false"
+          s"Force table to be truncated before insert. Default value is false"
         ),
       opt[Unit]("recursive")
         .action((x, c) => c.copy(recursive = true))

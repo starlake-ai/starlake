@@ -27,6 +27,8 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
+import ai.starlake.utils.YamlSerializer.{serializeToFile, serializeToPath}
+import better.files.File
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -295,6 +297,28 @@ import scala.util.Try
       _.rls
     )
   }
+
+  def writeDomainAsYaml(loadBasePath: File): Unit = {
+    val folder = File(loadBasePath, this.name)
+    folder.createIfNotExists(asDirectory = true, createParents = true)
+    this.tables foreach { schema =>
+      serializeToFile(File(folder, s"${schema.name}.sl.yml"), schema)
+    }
+    val domainDataOnly = this.copy(tables = Nil)
+    serializeToFile(File(folder, s"_config.sl.yml"), domainDataOnly)
+  }
+
+  def writeDomainAsYaml(loadBasePath: Path)(implicit storage: StorageHandler): Unit = {
+
+    val folder = new Path(loadBasePath, this.name)
+    storage.mkdirs(folder)
+    this.tables foreach { schema =>
+      serializeToPath(new Path(folder, s"${schema.name}.sl.yml"), schema)
+    }
+    val domainDataOnly = this.copy(tables = Nil)
+    serializeToPath(new Path(folder, s"_config.sl.yml"), domainDataOnly)
+  }
+
 }
 
 object Domain {
@@ -399,5 +423,4 @@ object Domain {
         throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
     template -> settings.storageHandler().read(template)
   }
-
 }

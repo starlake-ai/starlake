@@ -39,7 +39,7 @@ case class IngestConfig(
 )
 
 object IngestConfig extends CliConfig[IngestConfig] {
-  val command = "load"
+  val command = "ingest"
   val parser: OParser[Unit, IngestConfig] = {
     val builder = OParser.builder[IngestConfig]
     import builder._

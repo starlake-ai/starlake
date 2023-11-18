@@ -91,6 +91,11 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     File(baseOutputDir, domainName).createDirectories()
     val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
     val domain = extractedDomain.copy(
+      comment = extractedDomain.comment.orElse(currentDomain.flatMap(_.comment)),
+      tags =
+        if (extractedDomain.tags.nonEmpty) extractedDomain.tags
+        else currentDomain.map(_.tags).getOrElse(Set.empty),
+      rename = extractedDomain.rename.orElse(currentDomain.flatMap(_.rename)),
       database = extractedDomain.database.orElse(currentDomain.flatMap(_.database)),
       metadata = Metadata
         .mergeAll(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
@@ -163,8 +168,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     fjp: Option[ForkJoinTaskSupport]
   ): Domain = {
     val selectedTablesAndColumns =
-      JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)
-    JDBCUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
+      JdbcDbUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)
+    JdbcDbUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }
 
   private def formatExtractPattern(

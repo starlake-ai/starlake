@@ -1,7 +1,7 @@
 package ai.starlake.job.sink.jdbc
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.RowLevelSecurity
+import ai.starlake.schema.model.{ConnectionType, RowLevelSecurity}
 import ai.starlake.utils.CliConfig
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
@@ -9,6 +9,7 @@ import scopt.OParser
 
 import java.sql.{DriverManager, SQLException}
 import scala.util.{Failure, Success, Try}
+import ai.starlake.utils.Formatter.RichFormatter
 
 case class JdbcConnectionLoadConfig(
   sourceFile: Either[String, DataFrame] = Left(""),
@@ -26,10 +27,10 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,
     outputTable: String
-  ): Unit = {
+  )(implicit settings: Settings): Unit = {
     assert(
-      jdbcOptions.getSparkFormat() == "jdbc",
-      s"Only JDBC connections are supported ${jdbcOptions.getSparkFormat()}"
+      jdbcOptions.getType() == ConnectionType.JDBC,
+      s"Only JDBC connections are supported ${jdbcOptions.getType()}"
     )
     val table = jdbcEngine.tables.get(outputTable)
     table.foreach { table =>
@@ -47,7 +48,7 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
           rs.close() // we don't need to fetch the result, it should be empty anyway.
         } match {
           case Failure(e) if e.isInstanceOf[SQLException] =>
-            stmt.executeUpdate(table.createSql)
+            stmt.executeUpdate(table.createSql.richFormat(Map("table" -> outputTable), Map.empty))
             conn.commit() // some databases are transactional wrt schema updates
           case Success(_) => ;
         }
@@ -65,17 +66,15 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
     createDisposition: CreateDisposition, // = CreateDisposition.CREATE_IF_NEEDED,
     writeDisposition: WriteDisposition, // = WriteDisposition.WRITE_APPEND,
     createTableIfAbsent: Boolean = true
-  ): JdbcConnectionLoadConfig = {
+  )(implicit settings: Settings): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.connections(connectionRef)
     val jdbcEngineName = jdbcOptions.getJdbcEngineName()
-    jdbcEngineName.foreach { jdbcEngineName =>
-      if (createTableIfAbsent)
-        comet.jdbcEngines.get(jdbcEngineName).foreach { jdbcEngine =>
-          checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
-        }
-    }
+    if (createTableIfAbsent)
+      comet.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
+        checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
+      }
 
     // This is to make sure that the column names are uppercase on JDBC databases
     // TODO: Once spark 3.3 is not supported anymore, switch to withColumnsRenamed(colsMap: Map[String, String])
@@ -90,7 +89,7 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
       outputTable = outputTable.toUpperCase(),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      jdbcOptions.getSparkFormat(),
+      jdbcOptions.sparkFormat.getOrElse("jdbc"),
       jdbcOptions.options
     )
   }

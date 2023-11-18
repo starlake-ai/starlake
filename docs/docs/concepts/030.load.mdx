@@ -4,8 +4,8 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 
-Starlake provides declarative language to help users load data from __file data sources__ to Starlake.
-Almost any filesystem (Linux, Windows, Azure ADFS, Amazon S3, Google Cloud Storage, HDFS ... ) text file format are supported, including CSV, JSON, XML and [POSITIONAL](https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files)
+Use YAML to load data from __file data sources__ to Starlake.
+Almost any filesystem (Linux, Windows, Azure ADFS, Amazon S3, Google Cloud Storage, HDFS ... ) text file format is supported, including CSV, JSON, XML and [POSITIONAL](https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files)
 
 Using starlake [infer-schema](../cli/infer-schema) command or using the YAML based syntax, the developer declare the schema of the data source. The schema is used to create a table in Starlake and to parse the data source.
 The loading process may be simple or perform complex validation / transformation on the data source including:

@@ -1,7 +1,8 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{Engine, Refs}
+import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.model.Refs
 import ai.starlake.sql.SQLUtils
 
 class SqlUtilsSpec extends TestHelper {
@@ -141,7 +142,7 @@ class SqlUtilsSpec extends TestHelper {
           Nil,
           SQLUtils.fromsRegex,
           "FROM",
-          Engine.SPARK
+          new Connection(Some("SPARK"), Some("parquet"), None, None, Map.empty)
         )
       resultSQL should equal(
         """with mycte as (
@@ -216,7 +217,7 @@ class SqlUtilsSpec extends TestHelper {
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",
-          Engine.BQ,
+          new Connection(Some("BQ"), None, None, None, Map.empty),
           false
         )
       sqlMerge.replaceAll("\\s", "") should be("""
@@ -278,7 +279,7 @@ class SqlUtilsSpec extends TestHelper {
           |) as SL_INTERNAL_SOURCE ON SL_INTERNAL_SOURCE.transaction_id = SL_INTERNAL_SINK.transaction_id
           |WHEN MATCHED THEN UPDATE SET transaction_id = SL_INTERNAL_SOURCE.transaction_id, transaction_date = SL_INTERNAL_SOURCE.transaction_date, amount = SL_INTERNAL_SOURCE.amount, location_info = SL_INTERNAL_SOURCE.location_info, seller_info = SL_INTERNAL_SOURCE.seller_info
           |
-          |WHEN NOT MATCHED THEN INSERT ("transaction_id","transaction_date","amount","location_info","seller_info") VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
+          |WHEN NOT MATCHED THEN INSERT (transaction_id,transaction_date,amount,location_info,seller_info) VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
           |""".stripMargin.replaceAll("\\s", ""))
     }
   }

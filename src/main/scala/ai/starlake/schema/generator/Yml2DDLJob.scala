@@ -21,8 +21,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{ExtractUtils, JDBCSchema, JDBCUtils}
-import ai.starlake.extract.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.extract.{ExtractUtils, JDBCSchema, JdbcDbUtils}
+import ai.starlake.extract.JdbcDbUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -107,7 +107,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             val connectionOptions = settings.appConfig.connections(connection).options
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
               ExtractUtils.createForkSupport(config.parallelism)
-            JDBCUtils.extractJDBCTables(
+            JdbcDbUtils.extractJDBCTables(
               JDBCSchema(
                 config.catalog,
                 domain.finalName,
@@ -289,7 +289,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connectionRef.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, settings.appConfig.connections(conn).options)
+          conn => JdbcDbUtils.execute(sqlScript, settings.appConfig.connections(conn).options)
         )
     }
 

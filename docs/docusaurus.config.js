@@ -91,11 +91,11 @@ const config = {
                     items: [
                         {
                             label: 'GitHub',
-                            href: 'https://github.com/starlake-ai/starlake',
+                            href: 'https://github.com/starlake-ai/starlake/',
                         },
                         {
                             label: 'Slack',
-                            href: 'https://starlakeai.slack.com',
+                            href: 'https://join.slack.com/t/starlakeai/shared_invite/zt-26lpp1t6p-6lqvQArsXI5wEbYqsMt3sw',
                         },
                         {
                             label: 'Stack Overflow',

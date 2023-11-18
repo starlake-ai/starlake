@@ -2,6 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
+import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.{Utils, YamlSerializer}
 import better.files.File
 
@@ -100,7 +101,8 @@ class InferSchemaJobSpec extends TestHelper {
             dataPath = sourceFile.pathAsString,
             saveDir = targetDir.pathAsString,
             withHeader = true,
-            forceFormat = None
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE
           )
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.sl.yml")

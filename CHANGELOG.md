@@ -8,12 +8,17 @@
 __Feature__:
 - CLI now support multiple version of starlake at once and use the correct one based on sl_versions.sh/cmd in SL_ROOT
 - CLI can now upgrade all components except HADOOP extra elements on windows 
+- Support any JDBC compliant database
+- Add archive table support for BigQuery
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite
   - **BREAKING CHANGE** Extract-schema sanitize domain name if sanitizeName is true. Have same value for domain name and its folder. By default sanitizaName is false.
   - 'directory' is not mandatory in extract template
   - load individual domain only in extract-schema
+
+__Bug Fix__:
+- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.  
 
 # 0.8.0:
 - ** DEPRECATED **

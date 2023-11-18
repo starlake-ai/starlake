@@ -14,6 +14,7 @@ class InferSchemaSpec extends TestHelper {
           |  --table <value>        Table Name
           |  --input <value>        Dataset Input Path
           |  --output-dir <value>   Domain YAML Output Path
+          |  --write <value>       One of Set(OVERWRITE,APPEND,ERROR_IF_EXISTS,IGNORE)
           |  --format <value>       Force input file format
           |  --with-header          Does the file contain a header (For CSV files only)
           |""".stripMargin

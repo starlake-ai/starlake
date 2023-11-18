@@ -33,13 +33,12 @@ import scala.collection.JavaConverters._
   */
 @JsonDeserialize(using = classOf[PartitionDeserializer])
 case class Partition(
-  sampling: Option[Double],
-  attributes: List[String] = Nil
+  attributes: List[String] = Nil,
+  attribute: Option[String] = None,
+  options: List[String] = Nil
 ) {
-  def this() = this(Some(0.0)) // Should never be called. Here for Jackson deserialization only
-
-  def getAttributes(): List[String] = attributes
-  def getSampling() = sampling.getOrElse(0.0)
+  def getAttributes(): List[String] = if (attributes.isEmpty) attribute.toList else attributes
+  def getOptions(): List[String] = options
 
 }
 
@@ -54,21 +53,23 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
     def isNull(field: String): Boolean =
       node.get(field) == null || node.get(field).isNull
 
-    val sampling =
-      if (isNull("sampling")) 0.0
-      else
-        node.get("sampling").asDouble()
-
-    val attributes =
-      if (isNull("attributes")) Nil
+    def deserializeListOfString(field: String) = {
+      if (isNull(field)) Nil
       else
         node
-          .get("attributes")
+          .get(field)
           .asInstanceOf[ArrayNode]
           .elements
           .asScala
           .toList
           .map(_.asText())
-    Partition(Some(sampling), attributes)
+    }
+
+    val attributes = deserializeListOfString("attributes")
+    val attribute = if (isNull("attribute")) None else Some(node.get("sampling").asText())
+    val options = deserializeListOfString("options")
+
+    Partition(attributes, attribute, options)
   }
+
 }

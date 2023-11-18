@@ -60,7 +60,8 @@ trait TestHelper
   override protected def afterAll(): Unit = {}
 
   override protected def beforeAll(): Unit = {
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
+
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -90,7 +91,7 @@ trait TestHelper
        |SL_ROOT="${starlakeTestRoot}"
        |SL_TEST_ID="${starlakeTestId}"
        |SL_LOCK_PATH="${starlakeTestRoot}/locks"
-       |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+       |SL_METRICS_PATH="${starlakeTestRoot}/audit/metrics/{{schema}}"
        |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
        |SL_UDFS="ai.starlake.udf.TestUdf"
        |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
@@ -103,7 +104,7 @@ trait TestHelper
        |""".stripMargin
 
   def testConfiguration: Config = {
-    ConfigFactory.invalidateCaches()
+    Settings.invalidateCaches()
     val rootConfig = ConfigFactory.parseString(
       baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)
@@ -149,17 +150,6 @@ trait TestHelper
     )
   )
 
-  val allViews: List[FileToImport] = List(
-    FileToImport(
-      "default.sl.yml",
-      "/sample/views/default.sl.yml"
-    ),
-    FileToImport(
-      "types.sl.yml",
-      "/sample/views/views.sl.yml"
-    )
-  )
-
   val allDags: List[FileToImport] = List(
     FileToImport(
       "sample.sl.yml",
@@ -167,7 +157,7 @@ trait TestHelper
     ),
     FileToImport(
       "sample.py.j2",
-      "/scalate/dag/sample.py.j2"
+      "/templates/dag/sample.py.j2"
     )
   )
 
@@ -283,10 +273,6 @@ trait TestHelper
       allExpectations.foreach { assertionToImport =>
         val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
         deliverTestFile(assertionToImport.path, expectationPath)
-      }
-      allViews.foreach { viewToImport =>
-        val viewPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, viewPath)
       }
       allExtracts.foreach { extractToImport =>
         val path = extractToImport.folder match {

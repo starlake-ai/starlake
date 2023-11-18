@@ -2,7 +2,7 @@ package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract._
-import ai.starlake.job.bootstrap.BootstrapConfig
+import ai.starlake.job.bootstrap.{Bootstrap, BootstrapConfig}
 import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
@@ -19,7 +19,6 @@ import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.nowarn
@@ -56,8 +55,7 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    DeprecatedChecks.cometEnvVars()
-    val settings: Settings = Settings(ConfigFactory.load())
+    val settings: Settings = Settings(Settings.referenceConfig)
     logger.debug(settings.toString)
     new Main().run(args)(settings)
   }
@@ -146,13 +144,19 @@ class Main() extends StrictLogging {
     }
 
     val schemaHandler = new SchemaHandler(storageHandler(), cliEnv)
+    run(args, schemaHandler)
+  }
+
+  def run(args: Array[String], schemaHandler: SchemaHandler)(implicit settings: Settings): Unit = {
+    import settings.storageHandler
 
     // handle non existing project commands
+    val argList = args.toList
     argList.head match {
       case "bootstrap" =>
         BootstrapConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            DatasetArea.bootstrap(config.template)
+            Bootstrap.bootstrap(config.template)
           case None =>
             false
 
@@ -210,7 +214,7 @@ class Main() extends StrictLogging {
           case _ =>
             Success(())
         }
-      case "watch" | "load" =>
+      case "load" =>
         LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
@@ -366,7 +370,7 @@ class Main() extends StrictLogging {
         if (settings.appConfig.forceHalt) {
           Runtime.getRuntime().halt(1)
         } else {
-          throw new Exception(message)
+          throw exception
         }
       case Success(_) =>
         logger.info(s"Successfully $executedCommand")
