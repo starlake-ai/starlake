@@ -10,6 +10,7 @@ __Feature__:
 - CLI can now upgrade all components except HADOOP extra elements on windows 
 - Support any JDBC compliant database
 - Add archive table support for BigQuery
+- Configure CSV data extraction output format
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite
