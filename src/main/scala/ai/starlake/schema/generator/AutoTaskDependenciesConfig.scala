@@ -17,7 +17,7 @@ case class AutoTaskDependenciesConfig(
 )
 
 object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] {
-  val command = "task-dependencies"
+  val command = "lineage"
 
   val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
     val builder = OParser.builder[AutoTaskDependenciesConfig]

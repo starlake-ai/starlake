@@ -316,7 +316,7 @@ class Main() extends StrictLogging {
         new TableDependencies(schemaHandler).run(args.drop(1))
       case "acl-dependencies" =>
         new AclDependencies(schemaHandler).run(args.drop(1))
-      case "task-dependencies" =>
+      case "lineage" =>
         AutoTaskDependenciesConfig.parse(args.drop(1)) match {
           case Some(config) =>
             new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)

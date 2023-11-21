@@ -29,7 +29,7 @@ class CliConfigSpec extends TestHelper {
         "transform"          -> TransformConfig,
         "table-dependencies" -> TableDependenciesConfig,
         "acl-dependencies"   -> AclDependenciesConfig,
-        "task-dependencies"  -> AutoTaskDependenciesConfig,
+        "lineage"            -> AutoTaskDependenciesConfig,
         "site"               -> SiteConfig,
         "esload"             -> ESLoadConfig,
         "ingest"             -> IngestConfig,

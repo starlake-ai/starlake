@@ -39,7 +39,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         "SL_ROOT" -> starbakeDir.pathAsString
       ) {
         Main.main(
-          Array("task-dependencies", "--viz", "--all")
+          Array("lineage", "--viz", "--all")
         )
       }
     }
@@ -64,8 +64,9 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       ) {
         Main.main(
           Array(
-            "task-dependencies",
+            "lineage",
             "--print",
+            "--viz",
             "--tasks",
             "Products.TopSellingProfitableProducts"
           )
