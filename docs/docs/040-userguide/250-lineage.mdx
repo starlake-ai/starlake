@@ -126,7 +126,7 @@ To display the dependencies for the `kpi.customers_kpi` task, run the following 
 
 ```bash
 
-$ starlake task-dependencies --print --tasks kpi.customers_kpi 
+$ starlake lineage --print --tasks kpi.customers_kpi
 
 kpi.customers_kpi
   sales.customers
@@ -137,7 +137,7 @@ This shows that the `kpi.customers_kpi` task depends on the `sales.customers` ta
 
 ```bash
 
-$ starlake task-dependencies --viz  --tasks kpi.customers_kpi  --output lineage.svg
+$ starlake lineage --viz  --tasks kpi.customers_kpi  --output lineage.svg
 
 ```
 
@@ -146,7 +146,7 @@ $ starlake task-dependencies --viz  --tasks kpi.customers_kpi  --output lineage.
 A much more meaningful graph can be obtained by using a more reaslistic example. The example below comes from the starbake project:
 
 ```bash
-$ starlake task-dependencies --print  --tasks Products.TopSellingProducts,Products.MostProfitableProducts
+$ starlake lineage --print  --tasks Products.TopSellingProducts,Products.MostProfitableProducts
 
 Products.TopSellingProducts
   Products.ProductPerformance
@@ -160,7 +160,7 @@ Products.MostProfitableProducts
 ```
 
 ```bash
-$ starlake task-dependencies --viz  --svg --tasks Products.TopSellingProducts,Products.MostProfitableProducts  --output lineage.svg
+$ starlake lineage --viz  --svg --tasks Products.TopSellingProducts,Products.MostProfitableProducts  --output lineage.svg
 
 ```
 

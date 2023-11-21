@@ -1,12 +1,12 @@
 ---
 sidebar_position: 180
-title: task-dependencies
+title: lineage
 ---
 
 
 ## Synopsis
 
-**starlake task-dependencies [options]**
+**starlake lineage [options]**
 
 ## Description
 Generate Task dependencies graph

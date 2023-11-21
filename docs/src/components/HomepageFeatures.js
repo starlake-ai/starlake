@@ -237,7 +237,7 @@ function Anywhere() {
             <TwoColumns
                 columnOne={
                     <TextColumn
-                        title="From any source to any sink at Spark&#8482; speed."
+                        title="From any source to any sink at native speed."
                         text={textContent.anywhere}
                     />
                 }
