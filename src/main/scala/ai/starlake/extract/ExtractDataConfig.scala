@@ -27,12 +27,9 @@ case class ExtractDataConfig(
   extractConfig: String = "",
   outputDir: Option[String] = None,
   limit: Int = 0,
-  separator: Char = ';',
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
   fullExport: Boolean = false,
-  datePattern: String = "yyyy-MM-dd",
-  timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
   ifExtractedBefore: Option[Long] = None,
   cleanOnExtract: Boolean = false,
   includeSchemas: Seq[String] = Seq.empty,
@@ -59,9 +56,9 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
           |Examples
           |========
           |
-          |Objective: Extract data and customize timestamp to have higher precision.
+          |Objective: Extract data
           |
-          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          |  starlake.sh extract-data --config my-config --output-dir $PWD/output
           |
           |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
           |  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
@@ -92,10 +89,6 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .text(
           s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
         ),
-      opt[Char]("separator")
-        .action((x, c) => c.copy(separator = x))
-        .optional()
-        .text("Column separator"),
       opt[Unit]("clean")
         .action((x, c) => c.copy(cleanOnExtract = true))
         .optional()
@@ -108,14 +101,6 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .action((x, c) => c.copy(fullExport = true))
         .optional()
         .text("Force full export to all tables"),
-      opt[String]("datePattern")
-        .action((x, c) => c.copy(datePattern = x))
-        .optional()
-        .text("Pattern used to format date during CSV writing"),
-      opt[String]("timestampPattern")
-        .action((x, c) => c.copy(timestampPattern = x))
-        .optional()
-        .text("Pattern used to format timestamp during CSV writing"),
       opt[String]("ifExtractedBefore")
         .action((x, c) => c.copy(ifExtractedBefore = Some(DateTime.parse(x).getMillis)))
         .optional()
