@@ -1,0 +1,16 @@
+{
+  "name":         "snowball",
+  "description":  "snowball word stemming algorithm implementation",
+  "keywords":     ["nlp", "word stemming", "snowball"],
+  "author":       "Oleg Mazko",
+  "version":      "0.3.1",
+  "licenses": [{
+    "type":       "Mozilla Public License",
+    "url":        "http://www.mozilla.org/MPL/"
+  }],
+  "engines": {
+    "node":       ">=0"
+  },
+  "main": "./stemmer/lib/Snowball.js"
+}
+

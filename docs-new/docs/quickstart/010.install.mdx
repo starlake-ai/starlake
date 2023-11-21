@@ -1,0 +1,145 @@
+# Install the CLI
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Download
+
+To install the starlake CLI, you need to download the starlake script from github. 
+The script will in turn download required dependencies and copy them to the bin subdirectory.
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```shell
+$ mkdir $HOME/starlake
+$ cd $HOME/starlake
+$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ chmod +x starlake.sh
+$ ./starlake.sh install
+$
+
+```
+
+</TabItem>
+
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\> mkdir %userprofile%\starlake
+c:\> cd %userprofile%\starlake
+c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
+c:\users\me\starlake> starlake
+```
+
+</TabItem>
+
+<TabItem value="docker" label="Docker">
+
+You may also run Starlake from a docker container. To do so, download this [Dockerfile](https://github.com/starlake-ai/starlake/blob/master/distrib/Dockerfile)
+and build your docker image
+	
+```shell
+$ git clone git@github.com:starlake-ai/starlake.git
+$ cd starlake
+$ docker build -t starlake .
+$ docker run -it starlake
+
+```
+</TabItem>
+</Tabs>
+
+This will display the commands supported by the CLI.
+
+
+```
+Starlake Version 0.7.1
+Usage:
+	starlake [command]
+Available commands =>
+	bqload
+	jdbcload
+	esload
+	extract
+	splitfile
+	import
+	infer-schema
+    jobs2gv
+	kafkaload
+	load
+	metrics
+	parquet2csv
+	transform
+	watch
+	xls2yml
+	yml2ddl
+	yml2gv
+	yml2xls
+```
+
+The following files and folders should now have been created. 
+
+```text {6,13,14}
+
+.
+├── starlake.sh
+├── version.info
+├── bin
+│   └── spark
+│       ├── ...
+│       ├── conf
+│       │   ├── ...
+│       │   ├── log4j2.properties
+│       ├── jars
+│       │   ├── ...
+│       │   ├── gcs-connector-hadoop3-2.2.12-shaded.jar
+│       │   ├── spark-bigquery-with-dependencies_2.12-0.30.0.jar
+│       │   ├── starlake-spark3_2.12-0.7.1-assembly.jar
+└──     └── └── ...
+
+```
+
+:::note
+
+Any library you may need (Snowflake or Oracle client)  will need to copied in the bin/spark/jars folder.
+
+:::
+
+That's it ! We now need to create a [new project](bootstrap).
+
+
+## Specific Version
+
+To install a specific version (0.7.0 in the example below), set the SL_VERSION environment variable before running starlake.
+Subsequent runs will use this version:
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ SL_VERSION=0.7.0 ./starlake.sh # version 0.7.0 will be installed
+$ ./starlake.sh ... # version 0.7.0 will be running
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\users\me\starlake> SET SL_VERSION=0.7.0
+c:\users\me\starlake> starlake
+
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```shell
+$ docker build --build-arg SL_VERSION=0.7.0 -t starlake .
+$
+```
+
+</TabItem>
+
+
+</Tabs>

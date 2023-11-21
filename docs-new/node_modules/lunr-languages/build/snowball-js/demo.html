@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Online Snowball stemmers demo</title>
+    <script src="stemmer/lib/Snowball.min.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      var Stem = function(lng) {
+        var testStemmer = new Snowball(lng);
+        return function(word) {
+          testStemmer.setCurrent(word);
+          testStemmer.stem();
+          return testStemmer.getCurrent();
+        }
+      };
+      function println(lng, word){
+        document.getElementById("result").innerHTML = "<b>" + new Stem(lng)(word) + "</b>";
+      }
+    </script>
+  </head>
+  <body>
+    <p>Type ONE word, select language and press "<b>Stem!</b>" button.</p>
+    <input maxlength="50" size="50" id="query" type="text">
+    <select id="language">
+      <option value="english">english</option>
+      <option value="danish">danish</option>
+      <option value="dutch">dutch</option>
+      <option value="finnish">finnish</option>
+      <option value="french">french</option>
+      <option value="german">german</option>
+      <option value="hungarian">hungarian</option>
+      <option value="italian">italian</option>
+      <option value="norwegian">norwegian</option>
+      <option value="portuguese">portuguese</option>
+      <option value="russian">russian</option>
+      <option value="spanish">spanish</option>
+      <option value="swedish">swedish</option>
+      <option value="romanian">romanian</option>
+      <option value="turkish">turkish</option>
+    </select>
+    <button type="button" onclick="println(document.getElementById('language').value, document.getElementById('query').value);">Stem!</button>
+    <p id="result"></p>
+  </body>
+</html>

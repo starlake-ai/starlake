@@ -1,0 +1,53 @@
+{
+  "name": "resolve-package-path",
+  "description": "a special purpose fast memoizing way to resolve a node modules package.json",
+  "version": "4.0.3",
+  "repository": "git@github.com:stefanpenner/resolve-package-path.git",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "path-root": "^0.1.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.18",
+    "@types/fs-extra": "^9.0.11",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "^16.9.1",
+    "@typescript-eslint/eslint-plugin": "^4.26.0",
+    "@typescript-eslint/parser": "^4.26.0",
+    "chai": "^4.3.4",
+    "eslint": "^7.27.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-mocha": "^9.0.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "execa": "^5.1.0",
+    "fixturify-project": "^4.0.0",
+    "fs-extra": "^10.0.0",
+    "mocha": "^9.1.1",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^2.3.0",
+    "ts-mocha": "^8.0.0",
+    "typescript": "^4.3.2"
+  },
+  "scripts": {
+    "prepare": "tsc -b .",
+    "watch": "tsc --watch .",
+    "clean": "tsc -b --clean .",
+    "test": "ts-mocha tests/*-test.ts",
+    "test:inspect": "ts-mocha inspect tests/*-test.ts",
+    "test:ts:debug": "ts-mocha debug tests/*-test.ts",
+    "lint": "eslint ."
+  },
+  "files": [
+    "lib/"
+  ],
+  "engines": {
+    "node": ">= 12"
+  },
+  "volta": {
+    "node": "12.19.0",
+    "yarn": "1.22.10"
+  }
+}
