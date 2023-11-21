@@ -1,0 +1,10 @@
+0.3.0:
+ * Added custom words list to snowball filter [@sbeckeriv]
+ * Fixed problem about initialization: https://github.com/brenes/stopwords-filter/issues/3 [@zackxu1]
+0.2.0:
+ * Added stopword? method [@s2gatev]
+ * Added Sieve class [@s2gatev]
+ * Added bulgarian language [@s2gatev]
+0.1.0
+ * Added simple filter [@brenes]
+ * Added snowball filter [@brenes]
