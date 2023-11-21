@@ -1,0 +1,24 @@
+# Load
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+Starlake provides declarative language to help users load data from __file data sources__ to Starlake.
+Almost any filesystem (Linux, Windows, Azure ADFS, Amazon S3, Google Cloud Storage, HDFS ... ) text file format are supported, including CSV, JSON, XML and [POSITIONAL](https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files)
+
+Using starlake [infer-schema](../cli/infer-schema) command or using the YAML based syntax, the developer declare the schema of the data source. The schema is used to create a table in Starlake and to parse the data source.
+The loading process may be simple or perform complex validation / transformation on the data source including:
+- validate each attribute value against a regular expression
+- apply a transformation function to each attribute value (apply a privacy algorithm to hide a value for GDPR purposes for example)
+- add a new attribute to the table based on an existing attribute value
+- drop an attribute from the loading process
+- apply security rules to the data source that will translate to row level and column security instructions in the target database
+- define a partitioning and clustering strategy for the target table
+- define primary and foreign keys for the target table
+- define a data retention policy for the target table
+- define a data quality policy for the target table
+- document every attribute of the target table
+- store data using multiple strategies (append, upsert / merge, delete, truncate ...)
+- schedule the loading process to run at a specific frequency or when a new file arrives in the source directory
+

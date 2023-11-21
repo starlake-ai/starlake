@@ -1,0 +1,45 @@
+# Extract
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+## Extraction strategies
+
+When extracting data, many options are available. In this section we detail why Starlake has chosen a strategy over the others
+and how it better fit use cases.
+
+- Remote extraction: In this mode, the client access remotely the database and extract the data through a JDBC connection.
+- Local extraction (used in starlake): In this mode, the client access locally the database and extract the data through a local connection and then copy extracted data
+using command line tools to the remote datawarehouse for loading
+- Change Data capture: Data is incrementally pushed to the outside world for further processing.
+
+The table below present the pros and cons of each mode
+
+
+| Criteria             | Local Access (Starlake)   | Remote Access            | Change Data Capture   |
+|----------------------|----------------|-----------------|---------------------|
+| Support large volumes of data | __Yes. Also note that starlake can take advantage of all the processing power to parallelize the extraction process__ | No or extremely slow, since the data is pulled one record at a the over the network| __Yes. data is extracted in near realtime__ |
+| Network Security | __Yes. Happen close to the source database__ | No. At least one port need to be open for incoming requests over the internet | __Yes. Data is pushed from the local network__ |
+| Very simple infrastructure | __Yes. Simple command to extract the data__ | __Yes. Simple command to extract the data__ | No. Requires a middleware infrastructure, aka Kafka, Kafka connect ...|
+| Easy load to the Datwarehouse | __Yes. Exported data are loaded as files in bulk mode into the datawarehouse__ | No. Data is loaded one record at a time | No. Data need to be reconstructed before being available for use|
+| Instant availability| No. Require extraction job to be scheduled | No. Require extraction job to be scheduled | __Yes if data is reconstructed in realtime__ |
+| Summary | Fast and easy to setup. Need to be scheduled | Require extra network configuration, slow and need to be scheduled | Data available in realtime but complex to setup |
+
+## Extraction modes
+
+### Full extraction
+
+The full extraction strategy is the simplest one. It consists in extracting all the data from the source system and loading it
+into the dataware. This strategy is the easiest to implement as it does not require any specific feature from the source system.
+However, it is also the most inefficient one as it extracts all the data, even the one that has not changed since the last extraction.
+
+
+
+### Incremental extraction
+
+The incremental extraction strategy is the most common one. It consists in extracting only the data that has changed since the last extraction.
+This strategy is the most efficient one as it only extracts a small amount of data. However, it requires the source system to provide a way to
+identify the data that has changed since the last extraction. This is usually done by using a timestamp or a sequence number.
+
