@@ -191,7 +191,11 @@ const config = {
             },
             
         ],
-    ]
+    ],
+    markdown: {
+        mermaid: true,
+    },
+    themes: ['@docusaurus/theme-mermaid']
 };
 
 module.exports = config;

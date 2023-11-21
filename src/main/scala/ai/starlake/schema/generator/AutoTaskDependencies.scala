@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.Try
@@ -13,6 +13,7 @@ case class DependencyContext(
   entities: List[TaskViewDependency],
   relations: List[TaskViewDependency]
 )
+
 class AutoTaskDependencies(
   settings: Settings,
   schemaHandler: SchemaHandler,
@@ -117,6 +118,7 @@ class AutoTaskDependencies(
 
     }
     result.foreach(_.print())
+    println(JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result))
     result.toList
   }
 

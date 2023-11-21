@@ -50,6 +50,8 @@ RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/star
        SNOWFLAKE_JDBC_VERSION="$SNOWFLAKE_JDBC_VERSION" \
        ./starlake.sh install
 
+
+
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app /app
 RUN apk add --no-cache procps

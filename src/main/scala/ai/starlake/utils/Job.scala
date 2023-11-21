@@ -135,39 +135,39 @@ trait SparkJob extends JobBase {
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
   private def buildPartitionedDF(dataset: DataFrame, cols: List[String]): DataFrame = {
-    var partitionedDF = dataset.withColumn("comet_date", current_timestamp())
+    var partitionedDF = dataset.withColumn("sl_date", current_timestamp())
     val dataSetsCols = dataset.columns.toList
     cols.foreach {
-      case "comet_date" if !dataSetsCols.contains("date") =>
+      case "sl_date" if !dataSetsCols.contains("date") =>
         partitionedDF = partitionedDF.withColumn(
           "date",
-          date_format(col("comet_date"), "yyyyMMdd").cast(IntegerType)
+          date_format(col("sl_date"), "yyyyMMdd").cast(IntegerType)
         )
-      case "comet_year" if !dataSetsCols.contains("year") =>
-        partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
-      case "comet_month" if !dataSetsCols.contains("month") =>
-        partitionedDF = partitionedDF.withColumn("month", month(col("comet_date")))
-      case "comet_day" if !dataSetsCols.contains("day") =>
-        partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("comet_date")))
-      case "comet_hour" if !dataSetsCols.contains("hour") =>
-        partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
-      case "comet_minute" if !dataSetsCols.contains("minute") =>
-        partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
+      case "sl_year" if !dataSetsCols.contains("year") =>
+        partitionedDF = partitionedDF.withColumn("year", year(col("sl_date")))
+      case "sl_month" if !dataSetsCols.contains("month") =>
+        partitionedDF = partitionedDF.withColumn("month", month(col("sl_date")))
+      case "sl_day" if !dataSetsCols.contains("day") =>
+        partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("sl_date")))
+      case "sl_hour" if !dataSetsCols.contains("hour") =>
+        partitionedDF = partitionedDF.withColumn("hour", hour(col("sl_date")))
+      case "sl_minute" if !dataSetsCols.contains("minute") =>
+        partitionedDF = partitionedDF.withColumn("minute", minute(col("sl_date")))
       case _ =>
         partitionedDF
     }
-    partitionedDF.drop("comet_date")
+    partitionedDF.drop("sl_date")
   }
 
   /** Partition a dataset using dataset columns. To partition the dataset using the ingestion time,
     * use the reserved column names :
-    *   - comet_date
-    *   - comet_year
-    *   - comet_month
-    *   - comet_day
-    *   - comet_hour
-    *   - comet_minute These columns are renamed to "date", "year", "month", "day", "hour", "minute"
-    *     in the dataset and their values is set to the current date/time.
+    *   - sl_date
+    *   - sl_year
+    *   - sl_month
+    *   - sl_day
+    *   - sl_hour
+    *   - sl_minute These columns are renamed to "date", "year", "month", "day", "hour", "minute" in
+    *     the dataset and their values is set to the current date/time.
     *
     * @param dataset
     *   : Input dataset
@@ -183,7 +183,7 @@ trait SparkJob extends JobBase {
     partition match {
       case Nil => dataset.write
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
-        val strippedCols = cols.map(_.substring("comet_".length))
+        val strippedCols = cols.map(_.substring("sl_".length))
         val partitionedDF = buildPartitionedDF(dataset, cols)
         // does not work on nested fields -> https://issues.apache.org/jira/browse/SPARK-18084
         partitionedDF.write.partitionBy(strippedCols: _*)

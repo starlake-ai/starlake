@@ -340,17 +340,17 @@ class SchemaHandlerWithSQLCompletion(storage: StorageHandler, cliEnv: Map[String
     val milliFormatter = DateTimeFormatter.ofPattern("SSS")
     val epochMillis = today.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli
     Map(
-      "comet_date"         -> today.format(dateFormatter),
-      "comet_datetime"     -> today.format(dateTimeFormatter),
-      "comet_year"         -> today.format(yearFormatter),
-      "comet_month"        -> today.format(monthFormatter),
-      "comet_day"          -> today.format(dayFormatter),
-      "comet_hour"         -> today.format(hourFormatter),
-      "comet_minute"       -> today.format(minuteFormatter),
-      "comet_second"       -> today.format(secondFormatter),
-      "comet_milli"        -> today.format(milliFormatter),
-      "comet_epoch_second" -> (epochMillis / 1000).toString,
-      "comet_epoch_milli"  -> epochMillis.toString
+      "sl_date"         -> today.format(dateFormatter),
+      "sl_datetime"     -> today.format(dateTimeFormatter),
+      "sl_year"         -> today.format(yearFormatter),
+      "sl_month"        -> today.format(monthFormatter),
+      "sl_day"          -> today.format(dayFormatter),
+      "sl_hour"         -> today.format(hourFormatter),
+      "sl_minute"       -> today.format(minuteFormatter),
+      "sl_second"       -> today.format(secondFormatter),
+      "sl_milli"        -> today.format(milliFormatter),
+      "sl_epoch_second" -> (epochMillis / 1000).toString,
+      "sl_epoch_milli"  -> epochMillis.toString
     )
   }
 

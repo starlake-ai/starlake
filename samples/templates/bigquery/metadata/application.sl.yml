@@ -7,7 +7,7 @@ application:
       options:
         #gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Required in indirect mode only
         writeMethod: "direct" # direct or indirect (indirect is required for certain features see https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
-        location: "EU" # EU or US or ..
+        location: "europe-west1" # EU or US or ..
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE

@@ -226,12 +226,12 @@ import scala.util.Try
       .mkString("\n")
   }
 
-  def foreignTables(tableNames: Seq[String]): List[String] = {
+  def foreignTablesForDot(tableNames: Seq[String]): List[String] = {
     // get tables included in tableNames
     val tableSchemas = getTables(tableNames)
     // get all tables referenced in foreign keys
     tableSchemas
-      .flatMap(_.foreignTables(this.finalName))
+      .flatMap(_.foreignTablesForDot(this.finalName))
   }
 
   def getTables(tableNames: Seq[String]): List[Schema] = {

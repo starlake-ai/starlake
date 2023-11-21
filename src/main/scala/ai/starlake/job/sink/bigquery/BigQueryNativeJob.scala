@@ -245,10 +245,10 @@ class BigQueryNativeJob(
             .newBuilder(targetSQL)
             .setAllowLargeResults(true)
             .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("jobTimeoutMs").map(java.lang.Long.valueOf).orNull
             )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
 
         logger.info(s"Running interactive BQ Query $targetSQL")
@@ -352,10 +352,10 @@ class BigQueryNativeJob(
             .setDefaultDataset(targetDataset.getDatasetId)
             .setPriority(Priority.INTERACTIVE)
             .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("jobTimeoutMs").map(java.lang.Long.valueOf).orNull
             )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
             .setUseLegacySql(false)
             .setAllowLargeResults(true)
@@ -409,7 +409,7 @@ class BigQueryNativeJob(
           .getStatistics()
           .asInstanceOf[QueryStatistics]
           .getTotalBytesProcessed
-
+        logger.info(s"total bytes processed $totalBytesProcessed")
         val jobResult = jobInfo.waitFor()
         val results = jobResult.getQueryResults(QueryResultsOption.pageSize(this.resultPageSize))
         logger.info(
@@ -445,10 +445,10 @@ class BigQueryNativeJob(
             .setPriority(Priority.BATCH)
             .setUseLegacySql(false)
             .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("jobTimeoutMs").map(java.lang.Long.valueOf).orNull
             )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
             .build()
         logger.info(s"Executing BQ Query $sql")

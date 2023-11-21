@@ -48,6 +48,8 @@ case class AutoTaskDesc(
   tags: Set[String] = Set.empty,
   merge: Option[MergeOptions] = None,
   schedule: Option[String] = None,
+  dagRef: Option[String] = None,
+  recursive: Boolean = false,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None
@@ -81,7 +83,8 @@ case class AutoTaskDesc(
       python = child.python,
       tags = tags ++ child.tags,
       merge = child.merge.orElse(merge),
-      schedule = child.schedule.orElse(schedule),
+      schedule = child.dagRef.orElse(schedule),
+      dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
       parseSQL = child.parseSQL.orElse(parseSQL)
     )
