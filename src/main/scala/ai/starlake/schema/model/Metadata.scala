@@ -373,7 +373,7 @@ object Metadata {
   /** Predefined partition columns.
     */
   val CometPartitionColumns =
-    List("comet_date", "comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
+    List("sl_date", "sl_year", "sl_month", "sl_day", "sl_hour", "sl_minute")
 
   /** Merge all metadata into one. End of list element have higher precedence.
     */

@@ -31,55 +31,6 @@ class UtilsSpec extends TestHelper {
       )
     }
 
-    "extracts parts of a String" should "match patterns" in {
-      // Given
-      val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
-      val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-      val TablePathWithFilterAndSelect = "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
-      val standardView = "BQ:project.dataset.table3"
-      val customView =
-        "BQ:project.dataset.table3.comet_filter(partition = '2020-02-11' AND name = 'test')"
-      val filterSelectView =
-        "BQ:project.dataset.table3.comet_select('name', 'age', 'graduate_program', 'date_of_birth').comet_filter(partition = '2020-02-11' AND name = 'test')"
-      val selectView =
-        "BQ:project.dataset.table3.comet_select('name', 'age', 'graduate_program', 'date_of_birth')"
-      val filter = "partition = '2020-02-11' AND name = 'test'"
-      val select = "'name', 'age', 'graduate_program', 'date_of_birth'"
-      // When
-      val standardResult = standardView match {
-        case TablePathWithFilterAndSelect(tablePath, select, filter) => (tablePath, select, filter)
-        case TablePathWithFilter(tablePath, filter)                  => (tablePath, filter)
-        case TablePathWithSelect(tablePath, select)                  => (tablePath, select)
-        case _                                                       => standardView
-      }
-
-      val customResult = customView match {
-        case TablePathWithFilterAndSelect(tablePath, select, filter) => (tablePath, select, filter)
-        case TablePathWithFilter(tablePath, filter)                  => (tablePath, filter)
-        case TablePathWithSelect(tablePath, select)                  => (tablePath, select)
-        case _                                                       => customView
-      }
-
-      val filterSelectResult = filterSelectView match {
-        case TablePathWithFilterAndSelect(tablePath, select, filter) => (tablePath, select, filter)
-        case TablePathWithFilter(tablePath, filter)                  => (tablePath, filter)
-        case TablePathWithSelect(tablePath, select)                  => (tablePath, select)
-        case _                                                       => filterSelectView
-      }
-
-      val selectResult = selectView match {
-        case TablePathWithFilterAndSelect(tablePath, select, filter) => (tablePath, select, filter)
-        case TablePathWithFilter(tablePath, filter)                  => (tablePath, filter)
-        case TablePathWithSelect(tablePath, select)                  => (tablePath, select)
-        case _                                                       => filterSelectView
-      }
-
-      // Then
-      standardResult shouldEqual standardView
-      customResult shouldEqual (standardView, filter)
-      filterSelectResult shouldEqual (standardView, select, filter)
-      selectResult shouldEqual (standardView, select)
-    }
     "Custom format should" should "match patterns" in {
       import ai.starlake.utils.Formatter._
       assert("${key}_and_${key}".richFormat(Map.empty, Map("key" -> "value")) == "value_and_value")

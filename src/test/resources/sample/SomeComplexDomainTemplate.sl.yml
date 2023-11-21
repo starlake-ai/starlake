@@ -192,10 +192,10 @@ tables:
       partition:
         sampling: 10.0
         attributes:
-          - "comet_year"
-          - "comet_month"
-          - "comet_day"
-          - "comet_hour"
+          - "sl_year"
+          - "sl_month"
+          - "sl_day"
+          - "sl_hour"
       sink: !<BQ>
         type: "BQ"
     merge:

@@ -1,0 +1,237 @@
+# This template executes individual bash jobs and requires the following dag generation options set:
+#
+# - SL_ROOT: The root project path
+# - SL_STARLAKE_PATH: the path to the starlake executable
+#
+
+import os
+import re
+from datetime import timedelta
+from os import environ
+import json
+
+# The DAG object; we'll need this to instantiate a DAG
+from airflow import DAG
+
+# Operators; we need this to operate!
+from airflow.operators.bash import BashOperator
+from airflow.utils.dates import days_ago
+from airflow.utils.task_group import TaskGroup
+from airflow.operators.empty import EmptyOperator
+from airflow.models import Variable
+
+description="""{{ context.config.comment }}"""
+template="{{ context.config.template }}"
+
+options={
+    {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
+    {% endfor %}
+}
+
+cron="{{ context.cron }}"
+task_deps=json.loads("""{
+"tasks":
+[
+  {
+  "data" : {
+    "name" : "Products.TopSellingProfitableProducts",
+    "typ" : "task",
+    "parent" : "Products.TopSellingProducts",
+    "parentTyp" : "task",
+    "parentRef" : "TopSellingProducts",
+    "sink" : "Products.TopSellingProfitableProducts"
+  },
+  "children" : [ {
+    "data" : {
+      "name" : "Products.TopSellingProducts",
+      "typ" : "task",
+      "parent" : "Products.ProductPerformance",
+      "parentTyp" : "task",
+      "parentRef" : "Products.ProductPerformance",
+      "sink" : "Products.TopSellingProducts"
+    },
+    "children" : [ {
+      "data" : {
+        "name" : "Products.ProductPerformance",
+        "typ" : "task",
+        "parent" : "starbake.Orders",
+        "parentTyp" : "table",
+        "parentRef" : "starbake.Orders",
+        "sink" : "Products.ProductPerformance"
+      },
+      "children" : [ {
+        "data" : {
+          "name" : "starbake.Orders",
+          "typ" : "table",
+          "parentTyp" : "unknown"
+        },
+        "task" : false
+      }, {
+        "data" : {
+          "name" : "starbake.Products",
+          "typ" : "table",
+          "parentTyp" : "unknown"
+        },
+        "task" : false
+      } ],
+      "task" : true
+    } ],
+    "task" : true
+  }, {
+    "data" : {
+      "name" : "Products.MostProfitableProducts",
+      "typ" : "task",
+      "parent" : "Products.ProductProfitability",
+      "parentTyp" : "task",
+      "parentRef" : "Products.ProductProfitability",
+      "sink" : "Products.MostProfitableProducts"
+    },
+    "children" : [ {
+      "data" : {
+        "name" : "Products.ProductProfitability",
+        "typ" : "task",
+        "parent" : "starbake.Orders",
+        "parentTyp" : "table",
+        "parentRef" : "starbake.Orders",
+        "sink" : "Products.ProductProfitability"
+      },
+      "children" : [ {
+        "data" : {
+          "name" : "starbake.Orders",
+          "typ" : "table",
+          "parentTyp" : "unknown"
+        },
+        "task" : false
+      }, {
+        "data" : {
+          "name" : "starbake.Products",
+          "typ" : "table",
+          "parentTyp" : "unknown"
+        },
+        "task" : false
+      }, {
+        "data" : {
+          "name" : "starbake.Ingredients",
+          "typ" : "table",
+          "parentTyp" : "unknown"
+        },
+        "task" : false
+      } ],
+      "task" : true
+    } ],
+    "task" : true
+  } ],
+  "task" : true
+} ]
+}""")
+
+task_deps=json.loads("""{{ context.dependencies }}""")
+
+class MissingEnvironmentVariable(Exception):
+    pass
+
+def get_context_var(var_name, default_value=None):
+    if hasattr(options, var_name):
+        return getattr(options, var_name)
+    elif Variable.get(var_name, default_var=None) is not None:
+        return Variable.get(var_name)
+    elif os.getenv(var_name) is not None:
+        return os.getenv(var_name)
+    elif default_value is not None:
+        return default_value
+    else:
+        raise MissingEnvironmentVariable(f"{var_name} does not exist")
+
+
+def generate_dag_name():
+    base_dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "")
+    return base_dag_name
+
+def keep_ascii_only(text):
+    return re.sub(r'[^\x00-\x7F]+', '_', text)
+
+
+def sanitize_id(id: str):
+    suffix = id.split(".",1)[1]
+    return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", suffix.replace("$", "S")))
+
+
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'start_date': days_ago(2),
+    'retry_delay': timedelta(minutes=5),
+    #'email': ['airflow@example.com'],
+    # 'queue': 'bash_queue',
+    # 'pool': 'backfill',
+    # 'priority_weight': 10,
+    # 'end_date': datetime(2016, 1, 1),
+    # 'wait_for_downstream': False,
+    # 'dag': dag,
+    # 'sla': timedelta(hours=2),
+    # 'execution_timeout': timedelta(seconds=300),
+    # 'on_failure_callback': some_function,
+    # 'on_success_callback': some_other_function,
+    # 'on_retry_callback': another_function,
+    # 'sla_miss_callback': yet_another_function,
+    # 'trigger_rule': 'all_success'
+}
+
+
+def create_task(airflow_task_id, transform_name, task_typ):
+    if (task_typ == 'task'):
+        return BashOperator(
+            task_id=airflow_task_id,
+            bash_command=get_context_var("SL_STARLAKE_PATH", "") + ' transform --name ' + transform_name,
+            cwd=get_context_var("SL_ROOT", "")
+        )
+    else:
+        load_domain_and_table = transform_name.split(".",1)
+        domain = load_domain_and_table[0]
+        table = load_domain_and_table[1]
+        return BashOperator(
+            task_id=airflow_task_id,
+            bash_command=get_context_var("SL_STARLAKE_PATH", "") + ' load --domains ' + domain + ' --tables ' + table,
+            cwd=get_context_var("SL_ROOT", "")
+        )
+
+# [START instantiate_dag]
+with DAG(generate_dag_name(),
+         schedule_interval=cron,
+         default_args=default_args,
+         catchup=False,
+         description=description) as dag:
+
+    # build takgroups recursively
+    def generate_task_group_for_task(transform_task):
+        airflow_task_group_id = sanitize_id(transform_task['data']['name'])
+        airflow_task_id = airflow_task_group_id
+        task_typ = transform_task['data']['typ']
+        if (task_typ == 'task'):
+            airflow_task_id = airflow_task_group_id + "_task"
+        else:
+            airflow_task_id = airflow_task_group_id + "_table"
+
+        if ('children' in transform_task):
+            with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
+                for transform_sub_task in transform_task['children']:
+                    generate_task_group_for_task(transform_sub_task)
+                upstream_tasks = list(airflow_task_group.children.values())
+                airflow_task = create_task(airflow_task_id, transform_task['data']['name'], task_typ)
+                airflow_task.set_upstream(upstream_tasks)
+            return airflow_task_group
+        else:
+            airflow_task = create_task(airflow_task_id, transform_task['data']['name'], task_typ)
+            return airflow_task
+
+    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps['tasks']]
+
+    start = EmptyOperator(task_id="start")
+    end = EmptyOperator(task_id='end')
+    start >> all_transform_tasks >> end
+
+
+

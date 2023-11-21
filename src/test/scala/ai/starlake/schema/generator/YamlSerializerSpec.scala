@@ -24,10 +24,11 @@ class YamlSerializerSpec extends TestHelper {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "domain" -> "user",
-            "table"  -> "user",
-            "write"  -> "OVERWRITE"
+            "sql"       -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "domain"    -> "user",
+            "table"     -> "user",
+            "write"     -> "OVERWRITE",
+            "recursive" -> false
           )
         ),
         "format"   -> "parquet",
@@ -53,14 +54,15 @@ class YamlSerializerSpec extends TestHelper {
           List(task)
         )
       val jobMap = YamlSerializer.toMap(job)
-      val expected = Map(
+      val expected: Map[String, Any] = Map(
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
-            "domain" -> "user",
-            "table"  -> "user",
-            "write"  -> "OVERWRITE"
+            "sql"       -> "select firstname, lastname, age from dataset.table where age=${age}",
+            "domain"    -> "user",
+            "table"     -> "user",
+            "write"     -> "OVERWRITE",
+            "recursive" -> false
           )
         )
       )
@@ -80,17 +82,20 @@ class YamlSerializerSpec extends TestHelper {
       val job =
         AutoJobDesc("user", List(task))
       val jobMap = YamlSerializer.toMap(job)
-      val expected = Map(
+      val expected: Map[String, Any] = Map(
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "domain" -> "user",
-            "table"  -> "user",
-            "write"  -> "OVERWRITE"
+            "sql"       -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "table"     -> "user",
+            "domain"    -> "user",
+            "write"     -> "OVERWRITE",
+            "recursive" -> false
           )
         )
       )
+      println(jobMap)
+      println(expected)
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
   }
