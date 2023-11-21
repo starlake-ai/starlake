@@ -4,10 +4,6 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 SL_ROOT="${SL_ROOT:-`pwd`}"
-if [ -f "$SL_ROOT/sl_versions.sh" ]
-then
-  source "$SL_ROOT/sl_versions.sh"
-fi
 if [ -f "$SCRIPT_DIR/versions.sh" ]
 then
   source "$SCRIPT_DIR/versions.sh"
@@ -505,20 +501,6 @@ save_installed_versions(){
   fi
 }
 
-save_contextual_versions(){
-  if [[ "$SL_ROOT" != "$SCRIPT_DIR" && -n "$SL_VERSION" ]]
-  then
-    # save shell version
-    echo "#!/bin/bash" > "$SL_ROOT/sl_versions.sh"
-    echo "set -e" >> "$SL_ROOT/sl_versions.sh"
-    echo SL_VERSION="${SL_VERSION}" >> "$SL_ROOT/sl_versions.sh"
-
-    # save batch version
-    echo "@echo off" > "$SL_ROOT/sl_versions.cmd"
-    echo "\"set SL_VERSION=${SL_VERSION}\"" >> "$SL_ROOT/sl_versions.cmd"
-  fi
-}
-
 launch_starlake() {
   if [ -f "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" ]
   then
@@ -601,14 +583,15 @@ case "$1" in
     then
       init_env
     fi
-    save_installed_versions
-    save_contextual_versions
+    if [[ SL_MULTI_VERSION -eq 1 ]]
+    then
+      save_installed_versions
+    fi
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
     ;;
   *)
-    save_contextual_versions
     launch_starlake "$@"
     ;;
 esac

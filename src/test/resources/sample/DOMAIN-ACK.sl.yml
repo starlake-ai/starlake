@@ -12,9 +12,9 @@ load:
     write: "APPEND"
     partition:
       attributes:
-        - comet_year
-        - comet_month
-        - comet_day
+        - sl_year
+        - sl_month
+        - sl_day
     sink:
       type: ES
   ack: "ack"

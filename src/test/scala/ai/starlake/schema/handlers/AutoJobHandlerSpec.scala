@@ -410,7 +410,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "DOMAIN",
         table = "TABLE",
         write = Some(WriteMode.OVERWRITE),
-        partition = List("comet_year", "comet_month"),
+        partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         None,

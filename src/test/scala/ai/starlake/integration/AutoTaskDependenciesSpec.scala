@@ -1,17 +1,18 @@
 package ai.starlake.integration
 
 import ai.starlake.job.Main
-import better.files.File
 
 class AutoTaskDependenciesSpec extends IntegrationTestBase {
 
-  val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
+  val samplesDir = starlakeDir / "samples"
+  logger.info(starlakeDir.pathAsString)
+  val starbakeDir = samplesDir / "starbake"
   logger.info(starbakeDir.pathAsString)
 
   "Recursive Transform" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /*/* , "SL_METADATA" -> starbakeDir.pathAsString */ */
+        "SL_ROOT" -> starbakeDir.pathAsString
       ) {
         Main.main(
           Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
@@ -27,7 +28,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         "SL_METADATA" -> starbakeDir.pathAsString
       ) {
         Main.main(
-          Array("acl-dependencies")
+          Array("acl-dependencies", "--all")
         )
       }
     }
@@ -35,10 +36,10 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+        "SL_ROOT" -> starbakeDir.pathAsString
       ) {
         Main.main(
-          Array("task-dependencies", "--viz")
+          Array("task-dependencies", "--viz", "--all")
         )
       }
     }
@@ -66,7 +67,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
             "task-dependencies",
             "--print",
             "--tasks",
-            "Products.TopSellingProducts,Products.MostProfitableProducts"
+            "Products.TopSellingProfitableProducts"
           )
         )
       }

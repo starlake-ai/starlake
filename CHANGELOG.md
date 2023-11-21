@@ -22,7 +22,7 @@ __Bug Fix__:
 
 # 0.8.0:
 - ** DEPRECATED **
-  - All date time related variables are now deprecated aka; comet_date, comet_year ...
+  - All date time related variables are now deprecated aka; sl_date, sl_year ...
 
 - **BREAKING CHANGE** 
   - extract-schema command line option 'mapping' replaced by 'config' 

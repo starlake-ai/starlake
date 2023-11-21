@@ -12,9 +12,9 @@ load:
     write: "OVERWRITE"
     partition:
       attributes:
-        - comet_year
-        - comet_month
-        - comet_day
+        - sl_year
+        - sl_month
+        - sl_day
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
