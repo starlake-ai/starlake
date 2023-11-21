@@ -435,7 +435,6 @@ class ExtractSpec extends TestHelper {
 
   "ExtractData Config" should "work" in {
     val rendered = ExtractDataConfig.usage()
-    println(rendered)
     val expected =
       s"""
         |Usage: starlake extract-data [options]
@@ -449,9 +448,9 @@ class ExtractSpec extends TestHelper {
         |Examples
         |========
         |
-        |Objective: Extract data and customize timestamp to have higher precision.
+        |Objective: Extract data
         |
-        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output
         |
         |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
         |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --includeSchemas aSchema
@@ -466,13 +465,9 @@ class ExtractSpec extends TestHelper {
         |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: ${Runtime
           .getRuntime()
           .availableProcessors()}
-        |  --separator <value>      Column separator
         |  --clean                  Clean all files of table only when it is extracted.
         |  --output-dir <value>     Where to output csv files
         |  --fullExport             Force full export to all tables
-        |  --datePattern <value>    Pattern used to format date during CSV writing
-        |  --timestampPattern <value>
-        |                           Pattern used to format timestamp during CSV writing
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
         |  --cleanOnExtract         Deprecated. Use --clean instead.
