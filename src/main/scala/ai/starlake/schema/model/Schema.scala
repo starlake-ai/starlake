@@ -422,13 +422,13 @@ case class Schema(
     }
   }
 
-  private def dotRelation(
+  private def relationAsDot(
     attr: Attribute,
     domain: String,
     tableNames: Set[String]
   ): Option[String] = {
     val tableLabel = s"${domain}_$name"
-    attr.foreignKey match {
+    attr.deepForeignKeyForDot() match {
       case None => None
       case Some(ref) =>
         val tab = ref.split('.')
@@ -475,8 +475,8 @@ case class Schema(
     }
   }
 
-  def foreignTables(domainNamePrefix: String): List[String] = {
-    val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
+  def foreignTablesForDot(domainNamePrefix: String): List[String] = {
+    val fkTables = attributes.flatMap(_.deepForeignKeyForDot()).map { fk =>
       val tab = fk.split('.')
       tab.length match {
         case 3 => tab(1) + "." + tab(1) // reference to domain.table.column
@@ -498,13 +498,13 @@ case class Schema(
       val header =
         s"""<tr><td port="0" bgcolor="white"><B><FONT color="black"> $finalName </FONT></B></td></tr>\n"""
       val relations = attributes
-        .flatMap { attr => dotRelation(attr, domainName, tableNames) }
+        .flatMap { attr => relationAsDot(attr, domainName, tableNames) }
         .mkString("\n")
 
       val rows =
         attributes.flatMap { attr =>
           val isPK = isPrimaryKey(attr.getFinalName())
-          val isFK = attr.foreignKey.isDefined
+          val isFK = attr.deepForeignKeyForDot().isDefined
           dotRow(attr, isPK, isFK, includeAllAttrs)
         } mkString "\n"
 

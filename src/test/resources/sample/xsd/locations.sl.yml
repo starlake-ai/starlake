@@ -18,9 +18,9 @@ load:
       rowValidationXSDPath: __SL_TEST_ROOT__/metadata/load/sample/xsd/locations.xsd
     partition:
       attributes:
-        - comet_year
-        - comet_month
-        - comet_day
+        - sl_year
+        - sl_month
+        - sl_day
   tables:
     - name: "locations"
       pattern: "locations.*"

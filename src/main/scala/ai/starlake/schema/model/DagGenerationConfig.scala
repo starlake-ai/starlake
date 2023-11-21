@@ -1,7 +1,9 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.generator.TaskViewDependencyNode
 import ai.starlake.utils.Formatter.RichFormatter
+import ai.starlake.utils.JsonSerializer
 
 import java.util
 import java.util.Calendar
@@ -60,7 +62,7 @@ case class DagGenerationConfig(
   }
 }
 
-case class DagGenerationContext(
+case class LoadDagGenerationContext(
   config: DagGenerationConfig,
   schedules: List[DagSchedule]
 ) {
@@ -76,6 +78,30 @@ case class DagGenerationContext(
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
+    }
+  }
+}
+case class TransformDagGenerationContext(
+  config: DagGenerationConfig,
+  deps: List[TaskViewDependencyNode],
+  cron: Option[String]
+) {
+  def asMap: util.HashMap[String, Object] = {
+    val updatedOptions = if (config.options.get("SL_TIMEZONE").isEmpty) {
+      val cal1 = Calendar.getInstance
+      val tz = cal1.getTimeZone();
+      config.options + ("SL_TIMEZONE" -> tz.getID)
+    } else {
+      config.options
+    }
+    val updatedConfig = config.copy(options = updatedOptions)
+    val depsAsJsonString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
+
+    new java.util.HashMap[String, Object]() {
+      put("config", updatedConfig.asMap)
+      put("cron", cron.getOrElse("None"))
+      put("deps", depsAsJsonString)
     }
   }
 }

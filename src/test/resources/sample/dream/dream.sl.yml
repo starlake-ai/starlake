@@ -13,9 +13,9 @@ load:
     partition:
       sampling: 0.5
       attributes:
-        - comet_year
-        - comet_month
-        - comet_day
+        - sl_year
+        - sl_month
+        - sl_day
   tables:
     - name: "segment"
       pattern: "OneClient_Segmentation.*.*"

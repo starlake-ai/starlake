@@ -8,6 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.StandardCharsets
+import java.util
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -28,6 +29,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     dagConfig: DagGenerationConfig,
     schedule: Option[String]
   )
+
   private def tableWithDagConfigs(
     dagConfigs: Map[String, DagGenerationConfig]
   )(implicit settings: Settings): List[TableWithDagConfig] = {
@@ -54,6 +56,36 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     tableWithDagConfigAndSchedule
   }
 
+  case class TaskWithDagConfig(
+    taskDesc: AutoTaskDesc,
+    dagConfigName: String,
+    dagConfig: DagGenerationConfig,
+    schedule: Option[String]
+  )
+
+  private def taskWithDagConfigs(
+    dagConfigs: Map[String, DagGenerationConfig]
+  )(implicit settings: Settings): List[TaskWithDagConfig] = {
+    logger.info("Starting to task generate dags")
+    val tasks = schemaHandler.tasks()
+    val taskWithDagConfigAndSchedule: List[TaskWithDagConfig] = tasks.flatMap { taskWithDag =>
+      val dagConfigRef = taskWithDag.dagRef
+        .orElse(settings.appConfig.dagRef.flatMap(_.transform))
+      val schedule = taskWithDag.schedule
+      dagConfigRef.map { dagRef =>
+        val dagConfig = dagConfigs.getOrElse(
+          dagRef,
+          throw new Exception(
+            s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config founds ${dagConfigs.keys
+                .mkString(",")}"
+          )
+        )
+        TaskWithDagConfig(taskWithDag, dagRef, dagConfig, schedule)
+      }
+    }
+    taskWithDagConfigAndSchedule
+  }
+
   def getScheduleName(schedule: String, currentScheduleIndex: Int): (String, Int) = {
     if (schedule.contains(" ")) {
       ("cron" + currentScheduleIndex.toString, currentScheduleIndex + 1)
@@ -62,6 +94,51 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
+  private def generateTaskDags(
+    config: DagGenerateConfig
+  )(implicit settings: Settings): Unit = {
+    val outputDir = new Path(
+      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/transform/")
+    )
+
+    if (config.clean) {
+      logger.info(s"Cleaning output directory $outputDir")
+      settings.storageHandler().delete(outputDir)
+    }
+
+    val dagConfigs = schemaHandler.loadDagGenerationConfigs()
+    val taskConfigs = taskWithDagConfigs(dagConfigs)
+    val env = schemaHandler.activeEnvVars()
+    val jEnv = env.map { case (k, v) =>
+      DagPair(k, v)
+    }.toList
+    val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
+    taskConfigs.foreach { taskConfig =>
+      val dagTemplateName = taskConfig.dagConfig.template
+      val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+      val cron = settings.appConfig.schedulePresets.getOrElse(
+        taskConfig.schedule.getOrElse("None"),
+        taskConfig.schedule.getOrElse("None")
+      )
+      val cronIfNone = if (cron == "None") null else cron
+      val config = AutoTaskDependenciesConfig(tasks = Some(List(taskConfig.taskDesc.name)))
+      val deps = depsEngine.jobsDependencyTree(config)
+      val filename = Utils.parseJinja(
+        taskConfig.dagConfig.filename,
+        schemaHandler.activeEnvVars() ++ Map(
+          "table"  -> taskConfig.taskDesc.table,
+          "domain" -> taskConfig.taskDesc.domain,
+          "name"   -> taskConfig.taskDesc.name
+        )
+      )
+      val context = TransformDagGenerationContext(
+        config = taskConfig.dagConfig,
+        deps = deps,
+        cron = Option(cronIfNone)
+      )
+      applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+    }
+  }
   private def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -111,7 +188,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               val cronIfNone = if (cron == "None") null else cron
               val schedules =
                 List(DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain)))
-              val context = DagGenerationContext(config = dagConfig, schedules)
+              val context = LoadDagGenerationContext(config = dagConfig, schedules)
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(
@@ -124,7 +201,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                   "finalTable"  -> table.finalName
                 )
               )
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
             }
           }
         }
@@ -162,7 +239,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               val (scheduleValue, nextScheduleIndex) =
                 getScheduleName(schedule.schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
-              val context = DagGenerationContext(config = dagConfig, List(schedule))
+              val context = LoadDagGenerationContext(config = dagConfig, List(schedule))
               val filename = Utils.parseJinja(
                 dagConfig.filename,
                 schemaHandler.activeEnvVars() ++ Map(
@@ -171,10 +248,10 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                   "finalDomain" -> domain.finalName
                 )
               )
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
             }
           } else {
-            val context = DagGenerationContext(config = dagConfig, schedules)
+            val context = LoadDagGenerationContext(config = dagConfig, schedules)
             val filename = Utils.parseJinja(
               dagConfig.filename,
               schemaHandler.activeEnvVars() ++ Map(
@@ -182,7 +259,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 "finalDomain" -> domain.finalName
               )
             )
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
           }
         }
       } else {
@@ -218,22 +295,22 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             .sortBy(_.schedule)
           if (filenameVars.contains("schedule")) {
             dagSchedules.foreach { schedule =>
-              val context = DagGenerationContext(config = dagConfig, List(schedule))
+              val context = LoadDagGenerationContext(config = dagConfig, List(schedule))
               val filename = Utils.parseJinja(
                 dagConfig.filename,
                 schemaHandler.activeEnvVars() ++ Map(
                   "schedule" -> schedule
                 )
               )
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
             }
           } else {
-            val context = DagGenerationContext(config = dagConfig, schedules = dagSchedules)
+            val context = LoadDagGenerationContext(config = dagConfig, schedules = dagSchedules)
             val filename = Utils.parseJinja(
               dagConfig.filename,
               schemaHandler.activeEnvVars()
             )
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context, filename)
+            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
           }
 
         }
@@ -245,12 +322,11 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     outputDir: Path,
     jEnv: List[DagPair],
     dagTemplateContent: String,
-    context: DagGenerationContext,
+    context: util.HashMap[String, Object],
     filename: String
   )(implicit settings: Settings): Unit = {
-    val jContext = context.asMap
     val paramMap = Map(
-      "context" -> jContext,
+      "context" -> context,
       "env"     -> jEnv.asJava
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)

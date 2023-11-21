@@ -41,6 +41,8 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     val connectionOptions = jdbcSchemas.connectionRef
       .map(settings.appConfig.connections(_).options)
       .getOrElse(jdbcSchemas.connection)
+    val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
+    logger.info(s"Extraction will be formatted following $fileFormat")
     jdbcSchemas.jdbcSchemas
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
@@ -58,17 +60,15 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
           connectionOptions ++ jdbcSchema.connectionOptions,
           outputDir(config.outputDir),
           config.limit,
-          config.separator,
           config.numPartitions,
           config.parallelism,
           config.fullExport,
-          config.datePattern,
-          config.timestampPattern,
           config.ifExtractedBefore
             .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
           config.cleanOnExtract,
           config.includeTables,
-          config.excludeTables
+          config.excludeTables,
+          fileFormat
         )
       }
   }

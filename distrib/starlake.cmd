@@ -4,9 +4,7 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 if "%SL_ROOT%"=="" set "SL_ROOT=!cd!"
-if exist "%SL_ROOT%\sl_versions.cmd" (
-    call "%SL_ROOT%\sl_versions.cmd"
-)
+
 if exist "%SCRIPT_DIR%versions.cmd" (
     call "%SCRIPT_DIR%versions.cmd"
 )
@@ -105,12 +103,10 @@ if "%~1"=="install" (
         call :init_env
     )
     call :save_installed_versions
-    call :save_contextual_versions
     echo.
     echo Installation done. You're ready to enjoy Starlake!
     echo If any errors happen during installation. Please try to install again or open an issue.
 ) else (
-    call :save_contextual_versions
     call :launch_starlake %*
 )
 
@@ -489,18 +485,6 @@ if !ENABLE_SNOWFLAKE! equ 0 (
 )
 goto :eof
 
-:save_contextual_versions
-if not "%SL_ROOT%\" == "%SCRIPT_DIR%" (
-    if not "%SL_VERSION%" == "" (
-        echo @echo off > "%SL_ROOT%\sl_versions.cmd"
-        echo set "SL_VERSION=!SL_VERSION!" >> "%SL_ROOT%\sl_versions.cmd"
-
-        echo #!/bin/bash > "%SL_ROOT%\sl_versions.sh"
-        echo set -e >> "%SL_ROOT%\sl_versions.sh"
-        echo SL_VERSION=!SL_VERSION! >> "%SL_ROOT%\sl_versions.sh"
-    )
-)
-goto :eof
 
 :launch_starlake
 if exist "!STARLAKE_EXTRA_LIB_FOLDER!\!SL_JAR_NAME!" (

@@ -285,6 +285,7 @@ case class Attribute(
         } getOrElse (throw new Exception(s"Unknown type ${`type`}"))
     }
   }
+
   def indexMapping(schemaHandler: SchemaHandler): String = {
     attributes match {
       case attr :: head =>
@@ -383,6 +384,14 @@ case class Attribute(
       true
     } else {
       attributes.exists(_.containsArrayOfRecords())
+    }
+  }
+
+  def deepForeignKeyForDot(): Option[String] = {
+    this.foreignKey match {
+      case Some(_) => this.foreignKey
+      case None =>
+        attributes.flatMap(_.deepForeignKeyForDot()).headOption
     }
   }
 }

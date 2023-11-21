@@ -4,11 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
-import au.com.bytecode.opencsv.CSVWriter
-import better.files.{using, File}
+import better.files.File
 import com.typesafe.scalalogging.LazyLogging
+import com.univocity.parsers.conversions.Conversions
+import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
 import org.apache.spark.sql.jdbc.JdbcDialects
 
+import java.nio.charset.StandardCharsets
 import java.sql.Types._
 import java.sql.{
   Connection => SQLConnection,
@@ -682,16 +684,14 @@ object JdbcDbUtils extends LazyLogging {
     connectionOptions: Map[String, String],
     baseOutputDir: File,
     limit: Int,
-    separator: Char,
     defaultNumPartitions: Int,
     parallelism: Option[Int],
     fullExportCli: Boolean,
-    datePattern: String,
-    timestampPattern: String,
     extractionPredicate: Option[Long => Boolean],
     cleanOnExtract: Boolean,
     includeTables: Seq[String],
-    excludeTables: Seq[String]
+    excludeTables: Seq[String],
+    outputFormat: FileFormat
   )(implicit
     settings: Settings
   ): Unit = {
@@ -840,14 +840,12 @@ object JdbcDbUtils extends LazyLogging {
                       extractPartitionToFile(
                         context,
                         limit,
-                        separator,
                         outputDir,
                         tableName,
                         dateTime,
                         None,
                         statement,
-                        datePattern,
-                        timestampPattern
+                        outputFormat
                       )
                   }
                 } match {
@@ -1024,14 +1022,12 @@ object JdbcDbUtils extends LazyLogging {
                         val count = extractPartitionToFile(
                           boundaryContext,
                           limit,
-                          separator,
                           outputDir,
                           tableName,
                           dateTime,
                           Some(index),
                           statement,
-                          datePattern,
-                          timestampPattern
+                          outputFormat
                         )
                         val currentTableCount = tableCount.addAndGet(count)
 
@@ -1137,47 +1133,53 @@ object JdbcDbUtils extends LazyLogging {
   private def extractPartitionToFile(
     context: String,
     limit: Int,
-    separator: Char,
     outputDir: File,
     tableName: String,
     dateTime: String,
     index: Option[Int],
     statement: PreparedStatement,
-    datePattern: String,
-    timestampPattern: String
+    outputFormat: FileFormat
   ): Long = {
     val filename = index
       .map(index => tableName + s"-$dateTime-$index.csv")
       .getOrElse(tableName + s"-$dateTime.csv")
     logger.info(s"$context Starting extraction into $filename")
     val outFile = File(outputDir, filename)
-    val outFileWriter = outFile.newFileWriter(append = false)
-    val csvWriterResource = new CSVWriter(outFileWriter, separator, '"', '\\')
+    val outFileWriter = outFile.newFileOutputStream(append = false)
+    val writerSettings = new CsvWriterSettings()
+    val format = new CsvFormat()
+    outputFormat.quote.flatMap(_.headOption).foreach { q =>
+      format.setQuote(q)
+    }
+    outputFormat.escape.flatMap(_.headOption).foreach(format.setQuoteEscape)
+    outputFormat.separator.foreach(format.setDelimiter)
+    writerSettings.setFormat(format)
+    outputFormat.nullValue.foreach(writerSettings.setNullValue)
+    outputFormat.withHeader.foreach(writerSettings.setHeaderWritingEnabled)
+    val csvRoutines = new CsvRoutines(writerSettings)
+
     statement.setMaxRows(limit)
     val rs = statement.executeQuery()
-    val resultService = new SLResultSetHelperService(datePattern, timestampPattern)
-    var count: Long = 0
     val extractionStartMs = System.currentTimeMillis()
-    using(csvWriterResource) { csvWriter =>
-      csvWriter.setResultService(resultService)
-      csvWriter.writeNext(resultService.getColumnNames(rs))
-      val heartBeatMs = 30000
-      var lastHeartBeat = extractionStartMs
-      while (rs.next()) {
-        count = count + 1
-        csvWriter.writeNext(resultService.getColumnValues(rs))
-        if (System.currentTimeMillis() - lastHeartBeat > heartBeatMs) {
-          lastHeartBeat = System.currentTimeMillis()
-          val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
-          logger.info(
-            s"$context Extraction in progress. Already extracted $count rows in $elapsedTime"
-          )
-        }
-      }
-    }
+    val objectRowWriterProcessor = new SLObjectRowWriterProcessor()
+    outputFormat.datePattern.foreach(dtp =>
+      objectRowWriterProcessor.convertType(classOf[java.sql.Date], Conversions.toDate(dtp))
+    )
+    outputFormat.timestampPattern.foreach(tp =>
+      objectRowWriterProcessor.convertType(classOf[java.sql.Timestamp], Conversions.toDate(tp))
+    )
+    writerSettings.setQuoteAllFields(true)
+    writerSettings.setRowWriterProcessor(objectRowWriterProcessor)
+    csvRoutines.write(
+      rs,
+      outFileWriter,
+      outputFormat.encoding.getOrElse(StandardCharsets.UTF_8.name())
+    )
     val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
-    logger.info(s"$context Extracted $count rows and saved into $filename in $elapsedTime")
-    count
+    logger.info(
+      s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $filename in $elapsedTime"
+    )
+    objectRowWriterProcessor.getRecordsCount()
   }
 }
 

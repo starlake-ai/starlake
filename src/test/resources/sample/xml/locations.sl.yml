@@ -15,9 +15,9 @@ metadata:
     rowTag: element
   partition:
     attributes:
-      - comet_year
-      - comet_month
-      - comet_day
+      - sl_year
+      - sl_month
+      - sl_day
 tables:
   - name: "locations"
     pattern: "locations.*"

@@ -7,8 +7,8 @@ transform:
       table: "ANALYSE"
       write: "OVERWRITE"
       partition:
-        - "comet_year"
-        - "comet_month"
+        - "sl_year"
+        - "sl_month"
       presql: null
       postsql: null
       rls:

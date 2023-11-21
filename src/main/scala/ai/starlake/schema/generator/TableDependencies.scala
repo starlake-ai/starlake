@@ -25,20 +25,20 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     * @return
     *   (primary tables, fk tables)
     */
-  private def relatedTables(tableNames: Seq[String]): (List[String], List[String]) = {
+  private def relatedTablesForDot(tableNames: Seq[String]): (List[String], List[String]) = {
     // we extract all tables referenced by a foreign key in one of the tableNames parameter
-    val foreignTableNames = schemaHandler.domains().flatMap(_.foreignTables(tableNames))
+    val foreignTableNames = schemaHandler.domains().flatMap(_.foreignTablesForDot(tableNames))
 
     val primaryTables = tableNames.flatMap { tableName =>
       schemaHandler
         .domains()
         .flatMap(d =>
           d.tables
-            .filter(t => t.foreignTables(d.finalName).contains(tableName))
+            .filter(t => t.foreignTablesForDot(d.finalName).contains(tableName))
             .map(t => s"${d.finalName}.${t.finalName}")
         )
     }.distinct
-    (primaryTables.toList, foreignTableNames)
+    (primaryTables.toSet.toList, foreignTableNames.toSet.toList)
   }
 
   def run(args: Array[String]): Try[Unit] = Try {
@@ -74,7 +74,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 //    val filteredTables = getTables(Some(finalTables))
     val (pkTables, sourceTables, fkTables) =
       if (config.related) {
-        val (pkTables, fkTables) = relatedTables(finalTables)
+        val (pkTables, fkTables) = relatedTablesForDot(finalTables)
         (pkTables.toSet, finalTables.toSet, fkTables.toSet)
       } else
         (Set.empty[String], finalTables.toSet, finalTables.toSet)

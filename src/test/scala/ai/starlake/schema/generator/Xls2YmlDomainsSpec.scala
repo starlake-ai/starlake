@@ -61,7 +61,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
       s1MaybePartitions
         .map(_.attributes)
         .get
-        .sorted shouldEqual List("comet_day", "comet_hour", "comet_month", "comet_year")
+        .sorted shouldEqual List("sl_day", "sl_hour", "sl_month", "sl_year")
 
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")

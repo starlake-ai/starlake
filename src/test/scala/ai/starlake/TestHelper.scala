@@ -157,7 +157,7 @@ trait TestHelper
     ),
     FileToImport(
       "sample.py.j2",
-      "/templates/dag/sample.py.j2"
+      "/templates/dags/sample.py.j2"
     )
   )
 
@@ -173,6 +173,7 @@ trait TestHelper
   }
 
   def loadTextFile(filename: String)(implicit codec: Codec): String = {
+    logger.info("loading resource " + filename)
     val stream: InputStream = getClass.getResourceAsStream(filename)
     Utils.withResources(Source.fromInputStream(stream))(readSourceContentAsString)
   }
