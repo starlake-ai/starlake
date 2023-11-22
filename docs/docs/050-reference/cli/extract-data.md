@@ -18,9 +18,9 @@ Extraction of a table can be divided in smaller chunk and fetched in parallel by
 Examples
 ========
 
-Objective: Extract data and customize timestamp to have higher precision.
+Objective: Extract data
 
-  starlake.sh extract-data --config my-config --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+  starlake.sh extract-data --config my-config --output-dir $PWD/output
 
 Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
   starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
@@ -38,12 +38,9 @@ Parameter|Cardinality|Description
 --limit:`<value>`|*Optional*|Limit number of records
 --numPartitions:`<value>`|*Optional*|parallelism level regarding partitionned tables
 --parallelism:`<value>`|*Optional*|parallelism level of the extraction process. By default equals to the available cores: 10
---separator:`<value>`|*Optional*|Column separator
 --clean:`<value>`|*Optional*|Clean all files of table only when it is extracted.
 --output-dir:`<value>`|*Required*|Where to output csv files
 --fullExport:`<value>`|*Optional*|Force full export to all tables
---datePattern:`<value>`|*Optional*|Pattern used to format date during CSV writing
---timestampPattern:`<value>`|*Optional*|Pattern used to format timestamp during CSV writing
 --ifExtractedBefore:`<value>`|*Optional*|DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
 --cleanOnExtract:`<value>`|*Optional*|Deprecated. Use --clean instead.
 --includeSchemas:`schema1,schema2`|*Optional*|Domains to include during extraction.

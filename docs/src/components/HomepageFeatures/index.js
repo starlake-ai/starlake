@@ -118,7 +118,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          Security as <br/>a First-Class <br/>Citizen
+          Security matters
           </>
       ),
       isBackgroundColored: 'yes',
@@ -127,6 +127,12 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/security_new.svg').default,
       alignImg: 'full',
       BeforeTitle: require('@site/static/img/security_icon.svg').default,
+      description:(
+        <p>
+          Apply security at build time before any unauthorized access to your data.
+          Visualize your access policies before applying them to your data.
+        </p>
+      ),
       linkText: 'Read more',
       linkURL: '#',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
@@ -144,7 +150,7 @@ const SplitSectionList = [
       alignImg: 'full',
       description:(
         <p>
-          Pellentesque sagittis dictum ex, quis maximus purus fermentum sit amet.
+          Keep an eye on your workloads and data quality with starlake built-in metrics and auditing capabilities.
         </p>
       ),
       linkText: 'Read more',
@@ -154,7 +160,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          Interactive YAML <br/>Schema Validation
+          Best in-class<br/>VS Code extension
           </>
       ),
       isBackgroundColored: 'yes',
@@ -163,7 +169,8 @@ const SplitSectionList = [
       alignImg: 'big',
       description:(
         <p>
-          Donec quis vestibulum odio. Quisque ultrices eros diam, vel dignissim orci sollicitudin vel.
+          Auto-complete, syntax highlighting, linting, lineage and more. All the features you expect from a modern SQL IDE.
+          <br/>Work securely without the need to share your credentials with any remote party.
         </p>
       ),
       linkText: 'Read more',
@@ -173,7 +180,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          Interactive <br/>Relationships <br/>Editor
+          Lineage<br/>at your <br/>fingertips
           </>
       ),
       isBackgroundColored: 'no',
@@ -183,7 +190,7 @@ const SplitSectionList = [
       alignImg: 'left',
       description:(
         <p>
-          Etiam ac tellus a ex sollicitudin gravida ut ut sapien. Phasellus sed felis consectetur, lacinia lectus id, sollicitudin mauris.
+          Visualize your data lineage and relationships and run you jobs instantly on your favorite orchestration engine.
         </p>
       ),
       linkText: 'Read more',
