@@ -437,13 +437,7 @@ main,
 .main-wrapper{
     padding-top: 8rem;
 }
-.main-wrapper header.heroBanner_src-pages-index-module {
-    padding-bottom: 9rem;
-}
 
-.buttons_src-pages-index-module {
-    /* margin-top: 3rem; */
-}
 .violet_btn ,
 .theme-edit-this-page {
     background: var(--violet);
