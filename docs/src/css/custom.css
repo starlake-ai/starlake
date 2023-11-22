@@ -66,6 +66,7 @@
     --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 
     --bleu-nuit: #020013;
+    --blanc: #FFF;
     --rose: #FFB9AA;
     --rouge: #EA4040;
     --ifm-navbar-link-hover-color: var(--rouge);
@@ -88,7 +89,8 @@
     --ifm-leading: -moz-calc(var(--ifm-leading-desktop) * 0.1rem);
     --ifm-leading: calc(var(--ifm-leading-desktop) * 0.1rem);
 
-    --ifm-card-background-color: var(--bleu-nuit);
+    --ifm-card-background-color: var(--blanc);
+
     --ifm-avatar-photo-size: 50px;
 }
 
@@ -118,7 +120,7 @@
     --ifm-blockquote-color: #c0c0c0;
     --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 
-    --ifm-card-background-color: var(--bleu-nuit);
+    --ifm-card-background-color: var(--blanc);
 }
 
 /** COMMUN **/
@@ -691,10 +693,14 @@ aside ul li a {
 .card h2 {
     font-size: 2rem;
     line-height: 3rem;
+    background-color: white;
+    color: black;
 }
 .card p {
     font-size: 1em;
     white-space: break-spaces;
+    background-color: white;
+    color: black;
 }
 
 .main-wrapper > div > aside {

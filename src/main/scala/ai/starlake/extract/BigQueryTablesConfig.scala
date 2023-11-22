@@ -8,7 +8,9 @@ case class BigQueryTablesConfig(
   writeMode: Option[WriteMode] = None,
   connectionRef: Option[String] = None,
   tables: Map[String, List[String]] = Map.empty,
-  persist: Boolean = true
+  database: Option[String] = None,
+  persist: Boolean = true,
+  external: Boolean = false
 )
 
 object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
@@ -39,6 +41,16 @@ object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
       opt[String]("connection")
         .action((x, c) => c.copy(connectionRef = Some(x)))
         .text(s"Connection to use")
+        .optional(),
+      opt[String]("database")
+        .action((x, c) => c.copy(database = Some(x)))
+        .text(s"database / project id")
+        .optional(),
+      opt[Unit]("external")
+        .action((x, c) => c.copy(external = true))
+        .text(
+          s"Include external datasets defined in _config.sl.yml instead of using other parameters of this command ? Defaults to false"
+        )
         .optional(),
       opt[Seq[String]]("tables")
         .action { (x, c) =>

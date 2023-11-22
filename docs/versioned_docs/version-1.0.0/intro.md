@@ -12,7 +12,7 @@ The workflow below is a typical use case :
 * Start watching your data being available as Tables in your warehouse.
 * Build aggregates using SQL, Jinja and YAML configuration files.  
 
-You may use Sytarlake for Extract, Load and Transform steps or any combination of these steps.
+You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
 ## Data Extraction
 Starlake provides a fast way to extract, in full or incrementally, tables from your database.

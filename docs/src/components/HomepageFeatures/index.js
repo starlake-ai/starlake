@@ -43,7 +43,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          From any source <br/>to any sink at <br/>Spark™ speed.
+          From any source <br/>to any sink at <br/>native speed.
           </>
       ),
       isBackgroundColored: 'yes',
@@ -53,11 +53,10 @@ const SplitSectionList = [
       alignImg: 'right',
       description: (
        <p>
-         Cras justo purus, gravida quis nulla ut, convallis gravida dolor. 
        </p>
       ),
       linkText: 'Discover',
-      linkURL: '#',
+      linkURL: 'docs/userguide/infer-schema',
       LinkSvg: require('@site/static/img/eye.svg').default,
   },
   {
@@ -88,7 +87,7 @@ const SplitSectionList = [
       alignImg: 'left',
       description:(
         <p>
-          Sed et maximus augue. Etiam et dapibus quam.
+          share your data catalog with your business users and let them contribute and explore with their favorite tools.
         </p>
       ),
       linkText: 'Read more',
@@ -109,7 +108,7 @@ const SplitSectionList = [
       BeforeTitle: require('@site/static/img/scriptfree_icon.svg').default,
       description:(
         <p>
-          Maecenas arcu nunc, feugiat eu dolor vel, euismod lacinia lorem. 
+          Automated full and incremental replication of your data from any relational database to your favorite datawarehouse without writing a single line of code.
         </p>
       ),
       linkText: 'Read more',

@@ -34,7 +34,7 @@ object SingleUserMainServer {
         "" // makes the compiler happy
       case "version" => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
       case "reload" =>
-        SingleUserMainServer.mapper.writeValueAsString(SettingsManager.reset())
+        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.reset(reload)(settings))
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.domains(reload)(settings))
