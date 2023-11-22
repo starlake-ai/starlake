@@ -538,8 +538,7 @@ object Settings extends StrictLogging {
     archiveTablePattern: String,
     archiveTable: Boolean,
     version: String,
-    autoExportSchema: Boolean
-    version: String,
+    autoExportSchema: Boolean,
     longJobTimeoutMs: Long,
     shortJobTimeoutMs: Long
   ) extends Serializable {
