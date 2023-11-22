@@ -15,6 +15,12 @@ object SingleUserServices {
     schemaHandler
   }
 
+  def reset(reload: Boolean)(implicit settings: Settings): String = {
+    val result = SingleUserMainServer.mapper.writeValueAsString(SettingsManager.reset())
+    external(reload)
+    result
+  }
+
   def domains(reload: Boolean)(implicit settings: Settings): List[Domain] = {
     getSchemaHandler(reload).domains()
   }
@@ -33,5 +39,9 @@ object SingleUserServices {
 
   def core(args: Array[String], reload: Boolean)(implicit settings: Settings): Unit = {
     core.run(args, getSchemaHandler(reload))(settings)
+  }
+
+  def external(reload: Boolean)(implicit settings: Settings): Unit = {
+    core(Array("extract-bq-schema", "--external"), reload)
   }
 }

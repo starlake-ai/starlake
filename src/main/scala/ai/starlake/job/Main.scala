@@ -330,7 +330,7 @@ class Main() extends StrictLogging {
       case "bq-info" =>
         BigQueryTableInfo.run(args.drop(1))
       case "extract-bq-schema" =>
-        ExtractBigQuerySchema.run(args.drop(1))
+        ExtractBigQuerySchema.run(args.drop(1))(settings, schemaHandler)
       case "bq-freshness" =>
         val result = BigQueryFreshnessInfo.run(args.drop(1), schemaHandler)
         result match {

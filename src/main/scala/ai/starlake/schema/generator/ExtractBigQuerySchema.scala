@@ -4,22 +4,24 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
+import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import scala.util.Try
 
-class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
+class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)
+    extends StrictLogging {
   val implicitSettings = settings
   val bqJob = new BigQueryJobBase {
     val settings = implicitSettings
-    override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
+    override def cliConfig: BigQueryLoadConfig = BigQueryLoadConfig(
       connectionRef = config.connectionRef,
-      outputDatabase = None
+      outputDatabase = config.database
     )
   }
   val bigquery = bqJob.bigquery()
@@ -61,6 +63,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
       }
 
     val schemas = tables.flatMap { bqTable =>
+      logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable()}")
       // We get the Table again below because Tables are returned with a null definition by listTables above.
       val tableWithDefinition = bigquery.getTable(bqTable.getTableId())
       if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
@@ -93,27 +96,44 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
 }
 
 object ExtractBigQuerySchema {
-  def extractDatasets(
-    schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Map[String, List[Domain]] = {
-    val externalSources = schemaHandler.externalSources()
+  def extractExternalDatasets(
+    externalSources: List[ExternalDatabase]
+  )(implicit settings: Settings, schemaHandler: SchemaHandler): Map[String, List[Domain]] = {
     externalSources.map { external =>
       val config =
-        BigQueryTablesConfig(tables = external.toMap())
+        BigQueryTablesConfig(
+          tables = external.toMap(schemaHandler.domains()),
+          database = if (external.project.isEmpty) None else Some(external.project)
+        )
       val extractor = new ExtractBigQuerySchema(config)
       external.project -> extractor.extractDatasets()
     }.toMap
   }
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    implicit val settings: Settings = Settings(Settings.referenceConfig)
+
+  def run(
+    args: Array[String]
+  )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = Try {
+    // implicit val settings: Settings = Settings(Settings.referenceConfig)
     val config =
       BigQueryTablesConfig
         .parse(args.toSeq)
         .getOrElse(throw new Exception("Could not parse arguments"))
-    extractAndSaveTables(config)
+    if (config.external) {
+      val externalSources = schemaHandler.externalSources()
+      val externalDomains = extractExternalDatasets(externalSources)
+      externalDomains.foreach { case (project, domains) =>
+        domains.foreach { domain =>
+          domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
+        }
+      }
+    } else {
+      extractAndSaveAsDomains(config)
+    }
   }
 
-  def extractAndSaveTables(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
+  def extractAndSaveAsDomains(
+    config: BigQueryTablesConfig
+  )(implicit settings: Settings): Unit = {
     val domains = new ExtractBigQuerySchema(config).extractDatasets()
     domains.foreach { domain =>
       domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())

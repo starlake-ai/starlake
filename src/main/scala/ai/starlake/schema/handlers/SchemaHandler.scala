@@ -236,8 +236,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val content = Utils
         .parseJinja(storage.read(externalPath), activeEnvVars())
       mapper
-        .readValue(content, classOf[ExternalSource])
+        .readValue(content, classOf[ExternalSourceHolder])
+        .external
         .projects
+        .getOrElse(Nil)
     } else
       List.empty[ExternalDatabase]
   }

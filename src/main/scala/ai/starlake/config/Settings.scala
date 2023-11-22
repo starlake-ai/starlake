@@ -537,7 +537,8 @@ object Settings extends StrictLogging {
     jobIdEnvName: Option[String],
     archiveTablePattern: String,
     archiveTable: Boolean,
-    version: String
+    version: String,
+    autoExportSchema: Boolean
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
