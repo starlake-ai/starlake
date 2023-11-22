@@ -535,6 +535,7 @@ trait IngestionJob extends SparkJob {
                 csvParserSettings.setMaxColumns(schema.attributes.length * 2)
                 csvParserSettings.setNullValue(mergedMetadata.getNullValue())
                 csvParserSettings.setHeaderExtractionEnabled(true)
+                csvParserSettings.setMaxCharsPerColumn(-1)
                 val csvParser = new CsvParser(csvParserSettings)
                 csvParser.beginParsing(reader)
                 // call this in order to get the headers even if there is no record
