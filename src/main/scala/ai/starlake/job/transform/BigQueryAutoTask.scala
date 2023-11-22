@@ -75,14 +75,18 @@ class BigQueryAutoTask(
     )
   }
 
-  private def bqNativeJob(config: BigQueryLoadConfig, sql: String): BigQueryNativeJob = {
+  private def bqNativeJob(
+    config: BigQueryLoadConfig,
+    sql: String,
+    jobTimeoutMs: Option[Long] = None
+  ): BigQueryNativeJob = {
     val toUpperSql = sql.toUpperCase()
     val finalSql =
       if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
         "(" + sql + ")"
       else
         sql
-    new BigQueryNativeJob(config, finalSql, this.resultPageSize)
+    new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
   }
 
   def runBQ(): Try[JobResult] = {
@@ -93,7 +97,7 @@ class BigQueryAutoTask(
       // nothing to do, config is created with write_truncate in that case
     }
     logger.info(s"running BQ Query start time $start")
-    val jobRunner = bqNativeJob(config, "ignore sql")
+    val jobRunner = bqNativeJob(config, "ignore sql", Some(settings.appConfig.shortJobTimeoutMs))
     val tableExists =
       jobRunner.tableExists(
         taskDesc.getDatabase(),
@@ -118,11 +122,20 @@ class BigQueryAutoTask(
     val jobResult: Try[JobResult] = interactive match {
       case None =>
         if (mainIsSelect)
-          bqNativeJob(config, mainSql).run()
+          bqNativeJob(
+            config,
+            mainSql
+          ).run()
         else
-          bqNativeJob(config, mainSql).runInteractiveQuery()
+          bqNativeJob(
+            config,
+            mainSql
+          ).runInteractiveQuery()
       case Some(_) =>
-        bqNativeJob(config, mainSql).runInteractiveQuery()
+        bqNativeJob(
+          config,
+          mainSql
+        ).runInteractiveQuery()
     }
 
     Utils.logFailure(jobResult, logger)
@@ -160,7 +173,13 @@ class BigQueryAutoTask(
               Some(
                 Right(jobRunner.getTableId(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table))
               ),
-              new BigQueryExpectationAssertionHandler(bqNativeJob(config, ""))
+              new BigQueryExpectationAssertionHandler(
+                bqNativeJob(
+                  config,
+                  "",
+                  taskDesc.taskTimeoutMs
+                )
+              )
             ).run()
           }
         }

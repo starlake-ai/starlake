@@ -539,6 +539,9 @@ object Settings extends StrictLogging {
     archiveTable: Boolean,
     version: String,
     autoExportSchema: Boolean
+    version: String,
+    longJobTimeoutMs: Long,
+    shortJobTimeoutMs: Long
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =

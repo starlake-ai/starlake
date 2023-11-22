@@ -52,7 +52,8 @@ case class AutoTaskDesc(
   recursive: Boolean = false,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
-  _auditTableName: Option[String] = None
+  _auditTableName: Option[String] = None,
+  taskTimeoutMs: Option[Long] = None
 ) extends Named {
 
   @JsonIgnore
@@ -86,7 +87,8 @@ case class AutoTaskDesc(
       schedule = child.dagRef.orElse(schedule),
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
-      parseSQL = child.parseSQL.orElse(parseSQL)
+      parseSQL = child.parseSQL.orElse(parseSQL),
+      taskTimeoutMs = child.taskTimeoutMs.orElse(taskTimeoutMs)
     )
   }
 
@@ -106,7 +108,8 @@ case class AutoTaskDesc(
     table = "",
     write = Some(WriteMode.OVERWRITE),
     python = None,
-    merge = None
+    merge = None,
+    taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")

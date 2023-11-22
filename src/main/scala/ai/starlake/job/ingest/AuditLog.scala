@@ -192,7 +192,8 @@ object AuditLog extends StrictLogging {
         postsql = Nil,
         sink = Some(settings.appConfig.audit.sink),
         parseSQL = Some(false),
-        _auditTableName = Some("audit")
+        _auditTableName = Some("audit"),
+        taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
       )
       val task = AutoTask
         .task(

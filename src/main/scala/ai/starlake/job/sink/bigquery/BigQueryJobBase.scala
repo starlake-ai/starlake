@@ -257,7 +257,11 @@ trait BigQueryJobBase extends StrictLogging {
         }
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
-          new BigQueryNativeJob(cliConfig, rlsStatement).runInteractiveQuery() match {
+          new BigQueryNativeJob(
+            cliConfig,
+            rlsStatement,
+            jobTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
+          ).runInteractiveQuery() match {
             case Failure(e) =>
               throw e
             case Success(BigQueryJobResult(_, _, Some(job)))
@@ -524,7 +528,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   /** Retry on retryable bigquery exception.
     */
-  private def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
+  protected def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
       Try {
         bigqueryProcess
@@ -532,7 +536,9 @@ trait BigQueryJobBase extends StrictLogging {
         case be: BigQueryException
             if retry < 3 && scala
               .Option(be.getError)
-              .exists(_.getReason() == "rateLimitExceeded") =>
+              .exists(e =>
+                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
+              ) =>
           val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
           logger.error(s"Retry in $sleepTime. ${be.getMessage}")
           Thread.sleep(sleepTime)
@@ -710,8 +716,18 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
-      val tableTagPairs = Utils.extractTags(schema.tags)
-      table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
+      recoverBigqueryException {
+        val tableTagPairs = Utils.extractTags(schema.tags)
+        if (table.getLabels.asScala.toSet != tableTagPairs) {
+          logger.info("Table's tag has changed")
+          table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
+        } else {
+          logger.info("Table's tag has not changed")
+        }
+      } match {
+        case Failure(exception) => throw exception
+        case Success(value)     => // do nothing
+      }
     }
   }
 
