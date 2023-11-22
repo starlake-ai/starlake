@@ -4,20 +4,26 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
-import HomepageFeatures from '../components/HomepageFeatures';
+
+import HomepageFeatures from '@site/src/components/HomepageFeatures';
+
+import StartSvg from '@site/static/img/start.svg';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('hero hero--secondary', styles.heroBanner)}>
+    <header className={clsx(styles.heroBanner)}>
       <div className="container">
-        <h1 className="hero__title">{siteConfig.title}</h1>
+        <h1 className="hero__title title_gradient">Supercharge <br/>your data pipelines</h1>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>
           <Link
-            className="button cta-btn button--outline button--primary button--lgg"
-            to="docs/quickstart/install">
-            Tutorial - 10min ⏱️
+            className="violet_btn"
+            to="/docs/intro">
+            <span>Tutorial - 10min</span>
+            <i>
+                <StartSvg title="Start Tutorial" className="start_icon" />
+                </i>
           </Link>
         </div>
       </div>
@@ -32,9 +38,8 @@ export default function Home() {
       title={`${siteConfig.title}`}
       description="Big & Fast Data Integration">
       <HomepageHeader />
-      <main>
-        <HomepageFeatures />
-      </main>
+      <HomepageFeatures />
+      <a aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button" type="button" href="#__docusaurus"></a>
     </Layout>
   );
 }

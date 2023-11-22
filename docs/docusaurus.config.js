@@ -8,8 +8,9 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
     title: "Supercharge your data pipelines",
     tagline: 'So your data just keep moving',
-    favicon: 'img/favicon.ico',
+    favicon: 'img/favicon_starlake.ico',
 
+    // Set the production url of your site here
     url: 'https://starlake-ai.github.io',
     baseUrl: process.env.BASE_URL || '/',
 
@@ -34,13 +35,13 @@ const config = {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
+                    'https://github.com/starlake-ai/starlake/edit/master/docs/',
                 },
                 blog: {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
+                    'https://github.com/starlake-ai/starlake/edit/master/docs/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -66,64 +67,52 @@ const config = {
             }
         },
         prism: {
-            additionalLanguages: ['java', 'scala', 'sql', 'powershell', 'python'],
-            theme: lightCodeTheme,
-            darkTheme: darkCodeTheme
+            additionalLanguages: ['java', 'scala', 'sql', 'powershell', 'python']
+        },
+        // Replace with your project's social card
+        colorMode: {
+            defaultMode: 'dark',
+            disableSwitch: true,
+            respectPrefersColorScheme: false,
         },
         navbar: {
             title: 'Starlake',
             logo: {
                 alt: 'Starlake',
-                src: 'img/shooting-star.png',
-                srcDark: 'img/shooting-star-white.png',
+                src: 'img/starlake_icon.svg',
+                srcDark: 'img/starlake_icon.svg',
             },
             items: [
                 {
                     type: 'docSidebar',
                     sidebarId: 'starlakeSidebar',
-                    label: 'Docs',
+                    label: 'Documentation',
                     position: 'left'
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
-                    label: 'Community',
-                    position: 'left',
-                    items: [
-                        {
-                            label: 'GitHub',
-                            href: 'https://github.com/starlake-ai/starlake/',
-                        },
-                        {
-                            label: 'Slack',
-                            href: 'https://join.slack.com/t/starlakeai/shared_invite/zt-26lpp1t6p-6lqvQArsXI5wEbYqsMt3sw',
-                        },
-                        {
-                            label: 'Stack Overflow',
-                            href: 'https://stackoverflow.com/questions/tagged/starlake',
-                        },
-                    ]
-                },
-                {
                     type: 'docsVersionDropdown',
                     position: 'right',
                 },
+                /*
                 {
                     href: 'https://search.maven.org/search?q=ai.starlake',
                     position: 'right',
                     className: 'header-download-link header-icon-link',
                     'aria-label': 'Download',
                 },
-                {
-                    href: 'https://starlakeai.slack.com',
-                    position: 'right',
-                    className: 'header-slack-link header-icon-link',
-                    'aria-label': 'Community',
-                },
+                */
                 {
                     href: 'https://github.com/starlake-ai/starlake',
                     position: 'right',
                     className: 'header-github-link header-icon-link',
                     'aria-label': 'GitHub repository',
+                },
+                {
+                    href: 'https://starlakeai.slack.com',
+                    position: 'right',
+                    className: 'header-slack-link header-icon-link',
+                    'aria-label': 'Community',
                 },
 
             ],
@@ -132,51 +121,42 @@ const config = {
             style: 'dark',
             links: [
                 {
-                    title: 'Docs',
                     items: [
                         {
-                            label: 'Tutorial',
+                            label: 'Documentation',
                             to: '/docs/intro',
                         },
-                    ],
-                },
-                {
-                    title: 'Community',
-                    items: [
-                        {
-                            label: 'Stack Overflow',
-                            href: 'https://stackoverflow.com/questions/tagged/starlake',
-                        },
-                        {
-                            label: 'Slack',
-                            href: 'https://starlakeai.slack.com',
-                        },
-                        {
-                            label: 'Twitter',
-                            href: 'https://twitter.com/starlake-ai',
-                        },
-                    ],
-                },
-                {
-                    title: 'More',
-                    items: [
                         {
                             label: 'Blog',
-                            to: '/blog',
-                        },
-{
-                            label: 'GitHub',
-                            href: 'https://github.com/starlake-ai/starlake',
+                            href: '/blog',
                         },
                     ],
                 },
+
+                {
+                    items: [
+                        {
+                            html: `
+<ul class="footer_right"><li><a href="https://github.com/starlake-ai/starlake" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-github-link header-icon-link" aria-label="GitHub repository"></a></li><li><a href="https://starlakeai.slack.com" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-slack-link header-icon-link" aria-label="Community"></a></li></ul>
+`,
+                        },
+                    ]
+                },
             ],
-            copyright: `By the way, Starlake is serverless.`,
         },
+        zoom: {
+            selector: '.markdown :not(em) > img, .split_section .img-fluid',
+            config: {
+                // options you can specify via https://github.com/francoischalifour/medium-zoom#usage
+                background: {
+                    light: 'rgba(2, 0, 19, 0.5)',
+                    dark: 'rgba(2, 0, 19, 0.5)'
+                }
+            }
+        }
     }),
 
     plugins: [
-        // ... Your other plugins.
         [
             require.resolve("@easyops-cn/docusaurus-search-local"),
             {
@@ -189,13 +169,15 @@ const config = {
                 // ```
                 // When applying `zh` in language, please install `nodejieba` in your project.
             },
-            
+
+        ],
+        [
+            require.resolve("docusaurus-plugin-image-zoom"),
+            {
+                hashed: true,
+            },
         ],
     ],
-    markdown: {
-        mermaid: true,
-    },
-    themes: ['@docusaurus/theme-mermaid']
 };
 
 module.exports = config;
