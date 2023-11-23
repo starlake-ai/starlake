@@ -38,6 +38,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
                                                  |  options {
                                                  |    gcsBucket: starlake-app
                                                  |    writeMethod: indirect
+                                                 |    location: "europe-west1"
                                                  |    authType: APPLICATION_DEFAULT
                                                  |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
                                                  |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
