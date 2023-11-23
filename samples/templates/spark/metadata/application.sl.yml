@@ -18,7 +18,8 @@ application:
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
-        #maximum-bytes-billed: 100000000000
+        #jobTimeoutMs: 3600000
+        #maximumBytesBilled: 100000000000
 
     localFilesystem:
       type: "fs"
