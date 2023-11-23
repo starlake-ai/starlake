@@ -8,7 +8,7 @@ application:
 
   accessPolicies:
     apply: true
-    location: EU
+    location: europe-west1
 
   spark:
     datasource:

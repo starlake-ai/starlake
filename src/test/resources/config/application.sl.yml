@@ -2,8 +2,8 @@ application:
   loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   accessPolicies:
     apply: true
-    location: EU
-    taxonomy: RGPD
+    location: europe-west1
+    taxonomy: GDPR
 
   connections:
     bigquery:

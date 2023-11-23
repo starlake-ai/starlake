@@ -12,7 +12,7 @@ application:
       type: "bigquery"
       options:
         writeMethod: "direct" # direct or indirect
-        location: "EU" # EU or US
+        location: "europe-west1" # EU or US
         #gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes

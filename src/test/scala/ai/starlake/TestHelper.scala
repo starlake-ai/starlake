@@ -95,8 +95,8 @@ trait TestHelper
        |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
        |SL_UDFS="ai.starlake.udf.TestUdf"
        |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
-       |SL_ACCESS_POLICIES_LOCATION="eu"
-       |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
+       |SL_ACCESS_POLICIES_LOCATION="europe-west1"
+       |SL_ACCESS_POLICIES_TAXONOMY="GDPR"
        |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
         .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
        |include required("application-test.conf")
