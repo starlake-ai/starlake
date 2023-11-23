@@ -138,6 +138,9 @@ object Settings extends StrictLogging {
 
     def getDatabase()(implicit settings: Settings): Option[String] =
       this.database.orElse(settings.appConfig.getDefaultDatabase())
+
+    def getDomain()(implicit settings: Settings): String =
+      this.domain.getOrElse("audit")
   }
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -459,7 +462,7 @@ object Settings extends StrictLogging {
     *   : Absolute path, location where all log are stored
     * @param archive
     *   : Should we backup the ingested datasets ? true by default
-    * @param defaultFormat
+    * @param defaultWriteFormat
     *   : Choose between parquet, orc ... Default is parquet
     * @param defaultRejectedWriteFormat
     *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
@@ -483,7 +486,7 @@ object Settings extends StrictLogging {
     archive: Boolean,
     sinkReplayToFile: Boolean,
     lock: Lock,
-    defaultFormat: String,
+    defaultWriteFormat: String,
     defaultRejectedWriteFormat: String,
     defaultAuditWriteFormat: String,
     csvOutput: Boolean,
