@@ -917,7 +917,7 @@ class IngestionWorkflow(
                   BigQueryJobBase
                     .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
                 ),
-                sourceFormat = settings.appConfig.defaultFormat,
+                sourceFormat = settings.appConfig.defaultWriteFormat,
                 rls = schema.rls,
                 acl = schema.acl,
                 starlakeSchema = Some(schema),

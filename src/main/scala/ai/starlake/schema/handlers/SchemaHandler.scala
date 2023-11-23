@@ -1196,7 +1196,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   val auditTables: Domain =
     Domain(
-      settings.appConfig.audit.domain.getOrElse("audit"),
+      settings.appConfig.audit.getDomain(),
       tables = List(
         AuditLog.starlakeSchema,
         ExpectationReport.starlakeSchema,

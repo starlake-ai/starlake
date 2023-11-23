@@ -383,7 +383,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           settings.appConfig.audit.getConnectionRef(),
           settings.appConfig,
           Left("ignore"),
-          settings.appConfig.audit.domain.getOrElse("audit") + ".discrete",
+          settings.appConfig.audit.getDomain() + ".discrete",
           CreateDisposition.CREATE_IF_NEEDED,
           WriteDisposition.WRITE_APPEND
         )

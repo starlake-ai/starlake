@@ -185,7 +185,7 @@ class BigQueryAutoTask(
         }
         Try {
           val isTableInAuditDomain =
-            taskDesc.domain == settings.appConfig.audit.domain.getOrElse("audit")
+            taskDesc.domain == settings.appConfig.audit.getDomain()
           if (isTableInAuditDomain) {
             logger.info(
               s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"

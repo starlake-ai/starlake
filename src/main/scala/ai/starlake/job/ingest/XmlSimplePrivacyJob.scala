@@ -47,7 +47,7 @@ class XmlSimplePrivacyJob(
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
       require(
-        settings.appConfig.defaultFormat == "text",
+        settings.appConfig.defaultWriteFormat == "text",
         "default-write-format should be set to text"
       )
       val df = session.read.text(path.map(_.toString): _*)

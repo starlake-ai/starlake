@@ -144,7 +144,7 @@ class MetricsJob(
     MetricsDatasets(allDF(0), allDF(1), allDF(2))
   }
 
-  /** Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return
     *   : Spark Session used for the job
@@ -152,7 +152,7 @@ class MetricsJob(
   override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame =
-      session.read.format(settings.appConfig.defaultFormat).load(datasetPath.toString)
+      session.read.format(settings.appConfig.defaultWriteFormat).load(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
@@ -190,7 +190,7 @@ class MetricsJob(
               name = s"metrics-${applicationId()}-$table",
               sql = None,
               database = settings.appConfig.audit.getDatabase(),
-              domain = settings.appConfig.audit.domain.getOrElse("audit"),
+              domain = settings.appConfig.audit.getDomain(),
               table = table.toString,
               write = Some(WriteMode.APPEND),
               partition = Nil,

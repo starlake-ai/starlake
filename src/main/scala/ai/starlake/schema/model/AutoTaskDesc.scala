@@ -119,7 +119,7 @@ case class AutoTaskDesc(
     */
   @JsonIgnore
   def getTargetPath()(implicit settings: Settings): Path = {
-    val auditDomain = settings.appConfig.audit.domain.getOrElse("audit")
+    val auditDomain = settings.appConfig.audit.getDomain()
     if (domain == auditDomain) {
       table match {
         case "continuous" | "discrete" | "frequencies" =>
