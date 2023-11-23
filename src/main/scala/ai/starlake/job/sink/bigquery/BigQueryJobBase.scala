@@ -200,24 +200,25 @@ trait BigQueryJobBase extends StrictLogging {
     result
   }
 
-  def bigquery()(implicit settings: Settings): BigQuery = {
-    _bigquery match {
-      case None =>
-        logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
-        val bqOptionsBuilder = BigQueryOptions.newBuilder()
-        val credentials = bigQueryCredentials()
-        val bqOptions = bqOptionsBuilder.setProjectId(projectId)
-        val bqService =
-          credentials match {
-            case None =>
-              bqOptions.build().getService()
-            case Some(credentials) =>
-              bqOptions.setCredentials(credentials).build().getService()
-          }
+  def bigquery(alwaysCreate: Boolean = false)(implicit settings: Settings): BigQuery = {
+    val create = alwaysCreate || _bigquery.isEmpty
+    if (create) {
+      logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
+      val bqOptionsBuilder = BigQueryOptions.newBuilder()
+      val credentials = bigQueryCredentials()
+      val bqOptions = bqOptionsBuilder.setProjectId(projectId)
+      val bqService =
+        credentials match {
+          case None =>
+            bqOptions.build().getService()
+          case Some(credentials) =>
+            bqOptions.setCredentials(credentials).build().getService()
+        }
+      if (!alwaysCreate)
         _bigquery = Some(bqService)
-        bqService
-      case Some(bqService) =>
-        bqService
+      bqService
+    } else {
+      _bigquery.getOrElse(throw new Exception("Should never happen"))
     }
   }
 
@@ -885,7 +886,7 @@ trait BigQueryJobBase extends StrictLogging {
       val (fieldList, descriptionChanged) = buildSchema(tableSchema.getFields, schema.getFields)
       if (descriptionChanged) {
         logger.info(s"$bqTable's column description has changed")
-        bigquery.update(
+        bigquery().update(
           tableTarget.toBuilder
             .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList.asJava)))
             .build()

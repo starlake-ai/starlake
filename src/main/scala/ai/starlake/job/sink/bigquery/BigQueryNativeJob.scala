@@ -23,7 +23,7 @@ import java.nio.channels.Channels
 import java.nio.file.Files
 import java.util.UUID
 import scala.collection.JavaConverters._
-import scala.util.{Try, Using}
+import scala.util.{Failure, Success, Try, Using}
 
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -52,7 +52,7 @@ class BigQueryNativeJob(
             // We upload local files first.
             val localFiles = uri.startsWith("file:")
             recoverBigqueryException {
-              val job =
+              val job = {
                 if (localFiles) {
                   loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIs.split(","))
                 } else {
@@ -62,6 +62,7 @@ class BigQueryNativeJob(
                   val jobId = newJobIdWithLocation()
                   bigquery().create(JobInfo.newBuilder(loadConfig).setJobId(jobId).build())
                 }
+              }
               // Blocks until this load table job completes its execution, either failing or succeeding.
               job.waitFor(
                 RetryOption.totalTimeout(
@@ -105,7 +106,7 @@ class BigQueryNativeJob(
   ): Job = {
     val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
     val jobId: JobId = newJobIdWithLocation()
-    Using(bigquery.writer(jobId, loadConfig)) { writer =>
+    Using(bigquery().writer(jobId, loadConfig)) { writer =>
       val outputStream = Channels.newOutputStream(writer)
       sourceURIs
         .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
@@ -307,13 +308,22 @@ class BigQueryNativeJob(
     queryConfig
   }
 
-  /** Just to force any spark job to implement its entry point within the "run" method
+  /** Just to force any job to implement its entry point within the "run" method
     *
     * @return
-    *   : Spark Session used for the job
+    *   : job result
     */
   override def run(): Try[JobResult] = {
-    if (cliConfig.materializedView) {
+    // The very first time we update a audit table, we run it interactively to make sure there is not
+    // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
+    if (this.datasetId.getDataset() == settings.appConfig.audit.getDomain()) {
+      if (!BigQueryNativeJob.isAuditTableUpdated(this.tableId.getTable())) {
+        BigQueryNativeJob.setAuditTableUpdated(this.tableId.getTable())
+        RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+      } else {
+        runBatchQuery().map(_ => BigQueryJobResult(None, 0L, None))
+      }
+    } else if (cliConfig.materializedView) {
       RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
       RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
@@ -463,27 +473,41 @@ class BigQueryNativeJob(
     }
   }
 
-  def runBatchQuery(wait: Boolean): Try[Job] = {
-    getOrCreateDataset(None).flatMap { _ =>
+  // run batch query use only (for auditing only)
+  def runBatchQuery(
+    thisSql: scala.Option[String] = None,
+    wait: Boolean = false
+  ): Try[Job] = {
+    getOrCreateDataset(None).flatMap { targetDataset =>
       Try {
         val jobId = newJobIdWithLocation()
         val queryConfig =
           QueryJobConfiguration
-            .newBuilder(sql)
+            .newBuilder(thisSql.getOrElse(sql))
+            .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
+            .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
+            .setDefaultDataset(targetDataset.getDatasetId)
+            .setDestinationTable(tableId)
             .setPriority(Priority.BATCH)
             .setUseLegacySql(false)
+            .setSchemaUpdateOptions(
+              List(
+                SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+              ).asJava
+            )
             .setMaximumBytesBilled(
               connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
             .build()
-        logger.info(s"Executing BQ Query $sql")
+        logger.info(s"Executing batch BQ Query $sql")
         val job =
           bigquery().create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
         logger.info(
           s"Batch query wth jobId $jobId sent to BigQuery "
         )
         if (job == null)
-          throw new Exception("Job not executed since it no longer exists.")
+          throw new Exception(s"Job for $sql not executed since it no longer exists.")
         else {
           if (wait) {
             job.waitFor(
@@ -492,10 +516,31 @@ class BigQueryNativeJob(
                   .ofMinutes(jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs))
               )
             )
+          } else {
+            logger.info(s"{job.getJobId()} is running in background")
           }
           job
         }
+      } match {
+        case Failure(e) =>
+          logger.error(s"Error while running batch query $sql", e)
+          Failure(e)
+        case Success(job) =>
+          Success(job)
       }
     }
+  }
+}
+
+object BigQueryNativeJob {
+  // The very first time we update a audit table, we run it interactively to make sure there is not
+  // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
+  val auditTablesUpdated = scala.collection.mutable.Set[String]()
+
+  def isAuditTableUpdated(tableName: String): Boolean = {
+    auditTablesUpdated.contains(tableName.toLowerCase())
+  }
+  def setAuditTableUpdated(tableName: String): Unit = {
+    auditTablesUpdated.add(tableName.toLowerCase())
   }
 }
