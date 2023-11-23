@@ -110,7 +110,7 @@ class SparkAutoTask(
 
     val finalDataset = clusteredDFWriter
       .mode(taskDesc.getWrite().toSaveMode)
-      .format(sink.format.getOrElse(settings.appConfig.defaultFormat))
+      .format(sink.format.getOrElse(settings.appConfig.defaultWriteFormat))
       .options(sink.getOptions())
       .option("path", targetPath.toString)
 
@@ -145,7 +145,7 @@ class SparkAutoTask(
       if (coalesce) {
         val extension =
           sink.extension.getOrElse(
-            sink.format.getOrElse(settings.appConfig.defaultFormat)
+            sink.format.getOrElse(settings.appConfig.defaultWriteFormat)
           )
         val csvPath = storageHandler
           .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
@@ -174,7 +174,7 @@ class SparkAutoTask(
           val tableName = table.getName
           logger.info(s"registering view for $domainName.$tableName with path $table")
           val tableDF = session.read
-            .format(settings.appConfig.defaultFormat)
+            .format(settings.appConfig.defaultWriteFormat)
             .load(table.toString)
           tableDF.createOrReplaceTempView(s"$tableName")
           tableName
@@ -196,7 +196,7 @@ class SparkAutoTask(
       ESLoadConfig(
         timestamp = sink.timestamp,
         id = sink.id,
-        format = settings.appConfig.defaultFormat,
+        format = settings.appConfig.defaultWriteFormat,
         domain = this.taskDesc.domain,
         schema = this.taskDesc.table,
         dataset = Some(Left(targetPath)),
@@ -245,7 +245,7 @@ class SparkAutoTask(
                         this.taskDesc.table
                       )
                     ),
-                    sourceFormat = settings.appConfig.defaultFormat,
+                    sourceFormat = settings.appConfig.defaultWriteFormat,
                     createDisposition = createDisposition,
                     writeDisposition = writeDisposition,
                     outputPartition = bqSink.timestamp,

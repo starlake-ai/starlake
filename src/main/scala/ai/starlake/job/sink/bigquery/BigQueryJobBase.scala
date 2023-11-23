@@ -200,24 +200,25 @@ trait BigQueryJobBase extends StrictLogging {
     result
   }
 
-  def bigquery()(implicit settings: Settings): BigQuery = {
-    _bigquery match {
-      case None =>
-        logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
-        val bqOptionsBuilder = BigQueryOptions.newBuilder()
-        val credentials = bigQueryCredentials()
-        val bqOptions = bqOptionsBuilder.setProjectId(projectId)
-        val bqService =
-          credentials match {
-            case None =>
-              bqOptions.build().getService()
-            case Some(credentials) =>
-              bqOptions.setCredentials(credentials).build().getService()
-          }
+  def bigquery(alwaysCreate: Boolean = false)(implicit settings: Settings): BigQuery = {
+    val create = alwaysCreate || _bigquery.isEmpty
+    if (create) {
+      logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
+      val bqOptionsBuilder = BigQueryOptions.newBuilder()
+      val credentials = bigQueryCredentials()
+      val bqOptions = bqOptionsBuilder.setProjectId(projectId)
+      val bqService =
+        credentials match {
+          case None =>
+            bqOptions.build().getService()
+          case Some(credentials) =>
+            bqOptions.setCredentials(credentials).build().getService()
+        }
+      if (!alwaysCreate)
         _bigquery = Some(bqService)
-        bqService
-      case Some(bqService) =>
-        bqService
+      bqService
+    } else {
+      _bigquery.getOrElse(throw new Exception("Should never happen"))
     }
   }
 
@@ -257,7 +258,11 @@ trait BigQueryJobBase extends StrictLogging {
         }
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
-          new BigQueryNativeJob(cliConfig, rlsStatement).runInteractiveQuery() match {
+          new BigQueryNativeJob(
+            cliConfig,
+            rlsStatement,
+            jobTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
+          ).runInteractiveQuery() match {
             case Failure(e) =>
               throw e
             case Success(BigQueryJobResult(_, _, Some(job)))
@@ -524,7 +529,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   /** Retry on retryable bigquery exception.
     */
-  private def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
+  protected def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
       Try {
         bigqueryProcess
@@ -532,7 +537,9 @@ trait BigQueryJobBase extends StrictLogging {
         case be: BigQueryException
             if retry < 3 && scala
               .Option(be.getError)
-              .exists(_.getReason() == "rateLimitExceeded") =>
+              .exists(e =>
+                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
+              ) =>
           val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
           logger.error(s"Retry in $sleepTime. ${be.getMessage}")
           Thread.sleep(sleepTime)
@@ -710,8 +717,18 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
-      val tableTagPairs = Utils.extractTags(schema.tags)
-      table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
+      recoverBigqueryException {
+        val tableTagPairs = Utils.extractTags(schema.tags)
+        if (table.getLabels.asScala.toSet != tableTagPairs) {
+          logger.info("Table's tag has changed")
+          table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
+        } else {
+          logger.info("Table's tag has not changed")
+        }
+      } match {
+        case Failure(exception) => throw exception
+        case Success(value)     => // do nothing
+      }
     }
   }
 
@@ -869,7 +886,7 @@ trait BigQueryJobBase extends StrictLogging {
       val (fieldList, descriptionChanged) = buildSchema(tableSchema.getFields, schema.getFields)
       if (descriptionChanged) {
         logger.info(s"$bqTable's column description has changed")
-        bigquery.update(
+        bigquery().update(
           tableTarget.toBuilder
             .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList.asJava)))
             .build()

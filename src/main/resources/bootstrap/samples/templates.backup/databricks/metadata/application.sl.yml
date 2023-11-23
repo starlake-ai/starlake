@@ -2,7 +2,7 @@ application:
   connectionRef: "{{ connection }}"
   accessPolicies:
     apply: true
-    location: eu
+    location: europe-west1
   connections:
     databricks:
       type: "databricks"

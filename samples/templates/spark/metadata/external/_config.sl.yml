@@ -1,8 +1,0 @@
----
-external:
-  projects:
-    - project: "starlake-325712"
-      domains:
-        - name: "*"
-          tables:
-              - "*"

@@ -9,10 +9,9 @@ import ai.starlake.job.metrics.{
   SparkExpectationAssertionHandler
 }
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.transform.AutoTask
-import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
+import ai.starlake.job.transform.{AutoTask, SparkAutoTask}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -36,7 +35,6 @@ import com.google.cloud.bigquery.{
 }
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
@@ -496,7 +494,7 @@ trait IngestionJob extends SparkJob {
       connectionRef = Some(mergedMetadata.getConnectionRef()),
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = None,
-      sourceFormat = settings.appConfig.defaultFormat,
+      sourceFormat = settings.appConfig.defaultWriteFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       outputPartition = None,
@@ -535,6 +533,7 @@ trait IngestionJob extends SparkJob {
                 csvParserSettings.setMaxColumns(schema.attributes.length * 2)
                 csvParserSettings.setNullValue(mergedMetadata.getNullValue())
                 csvParserSettings.setHeaderExtractionEnabled(true)
+                csvParserSettings.setMaxCharsPerColumn(-1)
                 val csvParser = new CsvParser(csvParserSettings)
                 csvParser.beginParsing(reader)
                 // call this in order to get the headers even if there is no record
@@ -967,13 +966,13 @@ trait IngestionJob extends SparkJob {
             .schema(
               MergeUtils.computeCompatibleSchema(
                 session.read
-                  .format(settings.appConfig.defaultFormat)
+                  .format(settings.appConfig.defaultWriteFormat)
                   .load(acceptedPath.toString)
                   .schema,
                 incomingSchema
               )
             )
-            .format(settings.appConfig.defaultFormat)
+            .format(settings.appConfig.defaultWriteFormat)
             .load(acceptedPath.toString)
         } getOrElse {
           logger.warn(s"Empty folder $acceptedPath")
@@ -1217,7 +1216,8 @@ trait IngestionJob extends SparkJob {
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
-        val mergedDataset = session.read.format(settings.appConfig.defaultFormat).load(mergePath)
+        val mergedDataset =
+          session.read.format(settings.appConfig.defaultWriteFormat).load(mergePath)
         (
           partitionedDatasetWriter(
             mergedDataset,
@@ -1263,7 +1263,10 @@ trait IngestionJob extends SparkJob {
           // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
           // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
           val df = session.createDataFrame(
-            session.read.format(settings.appConfig.defaultFormat).load(targetPath.toString).rdd,
+            session.read
+              .format(settings.appConfig.defaultWriteFormat)
+              .load(targetPath.toString)
+              .rdd,
             finalDataset.schema
           )
           storageHandler.delete(new Path(mergePath))
@@ -1302,7 +1305,7 @@ trait IngestionJob extends SparkJob {
     }
     // output file should have the same name as input file when applying privacy
     if (
-      settings.appConfig.defaultFormat == "text" && settings.appConfig.privacyOnly && area != StorageArea.rejected
+      settings.appConfig.defaultWriteFormat == "text" && settings.appConfig.privacyOnly && area != StorageArea.rejected
     ) {
       val pathsOutput = storageHandler
         .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
@@ -1534,7 +1537,7 @@ trait IngestionJob extends SparkJob {
     val config = ESLoadConfig(
       timestamp = sink.timestamp,
       id = sink.id,
-      format = settings.appConfig.defaultFormat,
+      format = settings.appConfig.defaultWriteFormat,
       domain = domain.name,
       schema = schema.name,
       dataset = Some(Right(mergedDF)),
@@ -1569,7 +1572,7 @@ trait IngestionJob extends SparkJob {
             getWriteMode(),
             StorageArea.accepted,
             schema.merge.isDefined,
-            settings.appConfig.defaultFormat
+            settings.appConfig.defaultWriteFormat
           )
           Success(sinkedDF -> 0)
         case (_, st: ConnectionType) =>
@@ -1640,7 +1643,7 @@ trait IngestionJob extends SparkJob {
             schema.finalName
           )
       ),
-      sourceFormat = settings.appConfig.defaultFormat,
+      sourceFormat = settings.appConfig.defaultWriteFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       outputPartition = sink.timestamp,
@@ -1801,7 +1804,7 @@ object IngestionUtil {
         name = s"metrics-$applicationId-rejected",
         sql = None,
         database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.domain.getOrElse("audit"),
+        domain = settings.appConfig.audit.getDomain(),
         table = "rejected",
         write = Some(WriteMode.APPEND),
         partition = Nil,
@@ -1910,16 +1913,6 @@ object IngestionUtil {
   }
 
 }
-
-object ImprovedDataFrameContext {
-  implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
-
-    def T(query: String): org.apache.spark.sql.DataFrame = {
-      new SQLTransformer().setStatement(query).transform(df)
-    }
-  }
-}
-
 case class NativeBqLoadInfo(
   totalAcceptedRows: Long,
   totalRejectedRows: Long,
