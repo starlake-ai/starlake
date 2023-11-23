@@ -516,7 +516,7 @@ class BigQueryNativeJob(
               )
             )
           } else {
-            logger.info(s"{job.getJobId()} is running in background")
+            logger.info(s"${job.getJobId()} is running in background")
           }
           job
         }
