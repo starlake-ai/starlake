@@ -12,7 +12,7 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
 class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
-  private val bigquery = BigQueryOptions.newBuilder().setLocation("europe-west1").build().getService
+  private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
     super.beforeAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
@@ -25,7 +25,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
     }
   }
-  if (false && sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
     it should "overwrite partitions dynamically" in {
 
       val bigQueryConfiguration: Config = {
@@ -37,7 +37,6 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
                                                  |  type = "bigquery"
                                                  |  options {
                                                  |    gcsBucket: starlake-app
-                                                 |    location: europe-west1
                                                  |    writeMethod: indirect
                                                  |    authType: APPLICATION_DEFAULT
                                                  |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
@@ -75,7 +74,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = Some("sparkbq"), timestamp = Some("DOB")).toAllSinks()
+              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
             ),
             merge = None
           )
@@ -117,8 +116,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = Some("sparkbq"), timestamp = Some("DOB"))
-                .toAllSinks()
+              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
             ),
             merge = None
           )

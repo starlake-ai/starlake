@@ -149,6 +149,12 @@ class BigQuerySparkJob(
       )
         .map { case (table, _) => sourceDF -> table }
     }.flatMap { case (sourceDF, table) =>
+      val materializationDataset =
+        Try {
+          settings.sparkConfig.getString("datasource.bigquery.materializationDataset")
+        }.toOption
+      getOrCreateDataset(domainDescription = None, datasetName = materializationDataset)
+
       val stdTableDefinition =
         bigquery()
           .getTable(table.getTableId)

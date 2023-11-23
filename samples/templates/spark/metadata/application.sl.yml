@@ -4,8 +4,8 @@ application:
   loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   accessPolicies:
     apply: true
-    location: eu
-    taxonomy: RGPD
+    location: europe-west1
+    taxonomy: GDPR
 
   connections:
     bigquery:
@@ -20,7 +20,6 @@ application:
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #jobTimeoutMs: 3600000
         #maximumBytesBilled: 100000000000
-
     localFilesystem:
       type: "fs"
 

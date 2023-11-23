@@ -204,7 +204,18 @@ trait BigQueryJobBase extends StrictLogging {
     val create = alwaysCreate || _bigquery.isEmpty
     if (create) {
       logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
-      val bqOptionsBuilder = BigQueryOptions.newBuilder()
+
+      val bqOptionsBuilder = BigQueryOptions
+        .newBuilder()
+        .setLocation(
+          connectionOptions.getOrElse(
+            "location",
+            throw new Exception(
+              s"location is required but not present in connection $connectionName"
+            )
+          )
+        )
+
       val credentials = bigQueryCredentials()
       val bqOptions = bqOptionsBuilder.setProjectId(projectId)
       val bqService =
@@ -622,9 +633,14 @@ trait BigQueryJobBase extends StrictLogging {
     *   the dataset
     */
   def getOrCreateDataset(
-    domainDescription: scala.Option[String]
+    domainDescription: scala.Option[String],
+    datasetName: scala.Option[String] = None
   )(implicit settings: Settings): Try[Dataset] = {
     val tryResult = recoverBigqueryException {
+      val datasetId = datasetName match {
+        case Some(name) => DatasetId.of(projectId, name)
+        case None       => this.datasetId
+      }
       val existingDataset = scala.Option(bigquery().getDataset(datasetId))
       val labels = Utils.extractTags(cliConfig.domainTags).toMap
       existingDataset match {
