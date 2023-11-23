@@ -9,10 +9,9 @@ import ai.starlake.job.metrics.{
   SparkExpectationAssertionHandler
 }
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.transform.AutoTask
-import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
+import ai.starlake.job.transform.{AutoTask, SparkAutoTask}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -36,7 +35,6 @@ import com.google.cloud.bigquery.{
 }
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
@@ -1915,16 +1913,6 @@ object IngestionUtil {
   }
 
 }
-
-object ImprovedDataFrameContext {
-  implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
-
-    def T(query: String): org.apache.spark.sql.DataFrame = {
-      new SQLTransformer().setStatement(query).transform(df)
-    }
-  }
-}
-
 case class NativeBqLoadInfo(
   totalAcceptedRows: Long,
   totalRejectedRows: Long,

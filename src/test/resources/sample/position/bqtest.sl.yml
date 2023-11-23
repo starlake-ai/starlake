@@ -81,7 +81,6 @@ load:
             first: 0
             last: 0
         - name: "code1"
-          foreignKey: "test1.code"
           type: "string"
           required: true
           privacy: "NONE"

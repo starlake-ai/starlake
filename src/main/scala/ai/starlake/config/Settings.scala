@@ -389,7 +389,8 @@ object Settings extends StrictLogging {
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String,
     temporaryGcsBucket: Option[String],
-    substituteVars: Boolean = true
+    substituteVars: Boolean = true,
+    bqAuditSaveInBatchMode: Boolean = true
   )
 
   final case class KafkaTopicConfig(

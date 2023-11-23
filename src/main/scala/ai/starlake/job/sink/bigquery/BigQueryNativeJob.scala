@@ -317,11 +317,10 @@ class BigQueryNativeJob(
     // The very first time we update a audit table, we run it interactively to make sure there is not
     // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
     if (this.datasetId.getDataset() == settings.appConfig.audit.getDomain()) {
-      if (!BigQueryNativeJob.isAuditTableUpdated(this.tableId.getTable())) {
-        BigQueryNativeJob.setAuditTableUpdated(this.tableId.getTable())
-        RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
-      } else {
+      if (settings.appConfig.internal.map(_.bqAuditSaveInBatchMode).getOrElse(true)) {
         runBatchQuery().map(_ => BigQueryJobResult(None, 0L, None))
+      } else {
+        RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
       }
     } else if (cliConfig.materializedView) {
       RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
@@ -529,18 +528,5 @@ class BigQueryNativeJob(
           Success(job)
       }
     }
-  }
-}
-
-object BigQueryNativeJob {
-  // The very first time we update a audit table, we run it interactively to make sure there is not
-  // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
-  val auditTablesUpdated = scala.collection.mutable.Set[String]()
-
-  def isAuditTableUpdated(tableName: String): Boolean = {
-    auditTablesUpdated.contains(tableName.toLowerCase())
-  }
-  def setAuditTableUpdated(tableName: String): Unit = {
-    auditTablesUpdated.add(tableName.toLowerCase())
   }
 }
