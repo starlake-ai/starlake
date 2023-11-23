@@ -66,7 +66,6 @@
     --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 
     --bleu-nuit: #020013;
-    --blanc: #FFF;
     --rose: #FFB9AA;
     --rouge: #EA4040;
     --ifm-navbar-link-hover-color: var(--rouge);
@@ -89,8 +88,7 @@
     --ifm-leading: -moz-calc(var(--ifm-leading-desktop) * 0.1rem);
     --ifm-leading: calc(var(--ifm-leading-desktop) * 0.1rem);
 
-    --ifm-card-background-color: var(--blanc);
-
+    --ifm-card-background-color: var(--bleu-nuit);
     --ifm-avatar-photo-size: 50px;
 }
 
@@ -120,7 +118,7 @@
     --ifm-blockquote-color: #c0c0c0;
     --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 
-    --ifm-card-background-color: var(--blanc);
+    --ifm-card-background-color: var(--bleu-nuit);
 }
 
 /** COMMUN **/
@@ -437,6 +435,9 @@ main,
 .main-wrapper{
     padding-top: 8rem;
 }
+.main-wrapper header[class*='heroBanner'] {
+    padding-bottom: 9rem;
+}
 
 .violet_btn ,
 .theme-edit-this-page {
@@ -687,14 +688,10 @@ aside ul li a {
 .card h2 {
     font-size: 2rem;
     line-height: 3rem;
-    background-color: white;
-    color: black;
 }
 .card p {
     font-size: 1em;
     white-space: break-spaces;
-    background-color: white;
-    color: black;
 }
 
 .main-wrapper > div > aside {
@@ -759,7 +756,7 @@ aside ul li a {
 .main-wrapper > div > aside nav .menu__list .menu__list .menu__list-item {
     margin-bottom: 1rem;
 }
-.main-wrapper > div > aside nav .menu__list .menu__list .menu__list-item:hover {
+.main-wrapper > div > aside nav .menu__list .menu__list .menu__list-item {
     line-height: 1;
 }
 .main-wrapper > div > aside nav .menu__list .menu__list li a.menu__link {
@@ -1031,6 +1028,7 @@ html.blog-wrapper .main-wrapper > div > aside nav ul li a.menu__link:hover ,
 html.docs-wrapper .main-wrapper > div > aside nav ul li a.menu__link,
 html.docs-wrapper .main-wrapper > div > aside nav ul li a.menu__link:hover {
     font-weight: 500 !important;
+    display:block;
 }
 html.blog-wrapper .main-wrapper .menu__caret:before, 
 html.blog-wrapper .main-wrapper .menu__link:after, 
@@ -1197,6 +1195,10 @@ html.docs-wrapper .table-of-contents li a.table-of-contents__link--active,
 html.blog-wrapper .table-of-contents li a:hover,
 html.blog-wrapper .table-of-contents li a.table-of-contents__link--active{
     color:var(--rouge);
+}
+
+.tabs__item[aria-selected="false"] {
+    color: var(--bleu-nuit);
 }
 
 /** scrollTop **/
@@ -1412,9 +1414,6 @@ body > img[class*="zoom"] {
     }
     .hero__subtitle {
         font-size: 1.8rem;
-    }
-    .heroBanner_src-pages-index-module {
-        padding: 0 0 15rem 0;
     }
 
     .feature:not(:last-child) {
