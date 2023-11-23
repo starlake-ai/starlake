@@ -16,7 +16,7 @@ BigQueryLoadConfig(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
                   settings.comet.audit.database,
-                  settings.comet.audit.domain.getOrElse("audit"),
+                  settings.comet.audit.getDomain(),
                   "rejected"
                 )
             ),
@@ -46,11 +46,11 @@ object BigQuerySparkWriter extends StrictLogging {
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(
                     settings.appConfig.audit.getDatabase(),
-                    settings.appConfig.audit.domain.getOrElse("audit"),
+                    settings.appConfig.audit.getDomain(),
                     tableName
                   )
               ),
-              sourceFormat = settings.appConfig.defaultFormat,
+              sourceFormat = settings.appConfig.defaultWriteFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
               outputPartition = sink.timestamp,

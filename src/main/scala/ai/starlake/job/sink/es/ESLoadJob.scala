@@ -65,7 +65,7 @@ class ESLoadJob(
     }
   }
 
-  /** Just to force any spark job to implement its entry point within the "run" method
+  /** Just to force any job to implement its entry point within the "run" method
     *
     * @return
     *   : Spark Session used for the job

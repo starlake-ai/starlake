@@ -35,7 +35,7 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
         |  type = "bigquery"
         |  options {
         |    gcsBucket: starlake-app
-        |    location: EU
+        |    location: europe-west1
         |    authType: APPLICATION_DEFAULT
         |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"

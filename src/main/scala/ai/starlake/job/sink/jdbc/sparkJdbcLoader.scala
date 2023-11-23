@@ -59,7 +59,7 @@ class sparkJdbcLoader(
     Try {
       val sourceDF =
         inputPath match {
-          case Left(path) => session.read.format(settings.appConfig.defaultFormat).load(path)
+          case Left(path) => session.read.format(settings.appConfig.defaultWriteFormat).load(path)
           case Right(df)  => df
         }
       val outputDomain = cliConfig.outputTable.split("\\.")(0)
@@ -137,7 +137,7 @@ class sparkJdbcLoader(
     }
   }
 
-  /** Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return
     *   : Spark Session used for the job

@@ -184,7 +184,7 @@ object AuditLog extends StrictLogging {
         name = s"audit-${log.jobid}",
         sql = Some(selectSql),
         database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.domain.getOrElse("audit"),
+        domain = settings.appConfig.audit.getDomain(),
         table = "audit",
         write = Some(WriteMode.APPEND),
         partition = Nil,

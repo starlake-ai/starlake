@@ -50,7 +50,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
           val writer = session.read
-            .format(settings.appConfig.defaultFormat)
+            .format(settings.appConfig.defaultWriteFormat)
             .load(path.toString)
             .repartition(config.partitions)
             .write

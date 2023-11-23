@@ -243,7 +243,7 @@ class ExpectationJob(
         name = s"audit-${applicationId()}",
         sql = Some(sqls),
         database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.domain.getOrElse("audit"),
+        domain = settings.appConfig.audit.getDomain(),
         table = "expectations",
         write = Some(WriteMode.APPEND),
         partition = Nil,
