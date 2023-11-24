@@ -63,6 +63,7 @@ class BigQueryNativeJob(
                   bigquery().create(JobInfo.newBuilder(loadConfig).setJobId(jobId).build())
                 }
               }
+              logger.info(s"Waiting for job ${job.getJobId}")
               // Blocks until this load table job completes its execution, either failing or succeeding.
               job.waitFor(
                 RetryOption.totalTimeout(
@@ -117,7 +118,7 @@ class BigQueryNativeJob(
   private def newJobIdWithLocation(): JobId = {
     val jobName = UUID.randomUUID().toString();
     val jobIdBuilder = JobId.newBuilder().setJob(jobName);
-    cliConfig.outputDatabase.map(jobIdBuilder.setProject)
+    jobIdBuilder.setProject(BigQueryJobBase.projectId(None))
     jobIdBuilder.setLocation(
       connectionOptions.getOrElse(
         "location",
@@ -267,6 +268,7 @@ class BigQueryNativeJob(
           val jobId = newJobIdWithLocation()
           val queryJob =
             bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
+          logger.info(s"Waiting for job $jobId")
           queryJob.waitFor(
             RetryOption.maxAttempts(0),
             RetryOption.totalTimeout(
@@ -432,7 +434,7 @@ class BigQueryNativeJob(
           val jobId = newJobIdWithLocation()
           val jobInfo =
             bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
-
+          logger.info(s"Waiting for job $jobId")
           jobInfo.waitFor(
             RetryOption.totalTimeout(
               org.threeten.bp.Duration.ofMinutes(
@@ -509,6 +511,7 @@ class BigQueryNativeJob(
           throw new Exception(s"Job for $sql not executed since it no longer exists.")
         else {
           if (wait) {
+            logger.info(s"Waiting for job $jobId")
             job.waitFor(
               RetryOption.totalTimeout(
                 org.threeten.bp.Duration
