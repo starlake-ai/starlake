@@ -44,6 +44,7 @@ object ConnectionType {
 
   def fromString(value: String): ConnectionType = {
     value.toUpperCase match {
+      case "GCPLOG"                                              => ConnectionType.GCPLOG
       case "FS" | "FILESYSTEM" | "HIVE" | "DATABRICKS" | "SPARK" => ConnectionType.FS
       case "JDBC"                                                => ConnectionType.JDBC
       case "BIGQUERY" | "BQ"                                     => ConnectionType.BQ
@@ -59,7 +60,9 @@ object ConnectionType {
   object KAFKA extends ConnectionType("KAFKA")
   object JDBC extends ConnectionType("JDBC")
 
-  val sinks: Set[ConnectionType] = Set(FS, BQ, ES, KAFKA, JDBC)
+  object GCPLOG extends ConnectionType("GCPLOG")
+
+  val sinks: Set[ConnectionType] = Set(FS, BQ, ES, KAFKA, JDBC, GCPLOG)
 }
 
 class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
@@ -185,10 +188,11 @@ case class AllSinks(
     val connection = settings.appConfig.connections
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     connection.getType() match {
-      case ConnectionType.FS   => FsSink.fromAllSinks(this)
-      case ConnectionType.JDBC => JdbcSink.fromAllSinks(this)
-      case ConnectionType.BQ   => BigQuerySink.fromAllSinks(this)
-      case ConnectionType.ES   => EsSink.fromAllSinks(this)
+      case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(this)
+      case ConnectionType.FS     => FsSink.fromAllSinks(this)
+      case ConnectionType.JDBC   => JdbcSink.fromAllSinks(this)
+      case ConnectionType.BQ     => BigQuerySink.fromAllSinks(this)
+      case ConnectionType.ES     => EsSink.fromAllSinks(this)
       case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.getType()}")
 
     }
@@ -307,6 +311,29 @@ case class FsSink(
       partition = partition,
       coalesce = coalesce,
       options = options
+    )
+  }
+}
+
+@JsonTypeName("GCPLOG")
+case class GcpLogSink(
+  connectionRef: Option[String] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink {
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+  def toAllSinks(): AllSinks = {
+    AllSinks(
+      connectionRef = connectionRef,
+      options = options
+    )
+  }
+}
+
+object GcpLogSink {
+  def fromAllSinks(allSinks: AllSinks): GcpLogSink = {
+    GcpLogSink(
+      allSinks.connectionRef,
+      allSinks.options
     )
   }
 }
