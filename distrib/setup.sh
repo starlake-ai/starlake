@@ -22,7 +22,6 @@ get_installation_directory() {
 
 get_from_url() {
     local url=$1
-    echo "Curling $url"
     local response=$(curl -s -w "%{http_code}" "$url")
     local status_code=${response: -3}
 
