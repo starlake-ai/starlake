@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.jdbc.JdbcDialects
+import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import org.apache.spark.sql.types.{StructField, StructType, TimestampNTZType}
 
 import java.sql.{Connection, SQLException}
@@ -50,7 +50,7 @@ object SparkUtils extends StrictLogging {
     options: Map[String, String],
     table: String
   ): Option[StructType] = {
-    val dialect = JdbcDialects.get(options("url"))
+    val dialect = SparkUtils.dialect(options("url"))
     val preferTimestampNTZ =
       options
         .get(JDBC_PREFER_TIMESTAMP_NTZ)
@@ -88,9 +88,8 @@ object SparkUtils extends StrictLogging {
     options: JdbcOptionsInWrite
   ): Unit = {
     val statement = conn.createStatement
-    val dialect = JdbcDialects.get(options.url)
-    val strSchema =
-      JdbcUtils.schemaString(schema, caseSensitive, options.url, options.createTableColumnTypes)
+    val jdbcDialect = dialect(options.url)
+    val strSchema = schemaString(schema, caseSensitive, options.url, options.createTableColumnTypes)
     try {
       statement.setQueryTimeout(options.queryTimeout)
       val createTableOptions = options.createTableOptions
@@ -103,7 +102,7 @@ object SparkUtils extends StrictLogging {
       statement.executeUpdate(s"CREATE TABLE $tableName ($finalStrSchema) $createTableOptions")
       if (options.tableComment.nonEmpty) {
         try {
-          val tableCommentQuery = dialect.getTableCommentQuery(tableName, options.tableComment)
+          val tableCommentQuery = jdbcDialect.getTableCommentQuery(tableName, options.tableComment)
           statement.executeUpdate(tableCommentQuery)
         } catch {
           case e: Exception =>
@@ -118,6 +117,23 @@ object SparkUtils extends StrictLogging {
   def isFlat(fields: StructType): Boolean = {
     val deep = fields.fields.exists(_.dataType.isInstanceOf[StructType])
     !deep
+  }
+
+  def dialect(url: String): JdbcDialect = {
+    val urlForRedshift = url.replace("jdbc:redshift", "jdbc:postgresql")
+    val jdbcDialect = JdbcDialects.get(urlForRedshift)
+    logger.info(s"JDBC dialect $jdbcDialect")
+    jdbcDialect
+  }
+
+  def schemaString(
+    schema: StructType,
+    caseSensitive: Boolean,
+    url: String,
+    createTableColumnTypes: Option[String] = None
+  ) = {
+    val urlForRedshift = url.replace("jdbc:redshift", "jdbc:postgresql")
+    JdbcUtils.schemaString(schema, caseSensitive, urlForRedshift, createTableColumnTypes)
   }
 
 }
