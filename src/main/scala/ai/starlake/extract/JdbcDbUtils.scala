@@ -3,12 +3,11 @@ package ai.starlake.extract
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{SparkUtils, Utils}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
-import org.apache.spark.sql.jdbc.JdbcDialects
 
 import java.nio.charset.StandardCharsets
 import java.sql.Types._
@@ -109,7 +108,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def tableExists(conn: SQLConnection, url: String, table: String): Boolean = {
-    val dialect = JdbcDialects.get(url)
+    val dialect = SparkUtils.dialect(url)
     Try {
       val statement = conn.prepareStatement(dialect.getTableExistsQuery(table))
       try {

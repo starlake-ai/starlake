@@ -6,9 +6,9 @@ import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, Utils}
+import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
+import org.apache.spark.sql.jdbc.JdbcDialect
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
@@ -145,7 +145,7 @@ class JdbcAutoTask(
             val jdbcDialect =
               connection.options.get("url") match {
                 case Some(url) =>
-                  val jdbcDialect = JdbcDialects.get(url)
+                  val jdbcDialect = SparkUtils.dialect(url)
                   logger.info(s"JDBC dialect $jdbcDialect")
                   jdbcDialect
                 case None =>

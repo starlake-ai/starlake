@@ -7,7 +7,7 @@ import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
-import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
+import org.apache.spark.sql.jdbc.JdbcDialect
 
 import java.sql.Connection
 import scala.util.{Failure, Success, Try}
@@ -118,7 +118,7 @@ class sparkJdbcLoader(
     if (jdbcOptions.get("supportTruncateOnInsert").contains("false")) {
       val jdbcDialect = jdbcOptions.get("url") match {
         case Some(url) =>
-          JdbcDialects.get(url)
+          SparkUtils.dialect(url)
         case None =>
           logger.warn("No url found in jdbc options. Using TRUNCATE TABLE")
           new JdbcDialect {

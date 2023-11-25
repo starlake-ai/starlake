@@ -384,5 +384,4 @@ object SQLUtils extends StrictLogging {
 
   def temporaryTableName(tableName: String): String =
     "zztmp_" + tableName + "_" + UUID.randomUUID().toString.replace("-", "")
-
 }

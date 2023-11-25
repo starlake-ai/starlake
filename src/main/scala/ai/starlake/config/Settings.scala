@@ -312,9 +312,20 @@ object Settings extends StrictLogging {
           this.`type`.getOrElse(throw new Exception("Should never happen")) match {
             case "jdbc"            => options("url").split(':')(1)
             case "bigquery" | "bq" => "bigquery"
-            case _                 => "spark"
+            case _                 =>
+              // if this is a jdbc url (aka snowflake, redshift ...)
+              options
+                .get("url")
+                .map(_.split(':')(1))
+                .getOrElse("spark")
           }
-        case Some(_) => "spark"
+        case Some(_) =>
+          // if this is a jdbc url (aka snowflake, redshift ...)
+          options
+            .get("url")
+            .map(_.split(':')(1))
+            .getOrElse("spark")
+
       }
       Engine.fromString(engineName)
     }
