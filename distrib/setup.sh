@@ -36,17 +36,6 @@ get_from_url() {
     echo "$content"
 }
 
-get_binary_from_url() {
-    local url=$1
-    local target_file=$2
-    local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
-    local status_code=${response: -3}
-
-    if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
-        echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code"
-        exit 1
-    fi
-}
 
 get_version_to_install() {
     # Extract the version number from command-line arguments
@@ -81,15 +70,12 @@ install_starlake() {
     echo "installing $VERSION"
     if [[ $VERSION == *"SNAPSHOT"* ]]; then
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-        local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class
     else
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
-        local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/Setup.class
     fi
 
     get_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh" > "$INSTALL_DIR/versions.sh"
     get_from_url $url > "$INSTALL_DIR/starlake"
-    get_binary_from_url $setup_url "$INSTALL_DIR/Setup.class"
     chmod +x "$INSTALL_DIR/starlake"
 }
 
