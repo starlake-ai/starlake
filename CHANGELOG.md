@@ -11,6 +11,7 @@ __Feature__:
 - Support any JDBC compliant database
 - Add archive table support for BigQuery
 - Configure CSV data extraction output format
+- Amazon Redshift support
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite

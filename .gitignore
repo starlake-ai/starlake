@@ -151,3 +151,5 @@ samples/templates/postgres/datasets
 samples/templates/spark/metadata/dags/generated
 samples/any-source-any-sink/datasets
 distrib/deps
+project/project
+metals.sbt
