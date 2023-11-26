@@ -90,7 +90,6 @@ install_starlake() {
     get_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh" > "$INSTALL_DIR/versions.sh"
     get_from_url $url > "$INSTALL_DIR/starlake"
     get_binary_from_url $setup_url "$INSTALL_DIR/Setup.class"
-    cp /Users/hayssams/git/public/starlake/distrib/starlake.sh "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
 
@@ -122,6 +121,7 @@ add_starlake_to_path() {
 
 run_installation_command() {
     SL_VERSION=$VERSION "$INSTALL_DIR/starlake" install
+    rm "$INSTALL_DIR/Setup.class"
 }
 
 print_success_message() {
