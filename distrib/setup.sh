@@ -38,7 +38,8 @@ get_from_url() {
 
 get_binary_from_url() {
     local url=$1
-    local response=$(curl -s -w "%{http_code}" -O "$url")
+    local target_file=$2
+    local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
@@ -88,7 +89,7 @@ install_starlake() {
 
     get_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh" > "$INSTALL_DIR/versions.sh"
     get_from_url $url > "$INSTALL_DIR/starlake"
-    get_binary_from_url $setup_url
+    get_binary_from_url $setup_url "$INSTALL_DIR/Setup.class"
     cp /Users/hayssams/git/public/starlake/distrib/starlake.sh "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
