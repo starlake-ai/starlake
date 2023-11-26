@@ -18,6 +18,11 @@ set "AZURE_STORAGE_DEFAULT_VERSION=8.6.6"
 set "JETTY_DEFAULT_VERSION=9.4.51.v20230217"
 set "SPARK_SNOWFLAKE_DEFAULT_VERSION=3.4"
 set "SNOWFLAKE_JDBC_DEFAULT_VERSION=3.14.0"
+set "AWS_JAVA_SDK_VERSION=1.12.595"
+set "HADOOP_AWS_VERSION=3.3.4"
+set "REDSHIFT_JDBC_VERSION=2.1.0.23"
+set "SPARK_REDSHIFT_VERSION=6.1.0-spark_3.5"
+set "POSTGRESQL_DEFAULT_VERSION=42.5.4"
 
 :: Common
 if "%SPARK_VERSION%"=="" set "SPARK_VERSION=%SPARK_DEFAULT_VERSION%"
@@ -41,6 +46,17 @@ if "%JETTY_UTIL_AJAX_VERSION%"=="" set "JETTY_UTIL_AJAX_VERSION=%JETTY_VERSION%"
 if "%ENABLE_SNOWFLAKE%"=="" set "ENABLE_SNOWFLAKE=0"
 if "%SPARK_SNOWFLAKE_VERSION%"=="" set "SPARK_SNOWFLAKE_VERSION=%SPARK_SNOWFLAKE_DEFAULT_VERSION%"
 if "%SNOWFLAKE_JDBC_VERSION%"=="" set "SNOWFLAKE_JDBC_VERSION=%SNOWFLAKE_JDBC_DEFAULT_VERSION%"
+
+:: REDSHIFT
+if "%ENABLE_REDSHIFT%"=="" set "ENABLE_REDSHIFT=0"
+if "%AWS_JAVA_SDK_VERSION%"=="" set "AWS_JAVA_SDK_VERSION=%AWS_JAVA_SDK_VERSION%"
+if "%HADOOP_AWS_VERSION%"=="" set "HADOOP_AWS_VERSION=%HADOOP_AWS_VERSION%"
+if "%REDSHIFT_JDBC_VERSION%"=="" set "REDSHIFT_JDBC_VERSION=%REDSHIFT_JDBC_VERSION%"
+if "%SPARK_REDSHIFT_VERSION%"=="" set "SPARK_REDSHIFT_VERSION=%SPARK_REDSHIFT_VERSION%"
+
+:: POSTGRESQL
+if "%ENABLE_POSTGRESQL%"=="" set "ENABLE_POSTGRESQL=0"
+if "%POSTGRESQL_VERSION%"=="" set "POSTGRESQL_VERSION=%POSTGRESQL_DEFAULT_VERSION%"
 
 :: Internal variables
 set "SCALA_VERSION=2.12"
@@ -94,6 +110,28 @@ set "SNOWFLAKE_JDBC_ARTIFACT_NAME=snowflake-jdbc"
 set "SNOWFLAKE_JDBC_JAR_NAME=%SNOWFLAKE_JDBC_ARTIFACT_NAME%-%SNOWFLAKE_JDBC_VERSION%.jar"
 set "SNOWFLAKE_JDBC_URL=https://repo1.maven.org/maven2/net/snowflake/%SNOWFLAKE_JDBC_ARTIFACT_NAME%/%SNOWFLAKE_JDBC_VERSION%/%SNOWFLAKE_JDBC_JAR_NAME%"
 
+:: REDSHIFT
+set "AWS_JAVA_SDK_ARTIFACT_NAME=aws-java-sdk"
+set "AWS_JAVA_SDK_JAR_NAME=%AWS_JAVA_SDK_ARTIFACT_NAME%-%AWS_JAVA_SDK_VERSION%.jar"
+set "AWS_JAVA_SDK_URL=https://repo1.maven.org/maven2/com/amazonaws/%AWS_JAVA_SDK_ARTIFACT_NAME%/%AWS_JAVA_SDK_VERSION%/%AWS_JAVA_SDK_JAR_NAME%"
+set "HADOOP_AWS_ARTIFACT_NAME=hadoop-aws"
+set "HADOOP_AWS_JAR_NAME=%HADOOP_AWS_ARTIFACT_NAME%-%HADOOP_AWS_VERSION%.jar"
+set "HADOOP_AWS_URL=https://repo1.maven.org/maven2/org/apache/hadoop/%HADOOP_AWS_ARTIFACT_NAME%/%HADOOP_AWS_VERSION%/%HADOOP_AWS_JAR_NAME%"
+set "REDSHIFT_JDBC_ARTIFACT_NAME=redshift-jdbc"
+set "REDSHIFT_JDBC_JAR_NAME=%REDSHIFT_JDBC_ARTIFACT_NAME%-%REDSHIFT_JDBC_VERSION%.jar"
+set "REDSHIFT_JDBC_URL=https://repo1.maven.org/maven2/com/amazon/redshift/%REDSHIFT_JDBC_ARTIFACT_NAME%/%REDSHIFT_JDBC_VERSION%/%REDSHIFT_JDBC_JAR_NAME%"
+set "SPARK_REDSHIFT_ARTIFACT_NAME=spark-redshift_!SCALA_VERSION!"
+set "SPARK_REDSHIFT_JAR_NAME=%SPARK_REDSHIFT_ARTIFACT_NAME%-%SPARK_REDSHIFT_VERSION%.jar"
+set "SPARK_REDSHIFT_URL=https://repo1.maven.org/maven2/com/databricks/%SPARK_REDSHIFT_ARTIFACT_NAME%/%SPARK_REDSHIFT_VERSION%/%SPARK_REDSHIFT_JAR_NAME%"
+
+:: POSTGRESQL
+set "POSTGRESQL_ARTIFACT_NAME=postgresql"
+set "POSTGRESQL_JAR_NAME=%POSTGRESQL_ARTIFACT_NAME%-%POSTGRESQL_VERSION%.jar"
+set "POSTGRESQL_URL=https://repo1.maven.org/maven2/org/postgresql/%POSTGRESQL_ARTIFACT_NAME%/%POSTGRESQL_VERSION%/%POSTGRESQL_JAR_NAME%"
+
+:: End of internal variables
+
+
 set "SKIP_INSTALL=0"
 
 if "%~1"=="install" (
@@ -146,6 +184,11 @@ set "JETTY_UTIL_DOWNLOADED=0"
 set "JETTY_UTIL_AJAX_DOWNLOADED=0"
 set "SPARK_SNOWFLAKE_DOWNLOADED=0"
 set "SNOWFLAKE_JDBC_DOWNLOADED=0"
+set "AWS_JAVA_SDK_ARTIFACT_NAME=0"
+set "HADOOP_AWS_ARTIFACT_NAME=0"
+set "REDSHIFT_JDBC_ARTIFACT_NAME=0"
+set "SPARK_REDSHIFT_ARTIFACT_NAME=0"
+set "POSTGRESQL_ARTIFACT_NAME=0"
 
 if exist "%HADOOP_HOME%" (
     echo - hadoop: OK
@@ -280,6 +323,69 @@ if %ENABLE_SNOWFLAKE% equ 1 (
     echo - spark snowflake: skipped
     echo - snowflake jdbc: skipped
 )
+
+if %ENABLE_REDSHIFT% equ 1 (
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%AWS_JAVA_SDK_JAR_NAME%" (
+        echo - aws java sdk: OK
+        set "AWS_JAVA_SDK_DOWNLOADED=1"
+    ) else (
+        echo - aws java sdk: KO
+        set "SKIP_INSTALL=1"
+    )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AWS_JAR_NAME%" (
+        echo - hadoop aws: OK
+        set "HADOOP_AWS_DOWNLOADED=1"
+    ) else (
+        echo - hadoop aws: KO
+        set "SKIP_INSTALL=1"
+    )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%REDSHIFT_JDBC_JAR_NAME%" (
+        echo - redshift jdbc: OK
+        set "REDSHIFT_JDBC_DOWNLOADED=1"
+    ) else (
+        echo - redshift jdbc: KO
+        set "SKIP_INSTALL=1"
+    )
+
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_REDSHIFT_JAR_NAME%" (
+        echo - spark redshift: OK
+        set "SPARK_REDSHIFT_DOWNLOADED=1"
+    ) else (
+        echo - spark redshift: KO
+        set "SKIP_INSTALL=1"
+    )
+) else (
+    set "AWS_JAVA_SDK_DOWNLOADED=1"
+    set "HADOOP_AWS_DOWNLOADED=1"
+    set "REDSHIFT_JDBC_DOWNLOADED=1"
+    set "SPARK_REDSHIFT_DOWNLOADED=1"
+    echo - aws java sdk: skipped
+    echo - hadoop aws: skipped
+    echo - redshift jdbc: skipped
+    echo - spark redshift: skipped
+)
+if %ENABLE_POSTGRESQL% equ 1 (
+    if exist "%DEPS_EXTRA_LIB_FOLDER%\%POSTGRESQL_JAR_NAME%" (
+        echo - postgresql: OK
+        set "POSTGRESQL_DOWNLOADED=1"
+    ) else (
+        echo - postgresql: KO
+        set "SKIP_INSTALL=1"
+    )
+) else (
+    set "POSTGRESQL_DOWNLOADED=1"
+    echo - postgresql: skipped
+)
+
+if exist "%DEPS_EXTRA_LIB_FOLDER%\%POSTGRESQL_JAR_NAME%" (
+    echo - postgresql: OK
+    set "POSTGRESQL_DOWNLOADED=1"
+) else (
+    echo - postgresql: KO
+    set "SKIP_INSTALL=1"
+)
 goto :eof
 
 :clean_additional_jars
@@ -340,6 +446,26 @@ if "%SPARK_SNOWFLAKE_DOWNLOADED%"=="0" (
 if "%SNOWFLAKE_JDBC_DOWNLOADED%"=="0" (
     del /q "%DEPS_EXTRA_LIB_FOLDER%\%SNOWFLAKE_JDBC_ARTIFACT_NAME%*" 2> nul
 )
+
+if "%ENABLE_REDSHIFT%"=="0" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%AWS_JAVA_SDK_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AWS_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%REDSHIFT_JDBC_ARTIFACT_NAME%*" 2> nul
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_REDSHIFT_ARTIFACT_NAME%*" 2> nul
+)
+if "%AWS_JAVA_SDK_DOWNLOADED%"=="0" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%AWS_JAVA_SDK_ARTIFACT_NAME%*" 2> nul
+)
+if "%HADOOP_AWS_DOWNLOADED%"=="0" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AWS_ARTIFACT_NAME%*" 2> nul
+)
+if "%REDSHIFT_JDBC_DOWNLOADED%"=="0" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%REDSHIFT_JDBC_ARTIFACT_NAME%*" 2> nul
+)
+if "%SPARK_REDSHIFT_DOWNLOADED%"=="0" (
+    del /q "%DEPS_EXTRA_LIB_FOLDER%\%SPARK_REDSHIFT_ARTIFACT_NAME%*" 2> nul
+)
+
 goto :eof
 
 :init_env
@@ -458,6 +584,42 @@ if !SNOWFLAKE_JDBC_DOWNLOADED! equ 0 (
 ) else (
     echo - snowflake jdbc: skipped
 )
+if !AWS_JAVA_SDK_DOWNLOADED! equ 0 (
+    echo - aws java sdk: downloading from %AWS_JAVA_SDK_URL%
+    powershell -command "Start-BitsTransfer -Source %AWS_JAVA_SDK_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%AWS_JAVA_SDK_JAR_NAME%"
+    echo - aws java sdk: OK
+) else (
+    echo - aws java sdk: skipped
+)
+if !HADOOP_AWS_DOWNLOADED! equ 0 (
+    echo - hadoop aws: downloading from %HADOOP_AWS_URL%
+    powershell -command "Start-BitsTransfer -Source %HADOOP_AWS_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%HADOOP_AWS_JAR_NAME%"
+    echo - hadoop aws: OK
+) else (
+    echo - hadoop aws: skipped
+)
+if !REDSHIFT_JDBC_DOWNLOADED! equ 0 (
+    echo - redshift jdbc: downloading from %REDSHIFT_JDBC_URL%
+    powershell -command "Start-BitsTransfer -Source %REDSHIFT_JDBC_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%REDSHIFT_JDBC_JAR_NAME%"
+    echo - redshift jdbc: OK
+) else (
+    echo - redshift jdbc: skipped
+)
+if !SPARK_REDSHIFT_DOWNLOADED! equ 0 (
+    echo - spark redshift: downloading from %SPARK_REDSHIFT_URL%
+    powershell -command "Start-BitsTransfer -Source %SPARK_REDSHIFT_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%SPARK_REDSHIFT_JAR_NAME%"
+    echo - spark redshift: OK
+) else (
+    echo - spark redshift: skipped
+)
+if !POSTGRESQL_DOWNLOADED! equ 0 (
+    echo - postgresql: downloading from %POSTGRESQL_URL%
+    powershell -command "Start-BitsTransfer -Source %POSTGRESQL_URL% -Destination %DEPS_EXTRA_LIB_FOLDER%\%POSTGRESQL_JAR_NAME%"
+    echo - postgresql: OK
+) else (
+    echo - postgresql: skipped
+)
+
 goto :eof
 
 :save_installed_versions
@@ -483,6 +645,15 @@ if !ENABLE_SNOWFLAKE! equ 0 (
     echo if "%%SPARK_SNOWFLAKE_VERSION%%"=="" set "SPARK_SNOWFLAKE_VERSION=!SPARK_SNOWFLAKE_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
     echo if "%%SNOWFLAKE_JDBC_VERSION%%"=="" set "SNOWFLAKE_JDBC_VERSION=!SNOWFLAKE_JDBC_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
 )
+echo if "%%ENABLE_REDSHIFT%%"=="" set "ENABLE_REDSHIFT=!ENABLE_REDSHIFT!" >> "%SCRIPT_DIR%versions.cmd"
+if !ENABLE_REDSHIFT! equ 0 (
+    echo if "%%AWS_JAVA_SDK_VERSION%%"=="" set "AWS_JAVA_SDK_VERSION=!AWS_JAVA_SDK_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
+    echo if "%%HADOOP_AWS_VERSION%%"=="" set "HADOOP_AWS_VERSION=!HADOOP_AWS_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
+    echo if "%%REDSHIFT_JDBC_VERSION%%"=="" set "REDSHIFT_JDBC_VERSION=!REDSHIFT_JDBC_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
+    echo if "%%SPARK_REDSHIFT_VERSION%%"=="" set "SPARK_REDSHIFT_VERSION=!SPARK_REDSHIFT_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
+)
+echo if "%%POSTGRESQL_VERSION%%"=="" set "POSTGRESQL_VERSION=!POSTGRESQL_VERSION!" >> "%SCRIPT_DIR%versions.cmd"
+
 goto :eof
 
 
@@ -584,6 +755,22 @@ echo.
 echo Example:
 echo.
 echo   set ENABLE_BIGQUERY=0
+echo   starlake.cmd install
+echo.
+echo Once installed, 'versions.cmd' will be generated and pin dependencies' version.
+echo.
+
+:: REDSHIFT
+echo.
+echo ENABLE_REDSHIFT: enable or disable redshift dependencies ^(0 or 1^). Default 1  - disabled
+echo - AWS_JAVA_SDK_VERSION: default %AWS_JAVA_SDK_DEFAULT_VERSION%
+echo - HADOOP_AWS_VERSION: default %HADOOP_AWS_DEFAULT_VERSION%
+echo - REDSHIFT_JDBC_VERSION: default %REDSHIFT_JDBC_DEFAULT_VERSION%
+echo - SPARK_REDSHIFT_VERSION: default %SPARK_REDSHIFT_DEFAULT_VERSION%
+echo.
+echo Example:
+echo.
+echo   set ENABLE_REDSHIFT=0
 echo   starlake.cmd install
 echo.
 echo Once installed, 'versions.cmd' will be generated and pin dependencies' version.

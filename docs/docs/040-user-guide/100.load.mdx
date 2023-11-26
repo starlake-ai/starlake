@@ -240,21 +240,32 @@ application:
 ```  
 
 </TabItem>
-<TabItem value="redshift" label="redshift">
+<TabItem value="redshift" label="Redshift">
 
 ```yaml
 application:
-  connectionRef: "reshift"
+  connectionRef: "redshift"
   loader: spark # note the spark loader here
   connections:
     redshift:
-      sparkFormat: "com.databricks.spark.redshift"
       options:
-        url: "jdbc:redshift://redshifthost:5439/database",
-        user: "username",
-        password: "pass",
-        tempdir: "s3n://path/for/temp/data",
-        aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
+        url: "jdbc:redshift://account.region.redshift.amazonaws.com:5439/database",
+        driver: com.amazon.redshift.Driver
+        password: "{{REDSHIFT_PASSWORD}}"
+        tempdir: "s3a://bucketName/data",
+        tempdir_region: "eu-central-1" # required only if running from outside AWS (your laptop ...)
+        aws_iam_role: "arn:aws:iam::aws_count_id:role/role_name"
+```
+
+Make sure to set the following environment variables:
+
+```shell
+
+export AWS_ACCESS_KEY_ID= # your AWS access key
+export AWS_SECRET_ACCESS_KEY= # your AWS secret key
+export AWS_SESSION_TOKEN= # your AWS session token
+export AWS_DEFAULT_REGION= # your AWS region
+
 ```
 
 </TabItem>
@@ -301,6 +312,39 @@ application:
 ```
 
 </TabItem>
+
+<TabItem value="spark-redshift" label="Spark Redshift">
+
+```yaml
+application:
+  connectionRef: "redshift"
+  loader: spark # note the spark loader here
+  connections:
+    redshift:
+      sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
+      options:
+        url: "jdbc:redshift://account.region.redshift.amazonaws.com:5439/database",
+        driver: com.amazon.redshift.Driver
+        password: "{{REDSHIFT_PASSWORD}}"
+        tempdir: "s3a://bucketName/data",
+        tempdir_region: "eu-central-1" # required only if running from outside AWS (your laptop ...)
+        aws_iam_role: "arn:aws:iam::aws_count_id:role/role_name"
+```
+
+Make sure to set the following environment variables:
+
+```shell
+
+export AWS_ACCESS_KEY_ID= # your AWS access key
+export AWS_SECRET_ACCESS_KEY= # your AWS secret key
+export AWS_SESSION_TOKEN= # your AWS session token
+export AWS_DEFAULT_REGION= # your AWS region
+
+```
+
+</TabItem>
+
+
 <TabItem value="spark-snowflake" label="spark snowflake">
 
 ```yaml

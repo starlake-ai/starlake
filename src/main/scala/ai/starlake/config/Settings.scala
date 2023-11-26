@@ -969,7 +969,7 @@ object Settings extends StrictLogging {
       .toVector
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) =>
-        logger.info(s"Setting key: ${key}")
+        logger.debug(s"Setting key: ${key}")
         conf.set("spark." + key, value)
       }
       .set("spark.scheduler.mode", settings.appConfig.scheduling.mode)

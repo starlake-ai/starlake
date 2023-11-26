@@ -36,6 +36,17 @@ get_from_url() {
     echo "$content"
 }
 
+get_binary_from_url() {
+    local url=$1
+    local response=$(curl -s -w "%{http_code}" -O "$url")
+    local status_code=${response: -3}
+
+    if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
+        echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code"
+        exit 1
+    fi
+}
+
 get_version_to_install() {
     # Extract the version number from command-line arguments
     for arg in "$@"; do
@@ -69,12 +80,16 @@ install_starlake() {
     echo "installing $VERSION"
     if [[ $VERSION == *"SNAPSHOT"* ]]; then
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+        local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class
     else
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
+        local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/Setup.class
     fi
 
+    get_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh" > "$INSTALL_DIR/versions.sh"
     get_from_url $url > "$INSTALL_DIR/starlake"
-
+    get_binary_from_url $setup_url
+    cp /Users/hayssams/git/public/starlake/distrib/starlake.sh "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
 
@@ -85,13 +100,15 @@ add_starlake_to_path() {
     if [[ "$SHELL" == *zsh* ]] || [[ "$SHELL" == *bash* ]]; then
         if [[ "$SHELL" == *zsh* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.zshrc; then
-                echo -e "\nexport PATH=$INSTALL_DIR:\$PATH" >> ~/.zshrc
+                echo  >> ~/.zshrc
+                echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.zshrc
             fi
             zsh ~/.zshrc
         fi
         if [[ "$SHELL" == *bash* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.bashrc; then
-                echo -e "\nexport PATH=$INSTALL_DIR:\$PATH" >> ~/.bashrc
+                 echo  >> ~/.bashrc
+                echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.bashrc
             fi
             source ~/.bashrc
         fi
@@ -110,7 +127,31 @@ print_success_message() {
     echo "Starlake has been successfully installed!"
 }
 
+check_java_version() {
+# Find the java binary
+    if [ -n "${JAVA_HOME}" ]; then
+      RUNNER="${JAVA_HOME}/bin/java"
+    else
+      if [ "$(command -v java)" ]; then
+        RUNNER="java"
+      else
+        echo "JAVA_HOME is not set" >&2
+        exit 1
+      fi
+    fi
+    local version=$($RUNNER -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    local major=$(echo "$version" | awk -F '.' '{print $1}')
+    local minor=$(echo "$version" | awk -F '.' '{print $2}')
+
+    if [[ "$major" -lt 11 ]]; then
+        echo "Error: Java 11 or later is required."
+        exit 1
+    fi
+    echo "Java version $version is detected."
+}
+
 main() {
+    check_java_version
     print_starlake_ascii_art
     get_installation_directory
     get_version_to_install "$@"
