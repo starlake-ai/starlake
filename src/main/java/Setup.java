@@ -202,7 +202,6 @@ public class Setup {
 
             File sparkDir = new File(binDir, "spark");
             renameIfExists(sparkDir);
-            sparkDir = new File(binDir, "spark");
             downloadSpark(binDir);
 
             File depsDir = new File(binDir, "deps");
@@ -274,26 +273,44 @@ public class Setup {
         URLConnection conexion = url.openConnection();
         conexion.connect();
         int lengthOfFile = conexion.getContentLength();
-        System.out.println("Length of the file: " + lengthOfFile + " bytes");
         InputStream input = new BufferedInputStream(url.openStream());
         OutputStream output = new FileOutputStream(file);
         byte data[] = new byte[CHUNK_SIZE];
         long total = 0;
         int count;
+        int loop = 0;
+        int sbLen = 0;
+        long lastTime = System.currentTimeMillis();
         while ((count = input.read(data)) != -1) {
             total += count;
             output.write(data, 0, count);
-            StringBuilder sb = new StringBuilder("Progress: " + total + " bytes");
-            if (lengthOfFile > 0) {
-                sb.append(" (");
-                sb.append((int) (total * 100 / lengthOfFile));
-                sb.append("%)");
+            loop++;
+            if (loop % 1000 == 0) {
+                StringBuilder sb = new StringBuilder("Progress: " + (total/1024/1024) + "/" + (lengthOfFile/1024/1024) + " MB");
+                if (lengthOfFile > 0) {
+                    sb.append(" (");
+                    sb.append((int) (total * 100 / lengthOfFile));
+                    sb.append("%)");
+                }
+                long currentTime = System.currentTimeMillis();
+                long timeDiff = currentTime - lastTime;
+                double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
+                double bytesPerSec = bytesPerMilliSec * 1000;
+                double mbPerSec = bytesPerSec / 1024 / 1024;
+                sb.append(" ");
+                sb.append(String.format("[%.2f MB/sec]", mbPerSec));
+                lastTime = currentTime;
+                sbLen = sb.length();
+                for (int cnt = 0; cnt < sbLen; cnt++) {
+                    System.out.print("\b");
+                }
+                System.out.print(sb.toString());
             }
-            for (int cnt = 0; cnt < sb.length(); cnt++) {
-                System.out.print("\b");
-            }
-            System.out.print(sb.toString());
         }
+        for (int cnt = 0; cnt < sbLen; cnt++) {
+            System.out.print("\b");
+        }
+        System.out.print(name + " downloaded");
         System.out.println();
         output.flush();
         output.close();

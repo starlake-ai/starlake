@@ -30,71 +30,22 @@ then
   SL_JAR_NAME=$SL_ARTIFACT_NAME-$SL_VERSION-assembly.jar
 fi
 
+get_binary_from_url() {
+    local url=$1
+    local target_file=$2
+    local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
+    local status_code=${response: -3}
 
-print_install_usage() {
-  echo "Starlake is not installed yet. Please type 'starlake.sh install'."
-  echo You can define the different env vars if you need to install specific versions.
-  echo
-  echo SL_VERSION: Support stable and snapshot version. Default to latest stable version
-  echo SPARK_VERSION: default $SPARK_DEFAULT_VERSION
-  echo HADOOP_VERSION: default $HADOOP_DEFAULT_VERSION
-
-  # BIGQUERY
-  echo
-  echo 'ENABLE_BIGQUERY: enable or disable BIGQUERY dependencies (1 or 0). Default 0 - disabled'
-  echo - SPARK_BQ_VERSION: default $SPARK_BQ_DEFAULT_VERSION
-
-  # AZURE
-  echo
-  echo 'ENABLE_AZURE: enable or disable azure dependencies (1 or 0). Default 0 - disabled'
-  echo - HADOOP_AZURE_VERSION: default $HADOOP_AZURE_DEFAULT_VERSION
-  echo - AZURE_STORAGE_VERSION: default $AZURE_STORAGE_DEFAULT_VERSION
-  echo - JETTY_VERSION: default $JETTY_DEFAULT_VERSION
-  echo - JETTY_UTIL_VERSION: default to JETTY_VERSION
-  echo - JETTY_UTIL_AJAX_VERSION: default to JETTY_VERSION
-
-  # SNOWFLAKE
-  echo
-  echo 'ENABLE_SNOWFLAKE: enable or disable snowflake dependencies (1 or 0). Default 0 - disabled'
-  echo - SPARK_SNOWFLAKE_VERSION: default $SPARK_SNOWFLAKE_DEFAULT_VERSION
-  echo - SNOWFLAKE_JDBC_VERSION: default $SNOWFLAKE_JDBC_DEFAULT_VERSION
-  echo
-  echo Example:
-  echo
-  echo   ENABLE_SNOWFLAKE=1 starlake.sh install
-  echo
-  echo "Once installed, 'versions.sh' will be generated and pin dependencies' version."
-  echo
-
-  # POSTGRESQL
-  echo
-  echo 'ENABLE_POSTGRESQL: enable or disable snowflake dependencies (1 or 0). Default 0 - disabled'
-  echo - POSTGRESQL_VERSION: default $POSTGRESQL_DEFAULT_VERSION
-  echo
-  echo Example:
-  echo
-  echo   ENABLE_POSTGRESQL=1 starlake.sh install
-  echo
-  echo "Once installed, 'versions.sh' will be generated and pin dependencies' version."
-  echo
-
-  # REDSHIFT
-  echo
-  echo 'ENABLE_REDSHIFT: enable or disable redshift dependencies (1 or 0). Default 0 - disabled'
-  echo - AWS_JAVA_SDK_VERSION: default $AWS_JAVA_SDK_VERSION
-  echo - HADOOP_AWS_VERSION: default $HADOOP_AWS_VERSION
-  echo - REDSHIFT_JDBC_VERSION: default $REDSHIFT_JDBC_VERSION
-  echo - SPARK_REDSHIFT_VERSION: default $SPARK_REDSHIFT_VERSION
-  echo
-  echo Example:
-  echo
-  echo   ENABLE_REDSHIFT=1 starlake.sh install
-  echo
-  echo "Once installed, 'versions.sh' will be generated and pin dependencies' version."
-  echo
+    if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
+        echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code"
+        exit 1
+    fi
 }
 
 launch_setup() {
+  local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class
+  get_binary_from_url $setup_url "$SCRIPT_DIR/Setup.class"
+
   if [ -n "${JAVA_HOME}" ]; then
     RUNNER="${JAVA_HOME}/bin/java"
   else
@@ -177,8 +128,6 @@ launch_starlake() {
       SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
      SPARK_LOCAL_HOSTNAME="127.0.0.1" SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --jars "$extra_jars" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
     fi
-  else
-    print_install_usage
   fi
 }
 
