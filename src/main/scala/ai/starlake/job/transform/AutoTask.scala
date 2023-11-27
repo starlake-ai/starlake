@@ -203,7 +203,7 @@ abstract class AutoTask(
         taskDesc.getDatabase(),
         settings.appConfig.tenant
       )
-      AuditLog.sink(optionalAuditSession, log)
+      AuditLog.sink(log)
     }
   }
 

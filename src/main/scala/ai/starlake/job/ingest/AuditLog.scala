@@ -172,7 +172,7 @@ object AuditLog extends StrictLogging {
     None
   )
 
-  def sink(sessionOpt: Option[SparkSession], log: AuditLog)(implicit
+  def sink(log: AuditLog)(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
