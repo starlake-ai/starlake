@@ -30,11 +30,12 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY starlake-*-assembly.jar /app/bin/spark/jars/
 COPY starlake.s[h] /app/
-RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi \
-    && chmod +x starlake.sh \
-    && SL_VERSION="$SL_VERSION" \
+COPY versions.s[h] /app/
+RUN if [ ! -f versions.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh; fi
+RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi
+RUN  chmod +x starlake.sh &&  chmod +x versions.sh
+RUN  SL_VERSION="$SL_VERSION" \
        SPARK_VERSION="$SPARK_VERSION" \
        HADOOP_VERSION="$HADOOP_VERSION" \
        DOWNLOAD_GCP_DEPS=$DOWNLOAD_GCP_DEPS \
