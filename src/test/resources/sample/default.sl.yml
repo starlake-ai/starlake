@@ -18,6 +18,15 @@ types:
       sql:
       bigquery: INT64
       snowflake: INT
+  - name: "integer"
+    pattern: "[-|\\+|0-9][0-9]*"
+    primitiveType: "long"
+    sample: "1234"
+    comment: "Int number"
+    ddlMapping:
+      sql:
+      bigquery: INT64
+      snowflake: INT
   - name: "byte"
     primitiveType: "byte"
     pattern: "."
