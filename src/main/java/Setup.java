@@ -29,7 +29,6 @@ public class Setup {
             }
             else {
                 host = hostAndPort;
-                port = 80;
             }
         } else {
             final String hostAndPort = proxy.split(":")[1].substring(2);
@@ -39,7 +38,6 @@ public class Setup {
             }
             else {
                 host = hostAndPort;
-                port = 80;
             }
         }
     }

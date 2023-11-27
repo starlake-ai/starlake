@@ -48,8 +48,8 @@ const SplitSectionList = [
       ),
       isBackgroundColored: 'yes',
       reverse: 'no',
-      Img: require('@site/static/img/spark_graph_new.svg').default,
-      ImgMobile: require('@site/static/img/spark_graph_new.svg').default,
+      Img: require('@site/static/img/starlake_schema.svg').default,
+      ImgMobile: require('@site/static/img/starlake_schema-mobile.svg').default,
       alignImg: 'right',
       description: (
        <p>
