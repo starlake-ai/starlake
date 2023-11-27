@@ -114,21 +114,21 @@ function print_success_message {
     Write-Host "Starlake has been successfully installed!"
 }
 
+# Check if Java is installed using JAVA_HOME env variable
 function check_java_version {
-    :: Check if Java is installed using JAVA_HOME env variable
     if ($env:JAVA_HOME -eq $null) {
-    $runner = "java"
+        $runner = "java"
     } else {
-    $runner = "$env:JAVA_HOME\bin\java"
+        $runner = "$env:JAVA_HOME\bin\java"
     }
     $javaVersion = (Get-Command $runner | Select-Object -ExpandProperty Version).tostring()
     if ($javaVersion -eq $null) {
-    Write-Host "Java is not installed. Please install Java 11 or above."
-    exit 1
+        Write-Host "Java is not installed. Please install Java 11 or above."
+        exit 1
     }
-    else if ($javaVersion -lt "11") {
-    Write-Host "Java version $javaVersion is not supported. Please install Java 11 or above."
-    exit 1
+    if ($javaVersion -lt "11") {
+        Write-Host "Java version $javaVersion is not supported. Please install Java 11 or above."
+        exit 1
     }
 }
 
