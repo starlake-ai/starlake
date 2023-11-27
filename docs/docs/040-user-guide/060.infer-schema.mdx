@@ -10,7 +10,7 @@ The resulting inferred schemas are the backbone of the data loading process and 
 
 ## Sample scenario
 
-This quickstart comes with 4 different sample files:  CSV, JSON and JSONL files.
+This userguide comes with 4 different sample files:  CSV, JSON and JSONL files.
 
 The customers and orders are provided by the "sales" department as delimited separated values files
 and have to be loaded incrementally.
@@ -99,7 +99,7 @@ Instead of writing this file by hand, we may infer his YAML configuration file u
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 
 $ starlake infer-schema                                 \
     --domain sales                                      \
@@ -134,7 +134,7 @@ $ starlake infer-schema                                 \
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\users\me\quickstart> starlake infer-schema                           ^
+c:\users\me\userguide> starlake infer-schema                           ^
     --domain sales                                                      ^
     --table customers                                                   ^
     --input sample-data/sales/customers-2018-01-01.psv                  ^
@@ -147,11 +147,11 @@ c:\users\me\quickstart> starlake infer-schema                           ^
 
 ```shell
 $ docker run                                                        \
-    -v $HOME/quickstart:/app/quickstart                             \
-    -e SL_ROOT=/app/quickstart -it starlake infer-schema            \
+    -v $HOME/userguide:/app/userguide                             \
+    -e SL_ROOT=/app/userguide -it starlake infer-schema            \
     --domain sales                                                  \
     --table customers                                               \
-    --input /app/quickstart/incoming/customers-2018-01-01.psv       \
+    --input /app/userguide/incoming/customers-2018-01-01.psv       \
     --write APPEND                                                 \
     --with-header
 ```

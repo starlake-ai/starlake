@@ -21,7 +21,7 @@ Files that do not satisfy any pattern won't be loaded and are moved to the `data
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 $ starlake import
 ```
 
@@ -29,7 +29,7 @@ $ starlake import
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\users\me\quickstart> starlake import
+c:\users\me\userguide> starlake import
 ```
 
 </TabItem>
@@ -37,14 +37,14 @@ c:\users\me\quickstart> starlake import
 
 ```shell
 $ docker run                                                  \
-    -e SL_ROOT=/app/quickstart                                \
-    -v $HOME/quickstart:/app/quickstart -it starlake import
+    -e SL_ROOT=/app/userguide                                \
+    -v $HOME/userguide:/app/userguide -it starlake import
 ```
 
 </TabItem>
 </Tabs>
 
-The sample data files has now been moved to the `quickstart/datasets/pending/sales` directory.
+The sample data files has now been moved to the `userguide/datasets/pending/sales` directory.
 
 :::note
 This step is optional and does not need to be run if your files directly arrive in the `datasets/pending/sales` folder.
@@ -63,7 +63,7 @@ and its result is stored in the warehouse.
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 $ starlake load
 ```
 
@@ -79,8 +79,8 @@ c:\users\me\starlake> starlake load
 
 ```shell
 $ docker run                                                      \
-    -e SL_ROOT=/app/quickstart                                    \
-    -v $HOME/myproject:/app/quickstart -it starlake load
+    -e SL_ROOT=/app/userguide                                    \
+    -v $HOME/myproject:/app/userguide -it starlake load
 ```
 
 </TabItem>

@@ -25,7 +25,7 @@ named after the folder name,  `kpi` in our case and the table named after the sq
 That's it! We can now run the transform as follows:
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 $ starlake transform --name kpi.customers_kpi
 ```
 The transform job will run against the connectionRef defined in the application.sl.yml file.
@@ -91,7 +91,7 @@ transform:
 <TabItem value="usa" label="American customers table">
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 $ starlake transform --name kpi.bycountry --options p_country=USA
 ```
 
@@ -99,7 +99,7 @@ $ starlake transform --name kpi.bycountry --options p_country=USA
 <TabItem value="france" label="French customers table">
 
 ```sh
-$ cd $HOME/quickstart
+$ cd $HOME/userguide
 $ starlake transform --name kpi.bycountry --options p_country=France
 ```
 

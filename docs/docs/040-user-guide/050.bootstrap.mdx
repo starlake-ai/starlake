@@ -12,8 +12,8 @@ starlake bootstrap CLI command from there:
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```
-$ mkdir $HOME/quickstart
-$ cd $HOME/quickstart
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
 $ starlake bootstrap
 ```
 
@@ -21,8 +21,8 @@ $ starlake bootstrap
 <TabItem value="windows" label="Windows">
 
 ```
-c:\> mkdir c:\quickstart
-c:\> cd c:\quickstart
+c:\> mkdir c:\userguide
+c:\> cd c:\userguide
 c:\> starlake bootstrap
 ```
 
@@ -30,9 +30,9 @@ c:\> starlake bootstrap
 <TabItem value="docker" label="Docker">
 
 ```
-$ mkdir $HOME/quickstart
-$ cd $HOME/quickstart
-$ docker run  -v `pwd`:/app/quickstart -e SL_ROOT=/app/quickstart -it starlake bootstrap
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
+$ docker run  -v `pwd`:/app/userguide -e SL_ROOT=/app/userguide -it starlake bootstrap
 ```
 
 
@@ -67,9 +67,9 @@ c:\> starlake bootstrap
 You are always required to set the SL_ROOT env var when using Docker
 
 ```
-$ mkdir $HOME/quickstart
-$ cd $HOME/quickstart
-$ docker run  -v `pwd`:/app/quickstart -e SL_ROOT=/app/quickstart -it starlake bootstrap
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
+$ docker run  -v `pwd`:/app/userguide -e SL_ROOT=/app/userguide -it starlake bootstrap
 ```
 
 </TabItem>
@@ -81,12 +81,12 @@ The ```bootstrap``` command will ask you to select a project template from the l
 ``` text {3}
 Please choose a template:
   0. initializer
-  1. quickstart
+  1. userguide
   2. starbake
   q. quit
 => 1
 ```
-Please choose `1. quickstart` to create a project that comes with sample datasets and be able to follow this tutorial.
+Please choose `1. userguide` to create a project that comes with sample datasets and be able to follow this tutorial.
 starlake will then create a default project hierarchy that allow you to start extracting, loading and transforming data.
 
 
