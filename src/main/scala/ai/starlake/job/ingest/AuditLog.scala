@@ -27,7 +27,6 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, Utils}
 import com.google.cloud.bigquery.StandardSQLTypeName
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
