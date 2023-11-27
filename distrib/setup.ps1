@@ -77,15 +77,15 @@ function install_starlake {
     Write-Host "installing $VERSION"
     if ($VERSION -like "*SNAPSHOT*") {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd"
-        $setup_url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class"
+        $versions_url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.cmd"
     } else {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.cmd"
-        $setup_url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/Setup.class"
+        $versions_url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/versions.cmd"
     }
 
     Write-Host "Downloading $url to $INSTALL_DIR"
     wget $url -OutFile $INSTALL_DIR/starlake.cmd
-    wget $setup_url -OutFile $INSTALL_DIR/Setup.class
+    wget $versions_url -OutFile $INSTALL_DIR/versions.cmd
 
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
 }
@@ -114,8 +114,8 @@ function print_success_message {
     Write-Host "Starlake has been successfully installed!"
 }
 
-# Check if Java is installed using JAVA_HOME env variable
 function check_java_version {
+    # Check if Java is installed using JAVA_HOME env variable
     if ($env:JAVA_HOME -eq $null) {
         $runner = "java"
     } else {
