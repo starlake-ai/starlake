@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
-import ai.starlake.schema.model.{ConnectionType, Metadata}
+import ai.starlake.schema.model.{Engine, Metadata}
 import better.files.File
 import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
@@ -126,10 +126,10 @@ trait SparkJob extends JobBase {
   }
 
   lazy val optionalAuditSession: Option[SparkSession] = {
-
-    if (settings.appConfig.audit.sink.getSink().getConnectionType() == ConnectionType.BQ)
+    if (settings.appConfig.audit.sink.getSink().getConnection().getEngine() == Engine.SPARK)
+      Some(session)
+    else
       None
-    else Some(session)
   }
 
   // TODO Should we issue a warning if used with Overwrite mode ????
