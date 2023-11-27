@@ -125,13 +125,6 @@ trait SparkJob extends JobBase {
     sparkEnv.session
   }
 
-  lazy val optionalAuditSession: Option[SparkSession] = {
-    if (settings.appConfig.audit.sink.getSink().getConnection().getEngine() == Engine.SPARK)
-      Some(session)
-    else
-      None
-  }
-
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
   private def buildPartitionedDF(dataset: DataFrame, cols: List[String]): DataFrame = {

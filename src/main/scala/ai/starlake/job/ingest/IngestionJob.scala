@@ -854,7 +854,7 @@ trait IngestionJob extends SparkJob {
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant
     )
-    AuditLog.sink(optionalAuditSession, log)(settings, storageHandler, schemaHandler)
+    AuditLog.sink(log)(settings, storageHandler, schemaHandler)
     logger.error(err)
     Failure(exception)
   }
@@ -887,7 +887,7 @@ trait IngestionJob extends SparkJob {
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant
     )
-    AuditLog.sink(optionalAuditSession, log)(settings, storageHandler, schemaHandler).map(_ => log)
+    AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
 
   ///////////////////////////////////////////////////////////////////////////
