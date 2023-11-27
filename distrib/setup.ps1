@@ -77,12 +77,15 @@ function install_starlake {
     Write-Host "installing $VERSION"
     if ($VERSION -like "*SNAPSHOT*") {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd"
+        $setup_url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class"
     } else {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.cmd"
+        $setup_url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/Setup.class"
     }
 
     Write-Host "Downloading $url to $INSTALL_DIR"
     wget $url -OutFile $INSTALL_DIR/starlake.cmd
+    wget $setup_url -OutFile $INSTALL_DIR/Setup.class
 
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
 }
@@ -102,6 +105,8 @@ function add_starlake_to_path {
 function run_installation_command {
     $env:SL_VERSION = $VERSION
     Start-Process -FilePath "$INSTALL_DIR\starlake.cmd" -ArgumentList 'install' -Wait
+    del "$INSTALL_DIR/Setup.class"
+
 }
 
 
@@ -109,7 +114,26 @@ function print_success_message {
     Write-Host "Starlake has been successfully installed!"
 }
 
+function check_java_version {
+    :: Check if Java is installed using JAVA_HOME env variable
+    if ($env:JAVA_HOME -eq $null) {
+    $runner = "java"
+    } else {
+    $runner = "$env:JAVA_HOME\bin\java"
+    }
+    $javaVersion = (Get-Command $runner | Select-Object -ExpandProperty Version).tostring()
+    if ($javaVersion -eq $null) {
+    Write-Host "Java is not installed. Please install Java 11 or above."
+    exit 1
+    }
+    else if ($javaVersion -lt "11") {
+    Write-Host "Java version $javaVersion is not supported. Please install Java 11 or above."
+    exit 1
+    }
+}
+
 function main {
+    check_java_version
     print_starlake_ascii_art
     $INSTALL_DIR=get_installation_directory
     $VERSION=get_version_to_install
