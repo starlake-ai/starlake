@@ -3,7 +3,7 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
-Test / javacOptions ++= Seq(
+javacOptions ++= Seq(
   "-source", "11",
   "-target", "11",
   "-Xlint"
