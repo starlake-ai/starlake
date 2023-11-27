@@ -91,8 +91,10 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
 
     if "%SL_DEBUG%" == "" (
         set SPARK_DRIVER_OPTIONS=-Dlog4j.configurationFile=file:///%SCRIPT_DIR%bin/spark/conf/log4j2.properties
+        set SPARK_OPTIONS=-Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%\conf\log4j2.properties"
     ) else (
         set SPARK_DRIVER_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile=file:///%SPARK_DIR%/conf/log4j2.properties
+        set SPARK_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%\conf\log4j2.properties"
     )
 
     if "%SL_DEFAULT_LOADER%" == "native" (
@@ -112,12 +114,10 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
             --add-opens=java.base/sun.util.calendar=ALL-UNNAMED ^
             --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
 
-        set SPARK_OPTIONS=-Dlog4j.configurationFile="!SPARK_TARGET_FOLDER!\conf\log4j2.properties"
         rem Add any additional options you need for your Java application here
-        set JAVA_OPTIONS=!JAVA_OPTIONS! !SPARK_OPTIONS!
+        set JAVA_OPTIONS=!JAVA_OPTS! !JAVA_OPTIONS! !SPARK_OPTIONS!
 
-        %RUNNER% !JAVA_OPTIONS! -cp "!UNIX_SPARK_TARGET_FOLDER!/jars/*;!UNIX_DEPS_EXTRA_LIB_FOLDER!/*;!UNIX_STARLAKE_EXTRA_LIB_FOLDER!/%SL_JAR_NAME%" %SL_MAIN% %*
-    ) else (
+aq    ) else (
         set EXTRA_CLASSPATH=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
         set extra_jars=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
 
@@ -127,7 +127,7 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
         )
         set SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd
         @REM spark-submit cmd handles windows path
-        !SPARK_SUBMIT! %SPARK_EXTRA_PACKAGES% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "!EXTRA_CLASSPATH!" --class %SL_MAIN% --jars "!EXTRA_JARS!" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
+        !SPARK_SUBMIT! %SPARK_EXTRA_PACKAGES% --driver-java-options "%JAVA_OPTS% %SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "!EXTRA_CLASSPATH!" --class %SL_MAIN% --jars "!EXTRA_JARS!" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
     )
 ) else (
     echo "install starlake first using setup.cmd"

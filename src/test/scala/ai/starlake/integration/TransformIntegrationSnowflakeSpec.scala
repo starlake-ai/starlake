@@ -12,7 +12,7 @@ class TransformIntegrationSnowflakeSpec extends BigQueryIntegrationSpecBase {
         "SL_ROOT" -> snowflakeDir.pathAsString
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(localDir)
+        sampleDataDir.copyToDirectory(localDir)
         Main.main(
           Array("transform", "--name", "kpi.byseller")
         )

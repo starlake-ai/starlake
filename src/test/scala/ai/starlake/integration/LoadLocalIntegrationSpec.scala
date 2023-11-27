@@ -11,7 +11,7 @@ class LoadLocalIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
       Main.main(
         Array("import")
       )

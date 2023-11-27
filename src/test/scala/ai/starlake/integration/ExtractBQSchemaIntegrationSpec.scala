@@ -15,7 +15,7 @@ class ExtractBQSchemaIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_ISSUE_SPARK_BIGQUERY_1060"                  -> ""
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(localDir)
+        sampleDataDir.copyToDirectory(localDir)
         Main.main(
           Array("extract-bq-schema", "--external")
         )

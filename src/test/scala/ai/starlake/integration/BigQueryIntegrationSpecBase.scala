@@ -11,6 +11,9 @@ class BigQueryIntegrationSpecBase extends IntegrationTestBase {
         path.delete()
       }
     }
+    val incomingDir = localDir / "incoming"
+    sampleDataDir.copyTo(incomingDir)
+
   }
 
   override def beforeAll(): Unit = {

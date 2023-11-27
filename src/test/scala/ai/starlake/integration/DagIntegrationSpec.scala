@@ -11,7 +11,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "all"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate", "--clean")
@@ -27,7 +27,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "domain"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -43,7 +43,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "domain_table"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -59,7 +59,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "schedule"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -75,7 +75,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "schedule_domain"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")
@@ -90,7 +90,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_DAG_REF"                  -> "schedule_domain_table"
     ) {
       clearDataDirectories()
-      incomingDir.copyToDirectory(localDir)
+      sampleDataDir.copyToDirectory(localDir)
 
       Main.main(
         Array("dag-generate")

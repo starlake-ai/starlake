@@ -15,7 +15,6 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_ISSUE_SPARK_BIGQUERY_1060"                  -> ""
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(localDir)
         Main.main(
           Array("import")
         )

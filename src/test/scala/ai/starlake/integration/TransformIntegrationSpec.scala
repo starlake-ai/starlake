@@ -14,7 +14,7 @@ class TransformIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
       ) {
         clearDataDirectories()
-        incomingDir.copyToDirectory(localDir)
+        sampleDataDir.copyToDirectory(localDir)
         Main.main(
           Array("transform", "--name", "sales_kpi.byseller_kpi", "--compile")
         )

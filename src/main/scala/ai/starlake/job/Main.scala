@@ -55,6 +55,7 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
+    ProxySettings.setProxy()
     val settings: Settings = Settings(Settings.referenceConfig)
     logger.debug(settings.toString)
     new Main().run(args)(settings)
