@@ -21,17 +21,23 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, Utils}
+import com.google.cloud.MonitoredResource
 import com.google.cloud.bigquery.StandardSQLTypeName
+import com.google.cloud.logging.Payload.JsonPayload
+import com.google.cloud.logging.{LogEntry, LoggingOptions}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
+import java.util.Collections
 import java.util.regex.Pattern
 import scala.util.{Success, Try}
+import scala.collection.JavaConverters._
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -69,6 +75,27 @@ case class AuditLog(
   database: Option[String],
   tenant: String
 ) {
+
+  def asMap(): Map[String, Any] = {
+    Map(
+      "jobid"         -> jobid,
+      "domain"        -> domain,
+      "schema"        -> schema,
+      "success"       -> success,
+      "count"         -> count,
+      "countAccepted" -> countAccepted,
+      "countRejected" -> countRejected,
+      "timestamp"     -> timestamp.getTime,
+      "duration"      -> duration,
+      "message"       -> message,
+      "step"          -> step,
+      "tenant"        -> tenant
+    ) ++ List(
+      paths.map("paths" -> _),
+      database.map("database" -> _)
+    ).flatten
+  }
+
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
     timestamp.setNanos(0)
@@ -177,34 +204,64 @@ object AuditLog extends StrictLogging {
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
     if (settings.appConfig.audit.isActive()) {
-      val selectSql =
-        log.asSelect(settings.appConfig.audit.getSink().getConnection().getJdbcEngineName())
-      val auditTaskDesc = AutoTaskDesc(
-        name = s"audit-${log.jobid}",
-        sql = Some(selectSql),
-        database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.getDomain(),
-        table = "audit",
-        write = Some(WriteMode.APPEND),
-        partition = Nil,
-        presql = Nil,
-        postsql = Nil,
-        sink = Some(settings.appConfig.audit.sink),
-        parseSQL = Some(false),
-        _auditTableName = Some("audit"),
-        taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
-      )
-      val task = AutoTask
-        .task(
-          auditTaskDesc,
-          Map.empty,
-          None,
-          truncate = false
-        )
-      val res = task.run()
-      Utils.logFailure(res, logger)
+      val auditSink = settings.appConfig.audit.getSink()
+      auditSink.getConnectionType() match {
+        case ConnectionType.GCPLOG =>
+          logToGCP(log)
+          Success(new JobResult {})
+        case _ =>
+          val selectSql =
+            log.asSelect(auditSink.getConnection().getJdbcEngineName())
+          val auditTaskDesc = AutoTaskDesc(
+            name = s"audit-${log.jobid}",
+            sql = Some(selectSql),
+            database = settings.appConfig.audit.getDatabase(),
+            domain = settings.appConfig.audit.getDomain(),
+            table = "audit",
+            write = Some(WriteMode.APPEND),
+            partition = Nil,
+            presql = Nil,
+            postsql = Nil,
+            sink = Some(settings.appConfig.audit.sink),
+            parseSQL = Some(false),
+            _auditTableName = Some("audit"),
+            taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
+          )
+          val task = AutoTask
+            .task(
+              auditTaskDesc,
+              Map.empty,
+              None,
+              truncate = false
+            )
+          val res = task.run()
+          Utils.logFailure(res, logger)
+      }
     } else {
       Success(new JobResult {})
     }
+  }
+
+  private def logToGCP(log: AuditLog)(implicit
+    settings: Settings
+  ): Unit = {
+    val logName = settings.appConfig.audit.getDomain()
+    val logging = LoggingOptions.getDefaultInstance
+      .toBuilder()
+      .setProjectId(BigQueryJobBase.projectId(None))
+      .build()
+      .getService
+    try {
+      val entry = LogEntry
+        .newBuilder(JsonPayload.of(log.asMap().asJava))
+        .setSeverity(com.google.cloud.logging.Severity.INFO)
+        .setLogName(logName)
+        .setResource(MonitoredResource.newBuilder("global").build)
+        .build
+      // Writes the log entry asynchronously
+      logging.write(Collections.singleton(entry))
+      // Optional - flush any pending log entries just before Logging is closed
+      logging.flush()
+    } finally if (logging != null) logging.close()
   }
 }
