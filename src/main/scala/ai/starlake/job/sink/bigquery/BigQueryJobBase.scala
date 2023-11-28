@@ -1,5 +1,6 @@
 package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.projectId
 import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.sql.SQLUtils
@@ -58,15 +59,6 @@ trait BigQueryJobBase extends StrictLogging {
 
   lazy val connectionOptions: Map[String, String] =
     connectionRef.map(_.options).getOrElse(Map.empty)
-
-  def projectId: String = {
-    cliConfig.outputDatabase
-      .orElse(getPropertyOrEnv("SL_DATABASE"))
-      .orElse(getPropertyOrEnv("GCP_PROJECT"))
-      .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
-      .orElse(scala.Option(ServiceOptions.getDefaultProjectId()))
-      .getOrElse(throw new Exception("GCP Project ID must be defined"))
-  }
 
   private def bigQueryCredentials(): scala.Option[Credentials] = {
     logger.info(s"Using ${connectionOptions("authType")} Credentials")
@@ -217,7 +209,7 @@ trait BigQueryJobBase extends StrictLogging {
         )
 
       val credentials = bigQueryCredentials()
-      val bqOptions = bqOptionsBuilder.setProjectId(projectId)
+      val bqOptions = bqOptionsBuilder.setProjectId(projectId(None))
       val bqService =
         credentials match {
           case None =>
@@ -239,10 +231,10 @@ trait BigQueryJobBase extends StrictLogging {
     _gcsStorage match {
       case None =>
         logger.info(s"Getting GCS credentials for connection $connectionName -> ${connectionRef}")
-        StorageOptions.newBuilder.setProjectId(projectId).build.getService
+        StorageOptions.newBuilder.setProjectId(projectId(cliConfig.outputDatabase)).build.getService
         val gcsOptionsBuilder = StorageOptions.newBuilder()
         val credentials = gcsCredentials()
-        val gcsOptions = gcsOptionsBuilder.setProjectId(projectId)
+        val gcsOptions = gcsOptionsBuilder.setProjectId(projectId(cliConfig.outputDatabase))
         val gcsService = gcsOptions
           .setCredentials(credentials)
           .build()
@@ -253,9 +245,6 @@ trait BigQueryJobBase extends StrictLogging {
         gcsService
     }
   }
-
-  private def getPropertyOrEnv(envVar: String): scala.Option[String] =
-    scala.Option(System.getProperty(envVar, System.getenv(envVar)))
 
   private var _bigquery: scala.Option[BigQuery] = None
 
@@ -355,7 +344,7 @@ trait BigQueryJobBase extends StrictLogging {
   )(implicit settings: Settings): (String, String, String, String) = {
     val taxonomyProjectId =
       if (settings.appConfig.accessPolicies.database == "invalid_project") {
-        this.projectId
+        projectId(cliConfig.outputDatabase)
       } else
         settings.appConfig.accessPolicies.database
 
@@ -638,7 +627,7 @@ trait BigQueryJobBase extends StrictLogging {
   )(implicit settings: Settings): Try[Dataset] = {
     val tryResult = recoverBigqueryException {
       val datasetId = datasetName match {
-        case Some(name) => DatasetId.of(projectId, name)
+        case Some(name) => DatasetId.of(projectId(cliConfig.outputDatabase), name)
         case None       => this.datasetId
       }
       val existingDataset = scala.Option(bigquery().getDataset(datasetId))
@@ -817,7 +806,7 @@ trait BigQueryJobBase extends StrictLogging {
         val infos = table.split("\\.").toList
         infos match {
           case datasetName :: tableName :: Nil =>
-            Some(TableId.of(projectId, datasetName, tableName))
+            Some(TableId.of(projectId(cliConfig.outputDatabase), datasetName, tableName))
           case projectId :: datasetName :: tableName :: Nil =>
             Some(TableId.of(projectId, datasetName, tableName))
           case _ => None
@@ -1025,7 +1014,11 @@ trait BigQueryJobBase extends StrictLogging {
                 .build
 
             val tableIdPk =
-              TableId.of(cliConfig.outputDatabase.getOrElse(this.projectId), domain, table)
+              TableId.of(
+                cliConfig.outputDatabase.getOrElse(projectId(cliConfig.outputDatabase)),
+                domain,
+                table
+              )
             val tableName =
               tableIdPk.getDataset.toUpperCase() + "_" + tableIdPk.getTable.toUpperCase()
             val fk = ForeignKey.newBuilder
@@ -1179,4 +1172,16 @@ object BigQueryJobBase {
     projectId: scala.Option[String]
   ): scala.Option[String] =
     projectId.filter(_.trim.nonEmpty)
+
+  def projectId(outputDatabase: scala.Option[String]): String = {
+    outputDatabase
+      .orElse(getPropertyOrEnv("SL_DATABASE"))
+      .orElse(getPropertyOrEnv("GCP_PROJECT"))
+      .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
+      .orElse(scala.Option(ServiceOptions.getDefaultProjectId()))
+      .getOrElse(throw new Exception("GCP Project ID must be defined"))
+  }
+
+  private def getPropertyOrEnv(envVar: String): scala.Option[String] =
+    scala.Option(System.getProperty(envVar, System.getenv(envVar)))
 }
