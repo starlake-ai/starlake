@@ -70,6 +70,9 @@ goto :eof
 
 
 :launch_starlake
+
+PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
+
 if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
     @REM Transform windows path to unix path for java
     set SL_ROOT=%SL_ROOT:\=/%
@@ -86,8 +89,8 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
     echo - SL_MAIN=%SL_MAIN%
     echo - SL_VALIDATE_ON_LOAD=%SL_VALIDATE_ON_LOAD%
     echo - SPARK_DRIVER_MEMORY=%SPARK_DRIVER_MEMORY%
+    echo - SL_ROOT=%SL_ROOT%
 
-    PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
 
     if "%SL_DEBUG%" == "" (
         set SPARK_DRIVER_OPTIONS=-Dlog4j.configurationFile=file:///%SCRIPT_DIR%bin/spark/conf/log4j2.properties
@@ -117,7 +120,7 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
         rem Add any additional options you need for your Java application here
         set JAVA_OPTIONS=!JAVA_OPTS! !JAVA_OPTIONS! !SPARK_OPTIONS!
 
-aq    ) else (
+    ) else (
         set EXTRA_CLASSPATH=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
         set extra_jars=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
 
