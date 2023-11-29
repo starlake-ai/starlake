@@ -130,7 +130,8 @@ class InferSchemaJob(implicit settings: Settings) {
       val extension = parts.last
       val prefix = filename.replace(s".$extension", "")
       val indexOfNonAlpha = prefix.indexWhere(!_.isLetterOrDigit)
-      val prefixWithoutNonAlpha = prefix.substring(0, indexOfNonAlpha)
+      val prefixWithoutNonAlpha =
+        if (indexOfNonAlpha != -1) prefix.substring(0, indexOfNonAlpha) else prefix
       if (prefixWithoutNonAlpha.isEmpty)
         filename
       else
