@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkstarlake=self.webpackChunkstarlake||[]).push([[3508],{25617:a=>{a.exports=JSON.parse('{"label":"Google Cloud","permalink":"/starlake/blog/tags/google-cloud","allTagsPath":"/starlake/blog/tags","count":2}')}}]);
