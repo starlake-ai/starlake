@@ -625,163 +625,163 @@ object Settings extends StrictLogging {
             s"env.${appConfig.env}.sl.yml not found in ${envFile.toString}"
           )
         }
-        Try {
-          Utils
-            .loadInstance[GenericRowValidator](settings.appConfig.rowValidatorClass)
-        } match {
-          case scala.util.Failure(exception) =>
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"rowValidatorClass ${settings.appConfig.rowValidatorClass} not found"
-            )
-          case _ =>
-        }
+      }
+      Try {
+        Utils
+          .loadInstance[GenericRowValidator](settings.appConfig.rowValidatorClass)
+      } match {
+        case scala.util.Failure(exception) =>
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"rowValidatorClass ${settings.appConfig.rowValidatorClass} not found"
+          )
+        case _ =>
+      }
 
-        Try {
-          Utils
-            .loadInstance[GenericRowValidator](settings.appConfig.treeValidatorClass)
-        } match {
-          case scala.util.Failure(exception) =>
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"treeValidatorClass ${settings.appConfig.treeValidatorClass} not found"
-            )
-          case _ =>
-        }
-        Try {
-          Utils
-            .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
-        } match {
-          case scala.util.Failure(exception) =>
-            exception.printStackTrace()
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"loadStrategyClass ${settings.appConfig.loadStrategyClass} not found"
-            )
-          case _ =>
-        }
+      Try {
+        Utils
+          .loadInstance[GenericRowValidator](settings.appConfig.treeValidatorClass)
+      } match {
+        case scala.util.Failure(exception) =>
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"treeValidatorClass ${settings.appConfig.treeValidatorClass} not found"
+          )
+        case _ =>
+      }
+      Try {
+        Utils
+          .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
+      } match {
+        case scala.util.Failure(exception) =>
+          exception.printStackTrace()
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"loadStrategyClass ${settings.appConfig.loadStrategyClass} not found"
+          )
+        case _ =>
+      }
 
-        if (!Set("spark", "native").contains(settings.appConfig.loader)) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"loader ${settings.appConfig.loader} not supported"
-          )
-        }
-        settings.appConfig.connections.foreach { case (name, connection) =>
-          errors = errors ++ connection.checkValidity()(settings)
-        }
-        val path = new Path(settings.appConfig.root)
-        if (!storageHandler.exists(path)) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"root ${settings.appConfig.root} not found"
-          )
-        }
-        Try {
-          settings.appConfig.sqlParameterPattern.r
-        } match {
-          case scala.util.Failure(exception) =>
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"sqlParameterPattern ${settings.appConfig.sqlParameterPattern} is not a valid regex"
-            )
-          case _ =>
-        }
-        if (settings.appConfig.rejectMaxRecords < 0) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"rejectMaxRecords ${settings.appConfig.rejectMaxRecords} must be positive"
-          )
-        }
-        if (settings.appConfig.maxParCopy <= 0) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"maxParCopy ${settings.appConfig.maxParCopy} must be positive"
-          )
-        }
-        val patterns = List(
-          (settings.appConfig.forceViewPattern, "forceViewPattern"),
-          (settings.appConfig.forceDomainPattern, "forceDomainPattern"),
-          (settings.appConfig.forceTablePattern, "forceTablePattern"),
-          (settings.appConfig.forceJobPattern, "forceJobPattern"),
-          settings.appConfig.forceTaskPattern -> "forceTaskPattern"
+      if (!Set("spark", "native").contains(settings.appConfig.loader)) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"loader ${settings.appConfig.loader} not supported"
         )
-        patterns.foreach { case (value, name) =>
-          Try {
-            value.r
-          } match {
-            case Failure(exception) =>
-              errors = errors :+ ValidationMessage(
-                Severity.Error,
-                "AppConfig",
-                s"$name value is not a valid regex"
-              )
-            case _ =>
-          }
-        }
-        if (settings.appConfig.sessionDurationServe <= 0) {
+      }
+      settings.appConfig.connections.foreach { case (name, connection) =>
+        errors = errors ++ connection.checkValidity()(settings)
+      }
+      val path = new Path(settings.appConfig.root)
+      if (!storageHandler.exists(path)) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"root ${settings.appConfig.root} not found"
+        )
+      }
+      Try {
+        settings.appConfig.sqlParameterPattern.r
+      } match {
+        case scala.util.Failure(exception) =>
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"sessionDurationServe ${settings.appConfig.sessionDurationServe} must be positive"
+            s"sqlParameterPattern ${settings.appConfig.sqlParameterPattern} is not a valid regex"
           )
-        }
-
-        val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
-        if (settings.appConfig.connectionRef.isEmpty) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"connectionRef must be defined. Valid connection names are $validConnectionNames"
-          )
-        } else {
-          settings.appConfig.connections.get(settings.appConfig.connectionRef) match {
-            case Some(_) =>
-            case None =>
-              errors = errors :+ ValidationMessage(
-                Severity.Error,
-                "AppConfig",
-                s"Connection ${settings.appConfig.connectionRef} not found. Valid connection names are $validConnectionNames"
-              )
-          }
-        }
-
-        settings.appConfig.schedulePresets.foreach { case (name, cron) =>
-          Try {
-            cron.r
-          } match {
-            case Failure(exception) =>
-              errors = errors :+ ValidationMessage(
-                Severity.Error,
-                "AppConfig",
-                s"schedulePresets $name value is not a valid cron"
-              )
-            case _ =>
-          }
-        }
-
-        val dagRef: List[String] =
-          settings.appConfig.dagRef
-            .map(ref => List(ref.load.toList, ref.transform.toList).flatten)
-            .getOrElse(Nil)
-
-        dagRef.foreach { dagConfigRef =>
-          val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
-          if (!storageHandler.exists(dagConfigPath)) {
+        case _ =>
+      }
+      if (settings.appConfig.rejectMaxRecords < 0) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"rejectMaxRecords ${settings.appConfig.rejectMaxRecords} must be positive"
+        )
+      }
+      if (settings.appConfig.maxParCopy <= 0) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"maxParCopy ${settings.appConfig.maxParCopy} must be positive"
+        )
+      }
+      val patterns = List(
+        (settings.appConfig.forceViewPattern, "forceViewPattern"),
+        (settings.appConfig.forceDomainPattern, "forceDomainPattern"),
+        (settings.appConfig.forceTablePattern, "forceTablePattern"),
+        (settings.appConfig.forceJobPattern, "forceJobPattern"),
+        settings.appConfig.forceTaskPattern -> "forceTaskPattern"
+      )
+      patterns.foreach { case (value, name) =>
+        Try {
+          value.r
+        } match {
+          case Failure(exception) =>
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "AppConfig",
-              s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.toString}"
+              s"$name value is not a valid regex"
             )
-          }
+          case _ =>
+        }
+      }
+      if (settings.appConfig.sessionDurationServe <= 0) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"sessionDurationServe ${settings.appConfig.sessionDurationServe} must be positive"
+        )
+      }
+
+      val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
+      if (settings.appConfig.connectionRef.isEmpty) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "AppConfig",
+          s"connectionRef must be defined. Valid connection names are $validConnectionNames"
+        )
+      } else {
+        settings.appConfig.connections.get(settings.appConfig.connectionRef) match {
+          case Some(_) =>
+          case None =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"Connection ${settings.appConfig.connectionRef} not found. Valid connection names are $validConnectionNames"
+            )
+        }
+      }
+
+      settings.appConfig.schedulePresets.foreach { case (name, cron) =>
+        Try {
+          cron.r
+        } match {
+          case Failure(exception) =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"schedulePresets $name value is not a valid cron"
+            )
+          case _ =>
+        }
+      }
+
+      val dagRef: List[String] =
+        settings.appConfig.dagRef
+          .map(ref => List(ref.load.toList, ref.transform.toList).flatten)
+          .getOrElse(Nil)
+
+      dagRef.foreach { dagConfigRef =>
+        val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
+        if (!storageHandler.exists(dagConfigPath)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.toString}"
+          )
         }
       }
       errors
