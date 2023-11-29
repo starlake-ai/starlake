@@ -293,7 +293,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allFiles
   }
 
-  val cometDateVars: Map[String, String] = {
+  val slDateVars: Map[String, String] = {
     val today = LocalDateTime.now
     val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
@@ -353,7 +353,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .map(_.env)
         .getOrElse(Map.empty)
         .mapValues(
-          _.richFormat(sys.env, cometDateVars)
+          _.richFormat(sys.env, slDateVars)
         ) // will replace with sys.env
     val activeEnvName = Option(System.getenv().get("SL_ENV"))
       .orElse(globalEnvVars.get("SL_ENV"))
@@ -371,12 +371,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         loadEnv(envsCometPath)
           .map(_.env)
           .getOrElse(Map.empty)
-          .mapValues(_.richFormat(sys.env, globalEnvVars ++ cometDateVars))
+          .mapValues(_.richFormat(sys.env, globalEnvVars ++ slDateVars))
       } else
         Map.empty[String, String]
 
     // Please note below how profile specific vars override default profile vars.
-    val activeEnvVars = sys.env ++ cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
+    val activeEnvVars = sys.env ++ slDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
 
     this._activeEnvVars = activeEnvVars
     this._activeEnvVars
