@@ -1,0 +1,104 @@
+# Starlake CLI
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+:::note
+
+Make sure you have Java 11+ installed on your machine. You can check your Java version by typing `java -version` in a terminal.
+
+If you don't have Java 11+ installed, you can download it from the following link:
+[Download and install Java version 11+](https://adoptopenjdk.net/)
+
+:::
+
+To install the starlake CLI, you need to download the starlake script from github.
+The script will in turn download required dependencies and copy them to the bin subdirectory.
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```shell
+sh <(curl https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.sh)
+```
+
+</TabItem>
+
+<TabItem value="windows" label="Windows">
+
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.ps1").Content
+```
+
+</TabItem>
+
+<TabItem value="docker" label="Docker">
+
+You may also run Starlake from a docker container. To do so, download this [Dockerfile](https://github.com/starlake-ai/starlake/blob/master/distrib/Dockerfile)
+and build your docker image
+	
+```shell
+$ git clone git@github.com:starlake-ai/starlake.git
+$ cd starlake
+$ docker build -t starlake .
+$ docker run -it starlake help
+
+```
+</TabItem>
+</Tabs>
+
+The following folders should now have been created and contain Starlake dependencies.
+
+
+```text
+
+starlake
+└── bin
+    ├── deps
+    ├── sl
+    └── spark
+
+```
+
+:::note
+
+Any extra library you may need (Oracle client for example) need to be copied in the bin/deps folder.
+
+:::
+
+Starlake is now installed with all its dependencies. You can run the CLI by typing `starlake` depending on your platform.
+
+This will display the commands supported by the CLI.
+
+
+```
+Starlake Version 1.0.0
+Usage:
+	starlake [command]
+Available commands =>
+	lineage
+	bootstrap
+	bq2yml or bq-info
+	compare
+	cnxload
+	esload
+	extract-data
+	extract-schema
+	import
+	infer-schema
+	kafkaload
+	load
+	metrics
+	parquet2csv
+	transform
+	watch
+	xls2yml
+	yml2ddl
+	table-dependencies
+	yml2xls
+```
+
+
+That's it! We now need to [bootstrap a new project](../user-guide/bootstrap).

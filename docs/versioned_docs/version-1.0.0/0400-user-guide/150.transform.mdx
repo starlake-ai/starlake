@@ -1,0 +1,196 @@
+# Transform
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Now that our file is successfully loaded and available as a table, we usually need to join them and expose KPIs.
+This is where Starlake Transforms come into play.
+Three types of jobs are supported:
+- SQL jobs: a single SQL file
+- Jinja2 jobs: a single SQL/Python/PySpark file with Jinja2 templating
+- Python jobs: a single Python/PySpark file
+
+## SQL Transforms
+We create a file `metadata/transform/kpi/customers_kpi.sql` with the following content
+```SQL
+select count(*) cnt from sales.customers
+```
+
+
+
+This SQL file alone is sufficient to be a Starlake Transform. It instructs Starlake to put the result of the query in a schema (dataset in BigQuery)
+named after the folder name,  `kpi` in our case and the table named after the sql filename aka `customers_kpi`.
+
+That's it! We can now run the transform as follows:
+
+```sh
+$ cd $HOME/userguide
+$ starlake transform --name kpi.customers_kpi
+```
+The transform job will run against the connectionRef defined in the application.sl.yml file.
+The result of the query will be stored in the table `kpi.customers_kpi` in the `datasets` folder.
+
+
+:::note
+By default, the existing table data is overriden. To append data, use the `write` option in the `metadata/transform/kpi/_config.sl.yml` file:
+```yaml
+transform:
+  default:
+    write: APPEND
+```
+
+This instructs to run all transformations in `kpi` folder in append mode.
+To run only this transformation in append mode, update the __config_ file as follows:
+
+```yaml {5-6}
+transform:
+  default:
+    write: OVERWRITE
+  tasks:
+    - name: customers_kpi
+      write: APPEND
+```
+
+:::
+
+The transform job will run against the connectionRef defined in the application.sl.yml file.
+
+## Jinja2 Transforms
+Starlake Transforms support Jinja2 templating inside SQL requests.
+To illustrate how this works, we will create two tables, one containing customers living in France
+and another one containing customers living in the USA.
+
+We create a file `metadata/transform/kpi/bycountry.sql` with the following content
+
+```SQL
+select * from sales.customers where lower(country) like lower('{{ p_country }}')
+```
+
+By creating the sql file in the kpi folder, we instruct Starlake to put the result of the query in a schema (dataset in BigQuery)
+named 'kpi'.
+But we need the french customers to be stored in the table `cust_france` and the american customers in the table `cust_usa`.
+
+Since by default the table is named after the SQL file name, ```bycountry.sql``` will create a table named ```bycountry```.
+We need to configure a dynamic table name based on the country name in the YAML configuration file.
+Therefore, we need to update the YAML file `metadata/transform/kpi/_config.sl.yml`.
+This file will instruct where the result of the SQL request will be stored.
+
+```yaml {5-7}
+transform:
+  tasks:
+    - name: customers_kpi
+      write: APPEND
+    - name: bycountry # We define the name of the transform.
+      table: cust_{{ p_country }} # We define the table name based on the country name.
+      write: OVERWRITE # We overwrite the table each time the job is executed.
+
+```
+
+<Tabs groupId="customers">
+<TabItem value="usa" label="American customers table">
+
+```sh
+$ cd $HOME/userguide
+$ starlake transform --name kpi.bycountry --options p_country=USA
+```
+
+</TabItem>
+<TabItem value="france" label="French customers table">
+
+```sh
+$ cd $HOME/userguide
+$ starlake transform --name kpi.bycountry --options p_country=France
+```
+
+</TabItem>
+</Tabs>
+
+The `--options` argument may hold a comma separated list of variables / values pairs  that will be used for substitution and thus allowing a query to be parameterized.
+
+
+:::note
+The `--options` parameter is optional. If not provided,
+the transform will be executed with the default values defined in the `env.sl.yml` and if `env.{{SL_ENV}}.sl.yml` files if they can be found in the `metadata` folder.
+:::
+
+## Python/PySpark Transforms
+You mays also use Python/PySpark to create your transforms. The output of the job must be a PySpark DataFrame registered as a temporary view named `SL_THIS`.
+The dataframe will be saved in a table named after the filename following the same naming rules as the SQL transforms.
+Below is an example:
+
+```python title="metadata/transform/kpi/pi.py"
+import sys
+from random import random
+from operator import add
+
+from pyspark.sql import SparkSession
+
+# From Apache Spark example
+if __name__ == "__main__":
+    # get Spark context
+    spark = SparkSession.builder.getOrCreate()
+
+    # run any python/pyspark transform below
+    partitions = 2
+    n = 100000 * partitions
+
+    def f(_: int) -> float:
+        x = random() * 2 - 1
+        y = random() * 2 - 1
+        return 1 if x ** 2 + y ** 2 <= 1 else 0
+    count = spark.sparkContext.parallelize(range(1, n + 1), partitions).map(f).reduce(add)
+    result = 4.0 * count / n
+
+    # put the result in a spark dataframe
+    df = spark.createDataFrame([[result]])
+    # register the dataframe as a temporary view named SL_THIS
+    df.registerTempTable("SL_THIS")
+```
+
+
+
+
+## Incremental updates
+
+You may also be willing to upsert the data in a table during a transformation. 
+This works the same way as for the load time upserts, but the `merge` attribute is added to the table in the transformation configuration file file.
+
+Say we did not use the merge strategy at load time and that after appending the data to the `sales.customers` table,
+we want to create a table `silver.customers_last_signup` containing the most recent data for each customer. 
+We can do this using the `merge` attribute in the transformation configuration file.
+
+
+<Tabs groupId="transform">
+
+<TabItem value="sql" label="SQL">
+
+```sql title="metadata/transform/silver/unique_customers.sql"
+
+SELECT * FROM sales.customers
+
+```
+</TabItem>
+
+<TabItem value="unique" label="Configuration">
+
+```yaml title="metadata/transform/silver/unique_customers.sl.yml"
+transform:
+  default:
+    write: OVERWRITE
+  tasks:
+    - name: customers_last_signup
+      write: APPEND
+      merge:
+        timestamp: signup
+        key: [id]
+```
+</TabItem>
+
+</Tabs>
+
+
+
+## Targeting another datawarehouse
+Set the `connectionRef` property to the right value in the `metadata/application.sl.yml` file as explained previously in the [load step section](load#targeting-another-datawarehouse) .
+
