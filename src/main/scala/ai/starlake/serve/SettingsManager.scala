@@ -76,7 +76,7 @@ object SettingsManager {
     val updatedSession = settingsMap.getOrElse(
       sessionId, {
         settingsMap.synchronized {
-          sysProps.setProperty("root-serve", outFile.pathAsString)
+          sysProps.setProperty("rootServe", outFile.pathAsString)
           sysProps.setProperty("root", root)
           sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
 
