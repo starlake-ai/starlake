@@ -68,7 +68,7 @@ class JdbcAutoTask(
           )
         )
         val scriptTemplate = engine.tables(entry).createSql
-        createSchema(fullDomainName, conn)
+        JdbcDbUtils.createSchema(fullDomainName, conn)
 
         val script = scriptTemplate.richFormat(
           Map("table" -> fullTableName),
@@ -83,16 +83,6 @@ class JdbcAutoTask(
       }
     }
     exists
-  }
-
-  @throws[Exception]
-  private def createSchema(domainName: String, conn: Connection): Unit = {
-    JdbcDbUtils.execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
-      case Success(_) =>
-      case Failure(e) =>
-        logger.error(s"Error creating schema $domainName", e)
-        throw e
-    }
   }
 
   @throws[Exception]
@@ -201,8 +191,8 @@ class JdbcAutoTask(
   ): Unit = {
 
     // TODO: Make optional DOMAIN creation
-
-    createSchema(fullDomainName, conn)
+    if (settings.appConfig.createSchemaIfNotExists)
+      JdbcDbUtils.createSchema(fullDomainName, conn)
     val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
     prepareTarget(conn, tableExists(conn))
     val finalSqls =

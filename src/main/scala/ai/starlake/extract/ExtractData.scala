@@ -43,6 +43,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       .getOrElse(jdbcSchemas.connection)
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
+
     jdbcSchemas.jdbcSchemas
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {

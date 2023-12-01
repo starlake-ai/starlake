@@ -17,10 +17,10 @@ class sparkJdbcLoader(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def name: String = s"cnxload-JDBC-${cliConfig.outputTable}"
+  override def name: String = s"cnxload-JDBC-${cliConfig.outputDomainAndTableName}"
 
-  def tableExists(conn: java.sql.Connection, url: String, tableName: String): Boolean = {
-    JdbcDbUtils.tableExists(conn, url, tableName)
+  def tableExists(conn: java.sql.Connection, url: String, domainAndTableName: String): Boolean = {
+    JdbcDbUtils.tableExists(conn, url, domainAndTableName)
   }
 
   val conf = session.sparkContext.hadoopConfiguration
@@ -62,34 +62,49 @@ class sparkJdbcLoader(
           case Left(path) => session.read.format(settings.appConfig.defaultWriteFormat).load(path)
           case Right(df)  => df
         }
-      val outputDomain = cliConfig.outputTable.split("\\.")(0)
-      val createSchemaSql = s"CREATE SCHEMA IF NOT EXISTS $outputDomain"
+      val outputDomain = cliConfig.outputDomainAndTableName.split("\\.")(0)
       JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
-        JdbcDbUtils.execute(createSchemaSql, conn)
+        val url = jdbcOptions("url")
+        val exists = tableExists(conn, url, cliConfig.outputDomainAndTableName)
+        if (!exists && settings.appConfig.createSchemaIfNotExists) {
+          logger.info(s"Schema $outputDomain does not exists, trying to create it")
+          JdbcDbUtils.createSchema(outputDomain, conn)
+        } else {
+          logger.info(s"Schema $outputDomain exists")
+        }
         if (writeMode == SaveMode.Overwrite)
           truncateTable(conn, jdbcOptions)
-        val url = jdbcOptions("url")
-        val exists = tableExists(conn, url, cliConfig.outputTable)
         val schema = sourceDF.schema
         if (SparkUtils.isFlat(schema) && exists) {
-          val existingSchema = SparkUtils.getSchemaOption(conn, jdbcOptions, cliConfig.outputTable)
+          val existingSchema =
+            SparkUtils.getSchemaOption(conn, jdbcOptions, cliConfig.outputDomainAndTableName)
           val addedSchema = SparkUtils.added(schema, existingSchema.getOrElse(schema))
           val deletedSchema = SparkUtils.dropped(schema, existingSchema.getOrElse(schema))
           val alterTableDropColumns =
-            SparkUtils.alterTableDropColumnsString(deletedSchema, cliConfig.outputTable)
+            SparkUtils.alterTableDropColumnsString(
+              deletedSchema,
+              cliConfig.outputDomainAndTableName
+            )
           val alterTableAddColumns =
-            SparkUtils.alterTableAddColumnsString(addedSchema, cliConfig.outputTable)
+            SparkUtils.alterTableAddColumnsString(addedSchema, cliConfig.outputDomainAndTableName)
           alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
           alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
         } else {
-          val optionsWrite = new JdbcOptionsInWrite(url, cliConfig.outputTable, jdbcOptions)
-          SparkUtils.createTable(conn, cliConfig.outputTable, schema, false, optionsWrite)
+          val optionsWrite =
+            new JdbcOptionsInWrite(url, cliConfig.outputDomainAndTableName, jdbcOptions)
+          SparkUtils.createTable(
+            conn,
+            cliConfig.outputDomainAndTableName,
+            schema,
+            false,
+            optionsWrite
+          )
         }
       }
 
       val dfw = sourceDF.write
         .format(cliConfig.format)
-        .option("dbtable", cliConfig.outputTable)
+        .option("dbtable", cliConfig.outputDomainAndTableName)
 
       val finalDfw =
         if (cliConfig.format == "jdbc")
@@ -103,7 +118,9 @@ class sparkJdbcLoader(
         .options(cliConfig.options)
         .save()
 
-      logger.info(s"JDBC save done to table ${cliConfig.outputTable} at ${cliConfig.options}")
+      logger.info(
+        s"JDBC save done to table ${cliConfig.outputDomainAndTableName} at ${cliConfig.options}"
+      )
       SparkJobResult(None)
     }
   }
@@ -125,14 +142,16 @@ class sparkJdbcLoader(
             override def canHandle(url: String): Boolean = true
           }
       }
-      val truncateSql = jdbcDialect.getTruncateQuery(cliConfig.outputTable)
+      val truncateSql = jdbcDialect.getTruncateQuery(cliConfig.outputDomainAndTableName)
 
       // do not fail on exception. Truncate may fail is table does not exist
       JdbcDbUtils.execute(truncateSql, conn) match {
         case Failure(e) =>
-          logger.warn(s"Truncate failed on table ${cliConfig.outputTable} with error $e")
+          logger.warn(
+            s"Truncate failed on table ${cliConfig.outputDomainAndTableName} with error $e"
+          )
         case Success(_) =>
-          logger.info(s"Truncate done on table ${cliConfig.outputTable}")
+          logger.info(s"Truncate done on table ${cliConfig.outputDomainAndTableName}")
       }
     }
   }

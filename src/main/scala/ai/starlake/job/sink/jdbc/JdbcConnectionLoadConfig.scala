@@ -13,7 +13,7 @@ import ai.starlake.utils.Formatter.RichFormatter
 
 case class JdbcConnectionLoadConfig(
   sourceFile: Either[String, DataFrame] = Left(""),
-  outputTable: String = "",
+  outputDomainAndTableName: String = "",
   createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
   writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
   format: String = "jdbc",
@@ -26,13 +26,14 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,
-    outputTable: String
+    outputDomainAndTablename: String
   )(implicit settings: Settings): Unit = {
     assert(
       jdbcOptions.getType() == ConnectionType.JDBC,
       s"Only JDBC connections are supported ${jdbcOptions.getType()}"
     )
-    val table = jdbcEngine.tables.get(outputTable)
+
+    val table = jdbcEngine.tables.get(outputDomainAndTablename.split('.').last)
     table.foreach { table =>
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
@@ -43,12 +44,14 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
       Try {
         val stmt = conn.createStatement
         Try {
-          val pingSql = table.effectivePingSql(outputTable)
+          val pingSql = table.effectivePingSql(outputDomainAndTablename)
           val rs = stmt.executeQuery(pingSql)
           rs.close() // we don't need to fetch the result, it should be empty anyway.
         } match {
           case Failure(e) if e.isInstanceOf[SQLException] =>
-            stmt.executeUpdate(table.createSql.richFormat(Map("table" -> outputTable), Map.empty))
+            stmt.executeUpdate(
+              table.createSql.richFormat(Map("table" -> outputDomainAndTablename), Map.empty)
+            )
             conn.commit() // some databases are transactional wrt schema updates
           case Success(_) => ;
         }
@@ -69,11 +72,11 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
   )(implicit settings: Settings): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
-    val jdbcOptions = comet.connections(connectionRef)
-    val jdbcEngineName = jdbcOptions.getJdbcEngineName()
+    val starlakeConnection = comet.connections(connectionRef)
+    val jdbcEngineName = starlakeConnection.getJdbcEngineName()
     if (createTableIfAbsent)
       comet.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
-        checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
+        checkTablePresent(starlakeConnection, jdbcEngine, outputTable)
       }
 
     // This is to make sure that the column names are uppercase on JDBC databases
@@ -86,11 +89,11 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
 
     JdbcConnectionLoadConfig(
       sourceFile = dfWithUppercaseColumns,
-      outputTable = outputTable.toUpperCase(),
+      outputDomainAndTableName = outputTable.toUpperCase(),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      jdbcOptions.sparkFormat.getOrElse("jdbc"),
-      jdbcOptions.options
+      starlakeConnection.sparkFormat.getOrElse("jdbc"),
+      starlakeConnection.options
     )
   }
 
@@ -108,7 +111,7 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
         .text("Full Path to source file")
         .required(),
       opt[String]("output_table")
-        .action((x, c) => c.copy(outputTable = x))
+        .action((x, c) => c.copy(outputDomainAndTableName = x))
         .text("JDBC Output Table")
         .required(),
       opt[Map[String, String]]("options")
