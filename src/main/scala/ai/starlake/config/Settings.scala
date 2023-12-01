@@ -555,7 +555,9 @@ object Settings extends StrictLogging {
     version: String,
     autoExportSchema: Boolean,
     longJobTimeoutMs: Long,
-    shortJobTimeoutMs: Long
+    shortJobTimeoutMs: Long,
+    createSchemaIfNotExists: Boolean
+    // createTableIfNotExists: Boolean
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =

@@ -391,7 +391,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         val discreteMetricsDf: DataFrame = sparkSession.read
           .format("jdbc")
           .options(jdbcConfig.options)
-          .option("dbtable", jdbcConfig.outputTable)
+          .option("dbtable", jdbcConfig.outputDomainAndTableName)
           .load()
 
         logger.info(discreteMetricsDf.showString(truncate = 0))

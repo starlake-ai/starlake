@@ -3,6 +3,7 @@ package ai.starlake.extract
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{SparkUtils, Utils}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
@@ -107,10 +108,20 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def tableExists(conn: SQLConnection, url: String, table: String): Boolean = {
+  @throws[Exception]
+  def createSchema(domainName: String, conn: SQLConnection): Unit = {
+    execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.error(s"Error creating schema $domainName", e)
+        throw e
+    }
+  }
+
+  def tableExists(conn: SQLConnection, url: String, domainAndTablename: String): Boolean = {
     val dialect = SparkUtils.dialect(url)
     Try {
-      val statement = conn.prepareStatement(dialect.getTableExistsQuery(table))
+      val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
       try {
         statement.executeQuery()
       } finally {
@@ -118,7 +129,7 @@ object JdbcDbUtils extends LazyLogging {
       }
     } match {
       case Failure(e) =>
-        logger.warn(s"Table $table does not exist , ${e.getMessage}")
+        logger.warn(s"Table $domainAndTablename does not exist , ${e.getMessage}")
         false
       case Success(_) => true
     }
@@ -694,13 +705,34 @@ object JdbcDbUtils extends LazyLogging {
   )(implicit
     settings: Settings
   ): Unit = {
-    val auditConnectionOptions =
-      settings.appConfig.connections.get("audit").map(_.options).getOrElse(connectionOptions)
+    val auditConnectionRef = settings.appConfig.audit.getConnectionRef()
+
+    val auditConnection = settings.appConfig.connections
+      .getOrElse(auditConnectionRef, throw new Exception("No connection found for audit"))
+    val auditConnectionOptions = auditConnection.options
+
     val jdbcUrl = connectionOptions("url")
     // Because mysql does not support "" when framing column names to handle cases where
     // column names are keywords in the target dialect
     val colNameQuoteData = getColNameQuote(jdbcUrl)
     val colNameQuoteAudit = getColNameQuote(auditConnectionOptions("url"))
+
+    withJDBCConnection(auditConnectionOptions) { connection =>
+      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
+      val existLastExportTable =
+        tableExists(connection, jdbcUrl, s"${auditSchema}.SL_LAST_EXPORT")
+      if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
+        createSchema(auditSchema, connection)
+        val jdbcEngineName = auditConnection.getJdbcEngineName()
+        settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
+          val createTableSql = jdbcEngine
+            .tables("extract")
+            .createSql
+            .richFormat(Map("table" -> s"$auditSchema.SL_LAST_EXPORT"), Map.empty)
+          execute(createTableSql, connection)
+        }
+      }
+    }
 
     // Some database accept strange chars (aka DB2). We get rid of them
     val domainName = jdbcSchema.sanitizeName match {
@@ -1422,7 +1454,7 @@ object LastExportUtils extends LazyLogging {
             count match {
               case 0 =>
                 Bounds(
-                  true,
+                  firstExport = true,
                   PrimitiveType.long,
                   count,
                   0,
@@ -1432,7 +1464,7 @@ object LastExportUtils extends LazyLogging {
               case _ =>
                 val partitions = (min until max).map(p => p -> (p + 1)).toArray
                 Bounds(
-                  true,
+                  firstExport = true,
                   PrimitiveType.long,
                   count,
                   min,
