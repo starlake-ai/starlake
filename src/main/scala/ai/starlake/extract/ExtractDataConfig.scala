@@ -29,7 +29,7 @@ case class ExtractDataConfig(
   limit: Int = 0,
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
-  fullExport: Boolean = false,
+  fullExport: Boolean = true,
   ifExtractedBefore: Option[Long] = None,
   cleanOnExtract: Boolean = false,
   includeSchemas: Seq[String] = Seq.empty,
@@ -67,10 +67,6 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
           |
           |""".stripMargin
       ),
-      opt[String]("mapping")
-        .action((x, c) => c.copy(extractConfig = x))
-        .optional()
-        .text("Deprecated. Use config instead"),
       opt[String]("config")
         .action((x, c) => c.copy(extractConfig = x))
         .required()
@@ -97,21 +93,15 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
         .text("Where to output csv files"),
-      opt[Unit]("fullExport")
-        .action((x, c) => c.copy(fullExport = true))
+      opt[Unit]("incremental")
+        .action((x, c) => c.copy(fullExport = false))
         .optional()
-        .text("Force full export to all tables"),
+        .text("Export only new data since last extraction."),
       opt[String]("ifExtractedBefore")
         .action((x, c) => c.copy(ifExtractedBefore = Some(DateTime.parse(x).getMillis)))
         .optional()
         .text(
           "DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped."
-        ),
-      opt[Unit]("cleanOnExtract")
-        .action((x, c) => c.copy(cleanOnExtract = true))
-        .optional()
-        .text(
-          "Deprecated. Use --clean instead."
         ),
       opt[Seq[String]]("includeSchemas")
         .action((x, c) => c.copy(includeSchemas = x.map(_.trim)))

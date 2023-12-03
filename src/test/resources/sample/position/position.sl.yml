@@ -11,12 +11,13 @@ load:
     quote: "\""
     escape: "\\"
     write: "OVERWRITE"
-    partition:
-      sampling: 0.5
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
+    sink:
+      partition:
+        sampling: 0.5
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
     dagRef: "sample"
     schedule: "0 0 0 * * ?"
   tables:
@@ -48,9 +49,10 @@ load:
             first: 1
             last: 1
       metadata:
-        partition:
-          sampling: 0
-          attributes: []
+        sink:
+          partition:
+            sampling: 0
+            attributes: []
     - name: "account"
       pattern: ".*TBL"
       attributes:

@@ -40,7 +40,9 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
     val connectionOptions = jdbcSchemas.connectionRef
       .map(settings.appConfig.connections(_).options)
-      .getOrElse(jdbcSchemas.connection)
+      .getOrElse(
+        throw new Exception(s"No connectionRef found. Please check your connectionRef property")
+      )
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
 

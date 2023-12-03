@@ -605,8 +605,7 @@ object JdbcDbUtils extends LazyLogging {
         .flatMap(_.metadata)
         .map(_.copy(directory = incomingDir, ack = ack)),
       tables = cometSchema.toList,
-      comment = None,
-      ack = None
+      comment = None
     )
   }
 

@@ -181,23 +181,30 @@ class XlsDomainReader(input: Input) extends XlsModel {
             separator,
             escape = escape,
             write = write,
-            partition = (partitionSamplingOpt, partitionColumns) match {
-              case (None, Nil) => None
-              case _ =>
-                Some(
-                  Partition(
-                    attributes = partitionColumns
-                  )
-                )
-            },
             sink = sinkColumnsOpt
               .map(Sink.xlsfromConnectionType)
               .map {
+                case fsSink: FsSink =>
+                  val clusteredFsSink = clusteringOpt match {
+                    case Some(cluster) => fsSink.copy(clustering = Some(cluster))
+                    case None          => fsSink
+                  }
+                  val partition = (partitionSamplingOpt, partitionColumns) match {
+                    case (None, Nil) => None
+                    case _ =>
+                      Some(
+                        Partition(
+                          attributes = partitionColumns
+                        )
+                      )
+                  }
+                  clusteredFsSink.copy(partition = partition).toAllSinks()
                 case bqSink: BigQuerySink =>
                   val partitionBqSink = partitionColumns match {
                     case ts :: Nil =>
                       bqSink.copy(timestamp = Some(ts)) // only one column allowed for BigQuery
-                    case _ => bqSink
+                    case _ =>
+                      throw new Exception("Only one partitioning column allowed for BigQuery")
                   }
                   val clusteredBqSink = clusteringOpt match {
                     case Some(cluster) =>
@@ -205,12 +212,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
                     case _ => partitionBqSink
                   }
                   clusteredBqSink.toAllSinks()
-                case fsSink: FsSink =>
-                  val clusteredFsSink = clusteringOpt match {
-                    case Some(cluster) => fsSink.copy(clustering = Some(cluster))
-                    case None          => fsSink
-                  }
-                  clusteredFsSink.toAllSinks()
                 case sink =>
                   sink.toAllSinks()
               }

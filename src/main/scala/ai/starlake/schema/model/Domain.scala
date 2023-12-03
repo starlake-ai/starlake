@@ -34,44 +34,58 @@ import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.Try
 
+/** A domain is a set of tables. A domain is defined by a name and a list of tables and load
+  * metadat.
+  * @param load:
+  *   Domain to load
+  */
+case class LoadDesc(load: Domain)
+
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
-  * therefore the domain and customer & order are your datasets. In a DBMS, A Domain would be
+  * therefore the domain and customers & orders are your datasets. In a DBMS, A Domain would be
   * implemented by a DBMS schema and a dataset by a DBMS table. In BigQuery, The domain name would
   * be the Big Query dataset name and the dataset would be implemented by a Big Query table.
   *
-  * @param name
+  * Domains are defined in the _config.sl.yml file located in a directory beneath the domain root
+  * directory. The directory name is the domain name. The _config.sl.yml file contains the domain
+  * definition.
+  *
+  * @param name:
   *   Domain name. Make sure you use a name that may be used as a folder name on the target storage.
-  *   - When using HDFS or Cloud Storage, files once ingested are stored in a sub-directory named
+  *   - When using HDFS or Cloud Storage, files once loaded are stored in a sub-directory named
   *     after the domain name.
   *   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after
-  *     the domain name.
-  * @param directory
-  *   : Folder on the local filesystem where incoming files are stored. Typically, this folder will
-  *   be scanned periodically to move the dataset to the cluster for ingestion. Files located in
-  *   this folder are moved to the pending folder for ingestion by the "import" command.
-  * @param metadata
-  *   : Default Schema metadata. This metadata is applied to the schemas defined in this domain.
+  *     the domain name. This attribute is optional.
+  * @param metadata:
+  *   Default Schema metadata. This metadata is applied to the schemas defined in this domain.
   *   Metadata properties may be redefined at the schema level. See Metadata Entity for more
   *   details.
-  * @param tables
-  *   : List of schemas for each dataset in this domain A domain ususally contains multiple schemas.
+  * @param tables:
+  *   List of schemas for each dataset in this domain A domain usually contains multiple schemas.
   *   Each schema defining how the contents of the input file should be parsed. See Schema for more
   *   details.
-  * @param comment
-  *   : Domain Description (free text)
-  * @param ack
-  *   : Ack extension used for each file. ".ack" if not specified. Files are moved to the pending
-  *   folder only once a file with the same name as the source file and with this extension is
-  *   present. To move a file without requiring an ack file to be present, set explicitly this
-  *   property to the empty string value "".
+  * @param comment:
+  *   Domain Description (free text). This description will end up in the database schema
+  *   description.
+  * @param tags:
+  *   Domain tags. Tags are used to categorize domains. These tags will end up in the database
+  *   schema tags if supported.
+  *   - When using BigQuery, tags are stored in the dataset labels.
+  * @param rename:
+  *   Domain rename. This attribute is used to rename the domain when ingesting data. This is useful
+  *   when you want to rename a domain in the target database. For instance, you may want to rename
+  *   a domain from "sales" to "sales_2020" when ingesting data from 2020. This attribute is
+  *   optional.
+  * @param database:
+  *   Database name. This attribute is used to specify the database name when ingesting data. This
+  *   is useful when you want to ingest data in a different database than the default one or the one
+  *   specified in the settings. This attribute is optional.
   */
 @nowarn case class Domain(
   name: String,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
   tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
   comment: Option[String] = None,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None,
   database: Option[String] = None
@@ -135,7 +149,7 @@ import scala.util.Try
       metadata  <- metadata
       directory <- metadata.directory
     } yield directory
-    maybeDirectory.orElse(this.directory)
+    maybeDirectory
   }
 
   @nowarn def resolveAck(): Option[String] = {
@@ -144,10 +158,7 @@ import scala.util.Try
       ack      <- metadata.ack
     } yield ack
 
-    maybeAck match {
-      case Some(ack) => maybeAck
-      case None      => this.ack
-    }
+    maybeAck
   }
 
   /** Ack file should be present for each file to ingest.

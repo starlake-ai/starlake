@@ -6,9 +6,10 @@ transform:
       domain: "DOMAIN"
       table: "ANALYSE"
       write: "OVERWRITE"
-      partition:
-        - "sl_year"
-        - "sl_month"
+      sink:
+        partition:
+          - "sl_year"
+          - "sl_month"
       presql: null
       postsql: null
       rls:

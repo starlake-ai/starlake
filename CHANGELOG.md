@@ -4,6 +4,8 @@
 # 1.0.0:
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
+  - Remove deprecated metadata.partition property. Now part of Sink
+  - Remove deprecated metadata.xml property. Now part of metadata.options
 
 __Feature__:
 - CLI now support multiple version of starlake at once and use the correct one based on sl_versions.sh/cmd in SL_ROOT
@@ -12,6 +14,7 @@ __Feature__:
 - Add archive table support for BigQuery
 - Configure CSV data extraction output format
 - Amazon Redshift support
+- Expectations macro support
 
 __Improvement__:
   - Count null partition rows as rejected with dynamic partition overwrite

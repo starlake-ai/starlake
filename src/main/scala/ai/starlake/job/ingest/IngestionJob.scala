@@ -132,7 +132,7 @@ trait IngestionJob extends SparkJob {
       case fsSink: FsSink =>
         val format = fsSink.format.getOrElse("")
         (settings.appConfig.csvOutput || format == "csv") &&
-        !settings.appConfig.grouped && mergedMetadata.partition.isEmpty && path.nonEmpty
+        !settings.appConfig.grouped && fsSink.partition.isEmpty && path.nonEmpty
       case _ =>
         false
     }
@@ -1161,7 +1161,6 @@ trait IngestionJob extends SparkJob {
         sinkOpt match {
           case fsSink: FsSink =>
             val partitionColumns = fsSink.partition
-              .orElse(mergedMetadata.partition)
 
             val sinkClustering = fsSink.clustering.orElse(None)
             val sinkOptions = fsSink.options.orElse(None)
@@ -1180,7 +1179,7 @@ trait IngestionJob extends SparkJob {
             )
           case _ =>
             (
-              mergedMetadata.partition,
+              None,
               nbFsPartitions(dataset),
               mergedMetadata.getClustering(),
               Map.empty[String, String],

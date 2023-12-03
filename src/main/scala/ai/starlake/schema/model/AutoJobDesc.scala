@@ -27,6 +27,8 @@ import scala.collection.mutable
 import scala.util.Try
 import ai.starlake.schema.model.Severity._
 
+case class TransformDesc(transform: AutoJobDesc)
+
 /** A job is a set of transform tasks executed using the specified engine.
   *
   * @param name:

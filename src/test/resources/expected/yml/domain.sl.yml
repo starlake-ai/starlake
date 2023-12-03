@@ -12,7 +12,6 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    partition: []
     writeMode: "APPEND"
   schemas:
   - name: "User"
@@ -52,7 +51,6 @@ load:
       quote: "\""
       escape: "\\"
       write: null
-      partition: []
       writeMode: "APPEND"
     merge: null
     comment: "Schema Comment"

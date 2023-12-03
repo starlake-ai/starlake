@@ -10,13 +10,12 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
     sink:
-      type: FS
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
@@ -70,10 +69,11 @@ load:
         quote: "\""
         escape: "\\"
         write: "OVERWRITE"
-        partition:
-          attributes:
-            - "YEAR"
-            - "MONTH"
+        sink:
+          partition:
+            attributes:
+              - "YEAR"
+              - "MONTH"
       merge:
         key:
           - "PK"

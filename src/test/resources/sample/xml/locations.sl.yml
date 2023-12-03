@@ -11,13 +11,14 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "APPEND"
-  xml:
+  options:
     rowTag: element
-  partition:
-    attributes:
-      - sl_year
-      - sl_month
-      - sl_day
+  sink:
+    partition:
+      attributes:
+        - sl_year
+        - sl_month
+        - sl_day
 tables:
   - name: "locations"
     pattern: "locations.*"

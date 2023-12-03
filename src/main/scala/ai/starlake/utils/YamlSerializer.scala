@@ -9,9 +9,11 @@ import ai.starlake.schema.model.{
   DagGenerationConfig,
   Domain,
   IamPolicyTags,
+  LoadDesc,
   Schema => ModelSchema,
   SchemaRef,
-  SchemaRefs
+  SchemaRefs,
+  TransformDesc
 }
 import better.files.File
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
@@ -92,8 +94,7 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serializeToFile(targetFile: File, autoJobDesc: AutoJobDesc): Unit = {
-    case class Transform(transform: AutoJobDesc)
-    mapper.writeValue(targetFile.toJava, Transform(autoJobDesc))
+    mapper.writeValue(targetFile.toJava, TransformDesc(autoJobDesc))
   }
 
   def serializeToFile(targetFile: File, autoTaskDesc: AutoTaskDesc): Unit = {
@@ -102,8 +103,7 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serializeDomain(domain: Domain): String = {
-    case class Load(load: Domain)
-    mapper.writeValueAsString(Load(domain))
+    mapper.writeValueAsString(LoadDesc(domain))
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {

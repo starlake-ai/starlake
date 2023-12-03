@@ -39,7 +39,7 @@ case class AutoTaskDesc(
   postsql: List[String] = Nil,
   sink: Option[AllSinks] = None,
   rls: List[RowLevelSecurity] = Nil,
-  expectations: Map[String, String] = Map.empty,
+  expectations: List[ExpectationItem] = Nil,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   freshness: Option[Freshness] = None,

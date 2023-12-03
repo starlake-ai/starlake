@@ -170,8 +170,7 @@ class ExtractSpec extends TestHelper {
             pattern = Some("{{schema}}-{{table}}.*")
           )
         ),
-        default = None,
-        connection = Map.empty
+        default = None
       )
     }
   }
@@ -242,8 +241,7 @@ class ExtractSpec extends TestHelper {
             fullExport = Some(true),
             sanitizeName = Some(true)
           )
-        ),
-        connection = Map.empty
+        )
       )
     }
   }
@@ -306,8 +304,7 @@ class ExtractSpec extends TestHelper {
             template = Some("/my-templates/domain-template.yml"),
             pattern = Some("{{schema}}-{{table}}.*")
           )
-        ),
-        connection = Map.empty
+        )
       )
     }
   }
@@ -458,7 +455,6 @@ class ExtractSpec extends TestHelper {
         |         --clean
         |
         |
-        |  --mapping <value>        Deprecated. Use config instead
         |  --config <value>         Database tables & connection info
         |  --limit <value>          Limit number of records
         |  --numPartitions <value>  parallelism level regarding partitionned tables
@@ -467,10 +463,9 @@ class ExtractSpec extends TestHelper {
           .availableProcessors()}
         |  --clean                  Clean all files of table only when it is extracted.
         |  --output-dir <value>     Where to output csv files
-        |  --fullExport             Force full export to all tables
+        |  --incremental            Export only new data since last extraction.
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
-        |  --cleanOnExtract         Deprecated. Use --clean instead.
         |  --includeSchemas schema1,schema2
         |                           Domains to include during extraction.
         |  --excludeSchemas schema1,schema2...

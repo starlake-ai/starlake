@@ -134,7 +134,6 @@ class SchemaSpec extends TestHelper {
         None,
         None,
         None,
-        None,
         Some(".*")
       )
 
@@ -150,7 +149,6 @@ class SchemaSpec extends TestHelper {
         Some(false),
         Some(false),
         Some(true),
-        None,
         None,
         None,
         None,

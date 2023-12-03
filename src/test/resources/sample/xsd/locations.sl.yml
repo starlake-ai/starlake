@@ -12,15 +12,16 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    xml:
+    options:
       rowTag: element
       inferSchema: false
-      rowValidationXSDPath: __SL_TEST_ROOT__/metadata/load/sample/xsd/locations.xsd
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
+      rowValidationXSDPath: __SL_TEST_ROOT__/metadata/sample/xsd/locations.xsd
+    sink:
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
   tables:
     - name: "locations"
       pattern: "locations.*"

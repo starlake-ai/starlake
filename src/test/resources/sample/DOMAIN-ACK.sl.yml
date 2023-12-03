@@ -1,8 +1,8 @@
 ---
 load:
   name: "DOMAIN"
-  directory: "__SL_TEST_ROOT__/DOMAIN"
   metadata:
+    directory: "__SL_TEST_ROOT__/DOMAIN"
     mode: "FILE"
     format: "DSV"
     withHeader: false
@@ -10,14 +10,13 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
     sink:
-      type: ES
-  ack: "ack"
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
+    ack: "ack"
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -97,10 +96,11 @@ load:
         quote: "\""
         escape: "\\"
         write: "OVERWRITE"
-        partition:
-          attributes:
-            - "YEAR"
-            - "MONTH"
+        sink:
+          partition:
+            attributes:
+              - "YEAR"
+              - "MONTH"
       merge:
         key:
           - "PK"
@@ -127,7 +127,3 @@ load:
         format: "DSV"
         withHeader: false
         separator: ","
-        partition:
-          attributes: []
-        sink:
-          type: Default

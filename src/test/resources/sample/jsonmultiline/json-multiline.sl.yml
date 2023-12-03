@@ -1,18 +1,19 @@
 ---
 load:
   name: "jsonmultiline"
-  directory: "__SL_TEST_ROOT__/json"
   metadata:
+    directory: "__SL_TEST_ROOT__/json"
     mode: "FILE"
     format: "JSON"
     array: true
     separator: "|"
     write: "APPEND"
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
+    sink:
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
   tables:
     - name: "sample_json"
       pattern: "complex.*"

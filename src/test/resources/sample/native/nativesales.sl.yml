@@ -19,9 +19,10 @@ load:
           - id
       metadata:
         separator: "|"
-        partition:
-          attributes:
-            - signup
+        sink:
+          partition:
+            attributes:
+              - signup
       primaryKey:
         - id
       attributes:
