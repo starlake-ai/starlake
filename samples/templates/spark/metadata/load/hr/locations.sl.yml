@@ -36,4 +36,4 @@ table:
             type: "string"
             required: true
     expectations:
-      - "expect_column_is_unique('id') => count == 0"
+      - "is_col_value_not_unique('id') => count == 0"
