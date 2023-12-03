@@ -43,7 +43,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          From any source <br/>to any sink at <br/>native speed.
+          From any source <br/>to any sink at <br/>native speed
           </>
       ),
       isBackgroundColored: 'yes',
