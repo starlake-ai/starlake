@@ -1,0 +1,140 @@
+# Extract
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+This step is optional. If you are not interested in extracting data from a relational database, you can skip this step.
+
+For the sake of the example, we will use the following database schema:
+
+```sql
+create schema if not exists sales;
+
+create table if not exists sales.customers (
+    id varchar(255) not null,
+    signup timestamp not null,
+    contact varchar(255) not null,
+    birthdate date not null,
+    name1 varchar(255) not null,
+    name2 varchar(255) not null
+);
+
+```
+
+
+and the following data:
+
+```sql
+
+insert into sales.customers values('A009701', '2010-01-31 23:04:15', 'me@home.com', '1980-10-14', 'Donald', 'Obama');
+insert into sales.customers values('B000001', '2016-12-01 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000001', '2016-12-02 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000002', '2016-12-02 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000003', '2016-12-03 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000012', '2016-12-03 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000004', '2016-12-04 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000005', '2016-12-05 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000006', '2016-12-06 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000007', '2016-12-07 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000008', '2016-12-08 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000009', '2016-12-09 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000010', '2016-12-10 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+insert into sales.customers values('B000011', '2016-12-11 09:56:02', 'you@land.com', '1980-10-14', 'Barack', 'Trump');
+
+```
+
+We first need to create a connection to the database and select the tables we wish to extract data from.
+define the following connection in the metadata.sl.yml file depending on the database you are using:
+
+<Tabs>
+<TabItem value="postgres" label="PostgreSQL">
+
+```yaml
+
+application:
+  connectionRef: "pg-adventure-works-db"
+  connections:
+    pg-adventure-works-db:
+      type: "jdbc"
+      options:
+        url: "jdbc:postgresql://127.0.0.1/Adventureworks"
+        driver: "org.postgresql.Driver"
+        user: "dbuser"
+        password: "dbuser123"
+
+
+```
+</TabItem>
+<TabItem value="mssql" label="SQL Server">
+
+```yaml
+
+application:
+  connectionRef: "mssql-adventure-works-db"
+  connections:
+    mssql-adventure-works-db:
+      type: "jdbc"
+      options:
+        url: "jdbc:sqlserver://localhost;databaseName=AdventureWorks2019;encrypt=true;trustServerCertificate=true;"
+        driver: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+        user: "sa"
+        password: "password"
+
+
+```
+</TabItem>
+</Tabs>
+
+You can now define the tables you wish to extract data from in the metadata/extract/myextract.sl.yml file:
+
+```yaml
+extract:
+  connectionRef: "pg-adventure-works-db" # or mssql-adventure-works-db i extracting from SQL Server
+  jdbcSchemas:
+    - schema: "sales"
+      tables:
+        - name: "salesorderdetail"  # table name or simple "*" to extract all tables
+          partitionColumn: "salesorderdetailid" # (optional)  you may parallelize the extraction based on this field
+          fetchSize: 100                        # (optional)  the number of rows to fetch at a time
+          where: "salesorderid > 1000"          # (optional)  the where clause to use to filter the data
+      tableTypes:
+        - "TABLE"
+        #- "VIEW"
+        #- "SYSTEM TABLE"
+        #- "GLOBAL TEMPORARY"
+        #- "LOCAL TEMPORARY"
+        #- "ALIAS"
+        #- "SYNONYM"
+```
+
+You may extract the schema and the data from your database using the following command:
+
+```bash title="Extract the schema"
+
+starlake.sh extract-schema  \
+        --config myextract.sl.yml \
+        --output-dir $SL_ROOT/metadata/load
+
+```
+
+```bash title="Extract the data"
+
+starlake.sh extract-data  \
+        --config myextract.sl.yml \ # the configuration file
+        --output-dir $SL_ROOT/extracted \ # (optional)  the directory where the data will be extracted
+        --limit 0 \ # (optional)  max  number of rows to extract, usefull for testing. 0 means no limit
+        --numPartitions 4 \ # (optional)  the number of partitions to use to parallelize the extraction
+        --clean
+
+```
+
+:::note
+
+The next time you try to export the data, you may notice that nothing will be exported. 
+By default the `extract-data` command will not re-extract data that has already been extracted.
+The last exported record id is stored in the `audit.sl_last_export` table.
+You may limit the extraction record not yet exported by using the `--incremental` option.
+
+:::
+
+You may now use the extracted data in the next step or simply use the `customers` data already present in the sample-data folder.

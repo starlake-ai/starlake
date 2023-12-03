@@ -1,0 +1,322 @@
+# Connections
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Connections are defined in the `connections` section under the root attribute `application`.
+
+
+The following types of connections are supported:
+
+- [Local File System](#local-file-system)
+- [BigQuery](#google-bigquery)
+- [Spark / Databricks](#apache-spark--databricks)
+- [Snowflake](#snowflake)
+- [Redshift](#amazon-redshift)
+- [Postgres](#postgres)
+
+
+## Local File System
+
+The local file system connection is used to read and write files to the local file system.
+
+```yaml
+application:
+    connections:
+    local:
+        type: local
+```
+
+Files will be stored in the `area` directory under the `datasets` directory.
+Défault values for `area` and `datasets` can be set in the `application` section.
+
+```yaml
+application:
+    datasets = "{{root}}/datasets" # or set it through the SL_DATASETS environnement variable.
+    area:
+        pending: "pending" # Location where files of pending load are stored. May be overloaded by the ${SL_AREA_PENDING} environment variable.
+        unresolved: "unresolved" # Location where files that do not match any pattern are moved. May be overloaded by the ${SL_AREA_UNRESOLVED} environment variable.
+        archive: "archive" # Location where files are moved after they have been processed. May be overloaded by the ${SL_AREA_ARCHIVE} environment variable.
+        ingesting: "ingesting" # Location where files are moved while they are being processed. May be overloaded by the ${SL_AREA_INGESTING} environment variable.
+        accepted: "accepted" # Location where files are moved after they have been processed and accepted. May be overloaded by the ${SL_AREA_ACCEPTED} environment variable.
+        rejected: "rejected" # Location where files are moved after they have been processed and rejected. May be overloaded by the ${SL_AREA_REJECTED} environment variable.
+        business: "business" # Location where transform tasks store their result. May be overloaded by the ${SL_AREA_BUSINESS} environment variable.
+        replay: "replay" # Location rejected records are stored in their orginial format. May be overloaded by the ${SL_AREA_REPLAY} environment variable.
+        hiveDatabase: "${domain}_${area}" # Hive database name. May be overloaded by the ${SL_AREA_HIVE_DATABASE} environment variable.
+
+```
+
+## Google BigQuery
+
+Starlake support native and spark / dataproc bigquery connections.
+<Tabs groupId="bq_connections">
+<TabItem label="BigQuery" value="bigquery">
+
+```yaml
+application:
+  connections:
+    bigquery:
+      type: "bigquery"
+      options:
+        location: "us-central1" # EU or US or ...
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        #authType: "ACCESS_TOKEN"
+        #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  accessPolicies: # Required when applying access policies to table columns (Column Level Security)
+    apply: true
+    location: EU
+    taxonomy: RGPD
+```
+
+</TabItem>
+<TabItem label="Spark BigQuery Direct" value="spark-bigquery-direct">
+
+```yaml
+application:
+  connections:
+    bigquery:
+      type: "bigquery"
+      options:
+        writeMethod: "direct" # direct or indirect (indirect is required for certain features see https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
+        location: "us-central1" # EU or US or ...
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        #authType: "ACCESS_TOKEN"
+        #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  spark:
+    datasource:
+      bigquery:
+        allowFieldAddition: "true" # Allow schema updates. To disable, set it to false
+        allowFieldRelaxation: "true" # Allow schema updates. To disable, set it to false
+
+```
+
+</TabItem>
+<TabItem label="Spark BigQuery Indirect" value="spark-bigquery-indirect">
+
+```yaml
+application:
+  connections:
+    bigquery:
+      type: "bigquery"
+      options:
+        writeMethod: "indirect" # direct or indirect (indirect is required for certain features see https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
+        gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Required in indirect mode only
+        location: "us-central1" # EU or US or ...
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        #authType: "ACCESS_TOKEN"
+        #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  spark:
+    datasource:
+      bigquery:
+        allowFieldAddition: "true" # Allow schema updates. To disable, set it to false
+        allowFieldRelaxation: "true" # Allow schema updates. To disable, set it to false
+
+```
+
+</TabItem>
+</Tabs>
+
+## Apache Spark / Databricks
+
+Spark connections are used to read and write data from Spark.
+
+<Tabs groupId="spark_connections">
+
+<TabItem label="Spark Parquet" value="spark-parquet">
+
+```yaml
+application:
+  connections:
+    spark:
+      type: "spark"
+      options:
+        # any spark configuration can be set here
+      
+``` 
+
+</TabItem>
+
+<TabItem label="Spark Delta" value="spark-delta">
+
+In addition to the connection defined below, please download the following jars: 
+- [delta-spark_2.12-VERSION.jar](https://repo1.maven.org/maven2/io/delta/delta-spark_2.12) and place it in the `bin/deps` directory of the starlake directory.
+- [delta-storage_2.12-VERSION.jar](https://repo1.maven.org/maven2/io/delta/delta-storage) and place it in the `bin/deps` directory of the starlake directory.
+
+
+```yaml
+application:
+  connections:
+    spark:
+      type: "spark"
+      options:
+        # any spark configuration can be set here
+  spark:
+    sql:
+      extensions: "io.delta.sql.DeltaSparkSessionExtension"
+      catalog:
+        spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+
+``` 
+
+</TabItem>
+</Tabs>
+
+
+## Snowflake
+
+
+<Tabs groupId="snow_connections">
+
+<TabItem label="Snowflake JDBC" value="snow-jdbc">
+
+```yaml
+
+application:
+  connectionRef: {{connection}}
+  connections:
+    snowflake:
+      type: jdbc
+      options:
+        url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com"
+        driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        user: {{SNOWFLAKE_USER}}
+        password: {{SNOWFLAKE_PASSWORD}}
+        warehouse: {{SNOWFLAKE_WAREHOUSE}}
+        db: {{SNOWFLAKE_DB}}
+        keep_column_case: "off"
+        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+      
+``` 
+
+</TabItem>
+
+<TabItem label="Snowflake Spark" value="snow-spark">
+
+
+```yaml
+
+application:
+  connectionRef: {{connection}}
+  connections:
+    snowflake:
+    spark-snowflake:
+      type: jdbc
+      sparkFormat: snowflake
+      options:
+        sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
+        #sfDriver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        sfUser: {{SNOWFLAKE_USER}}
+        sfPassword: {{SNOWFLAKE_PASSWORD}}
+        sfWarehouse: {{SNOWFLAKE_WAREHOUSE}}
+        sfDatabase: {{SNOWFLAKE_DB}}
+        keep_column_case: "off"
+        autopushdown: on
+        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+
+``` 
+
+</TabItem>
+</Tabs>
+
+
+## Amazon Redshift
+
+
+<Tabs groupId="redshift_connections">
+
+<TabItem label="Redshift JDBC" value="redshift-jdbc">
+
+```yaml
+
+application:
+  connections:
+    redshift:
+      options:
+        url: "jdbc:redshift://account.region.redshift.amazonaws.com:5439/database",
+        driver: com.amazon.redshift.Driver
+        password: "{{REDSHIFT_PASSWORD}}"
+        tempdir: "s3a://bucketName/data",
+        tempdir_region: "eu-central-1" # required only if running from outside AWS (your laptop ...)
+        aws_iam_role: "arn:aws:iam::aws_count_id:role/role_name"
+  
+``` 
+
+</TabItem>
+
+<TabItem label="Redshift Spark" value="redshift-spark">
+
+```yaml
+
+application:
+  connections:
+    redshift:
+      sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
+      options:
+        url: "jdbc:redshift://account.region.redshift.amazonaws.com:5439/database",
+        driver: com.amazon.redshift.Driver
+        password: "{{REDSHIFT_PASSWORD}}"
+        tempdir: "s3a://bucketName/data",
+        tempdir_region: "eu-central-1" # required only if running from outside AWS (your laptop ...)
+        aws_iam_role: "arn:aws:iam::aws_count_id:role/role_name"
+
+``` 
+
+</TabItem>
+</Tabs>
+
+
+## Postgres
+
+
+<Tabs groupId="pg_connections">
+
+<TabItem label="Postgres JDBC" value="postgres-jdbc">
+
+```yaml
+application:
+  connectionRef: "postgresql"
+  connections:
+    postgresql:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
+        driver: "org.postgresql.Driver"
+        supportTruncateOnInsert: false
+        user: "{{DATABASE_USER}}"
+        password: "{{DATABASE_PASSWORD}}"
+        quoteIdentifiers: false
+```  
+
+</TabItem>
+
+<TabItem label="Postgres Spark" value="pg-spark">
+
+```yaml
+
+application:
+  connectionRef: "postgresql"
+  connections:
+    postgresql:
+      type: jdbc
+      sparkFormat: jdbc
+      options:
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
+        driver: "org.postgresql.Driver"
+        supportTruncateOnInsert: false
+        user: "{{DATABASE_USER}}"
+        password: "{{DATABASE_PASSWORD}}"
+        quoteIdentifiers: false
+``` 
+
+</TabItem>
+</Tabs>
+

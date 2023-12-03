@@ -1,0 +1,40 @@
+# Graph Visualization
+
+Starlake provides features to visualize the lineage of a table, 
+the relationship between tables, and table level and row level acess policies.
+
+To use these features, you need to install the [GraphViz](https://graphviz.org/download/) on top of which the starlake graph generator is built.
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+<Tabs groupId="graphviz">
+<TabItem value="linux" label="Linux">
+
+```shell
+sudo [apt|yum] install graphviz
+```
+
+</TabItem>
+
+<TabItem value="macos" label="MacOS">
+
+```shell
+brew install graphviz
+```
+
+</TabItem>
+
+<TabItem value="windows" label="Windows">
+
+Downlaod and install one of the packages from [GraphViz](https://graphviz.org/download/#windows).
+</TabItem>
+
+<TabItem value="docker" label="Docker">
+
+GraphViz comes pre-installed in the starlake docker image.
+
+</TabItem>
+</Tabs>

@@ -37,11 +37,12 @@ class SparkExpectationAssertionHandler(session: SparkSession) extends Expectatio
     } else {
       null
     }
-    val results = if (df.count() > 1) {
+    val results = if (df.count() >= 1) {
       val rows = df.collect()
       rows.map(row => row.toSeq).toSeq
-    } else
+    } else {
       null
+    }
     submitExpectation(assertion, count, result, results)
   }
 }
