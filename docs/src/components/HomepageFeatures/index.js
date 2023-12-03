@@ -56,31 +56,77 @@ const SplitSectionList = [
        </p>
       ),
       linkText: 'Discover',
-      linkURL: 'docs/next/user-guide/infer-schema',
+      linkURL: 'docs/next/intro',
       LinkSvg: require('@site/static/img/eye.svg').default,
   },
   {
+    title: (
+        <>
+        Script Free <br/>Database <br/>Replication
+        </>
+    ),
+    isBackgroundColored: 'no',
+    reverse: 'yes',
+    Img: require('@site/static/img/scriptfree.svg').default,
+    ImgMobile: require('@site/static/img/scriptfree_mobile.svg').default,
+    alignImg: 'full',
+    BeforeTitle: require('@site/static/img/scriptfree_icon.svg').default,
+    description:(
+      <p>
+        Automated full and incremental replication of your data from any relational database to your favorite datawarehouse without writing a single line of code.
+      </p>
+    ),
+    linkText: 'Read more',
+    linkURL: 'docs/next/user-guide/extract',
+    LinkSvg: require('@site/static/img/arrow_right.svg').default,
+},
+{
       title: (
           <>
-          Keep your <br/>Lakehouse from <br/>becoming a <br/>Dataswamp.
+          Keep your <br/>Lakehouse from <br/>becoming a <br/>Dataswamp
           </>
       ),
       isBackgroundColored: 'yes',
-      reverse: 'yes',
+      reverse: 'no',
       Img: require('@site/static/img/lakehouse.svg').default,
       ImgMobile: require('@site/static/img/lakehouse_mobile.svg').default,
       alignImg: 'full',
+      description:(
+        <p>
+          Load almost any file with thorough validation and free yourself of any database scripting.
+        </p>
+      ),
       linkText: 'Read more',
       linkURL: 'docs/next/concepts/general',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
+    title: (
+        <>
+        Lineage<br/>at your <br/>fingertips
+        </>
+    ),
+    isBackgroundColored: 'no',
+    reverse: 'yes',
+    Img: require('@site/static/img/relationshipeditor_new.svg').default,
+    ImgMobile: require('@site/static/img/relationshipeditor_new.svg').default,
+    alignImg: 'left',
+    description:(
+      <p>
+        Visualize your data lineage and relationships and run you transformations instantly on your favorite orchestration engine.
+      </p>
+    ),
+    linkText: 'Read more',
+    linkURL: 'docs/next/user-guide/lineage#data-lineage',
+    LinkSvg: require('@site/static/img/arrow_right.svg').default,
+},
+{
       title: (
           <>
           Business & <br/>Developer Friendly
           </>
       ),
-      isBackgroundColored: 'no',
+      isBackgroundColored: 'yes',
       reverse: 'no',
       Img: require('@site/static/img/devfriendly.svg').default,
       ImgMobile: require('@site/static/img/devfriendly.svg').default,
@@ -97,31 +143,10 @@ const SplitSectionList = [
   {
       title: (
           <>
-          Script Free <br/>Database <br/>Replication
-          </>
-      ),
-      isBackgroundColored: 'yes',
-      reverse: 'yes',
-      Img: require('@site/static/img/scriptfree.svg').default,
-      ImgMobile: require('@site/static/img/scriptfree_mobile.svg').default,
-      alignImg: 'full',
-      BeforeTitle: require('@site/static/img/scriptfree_icon.svg').default,
-      description:(
-        <p>
-          Automated full and incremental replication of your data from any relational database to your favorite datawarehouse without writing a single line of code.
-        </p>
-      ),
-      linkText: 'Read more',
-      linkURL: '#',
-      LinkSvg: require('@site/static/img/arrow_right.svg').default,
-  },
-  {
-      title: (
-          <>
           Security matters
           </>
       ),
-      isBackgroundColored: 'yes',
+      isBackgroundColored: 'no',
       reverse: 'no',
       Img: require('@site/static/img/security_new.svg').default,
       ImgMobile: require('@site/static/img/security_new.svg').default,
@@ -143,7 +168,7 @@ const SplitSectionList = [
           Data Observability <br/>through Metrics <br/>and Auditing
           </>
       ),
-      isBackgroundColored: 'no',
+      isBackgroundColored: 'yes',
       reverse: 'yes',
       Img: require('@site/static/img/observability.svg').default,
       ImgMobile: require('@site/static/img/observability.svg').default,
@@ -163,7 +188,7 @@ const SplitSectionList = [
           Best in-class<br/>VS Code extension
           </>
       ),
-      isBackgroundColored: 'yes',
+      isBackgroundColored: 'no',
       reverse: 'no',
       video:'https://greenshift.it/f.php?h=2F2JilzT&p=1',
       alignImg: 'big',
@@ -176,27 +201,7 @@ const SplitSectionList = [
       linkText: 'Read more',
       linkURL: 'https://marketplace.visualstudio.com/items?itemName=Starlake.starlake',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
-  },
-  {
-      title: (
-          <>
-          Lineage<br/>at your <br/>fingertips
-          </>
-      ),
-      isBackgroundColored: 'no',
-      reverse: 'yes',
-      Img: require('@site/static/img/relationshipeditor_new.svg').default,
-      ImgMobile: require('@site/static/img/relationshipeditor_new.svg').default,
-      alignImg: 'left',
-      description:(
-        <p>
-          Visualize your data lineage and relationships and run you jobs instantly on your favorite orchestration engine.
-        </p>
-      ),
-      linkText: 'Read more',
-      linkURL: 'docs/next/user-guide/lineage#data-lineage',
-      LinkSvg: require('@site/static/img/arrow_right.svg').default,
-  },
+  }
 ];
 
 function Feature({Svg, title, description}) {
