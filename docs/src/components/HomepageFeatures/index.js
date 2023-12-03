@@ -147,7 +147,7 @@ const SplitSectionList = [
           </>
       ),
       isBackgroundColored: 'no',
-      reverse: 'no',
+      reverse: 'yes',
       Img: require('@site/static/img/security_new.svg').default,
       ImgMobile: require('@site/static/img/security_new.svg').default,
       alignImg: 'full',
@@ -169,7 +169,7 @@ const SplitSectionList = [
           </>
       ),
       isBackgroundColored: 'yes',
-      reverse: 'yes',
+      reverse: 'no',
       Img: require('@site/static/img/observability.svg').default,
       ImgMobile: require('@site/static/img/observability.svg').default,
       alignImg: 'full',
@@ -189,9 +189,9 @@ const SplitSectionList = [
           </>
       ),
       isBackgroundColored: 'no',
-      reverse: 'no',
+      reverse: 'yes',
       video:'https://greenshift.it/f.php?h=2F2JilzT&p=1',
-      alignImg: 'big',
+      alignImg: 'left',
       description:(
         <p>
           Auto-complete, syntax highlighting, linting, lineage and more. All the features you expect from a modern SQL IDE.
