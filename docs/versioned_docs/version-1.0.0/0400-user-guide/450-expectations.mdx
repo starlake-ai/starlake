@@ -30,10 +30,11 @@ The result of the evaluation must be a boolean.
 
 The above example will validate that the number of rows loaded into the `locations` table is between 1000 and 2000. If the expectation is not met, the job will fail and the error will be reported in the audit tables.
 
-The `is_row_count_to_be_between` is a macro defined in the `metadata/expectations/row_count.j2` file.
-You can define your own macros in the `metadata/expectations` directory. Below is an example of a macro that validates that a column is not null.
+The `is_row_count_to_be_between` is a macro defined in the `metadata/expectations/my_lib1.j2` file.
+You can define your own macros in the `metadata/expectations` directory. 
+The macros are defined in jinja2:
 
-```jinja
+```jinja title="metadata/expectations/my_lib1.j2"
 {% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}
     select 
         case 
