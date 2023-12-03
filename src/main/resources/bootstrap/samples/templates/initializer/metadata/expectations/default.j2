@@ -1,0 +1,23 @@
+{% macro expect_column_is_unique(col, table='sl_this') %}
+    SELECT max(cnt)
+    FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
+    GROUP BY {{ col }}
+    HAVING cnt > 1)
+{% endmacro %}
+
+
+{% macro count_by_value(col, value, table='sl_this') %}
+    SELECT count(*)
+    FROM {{ table }}
+    WHERE {{ col }} LIKE '{{ value }}'
+{% endmacro %}
+
+
+{% macro expect_column_occurs(col, times, table='sl_this') %}
+    SELECT max(cnt)
+    FROM  (
+    SELECT {{ col }}, count(*) as cnt FROM {{ table }}
+    GROUP BY {{ col }}
+    HAVING cnt == {{ times }}
+    )
+{% endmacro %}

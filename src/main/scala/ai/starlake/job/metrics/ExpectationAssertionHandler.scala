@@ -12,7 +12,6 @@ import scala.util.{Failure, Success}
 trait ExpectationAssertionHandler extends StrictLogging {
   def handle(sql: String, assertion: String): Map[String, Any]
 
-  def buildCTE(): Unit = {}
   protected def submitExpectation(
     assertion: String,
     count: Long,

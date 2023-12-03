@@ -4,7 +4,6 @@ import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.google.cloud.bigquery.TableId
@@ -86,8 +85,8 @@ object ExpectationReport {
       Attribute("domain", "string"),
       Attribute("schema", "string"),
       Attribute("timestamp", "timestamp"),
-      Attribute("name", "string"),
-      Attribute("params", "string"),
+      Attribute("query", "string"),
+      Attribute("expect", "string"),
       Attribute("sql", "string"),
       Attribute("count", "long"),
       Attribute("exception", "string"),
@@ -115,7 +114,7 @@ class ExpectationJob(
   database: Option[String],
   domainName: String,
   schemaName: String,
-  expectations: Map[String, String],
+  expectations: List[ExpectationItem],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   inputData: Option[Either[DataFrame, TableId]],
@@ -153,34 +152,18 @@ class ExpectationJob(
 
     }
 
-    val expectationLibrary = schemaHandler.expectations(domainName)
-    val calls = ExpectationCalls(expectations).expectationCalls
-    val expectationReports = calls.map { case (_, expectation) =>
-      val (sql, assertion) = expectationLibrary
-        .get(expectation.name)
-        .map { ad =>
-          logger.info(s"Applying substitution ${ad.name} -> ${ad.expectation.query}")
-          val paramsMap =
-            schemaHandler.activeEnvVars() ++ ad.params.zip(expectation.paramValues).toMap
-          // Apply substitution defined with {{ }} and overload options in env by option in command line
-          val sql = Utils
-            .subst(
-              Utils
-                .parseJinja(ad.expectation.query, schemaHandler.activeEnvVars() ++ paramsMap)
-                .richFormat(schemaHandler.activeEnvVars(), paramsMap),
-              paramsMap
-            )
-          val assertion = Utils
-            .subst(
-              Utils
-                .parseJinja(ad.expectation.expect, schemaHandler.activeEnvVars() ++ paramsMap)
-                .richFormat(schemaHandler.activeEnvVars(), paramsMap),
-              paramsMap
-            )
-          (bqSlThisCTE + sql, assertion)
-        }
-        .getOrElse(throw new Exception(s"Expectation ${expectation.name} not found"))
-      logger.info(s"Applying expectation ${expectation.name} with request $sql")
+    val macros = schemaHandler.jinjavaMacros
+    val expectationReports = expectations.map { expectation =>
+      val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
+      val sql = bqSlThisCTE +
+        Utils.parseJinja(
+          expectationWithMacroDefinitions,
+          schemaHandler.activeEnvVars()
+        )
+      val assertion = Utils.parseJinja(expectation.expect, schemaHandler.activeEnvVars())
+      logger.info(
+        s"Applying expectation ${expectation.name}: ${expectation.query} with request $sql"
+      )
       Try {
         val expectationResult = sqlRunner.handle(sql, assertion)
         ExpectationReport(
@@ -189,8 +172,8 @@ class ExpectationJob(
           domainName,
           schemaName,
           Timestamp.from(Instant.now()),
-          expectation.name,
-          expectation.paramValues.toString(),
+          expectation.name.getOrElse(""),
+          expectation.query,
           Some(sql),
           Some(expectationResult("count").asInstanceOf[Long]),
           None,
@@ -205,8 +188,8 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name,
-            expectation.paramValues.toString(),
+            expectation.name.getOrElse(""),
+            expectation.query,
             None,
             None,
             Some(Utils.exceptionAsString(e)),
@@ -220,8 +203,8 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name,
-            expectation.paramValues.toString(),
+            expectation.name.getOrElse(""),
+            expectation.query,
             Some(sql),
             None,
             Some(Utils.exceptionAsString(e)),

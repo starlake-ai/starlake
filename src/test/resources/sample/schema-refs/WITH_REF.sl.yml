@@ -10,13 +10,12 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
     sink:
-      type: ES
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
   tableRefs:
     - users.sl.yml
     - players
@@ -39,5 +38,3 @@ load:
         format: "DSV"
         withHeader: false
         separator: ","
-        partition:
-          attributes: []

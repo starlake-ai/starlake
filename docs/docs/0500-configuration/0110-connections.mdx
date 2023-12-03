@@ -32,8 +32,7 @@ Défault values for `area` and `datasets` can be set in the `application` sectio
 
 ```yaml
 application:
-    datasets = ${root}"/datasets"
-    datasets = ${?SL_DATASETS}
+    datasets = "{{root}}/datasets" # or set it through the SL_DATASETS environnement variable.
     area:
         pending: "pending" # Location where files of pending load are stored. May be overloaded by the ${SL_AREA_PENDING} environment variable.
         unresolved: "unresolved" # Location where files that do not match any pattern are moved. May be overloaded by the ${SL_AREA_UNRESOLVED} environment variable.

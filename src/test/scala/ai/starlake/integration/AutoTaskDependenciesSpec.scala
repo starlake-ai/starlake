@@ -10,7 +10,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   logger.info(starbakeDir.pathAsString)
 
   "Recursive Transform" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT" -> starbakeDir.pathAsString
       ) {
@@ -22,7 +22,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   }
 
   "sample test" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT"     -> starbakeDir.pathAsString,
         "SL_METADATA" -> starbakeDir.pathAsString
@@ -34,7 +34,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
     }
   }
   "Dependency Generation" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT" -> starbakeDir.pathAsString
       ) {
@@ -46,7 +46,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   }
 
   "Relations Generation" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
@@ -58,7 +58,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   }
 
   "Job GraphViz Generation" should "succeed" in {
-    if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {

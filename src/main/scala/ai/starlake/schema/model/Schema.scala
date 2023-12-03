@@ -87,7 +87,7 @@ case class Schema(
   postsql: List[String] = Nil,
   tags: Set[String] = Set.empty,
   rls: List[RowLevelSecurity] = Nil,
-  expectations: Map[String, String] = Map.empty,
+  expectations: List[ExpectationItem] = Nil,
   primaryKey: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None,
@@ -138,7 +138,7 @@ case class Schema(
   /** @return
     *   Are the parittions columns defined in the metadata valid column names
     */
-  def validatePartitionColumns(): Boolean = {
+  def validatePartitionColumns()(implicit settings: Settings): Boolean = {
     metadata.forall(
       _.getPartitionAttributes().forall(
         attributes
@@ -863,7 +863,7 @@ object Schema {
       val rlsDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("rls", existing.rls, incoming.rls)
 
       val expectationsDiff: ListDiff[Named] =
-        AnyRefDiff.diffMap("expectations", existing.expectations, incoming.expectations)
+        AnyRefDiff.diffAnyRef("expectations", existing.expectations, incoming.expectations)
 
       val primaryKeyDiff: ListDiff[String] =
         AnyRefDiff.diffSetString("primaryKey", existing.primaryKey.toSet, incoming.primaryKey.toSet)

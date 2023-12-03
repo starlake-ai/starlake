@@ -2,12 +2,13 @@ package ai.starlake.extract
 
 import ai.starlake.schema.model.{Trim, WriteMode}
 
+case class ExtractDesc(extract: JDBCSchemas)
+
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
   default: Option[JDBCSchema] = None,
   output: Option[FileFormat] = None,
   connectionRef: Option[String] = None,
-  connection: Map[String, String] = Map.empty,
   fetchSize: Option[Int] = None
 ) {
 

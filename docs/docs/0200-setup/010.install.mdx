@@ -46,8 +46,33 @@ $ docker build -t starlake .
 $ docker run -it starlake help
 
 ```
+
+To execute the docker image, you can use the following command:
+
+```shell
+
+$ docker run -it -v /path/to/starlake/project:/starlake starlake <command>
+
+```
+
+Note that you can pass environment variables to the docker image to configure the CLI. For example, to run against AWS redshift, you can pass the following environment variables:
+
+```shell
+
+$ SL_ROOT="s3a://my-bucket/my-starlake-project-base-dir/"
+$ docker run -e SL_ROOT=$SL_ROOT \
+    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+    -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN \
+    -e REDSHIFT_PASSWORD=$REDSHIFT_PASSWORD \
+    -it starlake <command>
+
+```
+
 </TabItem>
 </Tabs>
+
+
 
 The following folders should now have been created and contain Starlake dependencies.
 

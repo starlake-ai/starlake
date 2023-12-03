@@ -189,15 +189,14 @@ tables:
       quote: "\""
       escape: "\\"
       write: "APPEND"
-      partition:
-        sampling: 10.0
-        attributes:
-          - "sl_year"
-          - "sl_month"
-          - "sl_day"
-          - "sl_hour"
-      sink: !<BQ>
-        type: "BQ"
+      sink:
+        partition:
+          sampling: 10.0
+          attributes:
+            - "sl_year"
+            - "sl_month"
+            - "sl_day"
+            - "sl_hour"
     merge:
       key:
         - "ID1"

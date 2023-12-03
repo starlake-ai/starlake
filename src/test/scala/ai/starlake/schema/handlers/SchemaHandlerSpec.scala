@@ -327,8 +327,9 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         loadPending
-        val acceptedDf: DataFrame = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/employee")
+        val filePath = starlakeDatasetsPath + s"/accepted/$datasetDomainName/employee"
+        val acceptedDf: DataFrame =
+          sparkSession.read.parquet(filePath)
         acceptedDf.schema.fields.length shouldBe 1
         acceptedDf.schema.fields.map(_.name).count("name".equals) shouldBe 1
 
@@ -576,7 +577,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         withSettings.deliverTestFile(
           "/sample/xsd/locations.xsd",
-          new Path(domainMetadataRootPath, "sample/xsd/locations.xsd")
+          new Path(DatasetArea.metadata, "sample/xsd/locations.xsd")
         )
 
         loadPending

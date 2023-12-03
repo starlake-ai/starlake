@@ -141,12 +141,8 @@ trait TestHelper
 
   val allExpectations: List[FileToImport] = List(
     FileToImport(
-      "default.sl.yml",
-      "/sample/expectations/default.sl.yml"
-    ),
-    FileToImport(
-      "types.sl.yml",
-      "/sample/expectations/assertions.sl.yml"
+      "default.j2",
+      "/sample/expectations/default.j2"
     )
   )
 

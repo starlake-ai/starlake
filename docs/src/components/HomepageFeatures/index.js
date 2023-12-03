@@ -56,7 +56,7 @@ const SplitSectionList = [
        </p>
       ),
       linkText: 'Discover',
-      linkURL: 'docs/userguide/infer-schema',
+      linkURL: 'docs/next/user-guide/infer-schema',
       LinkSvg: require('@site/static/img/eye.svg').default,
   },
   {
@@ -71,7 +71,7 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/lakehouse_mobile.svg').default,
       alignImg: 'full',
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'docs/next/concepts/general',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -91,7 +91,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'docs/next/user-guide/infer-schema#table-configuration',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -134,7 +134,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'docs/next/user-guide/security',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -154,7 +154,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'docs/next/user-guide/metrics',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -165,7 +165,7 @@ const SplitSectionList = [
       ),
       isBackgroundColored: 'yes',
       reverse: 'no',
-      video:'https://www.youtube.com/watch?v=ScMzIvxBSi4',
+      video:'https://greenshift.it/f.php?h=2F2JilzT&p=1',
       alignImg: 'big',
       description:(
         <p>
@@ -174,7 +174,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'https://marketplace.visualstudio.com/items?itemName=Starlake.starlake',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -194,7 +194,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: '#',
+      linkURL: 'docs/next/user-guide/lineage#data-lineage',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
 ];

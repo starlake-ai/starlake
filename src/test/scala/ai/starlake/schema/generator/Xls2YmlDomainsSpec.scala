@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{BigQuerySink, Domain, Format, Schema}
+import ai.starlake.schema.model.{Domain, Format, FsSink, Partition, Schema}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
@@ -11,7 +11,7 @@ import scala.util.{Failure, Success}
 class Xls2YmlDomainsSpec extends TestHelper {
   new WithSettings() {
     Xls2Yml.writeDomainsAsYaml(
-      File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
+      File(getClass.getResource("/sample/SomeDomainTemplate.xlsx")).pathAsString
     )
     val outputPath = File(DatasetArea.load.toString + "/someDomain/_config.sl.yml")
     val schema1Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
@@ -46,7 +46,13 @@ class Xls2YmlDomainsSpec extends TestHelper {
       } yield sink
 
       sink.map(_.getSink()) shouldBe Some(
-        BigQuerySink(Some("BQ"), None, None, None, None, None, None, None)
+        FsSink(
+          Some("spark"),
+          None,
+          None,
+          None,
+          Some(Partition(List("sl_year", "sl_month", "sl_day", "sl_hour"), None, Nil))
+        )
       )
     }
 
@@ -57,25 +63,19 @@ class Xls2YmlDomainsSpec extends TestHelper {
       schema1.merge.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
       schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
 
-      val s1MaybePartitions = schema1.metadata.flatMap(_.partition)
-      s1MaybePartitions
-        .map(_.attributes)
-        .get
-        .sorted shouldEqual List("sl_day", "sl_hour", "sl_month", "sl_year")
+      val s1MaybePartitions = schema1.metadata.map(_.getPartitionAttributes()).getOrElse(Nil)
+      s1MaybePartitions shouldEqual List("sl_year", "sl_month", "sl_day", "sl_hour")
 
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
       schema2.attributes.size shouldBe 19
 
-      val s2MaybePartitions = schema2.metadata.flatMap(_.partition)
-      s2MaybePartitions
-        .map(_.attributes)
-        .get
-        .sorted shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
+      val s2MaybePartitions = schema2.metadata.map(_.getPartitionAttributes()).getOrElse(Nil)
+      s2MaybePartitions shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
     }
 
     val reader = new XlsDomainReader(
-      InputPath(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+      InputPath(getClass.getResource("/sample/SomeDomainTemplate.xlsx").getPath)
     )
     val domainOpt = reader.getDomain()
 
@@ -83,7 +83,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
       val complexReader =
         new XlsDomainReader(
           InputPath(
-            File(getClass.getResource("/sample/SomeComplexDomainTemplate.xls")).pathAsString
+            File(getClass.getResource("/sample/SomeComplexDomainTemplate.xlsx")).pathAsString
           )
         )
       val xlsTable = complexReader.getDomain().get.tables.head

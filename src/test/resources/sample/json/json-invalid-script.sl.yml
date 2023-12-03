@@ -7,11 +7,12 @@ load:
     format: "JSON"
     separator: "|"
     write: "APPEND"
-    partition:
-      attributes:
-        - sl_year
-        - sl_month
-        - sl_day
+    sink:
+      partition:
+        attributes:
+          - sl_year
+          - sl_month
+          - sl_day
   schemas:
     - name: "sample_json"
       pattern: "complex.*"

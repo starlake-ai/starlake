@@ -55,5 +55,5 @@ RUN  SL_VERSION="$SL_VERSION" \
 
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app /app
-RUN apk add --no-cache procps
+RUN apk add --no-cache procps gcompat
 ENTRYPOINT ["/app/starlake.sh"]

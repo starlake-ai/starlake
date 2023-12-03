@@ -14,9 +14,9 @@ load:
     write: "OVERWRITE"
     sink:
       connectionRef: bqtest
-    partition:
-      attributes:
-        - date
+      partition:
+        attributes:
+          - date
   tables:
     - name: "TEST_EMTPY"
       pattern: "empty_position"
@@ -45,9 +45,10 @@ load:
             first: 0
             last: 0
       metadata:
-        partition:
-          sampling: 0
-          attributes: []
+        sink:
+          partition:
+            sampling: 0
+            attributes: []
     - name: "account"
       metadata:
         freshness:

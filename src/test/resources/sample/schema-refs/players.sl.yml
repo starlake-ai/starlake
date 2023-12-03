@@ -45,10 +45,11 @@ table:
     quote: "\""
     escape: "\\"
     write: "OVERWRITE"
-    partition:
-      attributes:
-        - "YEAR"
-        - "MONTH"
+    sink:
+      partition:
+        attributes:
+          - "YEAR"
+          - "MONTH"
   merge:
     key:
       - "PK"

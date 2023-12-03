@@ -150,9 +150,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
     }
 
-    val expectationErrors = ExpectationDefinition.checkValidity(expectations().values.toList)
     val allErrorsAndWarnings =
-      settingsErrorsAndWarnings ++ typesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors ++ expectationErrors
+      settingsErrorsAndWarnings ++ typesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
     val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
@@ -216,17 +215,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._types
   }
 
-  def loadExpectations(filename: String): Map[String, ExpectationDefinition] = {
-    val expectationsPath = new Path(DatasetArea.expectations, filename)
-    logger.info(s"Loading expectations $expectationsPath")
-    if (storage.exists(expectationsPath)) {
-      val content = Utils
-        .parseJinja(storage.read(expectationsPath), activeEnvVars())
-      mapper
-        .readValue(content, classOf[ExpectationDefinitions])
-        .expectationDefinitions
-    } else
-      Map.empty[String, ExpectationDefinition]
+  lazy val jinjavaMacros: String = {
+    val j2Files = storage.list(DatasetArea.expectations, ".j2", recursive = true)
+    val macros = j2Files
+      .map { path =>
+        val content = storage.read(path)
+        "\n" + content + "\n"
+      }
+    macros.mkString("\n")
   }
 
   def loadExternalSources(filename: String): List[ExternalDatabase] = {
@@ -246,25 +242,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   def externalSources(): List[ExternalDatabase] = loadExternalSources("_config.sl.yml")
-
-  @throws[Exception]
-  def expectations(name: String): Map[String, ExpectationDefinition] = {
-    val defaultExpectations = loadExpectations("default.sl.yml")
-    val expectations = loadExpectations("expectations.sl.yml")
-    val resExpectations = loadExpectations(name + ".sl.yml")
-    defaultExpectations ++ expectations ++ resExpectations
-  }
-
-  @throws[Exception]
-  def expectations(): Map[String, ExpectationDefinition] = {
-    val defaultExpectations = loadExpectations("default.sl.yml")
-    val expectations = loadExpectations("expectations.sl.yml")
-    val domainExpectations = this.domains().flatMap { domain =>
-      loadExpectations(domain.name + ".sl.yml")
-    }
-
-    defaultExpectations ++ expectations ++ domainExpectations
-  }
 
   private def viewName(sqlFile: Path) =
     if (sqlFile.getName().endsWith(".sql.j2"))

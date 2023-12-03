@@ -35,8 +35,8 @@ import scala.collection.mutable
   * or else the default value is returned.
   *
   * @param mode
-  *   : FILE mode by default. FILE and STREAM are the two accepted values. FILE is currently the
-  *   only supported mode.
+  *   : FILE mode by default. FILE and STREAM are the two accepted values. STREAM is used when load
+  *   data from Kafka
   * @param format
   *   : DSV by default. Supported file formats are :
   *   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator"
@@ -54,7 +54,7 @@ import scala.collection.mutable
   *   false also means faster
   * @param array
   *   : Is the json stored as a single object array ? false by default. This means that by default
-  *   we have on json document per line.
+  *   we have one json document per line.
   * @param withHeader
   *   : does the dataset has a header ? true bu default
   * @param separator
@@ -65,14 +65,41 @@ import scala.collection.mutable
   *   : escaping char '\' by default
   * @param write
   *   : Write mode, APPEND by default
-  * @param partition
-  *   : Partition columns, no partitioning by default
   * @param sink
   *   : should the dataset be indexed in elasticsearch after ingestion ?
   * @param ignore
   *   : Pattern to ignore or UDF to apply to ignore some lines
-  * @param xml
-  *   : com.databricks.spark.xml options to use (eq. rowTag)
+  * @param directory:
+  *   Folder on the local filesystem where incoming files are stored. Typically, this folder will be
+  *   scanned periodically to move the datasets to the cluster for ingestion. Files located in this
+  *   folder are moved to the pending folder for ingestion by the "import" command.
+  * @param extensions:
+  * @param ack:
+  *   Ack extension used for each file. If specified, files are moved to the pending folder only
+  *   once a file with the same name as the source file and with this extension is present. To move
+  *   a file without requiring an ack file to be present, do not specify this attribute or set its
+  *   string value "".
+  * @param options:
+  *   Any option we wish to pass to the loader. For example, for XML, we may want to specify the
+  *   rowValidationXSDPath option to validate the XML files against an XSD schema.
+  * @param loader:
+  *   Loader to use to load the dataset. If not specified, the default loader for the format is
+  *   used. Possible values are :
+  *   - "spark" : Spark loader. This is the default loader for all formats.
+  *   - "native" : Native loader. Using the datawarehouse native loader. Provides faster loads but
+  *     less features.
+  * @param dagRef:
+  *   Reference to the DAG that should be triggered after ingestion of this dataset. If not defined,
+  *   no DAG is triggered.
+  * @param freshness:
+  *   Freshness policy to apply to this dataset. If not defined, no freshness policy is applied.
+  * @param nullValue:
+  *   Value to use to replace null values. If not defined, the default value for the format is used.
+  *   For DSV, the default value is "". For JSON, the default value is "null". For XML, the default
+  *   value is "". For POSITION, the default value is "".
+  * @param emptyIsNull:
+  *   Should empty values be considered as null values ? true by default. If true, empty values are
+  *   replaced by the nullValue. If false, empty values are kept as is.
   * @param fillWithDefaultValue:
   *   if true, then it getters return default value, otherwise return currently defined value only
   */
@@ -87,10 +114,8 @@ case class Metadata(
   quote: Option[String] = None,
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
-  /* @deprecated("use sink", "1.0.0") */ partition: Option[Partition] = None,
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
-  /* @deprecated("use options", "1.0.0") */ xml: Option[Map[String, String]] = None,
   directory: Option[String] = None,
   extensions: List[String] = Nil,
   ack: Option[String] = None,
@@ -124,9 +149,7 @@ case class Metadata(
        |quote:${getQuote()}
        |escape:${getEscape()}
        |write:${write}
-       |partition:${getPartitionAttributes()}
        |sink:${sink}
-       |xml:${xml}
        |directory:${directory}
        |extensions:${extensions}
        |ack:${ack}
@@ -170,16 +193,17 @@ case class Metadata(
   // scalastyle:on null
 
   @JsonIgnore
+  def getPartitionAttributes()(implicit settings: Settings): List[String] = {
+    this.getSink().toAllSinks().partition.map(_.getAttributes()).getOrElse(Nil)
+  }
+
+  @JsonIgnore
   def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
-  @JsonIgnore
-  def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
-
-  @JsonIgnore
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
   @JsonIgnore
-  def getXmlOptions(): Map[String, String] = this.getOptions() ++ xml.getOrElse(Map.empty)
+  def getXmlOptions(): Map[String, String] = this.getOptions()
 
   @JsonIgnore
   def getXsdPath(): Option[String] = {
@@ -259,10 +283,8 @@ case class Metadata(
       quote = merge(this.quote, child.quote),
       escape = merge(this.escape, child.escape),
       write = merge(this.write, child.write),
-      partition = merge(this.partition, child.partition),
       sink = merge(this.sink, child.sink),
       ignore = merge(this.ignore, child.ignore),
-      xml = merge(this.xml, child.xml),
       directory = merge(this.directory, child.directory),
       extensions = merge(this.extensions, child.extensions),
       ack = merge(this.ack, child.ack),
@@ -296,10 +318,8 @@ case class Metadata(
       quote = if (parent.quote != this.quote) this.quote else None,
       escape = if (parent.escape != this.escape) this.escape else None,
       write = if (parent.write != this.write) this.write else None,
-      partition = if (parent.partition != this.partition) this.partition else None,
       sink = if (parent.sink != this.sink) this.sink else None,
       ignore = if (parent.ignore != this.ignore) this.ignore else None,
-      xml = if (parent.xml != this.xml) this.xml else None,
       directory = if (parent.directory != this.directory) this.directory else None,
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
@@ -319,7 +339,6 @@ case class Metadata(
     if (
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
-      partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )

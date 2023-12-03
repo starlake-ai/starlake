@@ -16,9 +16,10 @@ load:
       pattern: "customers-.*.psv"
       metadata:
         separator: "|"
-        partition:
-          attributes:
-            - signup
+        sink:
+          partition:
+            attributes:
+              - signup
       merge:
         # for BQ only
         #queryFilter: date(signup) in last(4)

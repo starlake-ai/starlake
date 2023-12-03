@@ -82,8 +82,8 @@ The main env vars are described below, you may change default settings. The exha
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
 |root|SL_ROOT|/tmp|Root directory of the datasets and metadata files in the defined filesystem above
-|datasets|SL_DATASETS|${root}"/datasets"|Folder where datasets are located in the datasets `file-system`
-|metadata|SL_METADATA|${root}"/metadata" otherwise|Folder where metadata are located in the metadata `metadata-file-system`
+|datasets|SL_DATASETS|"{{root}}/datasets"|Folder where datasets are located in the datasets `file-system`
+|metadata|SL_METADATA|"{{root}}/metadata" otherwise|Folder where metadata are located in the metadata `metadata-file-system`
 |area.pending|SL_AREA_PENDING|pending|Source files are copied here from the incoming folder before processing
 |area.unresolved|SL_AREA_UNRESOLVED|unresolved|Files found in the incoming folder but do not match any schema
 |area.archive|SL_AREA_ARCHIVE|archive|Source files as found in the incoming folder are saved here after processing
@@ -104,6 +104,6 @@ To make sure, the same schema is not ingested by two concurrent Starlake process
 
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
-|lock.path|SL_LOCK_PATH|${root}"/locks"|Root folder where lock file is created
+|lock.path|SL_LOCK_PATH|"{{root}}/locks"|Root folder where lock file is created
 |lock.timeout|SL_LOCK_TIMEOUT|-1|How long to wait for the file lock to be available (in seconds)
 

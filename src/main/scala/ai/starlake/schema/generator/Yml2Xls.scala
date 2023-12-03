@@ -121,13 +121,14 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         .createCell(11)
         .setCellValue("")
 
-      val partitionColumns = metadata.sink match {
-        case Some(sink) =>
-          sink.timestamp
-            .map(timestamp => Some(Partition(List(timestamp))))
-            .getOrElse(metadata.partition)
-        case _ => metadata.partition
-      }
+      val partitionColumns = metadata.sink
+        .flatMap(
+          _.timestamp.map(timestamp => Partition(List(timestamp)))
+        )
+        .orElse {
+          metadata.sink.flatMap(_.partition)
+        }
+
       val clusteringColumns = metadata.sink match {
         case Some(sink) =>
           sink.clustering.getOrElse(Nil)
