@@ -1,0 +1,77 @@
+---
+table:
+  name: "Products"
+  pattern: "products_.*.json"
+  attributes:
+    - name: "product_id"
+      type: "int"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "name"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "details"
+      type: "struct"
+      array: false
+      required: true
+      privacy: "NONE"
+      attributes:
+        - name: "price"
+          type: "double"
+          array: false
+          required: true
+          privacy: "NONE"
+          ignore: false
+        - name: "description"
+          type: "string"
+          array: false
+          required: false
+          privacy: "NONE"
+          ignore: false
+        - name: "category"
+          type: "string"
+          array: false
+          required: false
+          privacy: "NONE"
+          ignore: false
+      ignore: false
+    - name: "ingredients"
+      type: "struct"
+      array: true
+      required: true
+      privacy: "NONE"
+      attributes:
+        - name: "ingredient_id"
+          type: "int"
+          array: false
+          required: true
+          privacy: "NONE"
+          foreignKey: "Ingredients.ingredient_id"
+          ignore: false
+        - name: "quantity"
+          type: "double"
+          array: false
+          required: true
+          privacy: "NONE"
+          ignore: false
+      ignore: false
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    sink:
+      connectionRef: "FS"
+  primaryKey:
+    - "product_id"

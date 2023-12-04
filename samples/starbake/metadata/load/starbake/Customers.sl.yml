@@ -1,0 +1,50 @@
+---
+table:
+  name: "Customers"
+  pattern: "customers_.*.csv"
+  attributes:
+    - name: "customer_id"
+      type: "int"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "first_name"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "last_name"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "email"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "join_date"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+    sink:
+      connectionRef: "FS"
+  primaryKey:
+    - "customer_id"

@@ -1,0 +1,17 @@
+---
+application:
+  loader: "native" # "spark" (default) or "native"
+  connectionRef: starbake-bigquery
+
+  audit:
+    sink:
+      connectionRef: starbake-bigquery
+
+  connections:
+    starbake-bigquery:
+      type: "bigquery"
+      options:
+        location: europe-west1
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform"
+        writeMethod: "direct"
