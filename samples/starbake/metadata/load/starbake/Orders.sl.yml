@@ -1,0 +1,71 @@
+---
+table:
+  name: "Orders"
+  pattern: "orders_.*.json"
+  attributes:
+    - name: "order_id"
+      type: "int"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "customer_id"
+      type: "int"
+      array: false
+      required: true
+      privacy: "NONE"
+      foreignKey: "Customers.customer_id"
+      ignore: false
+    - name: "timestamp"
+      type: "iso_instant"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "status"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "products"
+      type: "struct"
+      array: true
+      required: true
+      privacy: "NONE"
+      attributes:
+        - name: "product_id"
+          type: "int"
+          array: false
+          required: true
+          privacy: "NONE"
+          foreignKey: "Products.product_id"
+          ignore: false
+        - name: "quantity"
+          type: "int"
+          array: false
+          required: false
+          privacy: "NONE"
+          ignore: false
+        - name: "price"
+          type: "double"
+          array: false
+          required: true
+          privacy: "NONE"
+          ignore: false
+      ignore: false
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    sink:
+      connectionRef: "FS"
+  primaryKey:
+    - "order_id"

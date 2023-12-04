@@ -1,0 +1,44 @@
+---
+table:
+  name: "Ingredients"
+  pattern: "ingredients_.*.tsv"
+  attributes:
+    - name: "ingredient_id"
+      type: "int"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "name"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "price"
+      type: "decimal"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "quantity_in_stock"
+      type: "decimal"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+    sink:
+      connectionRef: "FS"
+  primaryKey:
+    - "ingredient_id"
