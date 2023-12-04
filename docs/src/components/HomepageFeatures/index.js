@@ -43,7 +43,7 @@ const SplitSectionList = [
   {
       title: (
           <>
-          From any source <br/>to any sink at <br/>native speed
+          From any source <br/>to any sink
           </>
       ),
       isBackgroundColored: 'yes',
@@ -53,6 +53,9 @@ const SplitSectionList = [
       alignImg: 'right',
       description: (
        <p>
+            Extract, Load and Transform your data
+           with advanced  validation, anonymization and transformation capabilities.
+
        </p>
       ),
       linkText: 'Discover',
