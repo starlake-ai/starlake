@@ -34,7 +34,7 @@ The `is_row_count_to_be_between` is a macro defined in the `metadata/expectation
 You can define your own macros in the `metadata/expectations` directory. 
 The macros are defined in jinja2:
 
-```jinja title="metadata/expectations/my_lib1.j2"
+```sql title="metadata/expectations/my_lib1.j2"
 {% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}
     select 
         case 
