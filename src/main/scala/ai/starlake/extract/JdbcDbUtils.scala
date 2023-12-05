@@ -194,7 +194,7 @@ object JdbcDbUtils extends LazyLogging {
     */
   private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String],
+    connection: SQLConnection,
     table: String
   )(implicit
     settings: Settings
@@ -202,15 +202,13 @@ object JdbcDbUtils extends LazyLogging {
     jdbcSchema.tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting table remarks using $sql")
-      withJDBCConnection(connectionOptions) { connection =>
-        val statement = connection.createStatement()
-        val rs = statement.executeQuery(sql)
-        if (rs.next()) {
-          rs.getString(1)
-        } else {
-          logger.warn(s"Not table remark found for table $table")
-          ""
-        }
+      val statement = connection.createStatement()
+      val rs = statement.executeQuery(sql)
+      if (rs.next()) {
+        rs.getString(1)
+      } else {
+        logger.warn(s"Not table remark found for table $table")
+        ""
       }
     }
   }
@@ -313,7 +311,15 @@ object JdbcDbUtils extends LazyLogging {
                 if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
                   val localRemarks =
                     if (skipRemarks) None
-                    else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
+                    else
+                      Try {
+                        extractTableRemarks(jdbcSchema, connection, tableName)
+                      } match {
+                        case Failure(exception) =>
+                          logger.warn(exception.getMessage, exception)
+                          None
+                        case Success(value) => value
+                      }
                   val remarks = localRemarks.getOrElse(resultSet.getString("REMARKS"))
                   tableNames += tableName -> remarks
                 }
