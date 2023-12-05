@@ -1,11 +1,26 @@
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Optional;
 
 public class Setup {
+
+    private static class JarDependency {
+
+        private final String url;
+
+        private final String artefactName;
+
+        public JarDependency(String artefactName, String url) {
+            this.url = url;
+            this.artefactName = artefactName;
+        }
+
+        public String getUrlName() {
+            return url.substring(url.lastIndexOf("/") + 1);
+        }
+    }
+
     private static String host = null;
     private static int port = 80;
     private static String username = null;
@@ -26,8 +41,7 @@ public class Setup {
             if (hostAndPort.contains(":")) {
                 host = hostAndPort.split(":")[0];
                 port = Integer.parseInt(hostAndPort.split(":")[1]);
-            }
-            else {
+            } else {
                 host = hostAndPort;
             }
         } else {
@@ -35,8 +49,7 @@ public class Setup {
             if (hostAndPort.contains(":")) {
                 host = hostAndPort.split(":")[0];
                 port = Integer.parseInt(hostAndPort.split(":")[1]);
-            }
-            else {
+            } else {
                 host = hostAndPort;
             }
         }
@@ -55,13 +68,13 @@ public class Setup {
             System.setProperty(protocol + ".proxyPassword", password);
         }
     }
+
     private static void setProxy() {
         if (!httpsProxy.isEmpty()) {
             port = 443;
             parseProxy(httpsProxy);
             setJavaProxy("https");
-        }
-        else if (!httpProxy.isEmpty()) {
+        } else if (!httpProxy.isEmpty()) {
             port = 80;
             parseProxy(httpProxy);
             setJavaProxy("http");
@@ -79,96 +92,87 @@ public class Setup {
     public static boolean ENABLE_POSTGRESQL = envIsTrue("ENABLE_POSTGRESQL");
 
     // SPARK & STARLAKE
-    private static String SCALA_VERSION = Optional.ofNullable(System.getenv("SCALA_VERSION")).orElse("2.12");
-    private static String SL_VERSION = Optional.ofNullable(System.getenv("SL_VERSION")).orElse("1.0.0-SNAPSHOT");
-    private static String SPARK_VERSION = Optional.ofNullable(System.getenv("SPARK_VERSION")).orElse("3.5.0");
-    private static String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
-    private static String HADOOP_VERSION = Optional.ofNullable(System.getenv("HADOOP_VERSION")).orElse("3");
+    private static final String SCALA_VERSION = Optional.ofNullable(System.getenv("SCALA_VERSION")).orElse("2.12");
+    private static final String SL_VERSION = Optional.ofNullable(System.getenv("SL_VERSION")).orElse("1.0.0-SNAPSHOT");
+    private static final String SPARK_VERSION = Optional.ofNullable(System.getenv("SPARK_VERSION")).orElse("3.5.0");
+    private static final String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
+    private static final String HADOOP_VERSION = Optional.ofNullable(System.getenv("HADOOP_VERSION")).orElse("3");
 
     // BIGQUERY
-    private static String SPARK_BQ_VERSION = Optional.ofNullable(System.getenv("SPARK_BQ_VERSION")).orElse("0.34.0");
+    private static final String SPARK_BQ_VERSION = Optional.ofNullable(System.getenv("SPARK_BQ_VERSION")).orElse("0.34.0");
 
-    private static String HADOOP_AZURE_VERSION = Optional.ofNullable(System.getenv("HADOOP_AZURE_VERSION")).orElse("3.3.5");
-    private static String AZURE_STORAGE_VERSION = Optional.ofNullable(System.getenv("AZURE_STORAGE_VERSION")).orElse("8.6.6");
-    private static String JETTY_VERSION = Optional.ofNullable(System.getenv("JETTY_VERSION")).orElse("9.4.51.v20230217");
+    private static final String HADOOP_AZURE_VERSION = Optional.ofNullable(System.getenv("HADOOP_AZURE_VERSION")).orElse("3.3.5");
+    private static final String AZURE_STORAGE_VERSION = Optional.ofNullable(System.getenv("AZURE_STORAGE_VERSION")).orElse("8.6.6");
+    private static final String JETTY_VERSION = Optional.ofNullable(System.getenv("JETTY_VERSION")).orElse("9.4.51.v20230217");
 
     // SNOWFLAKE
-    private static String SNOWFLAKE_JDBC_VERSION = Optional.ofNullable(System.getenv("SNOWFLAKE_JDBC_VERSION")).orElse("3.14.0");
-    private static String SPARK_SNOWFLAKE_VERSION = Optional.ofNullable(System.getenv("SPARK_SNOWFLAKE_VERSION")).orElse("3.4");
+    private static final String SNOWFLAKE_JDBC_VERSION = Optional.ofNullable(System.getenv("SNOWFLAKE_JDBC_VERSION")).orElse("3.14.0");
+    private static final String SPARK_SNOWFLAKE_VERSION = Optional.ofNullable(System.getenv("SPARK_SNOWFLAKE_VERSION")).orElse("3.4");
 
     // POSTGRESQL
-    private static String POSTGRESQL_VERSION = Optional.ofNullable(System.getenv("POSTGRESQL_VERSION")).orElse("42.5.4");
+    private static final String POSTGRESQL_VERSION = Optional.ofNullable(System.getenv("POSTGRESQL_VERSION")).orElse("42.5.4");
 
     // REDSHIFT
-    private static String AWS_JAVA_SDK_VERSION = Optional.ofNullable(System.getenv("AWS_JAVA_SDK_VERSION")).orElse("1.12.595");
-    private static String HADOOP_AWS_VERSION = Optional.ofNullable(System.getenv("HADOOP_AWS_VERSION")).orElse("3.3.4");
-    private static String REDSHIFT_JDBC_VERSION = Optional.ofNullable(System.getenv("REDSHIFT_JDBC_VERSION")).orElse("2.1.0.23");
-    private static String SPARK_REDSHIFT_VERSION = Optional.ofNullable(System.getenv("SPARK_REDSHIFT_VERSION")).orElse("6.1.0-spark_3.5");
+    private static final String AWS_JAVA_SDK_VERSION = Optional.ofNullable(System.getenv("AWS_JAVA_SDK_VERSION")).orElse("1.12.595");
+    private static final String HADOOP_AWS_VERSION = Optional.ofNullable(System.getenv("HADOOP_AWS_VERSION")).orElse("3.3.4");
+    private static final String REDSHIFT_JDBC_VERSION = Optional.ofNullable(System.getenv("REDSHIFT_JDBC_VERSION")).orElse("2.1.0.23");
+    private static final String SPARK_REDSHIFT_VERSION = Optional.ofNullable(System.getenv("SPARK_REDSHIFT_VERSION")).orElse("6.1.0-spark_3.5");
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
-    private static String SPARK_URL = "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz";
-    private static String SPARK_BQ_URL =
+    private static final JarDependency SPARK_JAR = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
+    private static final JarDependency SPARK_BQ_JAR = new JarDependency("spark-bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
-                    SPARK_BQ_VERSION +"/" +
-                    "spark-bigquery-with-dependencies_"+ SCALA_VERSION+"-" + SPARK_BQ_VERSION+ ".jar";
-    private static String HADOOP_AZURE_URL = "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar";
-    private static String AZURE_STORAGE_URL = "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar";
-    private static String JETTY_URL = "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar";
-    private static String SNOWFLAKE_JDBC_URL = "https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/" + SNOWFLAKE_JDBC_VERSION + "/snowflake-jdbc-" + SNOWFLAKE_JDBC_VERSION + ".jar";
-    private static String SPARK_SNOWFLAKE_URL = "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
-            "/" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + "/spark-snowflake_" +  SCALA_VERSION + "-" + SCALA_VERSION +  ".0-spark_"+ SPARK_SNOWFLAKE_VERSION + ".jar";
-    private static String POSTGRESQL_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar";
+                    SPARK_BQ_VERSION + "/" +
+                    "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
+    private static final JarDependency HADOOP_AZURE_JAR = new JarDependency("hadoop-azure", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar");
+    private static final JarDependency AZURE_STORAGE_JAR = new JarDependency("azure-storage", "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar");
+    private static final JarDependency JETTY_SERVER_JAR = new JarDependency("jetty-server", "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar");
+    private static final JarDependency SNOWFLAKE_JDBC_JAR = new JarDependency("snowflake-jdbc", "https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/" + SNOWFLAKE_JDBC_VERSION + "/snowflake-jdbc-" + SNOWFLAKE_JDBC_VERSION + ".jar");
+    private static final JarDependency SPARK_SNOWFLAKE_JAR = new JarDependency("spark-snowflake", "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
+            "/" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + "/spark-snowflake_" + SCALA_VERSION + "-" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + ".jar");
+    private static final JarDependency POSTGRESQL_JAR = new JarDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
 
-    private static String AWS_JAVA_SDK_URL = "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar";
-    private static String HADOOP_AWS_URL = "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar";
-    private static String REDSHIFT_JDBC_URL = "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar";
-    private static String SPARK_REDSHIFT_URL = "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
-            "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar";
-    private static String STARLAKE_SNAPSHOT_URL = "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_"+SCALA_VERSION+"/"+SL_VERSION+"/starlake-spark3_"+ SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar";
-    private static String STARLAKE_RELEASE_URL = "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_"+SCALA_VERSION+"/"+SL_VERSION+"/starlake-spark"+SPARK_MAJOR_VERSION+"_"+ SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar";
+    private static final JarDependency AWS_JAVA_SDK_JAR = new JarDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
+    private static final JarDependency HADOOP_AWS_JAR = new JarDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
+    private static final JarDependency REDSHIFT_JDBC_JAR = new JarDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
+    private static final JarDependency SPARK_REDSHIFT_JAR = new JarDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
+            "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
+    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-spark3", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
 
-    public static String[] snowflakeURLs = {
-            SNOWFLAKE_JDBC_URL,
-            SPARK_SNOWFLAKE_URL
+    private static final JarDependency[] snowflakeDependencies = {
+            SNOWFLAKE_JDBC_JAR,
+            SPARK_SNOWFLAKE_JAR
     };
 
-    public static String[] redshiftURLs = {
-            AWS_JAVA_SDK_URL,
-            HADOOP_AWS_URL,
-            REDSHIFT_JDBC_URL,
-            SPARK_REDSHIFT_URL
+    private static final JarDependency[] redshiftDependencies = {
+            AWS_JAVA_SDK_JAR,
+            HADOOP_AWS_JAR,
+            REDSHIFT_JDBC_JAR,
+            SPARK_REDSHIFT_JAR
     };
 
-    public static String[] azureURLs = {
-            HADOOP_AZURE_URL,
-            AZURE_STORAGE_URL,
-            JETTY_URL
+    private static final JarDependency[] azureDependencies = {
+            HADOOP_AZURE_JAR,
+            AZURE_STORAGE_JAR,
+            JETTY_SERVER_JAR
     };
 
-    public static String[] postgresqlURLs = {
-            POSTGRESQL_URL
+    private static final JarDependency[] postgresqlDependencies = {
+            POSTGRESQL_JAR
     };
 
-    public static String[]  bigqueryURLs = {
-            SPARK_BQ_URL
+    private static final JarDependency[] bigqueryDependencies = {
+            SPARK_BQ_JAR
     };
 
     private static boolean envIsTrue(String env) {
-        String value =  Optional.ofNullable(System.getenv(env)).orElse("false");
-        return !value.equals("false") && !value.equals("0") ;
+        String value = Optional.ofNullable(System.getenv(env)).orElse("false");
+        return !value.equals("false") && !value.equals("0");
 
     }
-    private static long setupTimestamp =  System.currentTimeMillis();
-    private static void renameIfExists(File file) {
-        if (file.exists()) {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmm");
-            Date resultdate = new Date(setupTimestamp);
-            file.renameTo(new File(file.getAbsolutePath() + "-" + sdf.format(resultdate)));
-            System.out.println("Renamed existing file " + file.getAbsolutePath() + " to " + file.getAbsolutePath() + "-" + sdf.format(resultdate));
-        }
-    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -194,47 +198,56 @@ public class Setup {
             final File binDir = new File(targetDir, "bin");
 
             File slDir = new File(binDir, "sl");
-            renameIfExists(slDir);
-            slDir = new File(binDir, "sl");
-            downloadAndDisplayProgress(new String[]{STARLAKE_SNAPSHOT_URL}, slDir);
+            if (SL_VERSION.endsWith("SNAPSHOT")) {
+                deleteFile(new File(slDir, STARLAKE_SNAPSHOT_JAR.getUrlName()));
+                downloadAndDisplayProgress(new JarDependency[]{STARLAKE_SNAPSHOT_JAR}, slDir, false);
+            } else {
+                deleteFile(new File(slDir, STARLAKE_RELEASE_JAR.getUrlName()));
+                downloadAndDisplayProgress(new JarDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
+            }
 
             File sparkDir = new File(binDir, "spark");
-            renameIfExists(sparkDir);
-            downloadSpark(binDir);
+            if (!sparkDir.exists()) {
+                downloadSpark(binDir);
+            }
 
             File depsDir = new File(binDir, "deps");
-            renameIfExists(depsDir);
-            depsDir = new File(binDir, "deps");
 
             if (ENABLE_BIGQUERY) {
-                downloadAndDisplayProgress(bigqueryURLs, depsDir);
+                downloadAndDisplayProgress(bigqueryDependencies, depsDir, true);
+            } else {
+                deleteDependencies(bigqueryDependencies, depsDir);
             }
             if (ENABLE_AZURE) {
-                downloadAndDisplayProgress(azureURLs, depsDir);
+                downloadAndDisplayProgress(azureDependencies, depsDir, true);
+            } else {
+                deleteDependencies(azureDependencies, depsDir);
             }
             if (ENABLE_SNOWFLAKE) {
-                downloadAndDisplayProgress(snowflakeURLs, depsDir);
+                downloadAndDisplayProgress(snowflakeDependencies, depsDir, true);
+            } else {
+                deleteDependencies(snowflakeDependencies, depsDir);
             }
             if (ENABLE_REDSHIFT) {
-                downloadAndDisplayProgress(redshiftURLs, depsDir);
+                downloadAndDisplayProgress(redshiftDependencies, depsDir, true);
+            } else {
+                deleteDependencies(redshiftDependencies, depsDir);
             }
             if (ENABLE_POSTGRESQL) {
-                downloadAndDisplayProgress(postgresqlURLs, depsDir);
+                downloadAndDisplayProgress(postgresqlDependencies, depsDir, true);
+            } else {
+                deleteDependencies(postgresqlDependencies, depsDir);
             }
         } catch (Exception e) {
-            System.out.println("Failed to download dependencies from maven central"+ e.getMessage());
+            System.out.println("Failed to download dependencies from maven central" + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
     }
 
-    private static String getUrlName(String url) {
-        return url.substring(url.lastIndexOf("/") + 1);
-    }
-
     public static void downloadSpark(File binDir) throws IOException {
-        downloadAndDisplayProgress(new String[]{SPARK_URL}, binDir);
-        String tgzName = getUrlName(SPARK_URL);
+        downloadAndDisplayProgress(new JarDependency[]{SPARK_JAR}, binDir, false);
+        String tgzName = SPARK_JAR.getUrlName();
         final File sparkFile = new File(binDir, tgzName);
         ProcessBuilder builder = new ProcessBuilder("tar", "-xzf", sparkFile.getAbsolutePath(), "-C", binDir.getAbsolutePath()).inheritIO();
         Process process = builder.start();
@@ -251,13 +264,38 @@ public class Setup {
         File log4j2File = new File(sparkDir, "conf/log4j2.properties.template");
         log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
     }
-    private static void downloadAndDisplayProgress(String[] urls, File targetDir) throws IOException {
+
+    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
-        for (String url : urls) {
-            final File targetFile = new File(targetDir, getUrlName(url));
-            downloadAndDisplayProgress(url, targetFile.getAbsolutePath());
+        if (replaceJar) {
+            deleteDependencies(dependencies, targetDir);
+        }
+        for (JarDependency dependency : dependencies) {
+            final File targetFile = new File(targetDir, dependency.getUrlName());
+            downloadAndDisplayProgress(dependency.url, targetFile.getAbsolutePath());
+        }
+    }
+
+    private static void deleteDependencies(JarDependency[] dependencies, File targetDir) {
+        if (targetDir.exists()) {
+            for (JarDependency dependency : dependencies) {
+                File[] files = targetDir.listFiles(f -> f.getName().startsWith(dependency.artefactName));
+                if (files != null) {
+                    for (File file : files) {
+                        deleteFile(file);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void deleteFile(File file) {
+        if (file.exists()) {
+            if (file.delete()) {
+                System.out.println(file.getAbsolutePath() + " deleted");
+            }
         }
     }
 
@@ -284,7 +322,7 @@ public class Setup {
             output.write(data, 0, count);
             loop++;
             if (loop % 1000 == 0) {
-                StringBuilder sb = new StringBuilder("Progress: " + (total/1024/1024) + "/" + (lengthOfFile/1024/1024) + " MB");
+                StringBuilder sb = new StringBuilder("Progress: " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
                 if (lengthOfFile > 0) {
                     sb.append(" (");
                     sb.append((int) (total * 100 / lengthOfFile));
@@ -302,7 +340,7 @@ public class Setup {
                 for (int cnt = 0; cnt < sbLen; cnt++) {
                     System.out.print("\b");
                 }
-                System.out.print(sb.toString());
+                System.out.print(sb);
             }
         }
         for (int cnt = 0; cnt < sbLen; cnt++) {

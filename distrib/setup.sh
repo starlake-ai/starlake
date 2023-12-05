@@ -107,7 +107,7 @@ add_starlake_to_path() {
 
 run_installation_command() {
     SL_VERSION=$VERSION "$INSTALL_DIR/starlake" install
-    rm "$INSTALL_DIR/Setup.class"
+    rm "$INSTALL_DIR/Setup.jar"
 }
 
 print_success_message() {
