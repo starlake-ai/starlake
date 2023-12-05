@@ -114,6 +114,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 None,
                 None,
                 Nil,
+                Nil,
                 List("TABLE"),
                 None
               ),
