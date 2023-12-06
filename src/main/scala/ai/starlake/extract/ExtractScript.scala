@@ -4,7 +4,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.fusesource.scalate._
@@ -135,7 +134,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     * --deltaColumn <value> The date column which is used to determine new rows for each exports
     * (can be passed table by table as config element)
     */
-  def run(args: Array[String]): Unit = Try {
+  def run(args: Array[String]): Try[Unit] = Try {
     ExtractScriptConfig.parse(args) match {
       case Some(config) =>
         run(config)
