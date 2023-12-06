@@ -1,3 +1,5 @@
+import org.apache.logging.log4j.util.TriConsumer;
+
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
@@ -29,6 +31,11 @@ public class Setup {
     private static String httpsProxy = Optional.ofNullable(System.getenv("https_proxy")).orElse("");
     private static String httpProxy = Optional.ofNullable(System.getenv("http_proxy")).orElse("");
     private static String noProxy = Optional.ofNullable(System.getenv("no_proxy")).orElse("").replaceAll(",", "|");
+
+    private static boolean isWindowsOs() {
+        String os = System.getProperty("os.name").toLowerCase();
+        return os.startsWith("windows");
+    }
 
     private static void parseProxy(String proxy) {
         if (proxy.isEmpty()) {
@@ -173,6 +180,88 @@ public class Setup {
 
     }
 
+    private static void generateUnixVersions(File targetDir) throws IOException {
+        generateVersions(targetDir, "#!/bin/bash\nset -e\n\n",
+                (writer, variableName, value) -> {
+                    try {
+                        writer.write(variableName + "=" + "${" + variableName + ":-" + value + "}\n");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private static void generateWindowsVersions(File targetDir) throws IOException {
+        generateVersions(targetDir, "@ECHO OFF\n\n",
+                (writer, variableName, value) -> {
+                    try {
+                        writer.write(
+                                "if \"%" + variableName + "%\"==\"\" (\n" +
+                                        "    SET " + variableName + "=" + value + "\n" +
+                                        ")\n");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private static void generateVersions(File targetDir, String fileHeader, TriConsumer<BufferedWriter, String, String> variableWriter) throws IOException {
+        String versionsFileName = isWindowsOs() ? "versions.cmd" : "version.sh";
+        File versionFile = new File(targetDir, versionsFileName);
+        deleteFile(versionFile);
+        BufferedWriter writer = new BufferedWriter(new FileWriter(versionFile));
+        try {
+            writer.write(fileHeader);
+            variableWriter.accept(writer, "ENABLE_BIGQUERY", String.valueOf(ENABLE_BIGQUERY));
+            variableWriter.accept(writer, "ENABLE_AZURE", String.valueOf(ENABLE_AZURE));
+            variableWriter.accept(writer, "ENABLE_SNOWFLAKE", String.valueOf(ENABLE_SNOWFLAKE));
+            variableWriter.accept(writer, "ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
+            variableWriter.accept(writer, "ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
+            variableWriter.accept(writer, "SL_VERSION", SL_VERSION);
+            variableWriter.accept(writer, "SCALA_VERSION", SCALA_VERSION);
+            variableWriter.accept(writer, "SPARK_VERSION", SPARK_VERSION);
+            variableWriter.accept(writer, "HADOOP_VERSION", HADOOP_VERSION);
+            if (ENABLE_BIGQUERY || !anyDependencyEnabled()) {
+                variableWriter.accept(writer, "SPARK_BQ_VERSION", SPARK_BQ_VERSION);
+            }
+            if (ENABLE_AZURE || !anyDependencyEnabled()) {
+                variableWriter.accept(writer, "HADOOP_AZURE_VERSION", HADOOP_AZURE_VERSION);
+                variableWriter.accept(writer, "AZURE_STORAGE_VERSION", AZURE_STORAGE_VERSION);
+                variableWriter.accept(writer, "JETTY_VERSION", JETTY_VERSION);
+            }
+            if (ENABLE_SNOWFLAKE || !anyDependencyEnabled()) {
+                variableWriter.accept(writer, "SPARK_SNOWFLAKE_VERSION", SPARK_SNOWFLAKE_VERSION);
+                variableWriter.accept(writer, "SNOWFLAKE_JDBC_VERSION", SNOWFLAKE_JDBC_VERSION);
+            }
+            if (ENABLE_POSTGRESQL || !anyDependencyEnabled()) {
+                variableWriter.accept(writer, "POSTGRESQL_VERSION", POSTGRESQL_VERSION);
+            }
+            if (ENABLE_REDSHIFT || !anyDependencyEnabled()) {
+                variableWriter.accept(writer, "AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
+                variableWriter.accept(writer, "HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
+                variableWriter.accept(writer, "REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
+                variableWriter.accept(writer, "SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION);
+            }
+        } finally {
+            writer.close();
+        }
+        System.out.println(versionFile.getAbsolutePath() + " created");
+    }
+
+    private static void generateVersions(File targetDir) throws IOException {
+        if (isWindowsOs()) {
+            generateWindowsVersions(targetDir);
+        } else {
+            generateWindowsVersions(targetDir);
+            generateUnixVersions(targetDir);
+        }
+
+    }
+
+    private static boolean anyDependencyEnabled() {
+        return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -187,8 +276,8 @@ public class Setup {
 
             setProxy();
 
-            boolean anyEnabled = ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
-            if (!anyEnabled) {
+
+            if (!anyDependencyEnabled()) {
                 ENABLE_AZURE = true;
                 ENABLE_BIGQUERY = true;
                 ENABLE_SNOWFLAKE = true;
@@ -238,6 +327,7 @@ public class Setup {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
+            generateVersions(targetDir);
         } catch (Exception e) {
             System.out.println("Failed to download dependencies from maven central" + e.getMessage());
             e.printStackTrace();

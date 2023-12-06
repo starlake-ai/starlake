@@ -9,9 +9,6 @@ if "%SL_ROOT%"=="" (
 
 IF EXIST "%SCRIPT_DIR%versions.cmd" (
     call "%SCRIPT_DIR%versions.cmd"
-) ELSE (
-     echo %SCRIPT_DIR%versions.cmd not found.
-     goto :eof
 )
 
 

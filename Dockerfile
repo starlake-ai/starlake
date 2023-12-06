@@ -32,9 +32,8 @@ RUN apt-get update \
 
 COPY starlake.s[h] /app/
 COPY versions.s[h] /app/
-RUN if [ ! -f versions.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh; fi
 RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi
-RUN  chmod +x starlake.sh &&  chmod +x versions.sh
+RUN  chmod +x starlake.sh
 RUN  SL_VERSION="$SL_VERSION" \
        SPARK_VERSION="$SPARK_VERSION" \
        HADOOP_VERSION="$HADOOP_VERSION" \

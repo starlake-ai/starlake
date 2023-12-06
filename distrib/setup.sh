@@ -54,7 +54,7 @@ get_version_to_install() {
     VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
     VERSIONS=$VERSIONS
 
-     while [[ ! "$VERSIONS" =~ (^|[[:space:]])"$VERSION"($|[[:space:]]) ]]; do
+     while [[ ! "${VERSIONS[*]}" =~ (^|[[:space:]])"$VERSION"($|[[:space:]]) ]]; do
         echo "Invalid version $VERSION. Please choose from the available versions."
         echo "Last 5 available versions:"
         for version in "${VERSIONS[@]}"; do
@@ -73,8 +73,6 @@ install_starlake() {
     else
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
     fi
-
-    get_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh" > "$INSTALL_DIR/versions.sh"
     get_from_url $url > "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }

@@ -77,15 +77,12 @@ function install_starlake {
     Write-Host "installing $VERSION"
     if ($VERSION -like "*SNAPSHOT*") {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd"
-        $versions_url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.cmd"
     } else {
         $url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.cmd"
-        $versions_url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/versions.cmd"
     }
 
     Write-Host "Downloading $url to $INSTALL_DIR"
     wget $url -OutFile $INSTALL_DIR/starlake.cmd
-    wget $versions_url -OutFile $INSTALL_DIR/versions.cmd
 
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
 }
