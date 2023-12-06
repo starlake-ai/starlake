@@ -46,7 +46,7 @@ object DagGenerateConfig extends CliConfig[DagGenerateConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note(""),
-      opt[String]("output-dir")
+      opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text(

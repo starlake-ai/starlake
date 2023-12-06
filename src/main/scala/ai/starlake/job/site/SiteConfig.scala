@@ -4,6 +4,8 @@ import ai.starlake.utils.CliConfig
 import better.files.File
 import scopt.OParser
 
+import scala.util.Try
+
 object SiteConfig extends CliConfig[SiteConfig] {
   val command = "site"
   val parser: OParser[Unit, SiteConfig] = {
@@ -17,18 +19,14 @@ object SiteConfig extends CliConfig[SiteConfig] {
           |Generate site
           |""".stripMargin
       ),
-      opt[String]("output-path")
+      opt[String]("outputDir")
         .action((x, c) => c.copy(outputPath = File(x)))
-        .text("Output path")
+        .text("Output Directory")
         .optional(),
-      opt[String]("template-name")
+      opt[String]("template")
         .action((x, c) => c.copy(templateName = Some(x)))
-        .text("Template to use. See templates/site/ folder for available templates")
-        .optional(),
-      opt[String]("template-path")
-        .action((x, c) => c.copy(templatePath = Some(File(x))))
-        .text("Custom template path to use. See templates/site/ folder for folder structure")
-        .optional()
+        .text("Template name or template path to use")
+        .required()
     )
   }
 
@@ -49,11 +47,10 @@ object SiteConfig extends CliConfig[SiteConfig] {
   */
 case class SiteConfig(
   outputPath: File = File(".") / "site",
-  templatePath: Option[File] = None,
   templateName: Option[String] = None
 ) {
 
-  private def templateContentFromResource(templateType: String): (String, String) = {
+  private def templateContentFromResource(templateType: String): Try[(String, String)] = Try {
     templateName match {
       case Some(name) =>
         val sspResource = s"/templates/site/$name/$templateType.ssp"
@@ -66,8 +63,8 @@ case class SiteConfig(
     }
   }
 
-  private def templateContentFromFile(templateType: String): (String, String) = {
-    val sspFile = templatePath.map(File(_, s"/$templateType.ssp")).getOrElse {
+  private def templateContentFromFile(templateType: String): Try[(String, String)] = Try {
+    val sspFile = templateName.map(File(_, s"/$templateType.ssp")).getOrElse {
       throw new IllegalArgumentException(
         s"Template path is not defined, but template is not found: $templateType"
       )
@@ -82,20 +79,10 @@ case class SiteConfig(
     *   (template path, template content)
     */
   def templateContent(templateType: String): (String, String) = {
-    // make sure only template path or template name is defined
-    if (templatePath.isDefined && templateName.isDefined) {
-      throw new IllegalArgumentException(
-        "Only one of templatePath and template name should be defined"
+    templateContentFromResource(templateType).getOrElse(
+      templateContentFromFile(templateType).getOrElse(
+        throw new IllegalArgumentException(s"Template is not found: $templateType")
       )
-    }
-
-    (templatePath, templateName) match {
-      case (Some(_), None) => templateContentFromFile(templateType)
-      case (None, Some(_)) => templateContentFromResource(templateType)
-      case _ =>
-        throw new IllegalArgumentException(
-          "Either templatePath or template name should be defined"
-        )
-    }
+    )
   }
 }

@@ -1,2 +1,19 @@
 # Documentation
 
+To build your online documentation, you can use the starlake CLI to generate a static website from your markdown files.
+
+```bash
+starlake site --template docusaurus
+```
+
+Files will be generated in the metadata/site folder. You can set a different output folder with the `--outputDir` option.
+
+
+You may use the default `docusaurus` template or create your own. See the [starlake-site-docusaurus](https://github.com/starlake-ai/starlake/tree/master/src/main/resources/templates/site/docusaurus) template for an example.
+
+Below is an example of the generated documentation.
+
+![](/img/quickstart/starbake-site-table.png)
+
+
+![](/img/quickstart/starbake-site-task.png)
