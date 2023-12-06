@@ -1,11 +1,14 @@
-import Dependencies._
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import Dependencies.*
+import sbt.io.Path.allSubpaths
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
-import xerial.sbt.Sonatype._
+import xerial.sbt.Sonatype.*
+
+lazy val javacCompilerVersion = "11"
 
 javacOptions ++= Seq(
-  "-source", "11",
-  "-target", "11",
+  "-source", javacCompilerVersion,
+  "-target", javacCompilerVersion,
   "-Xlint"
 )
 
@@ -284,4 +287,28 @@ developers := List(
 
 //assembly / logLevel := Level.Debug
 
-// addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
+val packageSetup = Def.taskKey[Unit]("Package Setup.class")
+packageSetup := {
+  import java.nio.file.Paths
+  def zipFile(from: java.nio.file.Path, to: java.nio.file.Path): Unit = {
+    import java.util.jar.Manifest
+    val manifest = new Manifest()
+    manifest.getMainAttributes().putValue("Manifest-Version", "1.0")
+    manifest.getMainAttributes().putValue("Implementation-Version", version.value)
+    manifest.getMainAttributes().putValue("Implementation-Vendor", "starlake")
+    manifest.getMainAttributes().putValue("Implementation-Vendor", "starlake")
+    manifest.getMainAttributes().putValue("Compiler-Version", javacCompilerVersion)
+
+    IO.jar(List(from.toFile -> from.toFile.getName()), to.toFile, manifest)
+
+  }
+  val scalaMajorVersion = scalaVersion.value.split('.').take(2).mkString(".")
+  val from = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val to = Paths.get("distrib/setup.jar")
+  zipFile(
+    from,
+    to
+  )
+}
+
+Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
