@@ -62,8 +62,8 @@ if "%javaVersion%" LSS "11000" (
 
 )
 
-set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.jar
-curl -s -w -o %SCRIPT_DIR%Setup.jar %setup_url%
+set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
+curl -s -w -o %SCRIPT_DIR%setup.jar %setup_url%
 %RUNNER% -cp %SCRIPT_DIR% Setup %SCRIPT_DIR%
 goto :eof
 

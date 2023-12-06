@@ -105,7 +105,7 @@ function add_starlake_to_path {
 function run_installation_command {
     $env:SL_VERSION = $VERSION
     Start-Process -FilePath "$INSTALL_DIR\starlake.cmd" -ArgumentList 'install' -Wait
-    del "$INSTALL_DIR/Setup.jar"
+    del "$INSTALL_DIR/setup.jar"
 
 }
 
