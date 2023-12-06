@@ -7,9 +7,6 @@ SL_ROOT="${SL_ROOT:-`pwd`}"
 if [ -f "$SCRIPT_DIR/versions.sh" ]
 then
   source "$SCRIPT_DIR/versions.sh"
-else
-    echo "$SCRIPT_DIR/versions.sh not found."
-    exit 1
 fi
 
 SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION

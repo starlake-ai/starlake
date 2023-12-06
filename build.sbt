@@ -290,7 +290,7 @@ developers := List(
 val packageSetup = Def.taskKey[Unit]("Package Setup.class")
 packageSetup := {
   import java.nio.file.Paths
-  def zipFile(from: java.nio.file.Path, to: java.nio.file.Path): Unit = {
+  def zipFile(from: List[java.nio.file.Path], to: java.nio.file.Path): Unit = {
     import java.util.jar.Manifest
     val manifest = new Manifest()
     manifest.getMainAttributes().putValue("Manifest-Version", "1.0")
@@ -299,14 +299,15 @@ packageSetup := {
     manifest.getMainAttributes().putValue("Implementation-Vendor", "starlake")
     manifest.getMainAttributes().putValue("Compiler-Version", javacCompilerVersion)
 
-    IO.jar(List(from.toFile -> from.toFile.getName()), to.toFile, manifest)
+    IO.jar(from.map(f => f.toFile -> f.toFile.getName()), to.toFile, manifest)
 
   }
   val scalaMajorVersion = scalaVersion.value.split('.').take(2).mkString(".")
-  val from = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val setupClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val setupJarDependencyClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$JarDependency.class")
   val to = Paths.get("distrib/setup.jar")
   zipFile(
-    from,
+    List(setupClass, setupJarDependencyClass),
     to
   )
 }
