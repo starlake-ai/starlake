@@ -47,7 +47,7 @@ if "%~1"=="install" (
 goto :eof
 
 :launch_setup
-for /f tokens^=2-5^ delims^=.-_^" %%j in ('%RUNNER% -fullversion 2^>^&1') do set "javaVersion=%%j%%k%%l%%m"
+for /f tokens^=2-5^ delims^=.-_+^" %%j in ('"%RUNNER%" -fullversion 2^>^&1') do set "javaVersion=%%j%%k%%l%%m"
 
 :: Check if Java is installed
 if "%javaVersion%"=="" (
@@ -63,8 +63,8 @@ if "%javaVersion%" LSS "11000" (
 )
 
 set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
-curl -s -w -o %SCRIPT_DIR%setup.jar %setup_url%
-%RUNNER% -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
+curl -s -o %SCRIPT_DIR%setup.jar %setup_url%
+"%RUNNER%" -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
 goto :eof
 
 

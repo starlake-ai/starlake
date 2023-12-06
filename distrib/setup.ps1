@@ -92,13 +92,15 @@ function install_starlake {
 
 function add_starlake_to_path {
     param([string]$x)
-    $Env:Path+= ";" +  $x
-    Write-Output $Env:Path
-    $write = Read-Host 'Set PATH permanently ? (yes|no)'
-    if ($write -eq "yes")
-    {
-        [Environment]::SetEnvironmentVariable("Path",$env:Path, [System.EnvironmentVariableTarget]::User)
-        Write-Output 'PATH updated'
+    if (!($env:PATH -split ';' -contains $X)){
+        $Env:Path+= ";" +  $x
+        Write-Output $Env:Path
+        $write = Read-Host 'Set PATH permanently ? (yes|no)'
+        if ($write -eq "yes")
+        {
+            [Environment]::SetEnvironmentVariable("Path",$env:Path, [System.EnvironmentVariableTarget]::User)
+            Write-Output 'PATH updated'
+        }
     }
 }
 
