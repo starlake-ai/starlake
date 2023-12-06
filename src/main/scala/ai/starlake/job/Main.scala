@@ -328,6 +328,8 @@ class Main() extends StrictLogging {
         new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
       case "extract-data" =>
         new ExtractData(schemaHandler).run(args.drop(1))
+      case "extract-script" =>
+        new ExtractScript(schemaHandler).run(args.drop(1))
       case "bq-info" =>
         BigQueryTableInfo.run(args.drop(1))
       case "extract-bq-schema" =>
