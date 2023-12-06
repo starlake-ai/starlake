@@ -26,6 +26,7 @@ get_installation_directory() {
       read -p "Where do you want to install Starlake? [$HOME/starlake]: " INSTALL_DIR
       INSTALL_DIR=${INSTALL_DIR:-$HOME/starlake}
     fi
+    INSTALL_DIR=$(eval "echo $INSTALL_DIR")
     mkdir -p "$INSTALL_DIR"
 }
 

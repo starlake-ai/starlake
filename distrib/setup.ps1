@@ -13,6 +13,7 @@ function get_installation_directory {
     if ($INSTALL_DIR -eq "") {
         $INSTALL_DIR = "$HOME\starlake"
     }
+    $INSTALL_DIR = Invoke-Expression "Write-Output $INSTALL_DIR"
     New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
     $INSTALL_DIR
 }
@@ -54,8 +55,10 @@ function get_version_to_install {
 
     $VERSIONS = @($SNAPSHOT_VERSION) + $LATEST_RELEASE_VERSIONS
 
-    do {
-        Write-Host "Invalid version $VERSION. Please choose from the available versions."
+    while ($VERSION -notin $VERSIONS) {
+        if($version){
+            Write-Host "Invalid version $VERSION. Please choose from the available versions."
+        }
         Write-Host "Last 5 available versions:"
         foreach ($version in $VERSIONS) {
             Write-Host $version
@@ -64,7 +67,7 @@ function get_version_to_install {
         if ($VERSION -eq "") {
             $VERSION = $VERSIONS[0]
         }
-    } while ($VERSION -notin $VERSIONS)
+    }
 
     $VERSION
 }
