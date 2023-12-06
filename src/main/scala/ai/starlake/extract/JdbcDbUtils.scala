@@ -194,7 +194,7 @@ object JdbcDbUtils extends LazyLogging {
     */
   private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String],
+    connection: SQLConnection,
     table: String
   )(implicit
     settings: Settings
@@ -202,15 +202,13 @@ object JdbcDbUtils extends LazyLogging {
     jdbcSchema.tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting table remarks using $sql")
-      withJDBCConnection(connectionOptions) { connection =>
-        val statement = connection.createStatement()
-        val rs = statement.executeQuery(sql)
-        if (rs.next()) {
-          rs.getString(1)
-        } else {
-          logger.warn(s"Not table remark found for table $table")
-          ""
-        }
+      val statement = connection.createStatement()
+      val rs = statement.executeQuery(sql)
+      if (rs.next()) {
+        rs.getString(1)
+      } else {
+        logger.warn(s"Not table remark found for table $table")
+        ""
       }
     }
   }
@@ -277,8 +275,7 @@ object JdbcDbUtils extends LazyLogging {
   def extractJDBCTables(
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
-    skipRemarks: Boolean,
-    excludeTables: Seq[String] = Nil
+    skipRemarks: Boolean
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
@@ -295,7 +292,7 @@ object JdbcDbUtils extends LazyLogging {
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
       def extractTables(
         schemaName: String,
-        tablesToExtract: List[String] = Nil
+        tablePredicate: String => Boolean
       ): Map[String, String] = {
         val tableNames = mutable.Map.empty[String, String]
         Try {
@@ -310,10 +307,18 @@ object JdbcDbUtils extends LazyLogging {
             Using(resultSet) { resultSet =>
               while (resultSet.next()) {
                 val tableName = resultSet.getString("TABLE_NAME")
-                if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
+                if (tablePredicate(tableName)) {
                   val localRemarks =
                     if (skipRemarks) None
-                    else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
+                    else
+                      Try {
+                        extractTableRemarks(jdbcSchema, connection, tableName)
+                      } match {
+                        case Failure(exception) =>
+                          logger.warn(exception.getMessage, exception)
+                          None
+                        case Success(value) => value
+                      }
                   val remarks = localRemarks.getOrElse(resultSet.getString("REMARKS"))
                   tableNames += tableName -> remarks
                 }
@@ -331,13 +336,20 @@ object JdbcDbUtils extends LazyLogging {
         jdbcSchema.catalog,
         jdbcSchema.schema
       ).map { schemaName =>
-        val selectedTablesBeforeExclusion = uppercaseTableNames match {
+        val lowerCasedExcludeTables = jdbcSchema.exclude.map(_.toLowerCase)
+        def tablesInScopePredicate(tablesToExtract: List[String] = Nil) =
+          (tableName: String) => {
+            !lowerCasedExcludeTables.contains(
+              tableName.toLowerCase
+            ) && (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase()))
+          }
+        val selectedTables = uppercaseTableNames match {
           case Nil =>
-            extractTables(schemaName)
+            extractTables(schemaName, tablesInScopePredicate())
           case list if list.contains("*") =>
-            extractTables(schemaName)
+            extractTables(schemaName, tablesInScopePredicate())
           case list =>
-            val extractedTableNames = extractTables(schemaName, list)
+            val extractedTableNames = extractTables(schemaName, tablesInScopePredicate(list))
             val notExtractedTable = list.diff(
               extractedTableNames
                 .map { case (tableName, _) => tableName }
@@ -351,10 +363,6 @@ object JdbcDbUtils extends LazyLogging {
               )
             }
             extractedTableNames
-        }
-        val lowerCasedExcludeTables = excludeTables.map(_.toLowerCase)
-        val selectedTables = selectedTablesBeforeExclusion.filter { case (tableName, _) =>
-          !lowerCasedExcludeTables.contains(tableName.toLowerCase)
         }
         logger.whenDebugEnabled {
           selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
@@ -773,10 +781,9 @@ object JdbcDbUtils extends LazyLogging {
       implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(parallelism)
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
         JdbcDbUtils.extractJDBCTables(
-          filteredJdbcSchema,
+          filteredJdbcSchema.copy(exclude = excludeTables.toList),
           connectionOptions,
-          skipRemarks = true,
-          excludeTables
+          skipRemarks = true
         )
       val globalStart = System.currentTimeMillis()
       ExtractUtils.makeParallel(selectedTablesAndColumns).foreach {

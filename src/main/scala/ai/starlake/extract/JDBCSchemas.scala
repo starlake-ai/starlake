@@ -83,6 +83,7 @@ case class JDBCSchema(
   tableRemarks: Option[String] = None,
   columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
+  exclude: List[String] = Nil,
   tableTypes: List[String] = Nil,
   template: Option[String] = None,
   write: Option[WriteMode] = None,
