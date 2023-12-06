@@ -81,20 +81,22 @@ install_starlake() {
 
 
 add_starlake_to_path() {
-
-
     if [[ "$SHELL" == *zsh* ]] || [[ "$SHELL" == *bash* ]]; then
         if [[ "$SHELL" == *zsh* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.zshrc; then
                 echo  >> ~/.zshrc
-                echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.zshrc
+                if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+                    echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.zshrc
+                fi
             fi
             zsh ~/.zshrc
         fi
         if [[ "$SHELL" == *bash* ]]; then
             if ! grep -q "$INSTALL_DIR" ~/.bashrc; then
                  echo  >> ~/.bashrc
-                echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.bashrc
+                if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+                    echo "export PATH=$INSTALL_DIR:\$PATH" >> ~/.bashrc
+                fi
             fi
             source ~/.bashrc
         fi
