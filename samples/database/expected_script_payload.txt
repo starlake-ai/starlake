@@ -9,7 +9,7 @@ set markup csv on delimiter ","
 -- arret en echec en cas d'erreur sql
 whenever sqlerror exit 1;
 
--- recuperation du dossier de sortie
+-- recuperation du dossier de sortie
 define output_dir = &1;
 
 -- stockage du date time courant en string dans date_time_char
