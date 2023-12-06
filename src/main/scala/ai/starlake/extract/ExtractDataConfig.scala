@@ -89,7 +89,7 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .action((x, c) => c.copy(cleanOnExtract = true))
         .optional()
         .text("Clean all files of table only when it is extracted."),
-      opt[String]("output-dir")
+      opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
         .text("Where to output csv files"),

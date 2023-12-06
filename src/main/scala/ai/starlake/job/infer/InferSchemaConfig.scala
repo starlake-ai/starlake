@@ -54,7 +54,7 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
         .action((x, c) => c.copy(inputPath = x))
         .required()
         .text("Dataset Input Path"),
-      opt[String]("output-dir")
+      opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Domain YAML Output Path"),

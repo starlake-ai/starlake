@@ -65,7 +65,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
         .optional()
         .text("If true generate IAM PolicyTags YML"),
-      opt[String]("outputPath")
+      opt[String]("outputDir")
         .action((x, c) => c.copy(outputPath = Some(x)))
         .optional()
         .text(
