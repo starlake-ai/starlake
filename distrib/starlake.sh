@@ -43,8 +43,8 @@ get_binary_from_url() {
 }
 
 launch_setup() {
-  local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Setup.class
-  get_binary_from_url $setup_url "$SCRIPT_DIR/Setup.class"
+  local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
+  get_binary_from_url $setup_url "$SCRIPT_DIR/setup.jar"
 
   if [ -n "${JAVA_HOME}" ]; then
     RUNNER="${JAVA_HOME}/bin/java"
@@ -56,7 +56,7 @@ launch_setup() {
       exit 1
     fi
   fi
-  $RUNNER -cp "$SCRIPT_DIR" Setup "$SCRIPT_DIR"
+  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR"
 }
 
 launch_starlake() {
