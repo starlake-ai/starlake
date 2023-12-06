@@ -153,3 +153,4 @@ samples/any-source-any-sink/datasets
 distrib/deps
 project/project
 metals.sbt
+samples/starbake/site
