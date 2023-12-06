@@ -1,9 +1,9 @@
-import org.apache.logging.log4j.util.TriConsumer;
-
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 public class Setup {
 
@@ -182,7 +182,7 @@ public class Setup {
 
     private static void generateUnixVersions(File targetDir) throws IOException {
         generateVersions(targetDir, "#!/bin/bash\nset -e\n\n",
-                (writer, variableName, value) -> {
+                (writer) -> (variableName, value) -> {
                     try {
                         writer.write(variableName + "=" + "${" + variableName + ":-" + value + "}\n");
                     } catch (IOException e) {
@@ -193,7 +193,7 @@ public class Setup {
 
     private static void generateWindowsVersions(File targetDir) throws IOException {
         generateVersions(targetDir, "@ECHO OFF\n\n",
-                (writer, variableName, value) -> {
+                (writer) -> (variableName, value) -> {
                     try {
                         writer.write(
                                 "if \"%" + variableName + "%\"==\"\" (\n" +
@@ -205,42 +205,43 @@ public class Setup {
                 });
     }
 
-    private static void generateVersions(File targetDir, String fileHeader, TriConsumer<BufferedWriter, String, String> variableWriter) throws IOException {
+    // Used BiConsumer with Function because TriConsumer doesn't exist natively and avoid creating a new type
+    private static void generateVersions(File targetDir, String fileHeader, Function<BufferedWriter, BiConsumer<String, String>> variableWriter) throws IOException {
         String versionsFileName = isWindowsOs() ? "versions.cmd" : "version.sh";
         File versionFile = new File(targetDir, versionsFileName);
         deleteFile(versionFile);
         BufferedWriter writer = new BufferedWriter(new FileWriter(versionFile));
         try {
             writer.write(fileHeader);
-            variableWriter.accept(writer, "ENABLE_BIGQUERY", String.valueOf(ENABLE_BIGQUERY));
-            variableWriter.accept(writer, "ENABLE_AZURE", String.valueOf(ENABLE_AZURE));
-            variableWriter.accept(writer, "ENABLE_SNOWFLAKE", String.valueOf(ENABLE_SNOWFLAKE));
-            variableWriter.accept(writer, "ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
-            variableWriter.accept(writer, "ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
-            variableWriter.accept(writer, "SL_VERSION", SL_VERSION);
-            variableWriter.accept(writer, "SCALA_VERSION", SCALA_VERSION);
-            variableWriter.accept(writer, "SPARK_VERSION", SPARK_VERSION);
-            variableWriter.accept(writer, "HADOOP_VERSION", HADOOP_VERSION);
+            variableWriter.apply(writer).accept("ENABLE_BIGQUERY", String.valueOf(ENABLE_BIGQUERY));
+            variableWriter.apply(writer).accept("ENABLE_AZURE", String.valueOf(ENABLE_AZURE));
+            variableWriter.apply(writer).accept("ENABLE_SNOWFLAKE", String.valueOf(ENABLE_SNOWFLAKE));
+            variableWriter.apply(writer).accept("ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
+            variableWriter.apply(writer).accept("ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
+            variableWriter.apply(writer).accept("SL_VERSION", SL_VERSION);
+            variableWriter.apply(writer).accept("SCALA_VERSION", SCALA_VERSION);
+            variableWriter.apply(writer).accept("SPARK_VERSION", SPARK_VERSION);
+            variableWriter.apply(writer).accept("HADOOP_VERSION", HADOOP_VERSION);
             if (ENABLE_BIGQUERY || !anyDependencyEnabled()) {
-                variableWriter.accept(writer, "SPARK_BQ_VERSION", SPARK_BQ_VERSION);
+                variableWriter.apply(writer).accept("SPARK_BQ_VERSION", SPARK_BQ_VERSION);
             }
             if (ENABLE_AZURE || !anyDependencyEnabled()) {
-                variableWriter.accept(writer, "HADOOP_AZURE_VERSION", HADOOP_AZURE_VERSION);
-                variableWriter.accept(writer, "AZURE_STORAGE_VERSION", AZURE_STORAGE_VERSION);
-                variableWriter.accept(writer, "JETTY_VERSION", JETTY_VERSION);
+                variableWriter.apply(writer).accept("HADOOP_AZURE_VERSION", HADOOP_AZURE_VERSION);
+                variableWriter.apply(writer).accept("AZURE_STORAGE_VERSION", AZURE_STORAGE_VERSION);
+                variableWriter.apply(writer).accept("JETTY_VERSION", JETTY_VERSION);
             }
             if (ENABLE_SNOWFLAKE || !anyDependencyEnabled()) {
-                variableWriter.accept(writer, "SPARK_SNOWFLAKE_VERSION", SPARK_SNOWFLAKE_VERSION);
-                variableWriter.accept(writer, "SNOWFLAKE_JDBC_VERSION", SNOWFLAKE_JDBC_VERSION);
+                variableWriter.apply(writer).accept("SPARK_SNOWFLAKE_VERSION", SPARK_SNOWFLAKE_VERSION);
+                variableWriter.apply(writer).accept("SNOWFLAKE_JDBC_VERSION", SNOWFLAKE_JDBC_VERSION);
             }
             if (ENABLE_POSTGRESQL || !anyDependencyEnabled()) {
-                variableWriter.accept(writer, "POSTGRESQL_VERSION", POSTGRESQL_VERSION);
+                variableWriter.apply(writer).accept("POSTGRESQL_VERSION", POSTGRESQL_VERSION);
             }
             if (ENABLE_REDSHIFT || !anyDependencyEnabled()) {
-                variableWriter.accept(writer, "AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
-                variableWriter.accept(writer, "HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
-                variableWriter.accept(writer, "REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
-                variableWriter.accept(writer, "SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION);
+                variableWriter.apply(writer).accept("AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
+                variableWriter.apply(writer).accept("HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
+                variableWriter.apply(writer).accept("REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
+                variableWriter.apply(writer).accept("SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION);
             }
         } finally {
             writer.close();
