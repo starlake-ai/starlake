@@ -15,8 +15,17 @@ EOF
 }
 
 get_installation_directory() {
-    read -p "Where do you want to install Starlake? [$HOME/starlake]: " INSTALL_DIR
-    INSTALL_DIR=${INSTALL_DIR:-$HOME/starlake}
+    # Extract the version number from command-line arguments
+    for arg in "$@"; do
+        if [[ $arg == "--target="* ]]; then
+            INSTALL_DIR="${arg#*=}"
+        fi
+    done
+    if [[ -z "$INSTALL_DIR" ]]
+    then
+      read -p "Where do you want to install Starlake? [$HOME/starlake]: " INSTALL_DIR
+      INSTALL_DIR=${INSTALL_DIR:-$HOME/starlake}
+    fi
     mkdir -p "$INSTALL_DIR"
 }
 
@@ -54,15 +63,18 @@ get_version_to_install() {
     VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
     VERSIONS=$VERSIONS
 
-     while [[ ! "${VERSIONS[*]}" =~ (^|[[:space:]])"$VERSION"($|[[:space:]]) ]]; do
+    while [[ ! "${VERSIONS[*]}" =~ (^|[[:space:]])"$VERSION"($|[[:space:]]) ]]; do
+      if [[ -n "$VERSION" ]]
+      then
         echo "Invalid version $VERSION. Please choose from the available versions."
-        echo "Last 5 available versions:"
-        for version in "${VERSIONS[@]}"; do
-            echo "$version"
-        done
-        read -p "Which version do you want to install? [$(echo "$VERSIONS" | head -n 1)]: " VERSION
-        VERSION=${VERSION:-$(echo "$VERSIONS" | head -n 1)}
-     done
+      fi
+      echo "Last 5 available versions:"
+      for version in "${VERSIONS[@]}"; do
+          echo "$version"
+      done
+      read -p "Which version do you want to install? [$(echo "$VERSIONS" | head -n 1)]: " VERSION
+      VERSION=${VERSION:-$(echo "$VERSIONS" | head -n 1)}
+    done
 
 }
 
@@ -140,7 +152,7 @@ check_java_version() {
 main() {
     check_java_version
     print_starlake_ascii_art
-    get_installation_directory
+    get_installation_directory "$@"
     get_version_to_install "$@"
     install_starlake
     add_starlake_to_path

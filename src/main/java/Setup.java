@@ -253,7 +253,6 @@ public class Setup {
         if (isWindowsOs()) {
             generateWindowsVersions(targetDir);
         } else {
-            generateWindowsVersions(targetDir);
             generateUnixVersions(targetDir);
         }
 
