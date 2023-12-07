@@ -447,10 +447,10 @@ class ExtractSpec extends TestHelper {
         |
         |Objective: Extract data
         |
-        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output
+        |  starlake.sh extract-data --config my-config --outputDir $$PWD/output
         |
         |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --includeSchemas aSchema
+        |  starlake.sh extract-data --config my-config --outputDir $$PWD/output --includeSchemas aSchema
         |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
         |         --clean
         |
@@ -462,7 +462,7 @@ class ExtractSpec extends TestHelper {
           .getRuntime()
           .availableProcessors()}
         |  --clean                  Clean all files of table only when it is extracted.
-        |  --output-dir <value>     Where to output csv files
+        |  --outputDir <value>     Where to output csv files
         |  --incremental            Export only new data since last extraction.
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
@@ -487,7 +487,7 @@ class ExtractSpec extends TestHelper {
       """
         |Usage: starlake extract-schema [options]
         |  --config <value>        Database tables & connection info
-        |  --output-dir <value>    Where to output YML files
+        |  --outputDir <value>    Where to output YML files
         |  --parallelism <value>  parallelism level of the extraction process. By default equals to the available cores
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected

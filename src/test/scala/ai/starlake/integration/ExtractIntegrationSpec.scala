@@ -69,7 +69,7 @@ class ExtractIntegrationSpec extends TestHelper {
           "--clean",
           "--config",
           tmpYmlFile.pathAsString,
-          "--output-dir",
+          "--outputDir",
           tmpDir.pathAsString
         )
       )
@@ -135,7 +135,7 @@ class ExtractIntegrationSpec extends TestHelper {
         Array(
           "--config",
           tmpYmlFile.pathAsString,
-          "--output-dir",
+          "--outputDir",
           tmpDir.pathAsString
         )
       )

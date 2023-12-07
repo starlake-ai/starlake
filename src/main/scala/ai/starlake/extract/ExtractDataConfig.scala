@@ -58,10 +58,10 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
           |
           |Objective: Extract data
           |
-          |  starlake.sh extract-data --config my-config --output-dir $PWD/output
+          |  starlake.sh extract-data --config my-config --outputDir $PWD/output
           |
           |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
+          |  starlake.sh extract-data --config my-config --outputDir $PWD/output --includeSchemas aSchema
           |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
           |         --clean
           |
