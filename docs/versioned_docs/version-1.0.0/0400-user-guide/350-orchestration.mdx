@@ -7,23 +7,9 @@ import TabItem from '@theme/TabItem';
 Now that we have seen how to load and transform data, we will see how to orchestrate the tasks using the `starlake` command line tool.
 starlake is not an orchestration tool, but it can be used to generate your DAG based on templates and to run your transforms in the right order on your tools of choice for scheduling and monitoring batch oriented workflows.
 
-## Dag configuration
-You create DAG configuration files in the `metadata/dags` directory. The DAG configuration files are YAML files that define the DAG generation options and the DAG template to use.
-below is an example of a DAG configuration file:
 
-```yaml title="metadata/dags/sample.yml"
-dag:
-    comment: "sample dag configuration"
-    template: "sample.py.j2" # the template to use
-    filename: "{{schedule}}-{{domain}}.py" # the filename of the generated dag based on the schedule name and grouped by domain. You may use the following variables: schedule, domain, table
-    options: # the dag generation options. these options are passed in addition to the current env vars, to the template engine and may be used in the template to generate the dag
-        profileVar: "CLOUD_RUN_MEDIUM"
-        region: "europe-west1"
-        envVar: "SL_ENV"
-        jarFileUrisVar: "SL_JARS"
-```
-
-DAG templates (.j2 files) may be referenced using:
+## Data loading
+Templates may be defined in the following directories:
 - an absolute path name
 - a relative path name to the `metadata/dags/templates/` directory
 - a relative path name to the `src/main/resources/templates/dags/` resource directory
@@ -37,55 +23,8 @@ Below a few DAG templates available in the resource directory:
 `load/sensor_table_cloudrun_with_ack.py.j2`| This template executes individual cloud rub jobs upon ack file detection and requires the following dag generation options set: <br/> - SL_ROOT: The root project path <br/> - SL_STARLAKE_PATH: the path to the starlake executable |
 `load/single_scheduled_tasks_with_wait_sensor.py.j2` | This template executes individual cloud run upon file detection and requires the following dag generation options set: <br/> - SL_ROOT: The root project path <br/> - SL_STARLAKE_PATH: the path to the starlake executable |
 
-To create your own DAG template, you may use the following file as a startup. It shows how the context is made available to the template engine:
 
-```python title="src/main/resources/templates/dags/sample.py.j2"
-description='{{ context.config.comment }}'
-template='{{ context.config.template }}'
-
-
-options = {
-    {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
-    {% endfor %}
-}
-
-
-env = {
-    {% for variable in env %}'{{ variable.name }}':'{{ variable.value }}'{% if not loop.last  %}, {% endif %}
-    {% endfor %}
-}
-
-schedules= [{% for scheduleItem in context.schedules %}
-  'schedule':'{{ scheduleItem.schedule }}',
-  'cron':'{{ scheduleItem.cron }}',
-  'domains':[{% for domain in scheduleItem.domains %}
-    {
-      'name':'{{ domain.name }}',
-      'final_name':'{{ domain.finalName }}',
-      'tables': [{% for table in domain.tables %}
-          {
-            'name':'{{ table.name }}',
-            'final_name':'{{ table.finalName }}'
-          }{% if not loop.last  %},{% endif %}
-          {% endfor %}
-      ],
-    }{% if not loop.last  %},{% endif %}
-    {% endfor %}
-  ]
-{% endfor %}
-]
-
-
-# start the dag generation here
-...
-
-```
-
-
-
-## Data loading
-
-You may reference the DAG configuration at the following levels:
+You may define the DAG template at the following level:
 - at the project level: In the application configuration file `application.sl.yml` under the `dagRef.load` property. In this case the template will be used as the default template for all the tables in the project.
 - at the domain level: In the `_config.sl.yml` configuration file under the `metadata.dagRef` property. In this case the template will be used as the default template for all the tables in the domain.
 - at the table level: In the `tablename.sl.yml` configuration file under the `metadata.dagRef` property. In this case the template will be used for the table only.
@@ -102,19 +41,15 @@ In the same way, you may define DAG templates for the data transformation tasks.
 For transfmations, starlake may even generate a DAG for a transfmation task and all its dependencies.
 For example, looking at starbake project, we can generate the DAG for the `Products.TopSellingProducts` task and all its dependencies using the following command:
 
-
 ![](/img/quickstart/transform-viz.svg)
 
 
 ```bash
-$ starlake dag-generate # generate the DAG for all the load and transform tasks in the project in the metadata/dags/generated directory
+$ starlake generate-dag --tasks Products.TopSellingProducts --output dag.py
 ``` 
 
-The resulting DAG for `Products.TopSellingProducts` task above is shown below:
+The resulting DAG is shown below:
 
 ![](/img/quickstart/transform-dags.png)
 
-
-In transformations, you may reference your dag configuration using the dagRef attribute in the `_config.sl.yml` or `task.sl.yml` configuration files.
-In the application configuration file `application.sl.yml` under the `dagRef.transform` property. In this case the template will be used as the default template for all the tables in the project.
 
