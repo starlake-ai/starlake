@@ -113,7 +113,7 @@ You may extract the schema and the data from your database using the following c
 
 starlake.sh extract-schema  \
         --config myextract.sl.yml \
-        --output-dir $SL_ROOT/metadata/load
+        --outputDir $SL_ROOT/metadata/load
 
 ```
 
@@ -121,7 +121,7 @@ starlake.sh extract-schema  \
 
 starlake.sh extract-data  \
         --config myextract.sl.yml \ # the configuration file
-        --output-dir $SL_ROOT/extracted \ # (optional)  the directory where the data will be extracted
+        --outputDir $SL_ROOT/extracted \ # (optional)  the directory where the data will be extracted
         --limit 0 \ # (optional)  max  number of rows to extract, usefull for testing. 0 means no limit
         --numPartitions 4 \ # (optional)  the number of partitions to use to parallelize the extraction
         --clean
