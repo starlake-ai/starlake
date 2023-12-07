@@ -57,7 +57,7 @@ awk -v h2db="$PWD/H2SLDB" '{gsub("H2_DB", h2db)}1' connections-template.sl.yml >
 
 #SL_LIBS="--jars drivers/$H2_JAR"
 cp drivers/$H2_JAR ../../distrib/bin/spark/jars/
-../../distrib/starlake.sh extract-schema --config ddl2yml --output-dir $SL_ROOT/metadata/domains
+../../distrib/starlake.sh extract-schema --config ddl2yml --outputDir $SL_ROOT/metadata/domains
 
 H2PID=`ps -ef | grep "[t]cpPort $H2_PORT" | awk '{print $2}'`
 
