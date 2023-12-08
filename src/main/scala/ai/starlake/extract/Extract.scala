@@ -19,6 +19,6 @@ abstract class Extract {
     }
   }
   protected def outputDir(outputDir: Option[String])(implicit settings: Settings): File =
-    File(outputDir.getOrElse(DatasetArea.extract.toString))
+    File(outputDir.getOrElse(DatasetArea.load.toString))
 
 }
