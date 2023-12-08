@@ -96,7 +96,7 @@ class sparkJdbcLoader(
             conn,
             cliConfig.outputDomainAndTableName,
             schema,
-            false,
+            caseSensitive = false,
             optionsWrite
           )
         }

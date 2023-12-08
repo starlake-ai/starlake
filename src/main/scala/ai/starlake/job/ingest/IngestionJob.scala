@@ -207,8 +207,11 @@ trait IngestionJob extends SparkJob {
       connectionRef = Some(mergedMetadata.getConnectionRef()),
       outputDatabase = schemaHandler.getDatabase(domain)
     )
-    def bqNativeJob(sql: String)(implicit settings: Settings) =
+
+    def bqNativeJob(sql: String)(implicit settings: Settings) = {
       new BigQueryNativeJob(bqConfig, sql)
+    }
+
     schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
       mergedMetadata.getEngine() match {
@@ -266,7 +269,55 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def runJDBC(): Try[JdbcJobResult] = ???
+  def runJDBC(): Try[JobResult] = {
+    session.sparkContext.setLocalProperty(
+      "spark.scheduler.pool",
+      settings.appConfig.scheduling.poolName
+    )
+    val jobResult = domain.checkValidity(schemaHandler) match {
+      case Left(errors) =>
+        val errs = errors.map(_.toString()).reduce { (errs, err) =>
+          errs + "\n" + err
+        }
+        Failure(throw new Exception(s"-- Domain $name --\n" + errs))
+      case Right(_) =>
+        val start = Timestamp.from(Instant.now())
+        runPreSql()
+        val dataset = loadDataSet()
+        dataset match {
+          case Success(dataset) =>
+            Try {
+              val tempTableName = SQLUtils.temporaryTableName(schema.finalName)
+              val connectionRef = mergedMetadata.getConnectionRef()
+              val connection = settings.appConfig.connections(connectionRef)
+              val connectionRefOptions = connection.options
+
+              val jdbcConnectionLoadConfig = JdbcConnectionLoadConfig(
+                sourceFile = Right(dataset),
+                outputDomainAndTableName = domain.finalName + "." + tempTableName,
+                createDisposition = CreateDisposition.CREATE_IF_NEEDED,
+                writeDisposition = WriteDisposition.WRITE_TRUNCATE,
+                format = "jdbc",
+                options = connectionRefOptions
+              )
+              val jdbcJob = new sparkJdbcLoader(jdbcConnectionLoadConfig)
+              jdbcJob.run()
+            } match {
+              case Failure(exception) =>
+                logLoadFailureInAudit(start, exception)
+              case Success(result) =>
+                result
+            }
+
+          case Failure(exception) =>
+            logLoadFailureInAudit(start, exception)
+        }
+    }
+    // After each ingestionjob we explicitely clear the spark cache
+    session.catalog.clearCache()
+    jobResult
+
+  }
 
   ///////////////////////////////////////////////////////////////////////////
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
@@ -835,7 +886,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def logLoadFailureInAudit[T](start: Timestamp, exception: Throwable): Try[T] = {
+  private def logLoadFailureInAudit(start: Timestamp, exception: Throwable): Failure[Nothing] = {
     val end = Timestamp.from(Instant.now())
     val err = Utils.exceptionAsString(exception)
     val log = AuditLog(

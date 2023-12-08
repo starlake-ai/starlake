@@ -59,7 +59,7 @@ application:
 ## Validation
 During ingestion, the input file is validated up to the attribute level. Three default row validators are defined:
 
-- ai.starlake.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Position and single level Json files.
+- ai.starlake.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Fixed width and single level Json files.
 - ai.starlake.job.validator.TreeRowValidator:  used for tree like documents, eq. XML and JSON files
 - ai.starlake.job.validator.AcceptAllValidator: used for any document type (flat and tree like) and accept the input without any validation
 

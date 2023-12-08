@@ -70,7 +70,7 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
     writeDisposition: WriteDisposition, // = WriteDisposition.WRITE_APPEND,
     createTableIfAbsent: Boolean = true
   )(implicit settings: Settings): JdbcConnectionLoadConfig = {
-    // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
+    // TODO: wanted to just call this "apply" but we need to get rid of the defaults in the ctor above
 
     val starlakeConnection = comet.connections(connectionRef)
     val jdbcEngineName = starlakeConnection.getJdbcEngineName()

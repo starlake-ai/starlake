@@ -17,7 +17,6 @@ Generate site
 
 Parameter|Cardinality|Description
 ---|---|---
---output-path:`<value>`|*Optional*|Output path
---template-name:`<value>`|*Optional*|Template to use. See templates/site/ folder for available templates
---template-path:`<value>`|*Optional*|Custom template path to use. See templates/site/ folder for folder structure
+--outputDir:`<value>`|*Optional*|Output Directory
+--template:`<value>`|*Required*|Template name or template path to use
 

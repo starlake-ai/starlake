@@ -109,7 +109,7 @@ const config = {
                     'aria-label': 'GitHub repository',
                 },
                 {
-                    href: 'https://starlakeai.slack.com',
+                    href: 'https://join.slack.com/t/starlakeai/shared_invite/zt-28vf5d49s-rnyuh70OrJjcX_2Vz2mafw',
                     position: 'right',
                     className: 'header-slack-link header-icon-link',
                     'aria-label': 'Community',
@@ -137,7 +137,7 @@ const config = {
                     items: [
                         {
                             html: `
-<ul class="footer_right"><li><a href="https://github.com/starlake-ai/starlake" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-github-link header-icon-link" aria-label="GitHub repository"></a></li><li><a href="https://starlakeai.slack.com" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-slack-link header-icon-link" aria-label="Community"></a></li></ul>
+<ul class="footer_right"><li><a href="https://github.com/starlake-ai/starlake" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-github-link header-icon-link" aria-label="GitHub repository"></a></li><li><a href="https://join.slack.com/t/starlakeai/shared_invite/zt-28vf5d49s-rnyuh70OrJjcX_2Vz2mafw" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-slack-link header-icon-link" aria-label="Community"></a></li></ul>
 `,
                         },
                     ]

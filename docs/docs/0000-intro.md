@@ -135,7 +135,7 @@ Starlake may be used indistinctly for all or any of these steps.
 The Load and Transform steps support multiple configurations for inputs and outputs as illustrated in the
 figure below. 
 
-![Anywhere](/img/guide/anywhere.png "Anywhere")
+![Anywhere](/img/data-star.png "Anywhere")
 
 Starlake Data Pipeline steps are described below:
 
