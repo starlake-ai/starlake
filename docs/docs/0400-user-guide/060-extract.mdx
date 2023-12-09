@@ -128,6 +128,14 @@ starlake.sh extract-data  \
 
 ```
 
+```bash title="Extract the data (incremental)"
+
+$ starlake.sh extract           \
+        --config config.sl.yml  \
+        --outputDir $SL_ROOT
+
+```
+
 :::note
 
 The next time you try to export the data, you may notice that nothing will be exported. 
@@ -138,3 +146,5 @@ You may limit the extraction record not yet exported by using the `--incremental
 :::
 
 You may now use the extracted data in the next step or simply use the `customers` data already present in the sample-data folder.
+
+
