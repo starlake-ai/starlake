@@ -45,9 +45,12 @@ object SingleUserMainServer {
         "" // makes the compiler happy
       case "version" => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
       case "reload" =>
-        if (args.last == "unset")
+        if (args.last == "unset") {
           autoReload = false
-        else {
+          SingleUserMainServer.mapper.writeValueAsString(
+            Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
+          )
+        } else {
           if (args.last == "set") {
             autoReload = true
           }
