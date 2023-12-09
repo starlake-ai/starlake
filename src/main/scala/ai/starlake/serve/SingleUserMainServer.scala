@@ -45,11 +45,14 @@ object SingleUserMainServer {
         "" // makes the compiler happy
       case "version" => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
       case "reload" =>
-        if (args.last == "set") {
-          autoReload = true
-        } else if (args.last == "unset")
+        if (args.last == "unset")
           autoReload = false
-        SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.reset(reload)(settings))
+        else {
+          if (args.last == "set") {
+            autoReload = true
+          }
+          SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.reset(reload)(settings))
+        }
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.domains(reload)(settings))
