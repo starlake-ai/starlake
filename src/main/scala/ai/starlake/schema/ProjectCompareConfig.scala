@@ -40,5 +40,5 @@ object ProjectCompareConfig extends CliConfig[ProjectCompareConfig] {
   }
 
   def parse(args: Seq[String]): Option[ProjectCompareConfig] =
-    OParser.parse(parser, args, ProjectCompareConfig())
+    OParser.parse(parser, args, ProjectCompareConfig(), setup)
 }

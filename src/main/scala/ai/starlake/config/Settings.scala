@@ -389,6 +389,11 @@ object Settings extends StrictLogging {
     }
   }
 
+  final case class Http(
+    interface: String,
+    port: Int
+  )
+
   final case class Lock(
     path: String,
     timeout: Long,
@@ -556,7 +561,8 @@ object Settings extends StrictLogging {
     autoExportSchema: Boolean,
     longJobTimeoutMs: Long,
     shortJobTimeoutMs: Long,
-    createSchemaIfNotExists: Boolean
+    createSchemaIfNotExists: Boolean,
+    http: Http
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 

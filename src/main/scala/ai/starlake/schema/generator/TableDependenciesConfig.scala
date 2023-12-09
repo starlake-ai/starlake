@@ -82,5 +82,5 @@ object TableDependenciesConfig extends CliConfig[TableDependenciesConfig] {
     *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[TableDependenciesConfig] =
-    OParser.parse(parser, args, TableDependenciesConfig())
+    OParser.parse(parser, args, TableDependenciesConfig(), setup)
 }

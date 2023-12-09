@@ -193,7 +193,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
     val config =
       BigQueryTablesConfig
         .parse(args)
-        .getOrElse(throw new Exception("Could not parse arguments"))
+        .getOrElse(throw new IllegalArgumentException(BigQueryTablesConfig.usage()))
     freshness(config, schemaHandler)
   }
 }

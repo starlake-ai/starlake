@@ -117,7 +117,7 @@ object ExtractBigQuerySchema {
     val config =
       BigQueryTablesConfig
         .parse(args.toSeq)
-        .getOrElse(throw new Exception("Could not parse arguments"))
+        .getOrElse(throw new IllegalArgumentException(BigQueryTablesConfig.usage()))
     if (config.external) {
       val externalSources = schemaHandler.externalSources()
       val externalDomains = extractExternalDatasets(externalSources)

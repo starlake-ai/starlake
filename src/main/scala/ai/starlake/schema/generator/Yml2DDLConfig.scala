@@ -87,5 +87,5 @@ object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
     *   Option of case class InferDDLConfig.
     */
   def parse(args: Seq[String]): Option[Yml2DDLConfig] =
-    OParser.parse(parser, args, Yml2DDLConfig())
+    OParser.parse(parser, args, Yml2DDLConfig(), setup)
 }

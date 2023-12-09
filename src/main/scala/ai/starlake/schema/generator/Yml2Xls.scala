@@ -18,6 +18,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       case Some(config) =>
         generateXls(config.domains, config.xlsDirectory)
       case _ =>
+        throw new IllegalArgumentException(Yml2XlsConfig.usage())
     }
   }
 

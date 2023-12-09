@@ -128,6 +128,7 @@ launch_starlake() {
   fi
 }
 
+
 case "$1" in
   install)
     launch_setup
@@ -135,7 +136,34 @@ case "$1" in
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
     ;;
-  *)
+  serve)
     launch_starlake "$@"
+    ;;
+  *)
+    if [[ -z "$SL_HTTP_PORT" ]]
+    then
+      launch_starlake "$@"
+    else
+      SL_HTTP_HOST=${SL_HTTP_HOST:-127.0.0.1}
+      SL_SERVE_URI=http://$SL_HTTP_HOST:$SL_HTTP_PORT
+      for value in validation run transform compile
+      do
+        log=$SL_ROOT/out/$value.log
+        if [[ -f $log ]]
+        then
+          rm -f $log
+        fi
+      done
+      curl  "$SL_SERVE_URI?ROOT=$SL_ROOT&PARAMS=$@"
+      for value in validation run transform compile
+      do
+        log=$SL_ROOT/out/$value.log
+        if [[ -f $log ]]
+        then
+          cat  $log
+        fi
+      done
+
+    fi
     ;;
 esac

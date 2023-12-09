@@ -41,6 +41,6 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
     *   : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[MetricsConfig] = {
-    OParser.parse(parser, args, MetricsConfig())
+    OParser.parse(parser, args, MetricsConfig(), setup)
   }
 }

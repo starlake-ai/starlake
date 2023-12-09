@@ -24,6 +24,6 @@ object ValidateConfig extends CliConfig[ValidateConfig] {
   }
 
   override def parse(args: Seq[String]): Option[ValidateConfig] =
-    OParser.parse(parser, args, ValidateConfig())
+    OParser.parse(parser, args, ValidateConfig(), setup)
 
 }

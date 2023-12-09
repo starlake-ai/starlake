@@ -31,7 +31,7 @@ object SiteConfig extends CliConfig[SiteConfig] {
   }
 
   def parse(args: Seq[String]): Option[SiteConfig] =
-    OParser.parse(parser, args, SiteConfig())
+    OParser.parse(parser, args, SiteConfig(), setup)
 
   val TABLE_TEMPLATE = "table"
   val TASK_TEMPLATE = "task"

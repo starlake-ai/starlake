@@ -67,5 +67,5 @@ object DagGenerateConfig extends CliConfig[DagGenerateConfig] {
     *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[DagGenerateConfig] =
-    OParser.parse(parser, args, DagGenerateConfig())
+    OParser.parse(parser, args, DagGenerateConfig(), setup)
 }

@@ -5,6 +5,8 @@ import ai.starlake.job.Main
 import ai.starlake.schema.handlers.{DomainWithNameOnly, SchemaHandler}
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Type}
 
+import scala.util.Try
+
 object SingleUserServices {
   val core = new Main()
   var schemaHandler: SchemaHandler = null
@@ -17,7 +19,7 @@ object SingleUserServices {
 
   def reset(reload: Boolean)(implicit settings: Settings): String = {
     val result = SingleUserMainServer.mapper.writeValueAsString(SettingsManager.reset())
-    external(reload)
+    // external(reload)
     result
   }
 
@@ -37,7 +39,7 @@ object SingleUserServices {
     getSchemaHandler(reload = false).getObjectNames()
   }
 
-  def core(args: Array[String], reload: Boolean)(implicit settings: Settings): Unit = {
+  def core(args: Array[String], reload: Boolean)(implicit settings: Settings): Try[Any] = {
     core.run(args, getSchemaHandler(reload))(settings)
   }
 

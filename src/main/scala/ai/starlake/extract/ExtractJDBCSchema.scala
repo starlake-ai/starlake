@@ -21,7 +21,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       case Some(config) =>
         run(config)
       case None =>
-        throw new Exception(s"Could not parse arguments ${args.mkString(" ")}")
+        throw new IllegalArgumentException(ExtractSchemaConfig.usage())
     }
   }
 

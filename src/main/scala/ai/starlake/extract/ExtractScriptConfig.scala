@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
-import better.files.File
 import ai.starlake.utils.CliConfig
+import better.files.File
 import scopt.OParser
 
 case class ExtractScriptConfig(
@@ -88,5 +88,5 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
     *   : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[ExtractScriptConfig] =
-    OParser.parse(parser, args, ExtractScriptConfig())
+    OParser.parse(parser, args, ExtractScriptConfig(), setup)
 }

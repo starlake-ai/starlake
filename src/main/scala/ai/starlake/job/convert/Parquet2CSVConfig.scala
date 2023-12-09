@@ -84,5 +84,5 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
 
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[Parquet2CSVConfig] =
-    OParser.parse(parser, args, Parquet2CSVConfig())
+    OParser.parse(parser, args, Parquet2CSVConfig(), setup)
 }

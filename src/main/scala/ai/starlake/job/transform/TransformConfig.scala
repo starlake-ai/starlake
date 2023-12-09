@@ -58,6 +58,7 @@ object TransformConfig extends CliConfig[TransformConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[TransformConfig] =
-    OParser.parse(parser, args, TransformConfig())
+  def parse(args: Seq[String]): Option[TransformConfig] = {
+    OParser.parse(parser, args, TransformConfig(), setup)
+  }
 }

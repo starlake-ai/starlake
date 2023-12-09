@@ -90,5 +90,5 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
     *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[Xls2YmlConfig] =
-    OParser.parse(parser, args, Xls2YmlConfig())
+    OParser.parse(parser, args, Xls2YmlConfig(), setup)
 }

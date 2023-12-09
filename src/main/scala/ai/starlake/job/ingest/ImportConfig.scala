@@ -41,5 +41,6 @@ object ImportConfig extends CliConfig[ImportConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[ImportConfig] = OParser.parse(parser, args, ImportConfig())
+  def parse(args: Seq[String]): Option[ImportConfig] =
+    OParser.parse(parser, args, ImportConfig(), setup)
 }

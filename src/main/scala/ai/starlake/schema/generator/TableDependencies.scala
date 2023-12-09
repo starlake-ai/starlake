@@ -46,6 +46,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(config) =>
         relationsAsDotFile(config)
       case _ =>
+        throw new IllegalArgumentException(TableDependenciesConfig.usage())
     }
   }
 

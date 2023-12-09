@@ -77,5 +77,5 @@ object AclDependenciesConfig extends CliConfig[AclDependenciesConfig] {
     *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[AclDependenciesConfig] =
-    OParser.parse(parser, args, AclDependenciesConfig())
+    OParser.parse(parser, args, AclDependenciesConfig(), setup)
 }

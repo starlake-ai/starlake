@@ -66,5 +66,5 @@ object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
   }
 
   def parse(args: Seq[String]): Option[BigQueryTablesConfig] =
-    OParser.parse(parser, args, BigQueryTablesConfig())
+    OParser.parse(parser, args, BigQueryTablesConfig(), setup)
 }
