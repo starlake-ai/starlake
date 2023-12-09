@@ -13,6 +13,7 @@ object ProjectCompare {
       case Some(config) =>
         compare(config)
       case None =>
+        throw new IllegalArgumentException(ProjectCompareConfig.usage())
     }
   }
 

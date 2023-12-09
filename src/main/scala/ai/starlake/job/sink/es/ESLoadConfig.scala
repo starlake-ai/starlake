@@ -115,5 +115,5 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
   }
 
   def parse(args: Seq[String]): Option[ESLoadConfig] =
-    OParser.parse(parser, args, ESLoadConfig())
+    OParser.parse(parser, args, ESLoadConfig(), setup)
 }

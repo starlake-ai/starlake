@@ -29,6 +29,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(config) =>
         aclsAsDotFile(config)
       case _ =>
+        throw new IllegalArgumentException(AclDependenciesConfig.usage())
     }
   }
 

@@ -19,6 +19,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(config) =>
         generateDomainDags(config)
       case _ =>
+        throw new IllegalArgumentException(DagGenerateConfig.usage())
     }
   }
 

@@ -79,5 +79,5 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
     *   Option of case class InferSchemaConfig.
     */
   def parse(args: Seq[String]): Option[InferSchemaConfig] =
-    OParser.parse(parser, args, InferSchemaConfig())
+    OParser.parse(parser, args, InferSchemaConfig(), setup)
 }

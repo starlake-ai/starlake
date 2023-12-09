@@ -157,5 +157,5 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
 
   // comet kafkaload  --topic xxx
   def parse(args: Seq[String]): Option[KafkaJobConfig] =
-    OParser.parse(parser, args, KafkaJobConfig())
+    OParser.parse(parser, args, KafkaJobConfig(), setup)
 }

@@ -139,7 +139,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
       case Some(config) =>
         run(config)
       case _ =>
-        throw new Exception(s"Could not parse arguments ${args.mkString(" ")}")
+        throw new IllegalArgumentException(ExtractScriptConfig.usage())
 
     }
   }

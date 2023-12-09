@@ -67,6 +67,6 @@ object IngestConfig extends CliConfig[IngestConfig] {
   }
 
   def parse(args: Seq[String]): Option[IngestConfig] = {
-    OParser.parse(parser, args, IngestConfig())
+    OParser.parse(parser, args, IngestConfig(), setup)
   }
 }

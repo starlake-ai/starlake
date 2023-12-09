@@ -21,6 +21,8 @@ import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.scalalogging.StrictLogging
 
+import java.io.ByteArrayOutputStream
+import java.lang.IllegalArgumentException
 import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
@@ -145,10 +147,47 @@ class Main() extends StrictLogging {
     }
 
     val schemaHandler = new SchemaHandler(storageHandler(), cliEnv)
-    run(args, schemaHandler)
+    val executedCommand = argList.mkString(" ")
+    logger.info(s"Running Starlake $executedCommand")
+    val errCapture = new ByteArrayOutputStream()
+    Console.withErr(errCapture) {
+      val result = run(args, schemaHandler)
+      // We raise an exception only on command failure not on parse args failure
+      result match {
+        case Failure(e: IllegalArgumentException) =>
+          // scalastyle:off println
+          val errMessage = s"""
+             |--------------------------------------------------
+             |${errCapture.toString().trim}
+             |--------------------------------------------------
+             |${e.getMessage}""".stripMargin
+
+          System.err.print(errMessage)
+          if (settings.appConfig.forceHalt) {
+            Runtime.getRuntime().halt(1)
+          }
+
+        case Failure(exception) =>
+          val message = s"""Starlake failed to execute command with args $executedCommand"""
+          Utils.logException(logger, exception)
+          if (settings.appConfig.forceHalt) {
+            Runtime.getRuntime().halt(1)
+          } else {
+            throw exception
+          }
+        case Success(_) =>
+          logger.info(s"Successfully $executedCommand")
+          if (settings.appConfig.forceHalt) {
+            Runtime.getRuntime().halt(0)
+          }
+      }
+    }
+
   }
 
-  def run(args: Array[String], schemaHandler: SchemaHandler)(implicit settings: Settings): Unit = {
+  def run(args: Array[String], schemaHandler: SchemaHandler)(implicit
+    settings: Settings
+  ): Try[Any] = {
     import settings.storageHandler
 
     // handle non existing project commands
@@ -172,8 +211,6 @@ class Main() extends StrictLogging {
     val workflow =
       new IngestionWorkflow(storageHandler(), schemaHandler)
 
-    val executedCommand = argList.mkString(" ")
-    logger.info(s"Running Starlake $executedCommand")
     val result: Try[Any] = argList.head match {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
@@ -183,14 +220,14 @@ class Main() extends StrictLogging {
             } else
               workflow.autoJob(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(TransformConfig.usage()))
         }
       case "import" =>
         ImportConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadLanding(config)
           case None =>
-            Success(())
+            Failure(new IllegalArgumentException(ImportConfig.usage()))
         }
       case "validate" =>
         ValidateConfig.parse(args.drop(1)) match {
@@ -213,21 +250,21 @@ class Main() extends StrictLogging {
             }
             errorsAndWarning
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(ValidateConfig.usage()))
         }
       case "load" =>
         LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(LoadConfig.usage()))
         }
       case "ingest" =>
         IngestConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.load(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(IngestConfig.usage()))
         }
 
       case "index" | "esload" =>
@@ -236,7 +273,7 @@ class Main() extends StrictLogging {
             // do something
             workflow.esLoad(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(ESLoadConfig.usage()))
         }
 
       case "kafkaload" =>
@@ -244,7 +281,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.kafkaload(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(KafkaJobConfig.usage()))
         }
 
       case "cnxload" =>
@@ -252,7 +289,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.jdbcload(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(JdbcConnectionLoadConfig.usage()))
         }
 
       case "infer-ddl" =>
@@ -260,21 +297,21 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.inferDDL(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(Yml2DDLConfig.usage()))
         }
       case "infer-schema" =>
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.inferSchema(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(InferSchemaConfig.usage()))
         }
       case "metrics" =>
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.metric(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(MetricsConfig.usage()))
         }
 
       case "parquet2csv" =>
@@ -282,7 +319,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             new Parquet2CSV(config, storageHandler()).run()
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(Parquet2CSVConfig.usage()))
         }
 
       case "site" =>
@@ -290,7 +327,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             new SiteHandler(config, schemaHandler).run()
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(SiteConfig.usage()))
         }
 
       case "secure" =>
@@ -298,7 +335,7 @@ class Main() extends StrictLogging {
           case Some(config) =>
             workflow.secure(config)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(LoadConfig.usage()))
         }
 
       case "iam-policies" =>
@@ -322,8 +359,11 @@ class Main() extends StrictLogging {
           case Some(config) =>
             new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)
           case None =>
-            Success(())
+            Failure(new IllegalArgumentException(AutoTaskDependenciesConfig.usage()))
         }
+      case "extract" =>
+        new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
+        new ExtractData(schemaHandler).run(args.drop(1))
       case "extract-schema" =>
         new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
       case "extract-data" =>
@@ -354,32 +394,19 @@ class Main() extends StrictLogging {
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            SingleUserMainServer.serve(config)
+            val host = config.host.getOrElse(settings.appConfig.http.interface)
+            val port = config.port.getOrElse(settings.appConfig.http.port)
+            SingleUserMainServer.serve(host, port)
           case _ =>
-            Success(())
+            Failure(new IllegalArgumentException(MainServerConfig.usage()))
         }
       case "dag-generate" =>
         new DagGenerateCommand(schemaHandler).run(args.drop(1))
 
       case command =>
         printUsage(command)
-        Success(())
+        Failure(new IllegalArgumentException(s"Unknown command $command"))
     }
-    // We raise an exception only on command failure not on parse args failure
-    result match {
-      case Failure(exception) =>
-        val message = s"""Starlake failed to execute command with args ${args.mkString(",")}"""
-        Utils.logException(logger, exception)
-        if (settings.appConfig.forceHalt) {
-          Runtime.getRuntime().halt(1)
-        } else {
-          throw exception
-        }
-      case Success(_) =>
-        logger.info(s"Successfully $executedCommand")
-        if (settings.appConfig.forceHalt) {
-          Runtime.getRuntime().halt(0)
-        }
-    }
+    result
   }
 }

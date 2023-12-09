@@ -171,7 +171,9 @@ object BigQueryTableInfo extends StrictLogging {
   def run(args: Array[String]): Try[Unit] = Try {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
     val config =
-      BigQueryTablesConfig.parse(args).getOrElse(throw new Exception("Could not parse arguments"))
+      BigQueryTablesConfig
+        .parse(args)
+        .getOrElse(throw new IllegalArgumentException(BigQueryTablesConfig.usage()))
     sink(config)
   }
 }

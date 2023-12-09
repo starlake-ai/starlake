@@ -81,5 +81,5 @@ object AutoTaskDependenciesConfig extends CliConfig[AutoTaskDependenciesConfig] 
     *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[AutoTaskDependenciesConfig] =
-    OParser.parse(parser, args, AutoTaskDependenciesConfig())
+    OParser.parse(parser, args, AutoTaskDependenciesConfig(), setup)
 }

@@ -135,5 +135,5 @@ object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
   // comet bqload  --source_file xxx --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   //               --partitions 1  --batch_size 1000 --user username --password pwd -- url jdbcurl
   def parse(args: Seq[String]): Option[JdbcConnectionLoadConfig] =
-    OParser.parse(parser, args, JdbcConnectionLoadConfig())
+    OParser.parse(parser, args, JdbcConnectionLoadConfig(), setup)
 }

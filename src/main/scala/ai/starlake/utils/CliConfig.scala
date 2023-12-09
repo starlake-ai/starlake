@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import better.files.File
 import org.fusesource.scalate.TemplateEngine
-import scopt.{OParser, OptionDef}
+import scopt.{DefaultOParserSetup, OParser, OParserSetup, OptionDef}
 
 trait CommandConfig {
   def command: String
@@ -15,6 +15,10 @@ trait CliConfig[T] extends CommandConfig {
   def parse(args: Seq[String]): Option[T]
   val engine: TemplateEngine = new TemplateEngine
   def command: String
+
+  val setup: OParserSetup = new DefaultOParserSetup {
+    override def showUsageOnError: Option[Boolean] = Some(false)
+  }
 
   def markdown(pageIndex: Int): String = {
     val optionDefs = parser.toList

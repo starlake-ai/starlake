@@ -41,5 +41,5 @@ object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
     *   Option of case class JDBC2YmlConfig.
     */
   def parse(args: Seq[String]): Option[ExtractSchemaConfig] =
-    OParser.parse(parser, args, ExtractSchemaConfig())
+    OParser.parse(parser, args, ExtractSchemaConfig(), setup)
 }
