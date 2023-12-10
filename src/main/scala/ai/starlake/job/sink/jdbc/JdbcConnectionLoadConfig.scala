@@ -2,7 +2,7 @@ package ai.starlake.job.sink.jdbc
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{ConnectionType, RowLevelSecurity}
-import ai.starlake.utils.CliConfig
+import ai.starlake.utils.{CliConfig, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -19,7 +19,20 @@ case class JdbcConnectionLoadConfig(
   format: String = "jdbc",
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None
-)
+) {
+  override def toString: String = {
+    val redactedOptions = Utils.redact(options)
+    s"""JdbcConnectionLoadConfig(
+       |  sourceFile: $sourceFile,
+       |  outputDomainAndTableName: $outputDomainAndTableName,
+       |  createDisposition: $createDisposition,
+       |  writeDisposition: $writeDisposition,
+       |  format: $format,
+       |  options: $redactedOptions,
+       |  rls: $rls
+       |)""".stripMargin
+  }
+}
 
 object JdbcConnectionLoadConfig extends CliConfig[JdbcConnectionLoadConfig] {
   val command = "cnxload"

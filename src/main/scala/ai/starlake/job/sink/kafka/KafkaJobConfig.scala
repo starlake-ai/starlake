@@ -1,6 +1,6 @@
 package ai.starlake.job.sink.kafka
 
-import ai.starlake.utils.CliConfig
+import ai.starlake.utils.{CliConfig, Utils}
 import org.apache.spark.sql.SaveMode
 import scopt.OParser
 
@@ -28,7 +28,31 @@ case class KafkaJobConfig(
   streamingTriggerOption: String = "10 seconds",
   streamingWritePartitionBy: Seq[String] = Nil,
   streamingWriteToTable: Boolean = false
-)
+) {
+  override def toString: String = {
+    s"""
+       |KafkaJobConfig(
+       |  connectionRef: $connectionRef,
+       |  topicConfigName: $topicConfigName,
+       |  format: $format,
+       |  path: $path,
+       |  options: ${Utils.redact(options)},
+       |  transform: $transform,
+       |  writeTopicConfigName: $writeTopicConfigName,
+       |  writeOptions: ${Utils.redact(writeOptions)},
+       |  writeMode: $writeMode,
+       |  writeFormat: $writeFormat,
+       |  writePath: $writePath,
+       |  coalesce: $coalesce,
+       |  streaming: $streaming,
+       |  streamingTrigger: $streamingTrigger,
+       |  streamingTriggerOption: $streamingTriggerOption,
+       |  streamingWritePartitionBy: $streamingWritePartitionBy,
+       |  streamingWriteToTable: $streamingWriteToTable
+       |)
+       |""".stripMargin
+  }
+}
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
   val command = "kafkaload"
