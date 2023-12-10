@@ -2,6 +2,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.Ref.anyRefPattern
+import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonCreator
 
 import java.util.regex.Pattern
@@ -165,4 +166,8 @@ case class Env(
   @JsonCreator
   def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
 
+  override def toString: String = {
+    val redactEnv = Utils.redact(env)
+    s"Env($redactEnv)"
+  }
 }

@@ -160,6 +160,17 @@ object Settings extends StrictLogging {
     separator: Option[String] = None,
     options: Map[String, String] = Map.empty
   ) {
+    override def toString: String = {
+      val redactOptions = Utils.redact(options)
+      s"""Connection(
+         |    type=${`type`},
+         |    sparkFormat=$sparkFormat,
+         |    quote=$quote,
+         |    separator=$separator,
+         |    options=$redactOptions
+         |)""".stripMargin
+    }
+
     def this() = this(Some(ConnectionType.JDBC.value), None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {

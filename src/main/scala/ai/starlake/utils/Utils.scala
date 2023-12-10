@@ -397,4 +397,14 @@ object Utils extends StrictLogging {
     case Failure(e) =>
       logger.error(s"Error while converting dot to $format", Utils.exceptionAsString(e))
   }
+
+  def redact(options: Map[String, String]): Map[String, String] = {
+    options.map { case (key, value) =>
+      if (key.toLowerCase.contains("password")) {
+        key -> "********"
+      } else {
+        key -> value
+      }
+    }
+  }
 }
