@@ -193,7 +193,7 @@ const SplitSectionList = [
       ),
       isBackgroundColored: 'no',
       reverse: 'yes',
-      video:'https://greenshift.it/f.php?h=2F2JilzT&p=1',
+      video:'https://youtu.be/8EL9-UiW6zs',
       alignImg: 'left',
       description:(
         <p>
