@@ -13,7 +13,31 @@ The workflow below is a typical use case :
 * Start watching your data being available as Tables in your warehouse.
 * Build aggregates using SQL, Jinja and YAML configuration files.  
 
-You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
+Starlake may be used indistinctly for all or any of these steps.
+
+* The `extract` step allows to export selective data from an existing SQL database to a set of CSV files.
+* The `load` step allows you to load text files, to ingest FIXED-WIDTH/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
+* The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
+
+The Load and Transform steps support multiple configurations for inputs and outputs as illustrated in the
+figure below. 
+
+![Anywhere](/img/data-star.png "Anywhere")
+
+
+## Data Lifecycle
+
+The figure below illustrates the typical data lifecycle in Starlake.
+![](/img/workflow.png)
+
+* Landing Area : In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
+*-* Pending Area : Files associated with a schema are imported into this area.
+* Accepted Area : Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
+* Business Area : Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
+* Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
+
+Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
+
 
 ## Data Extraction
 
@@ -27,13 +51,14 @@ The extraction module support two modes:
 * Native mode: Native database scripts are generated and must be run against your database.
 * JDBC mode: In this mode, Starlake will spawn a number of threads to extract the data. We were able to extract an average of 1 million records per second using the AdventureWorks database on Postgres.
 
+
 ## Data Loading
 
 Usually, data loading is done by writing hand made custom parsers that transform input files into datasets of records.
 
 Starlake aims at automating this parsing task by making data loading purely declarative.
 
-The major benefits the Starlake data loader bring to your warehouse are:    
+The major benefits the Starlake data loader bring to your warehouse are:
 
 * Eliminates manual coding for data loading
 * Assign metadata to each dataset
@@ -111,64 +136,16 @@ The major benefits Starlake bring to your Data transformation jobs are:
 
 * Write transformations in regular SQL or python scripts
 * Use Jinja2 to augment your SQL scripts and make them easier to read and maintain
-* Describe where and how the result is stored using YML description files
+* Describe where and how the result is stored using YML description files (or even easier using an Excel sheet)
 * Apply security to the target table
 * Preview your data lifecycle and publish in SVG format
 
 
-# How it works
 
-Starlake Data Pipeline automates the loading and parsing of files and
-their ingestion into a warehouse where datasets become
-available as strongly typed records.
+## Illustration
 
-![Complete Starlake Data Pipeline Workflow](/img/guide/workflow.png "Complete Starlake Data Pipeline Workflow")
+The figure below illustrates how all the steps above are combined using the starlake CLI to provide a complete data lifecycle.
 
-
-The figure above describes how Starlake implements the `Extract Load Transform (ELT)` Data Pipeline steps.
-Starlake may be used indistinctly for all or any of these steps.
-
-* The `extract` step allows to export selective data from an existing SQL database to a set of CSV files.
-* The `load` step allows you to load text files, to ingest POSITION/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
-* The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
-
-The Load and Transform steps support multiple configurations for inputs and outputs as illustrated in the
-figure below. 
-
-![Anywhere](/img/guide/anywhere.png "Anywhere")
-
-Starlake Data Pipeline steps are described below:
-
-* Landing Area : In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
-*-* Pending Area : Files associated with a schema are imported into this area.
-* Accepted Area : Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
-* Business Area : Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-* Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
-
-Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
-
-### BigQuery Data Pipeline
-
-![Bigquery Workflow]( /img/guide/elt-gcp-bq.png )
-
-### Azure Databricks Data Pipeline
-
-![Azure Workflow]( /img/guide/elt-azure-databricks.png )
-
-### On Premise Data Pipeline
-
-![On Premise Workflow]( /img/guide/elt-onpremise.png )
-
-
-### Google Cloud Storage Data Pipeline
-
-![Cloud Storage Workflow]( /img/guide/elt-gcp-gcs.png )
-
-
-
-
-
-
-
+![Overview](/img/data-all-steps.png)
 
 

@@ -27,6 +27,10 @@ That's it! We can now run the transform as follows:
 ```sh
 $ cd $HOME/userguide
 $ starlake transform --name kpi.customers_kpi
+
+$ starlake.sh transform \
+            --name db_schema.transform_name
+
 ```
 The transform job will run against the connectionRef defined in the application.sl.yml file.
 The result of the query will be stored in the table `kpi.customers_kpi` in the `datasets` folder.

@@ -4,7 +4,6 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 
-
 ## Extraction strategies
 
 When extracting data, many options are available. In this section we detail why Starlake has chosen a strategy over the others
@@ -42,4 +41,3 @@ However, it is also the most inefficient one as it extracts all the data, even t
 The incremental extraction strategy is the most common one. It consists in extracting only the data that has changed since the last extraction.
 This strategy is the most efficient one as it only extracts a small amount of data. However, it requires the source system to provide a way to
 identify the data that has changed since the last extraction. This is usually done by using a timestamp or a sequence number.
-

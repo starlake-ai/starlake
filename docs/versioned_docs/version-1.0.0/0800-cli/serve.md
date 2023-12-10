@@ -15,5 +15,6 @@ title: serve
 
 Parameter|Cardinality|Description
 ---|---|---
+--host:`<value>`|*Optional*|address on which the server is listening
 --port:`<value>`|*Optional*|Port on which the server is listening
 
