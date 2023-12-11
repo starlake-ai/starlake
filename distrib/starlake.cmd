@@ -32,13 +32,27 @@ if "%JAVA_HOME%"=="" (
     set "RUNNER=%JAVA_HOME%\bin\java"
 )
 
+IF /i "%language%"=="de" goto languageDE
 
+SET SL_HTTP_HOST=127.0.0.1
+if "%SL_HTTP_HOST%"=="" SET SL_HTTP_HOST=127.0.0.1
+SET SL_SERVE_URI=http://%SL_HTTP_HOST%:%SL_HTTP_PORT%
 if "%~1"=="install" (
     call :launch_setup %*
     echo Installation done. You're ready to enjoy Starlake!
     echo If any errors happen during installation. Please try to install again or open an issue.
 ) else (
-    call :launch_starlake %*
+    if "%~1"=="serve" (
+        call :launch_starlake %*
+    ) else (
+        if "%SL_HTTP_PORT%"=="" (
+            call :launch_starlake %*
+        ) else (
+            FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
+            curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
+            FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+        )
+    )
 )
 
 goto :eof
