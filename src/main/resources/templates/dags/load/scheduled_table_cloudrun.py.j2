@@ -158,19 +158,6 @@ for schedule in schedules:
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
-                    load_task = BashOperator(task_id=load_task_id,
-                                             bash_command=get_context_var("SL_STARLAKE_PATH") + ' --domains ' + domain["name"] + ' --tables ' + table["name"] + ' load',
-                                             cwd=get_context_var("SL_ROOT"),
-                                             dag=dag)
-                    load_task
-            return domain_load_tasks
-
-        all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
-
-        def generate_task_group_for_domain(domain):
-            with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
-                for table in domain["tables"]:
-                    load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
                     load_task = StarlakeCloudRunJobAsyncOperator(task_id=load_task_id, domain=domain["name"], table=table["name"])
                     with TaskGroup(group_id=f'{load_task_id}_wait') as task_completion_sensors:
                         check_completion_id = load_task_id + '_check_completion'
