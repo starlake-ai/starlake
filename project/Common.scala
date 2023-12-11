@@ -75,7 +75,7 @@ object Common {
         "-deprecation",
         "-feature",
         "-Xmacro-settings:materialize-derivations",
-        "-Ywarn-unused-import",
+        "-Ywarn-unused:imports",
         "-Xfatal-warnings"
       ),
       Test / testOptions ++= Seq(
