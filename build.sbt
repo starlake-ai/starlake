@@ -20,7 +20,7 @@ lazy val scala212 = "2.12.18"
 
 lazy val scala213 = "2.13.12"
 
-ThisBuild / crossScalaVersions := List(scala212, scala213)
+// ThisBuild / crossScalaVersions := List(scala212, scala213)
 
 organization := "ai.starlake"
 
