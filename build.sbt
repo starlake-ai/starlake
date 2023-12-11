@@ -1,5 +1,4 @@
 import Dependencies.*
-import sbt.io.Path.allSubpaths
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype.*
