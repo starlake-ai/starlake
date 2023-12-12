@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.0.1:
+
+__Bug Fix__:
+- concurrent schema extraction close resource prematurely
+
 # 1.0.0:
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
