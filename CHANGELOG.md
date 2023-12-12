@@ -6,6 +6,9 @@
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
 
+__Improvement__:
+- added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
+
 # 1.0.0:
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
