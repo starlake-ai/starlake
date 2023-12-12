@@ -43,6 +43,11 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       .getOrElse(
         throw new Exception(s"No connectionRef found. Please check your connectionRef property")
       )
+    val auditConnectionRef =
+      jdbcSchemas.auditConnectionRef.getOrElse(settings.appConfig.audit.getConnectionRef())
+
+    val auditConnectionInfo = settings.appConfig.connections
+      .getOrElse(auditConnectionRef, throw new Exception("No connection found for audit"))
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
 
@@ -61,6 +66,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
           schemaHandler,
           jdbcSchema,
           connectionOptions ++ jdbcSchema.connectionOptions,
+          auditConnectionInfo,
           outputDir(config.outputDir),
           config.limit,
           config.numPartitions,
