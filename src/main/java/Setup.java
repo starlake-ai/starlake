@@ -207,7 +207,7 @@ public class Setup {
 
     // Used BiConsumer with Function because TriConsumer doesn't exist natively and avoid creating a new type
     private static void generateVersions(File targetDir, String fileHeader, Function<BufferedWriter, BiConsumer<String, String>> variableWriter) throws IOException {
-        String versionsFileName = isWindowsOs() ? "versions.cmd" : "version.sh";
+        String versionsFileName = isWindowsOs() ? "versions.cmd" : "versions.sh";
         File versionFile = new File(targetDir, versionsFileName);
         deleteFile(versionFile);
         BufferedWriter writer = new BufferedWriter(new FileWriter(versionFile));
