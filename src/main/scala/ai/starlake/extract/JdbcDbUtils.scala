@@ -374,127 +374,131 @@ object JdbcDbUtils extends LazyLogging {
             .map { case (tableName, tableRemarks) =>
               ExtractUtils.timeIt(s"Table extraction of $tableName") {
                 logger.info(s"Extracting table $tableName: $tableRemarks")
-                Using.Manager { use =>
-                  // Find all foreign keys
+                withJDBCConnection(connectionOptions) { tableExtractConnection =>
+                  val databaseMetaData = tableExtractConnection.getMetaData
+                  Using.Manager { use =>
+                    // Find all foreign keys
 
-                  val foreignKeysResultSet = use(
-                    databaseMetaData.getImportedKeys(
-                      jdbcSchema.catalog.orNull,
-                      schemaName,
-                      tableName
+                    val foreignKeysResultSet = use(
+                      databaseMetaData.getImportedKeys(
+                        jdbcSchema.catalog.orNull,
+                        schemaName,
+                        tableName
+                      )
                     )
-                  )
-                  val foreignKeys = new Iterator[(String, String)] {
-                    def hasNext: Boolean = foreignKeysResultSet.next()
+                    val foreignKeys = new Iterator[(String, String)] {
+                      def hasNext: Boolean = foreignKeysResultSet.next()
 
-                    def next(): (String, String) = {
-                      val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
-                      val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
-                      val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
-                      val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+                      def next(): (String, String) = {
+                        val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
+                        val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
+                        val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+                        val fkColumnName =
+                          foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
 
-                      val pkCompositeName =
-                        if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
-                        else s"$pkSchemaName.$pkTableName.$pkColumnName"
+                        val pkCompositeName =
+                          if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
+                          else s"$pkSchemaName.$pkTableName.$pkColumnName"
 
-                      fkColumnName -> pkCompositeName
+                        fkColumnName -> pkCompositeName
+                      }
+                    }.toMap
+
+                    // Extract all columns
+                    val columnsResultSet = use(
+                      databaseMetaData.getColumns(
+                        jdbcSchema.catalog.orNull,
+                        schemaName,
+                        tableName,
+                        null
+                      )
+                    )
+                    val remarks: Map[TableRemarks, TableRemarks] = (
+                      if (skipRemarks) None
+                      else
+                        extractColumnRemarks(jdbcSchema, connectionOptions, tableName)
+                    ).getOrElse(Map.empty)
+
+                    val isPostgres = connectionOptions("url").contains("postgres")
+                    val attrs = new Iterator[Attribute] {
+                      def hasNext: Boolean = columnsResultSet.next()
+
+                      def next(): Attribute = {
+                        val colName = columnsResultSet.getString("COLUMN_NAME")
+                        logger.debug(s"COLUMN_NAME=$tableName.$colName")
+                        val colType = columnsResultSet.getInt("DATA_TYPE")
+                        val colTypename = columnsResultSet.getString("TYPE_NAME")
+                        val colRemarks =
+                          remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
+                        val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
+                        val foreignKey = foreignKeys.get(colName.toUpperCase)
+                        val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
+                        // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
+                        Attribute(
+                          name = colName,
+                          `type` = sparkType(
+                            colType,
+                            tableName,
+                            colName,
+                            colTypename,
+                            colDecimalDigits,
+                            isPostgres
+                          ),
+                          required = colRequired,
+                          comment = Option(colRemarks),
+                          foreignKey = foreignKey
+                        )
+                      }
+                    }.toList
+
+                    // remove duplicates
+                    // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
+                    def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
+                      list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
+                        if (partialResult.exists(_.name == element.name)) partialResult
+                        else partialResult :+ element
+                      }
+
+                    val columns = removeDuplicatesColumns(attrs)
+
+                    logger.whenDebugEnabled {
+                      columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
                     }
-                  }.toMap
 
-                  // Extract all columns
-                  val columnsResultSet = use(
-                    databaseMetaData.getColumns(
-                      jdbcSchema.catalog.orNull,
-                      schemaName,
-                      tableName,
-                      null
-                    )
-                  )
-                  val remarks: Map[TableRemarks, TableRemarks] = (
-                    if (skipRemarks) None
-                    else
-                      extractColumnRemarks(jdbcSchema, connectionOptions, tableName)
-                  ).getOrElse(Map.empty)
-
-                  val isPostgres = connectionOptions("url").contains("postgres")
-                  val attrs = new Iterator[Attribute] {
-                    def hasNext: Boolean = columnsResultSet.next()
-
-                    def next(): Attribute = {
-                      val colName = columnsResultSet.getString("COLUMN_NAME")
-                      logger.debug(s"COLUMN_NAME=$tableName.$colName")
-                      val colType = columnsResultSet.getInt("DATA_TYPE")
-                      val colTypename = columnsResultSet.getString("TYPE_NAME")
-                      val colRemarks =
-                        remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
-                      val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
-                      val foreignKey = foreignKeys.get(colName.toUpperCase)
-                      val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
-                      // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
-                      Attribute(
-                        name = colName,
-                        `type` = sparkType(
-                          colType,
-                          tableName,
-                          colName,
-                          colTypename,
-                          colDecimalDigits,
-                          isPostgres
-                        ),
-                        required = colRequired,
-                        comment = Option(colRemarks),
-                        foreignKey = foreignKey
+                    // Limit to the columns specified by the user if any
+                    val currentTableRequestedColumns =
+                      jdbcTableMap
+                        .get(tableName)
+                        .map(_.columns.map(_.toUpperCase))
+                        .getOrElse(Nil)
+                    val selectedColumns =
+                      if (currentTableRequestedColumns.isEmpty)
+                        columns
+                      else
+                        columns.filter(col =>
+                          currentTableRequestedColumns.contains(col.name.toUpperCase())
+                        )
+                    logger.whenDebugEnabled {
+                      columns.foreach(column =>
+                        logger.debug(s"Final schema column: $tableName.${column.name}")
                       )
                     }
-                  }.toList
 
-                  // remove duplicates
-                  // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-                  def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
-                    list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
-                      if (partialResult.exists(_.name == element.name)) partialResult
-                      else partialResult :+ element
-                    }
-
-                  val columns = removeDuplicatesColumns(attrs)
-
-                  logger.whenDebugEnabled {
-                    columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
-                  }
-
-                  // Limit to the columns specified by the user if any
-                  val currentTableRequestedColumns =
-                    jdbcTableMap
-                      .get(tableName)
-                      .map(_.columns.map(_.toUpperCase))
-                      .getOrElse(Nil)
-                  val selectedColumns =
-                    if (currentTableRequestedColumns.isEmpty)
-                      columns
-                    else
-                      columns.filter(col =>
-                        currentTableRequestedColumns.contains(col.name.toUpperCase())
+                    //      // Find primary keys
+                    val primaryKeysResultSet = use(
+                      databaseMetaData.getPrimaryKeys(
+                        jdbcSchema.catalog.orNull,
+                        schemaName,
+                        tableName
                       )
-                  logger.whenDebugEnabled {
-                    columns.foreach(column =>
-                      logger.debug(s"Final schema column: $tableName.${column.name}")
                     )
+                    val primaryKeys = new Iterator[String] {
+                      def hasNext: Boolean = primaryKeysResultSet.next()
+
+                      def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
+                    }.toList
+                    tableName -> (tableRemarks, selectedColumns, primaryKeys)
                   }
-
-                  //      // Find primary keys
-                  val primaryKeysResultSet = use(
-                    databaseMetaData.getPrimaryKeys(
-                      jdbcSchema.catalog.orNull,
-                      schemaName,
-                      tableName
-                    )
-                  )
-                  val primaryKeys = new Iterator[String] {
-                    def hasNext: Boolean = primaryKeysResultSet.next()
-
-                    def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
-                  }.toList
-                  tableName -> (tableRemarks, selectedColumns, primaryKeys)
                 } match {
                   case Failure(exception) => throw exception
                   case Success(value)     => value
