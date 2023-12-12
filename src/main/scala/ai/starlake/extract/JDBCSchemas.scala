@@ -9,6 +9,7 @@ case class JDBCSchemas(
   default: Option[JDBCSchema] = None,
   output: Option[FileFormat] = None,
   connectionRef: Option[String] = None,
+  auditConnectionRef: Option[String] = None,
   fetchSize: Option[Int] = None
 ) {
 

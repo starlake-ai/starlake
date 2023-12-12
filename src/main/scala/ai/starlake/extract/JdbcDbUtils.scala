@@ -703,6 +703,7 @@ object JdbcDbUtils extends LazyLogging {
     schemaHandler: SchemaHandler,
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
+    auditConnectionInfo: Settings.Connection,
     baseOutputDir: File,
     limit: Int,
     defaultNumPartitions: Int,
@@ -716,12 +717,7 @@ object JdbcDbUtils extends LazyLogging {
   )(implicit
     settings: Settings
   ): Unit = {
-    val auditConnectionRef = settings.appConfig.audit.getConnectionRef()
-
-    val auditConnection = settings.appConfig.connections
-      .getOrElse(auditConnectionRef, throw new Exception("No connection found for audit"))
-    val auditConnectionOptions = auditConnection.options
-
+    val auditConnectionOptions = auditConnectionInfo.options
     val jdbcUrl = connectionOptions("url")
     // Because mysql does not support "" when framing column names to handle cases where
     // column names are keywords in the target dialect
@@ -734,7 +730,7 @@ object JdbcDbUtils extends LazyLogging {
         tableExists(connection, jdbcUrl, s"${auditSchema}.SL_LAST_EXPORT")
       if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
         createSchema(auditSchema, connection)
-        val jdbcEngineName = auditConnection.getJdbcEngineName()
+        val jdbcEngineName = auditConnectionInfo.getJdbcEngineName()
         settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
           val createTableSql = jdbcEngine
             .tables("extract")
