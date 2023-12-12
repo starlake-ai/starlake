@@ -19,9 +19,6 @@ object SingleUserMainServer {
     handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/")
     server.start()
     println(s"Server started at $host:$port")
-    val o = new PrintStream(new File("/tmp/a.txt"))
-    System.setOut(o)
-    System.setErr(o)
   }
 
   private var autoReload = true
