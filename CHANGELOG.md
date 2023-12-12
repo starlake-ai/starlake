@@ -5,6 +5,7 @@
 
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
+- fix versions.sh file for linux
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
