@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
 
-import java.io.{ByteArrayOutputStream, File, PrintStream}
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import scala.util.{Failure, Success, Try}
 
