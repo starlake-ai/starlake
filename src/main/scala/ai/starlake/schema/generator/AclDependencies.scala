@@ -1,5 +1,6 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{RowLevelSecurity, Schema}
 import ai.starlake.utils.Utils
@@ -24,13 +25,9 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     Utils.keepAlphaNum(name)
   }
 
-  def run(args: Array[String]): Try[Unit] = Try {
-    AclDependenciesConfig.parse(args) match {
-      case Some(config) =>
-        aclsAsDotFile(config)
-      case _ =>
-        throw new IllegalArgumentException(AclDependenciesConfig.usage())
-    }
+  def run(args: Array[String]): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    AclDependenciesCmd.run(args, schemaHandler).map(_ => ())
   }
 
   private def granteesAsDot(config: AclDependenciesConfig) = {

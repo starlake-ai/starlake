@@ -140,7 +140,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
     }
   }
-  private def generateDomainDags(
+  private[generator] def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(

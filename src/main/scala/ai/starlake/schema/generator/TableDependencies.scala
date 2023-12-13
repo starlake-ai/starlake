@@ -1,5 +1,6 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.LazyLogging
@@ -8,7 +9,7 @@ import scala.util.Try
 
 class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
 
-  val prefix = """
+  val prefix: String = """
                  |digraph {
                  |graph [pad="0.5", nodesep="0.5", ranksep="2"];
                  |node [shape=plain]
@@ -17,11 +18,12 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
                  |
                  |""".stripMargin
 
-  val suffix = """
+  val suffix: String = """
                      |}
                      |""".stripMargin
 
   /** @param tableNames
+    *   \- table names
     * @return
     *   (primary tables, fk tables)
     */
@@ -41,13 +43,9 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     (primaryTables.toSet.toList, foreignTableNames.toSet.toList)
   }
 
-  def run(args: Array[String]): Try[Unit] = Try {
-    TableDependenciesConfig.parse(args) match {
-      case Some(config) =>
-        relationsAsDotFile(config)
-      case _ =>
-        throw new IllegalArgumentException(TableDependenciesConfig.usage())
-    }
+  def run(args: Array[String]): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    TableDependenciesCmd.run(args, schemaHandler).map(_ => ())
   }
 
   def relationsAsDotFile(config: TableDependenciesConfig): Unit = {

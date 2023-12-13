@@ -16,13 +16,8 @@ import scala.util.{Failure, Success, Try}
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit: SchemaHandler = schemaHandler
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    ExtractSchemaConfig.parse(args) match {
-      case Some(config) =>
-        run(config)
-      case None =>
-        throw new IllegalArgumentException(ExtractSchemaConfig.usage())
-    }
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
+    ExtractJDBCSchemaCmd.run(args, schemaHandler).map(_ => ())
   }
 
   /** Generate YML file from JDBC Schema stored in a YML file

@@ -5,7 +5,7 @@ import ai.starlake.TestHelper
 class InferSchemaSpec extends TestHelper {
   new WithSettings() {
     "All InferSchema Config" should "be known and taken  into account" in {
-      val rendered = InferSchemaConfig.usage()
+      val rendered = InferSchemaCmd.usage()
       val expected =
         """
           |Usage: starlake infer-schema [options]
