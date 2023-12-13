@@ -188,12 +188,8 @@ object BigQueryFreshnessInfo extends StrictLogging {
     }
   }
 
-  def run(args: Array[String], schemaHandler: SchemaHandler): Try[List[FreshnessStatus]] = Try {
+  def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    val config =
-      BigQueryTablesConfig
-        .parse(args)
-        .getOrElse(throw new IllegalArgumentException(BigQueryTablesConfig.usage()))
-    freshness(config, schemaHandler)
+    BigQueryFreshnessInfoCmd.run(args, schemaHandler).map(_ => ())
   }
 }

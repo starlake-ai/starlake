@@ -19,9 +19,6 @@
  */
 package ai.starlake.schema.generator
 
-import ai.starlake.utils.CliConfig
-import scopt.OParser
-
 /** @param domains
   *   : YML Input to convert
   * @param xls
@@ -32,40 +29,3 @@ case class Yml2XlsConfig(
   iamPolicyTagsFile: Option[String] = None,
   xlsDirectory: String = ""
 )
-
-object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
-  override val command: String = "yml2xls"
-
-  val parser: OParser[Unit, Yml2XlsConfig] = {
-    val builder = OParser.builder[Yml2XlsConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", "$command", "[options]"),
-      note(""),
-      opt[Seq[String]]("domain")
-        .action((x, c) => c.copy(domains = x))
-        .optional()
-        .text("domains to convert to XLS"),
-      opt[String]("iamPolicyTagsFile")
-        .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
-        .optional()
-        .text(
-          "IAM PolicyTag file to convert to XLS, SL_METADATA/iam-policy-tags.yml by default)"
-        ),
-      opt[String]("xls")
-        .action((x, c) => c.copy(xlsDirectory = x))
-        .required()
-        .text("directory where XLS files are generated")
-    )
-  }
-
-  /** @param args
-    *   args list passed from command line
-    * @return
-    *   Option of case class SchemaGenConfig.
-    */
-  def parse(args: Seq[String]): Option[Yml2XlsConfig] =
-    OParser.parse(parser, args, Yml2XlsConfig(), setup)
-
-}

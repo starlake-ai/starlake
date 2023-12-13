@@ -112,23 +112,8 @@ object ExtractBigQuerySchema {
 
   def run(
     args: Array[String]
-  )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = Try {
-    // implicit val settings: Settings = Settings(Settings.referenceConfig)
-    val config =
-      BigQueryTablesConfig
-        .parse(args.toSeq)
-        .getOrElse(throw new IllegalArgumentException(BigQueryTablesConfig.usage()))
-    if (config.external) {
-      val externalSources = schemaHandler.externalSources()
-      val externalDomains = extractExternalDatasets(externalSources)
-      externalDomains.foreach { case (_, domains) =>
-        domains.foreach { domain =>
-          domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
-        }
-      }
-    } else {
-      extractAndSaveAsDomains(config)
-    }
+  )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = {
+    ExtractBigQuerySchemaCmd.run(args, schemaHandler).map(_ => ())
   }
 
   def extractAndSaveAsDomains(

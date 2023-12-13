@@ -13,9 +13,9 @@ class Xls2YmlDomainsSpec extends TestHelper {
     Xls2Yml.writeDomainsAsYaml(
       File(getClass.getResource("/sample/SomeDomainTemplate.xlsx")).pathAsString
     )
-    val outputPath = File(DatasetArea.load.toString + "/someDomain/_config.sl.yml")
-    val schema1Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
-    val schema2Path = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
+    val outputPath: File = File(DatasetArea.load.toString + "/someDomain/_config.sl.yml")
+    val schema1Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
+    val schema2Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
     val result: Domain = YamlSerializer
       .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
@@ -77,7 +77,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val reader = new XlsDomainReader(
       InputPath(getClass.getResource("/sample/SomeDomainTemplate.xlsx").getPath)
     )
-    val domainOpt = reader.getDomain()
+    val domainOpt: Option[Domain] = reader.getDomain()
 
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
@@ -121,7 +121,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     }
 
     "All SchemaGen Config" should "be known and taken  into account" in {
-      val rendered = Xls2YmlConfig.usage()
+      val rendered = Xls2YmlCmd.usage()
       val expected =
         """
           |Usage: starlake xls2yml [options]

@@ -14,25 +14,25 @@ case class Schema(id: String, customer: String, amount: Double, seller_id: Strin
 class Parquet2CSVSpec extends TestHelper {
   new WithSettings() {
 
-    val rootDir = File.newTemporaryDirectory()
-    val outputDir = File(rootDir, "output")
+    val rootDir: File = File.newTemporaryDirectory()
+    val outputDir: File = File(rootDir, "output")
     val domainName = "domain"
-    val domainPath = File(rootDir, domainName).createDirectory()
+    val domainPath: File = File(rootDir, domainName).createDirectory()
     val schemaName = "schema"
-    val schemaPath = File(domainPath, schemaName)
+    val schemaPath: File = File(domainPath, schemaName)
 
-    val config = Parquet2CSVConfig(
+    val config: Parquet2CSVConfig = Parquet2CSVConfig(
       new Path(rootDir.pathAsString),
       Some(new Path(outputDir.pathAsString)),
       Some(domainName),
       Some(schemaName),
       Some(WriteMode.ERROR_IF_EXISTS),
-      deleteSource = false,
-      options = Map("sep" -> "|", "header" -> "true"),
-      1
+//      deleteSource = false,
+      options = Map("sep" -> "|", "header" -> "true")
+//      partitions = 1
     )
 
-    def createParquet() = {
+    def createParquet(): Unit = {
       val data = List(
         Schema("12345", "A009701", 123.65, "AQZERD"),
         Schema("56432", "A000000", 23.8, "AQZERD"),
@@ -90,7 +90,7 @@ class Parquet2CSVSpec extends TestHelper {
     }
 
     "All Parquet Config" should "be known and taken  into account" in {
-      val rendered = Parquet2CSVConfig.usage()
+      val rendered = Parquet2CSVCmd.usage()
       println(rendered)
       val expected = {
         """
@@ -174,8 +174,8 @@ class Parquet2CSVSpec extends TestHelper {
           |--options:`k1=v1,k2=v2...`|*Optional*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |--partitions:`<value>`|*Optional*|How many output partitions
           |""".stripMargin
-      println(Parquet2CSVConfig.markdown(1))
-      Parquet2CSVConfig.markdown(1).replaceAll("\\s", "") shouldEqual expected.replaceAll("\\s", "")
+      println(Parquet2CSVCmd.markdown(1))
+      Parquet2CSVCmd.markdown(1).replaceAll("\\s", "") shouldEqual expected.replaceAll("\\s", "")
     }
   }
 }
