@@ -142,5 +142,6 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
         !SPARK_SUBMIT! %SPARK_EXTRA_PACKAGES% --driver-java-options "%JAVA_OPTS% %SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "!EXTRA_CLASSPATH!" --class %SL_MAIN% --jars "!EXTRA_JARS!" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
     )
 ) else (
-    echo "install starlake first using setup.cmd"
+    echo Starlake jar %SL_JAR_NAME% do not exists. Please install it.
+    EXIT /B 1
 )

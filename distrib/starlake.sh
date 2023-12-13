@@ -125,6 +125,9 @@ launch_starlake() {
       SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
      SPARK_LOCAL_HOSTNAME="127.0.0.1" SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --jars "$extra_jars" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
     fi
+  else
+    echo "Starlake jar $SL_JAR_NAME do not exists. Please install it."
+    exit 1
   fi
 }
 
