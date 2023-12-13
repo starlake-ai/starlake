@@ -13,11 +13,10 @@ object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
 
   val parser: OParser[Unit, ExtractScriptConfig] = {
     val builder = OParser.builder[ExtractScriptConfig]
-    import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(
+      builder.programName(s"starlake $command"),
+      builder.head("starlake", command, "[options]"),
+      builder.note(
         """
           |For domain extraction, the schemas should at least, specify :
           |- a table name (schemas.name)
@@ -48,21 +47,25 @@ object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
           | full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
           |""".stripMargin
       ),
-      cmd("extract-script"),
-      opt[Seq[String]]("domain")
+      builder.cmd(command),
+      builder
+        .opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domain = x))
         .valueName("domain1,domain2 ...")
         .optional()
         .text("The domain list for which to generate extract scripts"),
-      opt[String]("template")
+      builder
+        .opt[String]("template")
         .action((x, c) => c.copy(scriptTemplateName = x))
         .required()
         .text("Script template dir"),
-      opt[String]("audit-schema")
+      builder
+        .opt[String]("audit-schema")
         .action((x, c) => c.copy(auditDB = x))
         .required()
         .text("Audit DB that will contain the audit export table"),
-      opt[String]("delta-column")
+      builder
+        .opt[String]("delta-column")
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
         .text(

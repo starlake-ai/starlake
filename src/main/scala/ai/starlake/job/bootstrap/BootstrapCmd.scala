@@ -14,16 +14,16 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
 
   val parser: OParser[Unit, BootstrapConfig] = {
     val builder = OParser.builder[BootstrapConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(
         """
           |Create a new project optionally based on a specific template eq. quickstart / userguide
           |""".stripMargin
       ),
-      opt[String]("template")
+      builder
+        .opt[String]("template")
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")
         .optional()

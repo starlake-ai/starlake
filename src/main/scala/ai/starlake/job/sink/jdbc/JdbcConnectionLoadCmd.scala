@@ -16,6 +16,7 @@ import ai.starlake.utils.Formatter.RichFormatter
 object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
   val command = "cnxload"
+
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,
@@ -92,32 +93,36 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
   val parser: OParser[Unit, JdbcConnectionLoadConfig] = {
     val builder = OParser.builder[JdbcConnectionLoadConfig]
-    import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note("""
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("""
              |Load parquet file into JDBC Table.
              |""".stripMargin),
-      opt[String]("source_file")
+      builder
+        .opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
         .text("Full Path to source file")
         .required(),
-      opt[String]("output_table")
+      builder
+        .opt[String]("output_table")
         .action((x, c) => c.copy(outputDomainAndTableName = x))
         .text("JDBC Output Table")
         .required(),
-      opt[Map[String, String]]("options")
+      builder
+        .opt[Map[String, String]]("options")
         .action((x, c) => c.copy(options = x))
         .text(
           "Connection options eq for jdbc : driver, user, password, url, partitions, batchSize"
         ),
-      opt[String]("create_disposition")
+      builder
+        .opt[String]("create_disposition")
         .action((x, c) => c.copy(createDisposition = CreateDisposition.valueOf(x)))
         .text(
           "Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition"
         ),
-      opt[String]("write_disposition")
+      builder
+        .opt[String]("write_disposition")
         .action((x, c) => c.copy(writeDisposition = WriteDisposition.valueOf(x)))
         .text(
           "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"

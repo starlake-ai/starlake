@@ -15,20 +15,21 @@ object SiteCmd extends Cmd[SiteConfig] {
 
   val parser: OParser[Unit, SiteConfig] = {
     val builder = OParser.builder[SiteConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(
         """
           |Generate site
           |""".stripMargin
       ),
-      opt[String]("outputDir")
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputPath = File(x)))
         .text("Output Directory")
         .optional(),
-      opt[String]("template")
+      builder
+        .opt[String]("template")
         .action((x, c) => c.copy(templateName = Some(x)))
         .text("Template name or template path to use")
         .required()

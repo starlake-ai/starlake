@@ -15,36 +15,42 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] {
 
   val parser: OParser[Unit, InferSchemaConfig] = {
     val builder = OParser.builder[InferSchemaConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("domain")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))
         .required()
         .text("Domain Name"),
-      opt[String]("table")
+      builder
+        .opt[String]("table")
         .action((x, c) => c.copy(schemaName = x))
         .required()
         .text("Table Name"),
-      opt[String]("input")
+      builder
+        .opt[String]("input")
         .action((x, c) => c.copy(inputPath = x))
         .required()
         .text("Dataset Input Path"),
-      opt[String]("outputDir")
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Domain YAML Output Path"),
-      opt[String]("write")
+      builder
+        .opt[String]("write")
         .action((x, c) => c.copy(write = Some(WriteMode.fromString(x))))
         .text(s"One of ${WriteMode.writes}")
         .optional(),
-      opt[String]("format")
+      builder
+        .opt[String]("format")
         .action((x, c) => c.copy(format = Some(Format.fromString(x))))
         .optional()
         .text("Force input file format"),
-      opt[Unit]("with-header")
+      builder
+        .opt[Unit]("with-header")
         .action((_, c) => c.copy(withHeader = true))
         .optional()
         .text("Does the file contain a header (For CSV files only)")

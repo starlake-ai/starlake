@@ -17,8 +17,8 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
     val builder = OParser.builder[AutoTaskDependenciesConfig]
     import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
       note("Generate Task dependencies graph"),
       opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))

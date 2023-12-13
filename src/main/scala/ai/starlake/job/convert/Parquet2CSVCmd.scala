@@ -16,11 +16,10 @@ object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
 
   val parser: OParser[Unit, Parquet2CSVConfig] = {
     val builder = OParser.builder[Parquet2CSVConfig]
-    import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(
+      builder.programName(s"starlake $command"),
+      builder.head("starlake", command, "[options]"),
+      builder.note(
         """
           |Convert parquet files to CSV.
           |The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
@@ -39,38 +38,46 @@ object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
           |         --partitions 1
           |         --write_mode overwrite""".stripMargin
       ),
-      opt[String]("input_dir")
+      builder
+        .opt[String]("input_dir")
         .action((x, c) => c.copy(inputFolder = new Path(x)))
         .text("Full Path to input directory")
         .required(),
-      opt[String]("output_dir")
+      builder
+        .opt[String]("output_dir")
         .action((x, c) => c.copy(outputFolder = Some(new Path(x))))
         .text("Full Path to output directory, if not specified, input_dir is used as output dir")
         .optional(),
-      opt[String]("domain")
+      builder
+        .opt[String]("domain")
         .action((x, c) => c.copy(domainName = Some(x)))
         .text(
           "Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted"
         )
         .optional(),
-      opt[String]("schema")
+      builder
+        .opt[String]("schema")
         .action((x, c) => c.copy(schemaName = Some(x)))
         .text("Schema name to convert. If not specified, all schemas are converted.")
         .optional(),
-      opt[Unit]("delete_source")
+      builder
+        .opt[Unit]("delete_source")
         .action((_, c) => c.copy(deleteSource = true))
         .text("Should we delete source parquet files after conversion ?")
         .optional(),
-      opt[String]("write_mode")
+      builder
+        .opt[String]("write_mode")
         .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
         .text(s"One of ${WriteMode.writes}")
         .optional(),
-      opt[Map[String, String]]("options")
+      builder
+        .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = x))
         .text("Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)")
         .optional(),
-      opt[String]("partitions")
+      builder
+        .opt[String]("partitions")
         .action((x, c) => c.copy(partitions = x.toInt))
         .text("How many output partitions")
         .optional()

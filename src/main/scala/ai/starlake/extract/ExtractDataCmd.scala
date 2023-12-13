@@ -12,13 +12,13 @@ import scala.util.Try
 trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
 
   val command = "extract-data"
+
   val parser: OParser[Unit, ExtractDataConfig] = {
     val builder = OParser.builder[ExtractDataConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(
         """
           |Extract data from any database defined in mapping file.
           |
@@ -39,67 +39,79 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
           |
           |""".stripMargin
       ),
-      opt[String]("config")
+      builder
+        .opt[String]("config")
         .action((x, c) => c.copy(extractConfig = x))
         .required()
         .text("Database tables & connection info"),
-      opt[Int]("limit")
+      builder
+        .opt[Int]("limit")
         .action((x, c) => c.copy(limit = x))
         .optional()
         .text("Limit number of records"),
-      opt[Int]("numPartitions")
+      builder
+        .opt[Int]("numPartitions")
         .action((x, c) => c.copy(numPartitions = x))
         .optional()
         .text("parallelism level regarding partitionned tables"),
-      opt[Int]("parallelism")
+      builder
+        .opt[Int]("parallelism")
         .action((x, c) => c.copy(parallelism = Some(x)))
         .optional()
         .text(
           s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime.availableProcessors()}"
         ),
-      opt[Unit]("clean")
+      builder
+        .opt[Unit]("clean")
         .action((_, c) => c.copy(cleanOnExtract = true))
         .optional()
         .text("Clean all files of table only when it is extracted."),
-      opt[String]("outputDir")
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
         .text("Where to output csv files"),
-      opt[Unit]("incremental")
+      builder
+        .opt[Unit]("incremental")
         .action((_, c) => c.copy(fullExport = false))
         .optional()
         .text("Export only new data since last extraction."),
-      opt[String]("ifExtractedBefore")
+      builder
+        .opt[String]("ifExtractedBefore")
         .action((x, c) => c.copy(ifExtractedBefore = Some(DateTime.parse(x).getMillis)))
         .optional()
         .text(
           "DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped."
         ),
-      opt[Seq[String]]("includeSchemas")
+      builder
+        .opt[Seq[String]]("includeSchemas")
         .action((x, c) => c.copy(includeSchemas = x.map(_.trim)))
         .valueName("schema1,schema2")
         .optional()
         .text("Domains to include during extraction."),
-      opt[Seq[String]]("excludeSchemas")
+      builder
+        .opt[Seq[String]]("excludeSchemas")
         .valueName("schema1,schema2...")
         .optional()
         .action((x, c) => c.copy(excludeSchemas = x.map(_.trim)))
         .text(
           "Domains to exclude during extraction. if `include-domains` is defined, this config is ignored."
         ),
-      opt[Seq[String]]("includeTables")
+      builder
+        .opt[Seq[String]]("includeTables")
         .valueName("table1,table2,table3...")
         .optional()
         .action((x, c) => c.copy(includeTables = x.map(_.trim)))
         .text("Schemas to include during extraction."),
-      opt[Seq[String]]("excludeTables")
+      builder
+        .opt[Seq[String]]("excludeTables")
         .valueName("table1,table2,table3...")
         .optional()
         .action((x, c) => c.copy(excludeTables = x.map(_.trim)))
         .text(
           "Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored."
         ),
-      checkConfig { c =>
+      builder.checkConfig { c =>
         val domainChecks = (c.excludeSchemas, c.includeSchemas) match {
           case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil
           case _ => List("You can't specify includeSchemas and excludeSchemas at the same time.")
@@ -110,9 +122,9 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
         }
         val allErrors = domainChecks ++ schemaChecks
         if (allErrors.isEmpty) {
-          success
+          builder.success
         } else {
-          failure(allErrors.mkString("\n"))
+          builder.failure(allErrors.mkString("\n"))
         }
       }
     )

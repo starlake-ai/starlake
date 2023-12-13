@@ -14,11 +14,10 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
 
   val parser: OParser[Unit, KafkaJobConfig] = {
     val builder = OParser.builder[KafkaJobConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note("""
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("""
              |Two modes are available : The batch mode and the streaming mode.
              |
              |### Batch mode
@@ -41,82 +40,98 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
              |In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id
              |you specify in the access options of the topic configuration you are dealing with.
              |""".stripMargin),
-      opt[String]("config")
+      builder
+        .opt[String]("config")
         .action((x, c) => c.copy(topicConfigName = Some(x)))
         .text("Topic Name declared in reference.conf file")
         .optional(),
-      opt[String]("connectionRef")
+      builder
+        .opt[String]("connectionRef")
         .action((x, c) => c.copy(connectionRef = Some(x)))
         .text("Connection to any specific sink")
         .optional(),
-      opt[String]("format")
+      builder
+        .opt[String]("format")
         .action((x, c) => c.copy(format = x))
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
-      opt[String]("path")
+      builder
+        .opt[String]("path")
         .action((x, c) => c.copy(path = Some(x)))
         .text("Source file for load and target file for store")
         .optional(),
-      opt[Map[String, String]]("options")
+      builder
+        .opt[Map[String, String]]("options")
         .action((x, c) => c.copy(options = x))
         .text(
           "Options to pass to Spark Reader"
         )
         .optional(),
-      opt[String]("write-config")
+      builder
+        .opt[String]("write-config")
         .action((x, c) => c.copy(writeTopicConfigName = Some(x)))
         .text("Topic Name declared in reference.conf file")
         .optional(),
-      opt[String]("write-path")
+      builder
+        .opt[String]("write-path")
         .action((x, c) => c.copy(writePath = Some(x)))
         .text("Source file for load and target file for store")
         .optional(),
-      opt[String]("write-mode")
+      builder
+        .opt[String]("write-mode")
         .action((x, c) => c.copy(writeMode = x))
         .text(
           "When offload is true, describes how data should be stored on disk. Ignored if offload is false."
         )
         .optional(),
-      opt[Map[String, String]]("write-options")
+      builder
+        .opt[Map[String, String]]("write-options")
         .action((x, c) => c.copy(writeOptions = x))
         .text(
           "Options to pass to Spark Writer"
         )
         .optional(),
-      opt[String]("write-format")
+      builder
+        .opt[String]("write-format")
         .action((x, c) => c.copy(writeFormat = x))
         .text(
           "Streaming format eq. kafka, console ..."
         )
         .optional(),
-      opt[Int]("write-coalesce")
+      builder
+        .opt[Int]("write-coalesce")
         .action((x, c) => c.copy(coalesce = Some(x)))
         .text(
           "Should we coalesce the resulting dataframe"
         )
         .optional(),
-      opt[String]("transform")
+      builder
+        .opt[String]("transform")
         .action((x, c) => c.copy(transform = Some(x)))
         .text("Any transformation to apply to message before loading / offloading it")
         .optional(),
-      opt[Unit]("stream")
+      builder
+        .opt[Unit]("stream")
         .action((_, c) => c.copy(streaming = true))
         .text(
           "Should we use streaming mode ?"
         )
         .optional()
         .children(
-          opt[String]("streaming-trigger")
+          builder
+            .opt[String]("streaming-trigger")
             .action((x, c) => c.copy(streamingTrigger = Some(x)))
             .text("Once / Continuous / ProcessingTime")
             .optional(),
-          opt[String]("streaming-trigger-option")
+          builder
+            .opt[String]("streaming-trigger-option")
             .action((x, c) => c.copy(streamingTriggerOption = x))
             .text(
               "10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-"
             )
             .optional(),
-          opt[Boolean]("streaming-to-table")
+          builder
+            .opt[Boolean]("streaming-to-table")
             .action { (x, c) =>
               if (x) {
                 throw new Exception(
@@ -127,7 +142,8 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
             }
             .text("Table name to sink to")
             .optional(),
-          opt[Seq[String]]("streaming-partition-by")
+          builder
+            .opt[Seq[String]]("streaming-partition-by")
             .action((x, c) => c.copy(streamingWritePartitionBy = x))
             .text("List of columns to use for partitioning")
             .optional()

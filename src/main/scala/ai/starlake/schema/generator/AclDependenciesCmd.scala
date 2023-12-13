@@ -15,16 +15,17 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
 
   val parser: OParser[Unit, AclDependenciesConfig] = {
     val builder = OParser.builder[AclDependenciesConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note("Generate GraphViz files from Domain / Schema YAML files"),
-      opt[String]("output")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("Generate GraphViz files from Domain / Schema YAML files"),
+      builder
+        .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Seq[String]]("grantees")
+      builder
+        .opt[Seq[String]]("grantees")
         .action { (x, c) =>
           c.copy(grantees = x.toList)
         }
@@ -32,25 +33,29 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
         .text(
           "Which users should we include in the dot file ? All by default"
         ),
-      opt[Unit]("reload")
+      builder
+        .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
         .optional()
         .text(
           "Should we reload the domains first ?"
         ),
-      opt[Unit]("svg")
+      builder
+        .opt[Unit]("svg")
         .action((_, c) => c.copy(svg = true))
         .optional()
         .text(
           "Should we generate SVG files ?"
         ),
-      opt[Unit]("png")
+      builder
+        .opt[Unit]("png")
         .action((_, c) => c.copy(png = true))
         .optional()
         .text(
           "Should we generate PNG files ?"
         ),
-      opt[Seq[String]]("tables")
+      builder
+        .opt[Seq[String]]("tables")
         .action { (x, c) =>
           c.copy(tables = x.toList)
         }
@@ -58,7 +63,8 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
         .text(
           "Which tables should we include in the dot file ? All by default"
         ),
-      opt[Unit]("all")
+      builder
+        .opt[Unit]("all")
         .action { (x, c) =>
           c.copy(all = true)
         }

@@ -16,11 +16,10 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
 
   val parser: OParser[Unit, IamPoliciesConfig] = {
     val builder = OParser.builder[IamPoliciesConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command),
-      note("")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command),
+      builder.note("")
     )
   }
 

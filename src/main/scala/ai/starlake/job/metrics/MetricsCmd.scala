@@ -14,20 +14,22 @@ object MetricsCmd extends Cmd[MetricsConfig] {
 
   val parser: OParser[Unit, MetricsConfig] = {
     val builder = OParser.builder[MetricsConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("domain")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("domain")
         .action((x, c) => c.copy(domain = x))
         .required()
         .text("Domain Name"),
-      opt[String]("schema")
+      builder
+        .opt[String]("schema")
         .action((x, c) => c.copy(schema = x))
         .required()
         .text("Schema Name"),
-      opt[Map[String, String]]("authInfo")
+      builder
+        .opt[Map[String, String]]("authInfo")
         .action((x, c) => c.copy(authInfo = x))
         .optional()
         .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey")

@@ -14,20 +14,22 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
 
   val parser: OParser[Unit, ExtractSchemaConfig] = {
     val builder = OParser.builder[ExtractSchemaConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("config")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("config")
         .action((x, c) => c.copy(extractConfig = x))
         .required()
         .text("Database tables & connection info"),
-      opt[String]("outputDir")
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to output YML files"),
-      opt[Int]("parallelism")
+      builder
+        .opt[Int]("parallelism")
         .action((x, c) => c.copy(parallelism = Some(x)))
         .optional()
         .text(

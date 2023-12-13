@@ -14,40 +14,46 @@ trait TransformCmd extends Cmd[TransformConfig] {
 
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("name")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("name")
         .action((x, c) => c.copy(name = x))
         .required()
         .text("Task Name"),
-      opt[Unit]("compile")
+      builder
+        .opt[Unit]("compile")
         .action((_, c) => c.copy(compile = true))
         .optional()
         .text("Return final query only"),
-      opt[String]("interactive")
+      builder
+        .opt[String]("interactive")
         .action((x, c) => c.copy(interactive = Some(x)))
         .optional()
         .text("Run query without sinking the result"),
-      opt[Unit]("reload")
+      builder
+        .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
         .optional()
         .text("Reload YAML  files. Used in server mode"),
-      opt[Boolean]("truncate")
+      builder
+        .opt[Boolean]("truncate")
         .action((x, c) => c.copy(truncate = x))
         .optional()
         .text(
           s"Force table to be truncated before insert. Default value is false"
         ),
-      opt[Unit]("recursive")
+      builder
+        .opt[Unit]("recursive")
         .action((_, c) => c.copy(recursive = true))
         .optional()
         .text(
           s"Execute all dependencies recursively. Default value is false"
         ),
-      opt[Map[String, String]]("options")
+      builder
+        .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = x))
         .text("Job arguments to be used as substitutions")

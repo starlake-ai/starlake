@@ -14,42 +14,49 @@ object Yml2DDLCmd extends Cmd[Yml2DDLConfig] {
 
   val parser: OParser[Unit, Yml2DDLConfig] = {
     val builder = OParser.builder[Yml2DDLConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("datawarehouse")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("datawarehouse")
         .action((x, c) => c.copy(datawarehouse = x))
         .required()
         .text("target datawarehouse name (ddl mapping key in types.yml"),
-      opt[String]("connection")
+      builder
+        .opt[String]("connection")
         .action((x, c) => c.copy(connectionRef = Some(x)))
         .optional()
         .text("JDBC connection name with at least read write on database schema"),
-      opt[String]("output")
+      builder
+        .opt[String]("output")
         .action((x, c) => c.copy(outputPath = Some(x)))
         .optional()
         .text("Where to output the generated files. ./$datawarehouse/ by default"),
-      opt[String]("catalog")
+      builder
+        .opt[String]("catalog")
         .action((x, c) => c.copy(catalog = Some(x)))
         .optional()
         .text("Database Catalog if any"),
-      opt[String]("domain")
+      builder
+        .opt[String]("domain")
         .action((x, c) => c.copy(domain = Some(x)))
         .optional()
         .text("Domain to create DDL for. All by default")
         .children(
-          opt[Seq[String]]("schemas")
+          builder
+            .opt[Seq[String]]("schemas")
             .action((x, c) => c.copy(schemas = Some(x)))
             .optional()
             .text("List of schemas to generate DDL for. All by default")
         ),
-      opt[Unit]("apply")
+      builder
+        .opt[Unit]("apply")
         .action((_, c) => c.copy(apply = true))
         .optional()
         .text("Does the file contain a header (For CSV files only)"),
-      opt[Int]("parallelism")
+      builder
+        .opt[Int]("parallelism")
         .action((x, c) => c.copy(parallelism = Some(x)))
         .optional()
         .text(

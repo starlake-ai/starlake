@@ -15,52 +15,59 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
 
   val parser: OParser[Unit, TableDependenciesConfig] = {
     val builder = OParser.builder[TableDependenciesConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note("Generate GraphViz files from Domain / Schema YAML files"),
-      opt[String]("output")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("Generate GraphViz files from Domain / Schema YAML files"),
+      builder
+        .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Unit]("all-attrs")
+      builder
+        .opt[Unit]("all-attrs")
         .action((x, c) => c.copy(includeAllAttributes = true))
         .optional()
         .text(
           "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"
         ),
-      opt[Unit]("reload")
+      builder
+        .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
         .optional()
         .text(
           "Should we reload the domains first ?"
         ),
-      opt[Unit]("svg")
+      builder
+        .opt[Unit]("svg")
         .action((_, c) => c.copy(svg = true))
         .optional()
         .text(
           "Should we generate SVG files ?"
         ),
-      opt[Unit]("png")
+      builder
+        .opt[Unit]("png")
         .action((_, c) => c.copy(png = true))
         .optional()
         .text(
           "Should we generate PNG files ?"
         ),
-      opt[Unit]("related")
+      builder
+        .opt[Unit]("related")
         .action((_, c) => c.copy(related = true))
         .optional()
         .text(
           "Should we include only entities with relations to others ? false by default"
         ),
-      opt[Seq[String]]("tables")
+      builder
+        .opt[Seq[String]]("tables")
         .action((x, c) => c.copy(tables = Some(x)))
         .optional()
         .text(
           "Which tables should we include in the dot file ?"
         ),
-      opt[Unit]("all")
+      builder
+        .opt[Unit]("all")
         .action { (_, c) =>
           c.copy(all = true)
         }
