@@ -14,32 +14,36 @@ trait LoadCmd extends Cmd[LoadConfig] {
 
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[Seq[String]]("domains")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[Seq[String]]("domains")
         .action((x, c) => c.copy(domains = x))
         .valueName("domain1,domain2...")
         .optional()
         .text("Domains to watch"),
-      opt[Seq[String]]("tables")
+      builder
+        .opt[Seq[String]]("tables")
         .valueName("table1,table2,table3 ...")
         .optional()
         .action((x, c) => c.copy(tables = x))
         .text("Tables to watch"),
-      opt[Seq[String]]("include")
+      builder
+        .opt[Seq[String]]("include")
         .action((x, c) => c.copy(domains = x))
         .valueName("domain1,domain2...")
         .optional()
         .text("Deprecated: Domains to watch"),
-      opt[Seq[String]]("schemas")
+      builder
+        .opt[Seq[String]]("schemas")
         .valueName("schema1,schema2,schema3...")
         .optional()
         .action((x, c) => c.copy(tables = x))
         .text("Deprecated: Schemas to watch"),
-      opt[Map[String, String]]("options")
+      builder
+        .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .optional()
         .action((x, c) => c.copy(options = x))

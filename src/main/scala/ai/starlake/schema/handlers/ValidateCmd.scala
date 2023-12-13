@@ -13,12 +13,12 @@ object ValidateCmd extends Cmd[ValidateConfig] {
 
   val parser: OParser[Unit, ValidateConfig] = {
     val builder = OParser.builder[ValidateConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[Unit]("reload")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
         .optional()
         .text(
@@ -38,7 +38,6 @@ object ValidateCmd extends Cmd[ValidateConfig] {
       case Failure(error) =>
         // scalastyle:off println
         println(error)
-        Failure(error)
       case Success((errorCount, warningCount)) =>
         if (errorCount > 0) {
           // scalastyle:off println
@@ -49,7 +48,7 @@ object ValidateCmd extends Cmd[ValidateConfig] {
         } else
           // scalastyle:off println
           println("No errors or warnings found")
-        Success(JobResult.empty)
     }
+    errorsAndWarning.map(_ => JobResult.empty)
   }
 }

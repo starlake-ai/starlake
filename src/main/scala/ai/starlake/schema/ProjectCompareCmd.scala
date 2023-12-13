@@ -13,24 +13,27 @@ object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
 
   val parser: OParser[Unit, ProjectCompareConfig] = {
     val builder = OParser.builder[ProjectCompareConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("project1")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("project1")
         .action { (x, c) => c.copy(project1 = x) }
         .required()
         .text("old project metadata path"),
-      opt[String]("project2")
+      builder
+        .opt[String]("project2")
         .action { (x, c) => c.copy(project2 = x) }
         .required()
         .text("new project metadata path"),
-      opt[String]("template")
+      builder
+        .opt[String]("template")
         .action { (x, c) => c.copy(template = Some(x)) }
         .optional()
         .text("SSP / Mustache Template path"),
-      opt[String]("output")
+      builder
+        .opt[String]("output")
         .action { (x, c) => c.copy(output = Some(x)) }
         .optional()
         .text("Output path")

@@ -10,7 +10,7 @@ import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
 
-import scala.util.{Success, Try}
+import scala.util.Try
 
 trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
 
@@ -18,21 +18,20 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
 
   val parser: OParser[Unit, Xls2YmlConfig] = {
     val builder = OParser.builder[Xls2YmlConfig]
-    import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(""),
-      opt[Seq[String]]("files")
+      builder.programName(s"starlake $command"),
+      builder.head("starlake", command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[Seq[String]]("files")
         .action { (x, c) =>
           val allFiles = x.flatMap { f =>
             val file = File(f)
-            if (file.isDirectory()) {
-              file.collectChildren(_.name.endsWith(".xlsx")).toList
-            } else if (file.exists) {
-              List(file)
-            } else {
-              throw new IllegalArgumentException(s"File $file does not exist")
+            file match {
+              case _ if file.isDirectory =>
+                file.collectChildren(_.name.endsWith(".xlsx")).toList
+              case _ if file.exists => List(file)
+              case _ => throw new IllegalArgumentException(s"File $file does not exist")
             }
           }
 
@@ -40,23 +39,27 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
         }
         .required()
         .text("List of Excel files describing domains & schemas or jobs"),
-      opt[String]("iamPolicyTagsFile")
+      builder
+        .opt[String]("iamPolicyTagsFile")
         .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
         .optional()
         .text("If true generate IAM PolicyTags YML"),
-      opt[String]("outputDir")
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputPath = Some(x)))
         .optional()
         .text(
           """Path for saving the resulting YAML file(s). Starlake domains path is used by default.""".stripMargin
         ),
-      opt[String]("policyFile")
+      builder
+        .opt[String]("policyFile")
         .action((x, c) => c.copy(policyFile = Some(x)))
         .optional()
         .text(
           """Optional File for centralising ACL & RLS definition.""".stripMargin
         ),
-      opt[Boolean]("job")
+      builder
+        .opt[Boolean]("job")
         .action((x, c) => c.copy(job = x))
         .optional()
         .text("If true generate YML for a Job.")
@@ -74,26 +77,27 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
   override def run(config: Xls2YmlConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    if (config.job) {
-      config.files.foreach(
-        Xls2YmlAutoJob.generateSchema(_, config.policyFile, config.outputPath)
-      )
-    } else {
-      config.files.foreach { file =>
-        logger.info(s"Generating schemas for $file")
-        writeDomainsAsYaml(file, config.outputPath)
+    Try {
+      if (config.job) {
+        config.files.foreach(
+          Xls2YmlAutoJob.generateSchema(_, config.policyFile, config.outputPath)
+        )
+      } else {
+        config.files.foreach { file =>
+          logger.info(s"Generating schemas for $file")
+          writeDomainsAsYaml(file, config.outputPath)
+        }
       }
-    }
-    config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
-      val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
-      val iamPolicyTags = IamPolicyTags(workbook.iamPolicyTags)
-      writeIamPolicyTagsAsYaml(
-        iamPolicyTags,
-        config.outputPath.getOrElse(DatasetArea.metadata.toString),
-        "iam-policy-tags"
-      )
-    }
-    Success(JobResult.empty)
+      config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
+        val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
+        val iamPolicyTags = IamPolicyTags(workbook.iamPolicyTags)
+        writeIamPolicyTagsAsYaml(
+          iamPolicyTags,
+          config.outputPath.getOrElse(DatasetArea.metadata.toString),
+          "iam-policy-tags"
+        )
+      }
+    }.map(_ => JobResult.empty)
   }
 }
 

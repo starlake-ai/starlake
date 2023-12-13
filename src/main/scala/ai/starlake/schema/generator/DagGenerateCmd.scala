@@ -13,18 +13,19 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
 
   val parser: OParser[Unit, DagGenerateConfig] = {
     val builder = OParser.builder[DagGenerateConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("outputDir")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text(
           """Path for saving the resulting DAG file(s).""".stripMargin
         ),
-      opt[Unit]("clean")
+      builder
+        .opt[Unit]("clean")
         .action((x, c) => c.copy(clean = true))
         .optional()
         .text(

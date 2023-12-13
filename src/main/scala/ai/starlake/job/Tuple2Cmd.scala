@@ -7,27 +7,23 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
-case class Tuple2Config[A, B](_1: Option[A], _2: Option[B]) extends Product2[Option[A], Option[B]]
-trait Tuple2Cmd[A, B] extends Cmd[Tuple2Config[A, B]] with Product2[Cmd[A], Cmd[B]] {
+case class Tuple2Config[A, B](a: Option[A], b: Option[B])
+trait Tuple2Cmd[A, B] extends Cmd[Tuple2Config[A, B]] {
 
-  override def canEqual(that: Any): Boolean = {
-    that match {
-      case tuple: Tuple2Cmd[A, B] => tuple._1 == _1 && tuple._2 == _2
-      case _                      => false
-    }
-  }
+  def a: Cmd[A]
+
+  def b: Cmd[B]
 
   override def parse(args: Seq[String]): Option[Tuple2Config[A, B]] = {
-    Some(Tuple2Config(_1.parse(args), _2.parse(args)))
+    Some(Tuple2Config(a.parse(args), b.parse(args)))
   }
 
   override def parser: OParser[Unit, Tuple2Config[A, B]] = {
     val builder = OParser.builder[Tuple2Config[A, B]]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note("")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("")
     )
   }
 
@@ -35,7 +31,7 @@ trait Tuple2Cmd[A, B] extends Cmd[Tuple2Config[A, B]] with Product2[Cmd[A], Cmd[
     settings: Settings
   ): Try[JobResult] = {
     val results =
-      List(config._1.map(_1.run(_, schemaHandler)), config._2.map(_2.run(_, schemaHandler))).flatten
+      List(config.a.map(a.run(_, schemaHandler)), config.b.map(b.run(_, schemaHandler))).flatten
     results.find(_.isFailure) match {
       case Some(Failure(e)) =>
         Failure(e)

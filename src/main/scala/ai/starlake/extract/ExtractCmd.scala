@@ -6,8 +6,8 @@ object ExtractCmd extends Tuple2Cmd[ExtractSchemaConfig, ExtractDataConfig] {
 
   override def command: String = "extract"
 
-  override def _1: Cmd[ExtractSchemaConfig] = ExtractJDBCSchemaCmd
+  override def a: Cmd[ExtractSchemaConfig] = ExtractJDBCSchemaCmd
 
-  override def _2: Cmd[ExtractDataConfig] = ExtractDataCmd
+  override def b: Cmd[ExtractDataConfig] = ExtractDataCmd
 
 }

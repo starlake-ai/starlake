@@ -14,11 +14,10 @@ object ImportCmd extends Cmd[ImportConfig] {
 
   val parser: OParser[Unit, ImportConfig] = {
     val builder = OParser.builder[ImportConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note("""
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note("""
              |Move the files from the landing area to the pending area.
              |
              |Files are loaded one domain at a time.
@@ -35,7 +34,8 @@ object ImportCmd extends Cmd[ImportConfig] {
              |"ack" is the default ack extension searched for but you may specify a different one in the domain YML file.
              |example: comet import
              |""".stripMargin),
-      opt[Seq[String]]("include")
+      builder
+        .opt[Seq[String]]("include")
         .action((x, c) => c.copy(includes = x))
         .valueName("domain1,domain2...")
         .optional()

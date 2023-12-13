@@ -13,16 +13,17 @@ object MainServerCmd extends Cmd[MainServerConfig] {
 
   val parser: OParser[Unit, MainServerConfig] = {
     val builder = OParser.builder[MainServerConfig]
-    import builder._
     OParser.sequence(
-      programName(s"$shell $command"),
-      head(shell, command, "[options]"),
-      note(""),
-      opt[String]("host")
+      builder.programName(s"$shell $command"),
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("host")
         .action((x, c) => c.copy(host = Some(x)))
         .optional()
         .text("address on which the server is listening"),
-      opt[Int]("port")
+      builder
+        .opt[Int]("port")
         .action((x, c) => c.copy(port = Some(x)))
         .optional()
         .text("Port on which the server is listening")
