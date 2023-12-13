@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadCmd}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
@@ -79,7 +79,7 @@ class SparkAutoTask(
     }
   }
 
-  val hiveDB = taskDesc.getHiveDB()
+  val hiveDB: String = taskDesc.getHiveDB()
   val fullTableName = s"$hiveDB.${taskDesc.table}"
 
   private def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
@@ -133,7 +133,7 @@ class SparkAutoTask(
       if (Utils.isRunningInDatabricks()) {
         taskDesc.attributesDesc.foreach { attrDesc =>
           session.sql(
-            s"ALTER TABLE $tableName CHANGE COLUMN ${attrDesc}.name COMMENT '${attrDesc.comment}'"
+            s"ALTER TABLE $tableName CHANGE COLUMN $attrDesc.name COMMENT '${attrDesc.comment}'"
           )
         }
       }
@@ -264,7 +264,7 @@ class SparkAutoTask(
                   new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment).run()
                 result.isSuccess
 
-              case jdbcSink: JdbcSink =>
+              case _: JdbcSink =>
                 val jdbcName = connectionRef
                 val source = Right(dataframe)
                 val (createDisposition, writeDisposition) = {
@@ -273,7 +273,7 @@ class SparkAutoTask(
                     hasMergeKeyDefined = false
                   )
                 }
-                val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+                val jdbcConfig = JdbcConnectionLoadCmd.fromComet(
                   jdbcName,
                   settings.appConfig,
                   source,
@@ -322,13 +322,13 @@ class SparkAutoTask(
         }
 
       val dynamicPartitionOverwrite = None // Handled by Spark save options.
-      val (preSql, sqlWithParameters, postSql, asTable) =
+      val (preSql, sqlWithParameters, postSql, _) =
         buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.getEngine()}")
       val dataframe = (taskDesc.sql, taskDesc.python) match {
-        case (Some(sql), None) =>
+        case (Some(_), None) =>
           runSqlSpark(sqlWithParameters)
         case (None, Some(pythonFile)) =>
           runPySpark(pythonFile)

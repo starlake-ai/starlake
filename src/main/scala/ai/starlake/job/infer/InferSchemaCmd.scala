@@ -1,46 +1,24 @@
-/*
- *
- *  * Licensed to the Apache Software Foundation (ASF) under one or more
- *  * contributor license agreements.  See the NOTICE file distributed with
- *  * this work for additional information regarding copyright ownership.
- *  * The ASF licenses this file to You under the Apache License, Version 2.0
- *  * (the "License"); you may not use this file except in compliance with
- *  * the License.  You may obtain a copy of the License at
- *  *
- *  *    http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
- *
- *
- */
 package ai.starlake.job.infer
 
+import ai.starlake.config.Settings
+import ai.starlake.job.Cmd
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Format, WriteMode}
-import ai.starlake.utils.CliConfig
+import ai.starlake.utils.JobResult
 import scopt.OParser
 
-case class InferSchemaConfig(
-  domainName: String = "",
-  schemaName: String = "",
-  inputPath: String = "",
-  outputDir: Option[String] = None,
-  withHeader: Boolean = false,
-  format: Option[Format] = None,
-  write: Option[WriteMode] = None
-)
+import scala.util.Try
 
-object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
+object InferSchemaCmd extends Cmd[InferSchemaConfig] {
+
   val command = "infer-schema"
+
   val parser: OParser[Unit, InferSchemaConfig] = {
     val builder = OParser.builder[InferSchemaConfig]
     import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
+      programName(s"$shell $command"),
+      head(shell, command, "[options]"),
       note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))
@@ -80,4 +58,9 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
     */
   def parse(args: Seq[String]): Option[InferSchemaConfig] =
     OParser.parse(parser, args, InferSchemaConfig(), setup)
+
+  override def run(config: InferSchemaConfig, schemaHandler: SchemaHandler)(implicit
+    settings: Settings
+  ): Try[JobResult] =
+    workflow(schemaHandler).inferSchema(config).map(_ => JobResult.empty)
 }

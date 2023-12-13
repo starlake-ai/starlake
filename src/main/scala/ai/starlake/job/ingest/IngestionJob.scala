@@ -10,7 +10,7 @@ import ai.starlake.job.metrics.{
 }
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadCmd, JdbcConnectionLoadConfig}
 import ai.starlake.job.transform.{AutoTask, SparkAutoTask}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
@@ -1649,7 +1649,7 @@ trait IngestionJob extends SparkJob {
       )
       (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
     }
-    val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+    val jdbcConfig = JdbcConnectionLoadCmd.fromComet(
       sink.connectionRef.getOrElse(settings.appConfig.connectionRef),
       settings.appConfig,
       Right(mergedDF),

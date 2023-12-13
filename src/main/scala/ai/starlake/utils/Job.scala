@@ -57,6 +57,10 @@ case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) 
   }
 
 }
+object JobResult {
+  def empty: JobResult = EmptyJobResult
+}
+case object EmptyJobResult extends JobResult
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from
   * application.conf.
