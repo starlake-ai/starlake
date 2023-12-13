@@ -121,7 +121,7 @@ object ExtractBigQuerySchema {
     if (config.external) {
       val externalSources = schemaHandler.externalSources()
       val externalDomains = extractExternalDatasets(externalSources)
-      externalDomains.foreach { case (project, domains) =>
+      externalDomains.foreach { case (_, domains) =>
         domains.foreach { domain =>
           domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
         }

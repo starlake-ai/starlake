@@ -1,27 +1,23 @@
 package ai.starlake.job.transform
 
-import ai.starlake.utils.CliConfig
+import ai.starlake.config.Settings
+import ai.starlake.job.Cmd
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.JobResult
 import scopt.OParser
 
-case class TransformConfig(
-  name: String = "",
-  options: Map[String, String] = Map.empty,
-  compile: Boolean = false,
-  interactive: Option[String] = None,
-  reload: Boolean = false,
-  truncate: Boolean = false,
-  recursive: Boolean = false
-)
+import scala.util.Try
 
-object TransformConfig extends CliConfig[TransformConfig] {
+trait TransformCmd extends Cmd[TransformConfig] {
+
   val command = "transform"
 
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
     import builder._
     OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
+      programName(s"$shell $command"),
+      head(shell, command, "[options]"),
       note(""),
       opt[String]("name")
         .action((x, c) => c.copy(name = x))
@@ -61,4 +57,15 @@ object TransformConfig extends CliConfig[TransformConfig] {
   def parse(args: Seq[String]): Option[TransformConfig] = {
     OParser.parse(parser, args, TransformConfig(), setup)
   }
+
+  override def run(config: TransformConfig, schemaHandler: SchemaHandler)(implicit
+    settings: Settings
+  ): Try[JobResult] = {
+    if (config.compile) {
+      workflow(schemaHandler).compileAutoJob(config).map(_ => JobResult.empty)
+    } else
+      workflow(schemaHandler).autoJob(config).map(_ => JobResult.empty)
+  }
 }
+
+object TransformCmd extends TransformCmd

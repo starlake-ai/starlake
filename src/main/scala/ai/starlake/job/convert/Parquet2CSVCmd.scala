@@ -1,23 +1,19 @@
 package ai.starlake.job.convert
 
+import ai.starlake.config.Settings
+import ai.starlake.job.Cmd
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.WriteMode
-import ai.starlake.utils.CliConfig
+import ai.starlake.utils.JobResult
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
-case class Parquet2CSVConfig(
-  inputFolder: Path = new Path("/"),
-  outputFolder: Option[Path] = None,
-  domainName: Option[String] = None,
-  schemaName: Option[String] = None,
-  writeMode: Option[WriteMode] = None,
-  deleteSource: Boolean = false,
-  options: Map[String, String] = Map.empty,
-  partitions: Int = 1
-)
+import scala.util.Try
 
-object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
+object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
+
   val command = "parquet2csv"
+
   val parser: OParser[Unit, Parquet2CSVConfig] = {
     val builder = OParser.builder[Parquet2CSVConfig]
     import builder._
@@ -84,4 +80,9 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[Parquet2CSVConfig] =
     OParser.parse(parser, args, Parquet2CSVConfig(), setup)
+
+  override def run(config: Parquet2CSVConfig, schemaHandler: SchemaHandler)(implicit
+    settings: Settings
+  ): Try[JobResult] =
+    new Parquet2CSV(config, settings.storageHandler()).run()
 }
