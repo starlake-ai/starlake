@@ -431,7 +431,7 @@ class ExtractSpec extends TestHelper {
   }
 
   "ExtractData Config" should "work" in {
-    val rendered = ExtractDataConfig.usage()
+    val rendered = ExtractDataCmd.usage()
     val expected =
       s"""
         |Usage: starlake extract-data [options]
@@ -481,7 +481,7 @@ class ExtractSpec extends TestHelper {
   }
 
   "ExtractSchema Config" should "work" in {
-    val rendered = ExtractSchemaConfig.usage()
+    val rendered = ExtractJDBCSchemaCmd.usage()
     println(rendered)
     val expected =
       """

@@ -22,10 +22,8 @@ package ai.starlake.job.sink.es
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.RowLevelSecurity
-import ai.starlake.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
-import scopt.OParser
 
 import java.util.regex.Pattern
 
@@ -65,55 +63,4 @@ case class ESLoadConfig(
       }
     }
   }
-}
-
-object ESLoadConfig extends CliConfig[ESLoadConfig] {
-  val command = "esload"
-  val parser: OParser[Unit, ESLoadConfig] = {
-    val builder = OParser.builder[ESLoadConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(""),
-      opt[String]("timestamp")
-        .action((x, c) => c.copy(timestamp = Some(x)))
-        .optional()
-        .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
-      opt[String]("id")
-        .action((x, c) => c.copy(id = Some(x)))
-        .optional()
-        .text("Elasticsearch Document Id"),
-      opt[String]("mapping")
-        .action((x, c) => c.copy(mapping = Some(new Path(x))))
-        .optional()
-        .text("Path to Elasticsearch Mapping File"),
-      opt[String]("domain")
-        .action((x, c) => c.copy(domain = x))
-        .required()
-        .text("Domain Name"),
-      opt[String]("schema")
-        .action((x, c) => c.copy(schema = x))
-        .required()
-        .text("Schema Name"),
-      opt[String]("format")
-        .action((x, c) => c.copy(format = x))
-        .required()
-        .text("Dataset input file : parquet, json or json-array"),
-      opt[String]("dataset")
-        .action((x, c) => c.copy(dataset = Some(Left(new Path(x)))))
-        .optional()
-        .text("Input dataset path"),
-      opt[Map[String, String]]("conf")
-        .action((x, c) => c.copy(options = x))
-        .optional()
-        .valueName("es.batch.size.entries=1000, es.batch.size.bytes=1mb...")
-        .text(
-          """esSpark configuration options. See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html""".stripMargin
-        )
-    )
-  }
-
-  def parse(args: Seq[String]): Option[ESLoadConfig] =
-    OParser.parse(parser, args, ESLoadConfig(), setup)
 }

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 110
+sidebar_position: 180
 title: kafkaload
 ---
 
@@ -13,8 +13,8 @@ title: kafkaload
 Two modes are available : The batch mode and the streaming mode.
 
 ### Batch mode
-In batch mode, you start the kafka (off)loader regurarly and the last consumed offset 
-will be stored in the `comet_offsets` topic config 
+In batch mode, you start the kafka (off)loader regurarly and the last consumed offset
+will be stored in the `comet_offsets` topic config
 (see [reference-kafka.conf](https://github.com/starlake-ai/starlake/blob/master/src/main/resources/reference-kafka.conf#L22) for an example).
 
 When offloading data from kafka to a file, you may ask to coalesce the result to a specific number of files / partitions.
@@ -29,7 +29,7 @@ The figure below describes the batch offloading process with `comet-offsets-mode
 
 ### Streaming mode
 
-In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id 
+In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id
 you specify in the access options of the topic configuration you are dealing with.
 
 

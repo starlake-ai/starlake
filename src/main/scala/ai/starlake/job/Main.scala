@@ -2,27 +2,25 @@ package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract._
-import ai.starlake.job.bootstrap.{Bootstrap, BootstrapConfig}
-import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
-import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
-import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.job.sink.es.ESLoadConfig
-import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
-import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.site.{SiteConfig, SiteHandler}
-import ai.starlake.job.transform.TransformConfig
+import ai.starlake.job.bootstrap.BootstrapCmd
+import ai.starlake.job.convert.Parquet2CSVCmd
+import ai.starlake.job.infer.InferSchemaCmd
+import ai.starlake.job.ingest.{IamPoliciesCmd, ImportCmd, IngestCmd, LoadCmd, SecureCmd}
+import ai.starlake.job.metrics.MetricsCmd
+import ai.starlake.job.sink.es.ESLoadCmd
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
+import ai.starlake.job.sink.kafka.KafkaJobCmd
+import ai.starlake.job.site.SiteCmd
+import ai.starlake.job.transform.TransformCmd
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
-import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
-import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
+import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
+import ai.starlake.schema.ProjectCompareCmd
+import ai.starlake.serve.MainServerCmd
 import ai.starlake.utils._
-import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.ByteArrayOutputStream
-import java.lang.IllegalArgumentException
 import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
@@ -35,6 +33,8 @@ import scala.util.{Failure, Success, Try}
   */
 
 object Main extends StrictLogging {
+
+  final val shell: String = "starlake"
 
   /** @param args
     *   depends on the action required to run a job:
@@ -67,55 +67,67 @@ object Main extends StrictLogging {
 
 class Main() extends StrictLogging {
 
-  val configs: List[CliConfig[_]] = List(
-    AutoTaskDependenciesConfig,
-    BootstrapConfig,
-    BigQueryTablesConfig,
-    ProjectCompareConfig,
-    JdbcConnectionLoadConfig,
-    ESLoadConfig,
-    ExtractDataConfig,
-    ExtractSchemaConfig,
-    ImportConfig,
-    InferSchemaConfig,
-    KafkaJobConfig,
-    IngestConfig,
-    MetricsConfig,
-    Parquet2CSVConfig,
-    TransformConfig,
-    LoadConfig,
-    Xls2YmlConfig,
-    Yml2DDLConfig,
-    TableDependenciesConfig,
-    Yml2XlsConfig
+  val commands: List[Cmd[_]] = List(
+    BootstrapCmd,
+    TransformCmd,
+    ImportCmd,
+    ValidateCmd,
+    LoadCmd,
+    IngestCmd,
+    ESLoadCmd,
+    KafkaJobCmd,
+    JdbcConnectionLoadCmd,
+    Yml2DDLCmd,
+    InferSchemaCmd,
+    MetricsCmd,
+    Parquet2CSVCmd,
+    SiteCmd,
+    SecureCmd,
+    IamPoliciesCmd,
+    Xls2YmlCmd,
+    Yml2XlsCmd,
+    Xls2YmlAutoJobCmd,
+    TableDependenciesCmd,
+    AclDependenciesCmd,
+    AutoTaskDependenciesCmd,
+    ExtractCmd,
+    ExtractJDBCSchemaCmd,
+    ExtractDataCmd,
+    ExtractScriptCmd,
+    BigQueryTableInfoCmd,
+    ExtractBigQuerySchemaCmd,
+    BigQueryFreshnessInfoCmd,
+    ProjectCompareCmd,
+    MainServerCmd,
+    DagGenerateCmd
   )
-  private def printUsage() = {
+  private def printUsage(): Unit = {
     // scalastyle:off println
     println(s"Starlake Version ${BuildInfo.version}")
     println("Usage:")
-    println("\tstarlake [command]")
+    println(s"\t${Main.shell} [command]")
     println("Available commands =>")
-    configs.foreach { config =>
-      println(s"\t${config.command}")
+    commands.foreach { cmd =>
+      println(s"\t${cmd.command}")
     }
   }
-  private def printUsage(command: String) = {
+  private def printUsage(command: String): Unit = {
     // scalastyle:off println
-    configs.find(_.command == command) match {
+    commands.find(_.command == command) match {
       case None =>
         println(s"ERROR: Unknown command --> $command")
-      case Some(config) =>
-        println(config.usage())
+      case Some(cmd) =>
+        println(cmd.usage())
     }
   }
   // scalastyle:on println
 
-  def checkPrerequisites(args: List[String]) = {
+  def checkPrerequisites(args: List[String]): Unit = {
     args match {
       case Nil | "help" :: Nil =>
         printUsage()
         System.exit(0)
-      case "help" :: command :: any =>
+      case "help" :: command :: _ =>
         printUsage(command)
         System.exit(0)
       case _ =>
@@ -164,21 +176,22 @@ class Main() extends StrictLogging {
 
           System.err.print(errMessage)
           if (settings.appConfig.forceHalt) {
-            Runtime.getRuntime().halt(1)
+            Runtime.getRuntime.halt(1)
           }
 
         case Failure(exception) =>
           val message = s"""Starlake failed to execute command with args $executedCommand"""
+          System.err.print(message)
           Utils.logException(logger, exception)
           if (settings.appConfig.forceHalt) {
-            Runtime.getRuntime().halt(1)
+            Runtime.getRuntime.halt(1)
           } else {
             throw exception
           }
         case Success(_) =>
           logger.info(s"Successfully $executedCommand")
           if (settings.appConfig.forceHalt) {
-            Runtime.getRuntime().halt(0)
+            Runtime.getRuntime.halt(0)
           }
       }
     }
@@ -188,225 +201,23 @@ class Main() extends StrictLogging {
   def run(args: Array[String], schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[Any] = {
-    import settings.storageHandler
 
-    // handle non existing project commands
-    val argList = args.toList
-    argList.head match {
-      case "bootstrap" =>
-        BootstrapConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            Bootstrap.bootstrap(config.template)
-          case None =>
-            false
+    val command = args.headOption.getOrElse("")
 
-        }
-        System.exit(0)
-      case _ =>
-    }
+    val result =
+      commands.find(_.command == command) match {
+        case None =>
+          printUsage(command)
+          Failure(new IllegalArgumentException(s"Unknown command $command"))
+        case Some(cmd) =>
+          if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad)
+            schemaHandler.checkValidity()
+          val r = cmd.run(args.drop(1), schemaHandler)
+          if (cmd.command == BootstrapCmd.command)
+            System.exit(0)
+          r
+      }
 
-    if (settings.appConfig.validateOnLoad)
-      schemaHandler.checkValidity()
-
-    val workflow =
-      new IngestionWorkflow(storageHandler(), schemaHandler)
-
-    val result: Try[Any] = argList.head match {
-      case "job" | "transform" =>
-        TransformConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            if (config.compile) {
-              workflow.compileAutoJob(config)
-            } else
-              workflow.autoJob(config)
-          case _ =>
-            Failure(new IllegalArgumentException(TransformConfig.usage()))
-        }
-      case "import" =>
-        ImportConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.loadLanding(config)
-          case None =>
-            Failure(new IllegalArgumentException(ImportConfig.usage()))
-        }
-      case "validate" =>
-        ValidateConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            val errorsAndWarning = schemaHandler.checkValidity(config)
-            errorsAndWarning match {
-              case Failure(error) =>
-                // scalastyle:off println
-                println(error)
-              case Success((errorCount, warningCount)) =>
-                if (errorCount > 0) {
-                  // scalastyle:off println
-                  println(s"Found $errorCount errors")
-                } else if (warningCount > 0) {
-                  // scalastyle:off println
-                  println(s"Found $warningCount warnings")
-                } else
-                  // scalastyle:off println
-                  println("No errors or warnings found")
-            }
-            errorsAndWarning
-          case _ =>
-            Failure(new IllegalArgumentException(ValidateConfig.usage()))
-        }
-      case "load" =>
-        LoadConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.loadPending(config)
-          case _ =>
-            Failure(new IllegalArgumentException(LoadConfig.usage()))
-        }
-      case "ingest" =>
-        IngestConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.load(config)
-          case _ =>
-            Failure(new IllegalArgumentException(IngestConfig.usage()))
-        }
-
-      case "index" | "esload" =>
-        ESLoadConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            // do something
-            workflow.esLoad(config)
-          case _ =>
-            Failure(new IllegalArgumentException(ESLoadConfig.usage()))
-        }
-
-      case "kafkaload" =>
-        KafkaJobConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.kafkaload(config)
-          case _ =>
-            Failure(new IllegalArgumentException(KafkaJobConfig.usage()))
-        }
-
-      case "cnxload" =>
-        JdbcConnectionLoadConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.jdbcload(config)
-          case _ =>
-            Failure(new IllegalArgumentException(JdbcConnectionLoadConfig.usage()))
-        }
-
-      case "infer-ddl" =>
-        Yml2DDLConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.inferDDL(config)
-          case _ =>
-            Failure(new IllegalArgumentException(Yml2DDLConfig.usage()))
-        }
-      case "infer-schema" =>
-        InferSchemaConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.inferSchema(config)
-          case _ =>
-            Failure(new IllegalArgumentException(InferSchemaConfig.usage()))
-        }
-      case "metrics" =>
-        MetricsConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.metric(config)
-          case _ =>
-            Failure(new IllegalArgumentException(MetricsConfig.usage()))
-        }
-
-      case "parquet2csv" =>
-        Parquet2CSVConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            new Parquet2CSV(config, storageHandler()).run()
-          case _ =>
-            Failure(new IllegalArgumentException(Parquet2CSVConfig.usage()))
-        }
-
-      case "site" =>
-        SiteConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            new SiteHandler(config, schemaHandler).run()
-          case _ =>
-            Failure(new IllegalArgumentException(SiteConfig.usage()))
-        }
-
-      case "secure" =>
-        LoadConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            workflow.secure(config)
-          case _ =>
-            Failure(new IllegalArgumentException(LoadConfig.usage()))
-        }
-
-      case "iam-policies" =>
-        workflow.applyIamPolicies()
-
-      case "xls2yml" =>
-        Xls2Yml.run(args.drop(1))
-
-      case "yml2xls" =>
-        new Yml2Xls(schemaHandler).run(args.drop(1))
-
-      case "xls2ymljob" =>
-        Xls2YmlAutoJob.run(args.drop(1))
-
-      case "table-dependencies" =>
-        new TableDependencies(schemaHandler).run(args.drop(1))
-      case "acl-dependencies" =>
-        new AclDependencies(schemaHandler).run(args.drop(1))
-      case "lineage" =>
-        AutoTaskDependenciesConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            new AutoTaskDependencies(settings, schemaHandler, storageHandler()).run(config)
-          case None =>
-            Failure(new IllegalArgumentException(AutoTaskDependenciesConfig.usage()))
-        }
-      case "extract" =>
-        new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
-        new ExtractData(schemaHandler).run(args.drop(1))
-      case "extract-schema" =>
-        new ExtractJDBCSchema(schemaHandler).run(args.drop(1))
-      case "extract-data" =>
-        new ExtractData(schemaHandler).run(args.drop(1))
-      case "extract-script" =>
-        new ExtractScript(schemaHandler).run(args.drop(1))
-      case "bq-info" =>
-        BigQueryTableInfo.run(args.drop(1))
-      case "extract-bq-schema" =>
-        ExtractBigQuerySchema.run(args.drop(1))(settings, schemaHandler)
-      case "bq-freshness" =>
-        val result = BigQueryFreshnessInfo.run(args.drop(1), schemaHandler)
-        result match {
-          case Success(statuses) =>
-            val warnFound = statuses.find(_.warnOrError == "WARN")
-            val errFound = statuses.find(_.warnOrError == "ERROR")
-            // scalastyle:off println
-            println(JsonSerializer.serializeObject(result))
-            if (errFound.isDefined)
-              System.exit(2)
-            if (warnFound.isDefined)
-              System.exit(1)
-          case Failure(exception) =>
-        }
-        result
-      case "compare" =>
-        ProjectCompare.run(args.drop(1))
-      case "serve" =>
-        MainServerConfig.parse(args.drop(1)) match {
-          case Some(config) =>
-            val host = config.host.getOrElse(settings.appConfig.http.interface)
-            val port = config.port.getOrElse(settings.appConfig.http.port)
-            SingleUserMainServer.serve(host, port)
-          case _ =>
-            Failure(new IllegalArgumentException(MainServerConfig.usage()))
-        }
-      case "dag-generate" =>
-        new DagGenerateCommand(schemaHandler).run(args.drop(1))
-
-      case command =>
-        printUsage(command)
-        Failure(new IllegalArgumentException(s"Unknown command $command"))
-    }
     result
   }
 }

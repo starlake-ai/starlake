@@ -1,12 +1,12 @@
 ---
-sidebar_position: 20
-title: bq-info / bq-freshness
+sidebar_position: 40
+title: bq-info
 ---
 
 
 ## Synopsis
 
-**starlake bq-info / bq-freshness [options]**
+**starlake bq-info [options]**
 
 ## Description
 

@@ -3,7 +3,7 @@ package ai.starlake.job.metrics
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
-import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -379,7 +379,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         cleanDatasets
         assert(loadPending.isSuccess)
 
-        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+        val jdbcConfig = JdbcConnectionLoadCmd.fromComet(
           settings.appConfig.audit.getConnectionRef(),
           settings.appConfig,
           Left("ignore"),

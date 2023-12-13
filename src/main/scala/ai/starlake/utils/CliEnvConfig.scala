@@ -14,7 +14,7 @@ object CliEnvConfig extends CliConfig[CliEnvConfig] {
       head("starlake", command, "[options]"),
       note(
         """
-          |Create a ne project optionally based on a specific template eq. quickstart / userguide
+          |Create a new project optionally based on a specific template eq. quickstart / userguide
           |""".stripMargin
       ),
       opt[Map[String, String]]("options")
