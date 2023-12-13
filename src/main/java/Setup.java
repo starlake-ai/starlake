@@ -28,9 +28,9 @@ public class Setup {
     private static String username = null;
     private static String password = null;
 
-    private static String httpsProxy = Optional.ofNullable(System.getenv("https_proxy")).orElse("");
-    private static String httpProxy = Optional.ofNullable(System.getenv("http_proxy")).orElse("");
-    private static String noProxy = Optional.ofNullable(System.getenv("no_proxy")).orElse("").replaceAll(",", "|");
+    private static String httpsProxy = getEnv("https_proxy").orElse("");
+    private static String httpProxy = getEnv("http_proxy").orElse("");
+    private static String noProxy = getEnv("no_proxy").orElse("").replaceAll(",", "|");
 
     private static boolean isWindowsOs() {
         String os = System.getProperty("os.name").toLowerCase();
@@ -99,31 +99,31 @@ public class Setup {
     public static boolean ENABLE_POSTGRESQL = envIsTrue("ENABLE_POSTGRESQL");
 
     // SPARK & STARLAKE
-    private static final String SCALA_VERSION = Optional.ofNullable(System.getenv("SCALA_VERSION")).orElse("2.12");
-    private static final String SL_VERSION = Optional.ofNullable(System.getenv("SL_VERSION")).orElse("1.0.0-SNAPSHOT");
-    private static final String SPARK_VERSION = Optional.ofNullable(System.getenv("SPARK_VERSION")).orElse("3.5.0");
+    private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.0.0-SNAPSHOT");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.0");
     private static final String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
-    private static final String HADOOP_VERSION = Optional.ofNullable(System.getenv("HADOOP_VERSION")).orElse("3");
+    private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
     // BIGQUERY
-    private static final String SPARK_BQ_VERSION = Optional.ofNullable(System.getenv("SPARK_BQ_VERSION")).orElse("0.34.0");
+    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.34.0");
 
-    private static final String HADOOP_AZURE_VERSION = Optional.ofNullable(System.getenv("HADOOP_AZURE_VERSION")).orElse("3.3.5");
-    private static final String AZURE_STORAGE_VERSION = Optional.ofNullable(System.getenv("AZURE_STORAGE_VERSION")).orElse("8.6.6");
-    private static final String JETTY_VERSION = Optional.ofNullable(System.getenv("JETTY_VERSION")).orElse("9.4.51.v20230217");
+    private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
+    private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
+    private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.51.v20230217");
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = Optional.ofNullable(System.getenv("SNOWFLAKE_JDBC_VERSION")).orElse("3.14.0");
-    private static final String SPARK_SNOWFLAKE_VERSION = Optional.ofNullable(System.getenv("SPARK_SNOWFLAKE_VERSION")).orElse("3.4");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.14.0");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.4");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = Optional.ofNullable(System.getenv("POSTGRESQL_VERSION")).orElse("42.5.4");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
 
     // REDSHIFT
-    private static final String AWS_JAVA_SDK_VERSION = Optional.ofNullable(System.getenv("AWS_JAVA_SDK_VERSION")).orElse("1.12.595");
-    private static final String HADOOP_AWS_VERSION = Optional.ofNullable(System.getenv("HADOOP_AWS_VERSION")).orElse("3.3.4");
-    private static final String REDSHIFT_JDBC_VERSION = Optional.ofNullable(System.getenv("REDSHIFT_JDBC_VERSION")).orElse("2.1.0.23");
-    private static final String SPARK_REDSHIFT_VERSION = Optional.ofNullable(System.getenv("SPARK_REDSHIFT_VERSION")).orElse("6.1.0-spark_3.5");
+    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.595");
+    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.23");
+    private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.1.0-spark_3.5");
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -145,7 +145,7 @@ public class Setup {
     private static final JarDependency REDSHIFT_JDBC_JAR = new JarDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static final JarDependency SPARK_REDSHIFT_JAR = new JarDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
             "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
-    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-spark3", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
 
     private static final JarDependency[] snowflakeDependencies = {
@@ -174,8 +174,13 @@ public class Setup {
             SPARK_BQ_JAR
     };
 
+    private static Optional<String> getEnv(String env) {
+        // consider empty env variables as not set
+        return Optional.ofNullable(System.getenv(env)).filter(s -> !s.isEmpty());
+    }
+
     private static boolean envIsTrue(String env) {
-        String value = Optional.ofNullable(System.getenv(env)).orElse("false");
+        String value = getEnv(env).orElse("false");
         return !value.equals("false") && !value.equals("0");
 
     }
