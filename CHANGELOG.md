@@ -6,9 +6,11 @@
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
 - fix versions.sh file for linux
+- update dockerfile to take environment variable into account
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
+- warn when starlake version is not installed yet and user want to use it
 
 # 1.0.0:
 - **BREAKING CHANGE**
