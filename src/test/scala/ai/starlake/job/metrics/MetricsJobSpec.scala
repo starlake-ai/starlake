@@ -4,11 +4,11 @@ import ai.starlake.config.DatasetArea
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
 class MetricsJobSpec extends TestHelper with JdbcChecks {
-  val expectedContinuousMetricsSchema = StructType(
+  val expectedContinuousMetricsSchema: StructType = StructType(
     Array(
       StructField("attribute", StringType, nullable = true),
       StructField("min", DoubleType, nullable = true),
@@ -32,7 +32,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     )
   )
 
-  val expectedFreqMetricsSchema = StructType(
+  val expectedFreqMetricsSchema: StructType = StructType(
     Array(
       StructField("attribute", StringType, nullable = true),
       StructField("category", StringType, nullable = true),
@@ -44,7 +44,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("timestamp", LongType, nullable = true)
     )
   )
-  val expectedDiscreteMetricsSchema = StructType(
+  val expectedDiscreteMetricsSchema: StructType = StructType(
     Array(
       StructField(
         "attribute",
@@ -98,11 +98,11 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
         logger.info(discreteMetricsDf.showString(truncate = 0))
         discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
 
-        val session = sparkSession
+        val session: SparkSession = sparkSession
 
         import session.implicits._
 
-        val discreteMetricsSelectedColumns =
+        val discreteMetricsSelectedColumns: Array[(String, String, String)] =
           discreteMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
@@ -150,7 +150,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       }
     }
     "All Metrics Config" should "be known and taken  into account" in {
-      val rendered = MetricsConfig.usage()
+      val rendered = MetricsCmd.usage()
       val expected =
         """
           |Usage: starlake metrics [options]

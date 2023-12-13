@@ -12,14 +12,9 @@ import scala.util.Try
 
 class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
-  def run(args: Array[String]): Try[Unit] = Try {
+  def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Yml2XlsConfig.parse(args) match {
-      case Some(config) =>
-        generateXls(config.domains, config.xlsDirectory)
-      case _ =>
-        throw new IllegalArgumentException(Yml2XlsConfig.usage())
-    }
+    Yml2XlsCmd.run(args, schemaHandler).map(_ => ())
   }
 
   def generateXls(domainNames: Seq[String], outputDir: String)(implicit

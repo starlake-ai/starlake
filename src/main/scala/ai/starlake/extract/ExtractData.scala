@@ -10,13 +10,8 @@ import scala.util.Try
 
 class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    ExtractDataConfig.parse(args) match {
-      case Some(config) =>
-        run(config)
-      case None =>
-        throw new IllegalArgumentException(ExtractDataConfig.usage())
-    }
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
+    ExtractDataCmd.run(args, schemaHandler).map(_ => ())
   }
 
   /** Generate YML file from JDBC Schema stored in a YML file

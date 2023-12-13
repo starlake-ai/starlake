@@ -5,7 +5,7 @@ import ai.starlake.TestHelper
 class ESLoadJobSpec extends TestHelper {
   new WithSettings() {
     "All ESLoad Config" should "be known and taken  into account" in {
-      val rendered = ESLoadConfig.usage()
+      val rendered = ESLoadCmd.usage()
       val expected =
         """
           |Usage: starlake esload [options]

@@ -8,7 +8,7 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
-object Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
+trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
 
   override val command: String = "yml2xls"
 
@@ -51,3 +51,5 @@ object Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
     Success(JobResult.empty)
   }
 }
+
+object Yml2XlsCmd extends Yml2XlsCmd

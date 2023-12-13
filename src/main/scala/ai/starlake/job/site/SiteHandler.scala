@@ -221,7 +221,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
       "aclSVG"        -> aclSVGFile.name
     )
 
-    val (sspResource, templateContent) = config.templateContent(SiteConfig.TABLE_TEMPLATE)
+    val (sspResource, templateContent) = config.templateContent(SiteCmd.TABLE_TEMPLATE)
 
     val sspOutput = sspEngine.layout(
       TemplateSource.fromText(sspResource, templateContent),
@@ -248,7 +248,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
       "aclSVG"        -> aclSVGFile.name
     )
 
-    val (sspResource, templateContent) = config.templateContent(SiteConfig.TASK_TEMPLATE)
+    val (sspResource, templateContent) = config.templateContent(SiteCmd.TASK_TEMPLATE)
     val sspOutput = sspEngine.layout(
       TemplateSource.fromText(sspResource, templateContent),
       paramMap

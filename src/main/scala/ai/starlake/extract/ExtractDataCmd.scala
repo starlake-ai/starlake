@@ -7,7 +7,7 @@ import ai.starlake.utils.JobResult
 import org.joda.time.DateTime
 import scopt.OParser
 
-import scala.util.{Success, Try}
+import scala.util.Try
 
 trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
 
@@ -129,10 +129,8 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
 
   override def run(config: ExtractDataConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] = {
-    new ExtractData(schemaHandler).run(config)
-    Success(JobResult.empty)
-  }
+  ): Try[JobResult] =
+    Try(new ExtractData(schemaHandler).run(config)).map(_ => JobResult.empty)
 }
 
 object ExtractDataCmd extends ExtractDataCmd

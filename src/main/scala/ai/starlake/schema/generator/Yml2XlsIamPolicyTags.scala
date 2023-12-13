@@ -1,26 +1,16 @@
 package ai.starlake.schema.generator
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.hadoop.fs.Path
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
 object Yml2XlsIamPolicyTags extends LazyLogging with XlsModel {
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Yml2XlsConfig.parse(args) match {
-      case Some(config) =>
-        val inputPath = config.iamPolicyTagsFile
-          .map(new Path(_)) getOrElse (DatasetArea.iamPolicyTags())
-
-        val iamPolicyTags =
-          YamlSerializer.deserializeIamPolicyTags(settings.storageHandler().read(inputPath))
-        writeXls(iamPolicyTags, config.xlsDirectory)
-      case _ =>
-    }
+    Yml2XlsIamPolicyTagsCmd.run(args, new SchemaHandler(settings.storageHandler()))
   }
 
   def writeXls(iamPolicyTags: IamPolicyTags, folder: String): Unit = {

@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer._
 import better.files.File
@@ -35,34 +36,9 @@ object Xls2Yml extends LazyLogging {
     serializeToFile(File(outputPath, s"${fileName}.sl.yml"), iamPolicyTags)
   }
 
-  def run(args: Array[String]): Try[Boolean] = Try {
+  def run(args: Array[String]): Try[Boolean] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Xls2YmlConfig.parse(args) match {
-      case Some(config) =>
-        config.job match {
-          case false =>
-            config.files.foreach { file =>
-              logger.info(s"Generating schemas for $file")
-              writeDomainsAsYaml(file, config.outputPath)
-            }
-          case true =>
-            config.files.foreach(
-              Xls2YmlAutoJob.generateSchema(_, config.policyFile, config.outputPath)
-            )
-        }
-        config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
-          val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
-          val iamPolicyTags = IamPolicyTags(workbook.iamPolicyTags)
-          writeIamPolicyTagsAsYaml(
-            iamPolicyTags,
-            config.outputPath.getOrElse(DatasetArea.metadata.toString),
-            "iam-policy-tags"
-          )
-        }
-        true
-      case _ =>
-        false
-    }
+    Xls2YmlCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => true)
   }
 
   def main(args: Array[String]): Unit = {

@@ -2,6 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Domain
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
@@ -18,7 +19,7 @@ class Yml2XlsSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
-        val domain = reader.getDomain()
+        val domain: Option[Domain] = reader.getDomain()
         assert(domain.isDefined)
         domain.foreach { domain =>
           assert(domain.name == "position")
@@ -58,7 +59,7 @@ class Yml2XlsSpec extends TestHelper {
   }
 
   "All SchemaGen Config" should "be known and taken  into account" in {
-    val rendered = Yml2XlsConfig.usage()
+    val rendered = Yml2XlsCmd.usage()
     println(rendered)
 
     val expected =

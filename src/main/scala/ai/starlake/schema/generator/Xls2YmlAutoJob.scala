@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer._
 import better.files.File
@@ -38,14 +39,9 @@ object Xls2YmlAutoJob extends LazyLogging {
     serializeToFile(File(outputPath, s"$fileName.sl.yml"), autotask)
   }
 
-  def run(args: Array[String]): Try[Unit] = Try {
+  def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Xls2YmlConfig.parse(args) match {
-      case Some(config) =>
-        config.files.foreach(generateSchema(_, config.policyFile, config.outputPath))
-      case _ =>
-        throw new IllegalArgumentException(Xls2YmlConfig.usage())
-    }
+    Xls2YmlAutoJobCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
   }
 
   def main(args: Array[String]): Unit = {

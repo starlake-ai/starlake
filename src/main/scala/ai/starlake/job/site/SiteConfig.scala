@@ -1,41 +1,8 @@
 package ai.starlake.job.site
 
-import ai.starlake.utils.CliConfig
 import better.files.File
-import scopt.OParser
 
 import scala.util.Try
-
-object SiteConfig extends CliConfig[SiteConfig] {
-  val command = "site"
-  val parser: OParser[Unit, SiteConfig] = {
-    val builder = OParser.builder[SiteConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(
-        """
-          |Generate site
-          |""".stripMargin
-      ),
-      opt[String]("outputDir")
-        .action((x, c) => c.copy(outputPath = File(x)))
-        .text("Output Directory")
-        .optional(),
-      opt[String]("template")
-        .action((x, c) => c.copy(templateName = Some(x)))
-        .text("Template name or template path to use")
-        .required()
-    )
-  }
-
-  def parse(args: Seq[String]): Option[SiteConfig] =
-    OParser.parse(parser, args, SiteConfig(), setup)
-
-  val TABLE_TEMPLATE = "table"
-  val TASK_TEMPLATE = "task"
-}
 
 /** Site configuration Only one of templatePath and template should be defined
   * @param outputPath
