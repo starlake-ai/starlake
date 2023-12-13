@@ -42,35 +42,30 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY starlake.s[h] /app/
-COPY versions.s[h] /app/
 
-RUN if [ ! -f versions.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/versions.sh; fi
-RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi
-RUN  chmod +x starlake.sh
-RUN  SL_VERSION="$SL_VERSION" \
-       SPARK_VERSION="$SPARK_VERSION" \
-       HADOOP_VERSION="$HADOOP_VERSION" \
-       ENABLE_BIGQUERY=$ENABLE_BIGQUERY \
-       SPARK_BQ_VERSION="$SPARK_BQ_VERSION" \
-       ENABLE_AZURE=$ENABLE_AZURE \
-       HADOOP_AZURE_VERSION="$HADOOP_AZURE_VERSION" \
-       AZURE_STORAGE_VERSION="$AZURE_STORAGE_VERSION" \
-       JETTY_VERSION="$JETTY_VERSION" \
-       JETTY_UTIL_VERSION="$JETTY_UTIL_VERSION" \
-       JETTY_UTIL_AJAX_VERSION="$JETTY_UTIL_AJAX_VERSION" \
-       ENABLE_SNOWFLAKE=$ENABLE_SNOWFLAKE \
-       SPARK_SNOWFLAKE_VERSION="$SPARK_SNOWFLAKE_VERSION" \
-       SNOWFLAKE_JDBC_VERSION="$SNOWFLAKE_JDBC_VERSION" \
-       ENABLE_POSTGRESQL="$ENABLE_POSTGRESQL" \
-       POSTGRESQL_VERSION="$POSTGRESQL_VERSION" \
-       ENABLE_REDSHIFT="$ENABLE_REDSHIFT" \
-       AWS_JAVA_SDK_VERSION="$AWS_JAVA_SDK_VERSION" \
-       HADOOP_AWS_VERSION="$HADOOP_AWS_VERSION" \
-       REDSHIFT_JDBC_VERSION="$REDSHIFT_JDBC_VERSION" \
-       SPARK_REDSHIFT_VERSION="$SPARK_REDSHIFT_VERSION" \
-       ./starlake.sh install
-
-
+RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi && chmod +x starlake.sh && \
+      SL_VERSION="$SL_VERSION" \
+      SPARK_VERSION="$SPARK_VERSION" \
+      HADOOP_VERSION="$HADOOP_VERSION" \
+      ENABLE_BIGQUERY=$ENABLE_BIGQUERY \
+      SPARK_BQ_VERSION="$SPARK_BQ_VERSION" \
+      ENABLE_AZURE=$ENABLE_AZURE \
+      HADOOP_AZURE_VERSION="$HADOOP_AZURE_VERSION" \
+      AZURE_STORAGE_VERSION="$AZURE_STORAGE_VERSION" \
+      JETTY_VERSION="$JETTY_VERSION" \
+      JETTY_UTIL_VERSION="$JETTY_UTIL_VERSION" \
+      JETTY_UTIL_AJAX_VERSION="$JETTY_UTIL_AJAX_VERSION" \
+      ENABLE_SNOWFLAKE=$ENABLE_SNOWFLAKE \
+      SPARK_SNOWFLAKE_VERSION="$SPARK_SNOWFLAKE_VERSION" \
+      SNOWFLAKE_JDBC_VERSION="$SNOWFLAKE_JDBC_VERSION" \
+      ENABLE_POSTGRESQL="$ENABLE_POSTGRESQL" \
+      POSTGRESQL_VERSION="$POSTGRESQL_VERSION" \
+      ENABLE_REDSHIFT="$ENABLE_REDSHIFT" \
+      AWS_JAVA_SDK_VERSION="$AWS_JAVA_SDK_VERSION" \
+      HADOOP_AWS_VERSION="$HADOOP_AWS_VERSION" \
+      REDSHIFT_JDBC_VERSION="$REDSHIFT_JDBC_VERSION" \
+      SPARK_REDSHIFT_VERSION="$SPARK_REDSHIFT_VERSION" \
+      ./starlake.sh install
 
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app /app
