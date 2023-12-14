@@ -15,7 +15,7 @@ import ai.starlake.schema.model.{
   SchemaRefs,
   TransformDesc
 }
-import better.files.File
+import better.files.{File, UnicodeCharset}
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.scalalogging.LazyLogging
@@ -28,38 +28,24 @@ import scala.util.{Failure, Success, Try}
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = Utils.newYamlMapper()
 
-  val charset: Charset = sun.nio.cs.UTF_8.INSTANCE
+  implicit val charset: Charset = sun.nio.cs.UTF_8.INSTANCE
 
-  private lazy val differentCharsets: Boolean = Charset.defaultCharset() != charset
+  def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
-  private def serializeAsString(value: Any): String = {
-    val string = mapper.writeValueAsString(value)
-    if (differentCharsets)
-      new String(
-        string.getBytes(charset),
-        charset
-      )
-    else {
-      string
-    }
-  }
-
-  def serialize(domain: Domain): String = serializeAsString(domain)
-
-  def serialize(iamPolicyTags: IamPolicyTags): String = serializeAsString(iamPolicyTags)
+  def serialize(iamPolicyTags: IamPolicyTags): String = mapper.writeValueAsString(iamPolicyTags)
 
   def deserializeIamPolicyTags(content: String): IamPolicyTags = {
     val rootNode = mapper.readTree(content)
     mapper.treeToValue(rootNode, classOf[IamPolicyTags])
   }
 
-  def serialize(autoJob: AutoJobDesc): String = serializeAsString(autoJob)
+  def serialize(autoJob: AutoJobDesc): String = mapper.writeValueAsString(autoJob)
 
-  def serialize(autoTask: AutoTaskDesc): String = serializeAsString(autoTask)
+  def serialize(autoTask: AutoTaskDesc): String = mapper.writeValueAsString(autoTask)
 
-  def serialize(schema: ModelSchema): String = serializeAsString(schema)
+  def serialize(schema: ModelSchema): String = mapper.writeValueAsString(schema)
 
-  def serializeObject(obj: Object): String = serializeAsString(obj)
+  def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
 
   def toMap(job: AutoJobDesc)(implicit settings: Settings): Map[String, Any] = {
     val jobWriter = mapper
@@ -70,8 +56,8 @@ object YamlSerializer extends LazyLogging {
     mapper.readValue(jsonContent, classOf[Map[String, Any]])
   }
 
-  def serialize(jdbcSchemas: JDBCSchemas): String = serializeAsString(jdbcSchemas)
-  def serialize(schemas: SchemaRefs): String = serializeAsString(schemas)
+  def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
+  def serialize(schemas: SchemaRefs): String = mapper.writeValueAsString(schemas)
 
   def deserializeJDBCSchemas(content: String, inputFilename: String): JDBCSchemas = {
     val rootNode = mapper.readTree(content)
@@ -118,16 +104,16 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serializeDomain(domain: Domain): String = {
-    serializeAsString(LoadDesc(domain))
+    mapper.writeValueAsString(LoadDesc(domain))
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
     val domainAsString = serializeDomain(domain)
-    targetFile.overwrite(domainAsString)
+    targetFile.overwrite(domainAsString)(charset = UnicodeCharset(charset))
   }
 
   def serializeToFile(targetFile: File, schema: ModelSchema): File = {
-    targetFile.overwrite(serializeTable(schema))
+    targetFile.overwrite(serializeTable(schema))(charset = UnicodeCharset(charset))
   }
 
   def serializeToPath(targetPath: Path, domain: Domain)(implicit storage: StorageHandler): Unit = {
@@ -143,7 +129,7 @@ object YamlSerializer extends LazyLogging {
 
   def serializeTable(schema: ModelSchema): String = {
     case class Table(table: ModelSchema)
-    serializeAsString(Table(schema))
+    mapper.writeValueAsString(Table(schema))
   }
 
   def serializeToFile(targetFile: File, iamPolicyTags: IamPolicyTags): Unit = {
