@@ -21,22 +21,22 @@ object Xls2YmlAutoJob extends LazyLogging {
     val basePath = outputPath.getOrElse(DatasetArea.transform.toString)
     val reader = new XlsAutoJobReader(InputPath(inputPath), policyPath.map(InputPath))
     reader.autoTasksDesc
-      .foreach { autotask =>
-        val taskPath = File(basePath, autotask.domain)
-        logger.info(s"Generating autoJob schema for ${autotask.name} in $taskPath")
+      .foreach { autoTask =>
+        val taskPath = File(basePath, autoTask.domain)
+        logger.info(s"Generating autoJob schema for ${autoTask.name} in $taskPath")
         writeAutoTaskYaml(
-          autotask,
+          autoTask,
           taskPath,
-          autotask.name
+          autoTask.name
         )
       }
   }
 
-  def writeAutoTaskYaml(autotask: AutoTaskDesc, outputPath: File, fileName: String): Unit = {
+  def writeAutoTaskYaml(autoTask: AutoTaskDesc, outputPath: File, fileName: String): Unit = {
     outputPath.createIfNotExists(asDirectory = true, createParents = true)
     logger.info(s"""Generated autoJob schemas:
-                   |${serialize(autotask)}""".stripMargin)
-    serializeToFile(File(outputPath, s"$fileName.sl.yml"), autotask)
+                   |${serialize(autoTask)}""".stripMargin)
+    serializeToFile(File(outputPath, s"$fileName.sl.yml"), autoTask)
   }
 
   def run(args: Array[String]): Try[Unit] = {
