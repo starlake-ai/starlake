@@ -64,7 +64,7 @@ Starlake Data Pipeline automates the loading and parsing of files and
 their ingestion into a warehouse where datasets become
 available as strongly typed records.
 
-![Complete Starlake Data Pipeline Workflow](docs/static/img/guide/workflow.png "Complete Starlake Data Pipeline Workflow")
+![](/img/workflow.png)
 
 
 The figure above describes how Starlake implements the `Extract Load Transform (ELT)` Data Pipeline steps.
