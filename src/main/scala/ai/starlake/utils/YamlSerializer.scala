@@ -28,12 +28,13 @@ import scala.util.{Failure, Success, Try}
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = Utils.newYamlMapper()
 
-  private def serializeAsString(
-    value: Any,
-    charset: Charset = sun.nio.cs.UTF_8.INSTANCE
-  ): String = {
+  val charset: Charset = sun.nio.cs.UTF_8.INSTANCE
+
+  private lazy val differentCharsets: Boolean = Charset.defaultCharset() != charset
+
+  private def serializeAsString(value: Any): String = {
     val string = mapper.writeValueAsString(value)
-    if (Charset.defaultCharset() != charset)
+    if (differentCharsets)
       new String(
         string.getBytes(charset),
         charset
