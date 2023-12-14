@@ -1,6 +1,7 @@
 package ai.starlake.schema
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Project, ProjectDiff}
 import org.apache.hadoop.fs.Path
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
@@ -8,14 +9,8 @@ import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 import scala.util.Try
 
 object ProjectCompare {
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    ProjectCompareConfig.parse(args) match {
-      case Some(config) =>
-        compare(config)
-      case None =>
-        throw new IllegalArgumentException(ProjectCompareConfig.usage())
-    }
-  }
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
+    ProjectCompareCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
 
   def compare(config: ProjectCompareConfig)(implicit settings: Settings): Unit = {
     val diff = Project.compare(config)
