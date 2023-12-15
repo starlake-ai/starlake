@@ -19,9 +19,6 @@
  */
 package ai.starlake.schema.generator
 
-import ai.starlake.utils.CliConfig
-import scopt.OParser
-
 /** @param files
   *   List of Excel files
   * @param encryption
@@ -35,37 +32,3 @@ case class DagGenerateConfig(
   outputDir: Option[String] = None,
   clean: Boolean = false
 )
-
-object DagGenerateConfig extends CliConfig[DagGenerateConfig] {
-  val command = "dag-generate"
-
-  val parser: OParser[Unit, DagGenerateConfig] = {
-    val builder = OParser.builder[DagGenerateConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(""),
-      opt[String]("outputDir")
-        .action((x, c) => c.copy(outputDir = Some(x)))
-        .optional()
-        .text(
-          """Path for saving the resulting DAG file(s).""".stripMargin
-        ),
-      opt[Unit]("clean")
-        .action((x, c) => c.copy(clean = true))
-        .optional()
-        .text(
-          """Clean Resulting DAg file output first ?""".stripMargin
-        )
-    )
-  }
-
-  /** @param args
-    *   args list passed from command line
-    * @return
-    *   Option of case class SchemaGenConfig.
-    */
-  def parse(args: Seq[String]): Option[DagGenerateConfig] =
-    OParser.parse(parser, args, DagGenerateConfig(), setup)
-}
