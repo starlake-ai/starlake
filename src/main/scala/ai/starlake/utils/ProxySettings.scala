@@ -15,9 +15,11 @@ case class ProxySettings(host: String, port: Int, username: String, password: St
 object ProxySettings {
   private def parseProxy(proxyProtocol: String): ProxySettings = {
     if (proxyProtocol.contains("@")) {
-      val username = proxyProtocol.split("@")(0).split(":")(1).substring(2)
-      val password = proxyProtocol.split("@")(0).split(":")(2)
-      val hostAndPort = proxyProtocol.split("@")(1)
+      val last = proxyProtocol.lastIndexOf("@")
+      val credentials = proxyProtocol.substring(0, last)
+      val username = credentials.split(":")(1).substring(2)
+      val password = credentials.split(":")(2)
+      val hostAndPort = proxyProtocol.substring(last + 1)
       if (hostAndPort.contains(":")) {
         val host = hostAndPort.split(":")(0)
         val port = hostAndPort.split(":")(1).toInt
