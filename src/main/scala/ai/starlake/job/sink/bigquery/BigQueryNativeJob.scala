@@ -416,6 +416,7 @@ class BigQueryNativeJob(
               queryConfig.setTimePartitioning(partitioning)
           case None =>
             queryConfig
+
         }
 
         logger.info("Computing clustering")

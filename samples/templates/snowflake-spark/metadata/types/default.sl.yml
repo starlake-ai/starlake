@@ -10,6 +10,16 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
+  - name: "integer"
+    pattern: "[-|\\+|0-9][0-9]*"
+    primitiveType: "long"
+    sample: "1234"
+    comment: "Int number"
+    ddlMapping:
+      bigquery: INT64
+      snowflake: INT
+      synapse: int
+      postgres: INT
   - name: "int"
     pattern: "[-|\\+|0-9][0-9]*"
     primitiveType: "long"

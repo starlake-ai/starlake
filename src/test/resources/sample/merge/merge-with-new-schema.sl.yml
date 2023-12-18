@@ -68,7 +68,7 @@ load:
         separator: ","
         quote: "\""
         escape: "\\"
-        write: "OVERWRITE"
+        write: "APPEND"
         sink:
           partition:
             attributes:

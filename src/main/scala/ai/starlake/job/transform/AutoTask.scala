@@ -220,7 +220,11 @@ abstract class AutoTask(
   }
 
   val (createDisposition, writeDisposition) =
-    Utils.getDBDisposition(taskDesc.getWrite(), hasMergeKeyDefined = false)
+    Utils.getDBDisposition(
+      taskDesc.getWrite(),
+      hasMergeKeyDefined = false,
+      taskDesc.getEngine() == Engine.SPARK
+    )
 }
 
 object AutoTask extends StrictLogging {

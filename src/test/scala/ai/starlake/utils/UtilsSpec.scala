@@ -11,22 +11,34 @@ class UtilsSpec extends TestHelper {
       Utils.exceptionAsString(new Exception("test")) should startWith(expected)
     }
     "BigQuery Table Creation / Write Mapping" should "Map to correct BQ Mappings" in {
-      Utils.getDBDisposition(APPEND, hasMergeKeyDefined = true) should equal(
+      Utils.getDBDisposition(APPEND, hasMergeKeyDefined = true, isJDBC = false) should equal(
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       )
-      Utils.getDBDisposition(IGNORE, hasMergeKeyDefined = true) should equal(
+      Utils.getDBDisposition(IGNORE, hasMergeKeyDefined = true, isJDBC = false) should equal(
         ("CREATE_NEVER", "WRITE_EMPTY")
       )
-      Utils.getDBDisposition(OVERWRITE, hasMergeKeyDefined = false) should equal(
+      Utils.getDBDisposition(OVERWRITE, hasMergeKeyDefined = false, isJDBC = false) should equal(
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       )
-      Utils.getDBDisposition(WriteMode.APPEND, hasMergeKeyDefined = false) should equal(
+      Utils.getDBDisposition(
+        WriteMode.APPEND,
+        hasMergeKeyDefined = false,
+        isJDBC = false
+      ) should equal(
         ("CREATE_IF_NEEDED", "WRITE_APPEND")
       )
-      Utils.getDBDisposition(WriteMode.ERROR_IF_EXISTS, hasMergeKeyDefined = false) should equal(
+      Utils.getDBDisposition(
+        WriteMode.ERROR_IF_EXISTS,
+        hasMergeKeyDefined = false,
+        isJDBC = false
+      ) should equal(
         ("CREATE_IF_NEEDED", "WRITE_EMPTY")
       )
-      Utils.getDBDisposition(WriteMode.IGNORE, hasMergeKeyDefined = false) should equal(
+      Utils.getDBDisposition(
+        WriteMode.IGNORE,
+        hasMergeKeyDefined = false,
+        isJDBC = false
+      ) should equal(
         ("CREATE_NEVER", "WRITE_EMPTY")
       )
     }
