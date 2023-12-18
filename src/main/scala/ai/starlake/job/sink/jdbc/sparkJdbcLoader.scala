@@ -5,7 +5,6 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.utils._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.jdbc.JdbcDialect
 
@@ -26,28 +25,7 @@ class sparkJdbcLoader(
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"JDBC Config $cliConfig")
 
-  val jdbcOptions = {
-    val options = if (cliConfig.format == "snowflake") {
-      cliConfig.options.flatMap { case (k, v) =>
-        if (k.startsWith("sf")) {
-          val jdbcK = k.replace("sf", "").toLowerCase().replace("database", "db")
-          val finalv =
-            if (jdbcK == "url")
-              "jdbc:snowflake://" + v
-            else
-              v
-          List(
-            jdbcK -> finalv,
-            k     -> v
-          )
-        } else
-          List(k -> v)
-
-      }
-    } else
-      cliConfig.options
-    CaseInsensitiveMap[String](options)
-  }
+  val jdbcOptions = JdbcDbUtils.jdbcOptions(cliConfig.options, cliConfig.format)
 
   def runJDBC(): Try[SparkJobResult] = {
     val inputPath = cliConfig.sourceFile
@@ -72,8 +50,6 @@ class sparkJdbcLoader(
         } else {
           logger.info(s"Schema $outputDomain exists")
         }
-        if (writeMode == SaveMode.Overwrite)
-          truncateTable(conn, jdbcOptions)
         val schema = sourceDF.schema
         if (SparkUtils.isFlat(schema) && exists) {
           val existingSchema =
@@ -142,6 +118,7 @@ class sparkJdbcLoader(
             override def canHandle(url: String): Boolean = true
           }
       }
+
       val truncateSql = jdbcDialect.getTruncateQuery(cliConfig.outputDomainAndTableName)
 
       // do not fail on exception. Truncate may fail is table does not exist

@@ -2,9 +2,11 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.exceptions.{DisallowRejectRecordException, NullValueFoundException}
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{
   BigQueryExpectationAssertionHandler,
   ExpectationJob,
+  JdbcExpectationAssertionHandler,
   MetricsJob,
   SparkExpectationAssertionHandler
 }
@@ -35,9 +37,9 @@ import com.google.cloud.bigquery.{
 }
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{Metadata => _, _}
+import org.apache.spark.sql.functions.{call_udf, col, expr, lit, struct}
+import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode, SparkSession}
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
@@ -47,8 +49,8 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try, Using}
 
 trait IngestionJob extends SparkJob {
+
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val loader = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
     val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
       case "native" =>
@@ -86,6 +88,7 @@ trait IngestionJob extends SparkJob {
   /** Merged metadata
     */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
+  lazy val loader: String = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
 
   /** ingestion algorithm
     *
@@ -230,7 +233,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def selectEngine(): Engine = {
+  private def selectLoadEngine(): Engine = {
     val nativeCandidate: Boolean = isNativeCandidate()
 
     val engine = mergedMetadata.getEngine()
@@ -238,6 +241,9 @@ trait IngestionJob extends SparkJob {
     if (nativeCandidate && engine == Engine.BQ) {
       logger.info("Using BQ as ingestion engine")
       Engine.BQ
+    } else if (engine == Engine.JDBC) {
+      logger.info("Using JDBC as ingestion engine")
+      Engine.JDBC
     } else {
       logger.info("Using Spark as ingestion engine")
       Engine.SPARK
@@ -257,7 +263,7 @@ trait IngestionJob extends SparkJob {
   }
 
   def run(): Try[JobResult] = {
-    selectEngine() match {
+    selectLoadEngine() match {
       case Engine.BQ =>
         runBQNative().map(_.jobResult)
       case Engine.SPARK =>
@@ -268,7 +274,9 @@ trait IngestionJob extends SparkJob {
         throw new Exception("should never happen")
     }
   }
-
+  ///////////////////////////////////////////////////////////////////////////
+  /////// JDBC ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////
   def runJDBC(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
@@ -287,21 +295,89 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
-              val tempTableName = SQLUtils.temporaryTableName(schema.finalName)
-              val connectionRef = mergedMetadata.getConnectionRef()
-              val connection = settings.appConfig.connections(connectionRef)
-              val connectionRefOptions = connection.options
+              val jdbcSink = mergedMetadata.getSink().asInstanceOf[JdbcSink]
+              val targetTable = domain.finalName + "." + schema.finalName
+              val twoSteps = requireTwoSteps(schema, jdbcSink)
+              val firstStepTempTable =
+                if (!twoSteps) {
+                  targetTable
+                } else {
+                  domain.finalName + "." + SQLUtils.temporaryTableName(schema.finalName)
+                }
+
+              val connectionRefOptions = mergedMetadata.getConnectionRefOptions()
+
+              val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+                mergedMetadata.getWrite(),
+                schema.merge.exists(_.key.nonEmpty),
+                isJDBC = true
+              )
 
               val jdbcConnectionLoadConfig = JdbcConnectionLoadConfig(
                 sourceFile = Right(dataset),
-                outputDomainAndTableName = domain.finalName + "." + tempTableName,
-                createDisposition = CreateDisposition.CREATE_IF_NEEDED,
-                writeDisposition = WriteDisposition.WRITE_TRUNCATE,
+                outputDomainAndTableName = firstStepTempTable,
+                createDisposition = CreateDisposition.valueOf(createDisposition),
+                writeDisposition = WriteDisposition.valueOf(writeDisposition),
                 format = "jdbc",
                 options = connectionRefOptions
               )
               val jdbcJob = new sparkJdbcLoader(jdbcConnectionLoadConfig)
-              jdbcJob.run()
+              val firstStepResult = jdbcJob.run()
+
+              if (twoSteps) {
+                firstStepResult match {
+                  case Success(loadFileResult) =>
+                    logger.info(s"First step result: $loadFileResult")
+                    JdbcDbUtils.withJDBCConnection(connectionRefOptions) { conn =>
+                      val url = connectionRefOptions("url")
+                      val expectationsResult = runExpectations(firstStepTempTable, conn)
+                      val keepGoing =
+                        expectationsResult.isSuccess || !settings.appConfig.expectations.failOnError
+                      if (keepGoing) {
+                        val targetTableExists = JdbcDbUtils.tableExists(conn, url, targetTable)
+                        if (!targetTableExists && settings.appConfig.createSchemaIfNotExists) {
+                          logger.info(
+                            s"Schema ${domain.finalName} does not exists, trying to create it"
+                          )
+                          val existingSchema =
+                            SparkUtils.getSchemaOption(conn, connectionRefOptions, targetTable)
+                          val addedSchema =
+                            SparkUtils.added(
+                              dataset.schema,
+                              existingSchema.getOrElse(dataset.schema)
+                            )
+                          val deletedSchema =
+                            SparkUtils.dropped(
+                              dataset.schema,
+                              existingSchema.getOrElse(dataset.schema)
+                            )
+                          val alterTableDropColumns =
+                            SparkUtils.alterTableDropColumnsString(deletedSchema, targetTable)
+                          val alterTableAddColumns =
+                            SparkUtils.alterTableAddColumnsString(addedSchema, targetTable)
+                          alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+                          alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+                        }
+                        val secondStepResult =
+                          applyJdbcSecondStep(
+                            firstStepTempTable,
+                            targetTable,
+                            schema,
+                            targetTableExists
+                          )
+                        secondStepResult
+
+                      } else {
+                        expectationsResult
+                      }
+                    }
+
+                  case Failure(exception) =>
+                    Failure(exception)
+                }
+              } else {
+                firstStepResult
+              }
             } match {
               case Failure(exception) =>
                 logLoadFailureInAudit(start, exception)
@@ -319,6 +395,112 @@ trait IngestionJob extends SparkJob {
 
   }
 
+  private def applyJdbcSecondStep(
+    firstStepTempTableName: String,
+    targetTableName: String,
+    starlakeSchema: Schema,
+    targetTableExists: Boolean
+  ): Try[JobResult] = {
+    applyJdbcSecondStepSQL(
+      firstStepTempTableName,
+      targetTableName,
+      starlakeSchema,
+      targetTableExists
+    )
+  }
+
+  def applyJdbcSecondStepSQL(
+    firstStepTempTableName: String,
+    targetTableName: String,
+    starlakeSchema: Schema,
+    targetTableExists: Boolean
+  ): Try[JobResult] = {
+    val tempTable = firstStepTempTableName
+    val targetTable = targetTableName
+
+    // Even if merge is able to handle data deletion, in order to have same behavior with spark
+    // we require user to set dynamic partition overwrite
+    // we have sql as optional because in dynamic partition overwrite mode, if no partition exists, we do nothing
+    val sqlMerge = starlakeSchema.merge match {
+      case Some(_: MergeOptions) =>
+        handleJdbcNativeMergeCases(
+          starlakeSchema,
+          targetTable,
+          tempTable,
+          targetTableExists
+        )
+      case None =>
+        handleJdbcNativeNoMergeCases(
+          starlakeSchema,
+          tempTable,
+          targetTableExists
+        )
+    }
+    sqlMerge match {
+      case Success(sqlMerge) =>
+        logger.info(s"buildSqlSelect: $sqlMerge")
+        val taskDesc = AutoTaskDesc(
+          name = targetTable,
+          sql = Some(sqlMerge),
+          database = schemaHandler.getDatabase(domain),
+          domain = domain.finalName,
+          table = schema.finalName,
+          write = mergedMetadata.write,
+          sink = mergedMetadata.sink,
+          acl = schema.acl,
+          comment = schema.comment,
+          tags = schema.tags
+        )
+        val jobResult = AutoTask
+          .task(taskDesc, Map.empty, None, truncate = false)(
+            settings,
+            storageHandler,
+            schemaHandler
+          )
+          .run()
+        jobResult
+      case Failure(exception) =>
+        Failure(exception)
+    }
+  }
+
+  private def handleJdbcNativeMergeCases(
+    starlakeSchema: Schema,
+    targetTable: String,
+    tempTable: String,
+    targetTableExists: Boolean
+  ): Try[String] = {
+    Success(
+      starlakeSchema
+        .buildSqlMerge(
+          tempTable,
+          targetTable,
+          Nil,
+          Nil,
+          partitionOverwrite = false,
+          None,
+          targetTableExists
+        )
+        .replace('`', ' ')
+    )
+  }
+
+  private def handleJdbcNativeNoMergeCases(
+    schema: Schema,
+    tempTable: String,
+    targetTableExists: Boolean
+  ): Try[String] = {
+    Success(schema.buildSqlSelect(tempTable, None).replace('`', ' '))
+  }
+
+  private def requireTwoSteps(schema: Schema, sink: JdbcSink): Boolean = {
+    // renamed attribute can be loaded directly so it's not in the condition
+    schema
+      .hasTransformOrIgnoreOrScriptColumns() ||
+    schema.merge.nonEmpty ||
+    schema.filter.nonEmpty ||
+    settings.appConfig.archiveTable
+  }
   ///////////////////////////////////////////////////////////////////////////
   /////// BQ ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
@@ -339,7 +521,8 @@ trait IngestionJob extends SparkJob {
       val effectiveSchema: Schema = computeEffectiveInputSchema()
       val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
         mergedMetadata.getWrite(),
-        effectiveSchema.merge.exists(_.key.nonEmpty)
+        effectiveSchema.merge.exists(_.key.nonEmpty),
+        isJDBC = false
       )
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
       val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
@@ -394,14 +577,15 @@ trait IngestionJob extends SparkJob {
         val output: Try[NativeBqLoadInfo] = firstStepResult match {
           case Success(loadFileResult) =>
             logger.info(s"First step result: $loadFileResult")
-            val expectationsResult = runExpectations(firstStepTempTable, firstStepBigqueryJob)
+            val domainAndTableName = BigQueryUtils.tableIdToString(firstStepTempTable)
+            val expectationsResult = runExpectations(domainAndTableName, firstStepBigqueryJob)
             val keepGoing =
               expectationsResult.isSuccess || !settings.appConfig.expectations.failOnError
             if (keepGoing) {
               val targetTableSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
               val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
               val secondStepResult =
-                applySecondStep(
+                applyBigQuerySecondStep(
                   targetBigqueryJob,
                   firstStepTempTable,
                   targetTableSchema,
@@ -594,7 +778,9 @@ trait IngestionJob extends SparkJob {
             }
             val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
-              csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
+              csvHeaders.map(h =>
+                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = false))
+              )
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =
               csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
@@ -605,29 +791,14 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def applySecondStepSQL(
+  def applyBigQUerySecondStepSQL(
     bigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableId: TableId,
     targetTableSchema: BQSchema,
     starlakeSchema: Schema
   ): Try[(BigQueryJobResult, Long)] = {
-    val tempTable =
-      s"`${firstStepTempTableId.getProject}.${firstStepTempTableId.getDataset}.${firstStepTempTableId.getTable}`"
-    val targetTable =
-      s"`${targetTableId.getProject}.${targetTableId.getDataset}.${targetTableId.getTable}`"
-    val sourceUris =
-      bigqueryJob.cliConfig.source.left.getOrElse(throw new Exception("Should never happen"))
-
-    val tempTableWithInputFileName =
-      s"""
-         |(
-         | SELECT *, '${sourceUris.replace(
-          "'",
-          "\\'"
-        )}' as ${CometColumns.cometInputFileNameColumn} FROM $tempTable
-         |)
-         |""".stripMargin
+    val sourceUris = path.map(_.toString).mkString(",").replace("'", "\\'")
 
     // Even if merge is able to handle data deletion, in order to have same behavior with spark
     // we require user to set dynamic partition overwrite
@@ -636,18 +807,19 @@ trait IngestionJob extends SparkJob {
       case Some(mergeOptions: MergeOptions) =>
         handleNativeMergeCases(
           bigqueryJob,
+          firstStepTempTableId,
           targetTableId,
           starlakeSchema,
-          targetTable,
-          tempTableWithInputFileName,
-          mergeOptions
+          mergeOptions,
+          sourceUris
         )
       case None =>
         handleNativeNoMergeCases(
           bigqueryJob,
+          firstStepTempTableId,
+          targetTableId,
           starlakeSchema,
-          targetTable,
-          tempTableWithInputFileName
+          sourceUris
         )
     }
     mergeInstructions.flatMap { case (sqlOpt, asTable, nullCountValues) =>
@@ -667,16 +839,21 @@ trait IngestionJob extends SparkJob {
 
   private def handleNativeNoMergeCases(
     bigqueryJob: BigQueryNativeJob,
+    firstStepTempTableId: TableId,
+    targetTableId: TableId,
     schema: Schema,
-    targetTable: String,
-    enrichedTempTable: String
+    sourceUris: String
   ): Try[(Option[String], Boolean, Long)] = {
+
+    val tempTable = getBQFullTableName(firstStepTempTableId)
+    val targetTable = getBQFullTableName(targetTableId)
+
     (
       bigqueryJob.cliConfig.dynamicPartitionOverwrite.getOrElse(true),
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, Some(partitionName)) =>
-        val sql = schema.buildSqlSelect(enrichedTempTable, schema.filter)
+        val sql = schema.buildSqlSelect(tempTable, Some(sourceUris))
         computePartitions(bigqueryJob, partitionName, sql) match {
           case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
             logger.error("Null value found in partition")
@@ -693,21 +870,27 @@ trait IngestionJob extends SparkJob {
             Success(
               Some(
                 schema.buildSqlMerge(
-                  enrichedTempTable,
+                  tempTable,
                   targetTable,
-                  None,
-                  schema.filter,
                   Nil,
                   List(inPartitions),
-                  true
+                  partitionOverwrite = true,
+                  Some(sourceUris)
                 )
               ),
               false,
               nullCountValues
             )
         }
-      case _ => Success(Some(schema.buildSqlSelect(enrichedTempTable, schema.filter)), true, 0)
+      case _ => Success(Some(schema.buildSqlSelect(tempTable, Some(sourceUris))), true, 0)
     }
+  }
+
+  private def getBQFullTableName(targetTableId: TableId) = {
+    if (targetTableId.getProject == null)
+      s"`${targetTableId.getDataset}.${targetTableId.getTable}`"
+    else
+      s"`${targetTableId.getProject}.${targetTableId.getDataset}.${targetTableId.getTable}`"
   }
 
   /** return all partitions and the number of null records */
@@ -745,12 +928,14 @@ trait IngestionJob extends SparkJob {
 
   private def handleNativeMergeCases(
     bigqueryJob: BigQueryNativeJob,
+    tempTableId: TableId,
     targetTableId: TableId,
     starlakeSchema: Schema,
-    targetTable: String,
-    tempTableWithInputFileName: String,
-    mergeOptions: MergeOptions
+    mergeOptions: MergeOptions,
+    sourceUris: String
   ): Try[(Option[String], Boolean, Long)] = {
+    val tempTable = getBQFullTableName(tempTableId)
+    val targetTable = getBQFullTableName(targetTableId)
     val targetFilters =
       (mergeOptions.queryFilter, bigqueryJob.cliConfig.outputPartition) match {
         case (Some(_), Some(_)) =>
@@ -769,13 +954,12 @@ trait IngestionJob extends SparkJob {
     ) match {
       case (true, "WRITE_TRUNCATE", Some(partitionName)) =>
         val sql = starlakeSchema.buildSqlMerge(
-          tempTableWithInputFileName,
+          tempTable,
           targetTable,
-          starlakeSchema.merge,
-          starlakeSchema.filter,
           targetFilters,
           Nil,
-          false
+          partitionOverwrite = false,
+          Some(sourceUris)
         )
         computePartitions(bigqueryJob, partitionName, sql) match {
           case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
@@ -793,13 +977,12 @@ trait IngestionJob extends SparkJob {
             Success(
               Some(
                 starlakeSchema.buildSqlMerge(
-                  tempTableWithInputFileName,
+                  tempTable,
                   targetTable,
-                  starlakeSchema.merge,
-                  starlakeSchema.filter,
                   targetFilters,
                   List(inPartitions),
-                  true
+                  partitionOverwrite = true,
+                  Some(sourceUris)
                 )
               ),
               false,
@@ -810,13 +993,12 @@ trait IngestionJob extends SparkJob {
         Success(
           Some(
             starlakeSchema.buildSqlMerge(
-              tempTableWithInputFileName,
+              tempTable,
               targetTable,
-              starlakeSchema.merge,
-              starlakeSchema.filter,
               targetFilters,
               Nil,
-              false
+              partitionOverwrite = false,
+              Some(sourceUris)
             )
           ),
           true,
@@ -825,7 +1007,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def applySecondStep(
+  private def applyBigQuerySecondStep(
     targetBigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableSchema: BQSchema,
@@ -834,7 +1016,7 @@ trait IngestionJob extends SparkJob {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, targetTableSchema)
-        applySecondStepSQL(
+        applyBigQUerySecondStepSQL(
           targetBigqueryJob,
           firstStepTempTableId,
           targetTableId,
@@ -954,13 +1136,12 @@ trait IngestionJob extends SparkJob {
       "spark.scheduler.pool",
       settings.appConfig.scheduling.poolName
     )
-
     val jobResult = domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.map(_.toString()).reduce { (errs, err) =>
           errs + "\n" + err
         }
-        Failure(throw new Exception(s"-- Domain $name --\n" + errs))
+        Failure(throw new Exception(s"-- $name --\n" + errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
         runPreSql()
@@ -1013,15 +1194,17 @@ trait IngestionJob extends SparkJob {
         // Load from accepted area
         // We provide the accepted DF schema since partition columns types are inferred when parquet is loaded and might not match with the DF being ingested
         Try {
+          val compatibleSchema = MergeUtils.computeCompatibleSchema(
+            session.read
+              .format(settings.appConfig.defaultWriteFormat)
+              .load(acceptedPath.toString)
+              .schema,
+            incomingSchema
+          )
+
           session.read
             .schema(
-              MergeUtils.computeCompatibleSchema(
-                session.read
-                  .format(settings.appConfig.defaultWriteFormat)
-                  .load(acceptedPath.toString)
-                  .schema,
-                incomingSchema
-              )
+              compatibleSchema
             )
             .format(settings.appConfig.defaultWriteFormat)
             .load(acceptedPath.toString)
@@ -1031,6 +1214,64 @@ trait IngestionJob extends SparkJob {
         }
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+
+    val partitionedInputDF =
+      partitionDataset(withScriptFieldsDF, mergedMetadata.getPartitionAttributes())
+    logger.whenInfoEnabled {
+      logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
+      logger.info(
+        s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
+      )
+    }
+    val (finalIncomingDF, mergedDF, _) = {
+      MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
+    }
+    (mergedDF, Nil)
+  }
+
+  private def mergeFromJdbc(
+    withScriptFieldsDF: DataFrame,
+    mergeOptions: MergeOptions
+  ): (DataFrame, List[String]) = {
+    val incomingSchema = schema.finalSparkSchema(schemaHandler)
+    val sink = mergedMetadata.getSink().asInstanceOf[JdbcSink]
+    val format = sink.getConnection().sparkFormat.getOrElse("jdbc")
+    val jdbcOptions =
+      ai.starlake.extract.JdbcDbUtils.jdbcOptions(sink.getConnection().options, format)
+    val outputDomainAndTablename = domain.finalName + "." + schema.finalName
+    val existTable = JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
+      val url = jdbcOptions("url")
+      val exists = JdbcDbUtils.tableExists(conn, url, outputDomainAndTablename)
+      exists
+    }
+    val existingDF =
+      if (!existTable) {
+        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+      } else {
+        val dbDF = session.read
+          .format(format)
+          .options(jdbcOptions)
+          .option("dbtable", outputDomainAndTablename)
+          .load()
+
+        Try {
+          val newColumns: List[StructField] =
+            MergeUtils.computeNewColumns(dbDF.schema, incomingSchema)
+          val df = session.read
+            .format(format)
+            .options(jdbcOptions)
+            .option("dbtable", outputDomainAndTablename)
+            .load()
+
+          newColumns.foldRight(df) { case (col, df) =>
+            df.withColumn(col.name, lit(null).cast(col.dataType))
+          }
+
+        } getOrElse {
+          session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        }
+
+      }
 
     val partitionedInputDF =
       partitionDataset(withScriptFieldsDF, mergedMetadata.getPartitionAttributes())
@@ -1399,7 +1640,31 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def runExpectations(tableId: TableId, job: BigQueryNativeJob): Try[JobResult] = {
+  private def runExpectations(
+    domainAndTableName: String,
+    connection: java.sql.Connection
+  ): Try[JobResult] = {
+    if (settings.appConfig.expectations.active) {
+
+      new ExpectationJob(
+        schemaHandler.getDatabase(this.domain),
+        this.domain.finalName,
+        this.schema.finalName,
+        this.schema.expectations,
+        storageHandler,
+        schemaHandler,
+        Some(Right(domainAndTableName)),
+        new JdbcExpectationAssertionHandler(connection)
+      ).run()
+    } else {
+      Success(SparkJobResult(None))
+    }
+  }
+
+  private def runExpectations(
+    domainAndTableName: String,
+    job: BigQueryNativeJob
+  ): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         schemaHandler.getDatabase(this.domain),
@@ -1408,7 +1673,7 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        Some(Right(tableId)),
+        Some(Right(domainAndTableName)),
         new BigQueryExpectationAssertionHandler(job)
       ).run()
     } else {
@@ -1515,7 +1780,13 @@ trait IngestionJob extends SparkJob {
       schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         mergedMetadata.getSink() match {
           case sink: BigQuerySink => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
-          case _                  => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+          case _: JdbcSink        =>
+            // mergeFromJdbc(finalAcceptedDF, mergeOptions)
+            throw new Exception(
+              "Jdbc merge not supported when spark loader is used. Use native loader instead"
+            )
+
+          case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
       }
 
@@ -1645,7 +1916,8 @@ trait IngestionJob extends SparkJob {
 
       val (cd, wd) = Utils.getDBDisposition(
         mergedMetadata.getWrite(),
-        schema.merge.exists(_.key.nonEmpty)
+        schema.merge.exists(_.key.nonEmpty),
+        isJDBC = true
       )
       (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
     }
@@ -1674,7 +1946,8 @@ trait IngestionJob extends SparkJob {
   ): Try[(DataFrame, Long)] = {
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
-      schema.merge.exists(_.key.nonEmpty)
+      schema.merge.exists(_.key.nonEmpty),
+      isJDBC = false
     )
 
     /* We load the schema from the postsql returned dataframe if any */
@@ -1725,7 +1998,7 @@ trait IngestionJob extends SparkJob {
     mergedMetadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
         dfIn.filter(
-          !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
+          !call_udf(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
         )
       } else {
         dfIn.filter(!($"value" rlike ignore))

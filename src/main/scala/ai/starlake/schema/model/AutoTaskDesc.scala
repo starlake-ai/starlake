@@ -98,6 +98,11 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
+    if (merge.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
+      Left(List("Merge and write mode are not compatible"))
+    } else {
+      Right(true)
+    }
   }
 
   def this() = this(

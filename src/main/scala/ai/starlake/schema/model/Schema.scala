@@ -161,6 +161,8 @@ case class Schema(
     }
   }
 
+  def exceptIgnoreAttributes(): List[Attribute] = attributes.filter(!_.isIgnore())
+
   def ignoredAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
       attribute.isIgnore()
@@ -324,6 +326,28 @@ case class Schema(
           "Table attributes",
           s"""Scripted fields can only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
         )
+    }
+
+    if (merge.isDefined && merge.get.key.isEmpty) {
+      errorList +=
+        ValidationMessage(
+          Error,
+          "Table attributes",
+          s"""Merge key cannot be empty""".stripMargin
+        )
+    }
+    if (merge.isDefined) {
+      metadata.foreach { m =>
+        if (m.getWrite() != WriteMode.APPEND) {
+          errorList +=
+            ValidationMessage(
+              Error,
+              "Table attributes",
+              s"""Merge requires 'Append' write mode""".stripMargin
+            )
+        }
+      }
+
     }
 
     val duplicateErrorMessage =
@@ -551,9 +575,20 @@ case class Schema(
     */
   def buildSqlSelect(
     table: String,
-    sourceTableFilter: Option[String],
-    columnSuffixOpt: Option[String] = None
+    sourceUris: Option[String]
   ): String = {
+    val tableWithInputFileName = {
+      sourceUris match {
+        case None => table
+        case Some(sourceUris) =>
+          s"""
+         |(
+         | SELECT *, '${sourceUris}' as ${CometColumns.cometInputFileNameColumn} FROM $table
+         |)
+         |""".stripMargin
+      }
+    }
+
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -576,25 +611,10 @@ case class Schema(
       s"`${field.getFinalName()}`"
     }
 
+    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
     val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
-    val allFinalAttributes = columnSuffixOpt match {
-      case Some(columnSuffix) =>
-        (simpleAttributes.map(_.getFinalName()) ++ scriptAttributes.map(
-          _.getFinalName()
-        ) ++ transformAttributes.map(_.getFinalName()))
-          .map(f => s"`$f` AS `$f$columnSuffix`")
-          .mkString(", ")
-      case None =>
-        val finalSqlExcept = {
-          if (ignoredAttributes().isEmpty) {
-            ""
-          } else {
-            sqlIgnored.mkString("EXCEPT(", ",", ")")
-          }
-        }
-        s"* $finalSqlExcept"
-    }
-    val sourceTableFilterSQL = sourceTableFilter match {
+
+    val sourceTableFilterSQL = this.filter match {
       case Some(filter) => s"WHERE $filter"
       case None         => ""
 
@@ -603,8 +623,8 @@ case class Schema(
        |SELECT $allFinalAttributes
        |  FROM (
        |    SELECT $allAttributes
-       |    FROM $table
-       |  )
+       |    FROM $tableWithInputFileName
+       |  ) as sl_from
        |  $sourceTableFilterSQL
        |""".stripMargin
   }
@@ -612,11 +632,11 @@ case class Schema(
   def buildSqlMerge(
     sourceTable: String,
     targetTable: String,
-    mergeOptionsOpt: Option[MergeOptions],
-    sourceTableFilter: Option[String],
     targetTableFilters: List[String],
     updateTargetFilters: List[String],
-    partitionOverwrite: Boolean
+    partitionOverwrite: Boolean,
+    sourceUris: Option[String],
+    targetTableExists: Boolean = true
   ): String = {
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
@@ -646,17 +666,16 @@ case class Schema(
         if (merge.map(_.key.isEmpty).getOrElse(true))
           buildSqlSelect(
             sourceTable,
-            sourceTableFilter
+            sourceUris
           ) // partition overwrite without deduplication
         else
           buildSqlMerge(
             sourceTable,
             targetTable,
-            mergeOptionsOpt,
-            sourceTableFilter,
             targetTableFilters,
             updateTargetFilters,
-            false
+            partitionOverwrite = false,
+            sourceUris
           )
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
@@ -665,7 +684,7 @@ case class Schema(
          |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
          |""".stripMargin
     } else {
-      val inputData = buildSqlSelect(sourceTable, sourceTableFilter)
+      val inputData = buildSqlSelect(sourceTable, sourceUris)
       val allAttributesSQL = allOutputAttributes
         .map { attribute =>
           s"`${attribute.getFinalName()}`"
@@ -674,10 +693,10 @@ case class Schema(
       val dataSourceColumnName = "SL_DATASOURCE_INFORMATION"
       // According to the usage above of join clause between target and source table, we assume key not to be null.
       val partitionKeys =
-        mergeOptionsOpt
+        this.merge
           .map(_.key.map(key => s"`$key`").mkString(","))
           .getOrElse(throw new RuntimeException("Should not happen"))
-      val rowSelectionSQL = mergeOptionsOpt.flatMap(_.timestamp) match {
+      val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
         case Some(mergeTimestampCol) =>
           s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
         case _ =>
@@ -686,15 +705,22 @@ case class Schema(
       }
 
       val whereClauseSQL = if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
-
-      s"""SELECT * EXCEPT($dataSourceColumnName) FROM(
-         |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
-         |  UNION ALL
-         |  SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as `$dataSourceColumnName` FROM $targetTable $SL_TARGET_TABLE
-         |  $whereClauseSQL
-         |)
-         |$rowSelectionSQL
-         |""".stripMargin
+      if (targetTableExists) {
+        s"""SELECT $allAttributesSQL FROM(
+           |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+           |  UNION ALL
+           |  SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
+           |  $whereClauseSQL
+           |)
+           |$rowSelectionSQL
+           |""".stripMargin
+      } else {
+        s"""SELECT $allAttributesSQL FROM(
+           |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+           |)
+           |$rowSelectionSQL
+           |""".stripMargin
+      }
     }
   }
 

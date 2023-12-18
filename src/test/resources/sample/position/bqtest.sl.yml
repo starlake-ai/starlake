@@ -51,6 +51,7 @@ load:
             attributes: []
     - name: "account"
       metadata:
+        write: "APPEND"
         freshness:
           warn: "1 ms"
           error: "2 ms"

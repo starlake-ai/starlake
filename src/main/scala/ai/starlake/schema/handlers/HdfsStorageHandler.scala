@@ -165,6 +165,15 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   lazy val conf = {
     val conf = new Configuration()
     this.extraConf.foreach { case (k, v) => conf.set(k, v) }
+    sys.env.get("SL_STORAGE_CONF").foreach { value =>
+      value
+        .split(',')
+        .map { x =>
+          val t = x.split('=')
+          t(0).trim -> t(1).trim
+        }
+        .foreach { case (k, v) => conf.set(k, v) }
+    }
     settings.appConfig.hadoop.foreach { case (k, v) =>
       conf.set(k, v)
     }

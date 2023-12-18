@@ -39,7 +39,7 @@ class BigQueryAutoTask(
     .asInstanceOf[BigQuerySink]
 
   val tableId = BigQueryJobBase
-    .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
+    .extractProjectDatasetAndTable(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table)
 
   val fullTableName = BigQueryJobBase.getBqTableForNative(tableId)
 
@@ -170,9 +170,7 @@ class BigQueryAutoTask(
               taskDesc.expectations,
               storageHandler,
               schemaHandler,
-              Some(
-                Right(jobRunner.getTableId(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table))
-              ),
+              Some(Right(fullTableName)),
               new BigQueryExpectationAssertionHandler(
                 bqNativeJob(
                   config,
