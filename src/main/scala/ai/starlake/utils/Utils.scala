@@ -28,6 +28,7 @@ import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
@@ -101,9 +102,11 @@ object Utils extends StrictLogging {
     * contained exception as a side effect and carry on
     *
     * @param attempt
+    *   the result of the attempt
     * @param logger
     *   the logger onto which to log results
     * @tparam T
+    *   the type of the resulting attempt
     * @return
     *   the original `attempt` with no alteration (everything happens as a side effect)
     */
@@ -252,7 +255,7 @@ object Utils extends StrictLogging {
         (labelValue(0), labelValue(1))
     }.toMap
 
-  def jinjava(implicit settings: Settings) = {
+  def jinjava(implicit settings: Settings): Jinjava = {
     if (_jinjava == null) {
       val curClassLoader = Thread.currentThread.getContextClassLoader
       val res =
@@ -301,6 +304,11 @@ object Utils extends StrictLogging {
     context.putAll(params.asJava)
     val interpreter = new JinjavaInterpreter(jinjava, context, config)
     interpreter.render(templateContent)
+  }
+
+  def newYamlMapper(): ObjectMapper = {
+    val mapper = new ObjectMapper(new YAMLFactory())
+    setMapperProperties(mapper)
   }
 
   def newJsonMapper(): ObjectMapper = {
