@@ -12,6 +12,7 @@ __Bug Fix__:
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
 - warn when starlake version is not installed yet and user want to use it
+- added support for mysql extraction
 
 # 1.0.0:
 - **BREAKING CHANGE**
