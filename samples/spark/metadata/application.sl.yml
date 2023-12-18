@@ -1,0 +1,43 @@
+application:
+  dagRef:
+    load: {{ dag_ref }}
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
+  accessPolicies:
+    apply: true
+    location: europe-west1
+    taxonomy: GDPR
+  connections:
+    postgresql:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql:hr_sales"
+        driver: "org.postgresql.Driver"
+        supportTruncateOnInsert: false
+        user: "hruser"
+        password: "dbuser123"
+        quoteIdentifiers: false
+    bigquery:
+      type: "bigquery"
+      options:
+        writeMethod: "direct" # direct or indirect
+        location: "europe-west1" # EU or US
+        #gcsBucket: "starlake-app" # required in indirect mode only
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        #jobTimeoutMs: 3600000
+        #maximumBytesBilled: 100000000000
+    localFilesystem:
+      type: "fs"
+
+  spark:
+    delta:
+      logStore:
+        class: org.apache.spark.sql.delta.storage.LocalLogStore
+    datasource:
+      bigquery:
+        materializationDataset: "BQ_TEST_DS"
+
+
+  connectionRef: "{{ myConnectionRef }}"

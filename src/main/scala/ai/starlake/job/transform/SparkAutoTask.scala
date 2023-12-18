@@ -231,7 +231,8 @@ class SparkAutoTask(
                 val (createDisposition, writeDisposition) = {
                   Utils.getDBDisposition(
                     this.taskDesc.getWrite(),
-                    hasMergeKeyDefined = false
+                    hasMergeKeyDefined = false,
+                    isJDBC = false
                   )
                 }
                 val bqLoadConfig =
@@ -270,7 +271,8 @@ class SparkAutoTask(
                 val (createDisposition, writeDisposition) = {
                   Utils.getDBDisposition(
                     this.taskDesc.getWrite(),
-                    hasMergeKeyDefined = false
+                    hasMergeKeyDefined = false,
+                    isJDBC = false
                   )
                 }
                 val jdbcConfig = JdbcConnectionLoadCmd.fromComet(

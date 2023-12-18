@@ -36,7 +36,7 @@ object BigQuerySparkWriter extends StrictLogging {
         case sink: BigQuerySink =>
           val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
           val (createDisposition, writeDisposition) = {
-            Utils.getDBDisposition(writeMode, hasMergeKeyDefined = false)
+            Utils.getDBDisposition(writeMode, hasMergeKeyDefined = false, isJDBC = false)
           }
           val bqLoadConfig =
             BigQueryLoadConfig(
