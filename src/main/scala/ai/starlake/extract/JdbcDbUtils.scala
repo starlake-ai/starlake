@@ -246,23 +246,37 @@ object JdbcDbUtils extends LazyLogging {
   private def extractCaseInsensitiveSchemaName(
     databaseMetaData: DatabaseMetaData,
     catalog: Option[String],
-    schemaName: String
+    schemaName: String,
+    databaseType: DatabaseType
   ): Try[String] = {
 
-    Using(
-      databaseMetaData.getSchemas(
-        catalog.orNull,
-        "%"
-      )
-    ) { resultSet =>
-      var result: Option[String] = None
-      while (result.isEmpty && resultSet.next()) {
-        val tableSchema = resultSet.getString("TABLE_SCHEM")
-        if (schemaName.equalsIgnoreCase(tableSchema)) {
-          result = Some(tableSchema)
+    databaseType match {
+      case Mysql =>
+        Using(
+          databaseMetaData.getCatalogs()
+        ) { resultSet =>
+          var result: Option[String] = None
+          while (result.isEmpty && resultSet.next()) {
+            val tableSchema = resultSet.getString("TABLE_CAT")
+            if (schemaName.equalsIgnoreCase(tableSchema)) {
+              result = Some(tableSchema)
+            }
+          }
+          result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
         }
-      }
-      result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
+      case _ =>
+        Using(
+          databaseMetaData.getSchemas()
+        ) { resultSet =>
+          var result: Option[String] = None
+          while (result.isEmpty && resultSet.next()) {
+            val tableSchema = resultSet.getString("TABLE_SCHEM")
+            if (schemaName.equalsIgnoreCase(tableSchema)) {
+              result = Some(tableSchema)
+            }
+          }
+          result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
+        }
     }
   }
 
@@ -293,16 +307,27 @@ object JdbcDbUtils extends LazyLogging {
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
       def extractTables(
         schemaName: String,
-        tablePredicate: String => Boolean
+        tablePredicate: String => Boolean,
+        databaseType: DatabaseType
       ): Map[String, String] = {
         val tableNames = mutable.Map.empty[String, String]
         Try {
-          databaseMetaData.getTables(
-            jdbcSchema.catalog.orNull,
-            schemaName,
-            "%",
-            jdbcSchema.tableTypes.toArray
-          )
+          databaseType match {
+            case Mysql =>
+              databaseMetaData.getTables(
+                schemaName,
+                "%",
+                "%",
+                jdbcSchema.tableTypes.toArray
+              )
+            case Unknown =>
+              databaseMetaData.getTables(
+                jdbcSchema.catalog.orNull,
+                schemaName,
+                "%",
+                jdbcSchema.tableTypes.toArray
+              )
+          }
         } match {
           case Success(resultSet) =>
             Using(resultSet) { resultSet =>
@@ -332,10 +357,12 @@ object JdbcDbUtils extends LazyLogging {
         tableNames.toMap
       }
 
+      val databaseType = DatabaseType.detect(connectionOptions("url"))
       extractCaseInsensitiveSchemaName(
         databaseMetaData,
         jdbcSchema.catalog,
-        jdbcSchema.schema
+        jdbcSchema.schema,
+        databaseType
       ).map { schemaName =>
         val lowerCasedExcludeTables = jdbcSchema.exclude.map(_.toLowerCase)
         def tablesInScopePredicate(tablesToExtract: List[String] = Nil) =
@@ -346,11 +373,12 @@ object JdbcDbUtils extends LazyLogging {
           }
         val selectedTables = uppercaseTableNames match {
           case Nil =>
-            extractTables(schemaName, tablesInScopePredicate())
+            extractTables(schemaName, tablesInScopePredicate(), databaseType)
           case list if list.contains("*") =>
-            extractTables(schemaName, tablesInScopePredicate())
+            extractTables(schemaName, tablesInScopePredicate(), databaseType)
           case list =>
-            val extractedTableNames = extractTables(schemaName, tablesInScopePredicate(list))
+            val extractedTableNames =
+              extractTables(schemaName, tablesInScopePredicate(list), databaseType)
             val notExtractedTable = list.diff(
               extractedTableNames
                 .map { case (tableName, _) => tableName }
