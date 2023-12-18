@@ -14,14 +14,8 @@ import scala.util.Try
 
 class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
 
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] = Try {
-    DagGenerateConfig.parse(args) match {
-      case Some(config) =>
-        generateDomainDags(config)
-      case _ =>
-        throw new IllegalArgumentException(DagGenerateConfig.usage())
-    }
-  }
+  def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
+    DagGenerateCmd.run(args, schemaHandler).map(_ => ())
 
   case class TableWithDagConfig(
     domain: Domain,

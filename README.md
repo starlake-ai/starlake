@@ -64,7 +64,7 @@ Starlake Data Pipeline automates the loading and parsing of files and
 their ingestion into a warehouse where datasets become
 available as strongly typed records.
 
-![Complete Starlake Data Pipeline Workflow](docs/static/img/guide/workflow.png "Complete Starlake Data Pipeline Workflow")
+![](docs/static/img/workflow.png)
 
 
 The figure above describes how Starlake implements the `Extract Load Transform (ELT)` Data Pipeline steps.
@@ -77,7 +77,7 @@ Starlake may be used indistinctly for all or any of these steps.
 The Load Transform steps support multiple configurations for inputs and outputs as illustrated in the
 figure below.
 
-![Anywhere](docs/static/img/guide/anywhere.png "Anywhere")
+![Anywhere](docs/static/img/data-star.png "Anywhere")
 
 
 Starlake Data Pipeline steps are described below:
@@ -89,23 +89,6 @@ Starlake Data Pipeline steps are described below:
 - Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
-
-### BigQuery Data Pipeline
-
-![Bigquery Workflow]( docs/static/img/guide/elt-gcp-bq.png )
-
-### Azure Databricks Data Pipeline
-
-![Azure Workflow]( docs/static/img/guide/elt-azure-databricks.png )
-
-### On Premise Data Pipeline
-
-![On Premise Workflow]( docs/static/img/guide/elt-onpremise.png )
-
-
-### Google Cloud Storage Data Pipeline
-
-![Cloud Storage Workflow]( docs/static/img/guide/elt-gcp-gcs.png )
 
 
 

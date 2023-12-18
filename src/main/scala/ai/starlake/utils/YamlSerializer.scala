@@ -15,19 +15,20 @@ import ai.starlake.schema.model.{
   SchemaRefs,
   TransformDesc
 }
-import better.files.File
+import better.files.{File, UnicodeCharset}
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
+import java.nio.charset.Charset
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.{Failure, Success, Try}
 
 object YamlSerializer extends LazyLogging {
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  Utils.setMapperProperties(mapper)
+  val mapper: ObjectMapper = Utils.newYamlMapper()
+
+  implicit val charset: Charset = sun.nio.cs.UTF_8.INSTANCE
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
@@ -62,9 +63,9 @@ object YamlSerializer extends LazyLogging {
     val rootNode = mapper.readTree(content)
     val extractNode = rootNode.path("extract")
     val jdbcNode =
-      if (extractNode.isNull() || extractNode.isMissingNode) {
+      if (extractNode.isNull || extractNode.isMissingNode) {
         logger.warn(
-          s"Defining a jdbc schema outside an extract node is now deprecated. Please update definition ${inputFilename}"
+          s"Defining a jdbc schema outside an extract node is now deprecated. Please update definition $inputFilename"
         )
         rootNode
       } else
@@ -108,11 +109,11 @@ object YamlSerializer extends LazyLogging {
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
     val domainAsString = serializeDomain(domain)
-    targetFile.overwrite(domainAsString)
+    targetFile.overwrite(domainAsString)(charset = UnicodeCharset(charset))
   }
 
   def serializeToFile(targetFile: File, schema: ModelSchema): File = {
-    targetFile.overwrite(serializeTable(schema))
+    targetFile.overwrite(serializeTable(schema))(charset = UnicodeCharset(charset))
   }
 
   def serializeToPath(targetPath: Path, domain: Domain)(implicit storage: StorageHandler): Unit = {
@@ -164,7 +165,7 @@ object YamlSerializer extends LazyLogging {
       val rootNode = mapper.readTree(content)
       val loadNode = rootNode.path("load")
       val domainNode =
-        if (loadNode.isNull() || loadNode.isMissingNode) {
+        if (loadNode.isNull || loadNode.isMissingNode) {
           rootNode.asInstanceOf[ObjectNode]
         } else
           loadNode.asInstanceOf[ObjectNode]
@@ -204,7 +205,7 @@ object YamlSerializer extends LazyLogging {
     Try {
       val rootNode = mapper.readTree(content)
       val dagNode = rootNode.path("dag")
-      if (dagNode.isNull() || dagNode.isMissingNode) {
+      if (dagNode.isNull || dagNode.isMissingNode) {
         throw new RuntimeException(
           s"No 'dag' attribute found in $path. Please define your dag generation config under 'dag' attribute."
         )
@@ -223,7 +224,7 @@ object YamlSerializer extends LazyLogging {
     val rootNode = mapper.readTree(content)
     val taskNode = rootNode.path("task")
     val targetNode =
-      if (taskNode.isNull() || taskNode.isMissingNode) {
+      if (taskNode.isNull || taskNode.isMissingNode) {
         rootNode.asInstanceOf[ObjectNode]
       } else
         taskNode.asInstanceOf[ObjectNode]
@@ -260,7 +261,7 @@ object YamlSerializer extends LazyLogging {
       val rootNode = mapper.readTree(content)
       val transformNode = rootNode.path("transform")
       val jobNode =
-        if (transformNode.isNull() || transformNode.isMissingNode) {
+        if (transformNode.isNull || transformNode.isMissingNode) {
           rootNode.asInstanceOf[ObjectNode]
         } else
           transformNode.asInstanceOf[ObjectNode]
