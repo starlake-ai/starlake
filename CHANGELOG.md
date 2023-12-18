@@ -7,6 +7,7 @@ __Bug Fix__:
 - concurrent schema extraction close resource prematurely
 - fix versions.sh file for linux
 - update dockerfile to take environment variable into account
+- Throw expected exception when no connection ref found.
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
