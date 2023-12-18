@@ -1,12 +1,13 @@
 
 # Release notes
 
-# 1.0.1:
+# 1.1.0:
 
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
 - fix versions.sh file for linux
 - update dockerfile to take environment variable into account
+- turn missing additional columns optional on native bigquery csv data ingestion
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
