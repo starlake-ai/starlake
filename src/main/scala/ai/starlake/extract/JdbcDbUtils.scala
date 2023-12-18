@@ -892,7 +892,8 @@ object JdbcDbUtils extends LazyLogging {
             partitionColumn match {
               case None =>
                 // non partitioned tables are fully extracted there is no delta mode
-                val sql = s"""select $cols from "${jdbcSchema.schema}"."$tableName""""
+                val sql =
+                  s"""select $cols from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData"""
                 val tableStart = System.currentTimeMillis()
                 val count = Try {
                   withJDBCConnection(connectionOptions ++ currentTableConnectionOptions) {

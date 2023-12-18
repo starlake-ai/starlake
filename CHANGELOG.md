@@ -9,6 +9,7 @@ __Bug Fix__:
 - update dockerfile to take environment variable into account
 - Throw expected exception when no connection ref found.
 - turn missing additional columns optional on native bigquery csv data ingestion
+- fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
