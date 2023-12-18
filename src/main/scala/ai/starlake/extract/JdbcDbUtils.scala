@@ -9,6 +9,7 @@ import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.nio.charset.StandardCharsets
 import java.sql.Types._
@@ -1217,6 +1218,29 @@ object JdbcDbUtils extends LazyLogging {
       s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $filename in $elapsedTime"
     )
     objectRowWriterProcessor.getRecordsCount()
+  }
+
+  def jdbcOptions(jdbcOptions: Map[String, String], sparkFormat: String) = {
+    val options = if (sparkFormat == "snowflake") {
+      jdbcOptions.flatMap { case (k, v) =>
+        if (k.startsWith("sf")) {
+          val jdbcK = k.replace("sf", "").toLowerCase().replace("database", "db")
+          val finalv =
+            if (jdbcK == "url")
+              "jdbc:snowflake://" + v
+            else
+              v
+          List(
+            jdbcK -> finalv,
+            k     -> v
+          )
+        } else
+          List(k -> v)
+
+      }
+    } else
+      jdbcOptions
+    CaseInsensitiveMap[String](options)
   }
 }
 

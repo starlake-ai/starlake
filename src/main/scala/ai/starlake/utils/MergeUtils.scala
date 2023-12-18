@@ -14,8 +14,39 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     * yet. Ensures that the incomingSchema contains all the columns from the existingSchema.
     */
   def computeCompatibleSchema(actualSchema: StructType, expectedSchema: StructType): StructType = {
-    val actualColumns = actualSchema.map(field => field.name -> field).toMap
-    val expectedColumns = expectedSchema.map(field => field.name -> field).toMap
+    val actualColumns = actualSchema.map(field => field.name.toLowerCase() -> field).toMap
+    computeNewColumns(actualSchema, expectedSchema)
+
+    StructType(
+      expectedSchema
+        .flatMap(expectedField =>
+          actualColumns
+            .get(expectedField.name.toLowerCase())
+            .map(existingField =>
+              (existingField.dataType, expectedField.dataType) match {
+                case (existingType: StructType, incomingType: StructType) =>
+                  expectedField.copy(dataType = computeCompatibleSchema(existingType, incomingType))
+                case (
+                      ArrayType(existingType: StructType, _),
+                      ArrayType(incomingType: StructType, nullable)
+                    ) =>
+                  expectedField
+                    .copy(dataType =
+                      ArrayType(computeCompatibleSchema(existingType, incomingType), nullable)
+                    )
+                case (_, _) => expectedField
+              }
+            )
+        )
+    )
+  }
+
+  def computeNewColumns(
+    actualSchema: StructType,
+    expectedSchema: StructType
+  ): List[StructField] = {
+    val actualColumns = actualSchema.map(field => field.name.toLowerCase() -> field).toMap
+    val expectedColumns = expectedSchema.map(field => field.name.toLowerCase() -> field).toMap
 
     val missingColumns = actualColumns.keySet.diff(expectedColumns.keySet)
     if (missingColumns.nonEmpty) {
@@ -36,29 +67,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         "The new columns from Input Dataset should be nullable. The following columns were not: " + newColumnsNotNullable
           .mkString(", ")
       )
-
-    StructType(
-      expectedSchema
-        .flatMap(expectedField =>
-          actualColumns
-            .get(expectedField.name)
-            .map(existingField =>
-              (existingField.dataType, expectedField.dataType) match {
-                case (existingType: StructType, incomingType: StructType) =>
-                  expectedField.copy(dataType = computeCompatibleSchema(existingType, incomingType))
-                case (
-                      ArrayType(existingType: StructType, _),
-                      ArrayType(incomingType: StructType, nullable)
-                    ) =>
-                  expectedField
-                    .copy(dataType =
-                      ArrayType(computeCompatibleSchema(existingType, incomingType), nullable)
-                    )
-                case (_, _) => expectedField
-              }
-            )
-        )
-    )
+    expectedColumns.filter { case (key, value) => newColumns.contains(key) }.values.toList
   }
 
   /** @param existingDF

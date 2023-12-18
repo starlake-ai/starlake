@@ -5,8 +5,6 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
-import ai.starlake.utils.conversion.BigQueryUtils
-import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
@@ -117,7 +115,7 @@ class ExpectationJob(
   expectations: List[ExpectationItem],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  inputData: Option[Either[DataFrame, TableId]],
+  inputData: Option[Either[DataFrame, String]],
   sqlRunner: ExpectationAssertionHandler
 )(implicit val settings: Settings)
     extends SparkJob {
@@ -140,8 +138,7 @@ class ExpectationJob(
     inputData match {
       case Some(Left(df)) =>
         df.createOrReplaceTempView("SL_THIS")
-      case Some(Right(tableId)) =>
-        val tableName = BigQueryUtils.tableIdToString(tableId)
+      case Some(Right(tableName)) =>
         bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
       case None =>
         val tableName = database match {

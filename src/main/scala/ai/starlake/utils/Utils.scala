@@ -138,9 +138,15 @@ object Utils extends StrictLogging {
     sw.toString
   }
 
-  def getDBDisposition(writeMode: WriteMode, hasMergeKeyDefined: Boolean): (String, String) = {
+  def getDBDisposition(
+    writeMode: WriteMode,
+    hasMergeKeyDefined: Boolean,
+    isJDBC: Boolean
+  ): (String, String) = {
     val (createDisposition, writeDisposition) = (hasMergeKeyDefined, writeMode) match {
-      case (true, wm) if wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND =>
+      case (true, wm) if wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND && !isJDBC =>
+        // when merging BigQuery/Spark should truncate the final table
+        // For JDBC, we should not use this
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       case (_, WriteMode.OVERWRITE) =>
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
