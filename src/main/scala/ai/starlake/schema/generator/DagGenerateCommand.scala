@@ -91,7 +91,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
-  private def generateTaskDags(
+  private[generator] def generateTaskDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(

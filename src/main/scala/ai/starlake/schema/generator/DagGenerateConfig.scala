@@ -19,17 +19,16 @@
  */
 package ai.starlake.schema.generator
 
-/** @param files
-  *   List of Excel files
-  * @param encryption
-  *   Should pre & post encryption YAML be generated ?
-  * @param delimiter
-  *   : Delimiter to use on generated CSV file after pre-encryption.
-  * @param privacy
-  *   What privacy policies are to be applied at the pre-encrypt step ? All by default.
+/** @param outputDir
+  *   Path for saving the resulting DAG file(s).
+  * @param clean
+  *   Clean Resulting DAG file output first ?
+  * @param tasks
+  *   Whether to generate DAG file(s) for tasks or not
   */
 case class DagGenerateConfig(
   outputDir: Option[String] = None,
   clean: Boolean = false,
-  tags: Seq[String] = Nil
+  tags: Seq[String] = Nil,
+  tasks: Boolean = false
 )

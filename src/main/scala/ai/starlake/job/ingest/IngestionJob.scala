@@ -802,7 +802,9 @@ trait IngestionJob extends SparkJob {
             }
             val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
-              csvHeaders.map(h => attributesMap.get(h).getOrElse(Attribute(h, ignore = Some(true))))
+              csvHeaders.map(h =>
+                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = false))
+              )
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =
               csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
