@@ -26,17 +26,24 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         ),
       builder
         .opt[Unit]("clean")
-        .action((x, c) => c.copy(clean = true))
+        .action((_, c) => c.copy(clean = true))
         .optional()
         .text(
-          """Clean Resulting DAg file output first ?""".stripMargin
+          """Clean Resulting DAG file output first ?""".stripMargin
         ),
       builder
         .opt[Seq[String]]("tags")
         .action((x, c) => c.copy(tags = x))
         .optional()
         .text(
-          """Clean Resulting DAg file output first ?""".stripMargin
+          """Generate for these tags only""".stripMargin
+        ),
+      builder
+        .opt[Unit]("tasks")
+        .action((_, c) => c.copy(tasks = true))
+        .optional()
+        .text(
+          """Whether to generate DAG file(s) for tasks or not""".stripMargin
         )
     )
   }
@@ -52,5 +59,12 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   override def run(config: DagGenerateConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    Try(new DagGenerateCommand(schemaHandler).generateDomainDags(config)).map(_ => JobResult.empty)
+    Try {
+      val cmd = new DagGenerateCommand(schemaHandler)
+      if (config.tasks) {
+        cmd.generateTaskDags(config)
+      } else {
+        cmd.generateDomainDags(config)
+      }
+    }.map(_ => JobResult.empty)
 }

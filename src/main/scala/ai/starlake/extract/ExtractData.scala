@@ -34,7 +34,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
     val connectionOptions = jdbcSchemas.connectionRef
-      .map(settings.appConfig.connections(_).options)
+      .flatMap(settings.appConfig.connections.get(_).map(_.options))
       .getOrElse(
         throw new Exception(s"No connectionRef found. Please check your connectionRef property")
       )
