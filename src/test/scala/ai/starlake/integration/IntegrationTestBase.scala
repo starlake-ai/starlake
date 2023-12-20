@@ -19,9 +19,9 @@ class IntegrationTestBase
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
-  val templates = starlakeDir / "samples" / "templates"
-  val localDir = templates / "spark"
-  val sampleDataDir = templates / "sample-data"
+  def templates = starlakeDir / "samples" / "templates"
+  def localDir = templates / "spark"
+  def sampleDataDir = templates / "sample-data"
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
     val existingValues = envList.flatMap { case (k, _) =>

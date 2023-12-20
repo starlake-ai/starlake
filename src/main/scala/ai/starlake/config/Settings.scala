@@ -469,7 +469,7 @@ object Settings extends StrictLogging {
     }
   }
 
-  case class JobScheduling(
+  case class SparkScheduling(
     maxJobs: Int,
     poolName: String,
     mode: String,
@@ -546,7 +546,7 @@ object Settings extends StrictLogging {
     rejectAllOnError: Boolean,
     rejectMaxRecords: Int,
     accessPolicies: AccessPolicies,
-    scheduling: JobScheduling,
+    sparkScheduling: SparkScheduling,
     maxParCopy: Int,
     dsvOptions: Map[String, String],
     rootServe: Option[String],
@@ -991,7 +991,7 @@ object Settings extends StrictLogging {
         logger.debug(s"Setting key: ${key}")
         conf.set("spark." + key, value)
       }
-      .set("spark.scheduler.mode", settings.appConfig.scheduling.mode)
+      .set("spark.scheduler.mode", settings.appConfig.sparkScheduling.mode)
 
     schedulingConfig.foreach(path => thisConf.set("spark.scheduler.allocation.file", path.toString))
 
@@ -1002,7 +1002,7 @@ object Settings extends StrictLogging {
   }
 
   private def schedulingPath(settings: Settings): Option[Path] = {
-    import settings.appConfig.scheduling._
+    import settings.appConfig.sparkScheduling._
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
       Some(schedulingPath).filter(settings.storageHandler().exists)

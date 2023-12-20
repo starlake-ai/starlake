@@ -146,6 +146,7 @@ class JdbcAutoTask(
               }
             runSqls(conn, preSql)
             runMainSql(sqlWithParameters, conn, jdbcDialect)
+            runSqls(conn, postSql)
             if (settings.appConfig.expectations.active) {
               new ExpectationJob(
                 taskDesc.database,
@@ -158,7 +159,6 @@ class JdbcAutoTask(
                 new JdbcExpectationAssertionHandler(conn)
               ).run()
             }
-            runSqls(conn, postSql)
             JdbcJobResult(Nil)
         }
       }

@@ -93,8 +93,18 @@ object JdbcDbUtils extends LazyLogging {
       properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
+    // connection.setAutoCommit(false)
+
     val result = Try {
       f(connection)
+    } match {
+      case Failure(exception) =>
+        logger.error(s"Error running sql", exception)
+        // connection.rollback()
+        Failure(throw exception)
+      case Success(value) =>
+        // connection.commit()
+        Success(value)
     }
 
     Try(connection.close()) match {
@@ -115,6 +125,16 @@ object JdbcDbUtils extends LazyLogging {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $domainName", e)
+        throw e
+    }
+  }
+
+  @throws[Exception]
+  def dropTable(tableName: String, conn: SQLConnection): Unit = {
+    execute(s"DROP TABLE IF EXISTS $tableName", conn) match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.error(s"Error creating schema $tableName", e)
         throw e
     }
   }
