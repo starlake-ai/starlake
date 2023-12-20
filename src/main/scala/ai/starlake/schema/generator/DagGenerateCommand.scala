@@ -26,11 +26,12 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   )
 
   private def tableWithDagConfigs(
-    dagConfigs: Map[String, DagGenerationConfig]
+    dagConfigs: Map[String, DagGenerationConfig],
+    tags: Set[String]
   )(implicit settings: Settings): List[TableWithDagConfig] = {
     logger.info("Starting to generate dags")
     val tableWithDagConfigAndSchedule = schemaHandler.domains().flatMap { domain =>
-      domain.tables.flatMap { table =>
+      domain.tables.filter(tags.isEmpty || _.tags.intersect(tags).nonEmpty).flatMap { table =>
         val mergedMetadata = table.mergedMetadata(domain.metadata)
         val dagConfigRef = mergedMetadata.dagRef
           .orElse(settings.appConfig.dagRef.flatMap(_.load))
@@ -150,7 +151,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
-    val tableConfigs = tableWithDagConfigs(dagConfigs)
+    val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
 
     val env = schemaHandler.activeEnvVars()
