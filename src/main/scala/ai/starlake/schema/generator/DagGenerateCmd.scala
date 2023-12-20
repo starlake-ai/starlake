@@ -44,6 +44,13 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         .optional()
         .text(
           """Whether to generate DAG file(s) for tasks or not""".stripMargin
+        ),
+      builder
+        .opt[Unit]("domains")
+        .action((_, c) => c.copy(domains = true))
+        .optional()
+        .text(
+          """Whether to generate DAG file(s) for domains or not""".stripMargin
         )
     )
   }
@@ -61,10 +68,15 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   ): Try[JobResult] =
     Try {
       val cmd = new DagGenerateCommand(schemaHandler)
+      if (config.domains) {
+        cmd.generateDomainDags(config)
+      }
       if (config.tasks) {
         cmd.generateTaskDags(config)
-      } else {
+      }
+      if (!config.tasks && !config.domains) {
         cmd.generateDomainDags(config)
+        cmd.generateTaskDags(config)
       }
     }.map(_ => JobResult.empty)
 }

@@ -101,7 +101,7 @@ case class TransformDagGenerationContext(
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
-      put("deps", depsAsJsonString)
+      put("dependencies", depsAsJsonString)
     }
   }
 }

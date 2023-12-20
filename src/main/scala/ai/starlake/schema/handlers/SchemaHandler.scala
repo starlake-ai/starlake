@@ -861,7 +861,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val sqlPyFiles = allFiles.filter { case (taskName, filename, ext) =>
       (ext == "sql" || ext == "sql.j2" || ext == "py") &&
       !ymlFiles.exists(_._1 == taskName) &&
-      !jobDesc.tasks.exists(_.name == taskName)
+      !jobDesc.tasks.exists(_.name.equalsIgnoreCase(taskName))
     }
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>

@@ -15,3 +15,7 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+
+  dagRef:
+    load: "load"
+    transform: "transform"
