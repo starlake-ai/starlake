@@ -95,8 +95,8 @@ class JdbcAutoTask(
           throw e
       }
     }
-
   }
+
   def runJDBC(): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
