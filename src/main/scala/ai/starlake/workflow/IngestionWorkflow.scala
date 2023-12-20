@@ -366,7 +366,7 @@ class IngestionWorkflow(
             }
           }
           val (parJobs, forkJoinPool) =
-            makeParallel(jobs.toList, settings.appConfig.scheduling.maxJobs)
+            makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
           val res = parJobs.map { jobContext =>
             ingest(
               jobContext.domain,

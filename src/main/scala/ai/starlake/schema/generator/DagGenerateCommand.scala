@@ -59,25 +59,27 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   )
 
   private def taskWithDagConfigs(
-    dagConfigs: Map[String, DagGenerationConfig]
+    dagConfigs: Map[String, DagGenerationConfig],
+    tags: Set[String]
   )(implicit settings: Settings): List[TaskWithDagConfig] = {
     logger.info("Starting to task generate dags")
     val tasks = schemaHandler.tasks()
-    val taskWithDagConfigAndSchedule: List[TaskWithDagConfig] = tasks.flatMap { taskWithDag =>
-      val dagConfigRef = taskWithDag.dagRef
-        .orElse(settings.appConfig.dagRef.flatMap(_.transform))
-      val schedule = taskWithDag.schedule
-      dagConfigRef.map { dagRef =>
-        val dagConfig = dagConfigs.getOrElse(
-          dagRef,
-          throw new Exception(
-            s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config founds ${dagConfigs.keys
-                .mkString(",")}"
+    val taskWithDagConfigAndSchedule: List[TaskWithDagConfig] =
+      tasks.filter(tags.isEmpty || _.tags.intersect(tags).nonEmpty).flatMap { taskWithDag =>
+        val dagConfigRef = taskWithDag.dagRef
+          .orElse(settings.appConfig.dagRef.flatMap(_.transform))
+        val schedule = taskWithDag.schedule
+        dagConfigRef.map { dagRef =>
+          val dagConfig = dagConfigs.getOrElse(
+            dagRef,
+            throw new Exception(
+              s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config founds ${dagConfigs.keys
+                  .mkString(",")}"
+            )
           )
-        )
-        TaskWithDagConfig(taskWithDag, dagRef, dagConfig, schedule)
+          TaskWithDagConfig(taskWithDag, dagRef, dagConfig, schedule)
+        }
       }
-    }
     taskWithDagConfigAndSchedule
   }
 
@@ -102,7 +104,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
-    val taskConfigs = taskWithDagConfigs(dagConfigs)
+    val taskConfigs = taskWithDagConfigs(dagConfigs, config.tags.toSet)
     val env = schemaHandler.activeEnvVars()
     val jEnv = env.map { case (k, v) =>
       DagPair(k, v)
@@ -134,6 +136,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
     }
   }
+
   private[generator] def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {

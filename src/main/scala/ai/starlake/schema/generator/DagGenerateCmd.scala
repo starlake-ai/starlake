@@ -30,6 +30,13 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         .optional()
         .text(
           """Clean Resulting DAg file output first ?""".stripMargin
+        ),
+      builder
+        .opt[Seq[String]]("tags")
+        .action((x, c) => c.copy(tags = x))
+        .optional()
+        .text(
+          """Clean Resulting DAg file output first ?""".stripMargin
         )
     )
   }

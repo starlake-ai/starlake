@@ -30,5 +30,6 @@ package ai.starlake.schema.generator
   */
 case class DagGenerateConfig(
   outputDir: Option[String] = None,
-  clean: Boolean = false
+  clean: Boolean = false,
+  tags: Seq[String] = Nil
 )
