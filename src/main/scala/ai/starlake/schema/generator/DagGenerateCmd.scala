@@ -68,10 +68,14 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   ): Try[JobResult] =
     Try {
       val cmd = new DagGenerateCommand(schemaHandler)
-      if (config.domains || !config.tasks) {
+      if (config.domains) {
         cmd.generateDomainDags(config)
       }
-      if (config.tasks || !config.domains) {
+      if (config.tasks) {
+        cmd.generateTaskDags(config)
+      }
+      if (!config.tasks && !config.domains) {
+        cmd.generateDomainDags(config)
         cmd.generateTaskDags(config)
       }
     }.map(_ => JobResult.empty)
