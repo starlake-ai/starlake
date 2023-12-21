@@ -275,7 +275,7 @@ trait IngestionJob extends SparkJob {
     }
   }
   ///////////////////////////////////////////////////////////////////////////
-  /////// JDBC ENGINE ONLY (SPARK SECTION BELOW) //////////////////////////////
+  /////// JDBC ENGINE ONLY (SPARK SECTION BELOW) ////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
   def runJDBC(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
@@ -312,9 +312,9 @@ trait IngestionJob extends SparkJob {
                 hasMergeKey,
                 isJDBC = true
               )
-
+              val datasetWithRenamedAttributes = dfWithAttributesRenamed(dataset)
               val jdbcConnectionLoadConfig = JdbcConnectionLoadConfig(
-                sourceFile = Right(dataset),
+                sourceFile = Right(datasetWithRenamedAttributes),
                 outputDomainAndTableName = firstStepTempTable,
                 createDisposition = CreateDisposition.valueOf(createDisposition),
                 writeDisposition = WriteDisposition.valueOf(writeDisposition),
@@ -343,13 +343,13 @@ trait IngestionJob extends SparkJob {
                             SparkUtils.getSchemaOption(conn, connectionRefOptions, targetTable)
                           val addedSchema =
                             SparkUtils.added(
-                              dataset.schema,
-                              existingSchema.getOrElse(dataset.schema)
+                              datasetWithRenamedAttributes.schema,
+                              existingSchema.getOrElse(datasetWithRenamedAttributes.schema)
                             )
                           val deletedSchema =
                             SparkUtils.dropped(
-                              dataset.schema,
-                              existingSchema.getOrElse(dataset.schema)
+                              datasetWithRenamedAttributes.schema,
+                              existingSchema.getOrElse(datasetWithRenamedAttributes.schema)
                             )
                           val alterTableDropColumns =
                             SparkUtils.alterTableDropColumnsString(deletedSchema, targetTable)
@@ -815,7 +815,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def applyBigQUerySecondStepSQL(
+  def applyBigQuerySecondStepSQL(
     bigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableId: TableId,
@@ -829,7 +829,7 @@ trait IngestionJob extends SparkJob {
     // we have sql as optional because in dynamic partition overwrite mode, if no partition exists, we do nothing
     val mergeInstructions = starlakeSchema.merge match {
       case Some(mergeOptions: MergeOptions) =>
-        handleNativeMergeCases(
+        handleBQNativeMergeCases(
           bigqueryJob,
           firstStepTempTableId,
           targetTableId,
@@ -838,7 +838,7 @@ trait IngestionJob extends SparkJob {
           sourceUris
         )
       case None =>
-        handleNativeNoMergeCases(
+        handleBQNativeNoMergeCases(
           bigqueryJob,
           firstStepTempTableId,
           targetTableId,
@@ -861,7 +861,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def handleNativeNoMergeCases(
+  private def handleBQNativeNoMergeCases(
     bigqueryJob: BigQueryNativeJob,
     firstStepTempTableId: TableId,
     targetTableId: TableId,
@@ -952,7 +952,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def handleNativeMergeCases(
+  private def handleBQNativeMergeCases(
     bigqueryJob: BigQueryNativeJob,
     tempTableId: TableId,
     targetTableId: TableId,
@@ -1048,7 +1048,7 @@ trait IngestionJob extends SparkJob {
     targetBigqueryJob.cliConfig.outputTableId
       .map { targetTableId =>
         updateTargetTableSchema(targetBigqueryJob, targetTableSchema)
-        applyBigQUerySecondStepSQL(
+        applyBigQuerySecondStepSQL(
           targetBigqueryJob,
           firstStepTempTableId,
           targetTableId,
