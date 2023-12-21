@@ -110,31 +110,37 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       DagPair(k, v)
     }.toList
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    taskConfigs.foreach { taskConfig =>
-      val dagTemplateName = taskConfig.dagConfig.template
-      val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
-      val cron = settings.appConfig.schedulePresets.getOrElse(
-        taskConfig.schedule.getOrElse("None"),
-        taskConfig.schedule.getOrElse("None")
-      )
-      val cronIfNone = if (cron == "None") null else cron
-      val config = AutoTaskDependenciesConfig(tasks = Some(List(taskConfig.taskDesc.name)))
-      val deps = depsEngine.jobsDependencyTree(config)
-      val filename = Utils.parseJinja(
-        taskConfig.dagConfig.filename,
-        schemaHandler.activeEnvVars() ++ Map(
-          "table"  -> taskConfig.taskDesc.table,
-          "domain" -> taskConfig.taskDesc.domain,
-          "name"   -> taskConfig.taskDesc.name
+    taskConfigs
+      .map { taskConfig =>
+        val filename = Utils.parseJinja(
+          taskConfig.dagConfig.filename,
+          schemaHandler.activeEnvVars() ++ Map(
+            "table"  -> taskConfig.taskDesc.table,
+            "domain" -> taskConfig.taskDesc.domain,
+            "name"   -> taskConfig.taskDesc.name
+          )
         )
-      )
-      val context = TransformDagGenerationContext(
-        config = taskConfig.dagConfig,
-        deps = deps,
-        cron = Option(cronIfNone)
-      )
-      applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
-    }
+        (filename, taskConfig)
+      }
+      .groupBy(_._1)
+      .foreach { case (filename, taskConfigs) =>
+        val dagConfig = taskConfigs.head._2.dagConfig
+        val dagTemplateName = dagConfig.template
+        val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+        val cron = settings.appConfig.schedulePresets.getOrElse(
+          taskConfigs.head._2.schedule.getOrElse("None"),
+          taskConfigs.head._2.schedule.getOrElse("None")
+        )
+        val cronIfNone = if (cron == "None") null else cron
+        val config = AutoTaskDependenciesConfig(tasks = Some(taskConfigs.map(_._2.taskDesc.name)))
+        val deps = depsEngine.jobsDependencyTree(config)
+        val context = TransformDagGenerationContext(
+          config = dagConfig,
+          deps = deps,
+          cron = Option(cronIfNone)
+        )
+        applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+      }
   }
 
   private[generator] def generateDomainDags(
