@@ -33,6 +33,6 @@
     FROM  (
     SELECT {{ col }}, count(*) as cnt FROM {{ table }}
     GROUP BY {{ col }}
-    HAVING cnt == {{ times }}
+    HAVING cnt = {{ times }}
     )
 {% endmacro %}

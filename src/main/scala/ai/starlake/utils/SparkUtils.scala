@@ -99,6 +99,9 @@ object SparkUtils extends StrictLogging {
         else
           strSchema.replaceAll("\"", "")
 
+      logger.info(
+        s"Creating table $tableName with schema $finalStrSchema and options $createTableOptions"
+      )
       statement.executeUpdate(s"CREATE TABLE $tableName ($finalStrSchema) $createTableOptions")
       if (options.tableComment.nonEmpty) {
         try {

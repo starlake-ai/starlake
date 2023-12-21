@@ -206,8 +206,20 @@ class JdbcAutoTask(
         val mainSql =
           if (isMerge(sqlWithParameters))
             sqlWithParameters
-          else
-            s"INSERT INTO $fullTableName $sqlWithParameters"
+          else {
+            taskDesc._auditTableName match {
+              case Some(_) =>
+                s"INSERT INTO $fullTableName $sqlWithParameters"
+              case None =>
+                val start = sqlWithParameters.indexOf("SELECT " + "SELECT ".length)
+                var end = sqlWithParameters.indexOf(" FROM(")
+                if (end < 0)
+                  end = sqlWithParameters.indexOf(" FROM ")
+                val columns = sqlWithParameters.substring(start, end)
+                s"INSERT INTO $fullTableName($columns) $sqlWithParameters"
+
+            }
+          }
         val insertSqls =
           if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite) {
             if (materializedView) {
