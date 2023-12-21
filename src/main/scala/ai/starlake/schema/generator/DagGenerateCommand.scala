@@ -26,11 +26,12 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   )
 
   private def tableWithDagConfigs(
-    dagConfigs: Map[String, DagGenerationConfig]
+    dagConfigs: Map[String, DagGenerationConfig],
+    tags: Set[String]
   )(implicit settings: Settings): List[TableWithDagConfig] = {
     logger.info("Starting to generate dags")
     val tableWithDagConfigAndSchedule = schemaHandler.domains().flatMap { domain =>
-      domain.tables.flatMap { table =>
+      domain.tables.filter(tags.isEmpty || _.tags.intersect(tags).nonEmpty).flatMap { table =>
         val mergedMetadata = table.mergedMetadata(domain.metadata)
         val dagConfigRef = mergedMetadata.dagRef
           .orElse(settings.appConfig.dagRef.flatMap(_.load))
@@ -110,31 +111,40 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       DagPair(k, v)
     }.toList
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    taskConfigs.foreach { taskConfig =>
-      val dagTemplateName = taskConfig.dagConfig.template
-      val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
-      val cron = settings.appConfig.schedulePresets.getOrElse(
-        taskConfig.schedule.getOrElse("None"),
-        taskConfig.schedule.getOrElse("None")
-      )
-      val cronIfNone = if (cron == "None") null else cron
-      val config = AutoTaskDependenciesConfig(tasks = Some(List(taskConfig.taskDesc.name)))
-      val deps = depsEngine.jobsDependencyTree(config)
-      val filename = Utils.parseJinja(
-        taskConfig.dagConfig.filename,
-        schemaHandler.activeEnvVars() ++ Map(
-          "table"  -> taskConfig.taskDesc.table,
-          "domain" -> taskConfig.taskDesc.domain,
-          "name"   -> taskConfig.taskDesc.name
+    val taskConfigsGroupedByFilename = taskConfigs
+      .map { taskConfig =>
+        val filename = Utils.parseJinja(
+          taskConfig.dagConfig.filename,
+          schemaHandler.activeEnvVars() ++ Map(
+            "table"  -> taskConfig.taskDesc.table,
+            "domain" -> taskConfig.taskDesc.domain,
+            "name"   -> taskConfig.taskDesc.name
+          )
         )
-      )
-      val context = TransformDagGenerationContext(
-        config = taskConfig.dagConfig,
-        deps = deps,
-        cron = Option(cronIfNone)
-      )
-      applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
-    }
+        (filename, taskConfig)
+      }
+      .groupBy { case (filename, _) => filename }
+    taskConfigsGroupedByFilename
+      .foreach { case (filename, taskConfigs) =>
+        val headConfig = taskConfigs.head match { case (_, config) => config }
+        val dagConfig = headConfig.dagConfig
+        val dagTemplateName = dagConfig.template
+        val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+        val cron = settings.appConfig.schedulePresets.getOrElse(
+          headConfig.schedule.getOrElse("None"),
+          headConfig.schedule.getOrElse("None")
+        )
+        val cronIfNone = if (cron == "None") null else cron
+        val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
+        val config = AutoTaskDependenciesConfig(tasks = Some(configs))
+        val deps = depsEngine.jobsDependencyTree(config)
+        val context = TransformDagGenerationContext(
+          config = dagConfig,
+          deps = deps,
+          cron = Option(cronIfNone)
+        )
+        applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+      }
   }
 
   private[generator] def generateDomainDags(
@@ -150,7 +160,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
-    val tableConfigs = tableWithDagConfigs(dagConfigs)
+    val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
 
     val env = schemaHandler.activeEnvVars()
