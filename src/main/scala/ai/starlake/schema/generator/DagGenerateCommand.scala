@@ -110,29 +110,33 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       DagPair(k, v)
     }.toList
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    taskConfigs
-      .map { taskConfig =>
-        val filename = Utils.parseJinja(
-          taskConfig.dagConfig.filename,
-          schemaHandler.activeEnvVars() ++ Map(
-            "table"  -> taskConfig.taskDesc.table,
-            "domain" -> taskConfig.taskDesc.domain,
-            "name"   -> taskConfig.taskDesc.name
+    val taskConfigsGroupByFilename =
+      taskConfigs
+        .map { taskConfig =>
+          val filename = Utils.parseJinja(
+            taskConfig.dagConfig.filename,
+            schemaHandler.activeEnvVars() ++ Map(
+              "table"  -> taskConfig.taskDesc.table,
+              "domain" -> taskConfig.taskDesc.domain,
+              "name"   -> taskConfig.taskDesc.name
+            )
           )
-        )
-        (filename, taskConfig)
-      }
-      .groupBy(_._1)
+          (filename, taskConfig)
+        }
+        .groupBy(_._1)
+    taskConfigsGroupByFilename
       .foreach { case (filename, taskConfigs) =>
-        val dagConfig = taskConfigs.head._2.dagConfig
+        val headConfig = taskConfigs.head._2
+        val dagConfig = headConfig.dagConfig
         val dagTemplateName = dagConfig.template
         val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
         val cron = settings.appConfig.schedulePresets.getOrElse(
-          taskConfigs.head._2.schedule.getOrElse("None"),
-          taskConfigs.head._2.schedule.getOrElse("None")
+          headConfig.schedule.getOrElse("None"),
+          headConfig.schedule.getOrElse("None")
         )
         val cronIfNone = if (cron == "None") null else cron
-        val config = AutoTaskDependenciesConfig(tasks = Some(taskConfigs.map(_._2.taskDesc.name)))
+        val configs = taskConfigs.map(_._2)
+        val config = AutoTaskDependenciesConfig(tasks = Some(configs.map(_.taskDesc.name)))
         val deps = depsEngine.jobsDependencyTree(config)
         val context = TransformDagGenerationContext(
           config = dagConfig,
