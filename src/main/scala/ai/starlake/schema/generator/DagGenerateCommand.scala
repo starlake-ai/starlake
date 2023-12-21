@@ -110,26 +110,22 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       DagPair(k, v)
     }.toList
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    val taskConfigsWithFilename =
-      taskConfigs
-        .map { taskConfig =>
-          val filename = Utils.parseJinja(
-            taskConfig.dagConfig.filename,
-            schemaHandler.activeEnvVars() ++ Map(
-              "table"  -> taskConfig.taskDesc.table,
-              "domain" -> taskConfig.taskDesc.domain,
-              "name"   -> taskConfig.taskDesc.name
-            )
+    val taskConfigsGroupedByFilename = taskConfigs
+      .map { taskConfig =>
+        val filename = Utils.parseJinja(
+          taskConfig.dagConfig.filename,
+          schemaHandler.activeEnvVars() ++ Map(
+            "table"  -> taskConfig.taskDesc.table,
+            "domain" -> taskConfig.taskDesc.domain,
+            "name"   -> taskConfig.taskDesc.name
           )
-          (filename, taskConfig)
-        }
-    val taskConfigsGroupedByFilename =
-      taskConfigsWithFilename
-        .groupBy(_._1)
+        )
+        (filename, taskConfig)
+      }
+      .groupBy { case (filename, _) => filename }
     taskConfigsGroupedByFilename
       .foreach { case (filename, taskConfigs) =>
-        val headConfigWithFilename = taskConfigs.head
-        val headConfig = headConfigWithFilename._2
+        val headConfig = taskConfigs.head match { case (_, config) => config }
         val dagConfig = headConfig.dagConfig
         val dagTemplateName = dagConfig.template
         val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
