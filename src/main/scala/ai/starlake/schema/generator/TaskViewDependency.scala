@@ -48,10 +48,13 @@ object TaskViewDependency extends StrictLogging {
     result: ListBuffer[TaskViewDependency]
   ): Unit = {
     roots.foreach { root =>
-      val subRoots = allDeps.filter(t => t.typ == root.parentTyp && t.name == root.parent)
-      val nocyclicRoots = subRoots.filter(subRoot =>
-        !roots.exists(_.name.toLowerCase() == subRoot.name.toLowerCase())
+      val subRoots = allDeps.filter(t =>
+        t.typ == root.parentTyp && t.name.toLowerCase() == root.parent.toLowerCase()
       )
+      val nocyclicRoots = subRoots.filter { subRoot =>
+        val cycle = roots.exists(_.name.toLowerCase() == subRoot.name.toLowerCase())
+        !cycle
+      }
       result ++= nocyclicRoots
       getHierarchy(nocyclicRoots, allDeps, result)
     }
@@ -79,7 +82,11 @@ object TaskViewDependency extends StrictLogging {
           val parentJobName = parts.length match {
             case 1 =>
               val tablePart = parts.last // == 0
-              val refs = tasks.filter(_.taskDesc.table.toLowerCase() == tablePart.toLowerCase())
+              val refs =
+                tasks.filter(task =>
+                  task.taskDesc.name.endsWith(s".$tablePart") ||
+                  task.taskDesc.table.toLowerCase() == tablePart.toLowerCase()
+                )
               if (refs.size > 1) {
                 throw new Exception(
                   s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
@@ -97,8 +104,9 @@ object TaskViewDependency extends StrictLogging {
               val tablePart = parts.last
               tasks
                 .find(task =>
-                  task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
-                  task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase()
+                  task.taskDesc.name.toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
+                  (task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
+                  task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase())
                 )
                 .map(_.name)
             case _ =>
@@ -138,17 +146,19 @@ object TaskViewDependency extends StrictLogging {
                   val tablePart = parts.last // == 0
                   val parentDomain: Option[Domain] = domains
                     .find(domain =>
-                      domain.tables.exists(_.name.toLowerCase() == tablePart.toLowerCase())
+                      domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
                     )
-                  parentDomain.map(domain => (domain.name, tablePart))
+                  parentDomain.map(domain => (domain.finalName, tablePart))
 
                 case 2 | 3 =>
                   val domainPart = parts.dropRight(1).last
                   val tablePart = parts.last
                   val theDomain: Option[Domain] = domains
-                    .find(_.name.toLowerCase() == domainPart.toLowerCase())
+                    .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
                   val parentDomainFound = theDomain.exists(
-                    _.tables.exists(table => table.name.toLowerCase() == tablePart.toLowerCase())
+                    _.tables.exists(table =>
+                      table.finalName.toLowerCase() == tablePart.toLowerCase()
+                    )
                   )
                   if (parentDomainFound)
                     Some((domainPart, tablePart))

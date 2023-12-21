@@ -104,7 +104,7 @@ abstract class AutoTask(
                     taskDesc.getConnection(),
                     localViews.nonEmpty
                   )
-                logger.info(s"Merge SQL: $mergeSql")
+                logger.debug(s"Merge SQL: $mergeSql")
                 (mergeSql, false)
               case None =>
                 val select =
@@ -142,7 +142,7 @@ abstract class AutoTask(
                        |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
                        |when not matched then insert $columnNamesString values $columnNamesString
                        |""".stripMargin
-                logger.info(mergeSQL)
+                logger.debug(mergeSQL)
                 (mergeSQL, false)
               case (_, _) =>
                 (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition)
@@ -175,7 +175,7 @@ abstract class AutoTask(
   private def parseJinja(sqls: List[String], vars: Map[String, Any]): List[String] = {
     val result = Utils
       .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters ++ vars)
-    logger.info(s"Parse Jinja result: $result")
+    logger.debug(s"Parse Jinja result: $result")
     result
   }
 
