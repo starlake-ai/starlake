@@ -110,7 +110,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       DagPair(k, v)
     }.toList
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
-    val taskConfigsGroupByFilename =
+    val taskConfigsWithFilename =
       taskConfigs
         .map { taskConfig =>
           val filename = Utils.parseJinja(
@@ -123,10 +123,13 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           )
           (filename, taskConfig)
         }
+    val taskConfigsGroupedByFilename =
+      taskConfigsWithFilename
         .groupBy(_._1)
-    taskConfigsGroupByFilename
+    taskConfigsGroupedByFilename
       .foreach { case (filename, taskConfigs) =>
-        val headConfig = taskConfigs.head._2
+        val headConfigWithFilename = taskConfigs.head
+        val headConfig = headConfigWithFilename._2
         val dagConfig = headConfig.dagConfig
         val dagTemplateName = dagConfig.template
         val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
@@ -135,8 +138,8 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           headConfig.schedule.getOrElse("None")
         )
         val cronIfNone = if (cron == "None") null else cron
-        val configs = taskConfigs.map(_._2)
-        val config = AutoTaskDependenciesConfig(tasks = Some(configs.map(_.taskDesc.name)))
+        val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
+        val config = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(config)
         val context = TransformDagGenerationContext(
           config = dagConfig,
