@@ -153,7 +153,15 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable(
+                "user",
+                List(TableColumn("id", None), TableColumn("email", None)),
+                None,
+                None,
+                Map.empty,
+                None,
+                None
+              ),
               JDBCTable("product", Nil, None, None, Map.empty, None, None),
               JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
@@ -213,7 +221,15 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable(
+                "user",
+                List(TableColumn("id", None), TableColumn("email", None)),
+                None,
+                None,
+                Map.empty,
+                None,
+                None
+              ),
               JDBCTable("product", Nil, None, None, Map.empty, None, None),
               JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
@@ -277,7 +293,15 @@ class ExtractSpec extends TestHelper {
           JDBCSchema(
             catalog = Some("business"),
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable(
+                "user",
+                List(TableColumn("id", None), TableColumn("email", None)),
+                None,
+                None,
+                Map.empty,
+                None,
+                None
+              ),
               JDBCTable("product", Nil, None, None, Map.empty, None, None),
               JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
@@ -337,7 +361,17 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None, None))
+          List(
+            JDBCTable(
+              "TEST_TABLE1",
+              List(TableColumn("ID", None)),
+              None,
+              None,
+              Map.empty,
+              None,
+              None
+            )
+          )
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-h2").options,
         tmpDir,
