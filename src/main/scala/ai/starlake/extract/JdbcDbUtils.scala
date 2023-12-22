@@ -33,7 +33,9 @@ import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
 
+  type TableName = String
   type TableRemarks = String
+  type ColumnName = String
   type Columns = List[Attribute]
   type PrimaryKeys = List[String]
 
@@ -310,11 +312,12 @@ object JdbcDbUtils extends LazyLogging {
   def extractJDBCTables(
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
-    skipRemarks: Boolean
+    skipRemarks: Boolean,
+    keepOriginalName: Boolean
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
-  ): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
+  ): Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
     withJDBCConnection(connectionOptions) { connection =>
       val databaseMetaData = connection.getMetaData()
 
@@ -417,10 +420,12 @@ object JdbcDbUtils extends LazyLogging {
           selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
         }
         // Extract the Comet Schema
-        val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
+        val selectedTablesAndColumns: Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
           ExtractUtils
             .makeParallel(selectedTables)
             .map { case (tableName, tableRemarks) =>
+              val jdbcTableColumnsOpt =
+                jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName)).map(_.columns)
               ExtractUtils.timeIt(s"Table extraction of $tableName") {
                 logger.info(s"Extracting table $tableName: $tableRemarks")
                 withJDBCConnection(connectionOptions) { tableExtractConnection =>
@@ -442,12 +447,24 @@ object JdbcDbUtils extends LazyLogging {
                         val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
                         val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
                         val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+                        val pkFinalColumnName = if (keepOriginalName) {
+                          pkColumnName
+                        } else {
+                          val pkTableColumnsOpt = jdbcSchema.tables
+                            .find(_.name.equalsIgnoreCase(pkTableName))
+                            .map(_.columns)
+                          pkTableColumnsOpt
+                            .flatMap(
+                              _.find(_.name.equalsIgnoreCase(pkColumnName)).flatMap(_.rename)
+                            )
+                            .getOrElse(pkColumnName)
+                        }
                         val fkColumnName =
                           foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
 
                         val pkCompositeName =
-                          if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
-                          else s"$pkSchemaName.$pkTableName.$pkColumnName"
+                          if (pkSchemaName == null) s"$pkTableName.$pkFinalColumnName"
+                          else s"$pkSchemaName.$pkTableName.$pkFinalColumnName"
 
                         fkColumnName -> pkCompositeName
                       }
@@ -474,7 +491,14 @@ object JdbcDbUtils extends LazyLogging {
 
                       def next(): Attribute = {
                         val colName = columnsResultSet.getString("COLUMN_NAME")
-                        logger.debug(s"COLUMN_NAME=$tableName.$colName")
+                        val finalColName =
+                          jdbcTableColumnsOpt
+                            .flatMap(_.find(_.name.equalsIgnoreCase(colName)))
+                            .flatMap(_.rename)
+                            .getOrElse(colName)
+                        logger.debug(
+                          s"COLUMN_NAME=$tableName.$colName and its extracted name is $finalColName"
+                        )
                         val colType = columnsResultSet.getInt("DATA_TYPE")
                         val colTypename = columnsResultSet.getString("TYPE_NAME")
                         val colRemarks =
@@ -484,7 +508,8 @@ object JdbcDbUtils extends LazyLogging {
                         val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
                         // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
                         Attribute(
-                          name = colName,
+                          name = if (keepOriginalName) colName else finalColName,
+                          rename = if (keepOriginalName) Some(finalColName) else None,
                           `type` = sparkType(
                             colType,
                             tableName,
@@ -515,22 +540,36 @@ object JdbcDbUtils extends LazyLogging {
                     }
 
                     // Limit to the columns specified by the user if any
-                    val currentTableRequestedColumns =
+                    val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
                       jdbcTableMap
-                        .get(tableName)
-                        .map(_.columns.map(_.toUpperCase))
-                        .getOrElse(Nil)
-                    val selectedColumns =
-                      if (currentTableRequestedColumns.isEmpty)
-                        columns
-                      else
-                        columns.filter(col =>
-                          currentTableRequestedColumns.contains(col.name.toUpperCase())
+                        .get(tableName.toUpperCase)
+                        .map(_.columns.map(c => c.name.toUpperCase.trim -> c.rename))
+                        .getOrElse(Map.empty)
+                        .toMap
+                    val selectedColumns: List[Attribute] =
+                      (if (
+                         currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
+                           .contains("*")
+                       )
+                         columns
+                       else
+                         columns.filter(col =>
+                           currentTableRequestedColumns.contains(col.name.toUpperCase())
+                         )).map(c =>
+                        c.copy(rename =
+                          currentTableRequestedColumns.get(c.name.toUpperCase).flatten
                         )
-                    logger.whenDebugEnabled {
-                      columns.foreach(column =>
-                        logger.debug(s"Final schema column: $tableName.${column.name}")
                       )
+                    logger.whenDebugEnabled {
+                      val schemaMessage = selectedColumns
+                        .map(c =>
+                          c.name -> c.rename match {
+                            case (name, Some(newName)) => name + " as " + newName
+                            case (name, _)             => name
+                          }
+                        )
+                        .mkString("Final schema column:\n - ", "\n - ", "")
+                      logger.debug(schemaMessage)
                     }
 
                     //      // Find primary keys
@@ -560,7 +599,7 @@ object JdbcDbUtils extends LazyLogging {
       } match {
         case Failure(exception) =>
           Utils.logException(logger, exception)
-          Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
+          Map.empty
         case Success(value) => value
       }
     }
@@ -832,7 +871,8 @@ object JdbcDbUtils extends LazyLogging {
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = excludeTables.toList),
           connectionOptions,
-          skipRemarks = true
+          skipRemarks = true,
+          keepOriginalName = true
         )
       val globalStart = System.currentTimeMillis()
       ExtractUtils.makeParallel(selectedTablesAndColumns).foreach {
@@ -885,7 +925,15 @@ object JdbcDbUtils extends LazyLogging {
 
             // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
             val cols =
-              selectedColumns.map(colNameQuoteData + _.name + colNameQuoteData).mkString(",")
+              selectedColumns
+                .map(c =>
+                  c.name -> c.rename match {
+                    case (name, Some(newName)) =>
+                      colNameQuoteData + name + colNameQuoteData + " as " + colNameQuoteData + newName + colNameQuoteData
+                    case (name, _) => colNameQuoteData + name + colNameQuoteData
+                  }
+                )
+                .mkString(",")
             val partitionColumn = currentTable
               .flatMap(_.partitionColumn)
               .orElse(jdbcSchema.partitionColumn)

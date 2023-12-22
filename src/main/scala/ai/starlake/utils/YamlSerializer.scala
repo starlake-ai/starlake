@@ -16,7 +16,7 @@ import ai.starlake.schema.model.{
   TransformDesc
 }
 import better.files.{File, UnicodeCharset}
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
+import com.fasterxml.jackson.databind.node.{ArrayNode, MissingNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path
 import java.nio.charset.Charset
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = Utils.newYamlMapper()
@@ -79,6 +80,24 @@ object YamlSerializer extends LazyLogging {
             "'globalJdbcSchema' has been renamed to 'default'"
           )
         }
+        transformNode(objectNode.path("jdbcSchemas")) { case jdbcSchemaArrayNode: ArrayNode =>
+          jdbcSchemaArrayNode.asScala.map(n =>
+            transformNode(n.path("tables")) { case tablesArrayNode: ArrayNode =>
+              tablesArrayNode.asScala.map(n =>
+                transformNode(n.path("columns")) { case columnsArrayNode: ArrayNode =>
+                  val updatedColumnsArrayNode = columnsArrayNode.asScala.map {
+                    case columnNode: TextNode =>
+                      val tableColumn = mapper.createObjectNode()
+                      tableColumn.set("name", columnNode)
+                    case e => e
+                  }
+                  columnsArrayNode.removeAll()
+                  columnsArrayNode.addAll(updatedColumnsArrayNode.asJavaCollection)
+                }
+              )
+            }
+          )
+        }
       case _ =>
     }
     if (
@@ -92,6 +111,20 @@ object YamlSerializer extends LazyLogging {
     }
     val jdbcSchemas = mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
     jdbcSchemas.propageGlobalJdbcSchemas()
+  }
+
+  def transformNode(node: JsonNode)(partialFunction: PartialFunction[JsonNode, Any]): Any = {
+    if (partialFunction.isDefinedAt(node)) {
+      partialFunction(node)
+    } else {
+      node match {
+        case node: MissingNode => node
+        case _ =>
+          throw new RuntimeException(
+            s"jdbcSchemas is not expected to be a ${node.getClass.getSimpleName}"
+          )
+      }
+    }
   }
 
   def serializeToFile(targetFile: File, autoJobDesc: AutoJobDesc): Unit = {

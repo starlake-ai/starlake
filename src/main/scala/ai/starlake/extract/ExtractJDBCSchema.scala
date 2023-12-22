@@ -165,7 +165,12 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     fjp: Option[ForkJoinTaskSupport]
   ): Domain = {
     val selectedTablesAndColumns =
-      JdbcDbUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)
+      JdbcDbUtils.extractJDBCTables(
+        jdbcSchema,
+        connectionOptions,
+        skipRemarks = false,
+        keepOriginalName = false
+      )
     JdbcDbUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }
 
