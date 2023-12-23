@@ -573,7 +573,7 @@ case class Schema(
     * @return
     *   query
     */
-  def buildSqlSelect(
+  def buildSqlSelectOnLoad(
     table: String,
     sourceUris: Option[String]
   ): String = {
@@ -624,12 +624,12 @@ case class Schema(
        |  FROM (
        |    SELECT $allAttributes
        |    FROM $tableWithInputFileName
-       |  ) as sl_from
+       |  ) AS SL_INTERNAL_FROM_SELECT
        |  $sourceTableFilterSQL
        |""".stripMargin
   }
 
-  def buildSqlMerge(
+  def buildSqlMergeOnLoad(
     sourceTable: String,
     targetTable: String,
     targetTableFilters: List[String],
@@ -638,7 +638,7 @@ case class Schema(
     sourceUris: Option[String],
     targetTableExists: Boolean = true,
     jdbcDatabase: Engine
-  ): String = {
+  )(implicit settings: Settings): String = {
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -665,12 +665,12 @@ case class Schema(
       }
       val inputData =
         if (merge.map(_.key.isEmpty).getOrElse(true))
-          buildSqlSelect(
+          buildSqlSelectOnLoad(
             sourceTable,
             sourceUris
           ) // partition overwrite without deduplication
         else
-          buildSqlMerge(
+          buildSqlMergeOnLoad(
             sourceTable,
             targetTable,
             targetTableFilters,
@@ -687,7 +687,7 @@ case class Schema(
          |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
          |""".stripMargin
     } else {
-      val inputData = buildSqlSelect(sourceTable, sourceUris)
+      val inputData = buildSqlSelectOnLoad(sourceTable, sourceUris)
       val allAttributesSQL = allOutputAttributes
         .map { attribute =>
           s"`${attribute.getFinalName()}`"
@@ -704,61 +704,60 @@ case class Schema(
       val whereClauseSQL =
         if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
 
-      jdbcDatabase.toString().toLowerCase() match {
-        case "postgresql" =>
-          val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
-            case Some(mergeTimestampCol) =>
-              s"ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ"
-            case _ =>
-              // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
-              s"DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) as SL_SEQ"
-          }
-          if (targetTableExists) {
-            s"""
-              |WITH SL_VIEW AS ($inputData),
-              |SL_VIEW_EX AS (
-              |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW
-              |  UNION ALL
-              |  SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
-              |  $whereClauseSQL
-              |),
-              |SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
-              |SELECT $allAttributesSQL FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
-              |""".stripMargin
-          } else {
-            s"""
-              |WITH SL_VIEW AS ($inputData),
-              |SL_VIEW_EX AS (SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW),
-              |SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
-              |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
-              |""".stripMargin
-          }
+      val canMerge = settings.appConfig.jdbcEngines(jdbcDatabase.toString().toLowerCase()).canMerge
+      if (canMerge) {
+        val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
+          case Some(mergeTimestampCol) =>
+            s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
+          case _ =>
+            // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
+            s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
+        }
 
-        case _ =>
-          val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
-            case Some(mergeTimestampCol) =>
-              s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
-            case _ =>
-              // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
-              s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
-          }
-
-          if (targetTableExists) {
-            s"""SELECT $allAttributesSQL FROM(
-           |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
-           |  UNION ALL
-           |  SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
-           |  $whereClauseSQL
-           |)
-           |$rowSelectionSQL
-           |""".stripMargin
-          } else {
-            s"""SELECT $allAttributesSQL FROM(
-           |  SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
-           |)
-           |$rowSelectionSQL
-           |""".stripMargin
-          }
+        if (targetTableExists) {
+          s"""SELECT $allAttributesSQL FROM(
+              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+              UNION ALL
+              SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
+              $whereClauseSQL
+            ) AS SL_INTERNAL_QUALIFY_UNION_ALL
+            $rowSelectionSQL
+            """.stripMargin
+        } else {
+          s"""SELECT $allAttributesSQL FROM(
+              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+            ) AS SL_INTERNAL_QUALIFY
+            $rowSelectionSQL
+            """.stripMargin
+        }
+      } else {
+        val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
+          case Some(mergeTimestampCol) =>
+            s"ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ"
+          case _ =>
+            // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
+            s"DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) as SL_SEQ"
+        }
+        if (targetTableExists) {
+          s"""
+            WITH SL_VIEW AS ($inputData),
+            SL_VIEW_EX AS (
+              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW
+              UNION ALL
+              SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
+              $whereClauseSQL
+            ),
+            SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
+            SELECT $allAttributesSQL FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+        } else {
+          s"""
+            WITH SL_VIEW AS ($inputData),
+            SL_VIEW_EX AS (SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW),
+            SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
+            SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+        }
       }
     }
   }
@@ -776,7 +775,7 @@ case class Schema(
     attributeMergeStrategy: AttributeMergeStrategy
   )(implicit
     schemaHandler: SchemaHandler
-  ) = {
+  ): Schema = {
     this.copy(
       rename = this.rename.orElse(fallbackSchema.rename),
       comment = this.comment.orElse(fallbackSchema.comment),

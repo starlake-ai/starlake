@@ -45,10 +45,10 @@ class sparkJdbcLoader(
         val url = jdbcOptions("url")
         val exists = tableExists(conn, url, cliConfig.outputDomainAndTableName)
         if (!exists && settings.appConfig.createSchemaIfNotExists) {
-          logger.info(s"Schema $outputDomain does not exists, trying to create it")
+          logger.info(s"Schema $outputDomain not found, trying to create it")
           JdbcDbUtils.createSchema(outputDomain, conn)
         } else {
-          logger.info(s"Schema $outputDomain exists")
+          logger.info(s"Schema $outputDomain found")
         }
         val schema = sourceDF.schema
         if (SparkUtils.isFlat(schema) && exists) {
@@ -61,13 +61,30 @@ class sparkJdbcLoader(
               deletedSchema,
               cliConfig.outputDomainAndTableName
             )
+          if (alterTableDropColumns.nonEmpty) {
+            logger.info(
+              s"later table ${cliConfig.outputDomainAndTableName} with ${alterTableDropColumns.size} columns to drop"
+            )
+            logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
+          }
           val alterTableAddColumns =
             SparkUtils.alterTableAddColumnsString(addedSchema, cliConfig.outputDomainAndTableName)
+
+          if (alterTableAddColumns.nonEmpty) {
+            logger.info(
+              s"later table ${cliConfig.outputDomainAndTableName} with ${alterTableAddColumns.size} columns to add"
+            )
+            logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
+          }
           alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
           alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
         } else {
           val optionsWrite =
             new JdbcOptionsInWrite(url, cliConfig.outputDomainAndTableName, jdbcOptions)
+
+          logger.info(
+            s"Table ${cliConfig.outputDomainAndTableName} not found, creating it with schema $schema"
+          )
           SparkUtils.createTable(
             conn,
             cliConfig.outputDomainAndTableName,
@@ -78,6 +95,7 @@ class sparkJdbcLoader(
         }
       }
 
+      // table exists at this point
       val dfw = sourceDF.write
         .format(cliConfig.format)
         .option("dbtable", cliConfig.outputDomainAndTableName)

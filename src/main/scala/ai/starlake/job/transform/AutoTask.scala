@@ -81,7 +81,7 @@ abstract class AutoTask(
       if (taskDesc.parseSQL.getOrElse(true)) {
         if (!tableExists) {
           val select =
-            SQLUtils.buildSingleSQLQuery(
+            SQLUtils.buildSingleSQLQueryOnTransform(
               selectStatement,
               schemaHandler.refs(),
               schemaHandler.domains(),
@@ -108,7 +108,7 @@ abstract class AutoTask(
                 (mergeSql, false)
               case None =>
                 val select =
-                  SQLUtils.buildSingleSQLQuery(
+                  SQLUtils.buildSingleSQLQueryOnTransform(
                     selectStatement,
                     schemaHandler.refs(),
                     schemaHandler.domains(),

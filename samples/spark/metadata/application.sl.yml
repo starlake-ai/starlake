@@ -16,6 +16,15 @@ application:
         user: "hruser"
         password: "dbuser123"
         quoteIdentifiers: false
+    redshift:
+      type: jdbc
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.jdbc42.Driver"
+        supportTruncateOnInsert: false
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
     snowflake:
       type: jdbc
       options:

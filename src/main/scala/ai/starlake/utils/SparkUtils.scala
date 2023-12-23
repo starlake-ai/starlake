@@ -39,7 +39,8 @@ object SparkUtils extends StrictLogging {
     val addField = field.name
     val addFieldType = field.dataType
     val addJdbcType = JdbcUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition)
-    val nullable = if (!field.nullable) "NOT NULL" else ""
+    val nullable =
+      "" // Always nummable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
     addJdbcType.map(jdbcType => s"ALTER TABLE $tableName ADD COLUMN $addField $jdbcType $nullable")
   }
 

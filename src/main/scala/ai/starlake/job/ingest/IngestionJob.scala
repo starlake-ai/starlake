@@ -321,10 +321,11 @@ trait IngestionJob extends SparkJob {
                 format = "jdbc",
                 options = connectionRefOptions
               )
+              // Create table and load the data using Spark
               val jdbcJob = new sparkJdbcLoader(jdbcConnectionLoadConfig)
               val firstStepResult = jdbcJob.run()
 
-              if (twoSteps) {
+              if (twoSteps) { // We need to apply transform, filter, merge, ...
                 firstStepResult match {
                   case Success(loadFileResult) =>
                     logger.info(s"First step result: $loadFileResult")
@@ -334,30 +335,51 @@ trait IngestionJob extends SparkJob {
                       val keepGoing =
                         expectationsResult.isSuccess || !settings.appConfig.expectations.failOnError
                       if (keepGoing) {
+                        // is it a new table ?
                         val targetTableExists = JdbcDbUtils.tableExists(conn, url, targetTable)
-                        if (!targetTableExists && settings.appConfig.createSchemaIfNotExists) {
+
+                        if (targetTableExists) {
+                          // update target table schema if needed
                           logger.info(
-                            s"Schema ${domain.finalName} does not exists, trying to create it"
+                            s"Schema ${domain.finalName}"
                           )
                           val existingSchema =
                             SparkUtils.getSchemaOption(conn, connectionRefOptions, targetTable)
+                          val incomingSchema =
+                            datasetWithRenamedAttributes.drop("comet_input_file_name").schema
                           val addedSchema =
                             SparkUtils.added(
-                              datasetWithRenamedAttributes.schema,
-                              existingSchema.getOrElse(datasetWithRenamedAttributes.schema)
+                              incomingSchema,
+                              existingSchema.getOrElse(incomingSchema)
                             )
                           val deletedSchema =
                             SparkUtils.dropped(
-                              datasetWithRenamedAttributes.schema,
-                              existingSchema.getOrElse(datasetWithRenamedAttributes.schema)
+                              incomingSchema,
+                              existingSchema.getOrElse(incomingSchema)
                             )
                           val alterTableDropColumns =
                             SparkUtils.alterTableDropColumnsString(deletedSchema, targetTable)
+                          if (alterTableDropColumns.nonEmpty) {
+                            logger.info(
+                              s"alter table $targetTable with ${alterTableDropColumns.size} columns to drop"
+                            )
+                            logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
+                          }
+
                           val alterTableAddColumns =
                             SparkUtils.alterTableAddColumnsString(addedSchema, targetTable)
+                          if (alterTableAddColumns.nonEmpty) {
+                            logger.info(
+                              s"alter table $targetTable with ${alterTableAddColumns.size} columns to add"
+                            )
+                            logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
+                          }
+
                           alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
                           alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
                         }
+                        // At this point if the table exists, it has the same schema as the dataframe
+
                         val secondStepResult =
                           applyJdbcSecondStep(
                             firstStepTempTable,
@@ -422,17 +444,25 @@ trait IngestionJob extends SparkJob {
   ): Try[JobResult] = {
     val engineName = mergedMetadata.getSink().getConnection().getJdbcEngineName()
     val fullTableName = s"${domain.finalName}.${schema.finalName}"
-    val (presql, postsql, outputTableName, fullOutputTableName) =
-      if (engineName.toString.toLowerCase() == "postgresql" && targetTableExists && hasMergeKey) {
-        val presql = List(s"ALTER TABLE $fullTableName RENAME TO SL_${schema.finalName}")
-        val postsql = List(
-          s"DROP TABLE ${domain.finalName}.SL_${schema.finalName}"
-        )
-        val outputTableName = s"SL_${schema.finalName}"
-        val fullOutputTableName = s"${domain.finalName}.${outputTableName}"
 
-        (presql, postsql, outputTableName, fullOutputTableName)
+    // postgres does not support merge / create __or replace__ table. We need to do it by hand
+    val (presql, postsql, outputTableName, fullOutputTableName) =
+      if (targetTableExists && hasMergeKey) {
+        val canMerge = settings.appConfig.jdbcEngines(engineName.toString.toLowerCase()).canMerge
+        if (canMerge) {
+          (Nil, Nil, schema.finalName, fullTableName)
+        } else {
+          val presql = List(s"ALTER TABLE $fullTableName RENAME TO SL_${schema.finalName}")
+          val postsql = List(
+            s"DROP TABLE ${domain.finalName}.SL_${schema.finalName}"
+          )
+          val outputTableName = s"SL_${schema.finalName}"
+          val fullOutputTableName = s"${domain.finalName}.${outputTableName}"
+
+          (presql, postsql, outputTableName, fullOutputTableName)
+        }
       } else {
+        // The table does not exist, we will simply create it
         (Nil, Nil, schema.finalName, fullTableName)
       }
 
@@ -459,7 +489,6 @@ trait IngestionJob extends SparkJob {
     }
     sqlMerge match {
       case Success(sqlMerge) =>
-        logger.info(s"buildSqlSelect: $sqlMerge")
         val taskDesc = AutoTaskDesc(
           name = targetTable,
           presql = presql,
@@ -495,7 +524,7 @@ trait IngestionJob extends SparkJob {
   ): Try[String] = {
     Success(
       starlakeSchema
-        .buildSqlMerge(
+        .buildSqlMergeOnLoad(
           tempTable,
           targetTable,
           Nil,
@@ -514,7 +543,7 @@ trait IngestionJob extends SparkJob {
     tempTable: String,
     targetTableExists: Boolean
   ): Try[String] = {
-    Success(schema.buildSqlSelect(tempTable, None).replace('`', ' '))
+    Success(schema.buildSqlSelectOnLoad(tempTable, None).replace('`', ' '))
   }
 
   private def requireTwoSteps(schema: Schema, sink: JdbcSink): Boolean = {
@@ -877,7 +906,7 @@ trait IngestionJob extends SparkJob {
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, Some(partitionName)) =>
-        val sql = schema.buildSqlSelect(tempTable, Some(sourceUris))
+        val sql = schema.buildSqlSelectOnLoad(tempTable, Some(sourceUris))
         computePartitions(bigqueryJob, partitionName, sql) match {
           case (_, nullCountValues) if nullCountValues > 0 && settings.appConfig.rejectAllOnError =>
             logger.error("Null value found in partition")
@@ -893,7 +922,7 @@ trait IngestionJob extends SparkJob {
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
             Success(
               Some(
-                schema.buildSqlMerge(
+                schema.buildSqlMergeOnLoad(
                   tempTable,
                   targetTable,
                   Nil,
@@ -908,7 +937,7 @@ trait IngestionJob extends SparkJob {
               nullCountValues
             )
         }
-      case _ => Success(Some(schema.buildSqlSelect(tempTable, Some(sourceUris))), true, 0)
+      case _ => Success(Some(schema.buildSqlSelectOnLoad(tempTable, Some(sourceUris))), true, 0)
     }
   }
 
@@ -979,7 +1008,7 @@ trait IngestionJob extends SparkJob {
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, "WRITE_TRUNCATE", Some(partitionName)) =>
-        val sql = starlakeSchema.buildSqlMerge(
+        val sql = starlakeSchema.buildSqlMergeOnLoad(
           tempTable,
           targetTable,
           targetFilters,
@@ -1004,7 +1033,7 @@ trait IngestionJob extends SparkJob {
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
             Success(
               Some(
-                starlakeSchema.buildSqlMerge(
+                starlakeSchema.buildSqlMergeOnLoad(
                   tempTable,
                   targetTable,
                   targetFilters,
@@ -1022,7 +1051,7 @@ trait IngestionJob extends SparkJob {
       case _ =>
         Success(
           Some(
-            starlakeSchema.buildSqlMerge(
+            starlakeSchema.buildSqlMergeOnLoad(
               tempTable,
               targetTable,
               targetFilters,
