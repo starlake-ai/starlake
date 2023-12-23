@@ -171,7 +171,7 @@ object SQLUtils extends StrictLogging {
     }
   }
 
-  def buildSingleSQLQuery(
+  def buildSingleSQLQueryOnTransform(
     sql: String,
     refs: Refs,
     domains: List[Domain],
@@ -193,6 +193,7 @@ object SQLUtils extends StrictLogging {
         "FROM",
         connection
       )
+    logger.info(s"fromResolved SQL: $fromResolved")
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
@@ -204,6 +205,7 @@ object SQLUtils extends StrictLogging {
         "JOIN",
         connection
       )
+    logger.info(s"joinAndFromResolved SQL: $joinAndFromResolved")
     joinAndFromResolved
   }
 
@@ -219,7 +221,6 @@ object SQLUtils extends StrictLogging {
   )(implicit
     settings: Settings
   ): String = {
-    logger.info(s"Source SQL: $sql")
     val ctes = SQLUtils.extractCTENames(sql) ++ localViews
     var resolvedSQL = ""
     var startIndex = 0
@@ -261,7 +262,6 @@ object SQLUtils extends StrictLogging {
           startIndex = regex.end
         }
       resolvedSQL = resolvedSQL + sql.substring(startIndex)
-      logger.info(s"Resolved SQL: $resolvedSQL")
       resolvedSQL
     }
   }

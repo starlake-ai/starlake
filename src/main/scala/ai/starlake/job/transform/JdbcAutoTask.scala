@@ -101,7 +101,7 @@ class JdbcAutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
-        val dynamicPartitionOverwrite = None // No partition in snowflake
+        val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
         val (preSql, sqlWithParameters, postSql, asTable) =
           buildAllSQLQueries(tableExists(conn), dynamicPartitionOverwrite, None, Nil)
         logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
@@ -136,7 +136,7 @@ class JdbcAutoTask(
               connection.options.get("url") match {
                 case Some(url) =>
                   val jdbcDialect = SparkUtils.dialect(url)
-                  logger.info(s"JDBC dialect $jdbcDialect")
+                  logger.debug(s"JDBC dialect $jdbcDialect")
                   jdbcDialect
                 case None =>
                   logger.warn("No url found in jdbc options. Using default dialect")
@@ -197,6 +197,7 @@ class JdbcAutoTask(
     prepareTarget(conn, tableExists(conn))
     val finalSqls =
       if (!tableExists(conn)) { // Table may have been created by the preapreTarget method so we test it again
+        // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else
@@ -205,13 +206,14 @@ class JdbcAutoTask(
       } else {
         val mainSql =
           if (isMerge(sqlWithParameters))
-            sqlWithParameters
+            sqlWithParameters // it's a merge request.
           else {
             taskDesc._auditTableName match {
               case Some(_) =>
                 s"INSERT INTO $fullTableName $sqlWithParameters"
               case None =>
-                val start = sqlWithParameters.indexOf("SELECT " + "SELECT ".length)
+                // We will be inserting the resulting data into the target table.
+                val start = sqlWithParameters.indexOf("SELECT ") + "SELECT ".length
                 var end = sqlWithParameters.indexOf(" FROM(")
                 if (end < 0)
                   end = sqlWithParameters.indexOf(" FROM ")
@@ -222,6 +224,7 @@ class JdbcAutoTask(
           }
         val insertSqls =
           if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite) {
+            // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
                 s"DROP MATERIALIZED VIEW $fullTableName",
@@ -243,6 +246,7 @@ class JdbcAutoTask(
           }
         insertSqls
       }
+    logger.info(s"running against te database: $finalSqls")
     val results = finalSqls.map(sql => JdbcDbUtils.execute(sql, conn))
     results.filter(_.isFailure).foreach(_.failed.foreach(e => Utils.logException(logger, e)))
     applyJdbcAcl(connection, forceApply = true)
