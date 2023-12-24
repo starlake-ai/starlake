@@ -1,7 +1,6 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator.Yml2DagTemplateLoader.RESOURCE_DOMAIN_TEMPLATE_FOLDER
 import better.files.Resource
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.loader.ResourceLocator
@@ -9,7 +8,6 @@ import org.apache.hadoop.fs.Path
 
 import java.nio.charset.Charset
 import scala.tools.nsc.io.File
-import scala.util.{Failure, Success, Try}
 
 class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator {
 
