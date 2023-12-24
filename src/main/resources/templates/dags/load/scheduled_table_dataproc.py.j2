@@ -5,6 +5,6 @@
 # - cloud_run_job_name: the name of the job to execute
 # - sl_env_var: the airflow variable name where a map in json is specified in order to add them as env var in cloud run job
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
-{% include 'templates/dags/__starlake_cloud_run_operator.py.j2' %}
-sl_operator = StarlakeCloudRunOperator()
+{% include 'templates/dags/__starlake_dataproc_operator.py.j2' %}
+sl_operator = StarlakeDataprocOperator()
 {% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}

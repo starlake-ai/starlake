@@ -1,0 +1,109 @@
+{% include 'templates/dags/__common.py.j2' %}
+{% include 'templates/dags/__starlake_operator.py.j2' %}
+from airflow.operators.bash import BashOperator
+
+from airflow.sensors.bash import BashSensor
+
+from airflow.datasets import Dataset
+
+from airflow.utils.task_group import TaskGroup
+
+class StarlakeCloudRunOperator(IStarlakeOperator):
+    """Starlake Cloud Run Operator."""
+    def __init__(self, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, sl_env_vars: dict = SL_ENV_VARS, retry_exit_code: int=None, **kwargs):
+        super().__init__(**kwargs)
+        self.options = {} if not options else options
+        self.project_id = get_context_var(var_name='cloud_run_project_id', options=self.options) if not project_id else project_id
+        self.cloud_run_job_name = get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
+        self.cloud_run_job_region = get_context_var(var_name='cloud_run_job_region', options=self.options) if not cloud_run_job_region else cloud_run_job_region
+        self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(sl_env_vars.items())])
+
+    def __job_with_completion_sensors__(self, task_id: str, command: str, outlets: str, **kwargs) -> BaseOperator:
+        job_task = BashOperator(
+            task_id=task_id,
+            bash_command=(
+                f"gcloud beta run jobs execute {self.cloud_run_job_name} "
+                f"--args '{command}' "
+                f"{self.update_env_vars} "
+                f"--region {self.cloud_run_job_region} --project {self.project_id} --task-timeout 300 --format='get(metadata.name)'"
+            ),
+            do_xcom_push=True,
+            **kwargs
+        )
+
+        check_completion_id = task_id + '_check_completion'
+        completion_sensor = CloudRunJobCompletionSensor(
+            task_id=check_completion_id, 
+            project_id=self.project_id, 
+            cloud_run_job_region=self.cloud_run_job_region, 
+            source_task_id=task_id,
+            retry_exit_code=self.retry_exit_code,
+            outlets=outlets if self.retry_exit_code is not None else None,
+            **kwargs
+        )
+
+        with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
+            if self.retry_exit_code is not None:
+                import_task >> completion_sensor
+            else:
+                get_completion_status_id = task_id + '_get_completion_status'
+                job_status = CloudRunJobCheckStatusOperator(
+                    task_id=get_completion_status_id, 
+                    project_id=self.project_id, 
+                    cloud_run_job_region=self.cloud_run_job_region, 
+                    source_task_id=task_id, 
+                    outlets=outlets, 
+                    **kwargs
+                )
+                import_task >> completion_sensor >> job_status
+        return task_completion_sensors
+
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_import()"""
+        task_id = f"{domain}_import" if not task_id else task_id
+        command = f"import --includes {domain}"
+        return self.__job_with_completion_sensors__(task_id, command, domain, **kwargs)
+
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_load()"""
+        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        command=f"load --domains {domain} --tables {table}"
+        return self.__job_with_completion_sensors__(task_id, command, f'{domain}.{table}'), **kwargs)
+
+    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_transform()"""
+        task_id = f"{transform_name}_transform" if not task_id else task_id
+        command=f"transform --name {transform_name}"
+        return self.__job_with_completion_sensors__(task_id, command, transform_name, **kwargs)
+
+class CloudRunJobCompletionSensor(BashSensor):
+    '''
+    This sensor checks the completion of a cloud run job.
+    '''
+    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_exit_code: int=None, outlets: str, **kwargs) -> None:
+        if retry_exit_code is not None:
+            super().__init__(
+                bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
+                mode="reschedule",
+                retry_exit_code=retry_exit_code, #available in 2.6. Implies to combine this sensor and the bottom operator
+                outlets=[Dataset(keep_ascii_only(outlets))],
+                **kwargs
+            )
+        else:
+            super().__init__(
+                bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
+                mode="reschedule",
+                #retry_exit_code=1, #available in 2.6. Implies to combine this sensor and the bottom operator
+                **kwargs
+            )
+
+class CloudRunJobCheckStatusOperator(BashOperator):
+    '''
+    This operator checks the status of a cloud run job and fails if it is not successful.
+    '''
+    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, outlets: str, **kwargs) -> None:
+        super().__init__(
+            bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}} --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
+            outlets=[Dataset(keep_ascii_only(outlets))],
+            **kwargs
+        )

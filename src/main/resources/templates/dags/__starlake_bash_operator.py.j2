@@ -1,0 +1,47 @@
+{% include 'templates/dags/__common.py.j2' %}
+{% include 'templates/dags/__starlake_operator.py.j2' %}
+from airflow.operators.bash import BashOperator
+
+from airflow.datasets import Dataset
+
+class StarlakeBashOperator(IStarlakeOperator):
+    """Starlake Bash Operator."""
+    def __init__(self, options: dict=options, **kwargs):
+        super().__init__(**kwargs)
+        self.options = {} if not options else options
+
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_import()"""
+        task_id = f"{domain}_import" if not task_id else task_id
+        command=get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" import --includes {domain}"
+        return BashOperator(
+            task_id=task_id,
+            bash_command=command,
+            cwd=get_context_var("SL_ROOT", self.options),
+            outlets=[Dataset(keep_ascii_only(domain))],
+            **kwargs
+        )
+
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_load()"""
+        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" load --domains {domain} --tables {table}"
+        return BashOperator(
+            task_id=task_id,
+            bash_command=command,
+            cwd=get_context_var("SL_ROOT", self.options),
+            outlets=[Dataset(keep_ascii_only(f'{domain}.{table}'))],
+            **kwargs
+        )
+
+    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_transform()"""
+        task_id = f"{transform_name}_transform" if not task_id else task_id
+        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" transform --name {transform_name}"
+        return BashOperator(
+            task_id=task_id,
+            bash_command=command,
+            cwd=get_context_var("SL_ROOT", self.options),
+            outlets=[Dataset(keep_ascii_only(transform_name))],
+            **kwargs
+        )

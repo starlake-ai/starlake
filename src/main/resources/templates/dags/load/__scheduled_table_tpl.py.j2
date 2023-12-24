@@ -1,28 +1,15 @@
-# This template executes individual bash jobs and requires the following dag generation options set:
-#
-# - SL_ROOT: The root project path
-# - SL_STARLAKE_PATH: the path to the starlake executable
-#
-
-import os
-from datetime import timedelta
-
-# The DAG object; we'll need this to instantiate a DAG
-from airflow import DAG
-
 # Operators; we need this to operate!
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import BranchPythonOperator
 
 from airflow.decorators import task
+
 from airflow.exceptions import AirflowException
+
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 
-#from gi6.cloud_run.operators import *
-#from gi6.utils.functions import *
-
-{% include 'dags/templates/cloud_run_operators.py.j2' %}
+{% include 'templates/dags/__starlake_dag.py.j2' %}
 
 schedules= [{% for schedule in context.schedules %}
     {
@@ -44,8 +31,7 @@ schedules= [{% for schedule in context.schedules %}
 ]
 
 def generate_dag_name(schedule):
-    base_dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "")
-    return (f"{base_dag_name}-{schedule['schedule']}" if len(schedules) > 1 else base_dag_name)
+    return (f"{DEFAULT_DAG_NAME}-{schedule['schedule']}" if len(schedules) > 1 else DEFAULT_DAG_NAME)
 
 @task(trigger_rule=TriggerRule.ONE_FAILED, retries=0, pool=DEFAULT_POOL)
 def watcher():
@@ -56,13 +42,20 @@ for schedule in schedules:
     tags = get_context_var(var_name='tags', default_value="", options=options).split()
     for domain in schedule["domains"]:
         tags.append(domain["name"])
-    with DAG(generate_dag_name(schedule),
+    with StarlakeDag(dag_id=generate_dag_name(schedule),
              schedule_interval=schedule['cron'],
              default_args=DEFAULT_DAG_ARGS,
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
-             description=description) as dag:
+             description=description,
+             sl_operator=sl_operator) as dag:
         start = dummy_op(task_id="start")
+
+        create_cluster = dag.sl_operator.create_cluster()
+
+        delete_cluster = dag.sl_operator.delete_cluster()
+
+        end = dummy_op(task_id="end")
 
         incoming_path = get_context_var(var_name='incoming_path', default_value=f'{SL_ROOT}/incoming', options=options)
 
@@ -71,7 +64,7 @@ for schedule in schedules:
                 task_id=sanitize_id(f'{domain["name"]}_list_files'),
                 bash_command=f'gsutil ls {incoming_path}/{domain["name"]}/* | wc -l',
                 do_xcom_push=True,
-#                pool=GNE_DEFAULT_POOL
+                pool=DEFAULT_POOL
             )
 
             start_import = dummy_op(task_id=sanitize_id(f'{domain["name"]}_start_import'), trigger_rule=TriggerRule.ONE_SUCCESS)
@@ -80,7 +73,7 @@ for schedule in schedules:
 
             skip_load = dummy_op(task_id=sanitize_id(f'{domain["name"]}_skip_load'), trigger_rule=TriggerRule.ONE_SUCCESS)
 
-#            skip_load >> watcher
+            skip_load >> end
 
             def f_skip_or_start(**kwargs):
                 task_instance = kwargs['ti']
@@ -97,54 +90,38 @@ for schedule in schedules:
                 python_callable = f_skip_or_start,
                 trigger_rule = 'one_success',
                 provide_context = True,
-#                pool=GNE_DEFAULT_POOL
+                pool=DEFAULT_POOL
             )
 
             start >> list_files >> skip_or_start >> [start_import, skip_load]
 
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_import_tasks')) as domain_import_tasks:
                 import_task_id = sanitize_id(f'{domain["name"]}_import')
-                import_task = importJob(
+                import_task = dag.sl_operator.sl_import(
                     task_id=import_task_id, 
-                    project_id=project_id, 
-                    cloud_run_job_name=cloud_run_job_name,
-                    cloud_run_job_region=cloud_run_job_region, 
-                    domain=domain["name"],
-                    sl_env_vars=SL_ENV_VARS
+                    domain=domain["name"]
                 )
-                task_completion_sensors = jobCompletionSensors(
-                    source_task_id=import_task_id, 
-                    project_id=project_id, 
-                    cloud_run_job_region=cloud_run_job_region, 
-                    outlets=f'{project_id}.{domain["final_name"]}',
-                    retry_exit_code=1
-                )
-                start_import >> import_task >> task_completion_sensors
+                if create_cluster:
+                    start_import >> create_cluster >> import_task
+                else:
+                    start_import >> import_task
 
             domain_import_tasks >> start_load
 
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
-                    load_task = loadJob(
+                    load_task = dag.sl_operator.sl_load(
                         task_id=load_task_id, 
-                        project_id=project_id, 
-                        cloud_run_job_name=cloud_run_job_name,
-                        cloud_run_job_region=cloud_run_job_region, 
                         domain=domain["name"], 
-                        table=table["name"],
-                        sl_env_vars=SL_ENV_VARS
+                        table=table["name"]
                     )
-                    task_completion_sensors = jobCompletionSensors(
-                        source_task_id=load_task_id, 
-                        project_id=project_id, 
-                        cloud_run_job_region=cloud_run_job_region, 
-                        outlets=f'{project_id}.{domain["final_name"]}.{table["name"]}',
-                        retry_exit_code=1
-                    )
-                    start_load >> load_task >> task_completion_sensors
+                    start_load >> load_task
             return domain_load_tasks
 
         all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
 
-        all_load_tasks >> watcher()
+        if delete_cluster:
+            all_load_tasks >> watcher() >> delete_cluster >> end
+        else:
+            all_load_tasks >> watcher() >> end
