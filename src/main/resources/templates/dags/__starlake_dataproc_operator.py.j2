@@ -1,0 +1,315 @@
+{% include 'templates/dags/__common.py.j2' %}
+{% include 'templates/dags/__starlake_operator.py.j2' %}
+import uuid
+import ast
+
+from airflow.providers.google.cloud.operators.dataproc import (
+    DataprocCreateClusterOperator,
+    DataprocSubmitJobOperator,
+    DataprocDeleteClusterOperator,
+)
+
+from airflow.operators.bash import BashOperator
+
+from airflow.datasets import Dataset
+
+from airflow.utils.trigger_rule import TriggerRule
+
+SL_HIVE = get_context_var("SL_HIVE", "false", SL_ENV_VARS)
+SL_GROUPED = get_context_var("SL_GROUPED", "false", SL_ENV_VARS)
+SL_AUDIT_SINK_TYPE = get_context_var("SL_AUDIT_SINK_TYPE", "BigQuerySink", SL_ENV_VARS)
+SL_SINK_REPLAY_TO_FILE = get_context_var("SL_SINK_REPLAY_TO_FILE", "false", SL_ENV_VARS)
+SL_MERGE_OPTIMIZE_PARTITION_WRITE = get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", SL_ENV_VARS)
+SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE = get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", SL_ENV_VARS)
+
+DEFAULT_DATAPROC_NAME = get_context_var("DATAPROC_NAME", "dataproc-cluster", options)
+DEFAULT_DATAPROC_PROJECT_ID = get_context_var("DATAPROC_PROJECT_ID", "dataproc-project", options)
+DEFAULT_DATAPROC_REGION = get_context_var("DATAPROC_REGION", "europe-west1", options)
+DEFAULT_DATAPROC_ZONE = get_context_var("DATAPROC_ZONE", "europe-west1-b", options)
+DEFAULT_DATAPROC_SUBNET = get_context_var("DATAPROC_SUBNET", "default", options)
+DEFAULT_DATAPROC_SERVICE_ACCOUNT = get_context_var("DATAPROC_SERVICE_ACCOUNT", f"service-{DEFAULT_DATAPROC_PROJECT_ID}@dataproc-accounts.iam.gserviceaccount.com", options)
+DEFAULT_DATAPROC_IMAGE_VERSION = get_context_var("DATAPROC_IMAGE_VERSION", "2.0.30-debian10", options)
+DEFAULT_DATAPROC_MASTER_MACHINE_TYPE = get_context_var("DATAPROC_MASTER_MACHINE_TYPE", "n1-standard-4", options)
+DEFAULT_DATAPROC_WORKER_MACHINE_TYPE = get_context_var("DATAPROC_WORKER_MACHINE_TYPE", "n1-standard-4", options)
+DEFAULT_DATAPROC_CLUSTER_SIZE = get_context_var("DATAPROC_CLUSTER_SIZE", "9", options)
+
+DEFAULT_MASTER_CONF = {
+    "num_instances": 1,
+    "machine_type_uri": DEFAULT_DATAPROC_MASTER_MACHINE_TYPE,
+    "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 1024},
+}
+
+DEFAULT_WORKER_CONF = {
+    "num_instances": int(CLUSTER_SIZE),
+    "machine_type_uri": DEFAULT_DATAPROC_WORKER_MACHINE_TYPE,
+    "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 1024},
+}
+
+DEFAULT_CLUSTER_PROPERTIES = {
+    "dataproc:dataproc.logging.stackdriver.job.driver.enable" : "true",
+    "dataproc:dataproc.logging.stackdriver.job.yarn.container.enable": "true",
+    "dataproc:dataproc.logging.stackdriver.enable": "true",
+    "dataproc:jobs.file-backed-output.enable": "true",
+    "spark-env:SL_HIVE": SL_HIVE,
+    "spark-env:SL_GROUPED": SL_GROUPED,
+    "spark-env:SL_ROOT": SL_ROOT,
+    "spark-env:SL_AUDIT_SINK_TYPE": SL_AUDIT_SINK_TYPE,
+    "spark-env:SL_SINK_REPLAY_TO_FILE": SL_SINK_REPLAY_TO_FILE, # replay file generation causes serious performance decrease
+    "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": SL_MERGE_OPTIMIZE_PARTITION_WRITE,
+    "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE
+}
+
+DEFAULT_SPARK_CONF = {
+    "memAlloc":"22g",
+    "numVcpu":8,
+    "sparkExecutorInstances":3
+}
+
+DEFAULT_SPARK_JAR_LIST = get_context_var("SPARK_JAR_LIST", [], options)
+
+DEFAULT_SPARK_BUCKET = get_context_var("SPARK_BUCKET", "", options)
+
+DEFAULT_SPARK_PROPERTIES = {
+    "spark.hadoop.fs.defaultFS": "gs://${DEFAULT_SPARK_BUCKET}",
+    "spark.eventLog.enabled": "true",
+    "spark.executor.memory": DEFAULT_SPARK_CONF.get("memAlloc"),
+    "spark.executor.cores": DEFAULT_SPARK_CONF.get("numVcpu"),
+    "spark.executor.instances": str(DEFAULT_SPARK_CONF.get("sparkExecutorInstances")),
+    "spark.sql.sources.partitionOverwriteMode": "DYNAMIC",
+    "spark.sql.legacy.parquet.int96RebaseModeInWrite": "CORRECTED",
+    "spark.sql.catalogImplementation": "in-memory",
+    "spark.datasource.bigquery.temporaryGcsBucket": "${DEFAULT_SPARK_BUCKET}",
+    "spark.datasource.bigquery.allowFieldAddition": "true",
+    "spark.datasource.bigquery.allowFieldRelaxation": "true",
+    "spark.dynamicAllocation.enabled": "false",
+    "spark.shuffle.service.enabled": "false"
+}
+
+class StarlakeDataprocOperator(IStarlakeOperator):
+    """Starlake Dataproc Operator."""
+    def __init__(self, cluster: StarlakeDataprocCluster=None, spark_properties: dict, spark_config: dict=None, job_options: dict=None, **kwargs):
+        super().__init__(**kwargs)
+        self.cluster = StarlakeDataprocCluster() if not cluster else cluster
+        self.spark_properties = {} if not spark_properties else spark_properties
+        self.spark_config = {} if not spark_config else spark_config
+        self.job_options = {} if not job_options else job_options
+
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_import()"""
+        task_id = f"{domain}_import" if not task_id else task_id
+        arguments = ["import", "--includes", domain]
+        return self.cluster.submit_starlake_job(
+            task_id=task_id,
+            arguments=arguments,
+            spark_properties=self.spark_properties,
+            spark_config=self.spark_config,
+            **kwargs
+        )
+
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_load()"""
+        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        arguments = ["load", "--domains", domain, "--tables", table]
+        return self.cluster.submit_starlake_job(
+            task_id=task_id,
+            arguments=arguments,
+            spark_properties=self.spark_properties,
+            spark_config=self.spark_config,
+            **kwargs
+        )
+
+    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_transform()"""
+        task_id = f"{transform_name}_transform" if not task_id else task_id
+        arguments = ["transform", "--name", transform_name]
+        return self.cluster.submit_starlake_job(
+            task_id=task_id,
+            arguments=arguments,
+            spark_properties=self.spark_properties,
+            spark_config=self.spark_config,
+            **kwargs
+        )
+
+    def create_cluster(self, **args, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.create_cluster()"""
+        return self.cluster.create_dataproc_cluster(
+            **args,
+            **kwargs
+        )
+
+    def delete_cluster(self, **args, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.delete_cluster()"""
+        return self.cluster.delete_dataproc_cluster(
+            **args,
+            **kwargs
+        )
+
+class StarlakeDataprocCluster:
+    def __init__(self, **kwargs):
+        self.project_id = DEFAULT_DATAPROC_PROJECT_ID
+        self.cluster_name = f'{DEFAULT_DATAPROC_NAME}-{{"{{{{ dag.dag_id }}}}"}}-{TODAY}'
+        self.region = DEFAULT_DATAPROC_REGION
+        self.zone = DEFAULT_DATAPROC_ZONE
+        self.subnet = DEFAULT_DATAPROC_SUBNET
+        self.service_account = DEFAULT_DATAPROC_SERVICE_ACCOUNT
+        self.image_version = DEFAULT_DATAPROC_IMAGE_VERSION
+        self.master_conf = DEFAULT_MASTER_CONF
+        self.worker_conf = DEFAULT_WORKER_CONF
+        self.cluster_properties = DEFAULT_CLUSTER_PROPERTIES
+        self.spark_properties = DEFAULT_SPARK_PROPERTIES
+        self.spark_config = DEFAULT_SPARK_CONF
+        self.jar_list = DEFAULT_SPARK_JAR_LIST
+
+    def create_dataproc_cluster(
+        self, task_id: str, 
+        project_id: str=None, 
+        cluster_name: str=None, 
+        region: str=None, 
+        zone: str=None, 
+        subnet: str=None, 
+        service_account: 
+        str=None, 
+        cluster_properties: dict=None, 
+        image_version: str=None, 
+        master_conf: dict=None, 
+        worker_conf: dict=None, 
+        secondary_worker_conf: dict=None, 
+        is_single_node: bool=False, 
+        trigger_rule: str=TriggerRule.ALL_SUCCESS, 
+        pool: str=DEFAULT_POOL, **kwargs) -> BaseOperator:
+        """
+        Create the Cloud Dataproc cluster.
+        This operator will be flagged a success if the cluster by this name already exists.
+        """
+        task_id = f"{self.cluster_name}_create" if not task_id else task_id
+        project_id = self.project_id if not project_id else project_id
+        cluster_name = self.cluster_name if not cluster_name else cluster_name
+        region = self.region if not region else region
+        zone = self.zone if not zone else zone
+        subnet = self.subnet if not subnet else subnet
+        service_account = self.service_account if not service_account else service_account
+        image_version = self.image_version if not image_version else image_version
+        master_conf = self.master_conf if not master_conf else self.master_conf.copy().update(master_conf)
+        worker_conf = self.worker_conf if not worker_conf else self.worker_conf.copy().update(worker_conf)
+        secondary_worker_conf = {} if not secondary_worker_conf else secondary_worker_conf
+        spark_events_bucket = f'dataproc-{project_id}'
+        cluster_properties = self.cluster_properties if not cluster_properties else self.cluster_properties.copy().update({
+            "dataproc:job.history.to-gcs.enabled": "true",
+            "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{TODAY}",
+            "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{TODAY}",
+        }).update(cluster_properties)
+
+        cluster_config = {
+            "master_config": master_conf,
+            "worker_config": worker_conf,
+            "config_bucket": f"dataproc-{project_id}",
+            "gce_cluster_config": {
+                "service_account": service_account,
+                "subnetwork_uri": f"projects/{project_id}/regions/{region}/subnetworks/{subnet}",
+                "internal_ip_only": True,
+                "tags": ["dataproc"]
+            },
+            "software_config": {
+                "image_version": image_version,
+                "properties": {
+                    **cluster_properties
+                }
+            },
+            "lifecycle_config": {
+                "idle_delete_ttl": {"seconds": 3600}
+            }
+        }
+
+        if is_single_node:
+            cluster_config.pop("worker_config")
+            cluster_config["software_config"]["properties"]["dataproc:dataproc.allow.zero.workers"] = "true"
+        elif secondary_worker_conf:
+            cluster_config["secondary_worker_config"] = secondary_worker_conf
+
+        return DataprocCreateClusterOperator(
+            task_id=task_id,
+            cluster_name=cluster_name,
+            cluster_config=cluster_config,
+            region=region,
+            zone=zone,
+            trigger_rule=trigger_rule,
+            pool=pool,
+            **kwargs
+        )
+
+    def delete_dataproc_cluster(
+        self, 
+        task_id: str=None, 
+        cluster_name: str=None, 
+        region: str=None, 
+        trigger_rule: str=TriggerRule.NONE_SKIPPED, 
+        pool: str=DEFAULT_POOL, 
+        **kwargs) -> BaseOperator:
+        """Tears down the cluster even if there are failures in upstream tasks."""
+        task_id = f"{self.cluster_name}_delete" if not task_id else task_id
+        cluster_name = self.cluster_name if not cluster_name else cluster_name
+        region = self.region if not region else region
+        return DataprocDeleteClusterOperator(
+            task_id=task_id,
+            trigger_rule=trigger_rule,
+            cluster_name=cluster_name,
+            region=region,
+            pool=pool,
+            **kwargs
+        )
+
+    def submit_starlake_job(
+        self, 
+        task_id: str, 
+        project_id: str=None, 
+        region: str=None, 
+        arguments: list=None, 
+        jar_list: list=None, 
+        spark_properties: dict=None, 
+        spark_config: dict=None, 
+        main_class: str="ai.starlake.job.Main", 
+        retries: int=0, 
+        trigger_rule: str=TriggerRule.ALL_SUCCESS, 
+        pool: str=DEFAULT_POOL, 
+        **kwargs) -> BaseOperator:
+        """Create a dataproc job on the specified cluster"""
+        task_id = f"{self.cluster_name}_submit" if not task_id else task_id
+        project_id = self.project_id if not project_id else project_id
+        arguments = [] if not arguments else arguments
+        jar_list = self.jar_list if not jar_list else jar_list
+        spark_properties = self.spark_properties if not spark_properties else spark_properties.copy().update(self.spark_properties)
+        spark_config = self.spark_config if not spark_config else spark_config
+
+        if spark_config:
+            spark_config_dict=ast.literal_eval(spark_config)
+            spark_properties = spark_properties.copy().update({
+                "spark.executor.memory": spark_config_dict['memAlloc'],
+                "spark.executor.cores": spark_config_dict['numVcpu'],
+                "spark.executor.instances": spark_config_dict['sparkExecutorInstances']
+            })
+
+        return DataprocSubmitJobOperator(
+            task_id=task_id,
+            region=region,
+            job={
+                "reference": {
+                    "project_id": project_id,
+                    "job_id": task_id + "_{{ execution_date.strftime('%Y-%m-%d-%H%M') }}_" + str(uuid.uuid4())[:8]
+                },
+                "placement": {
+                    "cluster_name": cluster_name
+                },
+                "spark_job": {
+                    "jar_file_uris": jar_list,
+                    "main_class": main_class,
+                    "args": arguments,
+                    "properties": {
+                        **spark_properties
+                    }
+                }
+            },
+            retries=retries,
+            trigger_rule=trigger_rule,
+            pool=pool,
+            **kwargs
+        )

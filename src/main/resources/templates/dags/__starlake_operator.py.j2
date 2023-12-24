@@ -1,0 +1,22 @@
+from airflow.models.baseoperator import BaseOperator
+
+class IStarlakeOperator:
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        """Import job."""
+        pass
+
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
+        """Load job."""
+        pass
+
+    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+        """Transform job."""
+        pass
+
+    def create_cluster(self, **args, **kwargs) -> BaseOperator:
+        """Create cluster."""
+        return None
+
+    def delete_cluster(self, **args, **kwargs) -> BaseOperator:
+        """Delete cluster."""
+        return None
