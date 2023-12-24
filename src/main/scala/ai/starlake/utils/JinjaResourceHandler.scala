@@ -1,12 +1,15 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.generator.Yml2DagTemplateLoader.RESOURCE_DOMAIN_TEMPLATE_FOLDER
+import better.files.Resource
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.loader.ResourceLocator
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.Charset
 import scala.tools.nsc.io.File
+import scala.util.{Failure, Success, Try}
 
 class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator {
 
@@ -14,6 +17,7 @@ class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator 
     // linux of windows absolute path
     path.startsWith(File.separator) || path.contains(":")
   }
+
   override def getString(
     fullName: String,
     encoding: Charset,
@@ -24,6 +28,13 @@ class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator 
         new Path(fullName)
       else
         new Path(settings.appConfig.metadata, fullName)
-    settings.storageHandler().read(path)
+    if (settings.storageHandler().exists(path))
+      settings.storageHandler().read(path)
+    else
+      Resource.asString(fullName) match {
+        case Some(value) => value
+        case None =>
+          throw new RuntimeException(s"Relative template not found in for ${fullName}")
+      }
   }
 }
