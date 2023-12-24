@@ -123,6 +123,12 @@ object JDBCSchema {
   )
 }
 
+case class TableColumn(name: String, rename: Option[String] = None) {
+  def this() = {
+    this("", None)
+  }
+}
+
 /** @param name
   *   : Table name (case insensitive)
   * @param columns
@@ -130,7 +136,7 @@ object JDBCSchema {
   */
 case class JDBCTable(
   name: String,
-  columns: List[String],
+  columns: List[TableColumn],
   partitionColumn: Option[String],
   numPartitions: Option[Int],
   connectionOptions: Map[String, String],
