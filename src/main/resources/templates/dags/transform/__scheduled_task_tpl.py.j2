@@ -1,0 +1,86 @@
+# Operators; we need this to operate!
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import BranchPythonOperator
+
+from airflow.decorators import task
+
+from airflow.exceptions import AirflowException
+
+from airflow.utils.task_group import TaskGroup
+from airflow.utils.trigger_rule import TriggerRule
+
+{% include 'templates/dags/__starlake_dag.py.j2' %}
+
+#cron="{{ context.cron }}"
+
+task_deps=json.loads("""{{ context.dependencies }}""")
+
+load_dependencies = get_context_var(var_name='load_dependencies', default_value='False', options=options)
+
+tags = get_context_var(var_name='tags', default_value="", options=options).split()
+
+# [START instantiate_dag]
+with DAG(dag_id=DEFAULT_DAG_NAME,
+         schedule_interval=None, #=cron FIXME
+         default_args=DEFAULT_DAG_ARGS,
+         catchup=False,
+         tags=set([tag.upper() for tag in tags]),
+         description=description) as dag:
+
+    start = dummy_op(task_id="start")
+
+    create_cluster = dag.sl_operator.create_cluster()
+
+    delete_cluster = dag.sl_operator.delete_cluster()
+
+    end = dummy_op(task_id='end')
+
+    def create_task(airflow_task_id: str, transform_name: str, task_type: str):
+        if (task_type == 'task'):
+            return dag.sl_operator.sl_transform(
+                task_id=airflow_task_id, 
+                transform_name=transform_name
+            )
+        else:
+            load_domain_and_table = transform_name.split(".",1)
+            domain = load_domain_and_table[0]
+            table = load_domain_and_table[1]
+            return dag.sl_operator.sl_load(
+                task_id=airflow_task_id, 
+                domain=domain, 
+                table=table
+            )
+
+    # build takgroups recursively
+    def generate_task_group_for_task(transform_task):
+        transform_name = transform_task['data']['name']
+        airflow_task_group_id = sanitize_id(transform_name)
+        airflow_task_id = airflow_task_group_id
+        task_type = transform_task['data']['typ']
+        if (task_type == 'task'):
+            airflow_task_id = airflow_task_group_id + "_task"
+        else:
+            airflow_task_id = airflow_task_group_id + "_table"
+
+        if (load_dependencies.lower() == 'true' and 'children' in transform_task):
+            with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
+                for transform_sub_task in transform_task['children']:
+                    generate_task_group_for_task(transform_sub_task)
+                upstream_tasks = list(airflow_task_group.children.values())
+                airflow_task = create_task(airflow_task_id, transform_name, task_type)
+                airflow_task.set_upstream(upstream_tasks)
+            return airflow_task_group
+        else:
+            return create_task(airflow_task_id=airflow_task_id, transform_name=transform_name, task_type=task_type)
+
+    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
+
+    if create_cluster:
+        start >> create_cluster >> all_load_tasks
+    else:
+        start >> all_load_tasks
+
+    if delete_cluster:
+        all_load_tasks >> delete_cluster >> end
+    else:
+        all_load_tasks >> end
