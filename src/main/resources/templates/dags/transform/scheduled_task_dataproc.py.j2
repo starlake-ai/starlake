@@ -1,6 +1,6 @@
-# This template executes individual dataproc jobs and requires the following dag generation options set:
+# This template executes individual cloud run jobs and requires the following dag generation options set:
 # TODO: add the options to the dag generation options
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_dataproc_operator.py.j2' %}
 sl_operator = StarlakeDataprocOperator()
-{% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}
+{% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}

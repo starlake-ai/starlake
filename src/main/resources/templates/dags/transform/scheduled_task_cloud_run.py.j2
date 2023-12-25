@@ -1,0 +1,10 @@
+# This template executes individual cloud run jobs and requires the following dag generation options set:
+#
+# - cloud_run_project_id: the project id where the job is located
+# - cloud_run_job_region: the region where the job is located
+# - cloud_run_job_name: the name of the job to execute
+# - sl_env_var: the airflow variable name where a map in json is specified in order to add them as env var in cloud run job
+# Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
+{% include 'templates/dags/__starlake_cloud_run_operator.py.j2' %}
+sl_operator = StarlakeCloudRunOperator()
+{% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}
