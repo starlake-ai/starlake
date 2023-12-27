@@ -70,10 +70,11 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
         command=f"load --domains {domain} --tables {table}"
         return self.__job_with_completion_sensors__(task_id, command, f'{domain}.{table}'), **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_transform()"""
-        task_id = f"{transform_name}_transform" if not task_id else task_id
-        command=f"transform --name {transform_name}"
+        task_id = f"{transform_name}" if not task_id else task_id
+        transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
+        command=f"transform --name {transform_name}" + (f" --options {transform_options}" if transform_options else "")
         return self.__job_with_completion_sensors__(task_id, command, transform_name, **kwargs)
 
 class CloudRunJobCompletionSensor(BashSensor):
