@@ -16,6 +16,9 @@
 # - spark_jar_list: the list of spark jars to be used
 # - spark_bucket: the bucket to use for spark and biqquery temporary storage
 # - spark_job_main_class: the main class of the spark job
+# - spark_executor_memory: the amount of memory to use per executor process
+# - spark_executor_cores: the number of cores to use on each executor
+# - spark_executor_instances: the number of executor instances
 # - sl_env_var: starlake variables specified as a map in json format
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_dataproc_operator.py.j2' %}
