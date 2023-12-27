@@ -1,5 +1,22 @@
 # This template executes individual cloud run jobs and requires the following dag generation options set:
-# TODO: add the options to the dag generation options
+# - dataproc_name: the name of the dataproc cluster
+# - dataproc_project_id: the project id of the dataproc cluster
+# - dataproc_region: the region of the dataproc cluster
+# - dataproc_zone: the zone of the dataproc cluster
+# - dataproc_subnet: the subnetwork of the dataproc cluster
+# - dataproc_service_account: the service account of the dataproc cluster
+# - dataproc_image_version: the image version of the dataproc cluster
+# - dataproc_master_machine_type: the master machine type of the dataproc cluster
+# - dataproc_master_disk_size: the worker disk size of the dataproc cluster
+# - dataproc_master_disk_type: the worker disk type of the dataproc cluster
+# - dataproc_worker_machine_type: the worker machine type of the dataproc cluster
+# - dataproc_worker_disk_size: the worker disk size of the dataproc cluster
+# - dataproc_worker_disk_type: the worker disk type of the dataproc cluster
+# - dataproc_num_workers: the number of workers of the dataproc cluster
+# - spark_jar_list: the list of spark jars to be used
+# - spark_bucket: the bucket to use for spark and biqquery temporary storage
+# - spark_job_main_class: the main class of the spark job
+# - sl_env_var: starlake variables specified as a map in json format
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_dataproc_operator.py.j2' %}
 sl_operator = StarlakeDataprocOperator()
