@@ -87,12 +87,12 @@ DEFAULT_SPARK_PROPERTIES = {
 
 class StarlakeDataprocOperator(IStarlakeOperator):
     """Starlake Dataproc Operator."""
-    def __init__(self, cluster: StarlakeDataprocCluster=None, spark_properties: dict, spark_config: dict=None, job_options: dict=None, **kwargs):
+    def __init__(self, cluster: StarlakeDataprocCluster=None, spark_properties: dict, spark_config: dict=None, options: dict=options, **kwargs):
         super().__init__(**kwargs)
         self.cluster = StarlakeDataprocCluster() if not cluster else cluster
         self.spark_properties = {} if not spark_properties else spark_properties
         self.spark_config = {} if not spark_config else spark_config
-        self.job_options = {} if not job_options else job_options
+        self.options = {} if not options else options
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_import()"""
@@ -118,10 +118,13 @@ class StarlakeDataprocOperator(IStarlakeOperator):
             **kwargs
         )
 
-    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_transform()"""
-        task_id = f"{transform_name}_transform" if not task_id else task_id
+        task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
+        transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
+        if transform_options:
+            arguments.extend(["--options", transform_options])
         return self.cluster.submit_starlake_job(
             task_id=task_id,
             arguments=arguments,

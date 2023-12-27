@@ -9,7 +9,7 @@ class IStarlakeOperator:
         """Load job."""
         pass
 
-    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> BaseOperator:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Transform job."""
         pass
 
