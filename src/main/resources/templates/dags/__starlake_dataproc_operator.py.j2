@@ -69,10 +69,14 @@ DEFAULT_CLUSTER_PROPERTIES = {
     "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE
 }
 
+DEFAUTL_SPARK_EXECUTOR_MEMORY = get_context_var("spark_executor_memory", "22g", options)
+DEFAUTL_SPARK_EXECUTOR_CORES = get_context_var("spark_executor_cores", "8", options)
+DEFAUTL_SPARK_EXECUTOR_INSTANCES = get_context_var("spark_executor_instances", "3", options)
+
 DEFAULT_SPARK_CONFIG = {
-    "memAlloc":"22g",
-    "numVcpu":8,
-    "sparkExecutorInstances":3
+    "memAlloc": DEFAUTL_SPARK_EXECUTOR_MEMORY,
+    "numVcpu": int(DEFAUTL_SPARK_EXECUTOR_CORES),
+    "sparkExecutorInstances": str(DEFAUTL_SPARK_EXECUTOR_INSTANCES)
 }
 
 DEFAULT_SPARK_JAR_LIST = get_context_var("spark_jar_list", [], options)
@@ -84,9 +88,9 @@ DEFAULT_SPARK_JOB_MAIN_CLASS = get_context_var("spark_job_main_class", "ai.starl
 DEFAULT_SPARK_PROPERTIES = {
     "spark.hadoop.fs.defaultFS": f"gs://{DEFAULT_SPARK_BUCKET}",
     "spark.eventLog.enabled": "true",
-    "spark.executor.memory": DEFAULT_SPARK_CONFIG.get("memAlloc"),
-    "spark.executor.cores": DEFAULT_SPARK_CONFIG.get("numVcpu"),
-    "spark.executor.instances": str(DEFAULT_SPARK_CONFIG.get("sparkExecutorInstances")),
+    "spark.executor.memory": DEFAUTL_SPARK_EXECUTOR_MEMORY,
+    "spark.executor.cores": int(DEFAUTL_SPARK_EXECUTOR_CORES),
+    "spark.executor.instances": str(DEFAUTL_SPARK_EXECUTOR_INSTANCES),
     "spark.sql.sources.partitionOverwriteMode": "DYNAMIC",
     "spark.sql.legacy.parquet.int96RebaseModeInWrite": "CORRECTED",
     "spark.sql.catalogImplementation": "in-memory",
@@ -300,9 +304,9 @@ class StarlakeDataprocCluster:
         if spark_config:
             spark_config_dict=ast.literal_eval(spark_config)
             spark_properties = spark_properties.copy().update({
-                "spark.executor.memory": spark_config_dict['memAlloc'],
-                "spark.executor.cores": spark_config_dict['numVcpu'],
-                "spark.executor.instances": spark_config_dict['sparkExecutorInstances']
+                "spark.executor.memory": spark_config_dict.get('memAlloc', DEFAUTL_SPARK_EXECUTOR_MEMORY),
+                "spark.executor.cores": int(spark_config_dict.get('numVcpu', DEFAUTL_SPARK_EXECUTOR_CORES)),
+                "spark.executor.instances": str(spark_config_dict.get('sparkExecutorInstances', DEFAUTL_SPARK_EXECUTOR_INSTANCES))
             })
 
         return DataprocSubmitJobOperator(
