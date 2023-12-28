@@ -13,10 +13,10 @@ class IStarlakeOperator:
         """Transform job."""
         pass
 
-    def create_cluster(self, **args, **kwargs) -> BaseOperator:
+    def create_cluster(self, *args, **kwargs) -> BaseOperator:
         """Create cluster."""
         return None
 
-    def delete_cluster(self, **args, **kwargs) -> BaseOperator:
+    def delete_cluster(self, *args, **kwargs) -> BaseOperator:
         """Delete cluster."""
         return None

@@ -17,6 +17,7 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
         self.cloud_run_job_name = get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = get_context_var(var_name='cloud_run_job_region', options=self.options) if not cloud_run_job_region else cloud_run_job_region
         self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(sl_env_vars.items())])
+        self.retry_exit_code = retry_exit_code
 
     def __job_with_completion_sensors__(self, task_id: str, command: str, outlets: str, **kwargs) -> BaseOperator:
         job_task = BashOperator(
@@ -44,7 +45,7 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
 
         with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
             if self.retry_exit_code is not None:
-                import_task >> completion_sensor
+                job_task >> completion_sensor
             else:
                 get_completion_status_id = task_id + '_get_completion_status'
                 job_status = CloudRunJobCheckStatusOperator(
@@ -55,7 +56,7 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
                     outlets=outlets, 
                     **kwargs
                 )
-                import_task >> completion_sensor >> job_status
+                job_task >> completion_sensor >> job_status
         return task_completion_sensors
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
@@ -68,7 +69,7 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
         """Overrides IStarlakeOperator.sl_load()"""
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         command=f"load --domains {domain} --tables {table}"
-        return self.__job_with_completion_sensors__(task_id, command, f'{domain}.{table}'), **kwargs)
+        return self.__job_with_completion_sensors__(task_id, command, f'{domain}.{table}', **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_transform()"""

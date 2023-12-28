@@ -17,7 +17,7 @@ class StarlakeBashOperator(IStarlakeOperator):
         return BashOperator(
             task_id=task_id,
             bash_command=command,
-            cwd=get_context_var("SL_ROOT", self.options),
+            cwd=SL_ROOT,
             outlets=[Dataset(keep_ascii_only(domain))],
             **kwargs
         )
@@ -29,7 +29,7 @@ class StarlakeBashOperator(IStarlakeOperator):
         return BashOperator(
             task_id=task_id,
             bash_command=command,
-            cwd=get_context_var("SL_ROOT", self.options),
+            cwd=SL_ROOT,
             outlets=[Dataset(keep_ascii_only(f'{domain}.{table}'))],
             **kwargs
         )
@@ -42,7 +42,7 @@ class StarlakeBashOperator(IStarlakeOperator):
         return BashOperator(
             task_id=task_id,
             bash_command=command,
-            cwd=get_context_var("SL_ROOT", self.options),
+            cwd=SL_ROOT,
             outlets=[Dataset(keep_ascii_only(transform_name))],
             **kwargs
         )

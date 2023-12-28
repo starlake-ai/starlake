@@ -29,9 +29,9 @@ with DAG(dag_id=DEFAULT_DAG_NAME,
 
     start = dummy_op(task_id="start")
 
-    create_cluster = dag.sl_operator.create_cluster()
+    create_cluster = dag.sl_operator.create_cluster(dag=dag)
 
-    delete_cluster = dag.sl_operator.delete_cluster()
+    delete_cluster = dag.sl_operator.delete_cluster(dag=dag)
 
     end = dummy_op(task_id='end')
 
