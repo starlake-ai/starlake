@@ -51,18 +51,21 @@ for schedule in schedules:
              sl_operator=sl_operator) as dag:
         start = dummy_op(task_id="start")
 
-        create_cluster = dag.sl_operator.create_cluster()
+        create_cluster = dag.sl_operator.create_cluster(dag=dag)
 
-        delete_cluster = dag.sl_operator.delete_cluster()
+        delete_cluster = dag.sl_operator.delete_cluster(dag=dag)
 
         end = dummy_op(task_id="end")
 
         incoming_path = get_context_var(var_name='incoming_path', default_value=f'{SL_ROOT}/incoming', options=options)
 
         def generate_task_group_for_domain(domain):
+            list_files_command = f'ls {incoming_path}/{domain["name"]}/* | wc -l'
+            if incoming_path.startswith('gs://'):
+                list_files_command = "gsutil " + list_files_command
             list_files = BashOperator(
                 task_id=sanitize_id(f'{domain["name"]}_list_files'),
-                bash_command=f'gsutil ls {incoming_path}/{domain["name"]}/* | wc -l',
+                bash_command=list_files_command,
                 do_xcom_push=True,
                 pool=DEFAULT_POOL
             )
