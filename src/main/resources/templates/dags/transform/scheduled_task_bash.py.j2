@@ -1,7 +1,9 @@
 # This template executes individual bash jobs and requires the following dag generation options set:
 #
-# - SL_ROOT: The root project path
-# - SL_STARLAKE_PATH: the path to the starlake executable
+# - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
+# - SL_STARLAKE_PATH: the path to the starlake executable [OPTIONAL]
+# - load_dependencies: whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies will not be added) [OPTIONAL]
+# - tags: a list of tags to be applied to the dag [OPTIONAL]
 #
 {% include 'templates/dags/__starlake_bash_operator.py.j2' %}
 sl_operator = StarlakeBashOperator()

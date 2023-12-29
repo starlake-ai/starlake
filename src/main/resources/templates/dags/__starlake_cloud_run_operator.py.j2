@@ -13,9 +13,9 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
     def __init__(self, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, sl_env_vars: dict = SL_ENV_VARS, retry_exit_code: int=None, **kwargs):
         super().__init__(**kwargs)
         self.options = {} if not options else options
-        self.project_id = get_context_var(var_name='cloud_run_project_id', options=self.options) if not project_id else project_id
+        self.project_id = get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
-        self.cloud_run_job_region = get_context_var(var_name='cloud_run_job_region', options=self.options) if not cloud_run_job_region else cloud_run_job_region
+        self.cloud_run_job_region = get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
         self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(sl_env_vars.items())])
         self.retry_exit_code = retry_exit_code
 

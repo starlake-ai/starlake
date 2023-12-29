@@ -25,9 +25,8 @@ SL_MERGE_OPTIMIZE_PARTITION_WRITE = get_context_var("SL_MERGE_OPTIMIZE_PARTITION
 SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE = get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", SL_ENV_VARS)
 
 DEFAULT_DATAPROC_NAME = get_context_var("dataproc_name", "dataproc-cluster", options)
-DEFAULT_DATAPROC_PROJECT_ID = get_context_var("dataproc_project_id", "dataproc-project", options)
+DEFAULT_DATAPROC_PROJECT_ID = get_context_var("dataproc_project_id", os.getenv("GCP_PROJECT"), options)
 DEFAULT_DATAPROC_REGION = get_context_var("dataproc_region", "europe-west1", options)
-DEFAULT_DATAPROC_ZONE = get_context_var("dataproc_zone", "europe-west1-b", options)
 DEFAULT_DATAPROC_SUBNET = get_context_var("dataproc_subnet", "default", options)
 DEFAULT_DATAPROC_SERVICE_ACCOUNT = get_context_var("dataproc_service_account", f"service-{DEFAULT_DATAPROC_PROJECT_ID}@dataproc-accounts.iam.gserviceaccount.com", options)
 DEFAULT_DATAPROC_IMAGE_VERSION = get_context_var("dataproc_image_version", "2.0.30-debian10", options)
@@ -37,7 +36,7 @@ DEFAULT_DATAPROC_MASTER_DISK_TYPE = get_context_var("dataproc_master_disk_type",
 DEFAULT_DATAPROC_WORKER_MACHINE_TYPE = get_context_var("dataproc_worker_machine_type", "n1-standard-4", options)
 DEFAULT_DATAPROC_WORKER_DISK_SIZE = get_context_var("dataproc_worker_disk_size", "1024", options)
 DEFAULT_DATAPROC_WORKER_DISK_TYPE = get_context_var("dataproc_worker_disk_type", "pd-standard", options)
-DEFAULT_DATAPROC_NUM_WORKERS = get_context_var("dataproc_num_workers", "9", options)
+DEFAULT_DATAPROC_NUM_WORKERS = get_context_var("dataproc_num_workers", "3", options)
 
 DEFAULT_MASTER_CONF = {
     "num_instances": 1,
@@ -81,9 +80,9 @@ DEFAULT_SPARK_CONFIG = {
     "sparkExecutorInstances": str(DEFAUTL_SPARK_EXECUTOR_INSTANCES)
 }
 
-DEFAULT_SPARK_JAR_LIST = get_context_var("spark_jar_list", [], options)
+DEFAULT_SPARK_JAR_LIST = get_context_var(var_name="spark_jar_list", options=options).split(",")
 
-DEFAULT_SPARK_BUCKET = get_context_var("spark_bucket", "", options)
+DEFAULT_SPARK_BUCKET = get_context_var(var_name="spark_bucket", options=options)
 
 DEFAULT_SPARK_JOB_MAIN_CLASS = get_context_var("spark_job_main_class", "ai.starlake.job.Main", options)
 
@@ -107,7 +106,6 @@ class StarlakeDataprocCluster():
     def __init__(self):
         self.project_id = DEFAULT_DATAPROC_PROJECT_ID
         self.region = DEFAULT_DATAPROC_REGION
-        self.zone = DEFAULT_DATAPROC_ZONE
         self.subnet = DEFAULT_DATAPROC_SUBNET
         self.service_account = DEFAULT_DATAPROC_SERVICE_ACCOUNT
         self.image_version = DEFAULT_DATAPROC_IMAGE_VERSION
@@ -126,7 +124,6 @@ class StarlakeDataprocCluster():
         project_id: str=None, 
         cluster_name: str=None, 
         region: str=None, 
-        zone: str=None, 
         subnet: str=None, 
         service_account: 
         str=None, 
@@ -148,7 +145,6 @@ class StarlakeDataprocCluster():
         task_id = f"{cluster_name}_create" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         region = self.region if not region else region
-        zone = self.zone if not zone else zone
         subnet = self.subnet if not subnet else subnet
         service_account = self.service_account if not service_account else service_account
         image_version = self.image_version if not image_version else image_version
@@ -194,7 +190,6 @@ class StarlakeDataprocCluster():
             cluster_name=cluster_name,
             cluster_config=cluster_config,
             region=region,
-#            zone=zone,
             trigger_rule=trigger_rule,
             pool=pool,
             **kwargs
