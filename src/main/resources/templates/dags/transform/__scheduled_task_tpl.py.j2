@@ -20,12 +20,13 @@ load_dependencies = get_context_var(var_name='load_dependencies', default_value=
 tags = get_context_var(var_name='tags', default_value="", options=options).split()
 
 # [START instantiate_dag]
-with DAG(dag_id=DEFAULT_DAG_NAME,
+with StarlakeDag(dag_id=DEFAULT_DAG_NAME,
          schedule_interval=None, #=cron FIXME
          default_args=DEFAULT_DAG_ARGS,
          catchup=False,
          tags=set([tag.upper() for tag in tags]),
-         description=description) as dag:
+         description=description,
+         sl_operator=sl_operator) as dag:
 
     start = dummy_op(task_id="start")
 
@@ -71,16 +72,17 @@ with DAG(dag_id=DEFAULT_DAG_NAME,
                 airflow_task.set_upstream(upstream_tasks)
             return airflow_task_group
         else:
-            return create_task(airflow_task_id=airflow_task_id, transform_name=transform_name, task_type=task_type)
+            airflow_task = create_task(airflow_task_id=airflow_task_id, transform_name=transform_name, task_type=task_type)
+            return airflow_task
 
     all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
 
     if create_cluster:
-        start >> create_cluster >> all_load_tasks
+        start >> create_cluster >> all_transform_tasks
     else:
-        start >> all_load_tasks
+        start >> all_transform_tasks
 
     if delete_cluster:
-        all_load_tasks >> delete_cluster >> end
+        all_transform_tasks >> delete_cluster >> end
     else:
-        all_load_tasks >> end
+        all_transform_tasks >> end

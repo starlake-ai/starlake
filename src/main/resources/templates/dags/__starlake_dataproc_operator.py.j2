@@ -3,6 +3,8 @@
 import uuid
 import ast
 
+from airflow import DAG
+
 from airflow.providers.google.cloud.operators.dataproc import (
     DataprocCreateClusterOperator,
     DataprocSubmitJobOperator,
