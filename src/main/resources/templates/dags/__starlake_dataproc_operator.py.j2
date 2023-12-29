@@ -135,7 +135,7 @@ class StarlakeDataprocCluster():
         is_single_node: bool=False, 
         trigger_rule: str=TriggerRule.ALL_SUCCESS, 
         pool: str=DEFAULT_POOL, 
-        **kwargs) -> BaseOperator:
+        **kwargs) -> BaseOperator|None:
         """
         Create the Cloud Dataproc cluster.
         This operator will be flagged a success if the cluster by this name already exists.
@@ -203,7 +203,7 @@ class StarlakeDataprocCluster():
         region: str=None, 
         trigger_rule: str=TriggerRule.NONE_SKIPPED, 
         pool: str=DEFAULT_POOL, 
-        **kwargs) -> BaseOperator:
+        **kwargs) -> BaseOperator|None:
         """Tears down the cluster even if there are failures in upstream tasks."""
         dag_id = dag.dag_id if dag else DEFAULT_DAG_NAME
         cluster_name = f"{DEFAULT_DATAPROC_NAME}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
