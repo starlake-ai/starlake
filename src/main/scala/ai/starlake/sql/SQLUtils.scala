@@ -6,7 +6,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
-import net.sf.jsqlparser.statement.StatementVisitorAdapter
+import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 
@@ -85,13 +85,13 @@ object SQLUtils extends StrictLogging {
         select.accept(selectVisitorAdapter)
       }
     }
-    val select = CCJSqlParserUtil.parse(sql)
+    val select = jsqlParse(sql)
     select.accept(statementVisitor)
     result
   }
 
   def extractTableNames(sql: String): List[String] = {
-    val select = CCJSqlParserUtil.parse(sql)
+    val select = jsqlParse(sql)
     val finder = new TablesNamesFinder()
     val tableList = Option(finder.getTables(select)).map(_.asScala).getOrElse(Nil)
     tableList.toList
@@ -109,9 +109,17 @@ object SQLUtils extends StrictLogging {
         }
       }
     }
-    val select = CCJSqlParserUtil.parse(sql)
+    val select = jsqlParse(sql)
     select.accept(statementVisitor)
     result.toList
+  }
+
+  def jsqlParse(sql: String): Statement = {
+    val parseable =
+      sql
+        .replaceAll("(?i)WHEN NOT MATCHED AND (.*) THEN ", "WHEN NOT MATCHED THEN ")
+        .replaceAll("(?i)WHEN MATCHED (.*) THEN ", "WHEN MATCHED THEN ")
+    CCJSqlParserUtil.parse(parseable)
   }
 
   private def buildWhenNotMatchedInsert(sql: String): String = {

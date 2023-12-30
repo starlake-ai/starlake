@@ -150,7 +150,7 @@ object JdbcDbUtils extends LazyLogging {
       }
     } match {
       case Failure(e) =>
-        logger.warn(s"Table $domainAndTablename does not exist , ${e.getMessage}")
+        logger.info(s"Table $domainAndTablename does not exist")
         false
       case Success(_) => true
     }
@@ -176,7 +176,6 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  @throws[Exception]
   def execute(script: String, connection: java.sql.Connection): Try[Boolean] = {
     val statement = connection.createStatement()
     val result = Try {
