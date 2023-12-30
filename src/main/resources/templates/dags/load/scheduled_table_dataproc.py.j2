@@ -23,5 +23,4 @@
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_dataproc_operator.py.j2' %}
-sl_operator = StarlakeDataprocOperator()
 {% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}

@@ -1,3 +1,7 @@
+from typing import List
+
+from airflow import DAG
+
 # Operators; we need this to operate!
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import BranchPythonOperator
@@ -8,8 +12,6 @@ from airflow.exceptions import AirflowException
 
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
-
-{% include 'templates/dags/__starlake_dag.py.j2' %}
 
 schedules= [{% for schedule in context.schedules %}
     {
@@ -33,29 +35,26 @@ schedules= [{% for schedule in context.schedules %}
 def generate_dag_name(schedule):
     return (f"{DEFAULT_DAG_NAME}-{schedule['schedule']}" if len(schedules) > 1 else DEFAULT_DAG_NAME)
 
-@task(trigger_rule=TriggerRule.ONE_FAILED, retries=0, pool=DEFAULT_POOL)
-def watcher():
-    raise AirflowException("Failing task because one or more upstream tasks failed.")
-
 # [START instantiate_dag]
 for schedule in schedules:
     tags = get_context_var(var_name='tags', default_value="", options=options).split()
+    datasets: List[Dataset] = []
     for domain in schedule["domains"]:
         tags.append(domain["name"])
-    with StarlakeDag(dag_id=generate_dag_name(schedule),
+        datasets.append(Dataset(keep_ascii_only(domain["name"])))
+    with DAG(dag_id=generate_dag_name(schedule),
              schedule_interval=schedule['cron'],
              default_args=DEFAULT_DAG_ARGS,
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
-             description=description,
-             sl_operator=sl_operator) as dag:
+             description=description) as dag:
         start = dummy_op(task_id="start")
 
-        create_cluster = dag.sl_operator.create_cluster(dag=dag)
+        pre_tasks = sl_operator.pre_tasks(dag=dag)
 
-        delete_cluster = dag.sl_operator.delete_cluster(dag=dag)
+        post_tasks = sl_operator.post_tasks(dag=dag)
 
-        end = dummy_op(task_id="end")
+        all_done = dummy_op(task_id="all_done", outlets=datasets)
 
         incoming_path = get_context_var(var_name='incoming_path', default_value=f'{SL_ROOT}/incoming', options=options)
 
@@ -76,7 +75,7 @@ for schedule in schedules:
 
             skip_load = dummy_op(task_id=sanitize_id(f'{domain["name"]}_skip_load'), trigger_rule=TriggerRule.ONE_SUCCESS)
 
-            skip_load >> end
+            skip_load >> all_done
 
             def f_skip_or_start(**kwargs):
                 task_instance = kwargs['ti']
@@ -100,12 +99,12 @@ for schedule in schedules:
 
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_import_tasks')) as domain_import_tasks:
                 import_task_id = sanitize_id(f'{domain["name"]}_import')
-                import_task = dag.sl_operator.sl_import(
+                import_task = sl_operator.sl_import(
                     task_id=import_task_id, 
                     domain=domain["name"]
                 )
-                if create_cluster:
-                    start_import >> create_cluster >> import_task
+                if pre_tasks:
+                    start_import >> pre_tasks >> import_task
                 else:
                     start_import >> import_task
 
@@ -114,7 +113,7 @@ for schedule in schedules:
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
-                    load_task = dag.sl_operator.sl_load(
+                    load_task = sl_operator.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 
                         table=table["name"]
@@ -124,7 +123,7 @@ for schedule in schedules:
 
         all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
 
-        if delete_cluster:
-            all_load_tasks >> watcher() >> delete_cluster >> end
+        if post_tasks:
+            all_load_tasks >> all_done >> post_tasks
         else:
-            all_load_tasks >> watcher() >> end
+            all_load_tasks >> all_done

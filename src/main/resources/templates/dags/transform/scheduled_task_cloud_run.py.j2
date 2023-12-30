@@ -8,5 +8,4 @@
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_cloud_run_operator.py.j2' %}
-sl_operator = StarlakeCloudRunOperator()
 {% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}

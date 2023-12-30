@@ -330,16 +330,18 @@ class StarlakeDataprocOperator(IStarlakeOperator):
             **kwargs
         )
 
-    def create_cluster(self, *args, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.create_cluster()"""
+    def pre_tasks(self, *args, **kwargs) -> BaseOperator|None:
+        """Overrides IStarlakeOperator.pre_tasks()"""
         return self.cluster.create_dataproc_cluster(
             *args,
             **kwargs
         )
 
-    def delete_cluster(self, *args, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.delete_cluster()"""
+    def post_tasks(self, *args, **kwargs) -> BaseOperator|None:
+        """Overrides IStarlakeOperator.post_tasks()"""
         return self.cluster.delete_dataproc_cluster(
             *args,
             **kwargs
         )
+
+sl_operator = StarlakeDataprocOperator()

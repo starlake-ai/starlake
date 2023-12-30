@@ -1,6 +1,0 @@
-from airflow import DAG
-
-class StarlakeDag(DAG):
-    def __init__(self, *args, sl_operator: IStarlakeOperator, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.sl_operator = sl_operator

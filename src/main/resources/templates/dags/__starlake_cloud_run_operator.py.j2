@@ -111,3 +111,5 @@ class CloudRunJobCheckStatusOperator(BashOperator):
             outlets=[Dataset(keep_ascii_only(outlets))],
             **kwargs
         )
+
+sl_operator = StarlakeCloudRunOperator()

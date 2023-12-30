@@ -1,3 +1,7 @@
+from typing import List
+
+from airflow import DAG
+
 # Operators; we need this to operate!
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import BranchPythonOperator
@@ -9,36 +13,49 @@ from airflow.exceptions import AirflowException
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 
-{% include 'templates/dags/__starlake_dag.py.j2' %}
-
 #cron="{{ context.cron }}"
 
 task_deps=json.loads("""{{ context.dependencies }}""")
 
 load_dependencies = get_context_var(var_name='load_dependencies', default_value='False', options=options)
 
+schedule = None
+
+datasets: List[Dataset] = []
+
+def _load_datasets(task: dict):
+    datasets.append(Dataset(keep_ascii_only(task['data']['name'])))
+    if 'children' in task:
+        for child in task['children']:
+            _load_datasets(child)
+
+if load_dependencies.lower() != 'true':
+    for task in task_deps:
+        _load_datasets(task)
+    schedule = datasets
+
 tags = get_context_var(var_name='tags', default_value="", options=options).split()
 
 # [START instantiate_dag]
-with StarlakeDag(dag_id=DEFAULT_DAG_NAME,
+with DAG(dag_id=DEFAULT_DAG_NAME,
          schedule_interval=None, #=cron FIXME
+         schedule=schedule,
          default_args=DEFAULT_DAG_ARGS,
          catchup=False,
          tags=set([tag.upper() for tag in tags]),
-         description=description,
-         sl_operator=sl_operator) as dag:
+         description=description) as dag:
 
     start = dummy_op(task_id="start")
 
-    create_cluster = dag.sl_operator.create_cluster(dag=dag)
+    pre_tasks = sl_operator.pre_tasks(dag=dag)
 
-    delete_cluster = dag.sl_operator.delete_cluster(dag=dag)
+    post_tasks = sl_operator.post_tasks(dag=dag)
 
-    end = dummy_op(task_id='end')
+    all_done = dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))])
 
     def create_task(airflow_task_id: str, transform_name: str, task_type: str):
         if (task_type == 'task'):
-            return dag.sl_operator.sl_transform(
+            return sl_operator.sl_transform(
                 task_id=airflow_task_id, 
                 transform_name=transform_name
             )
@@ -46,7 +63,7 @@ with StarlakeDag(dag_id=DEFAULT_DAG_NAME,
             load_domain_and_table = transform_name.split(".",1)
             domain = load_domain_and_table[0]
             table = load_domain_and_table[1]
-            return dag.sl_operator.sl_load(
+            return sl_operator.sl_load(
                 task_id=airflow_task_id, 
                 domain=domain, 
                 table=table
@@ -77,12 +94,12 @@ with StarlakeDag(dag_id=DEFAULT_DAG_NAME,
 
     all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
 
-    if create_cluster:
-        start >> create_cluster >> all_transform_tasks
+    if pre_tasks:
+        start >> pre_tasks >> all_transform_tasks
     else:
         start >> all_transform_tasks
 
-    if delete_cluster:
-        all_transform_tasks >> delete_cluster >> end
-    else:
-        all_transform_tasks >> end
+    all_transform_tasks >> all_done
+
+    if post_tasks:
+        all_done >> post_tasks
