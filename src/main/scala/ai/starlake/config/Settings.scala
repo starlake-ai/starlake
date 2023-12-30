@@ -372,7 +372,12 @@ object Settings extends StrictLogging {
     *   for each of the Standard Table Names used by Comet, the specific SQL DDL statements as
     *   expected in the engine's own dialect.
     */
-  final case class JdbcEngine(tables: Map[String, TableDdl], canMerge: Boolean)
+  final case class JdbcEngine(
+    tables: Map[String, TableDdl],
+    canMerge: Boolean,
+    quote: String,
+    preactions: String
+  )
 
   object JdbcEngine {
 

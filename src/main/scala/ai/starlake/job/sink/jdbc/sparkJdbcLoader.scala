@@ -45,7 +45,7 @@ class sparkJdbcLoader(
         val url = jdbcOptions("url")
         val exists = tableExists(conn, url, cliConfig.outputDomainAndTableName)
         if (!exists && settings.appConfig.createSchemaIfNotExists) {
-          logger.info(s"Schema $outputDomain not found, trying to create it")
+          logger.info(s"table ${cliConfig.outputDomainAndTableName} not found, trying to create it")
           JdbcDbUtils.createSchema(outputDomain, conn)
         } else {
           logger.info(s"Schema $outputDomain found")

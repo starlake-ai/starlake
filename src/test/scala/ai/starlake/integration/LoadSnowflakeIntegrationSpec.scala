@@ -3,6 +3,9 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 
 class LoadSnowflakeIntegrationSpec extends BigQueryIntegrationSpecBase {
+  override def templates = starlakeDir / "samples"
+  override def localDir = templates / "spark"
+  override def sampleDataDir = localDir / "sample-data"
   "Import / Load / Transform Snowflake" should "succeed" in {
     withEnvs(
       "SL_ROOT"                                       -> localDir.pathAsString,

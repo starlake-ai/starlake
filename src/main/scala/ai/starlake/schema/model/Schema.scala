@@ -22,7 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Schema.{SL_INTERNAL_TABLE, SL_TARGET_TABLE}
+import ai.starlake.schema.model.Schema.SL_INTERNAL_TABLE
 import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
@@ -629,14 +629,186 @@ case class Schema(
        |""".stripMargin
   }
 
-  def buildSqlMergeOnLoad(
+  def buildJDBCSqlMergeOnLoad(
+    sourceTable: String,
+    targetTable: String,
+    targetTableExists: Boolean,
+    jdbcDatabase: Engine
+  )(implicit settings: Settings): String = {
+    val (scriptAttributes, transformAttributes) =
+      scriptAndTransformAttributes().partition(_.script.nonEmpty)
+
+    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+    val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
+
+    val allAttributesSQL = allOutputAttributes
+      .map { attribute =>
+        s"`${attribute.getFinalName()}`"
+      }
+      .mkString(",")
+    val dataSourceColumnName = "SL_DATASOURCE_INFORMATION"
+
+    // According to the usage above of join clause between target and source table, we assume key not to be null.
+    val partitionKeys =
+      this.merge
+        .map(_.key.map(key => s"`$key`").mkString(","))
+        .getOrElse(throw new RuntimeException("Should not happen"))
+
+    val (targetColumns, sourceColumns) =
+      allOutputAttributes
+        .map(f => s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}`")
+        .unzip
+    val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
+    val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
+    val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
+    val matchedUpdateSql = allOutputAttributes
+      .map(f => s"${f.getFinalName()} = $SL_INTERNAL_TABLE.${f.getFinalName()}")
+      .mkString("SET ", ",", "")
+
+    val joinCondition =
+      this.merge
+        .map(
+          _.key
+            .map(key => s"$SL_INTERNAL_TABLE.$key = $targetTable.$key")
+            .mkString(" AND ")
+        )
+        .getOrElse(throw new RuntimeException("Should not happen"))
+
+    val nullJoinCondition =
+      this.merge
+        .map(
+          _.key
+            .map(key => s"$targetTable.$key IS NULL")
+            .mkString(" AND ")
+        )
+        .getOrElse(throw new RuntimeException("Should not happen"))
+
+    val mergeTimestampCol = this.merge.flatMap(_.timestamp)
+    val mergeOn = this.merge.flatMap(_.on).getOrElse(MergeOn.BOTH)
+
+    val canMerge = settings.appConfig.jdbcEngines(jdbcDatabase.toString).canMerge
+    val preactionsTemplate = settings.appConfig.jdbcEngines(jdbcDatabase.toString).preactions
+
+    val result = (targetTableExists, mergeTimestampCol, mergeOn) match {
+      case (false, None, MergeOn.TARGET) =>
+        s"""
+           |SELECT  $allAttributesSQL  FROM $sourceTable
+            """.stripMargin
+
+      case (false, None, MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+
+      case (false, Some(_), MergeOn.TARGET) =>
+        s"""
+           |SELECT  $allAttributesSQL  FROM $sourceTable
+            """.stripMargin
+
+      case (false, Some(mergeTimestampCol), MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ
+           |  FROM $sourceTable;
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+
+      case (true, None, MergeOn.TARGET) =>
+        s"""
+           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+
+      case (true, None, MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+
+      case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
+        if (canMerge) {
+          s"""
+             |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+             |WHEN MATCHED AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol THEN UPDATE $matchedUpdateSql
+             |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+             |""".stripMargin
+        } else {
+          s"""
+             |UPDATE $targetTable $matchedUpdateSql
+             |FROM $sourceTable AS $SL_INTERNAL_TABLE
+             |WHERE $joinCondition AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+             |
+             |/* merge into */
+             |INSERT INTO $targetTable$notMatchedInsertColumnsSql
+             |SELECT ${sourceColumns.mkString(",")} FROM $sourceTable AS $SL_INTERNAL_TABLE
+             |LEFT JOIN $targetTable ON ($joinCondition)
+             |WHERE $nullJoinCondition
+             |
+             |""".stripMargin
+
+        }
+      case (true, Some(mergeTimestampCol), MergeOn.BOTH) =>
+        if (canMerge) {
+          s"""
+             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |  SELECT  $allAttributesSQL,
+             |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+             |  FROM $sourceTable;
+             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+             |WHEN MATCHED AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol THEN UPDATE $matchedUpdateSql
+             |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+             |""".stripMargin
+        } else {
+          s"""
+             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |  SELECT  $allAttributesSQL,
+             |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ
+             |  FROM $sourceTable;
+             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |
+             |UPDATE $targetTable $matchedUpdateSql
+             |FROM SL_DEDUP AS $SL_INTERNAL_TABLE
+             |WHERE $joinCondition AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+             |
+             |/* merge into */
+             |INSERT INTO $targetTable$notMatchedInsertColumnsSql
+             |SELECT ${sourceColumns.mkString(",")} FROM SL_DEDUP AS $SL_INTERNAL_TABLE
+             |LEFT JOIN $targetTable ON ($joinCondition)
+             |WHERE $nullJoinCondition
+             |""".stripMargin
+        }
+      case (_, _, MergeOn(_)) =>
+        throw new Exception("Should never happen !!!")
+    }
+    if (preactionsTemplate.nonEmpty) {
+      val targetSchema = targetTable.split('.').head
+      val preactions = preactionsTemplate.richFormat(Map("schema" -> targetSchema), Map.empty)
+      s"$preactions$result"
+    } else
+      result
+  }
+
+  def buildBQSqlMergeOnLoad(
     sourceTable: String,
     targetTable: String,
     targetTableFilters: List[String],
     updateTargetFilters: List[String],
     partitionOverwrite: Boolean,
     sourceUris: Option[String],
-    targetTableExists: Boolean = true,
+    targetTableExists: Boolean,
     jdbcDatabase: Engine
   )(implicit settings: Settings): String = {
     val (scriptAttributes, transformAttributes) =
@@ -670,7 +842,7 @@ case class Schema(
             sourceUris
           ) // partition overwrite without deduplication
         else
-          buildSqlMergeOnLoad(
+          buildBQSqlMergeOnLoad(
             sourceTable,
             targetTable,
             targetTableFilters,
@@ -682,7 +854,7 @@ case class Schema(
           )
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
-      s"""MERGE INTO $targetTable $SL_TARGET_TABLE USING ($inputData) AS $SL_INTERNAL_TABLE ON FALSE
+      s"""MERGE INTO $targetTable USING ($inputData) AS $SL_INTERNAL_TABLE ON FALSE
          |WHEN NOT MATCHED BY SOURCE $joinAdditionalClauseSQL THEN DELETE
          |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
          |""".stripMargin
@@ -704,60 +876,28 @@ case class Schema(
       val whereClauseSQL =
         if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
 
-      val canMerge = settings.appConfig.jdbcEngines(jdbcDatabase.toString().toLowerCase()).canMerge
-      if (canMerge) {
-        val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
-          case Some(mergeTimestampCol) =>
-            s"QUALIFY row_number() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
-          case _ =>
-            // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
-            s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
-        }
-
-        if (targetTableExists) {
-          s"""SELECT $allAttributesSQL FROM(
+      val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
+        case Some(mergeTimestampCol) =>
+          s"QUALIFY ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
+        case _ =>
+          // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
+          s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
+      }
+      if (targetTableExists) {
+        s"""SELECT $allAttributesSQL FROM (
               SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
               UNION ALL
-              SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
+              SELECT $allAttributesSQL, '${SL_INTERNAL_TABLE}_TARGET' as $dataSourceColumnName FROM $targetTable
               $whereClauseSQL
             ) AS SL_INTERNAL_QUALIFY_UNION_ALL
             $rowSelectionSQL
             """.stripMargin
-        } else {
-          s"""SELECT $allAttributesSQL FROM(
+      } else {
+        s"""SELECT $allAttributesSQL FROM (
               SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
             ) AS SL_INTERNAL_QUALIFY
             $rowSelectionSQL
             """.stripMargin
-        }
-      } else {
-        val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
-          case Some(mergeTimestampCol) =>
-            s"ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ"
-          case _ =>
-            // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
-            s"DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) as SL_SEQ"
-        }
-        if (targetTableExists) {
-          s"""
-            WITH SL_VIEW AS ($inputData),
-            SL_VIEW_EX AS (
-              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW
-              UNION ALL
-              SELECT $allAttributesSQL, '$SL_TARGET_TABLE' as $dataSourceColumnName FROM $targetTable $SL_TARGET_TABLE
-              $whereClauseSQL
-            ),
-            SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
-            SELECT $allAttributesSQL FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
-            """.stripMargin
-        } else {
-          s"""
-            WITH SL_VIEW AS ($inputData),
-            SL_VIEW_EX AS (SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM SL_VIEW),
-            SL_VIEW_WITH_ROWNUM AS (SELECT $allAttributesSQL, $rowSelectionSQL FROM SL_VIEW_EX)
-            SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
-            """.stripMargin
-        }
       }
     }
   }
@@ -811,8 +951,6 @@ case class Schema(
 object Schema {
 
   val SL_INTERNAL_TABLE = "SL_INTERNAL_TABLE"
-
-  val SL_TARGET_TABLE = "SL_TARGET_TABLE"
 
   def mapping(
     domainName: String,

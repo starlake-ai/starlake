@@ -3,13 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.exceptions.{DisallowRejectRecordException, NullValueFoundException}
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.metrics.{
-  BigQueryExpectationAssertionHandler,
-  ExpectationJob,
-  JdbcExpectationAssertionHandler,
-  MetricsJob,
-  SparkExpectationAssertionHandler
-}
+import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadCmd, JdbcConnectionLoadConfig}
@@ -37,9 +31,9 @@ import com.google.cloud.bigquery.{
 }
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.functions.{call_udf, col, expr, lit, struct}
-import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.functions.{call_udf, col, expr, struct}
+import org.apache.spark.sql.types.{StringType, StructType, TimestampType}
+import org.apache.spark.sql._
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
@@ -428,43 +422,12 @@ trait IngestionJob extends SparkJob {
     targetTableExists: Boolean,
     hasMergeKey: Boolean
   ): Try[JobResult] = {
-    applyJdbcSecondStepSQL(
-      firstStepTempTableName,
-      starlakeSchema,
-      targetTableExists,
-      hasMergeKey
-    )
-  }
-
-  def applyJdbcSecondStepSQL(
-    firstStepTempTableName: String,
-    starlakeSchema: Schema,
-    targetTableExists: Boolean,
-    hasMergeKey: Boolean
-  ): Try[JobResult] = {
     val engineName = mergedMetadata.getSink().getConnection().getJdbcEngineName()
     val fullTableName = s"${domain.finalName}.${schema.finalName}"
 
+    val quote = settings.appConfig.jdbcEngines(engineName.toString.toLowerCase()).quote
     // postgres does not support merge / create __or replace__ table. We need to do it by hand
-    val (presql, postsql, outputTableName, fullOutputTableName) =
-      if (targetTableExists && hasMergeKey) {
-        val canMerge = settings.appConfig.jdbcEngines(engineName.toString.toLowerCase()).canMerge
-        if (canMerge) {
-          (Nil, Nil, schema.finalName, fullTableName)
-        } else {
-          val presql = List(s"ALTER TABLE $fullTableName RENAME TO SL_${schema.finalName}")
-          val postsql = List(
-            s"DROP TABLE ${domain.finalName}.SL_${schema.finalName}"
-          )
-          val outputTableName = s"SL_${schema.finalName}"
-          val fullOutputTableName = s"${domain.finalName}.${outputTableName}"
-
-          (presql, postsql, outputTableName, fullOutputTableName)
-        }
-      } else {
-        // The table does not exist, we will simply create it
-        (Nil, Nil, schema.finalName, fullTableName)
-      }
+    val (outputTableName, fullOutputTableName) = (schema.finalName, fullTableName)
 
     val tempTable = firstStepTempTableName
     val targetTable = fullOutputTableName
@@ -483,17 +446,22 @@ trait IngestionJob extends SparkJob {
       case None =>
         handleJdbcNativeNoMergeCases(
           starlakeSchema,
-          tempTable,
-          targetTableExists
+          tempTable
         )
     }
-    sqlMerge match {
-      case Success(sqlMerge) =>
+    val sqlMerges = sqlMerge.map(_.replace("`", quote).split(';'))
+    sqlMerges match {
+      case Success(sqlMerges) =>
+        val (presql, mainSql) =
+          if (sqlMerges.length == 1) {
+            (Nil, sqlMerges.head)
+          } else {
+            (sqlMerges.dropRight(1).toList, sqlMerges.last)
+          }
         val taskDesc = AutoTaskDesc(
           name = targetTable,
-          presql = presql,
-          postsql = postsql,
-          sql = Some(sqlMerge),
+          presql = presql.toList,
+          sql = Some(mainSql),
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
           table = schema.finalName,
@@ -501,7 +469,8 @@ trait IngestionJob extends SparkJob {
           sink = mergedMetadata.sink,
           acl = schema.acl,
           comment = schema.comment,
-          tags = schema.tags
+          tags = schema.tags,
+          parseSQL = Some(false)
         )
         val jobResult = AutoTask
           .task(taskDesc, Map.empty, None, truncate = false)(
@@ -524,26 +493,20 @@ trait IngestionJob extends SparkJob {
   ): Try[String] = {
     Success(
       starlakeSchema
-        .buildSqlMergeOnLoad(
+        .buildJDBCSqlMergeOnLoad(
           tempTable,
           targetTable,
-          Nil,
-          Nil,
-          partitionOverwrite = false,
-          None,
           targetTableExists,
           mergedMetadata.getSink().getConnection().getJdbcEngineName()
         )
-        .replace('`', ' ')
     )
   }
 
   private def handleJdbcNativeNoMergeCases(
     schema: Schema,
-    tempTable: String,
-    targetTableExists: Boolean
+    tempTable: String
   ): Try[String] = {
-    Success(schema.buildSqlSelectOnLoad(tempTable, None).replace('`', ' '))
+    Success(schema.buildSqlSelectOnLoad(tempTable, None))
   }
 
   private def requireTwoSteps(schema: Schema, sink: JdbcSink): Boolean = {
@@ -922,7 +885,7 @@ trait IngestionJob extends SparkJob {
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
             Success(
               Some(
-                schema.buildSqlMergeOnLoad(
+                schema.buildBQSqlMergeOnLoad(
                   tempTable,
                   targetTable,
                   Nil,
@@ -1008,7 +971,7 @@ trait IngestionJob extends SparkJob {
       bigqueryJob.cliConfig.outputPartition
     ) match {
       case (true, "WRITE_TRUNCATE", Some(partitionName)) =>
-        val sql = starlakeSchema.buildSqlMergeOnLoad(
+        val sql = starlakeSchema.buildBQSqlMergeOnLoad(
           tempTable,
           targetTable,
           targetFilters,
@@ -1033,7 +996,7 @@ trait IngestionJob extends SparkJob {
             ) mkString (f"date(`$partitionName`) IN (", ",", ")")
             Success(
               Some(
-                starlakeSchema.buildSqlMergeOnLoad(
+                starlakeSchema.buildBQSqlMergeOnLoad(
                   tempTable,
                   targetTable,
                   targetFilters,
@@ -1051,7 +1014,7 @@ trait IngestionJob extends SparkJob {
       case _ =>
         Success(
           Some(
-            starlakeSchema.buildSqlMergeOnLoad(
+            starlakeSchema.buildBQSqlMergeOnLoad(
               tempTable,
               targetTable,
               targetFilters,
@@ -1275,64 +1238,6 @@ trait IngestionJob extends SparkJob {
         }
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
-
-    val partitionedInputDF =
-      partitionDataset(withScriptFieldsDF, mergedMetadata.getPartitionAttributes())
-    logger.whenInfoEnabled {
-      logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
-      logger.info(
-        s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
-      )
-    }
-    val (finalIncomingDF, mergedDF, _) = {
-      MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
-    }
-    (mergedDF, Nil)
-  }
-
-  private def mergeFromJdbc(
-    withScriptFieldsDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): (DataFrame, List[String]) = {
-    val incomingSchema = schema.finalSparkSchema(schemaHandler)
-    val sink = mergedMetadata.getSink().asInstanceOf[JdbcSink]
-    val format = sink.getConnection().sparkFormat.getOrElse("jdbc")
-    val jdbcOptions =
-      ai.starlake.extract.JdbcDbUtils.jdbcOptions(sink.getConnection().options, format)
-    val outputDomainAndTablename = domain.finalName + "." + schema.finalName
-    val existTable = JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
-      val url = jdbcOptions("url")
-      val exists = JdbcDbUtils.tableExists(conn, url, outputDomainAndTablename)
-      exists
-    }
-    val existingDF =
-      if (!existTable) {
-        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
-      } else {
-        val dbDF = session.read
-          .format(format)
-          .options(jdbcOptions)
-          .option("dbtable", outputDomainAndTablename)
-          .load()
-
-        Try {
-          val newColumns: List[StructField] =
-            MergeUtils.computeNewColumns(dbDF.schema, incomingSchema)
-          val df = session.read
-            .format(format)
-            .options(jdbcOptions)
-            .option("dbtable", outputDomainAndTablename)
-            .load()
-
-          newColumns.foldRight(df) { case (col, df) =>
-            df.withColumn(col.name, lit(null).cast(col.dataType))
-          }
-
-        } getOrElse {
-          session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
-        }
-
-      }
 
     val partitionedInputDF =
       partitionDataset(withScriptFieldsDF, mergedMetadata.getPartitionAttributes())

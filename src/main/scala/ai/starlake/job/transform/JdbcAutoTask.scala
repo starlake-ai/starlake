@@ -6,7 +6,7 @@ import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.jdbc.JdbcDialect
 
@@ -47,47 +47,46 @@ class JdbcAutoTask(
     runJDBC()
   }
 
-  def tableExists(conn: java.sql.Connection): Boolean = {
-    val url = connection.options("url")
-    JdbcDbUtils.tableExists(conn, url, fullTableName)
+  lazy val tableExists: Boolean = {
+    JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+      val url = connection.options("url")
+      JdbcDbUtils.tableExists(conn, url, fullTableName)
+    }
   }
 
-  private def prepareTarget(conn: java.sql.Connection, exists: Boolean): Boolean = {
-    if (!exists) {
-      if (taskDesc._auditTableName.isDefined) {
-        // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
-        logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-        val connectionRef =
-          this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+  private def createAuditTable(conn: java.sql.Connection): Boolean = {
+    // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
+    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+    val connectionRef =
+      this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
 
-        val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
-        val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
-        val entry = taskDesc._auditTableName.getOrElse(
-          throw new Exception(
-            s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
-          )
-        )
-        val scriptTemplate = engine.tables(entry).createSql
-        JdbcDbUtils.createSchema(fullDomainName, conn)
+    val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
+    val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
+    val entry = taskDesc._auditTableName.getOrElse(
+      throw new Exception(
+        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
+      )
+    )
+    val scriptTemplate = engine.tables(entry).createSql
+    JdbcDbUtils.createSchema(fullDomainName, conn)
 
-        val script = scriptTemplate.richFormat(
-          Map("table" -> fullTableName),
-          Map.empty
-        )
-        JdbcDbUtils.execute(script, conn) match {
-          case Success(_) =>
-          case Failure(e) =>
-            logger.error(s"Error creating table $fullTableName", e)
-            throw e
-        }
-      }
+    val script = scriptTemplate.richFormat(
+      Map("table" -> fullTableName),
+      Map.empty
+    )
+    JdbcDbUtils.execute(script, conn) match {
+      case Success(_) =>
+        true
+      case Failure(e) =>
+        logger.error(s"Error creating table $fullTableName", e)
+        throw e
     }
-    exists
   }
 
   @throws[Exception]
   def runSqls(conn: Connection, sqls: List[String]): Unit = {
     sqls.foreach { req =>
+      logger.info(s"running sql request $req")
       JdbcDbUtils.execute(req, conn) match {
         case Success(_) =>
         case Failure(e) =>
@@ -103,7 +102,7 @@ class JdbcAutoTask(
       JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
         val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
         val (preSql, sqlWithParameters, postSql, asTable) =
-          buildAllSQLQueries(tableExists(conn), dynamicPartitionOverwrite, None, Nil)
+          buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Nil)
         logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
         logger.info(s"running sql request using JDBC driver")
         interactive match {
@@ -144,9 +143,20 @@ class JdbcAutoTask(
                     override def canHandle(url: String): Boolean = true
                   }
               }
-            runSqls(conn, preSql)
-            runMainSql(sqlWithParameters, conn, jdbcDialect)
-            runSqls(conn, postSql)
+            conn.setAutoCommit(false)
+            Try {
+              runSqls(conn, preSql)
+              runMainSql(sqlWithParameters, conn, jdbcDialect)
+              runSqls(conn, postSql)
+            } match {
+              case Success(_) =>
+                conn.commit()
+              case Failure(e) =>
+                conn.rollback()
+                throw e
+            }
+            conn.setAutoCommit(true)
+
             if (settings.appConfig.expectations.active) {
               new ExpectationJob(
                 taskDesc.database,
@@ -194,9 +204,11 @@ class JdbcAutoTask(
     if (settings.appConfig.createSchemaIfNotExists)
       JdbcDbUtils.createSchema(fullDomainName, conn)
     val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
-    prepareTarget(conn, tableExists(conn))
+    val tableCreated =
+      if (!tableExists && taskDesc._auditTableName.isDefined) createAuditTable(conn)
+      else tableExists
     val finalSqls =
-      if (!tableExists(conn)) { // Table may have been created by the preapreTarget method so we test it again
+      if (!tableCreated) { // Table may have been created yet
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
@@ -214,9 +226,7 @@ class JdbcAutoTask(
               case None =>
                 // We will be inserting the resulting data into the target table.
                 val start = sqlWithParameters.indexOf("SELECT ") + "SELECT ".length
-                var end = sqlWithParameters.indexOf(" FROM(")
-                if (end < 0)
-                  end = sqlWithParameters.indexOf(" FROM ")
+                var end = sqlWithParameters.indexOf(" FROM ")
                 val columns = sqlWithParameters.substring(start, end)
                 s"INSERT INTO $fullTableName($columns) $sqlWithParameters"
 
@@ -246,9 +256,7 @@ class JdbcAutoTask(
           }
         insertSqls
       }
-    logger.info(s"running against te database: $finalSqls")
-    val results = finalSqls.map(sql => JdbcDbUtils.execute(sql, conn))
-    results.filter(_.isFailure).foreach(_.failed.foreach(e => Utils.logException(logger, e)))
+    runSqls(conn, finalSqls)
     applyJdbcAcl(connection, forceApply = true)
   }
 }
