@@ -74,7 +74,7 @@ DEFAULT_DAG_ARGS = {
 
 TODAY = datetime.today().strftime('%Y-%m-%d')
 
-def dummy_op(task_id, trigger_rule=TriggerRule.ALL_SUCCESS, pool=DEFAULT_POOL):
-    return DummyOperator(task_id=task_id, trigger_rule=trigger_rule, pool=pool)
+def dummy_op(task_id, trigger_rule=TriggerRule.ALL_SUCCESS, pool=DEFAULT_POOL, **kwargs):
+    return DummyOperator(task_id=task_id, trigger_rule=trigger_rule, pool=pool, **kwargs)
 
 DEFAULT_DAG_NAME=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
