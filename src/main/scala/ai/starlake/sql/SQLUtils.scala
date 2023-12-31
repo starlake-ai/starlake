@@ -6,8 +6,8 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
-import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
+import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 import java.util.UUID
@@ -392,4 +392,13 @@ object SQLUtils extends StrictLogging {
 
   def temporaryTableName(tableName: String): String =
     "zztmp_" + tableName + "_" + UUID.randomUUID().toString.replace("-", "")
+
+  def stripComments(sql: String): String = {
+
+    // Remove single line comments
+    val sql1 = sql.split("\n").map(_.replaceAll("--.*$", "")).mkString("\n")
+    // Remove multi-line comments
+    val sql2 = sql1.replaceAll("(?s)/\\*.*?\\*/", "")
+    sql2.trim
+  }
 }

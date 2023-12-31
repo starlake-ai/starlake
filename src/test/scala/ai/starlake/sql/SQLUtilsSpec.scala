@@ -1,11 +1,10 @@
-package ai.starlake.utils
+package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model.Refs
-import ai.starlake.sql.SQLUtils
 
-class SqlUtilsSpec extends TestHelper {
+class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
     "Resolve SQL Ref list" should "return correct SQL" in {
       val sql = "with mycte as (select seller_email, amount " +
@@ -281,6 +280,27 @@ class SqlUtilsSpec extends TestHelper {
           |
           |WHEN NOT MATCHED THEN INSERT (transaction_id,transaction_date,amount,location_info,seller_info) VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
           |""".stripMargin.replaceAll("\\s", ""))
+    }
+    "Strip comments" should "succeed" in {
+      SQLUtils
+        .stripComments(
+          """
+          |-- comment
+          |select *
+          |from t -- coucou
+          |/*
+          |
+          |comment
+          |
+          | */ -- hello
+          |""".stripMargin
+        ) should equal(
+        """
+          |select *
+          |from t
+          |""".stripMargin.trim
+      )
+
     }
   }
 }

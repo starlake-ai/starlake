@@ -26,6 +26,7 @@ import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import better.files.File
@@ -803,9 +804,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case None =>
           tasks
       }
+      // strip comments from SQL
+      val mergedTasksWithStrippedComments = mergedTasks.map { task =>
+        task.copy(
+          sql = task.sql.map(sql => SQLUtils.stripComments(sql))
+        )
+      }
       AutoJobDesc(
         name = jobName,
-        tasks = mergedTasks,
+        tasks = mergedTasksWithStrippedComments,
         default = None
       )
     } match {
