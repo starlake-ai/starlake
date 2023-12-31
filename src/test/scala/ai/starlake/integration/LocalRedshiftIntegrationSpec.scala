@@ -12,9 +12,7 @@ class LocalRedshiftIntegrationSpec extends BigQueryIntegrationSpecBase {
       withEnvs(
         "SL_ROOT"                                       -> localDir.pathAsString,
         "SL_ENV"                                        -> "REDSHIFT",
-        "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
-        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
-        "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
+        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC"
       ) {
         clearDataDirectories()
         sampleDataDir.copyToDirectory(localDir)

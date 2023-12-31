@@ -1,5 +1,5 @@
 {% macro is_col_value_not_unique(col, table='sl_this') %}
-    SELECT max(cnt)
+    SELECT COALESCE(max(cnt), 0)
     FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
     GROUP BY {{ col }}
     HAVING cnt > 1)

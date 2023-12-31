@@ -420,13 +420,6 @@ public class BigQuerySchemaConverters {
         Field.Builder fieldBuilder =
                 createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields);
 
-        // https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/1060
-        if (System.getenv().get("SL_ISSUE_SPARK_BIGQUERY_1060") != null ) {
-            if (fieldType == LegacySQLTypeName.NUMERIC || fieldType == LegacySQLTypeName.BIGNUMERIC) {
-                DecimalType decimalType = (DecimalType) sparkType;
-                fieldBuilder.setPrecision((long) decimalType.precision()).setScale((long) decimalType.scale());
-            }
-        }
         Optional<String> description = getDescriptionOrCommentOfField(sparkField);
 
         if (description.isPresent()) {
