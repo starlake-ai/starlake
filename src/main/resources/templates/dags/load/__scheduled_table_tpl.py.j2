@@ -47,7 +47,6 @@ for schedule in schedules:
 
         pre_load_tasks = sl_operator.sl_pre_load(
             domain=domain["name"], 
-#            pre_load_strategy=StarlakePreLoadStartegy.IMPORTED, 
             dag=dag
         )
 
