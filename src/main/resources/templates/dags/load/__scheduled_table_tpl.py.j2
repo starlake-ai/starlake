@@ -2,16 +2,7 @@ from typing import List
 
 from airflow import DAG
 
-# Operators; we need this to operate!
-from airflow.operators.bash import BashOperator
-from airflow.operators.python import BranchPythonOperator
-
-from airflow.decorators import task
-
-from airflow.exceptions import AirflowException
-
 from airflow.utils.task_group import TaskGroup
-from airflow.utils.trigger_rule import TriggerRule
 
 schedules= [{% for schedule in context.schedules %}
     {
@@ -50,78 +41,33 @@ for schedule in schedules:
              description=description) as dag:
         start = dummy_op(task_id="start")
 
-        pre_tasks = sl_operator.pre_tasks(dag=dag)
-
         post_tasks = sl_operator.post_tasks(dag=dag)
 
         all_done = dummy_op(task_id="all_done", outlets=datasets)
 
-        incoming_path = get_context_var(var_name='incoming_path', default_value=f'{SL_ROOT}/incoming', options=options)
+        pre_load_tasks = sl_operator.sl_pre_load(
+            domain=domain["name"], 
+#            pre_load_strategy=StarlakePreLoadStartegy.IMPORTED, 
+            dag=dag
+        )
 
         def generate_task_group_for_domain(domain):
-            list_files_command = f'ls {incoming_path}/{domain["name"]}/* | wc -l'
-            if incoming_path.startswith('gs://'):
-                list_files_command = "gsutil " + list_files_command
-            list_files = BashOperator(
-                task_id=sanitize_id(f'{domain["name"]}_list_files'),
-                bash_command=list_files_command,
-                do_xcom_push=True,
-                pool=DEFAULT_POOL
-            )
-
-            start_import = dummy_op(task_id=sanitize_id(f'{domain["name"]}_start_import'), trigger_rule=TriggerRule.ONE_SUCCESS)
-
-            start_load = dummy_op(task_id=sanitize_id(f'{domain["name"]}_start_load'), trigger_rule=TriggerRule.ALL_SUCCESS)
-
-            skip_load = dummy_op(task_id=sanitize_id(f'{domain["name"]}_skip_load'), trigger_rule=TriggerRule.ONE_SUCCESS)
-
-            skip_load >> all_done
-
-            def f_skip_or_start(**kwargs):
-                task_instance = kwargs['ti']
-                files_tuple = task_instance.xcom_pull(key=None, task_ids=[list_files.task_id])
-                print('Number of files found: {}'.format(files_tuple))
-                files_number = files_tuple[0]
-                if int(files_number) > 1:
-                    return start_import.task_id
-                else:
-                    return skip_load.task_id
-
-            skip_or_start = BranchPythonOperator(
-                task_id = sanitize_id(f'{domain["name"]}_skip_or_start'),
-                python_callable = f_skip_or_start,
-                trigger_rule = 'one_success',
-                provide_context = True,
-                pool=DEFAULT_POOL
-            )
-
-            start >> list_files >> skip_or_start >> [start_import, skip_load]
-
-            with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_import_tasks')) as domain_import_tasks:
-                import_task_id = sanitize_id(f'{domain["name"]}_import')
-                import_task = sl_operator.sl_import(
-                    task_id=import_task_id, 
-                    domain=domain["name"]
-                )
-                if pre_tasks:
-                    start_import >> pre_tasks >> import_task
-                else:
-                    start_import >> import_task
-
-            domain_import_tasks >> start_load
-
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
-                    load_task = sl_operator.sl_load(
+                    sl_operator.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 
                         table=table["name"]
                     )
-                    start_load >> load_task
             return domain_load_tasks
 
         all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
+
+        if pre_load_tasks:
+            start >> pre_load_tasks >> all_load_tasks
+        else:
+            start >> all_load_tasks
 
         if post_tasks:
             all_load_tasks >> all_done >> post_tasks

@@ -56,7 +56,7 @@ SL_ROOT = get_context_var(
 
 SL_DATASETS = get_context_var(
     var_name='SL_DATASETS', 
-    default_value=SL_ROOT.join('/datasets/pending'), 
+    default_value=f'{SL_ROOT}/datasets', 
     options=SL_ENV_VARS
 )
 

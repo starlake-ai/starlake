@@ -1,4 +1,3 @@
-{% include 'templates/dags/__common.py.j2' %}
 {% include 'templates/dags/__starlake_operator.py.j2' %}
 from airflow.operators.bash import BashOperator
 
@@ -6,9 +5,8 @@ from airflow.datasets import Dataset
 
 class StarlakeBashOperator(IStarlakeOperator):
     """Starlake Bash Operator."""
-    def __init__(self, options: dict=options, **kwargs):
-        super().__init__(**kwargs)
-        self.options = {} if not options else options
+    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, options: dict=options, **kwargs):
+        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_import()"""

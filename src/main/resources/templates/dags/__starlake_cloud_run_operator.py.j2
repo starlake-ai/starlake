@@ -1,4 +1,3 @@
-{% include 'templates/dags/__common.py.j2' %}
 {% include 'templates/dags/__starlake_operator.py.j2' %}
 from airflow.operators.bash import BashOperator
 
@@ -10,9 +9,8 @@ from airflow.utils.task_group import TaskGroup
 
 class StarlakeCloudRunOperator(IStarlakeOperator):
     """Starlake Cloud Run Operator."""
-    def __init__(self, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict = options, sl_env_vars: dict = SL_ENV_VARS, retry_on_failure: bool=None, **kwargs):
-        super().__init__(**kwargs)
-        self.options = {} if not options else options
+    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict = options, sl_env_vars: dict = SL_ENV_VARS, retry_on_failure: bool=None, **kwargs):
+        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
