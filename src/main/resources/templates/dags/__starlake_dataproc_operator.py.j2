@@ -132,8 +132,6 @@ class StarlakeDataprocCluster():
         worker_conf: dict=None, 
         secondary_worker_conf: dict=None, 
         is_single_node: bool=False, 
-        trigger_rule: str=TriggerRule.ALL_SUCCESS, 
-        pool: str=DEFAULT_POOL, 
         **kwargs) -> BaseOperator|None:
         """
         Create the Cloud Dataproc cluster.
@@ -141,7 +139,7 @@ class StarlakeDataprocCluster():
         """
         dag_id = dag.dag_id if dag else DEFAULT_DAG_NAME
         cluster_name = f"{DEFAULT_DATAPROC_NAME}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
-        task_id = f"{cluster_name}_create" if not task_id else task_id
+        task_id = f"create_{cluster_name}" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         region = self.region if not region else region
         subnet = self.subnet if not subnet else subnet
@@ -184,13 +182,16 @@ class StarlakeDataprocCluster():
         elif secondary_worker_conf:
             cluster_config["secondary_worker_config"] = secondary_worker_conf
 
+        kwargs.update({
+            'pool': kwargs.get('pool', DEFAULT_POOL),
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
+        })
+
         return DataprocCreateClusterOperator(
             task_id=task_id,
             cluster_name=cluster_name,
             cluster_config=cluster_config,
             region=region,
-            trigger_rule=trigger_rule,
-            pool=pool,
             **kwargs
         )
 
@@ -200,20 +201,20 @@ class StarlakeDataprocCluster():
         task_id: str=None, 
         cluster_name: str=None, 
         region: str=None, 
-        trigger_rule: str=TriggerRule.NONE_SKIPPED, 
-        pool: str=DEFAULT_POOL, 
         **kwargs) -> BaseOperator|None:
         """Tears down the cluster even if there are failures in upstream tasks."""
         dag_id = dag.dag_id if dag else DEFAULT_DAG_NAME
         cluster_name = f"{DEFAULT_DATAPROC_NAME}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
-        task_id = f"{cluster_name}_delete" if not task_id else task_id
+        task_id = f"delete_{cluster_name}" if not task_id else task_id
         region = self.region if not region else region
+        kwargs.update({
+            'pool': kwargs.get('pool', DEFAULT_POOL),
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
+        })
         return DataprocDeleteClusterOperator(
             task_id=task_id,
-            trigger_rule=trigger_rule,
             cluster_name=cluster_name,
             region=region,
-            pool=pool,
             **kwargs
         )
 
@@ -230,8 +231,6 @@ class StarlakeDataprocCluster():
         spark_config: dict=None, 
         main_class: str=None, 
         retries: int=0, 
-        trigger_rule: str=TriggerRule.ALL_SUCCESS, 
-        pool: str=DEFAULT_POOL, 
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
         dag_id = dag.dag_id if dag else DEFAULT_DAG_NAME
@@ -248,12 +247,16 @@ class StarlakeDataprocCluster():
         spark_config = self.spark_config if not spark_config else spark_config
 
         if spark_config:
-#            spark_config_dict=ast.literal_eval(spark_config)
             spark_properties.update({
                 "spark.executor.memory": spark_config.get('memAlloc', DEFAUTL_SPARK_EXECUTOR_MEMORY),
                 "spark.executor.cores": int(spark_config.get('numVcpu', DEFAUTL_SPARK_EXECUTOR_CORES)),
                 "spark.executor.instances": str(spark_config.get('sparkExecutorInstances', DEFAUTL_SPARK_EXECUTOR_INSTANCES))
             })
+
+        kwargs.update({
+            'pool': kwargs.get('pool', DEFAULT_POOL),
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
+        })
 
         return DataprocSubmitJobOperator(
             task_id=task_id,
@@ -276,8 +279,6 @@ class StarlakeDataprocCluster():
                 }
             },
             retries=retries,
-            trigger_rule=trigger_rule,
-            pool=pool,
             **kwargs
         )
 

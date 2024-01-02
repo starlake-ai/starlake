@@ -42,6 +42,8 @@ class IStarlakeOperator:
 
         pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
 
+        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
+
         if pre_load_strategy == StarlakePreLoadStartegy.IMPORTED:
 
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
@@ -59,7 +61,7 @@ class IStarlakeOperator:
                     task_id=sanitize_id(f'{domain}_list_files'),
                     bash_command=list_files_command,
                     do_xcom_push=True,
-                    pool=DEFAULT_POOL
+                    **kwargs
                 )
 
                 def f_skip_or_start(**kwargs):
@@ -73,14 +75,15 @@ class IStarlakeOperator:
                     task_id = sanitize_id(f'{domain}_skip_or_start'),
                     python_callable = f_skip_or_start,
                     provide_context = True,
-                    pool=DEFAULT_POOL
+                    **kwargs
                 )
 
                 list_files >> skip_or_start
 
                 import_task = self.sl_import(
                     task_id=sanitize_id(f'{domain}_import'), 
-                    domain=domain
+                    domain=domain,
+                    **kwargs
                 )
 
                 if pre_tasks:
@@ -107,7 +110,7 @@ class IStarlakeOperator:
                     task_id=sanitize_id(f'{domain}_list_files'),
                     bash_command=list_files_command,
                     do_xcom_push=True,
-                    pool=DEFAULT_POOL
+                    **kwargs
                 )
 
                 def f_skip_or_start(**kwargs):
@@ -121,7 +124,7 @@ class IStarlakeOperator:
                     task_id = sanitize_id(f'{domain}_skip_or_start'),
                     python_callable = f_skip_or_start,
                     provide_context = True,
-                    pool=DEFAULT_POOL
+                    **kwargs
                 )
 
                 if pre_tasks:
@@ -158,8 +161,8 @@ class IStarlakeOperator:
                     timeout=ack_wait_timeout,
                     poke_interval=60,
                     mode='reschedule',
-                    pool=DEFAULT_POOL,
-                    soft_fail=True
+                    soft_fail=True,
+                    **kwargs
                 ) if gcs_result \
                     else FileSensor(
                             task_id=sanitize_id(f'{domain}_wait_for_ack'),
@@ -167,20 +170,20 @@ class IStarlakeOperator:
                             timeout=ack_wait_timeout,
                             poke_interval=60,
                             mode='reschedule',
-                            pool=DEFAULT_POOL,
-                            soft_fail=True
+                            soft_fail=True,
+                            **kwargs
                         )
 
                 delete_ack = GCSDeleteObjectsOperator(
                     task_id=sanitize_id(f'{domain}_delete_ack'),
                     bucket_name=gcs_ack_bucket,
                     objects=[gcs_ack_file],
-                    pool=DEFAULT_POOL
+                    pool=pool
                 ) if gcs_result \
                     else BashOperator(
                         task_id=sanitize_id(f'{domain}_delete_ack'),
                         bash_command=f'rm {ack_file}',
-                        pool=DEFAULT_POOL
+                        **kwargs
                     )
 
                 if pre_tasks:

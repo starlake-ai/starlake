@@ -18,6 +18,7 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
         self.retry_on_failure = get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
 
     def __job_with_completion_sensors__(self, task_id: str, command: str, outlets: str, **kwargs) -> TaskGroup:
+        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
         with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
             # asynchronous job
             job_task = BashOperator(
