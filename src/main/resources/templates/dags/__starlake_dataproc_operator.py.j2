@@ -1,4 +1,3 @@
-{% include 'templates/dags/__common.py.j2' %}
 {% include 'templates/dags/__starlake_operator.py.j2' %}
 import uuid
 import ast
@@ -284,12 +283,11 @@ class StarlakeDataprocCluster():
 
 class StarlakeDataprocOperator(IStarlakeOperator):
     """Starlake Dataproc Operator."""
-    def __init__(self, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=options, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=options, **kwargs):
+        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster = StarlakeDataprocCluster() if not cluster else cluster
         self.spark_properties = {} if not spark_properties else spark_properties
         self.spark_config = {} if not spark_config else spark_config
-        self.options = {} if not options else options
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeOperator.sl_import()"""
