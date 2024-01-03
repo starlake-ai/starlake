@@ -231,6 +231,6 @@ class IStarlakeOperator:
         """Delete cluster."""
         return None
 
-    def sl_job(self, task_id: str, arguments: dict, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
         """Generic job."""
         pass
