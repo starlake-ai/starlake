@@ -2,7 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.model.Refs
+import ai.starlake.schema.model.{MergeOptions, Refs}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -210,14 +210,15 @@ class SQLUtilsSpec extends TestHelper {
 
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
       val sqlMerge =
-        SQLUtils.buildMergeSql(
+        SQLUtils.buildMergeSqlOnTransform(
           selectWithCTEs,
-          List("transaction_id"),
+          MergeOptions(List("transaction_id")),
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",
           new Connection(Some("BQ"), None, None, None, Map.empty),
-          false
+          false,
+          true
         )
       sqlMerge.replaceAll("\\s", "") should be("""
           |MERGE INTO

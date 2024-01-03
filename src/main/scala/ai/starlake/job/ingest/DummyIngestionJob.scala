@@ -18,7 +18,7 @@ class DummyIngestionJob(
   val options: Map[String, String]
 )(implicit val settings: Settings)
     extends IngestionJob {
-  override protected def loadDataSet(): Try[DataFrame] = ???
+  override protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = ???
 
   /** ingestion algorithm
     *

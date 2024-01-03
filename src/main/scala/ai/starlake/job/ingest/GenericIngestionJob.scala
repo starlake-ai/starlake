@@ -173,7 +173,7 @@ class GenericIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val options = mergedMetadata.getOptions()
       val timestampColumn = options.get("_timestamp")

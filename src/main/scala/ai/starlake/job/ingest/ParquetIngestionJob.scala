@@ -72,7 +72,7 @@ class ParquetIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val format = mergedMetadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read

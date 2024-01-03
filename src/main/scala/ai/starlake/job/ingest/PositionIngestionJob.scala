@@ -62,7 +62,7 @@ class PositionIngestionJob(
     * @return
     *   Spark DataFrame where each row holds a single string
     */
-  override protected def loadDataSet(): Try[DataFrame] = {
+  override protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val dfIn = mergedMetadata.getEncoding().toUpperCase match {
         case "UTF-8" =>
@@ -79,7 +79,10 @@ class PositionIngestionJob(
       }
 
       val df = applyIgnore(dfIn)
-      df
+      if (withSchema) {
+        PositionIngestionUtil.prepare(session, df, schema.attributesWithoutScriptedFields)
+      } else
+        df
     }
   }
 

@@ -44,7 +44,7 @@ class XmlSimplePrivacyJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  override protected def loadDataSet(): Try[DataFrame] = {
+  override protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       require(
         settings.appConfig.defaultWriteFormat == "text",

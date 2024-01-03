@@ -1,9 +1,10 @@
 with mycte as (
-    select seller_email, amount
-    from sellers hrs, orders sos where hrs.id = sos.seller_id
+    select o.amount, c.id
+    from sales.orders o, sales.customers c
+    where o.customer_id = c.id
 )
-select seller_email, sum(amount) as sum from mycte
-group by mycte.seller_email
+select id, sum(amount) as sum from mycte
+group by mycte.id
 
 
 

@@ -263,7 +263,7 @@ trait IngestionJob extends SparkJob {
       case Engine.SPARK =>
         runSpark()
       case Engine.JDBC =>
-        runJDBC()
+        runJDBCNative()
       case _ =>
         throw new Exception("should never happen")
     }
@@ -271,7 +271,7 @@ trait IngestionJob extends SparkJob {
   ///////////////////////////////////////////////////////////////////////////
   /////// JDBC ENGINE ONLY (SPARK SECTION BELOW) ////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
-  def runJDBC(): Try[JobResult] = {
+  def runJDBCNative(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
       settings.appConfig.sparkScheduling.poolName
@@ -285,7 +285,7 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
         runPreSql()
-        val dataset = loadDataSet()
+        val dataset = loadDataSet(true)
         dataset match {
           case Success(dataset) =>
             val jdbcSink = mergedMetadata.getSink().asInstanceOf[JdbcSink]
@@ -340,7 +340,9 @@ trait IngestionJob extends SparkJob {
                           val existingSchema =
                             SparkUtils.getSchemaOption(conn, connectionRefOptions, targetTable)
                           val incomingSchema =
-                            datasetWithRenamedAttributes.drop("comet_input_file_name").schema
+                            datasetWithRenamedAttributes
+                              .drop(CometColumns.cometInputFileNameColumn)
+                              .schema
                           val addedSchema =
                             SparkUtils.added(
                               incomingSchema,
@@ -449,7 +451,7 @@ trait IngestionJob extends SparkJob {
           tempTable
         )
     }
-    val sqlMerges = sqlMerge.map(_.replace("`", quote).split(';'))
+    val sqlMerges = sqlMerge.map(_.replace("`", quote).split(";\n"))
     sqlMerges match {
       case Success(sqlMerges) =>
         val (presql, mainSql) =
@@ -460,7 +462,7 @@ trait IngestionJob extends SparkJob {
           }
         val taskDesc = AutoTaskDesc(
           name = targetTable,
-          presql = presql.toList,
+          presql = presql,
           sql = Some(mainSql),
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
@@ -1169,7 +1171,7 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
         runPreSql()
-        val dataset = loadDataSet()
+        val dataset = loadDataSet(false)
         dataset match {
           case Success(dataset) =>
             Try {
@@ -1681,34 +1683,14 @@ trait IngestionJob extends SparkJob {
     validationResult: ValidationResult
   ): Try[(DataFrame, Path, Long)] = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
-      val start = Timestamp.from(Instant.now())
+      val acceptedPath =
+        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
       logger.whenDebugEnabled {
         logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
         logger.debug(validationResult.accepted.showString(1000))
       }
 
-      val acceptedPath =
-        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
-
-      val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
-
-      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
-        acceptedRenamedFields
-      )
-
-      val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
-        acceptedDfWithScriptFields
-      )
-
-      val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
-
-      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
-        acceptedDfFiltered
-      )
-
-      val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
-      val finalAcceptedDF: DataFrame =
-        computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
+      val finalAcceptedDF = computeFinalDF(validationResult.accepted)
       val runExpectationsResult = runExpectations(finalAcceptedDF)
       runExpectationsResult
         .flatMap { _ =>
@@ -1727,6 +1709,28 @@ trait IngestionJob extends SparkJob {
     } else {
       Success(session.emptyDataFrame, new Path("invalid-path"), 0)
     }
+  }
+  private def computeFinalDF(accepted: DataFrame): DataFrame = {
+    val acceptedRenamedFields = dfWithAttributesRenamed(accepted)
+
+    val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
+      acceptedRenamedFields
+    )
+
+    val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
+      acceptedDfWithScriptFields
+    )
+
+    val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
+
+    val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
+      acceptedDfFiltered
+    )
+
+    val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
+    val finalAcceptedDF: DataFrame =
+      computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
+    finalAcceptedDF
   }
 
   private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
@@ -1972,7 +1976,7 @@ trait IngestionJob extends SparkJob {
     } getOrElse dfIn
   }
 
-  protected def loadDataSet(): Try[DataFrame]
+  protected def loadDataSet(withSchema: Boolean): Try[DataFrame]
 
   protected def saveRejected(
     errMessagesDS: Dataset[String],

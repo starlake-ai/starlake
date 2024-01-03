@@ -92,9 +92,9 @@ class DsvIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val dfIn = session.read
+      val dfInReader = session.read
         .option("header", mergedMetadata.isWithHeader().toString)
         .option("inferSchema", value = false)
         .option("delimiter", mergedMetadata.getSeparator())
@@ -106,7 +106,13 @@ class DsvIngestionJob(
         .option("encoding", mergedMetadata.getEncoding())
         .options(mergedMetadata.getOptions())
         .options(settings.appConfig.dsvOptions)
-        .csv(path.map(_.toString): _*)
+
+      val dfInReaderWithSchema = if (withSchema) {
+        dfInReader.schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
+      } else {
+        dfInReader
+      }
+      val dfIn = dfInReaderWithSchema.csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
       if (dfIn.isEmpty) {

@@ -4,9 +4,10 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine}
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils}
+import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.jdbc.JdbcDialect
 
@@ -29,6 +30,9 @@ class JdbcAutoTask(
       truncate,
       resultPageSize
     ) {
+
+  val jdbcEngineName = this.connection.getJdbcEngineName()
+  val jdbcEngine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
 
   def extractJdbcAcl(): List[String] = {
     taskDesc.acl.flatMap { ace =>
@@ -57,17 +61,12 @@ class JdbcAutoTask(
   private def createAuditTable(conn: java.sql.Connection): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-    val connectionRef =
-      this.sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
-
-    val jdbcEngineName = settings.appConfig.connections(connectionRef).getJdbcEngineName()
-    val engine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
     val entry = taskDesc._auditTableName.getOrElse(
       throw new Exception(
         s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
       )
     )
-    val scriptTemplate = engine.tables(entry).createSql
+    val scriptTemplate = jdbcEngine.tables(entry).createSql
     JdbcDbUtils.createSchema(fullDomainName, conn)
 
     val script = scriptTemplate.richFormat(
@@ -102,7 +101,7 @@ class JdbcAutoTask(
       JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
         val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
         val (preSql, sqlWithParameters, postSql, asTable) =
-          buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Nil)
+          buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.JDBC, Nil)
         logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
         logger.info(s"running sql request using JDBC driver")
         interactive match {
@@ -144,7 +143,10 @@ class JdbcAutoTask(
                   }
               }
             conn.setAutoCommit(false)
+            val parsedPreActions =
+              Utils.parseJinja(jdbcEngine.preactions, Map("schema" -> taskDesc.domain))
             Try {
+              runPreActions(conn, parsedPreActions.split(";").toList)
               runSqls(conn, preSql)
               runMainSql(sqlWithParameters, conn, jdbcDialect)
               runSqls(conn, postSql)
@@ -190,8 +192,12 @@ class JdbcAutoTask(
 
   val fullTableName = s"$fullDomainName.${taskDesc.table}"
 
-  def isMerge(sql: String) = {
+  private def isMerge(sql: String): Boolean = {
     sql.toLowerCase().contains("merge into")
+  }
+
+  private def runPreActions(conn: java.sql.Connection, preactions: List[String]): Unit = {
+    runSqls(conn, preactions)
   }
 
   private def runMainSql(
@@ -207,44 +213,43 @@ class JdbcAutoTask(
     val tableCreated =
       if (!tableExists && taskDesc._auditTableName.isDefined) createAuditTable(conn)
       else tableExists
+    val allSqls = sqlWithParameters.split(";\n")
+    val preMainSqls = allSqls.dropRight(1).toList
+    val lastSql = allSqls.last
     val finalSqls =
       if (!tableCreated) { // Table may have been created yet
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
-          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
+          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
         else
-          List(s"CREATE TABLE $fullTableName AS $sqlWithParameters")
+          List(s"CREATE TABLE $fullTableName AS $lastSql")
 
       } else {
         val mainSql =
-          if (isMerge(sqlWithParameters))
-            sqlWithParameters // it's a merge request.
-          else {
+          if (isMerge(sqlWithParameters)) {
+            lastSql // it's a merge request.
+          } else {
             taskDesc._auditTableName match {
               case Some(_) =>
-                s"INSERT INTO $fullTableName $sqlWithParameters"
+                s"INSERT INTO $fullTableName $lastSql"
               case None =>
                 // We will be inserting the resulting data into the target table.
-                val start = sqlWithParameters.indexOf("SELECT ") + "SELECT ".length
-                var end = sqlWithParameters.indexOf(" FROM ")
-                val columns = sqlWithParameters.substring(start, end)
-                s"INSERT INTO $fullTableName($columns) $sqlWithParameters"
+                val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
+                s"INSERT INTO $fullTableName($columns) $lastSql"
 
             }
           }
+        val mainSqlList = mainSql.split(";\n").toList
         val insertSqls =
           if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
                 s"DROP MATERIALIZED VIEW $fullTableName",
-                s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters"
+                s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql"
               )
             } else {
-              List(
-                jdbcDialect.getTruncateQuery(fullTableName),
-                mainSql
-              )
+              List(jdbcDialect.getTruncateQuery(fullTableName)) ++ mainSqlList
             }
           } else {
             val dropSqls =
@@ -252,11 +257,11 @@ class JdbcAutoTask(
                 List(jdbcDialect.getTruncateQuery(fullTableName))
               else
                 Nil
-            dropSqls ++ List(mainSql)
+            dropSqls ++ mainSqlList
           }
         insertSqls
       }
-    runSqls(conn, finalSqls)
+    runSqls(conn, preMainSqls ++ finalSqls)
     applyJdbcAcl(connection, forceApply = true)
   }
 }

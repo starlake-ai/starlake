@@ -1,0 +1,22 @@
+  table:
+    name: "orders"
+    pattern: "orders-.*.csv"
+    merge:
+      key:
+        - "id"
+    metadata:
+      separator: ","
+    attributes:
+      - name: "order_id"
+        type: "string"
+        required: true
+        rename: "id"
+      - name: "customer_id"
+        type: "customerid"
+        required: true
+      - name: "amount"
+        type: "decimal"
+        required: true
+      - name: "seller_id"
+        type: "string"
+        required: false

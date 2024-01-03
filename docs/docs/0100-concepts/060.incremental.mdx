@@ -1,0 +1,55 @@
+# Incremental Load & Transform
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Incremental Load
+
+Starlake support two types of incremental load: `append` and `upsert`.
+
+In append mode, Starlake will only append new data to the table. In upsert mode, Starlake will update the existing data and append new data to the table.
+
+### Append
+
+```yaml {11}
+---
+table:
+  merge:
+    timestamp: signup
+    key: [id]
+  name: "customers"
+  pattern: "customers.*.psv"
+  attributes:
+  - ...
+  metadata:
+    ...
+    write: "APPEND" # When set to append, Starlake will only append new data to the table.
+```
+
+### Upsert
+We will distinguish here partitioned and non partitioned tables.
+
+For non partitioned tables, upsert is done by using the `merge` key in the table configuration. The `merge` key is a dictionary with two attributes: `key` and `timestamp`.
+- The `key` key is used to specify the column(s) that will be used to identify a row.
+- The `timestamp` key is used to specify the column that will be used to determine the latest version of a row.
+
+When `timestamp`is not specified, any existing row with the same `key` will be overwritten.
+When `timestamp` is defined, the most recent version of a row will be kept. The rows are sorted by the column referenced by the `timestamp` attribute in descending order.
+
+```yaml
+---
+table:
+  merge:
+    timestamp: signup
+    key: [id]
+  name: "customers"
+  pattern: "customers.*.psv"
+  attributes:
+  - ...
+  metadata:
+    ...
+    write: "MERGE" # When set to append, Starlake will only append new data to the table.
+    merge:
+      key: [id]
+      timestamp: signup
+```

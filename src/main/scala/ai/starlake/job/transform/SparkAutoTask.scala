@@ -7,6 +7,7 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadCmd}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
 import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -34,11 +35,11 @@ class SparkAutoTask(
     ) {
 
   override def run(): Try[JobResult] = {
-
     val res = runSpark()
     res match {
-      case Success(jobResult) if interactive.isEmpty =>
-        sink(jobResult.dataframe)
+      case Success(SparkJobResult(None, _)) =>
+      case Success(SparkJobResult(Some(dataframe), _)) if interactive.isEmpty =>
+        sink(Some(dataframe))
       case Failure(_) =>
     }
     res
@@ -311,7 +312,7 @@ class SparkAutoTask(
 
   def runSpark(): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
-    val res = Try {
+    Try {
       val localViews =
         if (
           sinkConfig
@@ -324,8 +325,8 @@ class SparkAutoTask(
         }
 
       val dynamicPartitionOverwrite = None // Handled by Spark save options.
-      val (preSql, sqlWithParameters, postSql, _) =
-        buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, localViews)
+      val (preSql, sqlWithParameters, postSql, isSelect) =
+        buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.SPARK, localViews)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.getEngine()}")
@@ -343,7 +344,7 @@ class SparkAutoTask(
             s"Only one of 'sql' or 'python' attribute may be defined ${taskDesc.name}"
           )
       }
-      dataframe match {
+      val jobResult = dataframe match {
         case None =>
           SparkJobResult(None)
         case Some(dataframe) =>
@@ -362,25 +363,26 @@ class SparkAutoTask(
 
           postSql.foreach(req => session.sql(req))
           // Let us return the Dataframe so that it can be piped to another sink
-          SparkJobResult(Some(dataframe))
+          if (isSelect)
+            SparkJobResult(Some(dataframe))
+          else
+            SparkJobResult(None)
       }
 
+      val end = Timestamp.from(Instant.now())
+      val jobResultCount = jobResult.dataframe match {
+        case None => -1
+        case Some(dataframe) =>
+          dataframe.count()
+      }
+      applyHiveTableAcl()
+      logAuditSuccess(start, end, jobResultCount)
+      jobResult
+    } recoverWith { case e: Exception =>
+      val end = Timestamp.from(Instant.now())
+      logAuditFailure(start, end, e)
+      Failure(e)
     }
-    val end = Timestamp.from(Instant.now())
-    res match {
-      case Success(jobResult) =>
-        val end = Timestamp.from(Instant.now())
-        val jobResultCount = jobResult.dataframe match {
-          case None => -1
-          case Some(dataframe) =>
-            dataframe.count()
-        }
-        applyHiveTableAcl()
-        logAuditSuccess(start, end, jobResultCount)
-      case Failure(e) =>
-        logAuditFailure(start, end, e)
-    }
-    res
   }
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
@@ -418,7 +420,11 @@ class SparkAutoTask(
     val df =
       connection.getType() match {
         case ConnectionType.FS =>
-          session.sql(sqlWithParameters)
+          val sqls = SQLUtils.stripComments(sqlWithParameters).split(";\n")
+          sqls.map { sql =>
+            logger.info(s"Running SQL: $sql")
+            session.sql(sql)
+          }.last
         case _ =>
           session.read
             .format(connection.sparkFormat.getOrElse(throw new Exception("Should never happen")))
