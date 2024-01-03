@@ -145,7 +145,7 @@ object Utils extends StrictLogging {
   ): (String, String) = {
     val (createDisposition, writeDisposition) =
       (hasMergeKeyDefined, writeMode) match {
-        case (true, wm) if wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND && !isJDBC =>
+        case (true, wm) if (wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND) && !isJDBC =>
           // when merging BigQuery/Spark should truncate the final table
           // For JDBC, we should not use this because teh table is truncated before the SQL request is executed.
           // We keep the mode to avoid breaking existing jobs

@@ -50,7 +50,6 @@ class BigQueryAutoTask(
         .getOrElse(BigQuerySink(connectionRef = Some(connectionRef)))
         .asInstanceOf[BigQuerySink]
 
-    tableId.toString
     BigQueryLoadConfig(
       connectionRef = Some(connectionRef),
       outputTableId = Some(tableId),
@@ -107,7 +106,7 @@ class BigQueryAutoTask(
 
     logger.info(s"running BQ Query with config $config")
     val (preSql, mainSql, postSql, mainIsSelect) =
-      buildAllSQLQueries(tableExists, bqSink.timestamp, Some(fullTableName))
+      buildAllSQLQueries(tableExists, bqSink.timestamp, Some(fullTableName), Engine.BQ)
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
 
@@ -121,16 +120,20 @@ class BigQueryAutoTask(
     logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
     val jobResult: Try[JobResult] = interactive match {
       case None =>
-        if (mainIsSelect)
+        if (mainIsSelect) {
+          // We run the select and sink the result into the table / materialized view
           bqNativeJob(
             config,
             mainSql
           ).run()
-        else
+        } else {
+          // we have a delete / insert / merge into statement
+          // We simply run them without any sink
           bqNativeJob(
             config,
             mainSql
           ).runInteractiveQuery()
+        }
       case Some(_) =>
         bqNativeJob(
           config,

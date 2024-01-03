@@ -2,6 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.model.Schema.SL_INTERNAL_TABLE
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
@@ -122,18 +123,18 @@ object SQLUtils extends StrictLogging {
     CCJSqlParserUtil.parse(parseable)
   }
 
-  private def buildWhenNotMatchedInsert(sql: String): String = {
-    val columnNamesString = getColumnNames(sql)
-    s"""WHEN NOT MATCHED THEN INSERT $columnNamesString VALUES $columnNamesString"""
-  }
-
   def getColumnNames(sql: String): String = {
     val columnNames = SQLUtils.extractColumnNames(sql)
     val columnNamesString = columnNames.mkString("(", ",", ")")
     columnNamesString
   }
 
-  private def buildWhenMatchedUpdate(sql: String) = {
+  private def whenNotMatchedInsert(sql: String): String = {
+    val columnNamesString = getColumnNames(sql)
+    s"""WHEN NOT MATCHED THEN INSERT $columnNamesString VALUES $columnNamesString"""
+  }
+
+  private def whenMatchedUpdate(sql: String) = {
     val columnNames = SQLUtils.extractColumnNames(sql)
     columnNames
       .map { colName =>
@@ -142,41 +143,44 @@ object SQLUtils extends StrictLogging {
       .mkString("WHEN MATCHED THEN UPDATE SET ", ", ", "")
   }
 
-  def buildMergeSql(
+  /** Build a merge SQL statement from a select statement without timestamp condition This relies on
+    * the engine name where preactions and canMerge determine how the request should be generated
+    *
+    * @param sql
+    * @param key
+    * @param database
+    * @param domain
+    * @param targetTable
+    * @param connection
+    * @param isFilesystem
+    * @param settings
+    * @return
+    */
+  def buildMergeSqlOnTransform(
     sql: String,
-    key: List[String],
+    mergeOptions: MergeOptions,
     database: Option[String],
     domain: String,
-    table: String,
+    targetTable: String,
     connection: Connection,
-    isFilesystem: Boolean
+    isFilesystem: Boolean,
+    targetTableExists: Boolean
   )(implicit settings: Settings): String = {
-
-    key match {
-      case Nil => sql
-      case cols =>
-        val joinCondition = cols
-          .map { col =>
-            s"SL_INTERNAL_SOURCE.$col = SL_INTERNAL_SINK.$col"
-          }
-          .mkString(" AND ")
-
-        val fullTableName = database match {
-          case Some(db) =>
-            OutputRef(db, domain, table).toSQLString(connection, isFilesystem)
-          case None =>
-            OutputRef("", domain, table).toSQLString(connection, isFilesystem)
-        }
-        s"""MERGE INTO
-           |$fullTableName as SL_INTERNAL_SINK
-           |USING($sql) as SL_INTERNAL_SOURCE ON $joinCondition
-           |${buildWhenMatchedUpdate(sql)}
-           |
-           |${buildWhenNotMatchedInsert(sql)}
-           |
-           |""".stripMargin
-
+    val fullTargetTableName = database match {
+      case Some(db) =>
+        OutputRef(db, domain, targetTable).toSQLString(connection, isFilesystem)
+      case None =>
+        OutputRef("", domain, targetTable).toSQLString(connection, isFilesystem)
     }
+    val columnNames = extractColumnNames(sql)
+    buildJDBCSqlMerge(
+      Right(sql),
+      fullTargetTableName,
+      targetTableExists,
+      mergeOptions,
+      columnNames,
+      connection.getJdbcEngineName()
+    )
   }
 
   def buildSingleSQLQueryOnTransform(
@@ -401,4 +405,156 @@ object SQLUtils extends StrictLogging {
     val sql2 = sql1.replaceAll("(?s)/\\*.*?\\*/", "")
     sql2.trim
   }
+
+  def buildJDBCSqlMerge(
+    sourceTableOrStatement: Either[String, String],
+    targetTable: String,
+    targetTableExists: Boolean,
+    merge: MergeOptions,
+    columns: List[String],
+    jdbcDatabase: Engine
+  )(implicit settings: Settings): String = {
+    val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
+    val quote = jdbcEngine.quote
+    val allAttributesSQL = columns.mkString(",")
+    val partitionKeys =
+      merge.key
+        .map(key => s"$quote$key$quote")
+        .mkString(",")
+
+    val (targetColumns, sourceColumns) =
+      columns
+        .map(col => s"$quote$col$quote" -> s"$SL_INTERNAL_TABLE.$quote$col$quote")
+        .unzip
+    val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
+    val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
+    val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
+    val matchedUpdateSql = columns
+      .map(col => s"$col = $SL_INTERNAL_TABLE.$col")
+      .mkString("SET ", ",", "")
+
+    val joinCondition =
+      merge.key.map(key => s"$SL_INTERNAL_TABLE.$key = $targetTable.$key").mkString(" AND ")
+
+    val nullJoinCondition =
+      merge.key.map(key => s"$targetTable.$key IS NULL").mkString(" AND ")
+
+    val mergeTimestampCol = merge.timestamp
+    val mergeOn = merge.on.getOrElse(MergeOn.BOTH)
+    val canMerge = jdbcEngine.canMerge
+
+    val (sourceTable, tempTable) = sourceTableOrStatement match {
+      case Left(sourceTable) =>
+        (sourceTable, Nil)
+      case Right(sourceStatement) =>
+        ("SL_SOURCE_TABLE", List(s"CREATE TEMPORARY TABLE SL_SOURCE_TABLE AS ($sourceStatement);"))
+    }
+    val result = (targetTableExists, mergeTimestampCol, mergeOn) match {
+      case (false, None, MergeOn.TARGET) =>
+        s"""
+           |SELECT  $allAttributesSQL  FROM $sourceTable
+            """.stripMargin
+
+      case (false, None, MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+
+      case (false, Some(_), MergeOn.TARGET) =>
+        s"""
+           |SELECT  $allAttributesSQL  FROM $sourceTable
+            """.stripMargin
+
+      case (false, Some(mergeTimestampCol), MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ
+           |  FROM $sourceTable;
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+
+      case (true, None, MergeOn.TARGET) =>
+        s"""
+           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+
+      case (true, None, MergeOn.BOTH) =>
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+
+      case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
+        if (canMerge) {
+          s"""
+             |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+             |WHEN MATCHED AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol THEN UPDATE $matchedUpdateSql
+             |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+             |""".stripMargin
+        } else {
+          s"""
+             |UPDATE $targetTable $matchedUpdateSql
+             |FROM $sourceTable AS $SL_INTERNAL_TABLE
+             |WHERE $joinCondition AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+             |
+             |/* merge into */
+             |INSERT INTO $targetTable$notMatchedInsertColumnsSql
+             |SELECT ${sourceColumns.mkString(",")} FROM $sourceTable AS $SL_INTERNAL_TABLE
+             |LEFT JOIN $targetTable ON ($joinCondition)
+             |WHERE $nullJoinCondition
+             |
+             |""".stripMargin
+
+        }
+      case (true, Some(mergeTimestampCol), MergeOn.BOTH) =>
+        if (canMerge) {
+          s"""
+             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |  SELECT  $allAttributesSQL,
+             |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+             |  FROM $sourceTable;
+             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+             |WHEN MATCHED AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol THEN UPDATE $matchedUpdateSql
+             |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+             |""".stripMargin
+        } else {
+          s"""
+             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |  SELECT  $allAttributesSQL,
+             |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ
+             |  FROM $sourceTable;
+             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |
+             |UPDATE $targetTable $matchedUpdateSql
+             |FROM SL_DEDUP AS $SL_INTERNAL_TABLE
+             |WHERE $joinCondition AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+             |
+             |/* merge into */
+             |INSERT INTO $targetTable$notMatchedInsertColumnsSql
+             |SELECT ${sourceColumns.mkString(",")} FROM SL_DEDUP AS $SL_INTERNAL_TABLE
+             |LEFT JOIN $targetTable ON ($joinCondition)
+             |WHERE $nullJoinCondition
+             |""".stripMargin
+        }
+      case (_, _, MergeOn(_)) =>
+        throw new Exception("Should never happen !!!")
+    }
+    val extraPreActions = tempTable.mkString
+    s"$extraPreActions\n$result"
+  }
+
 }

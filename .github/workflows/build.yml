@@ -15,6 +15,10 @@ env:
   SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
   SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  REDSHIFT_DATABASE: ${{ secrets.REDSHIFT_DATABASE }}
+  REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
+  REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+  REDSHIFT_USER: ${{ secrets.REDSHIFT_USER }}
 jobs:
   test:
     runs-on: ubuntu-latest

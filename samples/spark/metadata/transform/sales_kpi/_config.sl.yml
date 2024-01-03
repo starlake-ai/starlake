@@ -1,4 +1,7 @@
 transform:
   default:
-    write: OVERWRITE
+    write: APPEND
+    merge:
+      key: [id]
+
 

@@ -807,7 +807,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       // strip comments from SQL
       val mergedTasksWithStrippedComments = mergedTasks.map { task =>
         task.copy(
-          sql = task.sql.map(sql => SQLUtils.stripComments(sql))
+          presql = task.presql.map(sql => SQLUtils.stripComments(sql)),
+          sql = task.sql.map(sql => SQLUtils.stripComments(sql)),
+          postsql = task.postsql.map(sql => SQLUtils.stripComments(sql))
         )
       }
       AutoJobDesc(

@@ -319,7 +319,7 @@ class BigQueryNativeJob(
     // The very first time we update a audit table, we run it interactively to make sure there is not
     // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
     if (this.datasetId.getDataset() == settings.appConfig.audit.getDomain()) {
-      if (settings.appConfig.internal.map(_.bqAuditSaveInBatchMode).getOrElse(true)) {
+      if (settings.appConfig.internal.forall(_.bqAuditSaveInBatchMode)) {
         runBatchQuery().map(_ => BigQueryJobResult(None, 0L, None))
       } else {
         RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)

@@ -81,7 +81,7 @@ class JsonIngestionJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
 
     Try {
       val dfIn = loadJsonData()
