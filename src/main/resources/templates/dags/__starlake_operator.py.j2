@@ -1,5 +1,9 @@
 {% include 'templates/dags/__starlake_pre_load_strategy.py' %}
 {% include 'templates/dags/__common.py.j2' %}
+from typing import List
+
+from airflow.datasets import Dataset
+
 from airflow.models.baseoperator import BaseOperator
 
 from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperator
@@ -31,7 +35,11 @@ class IStarlakeOperator:
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Import job."""
-        pass
+        task_id = f"{domain}_import" if not task_id else task_id
+        arguments = ["import", "--includes", domain]
+        outlets = [Dataset(keep_ascii_only(domain))]
+        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStartegy|str|None=None, **kwargs) -> BaseOperator|None:
         """Pre-load job."""
@@ -198,11 +206,22 @@ class IStarlakeOperator:
 
     def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
         """Load job."""
-        pass
+        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        arguments = ["load", "--domains", domain, "--tables", table]
+        outlets = [Dataset(keep_ascii_only(f'{domain}.{table}'))]
+        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Transform job."""
-        pass
+        task_id = f"{transform_name}" if not task_id else task_id
+        arguments = ["transform", "--name", transform_name]
+        transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
+        if transform_options:
+            arguments.extend(["--options", transform_options])
+        outlets = [Dataset(keep_ascii_only(transform_name))]
+        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def pre_tasks(self, *args, **kwargs) -> BaseOperator|None:
         """Create cluster."""
@@ -211,3 +230,7 @@ class IStarlakeOperator:
     def post_tasks(self, *args, **kwargs) -> BaseOperator|None:
         """Delete cluster."""
         return None
+
+    def sl_job(self, task_id: str, arguments: dict, **kwargs) -> BaseOperator:
+        """Generic job."""
+        pass

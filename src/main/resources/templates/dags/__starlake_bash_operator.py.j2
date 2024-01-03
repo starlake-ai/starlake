@@ -8,43 +8,14 @@ class StarlakeBashOperator(IStarlakeOperator):
     def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, options: dict=options, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
-    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.sl_import()"""
-        task_id = f"{domain}_import" if not task_id else task_id
-        command=get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" import --includes {domain}"
+    def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeOperator.sl_job()"""
+        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
         return BashOperator(
             task_id=task_id,
             bash_command=command,
             cwd=SL_ROOT,
-            outlets=[Dataset(keep_ascii_only(domain))],
-            **kwargs
-        )
-
-    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.sl_load()"""
-        task_id = f"{domain}_{table}_load" if not task_id else task_id
-        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" load --domains {domain} --tables {table}"
-        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
-        return BashOperator(
-            task_id=task_id,
-            bash_command=command,
-            cwd=SL_ROOT,
-            outlets=[Dataset(keep_ascii_only(f'{domain}.{table}'))],
-            **kwargs
-        )
-
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.sl_transform()"""
-        task_id = f"{transform_name}" if not task_id else task_id
-        transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
-        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" transform --name {transform_name}" + (f" --options {transform_options}" if transform_options else "")
-        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
-        return BashOperator(
-            task_id=task_id,
-            bash_command=command,
-            cwd=SL_ROOT,
-            outlets=[Dataset(keep_ascii_only(transform_name))],
             **kwargs
         )
 
