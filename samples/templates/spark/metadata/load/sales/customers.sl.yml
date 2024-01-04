@@ -10,7 +10,7 @@ table:
     merge:
       # for BQ only
       #queryFilter: date(signup) in last(4)
-      #timestamp: signup
+      timestamp: signup
       key:
         - id
     primaryKey:

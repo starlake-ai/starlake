@@ -88,6 +88,20 @@ class BigQueryAutoTask(
     new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
   }
 
+  def computeQueries(): (List[String], String, List[String], Boolean) = {
+    val config = createBigQueryConfig()
+    val tableExists =
+      bqNativeJob(config, "ignore sql", Some(settings.appConfig.shortJobTimeoutMs))
+        .tableExists(
+          taskDesc.getDatabase(),
+          taskDesc.domain,
+          taskDesc.table
+        )
+    val (preSql, mainSql, postSql, mainIsSelect) =
+      buildAllSQLQueries(tableExists, bqSink.timestamp, Some(fullTableName), Engine.BQ)
+    (preSql, mainSql, postSql, mainIsSelect)
+  }
+
   def runBQ(): Try[JobResult] = {
     val config = createBigQueryConfig()
 
@@ -95,18 +109,9 @@ class BigQueryAutoTask(
     if (truncate) {
       // nothing to do, config is created with write_truncate in that case
     }
-    logger.info(s"running BQ Query start time $start")
-    val jobRunner = bqNativeJob(config, "ignore sql", Some(settings.appConfig.shortJobTimeoutMs))
-    val tableExists =
-      jobRunner.tableExists(
-        taskDesc.getDatabase(),
-        taskDesc.domain,
-        taskDesc.table
-      )
-
     logger.info(s"running BQ Query with config $config")
     val (preSql, mainSql, postSql, mainIsSelect) =
-      buildAllSQLQueries(tableExists, bqSink.timestamp, Some(fullTableName), Engine.BQ)
+      computeQueries()
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
 

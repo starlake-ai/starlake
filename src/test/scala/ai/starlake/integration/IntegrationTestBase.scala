@@ -21,6 +21,7 @@ class IntegrationTestBase
   logger.info(starlakeDir.pathAsString)
   def templates = starlakeDir / "samples" / "templates"
   def localDir = templates / "spark"
+  val incomingDir = localDir / "incoming"
   def sampleDataDir = templates / "sample-data"
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
