@@ -1,7 +1,5 @@
 {% include 'templates/dags/__starlake_pre_load_strategy.py' %}
 {% include 'templates/dags/__common.py.j2' %}
-from typing import List
-
 from airflow.datasets import Dataset
 
 from airflow.models.baseoperator import BaseOperator
@@ -17,21 +15,21 @@ from airflow.sensors.filesystem import FileSensor
 from airflow.utils.task_group import TaskGroup
 
 class IStarlakeOperator:
-    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str|None, options: dict = options, **kwargs) -> None:
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict = options, **kwargs) -> None:
         super().__init__(**kwargs)
         self.options = {} if not options else options
         pre_load_strategy = get_context_var(
             var_name="pre_load_strategy", 
-            default_value=StarlakePreLoadStartegy.NONE, 
+            default_value=StarlakePreLoadStrategy.NONE, 
             options=self.options
         ) if not pre_load_strategy else pre_load_strategy
 
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
-                StarlakePreLoadStartegy(pre_load_strategy) if StarlakePreLoadStartegy.is_valid(pre_load_strategy) \
-                    else StarlakePreLoadStartegy.NONE
+                StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
+                    else StarlakePreLoadStrategy.NONE
 
-        self.pre_load_strategy: StarlakePreLoadStartegy = pre_load_strategy
+        self.pre_load_strategy: StarlakePreLoadStrategy = pre_load_strategy
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Import job."""
@@ -41,18 +39,18 @@ class IStarlakeOperator:
         kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStartegy|str|None=None, **kwargs) -> BaseOperator|None:
+    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> BaseOperator|None:
         """Pre-load job."""
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
-                StarlakePreLoadStartegy(pre_load_strategy) if StarlakePreLoadStartegy.is_valid(pre_load_strategy) \
+                StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
                     else self.pre_load_strategy
 
         pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
 
         kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
 
-        if pre_load_strategy == StarlakePreLoadStartegy.IMPORTED:
+        if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
 
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
@@ -102,7 +100,7 @@ class IStarlakeOperator:
 
             return pre_load_tasks
 
-        elif pre_load_strategy == StarlakePreLoadStartegy.PENDING:
+        elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
 
@@ -142,7 +140,7 @@ class IStarlakeOperator:
 
             return pre_load_tasks
 
-        elif pre_load_strategy == StarlakePreLoadStartegy.ACK:
+        elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
 
@@ -224,11 +222,11 @@ class IStarlakeOperator:
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def pre_tasks(self, *args, **kwargs) -> BaseOperator|None:
-        """Create cluster."""
+        """Pre tasks."""
         return None
 
     def post_tasks(self, *args, **kwargs) -> BaseOperator|None:
-        """Delete cluster."""
+        """Post tasks."""
         return None
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:

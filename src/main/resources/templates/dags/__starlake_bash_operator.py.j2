@@ -5,7 +5,7 @@ from airflow.datasets import Dataset
 
 class StarlakeBashOperator(IStarlakeOperator):
     """Starlake Bash Operator."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, options: dict=options, **kwargs):
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, options: dict=options, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:

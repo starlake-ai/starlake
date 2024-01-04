@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-class StarlakePreLoadStartegy(str, Enum):
+class StarlakePreLoadStrategy(str, Enum):
     """Class with different pre load strategies."""
 
     IMPORTED = "imported"

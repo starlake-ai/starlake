@@ -284,7 +284,7 @@ class StarlakeDataprocCluster():
 
 class StarlakeDataprocOperator(IStarlakeOperator):
     """Starlake Dataproc Operator."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStartegy|str=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=options, **kwargs):
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=options, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster = StarlakeDataprocCluster() if not cluster else cluster
         self.spark_properties = {} if not spark_properties else spark_properties
