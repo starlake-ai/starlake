@@ -27,7 +27,7 @@ from airflow.sensors.filesystem import FileSensor
 
 from airflow.utils.task_group import TaskGroup
 
-DEFAULT_POOL="default_pool"
+DEFAULT_POOL:str ="default_pool"
 
 DEFAULT_DAG_ARGS = {
     'depends_on_past': False,
@@ -41,7 +41,7 @@ DEFAULT_DAG_ARGS = {
 class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
     def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.pool = __class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options),
+        self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets = kwargs.get('outlets', [])
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
