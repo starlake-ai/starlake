@@ -1,0 +1,4 @@
+{% include 'templates/dags/__common.py.j2' %}
+from ai.starlake.job.airflow.gcp.airflow_starlake_dataproc_job import AirflowStarlakeDataprocJob
+
+sl_job = AirflowStarlakeDataprocJob(options=options)

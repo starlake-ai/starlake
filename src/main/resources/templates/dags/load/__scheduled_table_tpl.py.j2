@@ -1,6 +1,12 @@
+from ai.starlake.job.common import keep_ascii_only, sanitize_id
+from ai.starlake.job.airflow.airflow_starlake_job import AirflowStarlakeJob, DEFAULT_DAG_ARGS
+
+import os
 from typing import List
 
 from airflow import DAG
+
+from airflow.datasets import Dataset
 
 from airflow.utils.task_group import TaskGroup
 
@@ -24,28 +30,25 @@ schedules= [{% for schedule in context.schedules %}
 ]
 
 def generate_dag_name(schedule):
-    return (f"{DEFAULT_DAG_NAME}-{schedule['schedule']}" if len(schedules) > 1 else DEFAULT_DAG_NAME)
+    dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
+    return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
 # [START instantiate_dag]
 for schedule in schedules:
-    tags = get_context_var(var_name='tags', default_value="", options=options).split()
-    datasets: List[Dataset] = []
+    tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
     for domain in schedule["domains"]:
         tags.append(domain["name"])
-        datasets.append(Dataset(keep_ascii_only(domain["name"])))
     with DAG(dag_id=generate_dag_name(schedule),
              schedule_interval=schedule['cron'],
              default_args=DEFAULT_DAG_ARGS,
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
              description=description) as dag:
-        start = sl_operator.dummy_op(task_id="start")
+        start = sl_job.dummy_op(task_id="start")
 
-        post_tasks = sl_operator.post_tasks(dag=dag)
+        post_tasks = sl_job.post_tasks(dag=dag)
 
-        all_done = sl_operator.dummy_op(task_id="all_done", outlets=datasets)
-
-        pre_load_tasks = sl_operator.sl_pre_load(
+        pre_load_tasks = sl_job.sl_pre_load(
             domain=domain["name"], 
             dag=dag
         )
@@ -54,7 +57,7 @@ for schedule in schedules:
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
-                    sl_operator.sl_load(
+                    sl_job.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 
                         table=table["name"]
@@ -67,6 +70,8 @@ for schedule in schedules:
             start >> pre_load_tasks >> all_load_tasks
         else:
             start >> all_load_tasks
+
+        all_done = sl_job.dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
 
         if post_tasks:
             all_load_tasks >> all_done >> post_tasks
