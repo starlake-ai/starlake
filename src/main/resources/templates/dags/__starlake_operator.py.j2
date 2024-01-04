@@ -1,20 +1,10 @@
 {% include 'templates/dags/__starlake_pre_load_strategy.py' %}
 {% include 'templates/dags/__common.py.j2' %}
-from airflow.datasets import Dataset
+from typing import Generic, TypeVar
 
-from airflow.models.baseoperator import BaseOperator
+T = TypeVar("T")
 
-from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperator
-from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
-
-from airflow.operators.bash import BashOperator
-from airflow.operators.python import ShortCircuitOperator
-
-from airflow.sensors.filesystem import FileSensor
-
-from airflow.utils.task_group import TaskGroup
-
-class IStarlakeOperator:
+class IStarlakeJob(Generic[T]):
     def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict = options, **kwargs) -> None:
         super().__init__(**kwargs)
         self.options = {} if not options else options
@@ -31,16 +21,78 @@ class IStarlakeOperator:
 
         self.pre_load_strategy: StarlakePreLoadStrategy = pre_load_strategy
 
-    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        self.sl_env_vars = self._get_sl_env_vars()
+        self.sl_root = get_context_var(var_name='SL_ROOT', default_value='file://tmp', options=self.sl_env_vars)
+        self.sl_datasets = get_context_var(var_name='SL_DATASETS', default_value=f'{self.sl_root}/datasets', options=self.sl_env_vars)
+
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> T:
         """Import job."""
+        pass
+
+    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> T|None:
+        """Pre-load job."""
+        pass
+
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> T:
+        """Load job."""
+        pass
+
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> T:
+        """Transform job."""
+        pass
+
+    def pre_tasks(self, *args, **kwargs) -> T|None:
+        """Pre tasks."""
+        return None
+    
+    def post_tasks(self, *args, **kwargs) -> T|None:
+        """Post tasks."""
+        return None
+
+    def sl_job(self, task_id: str, arguments: dict, **kwargs) -> T:
+        """Generic job."""
+        pass
+
+    def _get_sl_env_vars(self) -> dict:
+        try:
+            return json.loads(get_context_var(var_name="sl_env_var", options=self.options))
+        except MissingEnvironmentVariable:
+            return {}
+
+from airflow.datasets import Dataset
+
+from airflow.models.baseoperator import BaseOperator
+
+from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperator
+from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
+
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import ShortCircuitOperator
+
+from airflow.sensors.filesystem import FileSensor
+
+from airflow.utils.task_group import TaskGroup
+
+DEFAULT_POOL="default_pool"
+
+class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict = options, **kwargs) -> None:
+        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+        self.pool = get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options)
+
+    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeJob.sl_import()"""
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--includes", domain]
         outlets = [Dataset(keep_ascii_only(domain))]
-        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        kwargs.update({
+            'outlets': kwargs.get('outlets', []).extend(outlets),
+            'pool': kwargs.get('pool', self.pool)
+        })
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> BaseOperator|None:
-        """Pre-load job."""
+        """Overrides IStarlakeJob.sl_pre_load()"""
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
                 StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
@@ -48,7 +100,7 @@ class IStarlakeOperator:
 
         pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
 
-        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
         if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
 
@@ -57,7 +109,7 @@ class IStarlakeOperator:
 
                 incoming_path = get_context_var(
                     var_name='incoming_path', 
-                    default_value=f'{SL_ROOT}/incoming', 
+                    default_value=f'{self.sl_root}/incoming', 
                     options=self.options
                 )
                 list_files_command = f'ls {incoming_path}/{domain}/* | wc -l'
@@ -106,7 +158,7 @@ class IStarlakeOperator:
 
                 pending_path = get_context_var(
                     var_name='pending_path', 
-                    default_value=f'{SL_DATASETS}/pending', 
+                    default_value=f'{self.sl_datasets}/pending', 
                     options=self.options
                 )
                 list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
@@ -152,7 +204,7 @@ class IStarlakeOperator:
 
                 ack_file = get_context_var(
                     var_name='global_ack_file_path', 
-                    default_value=f'{SL_DATASETS}/pending/{domain}/{TODAY}.ack', 
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{TODAY}.ack', 
                     options=self.options
                 )
 
@@ -184,7 +236,7 @@ class IStarlakeOperator:
                     task_id=sanitize_id(f'{domain}_delete_ack'),
                     bucket_name=gcs_ack_bucket,
                     objects=[gcs_ack_file],
-                    pool=pool
+                    **kwargs
                 ) if gcs_result \
                     else BashOperator(
                         task_id=sanitize_id(f'{domain}_delete_ack'),
@@ -203,32 +255,30 @@ class IStarlakeOperator:
             return self.pre_tasks(**kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
-        """Load job."""
+        """Overrides IStarlakeJob.sl_load()"""
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         outlets = [Dataset(keep_ascii_only(f'{domain}.{table}'))]
-        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        kwargs.update({
+            'outlets': kwargs.get('outlets', []).extend(outlets),
+            'pool': kwargs.get('pool', self.pool)
+        })
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
-        """Transform job."""
+        """Overrides IStarlakeJob.sl_transform()"""
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
         transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
         if transform_options:
             arguments.extend(["--options", transform_options])
         outlets = [Dataset(keep_ascii_only(transform_name))]
-        kwargs.update({'outlets': kwargs.get('outlets', []).extend(outlets)})
+        kwargs.update({
+            'outlets': kwargs.get('outlets', []).extend(outlets),
+            'pool': kwargs.get('pool', self.pool)
+        })
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def pre_tasks(self, *args, **kwargs) -> BaseOperator|None:
-        """Pre tasks."""
-        return None
-
-    def post_tasks(self, *args, **kwargs) -> BaseOperator|None:
-        """Post tasks."""
-        return None
-
-    def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
-        """Generic job."""
-        pass
+    def dummy_op(self, task_id, **kwargs):
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        return DummyOperator(task_id=task_id, **kwargs)

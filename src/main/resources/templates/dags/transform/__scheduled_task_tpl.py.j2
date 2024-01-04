@@ -45,13 +45,13 @@ with DAG(dag_id=DEFAULT_DAG_NAME,
          tags=set([tag.upper() for tag in tags]),
          description=description) as dag:
 
-    start = dummy_op(task_id="start")
+    start = sl_operator.dummy_op(task_id="start")
 
     pre_tasks = sl_operator.pre_tasks(dag=dag)
 
     post_tasks = sl_operator.post_tasks(dag=dag)
 
-    all_done = dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))])
+    all_done = sl_operator.dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))])
 
     def create_task(airflow_task_id: str, transform_name: str, task_type: str):
         if (task_type == 'task'):

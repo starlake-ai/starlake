@@ -3,20 +3,20 @@ from airflow.operators.bash import BashOperator
 
 from airflow.datasets import Dataset
 
-class StarlakeBashOperator(IStarlakeOperator):
-    """Starlake Bash Operator."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, options: dict=options, **kwargs):
+class AirflowStarlakeBashJob(AirflowStarlakeJob):
+    """Airflow Starlake Bash Job."""
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.sl_job()"""
+        """Overrides AirflowStarlakeJob.sl_job()"""
         command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
-        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return BashOperator(
             task_id=task_id,
             bash_command=command,
-            cwd=SL_ROOT,
+            cwd=self.sl_root,
             **kwargs
         )
 
-sl_operator = StarlakeBashOperator()
+sl_operator = AirflowStarlakeBashJob(options=options)

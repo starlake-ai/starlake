@@ -39,11 +39,11 @@ for schedule in schedules:
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
              description=description) as dag:
-        start = dummy_op(task_id="start")
+        start = sl_operator.dummy_op(task_id="start")
 
         post_tasks = sl_operator.post_tasks(dag=dag)
 
-        all_done = dummy_op(task_id="all_done", outlets=datasets)
+        all_done = sl_operator.dummy_op(task_id="all_done", outlets=datasets)
 
         pre_load_tasks = sl_operator.sl_pre_load(
             domain=domain["name"], 

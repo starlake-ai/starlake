@@ -7,18 +7,18 @@ from airflow.datasets import Dataset
 
 from airflow.utils.task_group import TaskGroup
 
-class StarlakeCloudRunOperator(IStarlakeOperator):
-    """Starlake Cloud Run Operator."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict = options, sl_env_vars: dict = SL_ENV_VARS, retry_on_failure: bool=None, **kwargs):
+class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
+    """Airflow Starlake Cloud Run Job."""
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, retry_on_failure: bool=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
-        self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(sl_env_vars.items())])
+        self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(self.sl_env_vars.items())])
         self.retry_on_failure = get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
 
-    def __job_with_completion_sensors__(self, task_id: str, command: str, outlets: str, **kwargs) -> TaskGroup:
-        kwargs.update({'pool': kwargs.get('pool', DEFAULT_POOL)})
+    def __job_with_completion_sensors__(self, task_id: str, command: str, **kwargs) -> TaskGroup:
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
         with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
             # asynchronous job
             job_task = BashOperator(
@@ -40,7 +40,6 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
                 cloud_run_job_region=self.cloud_run_job_region, 
                 source_task_id=task_id,
                 retry_exit_code=1 if self.retry_on_failure else None,
-                outlets=outlets if self.retry_on_failure else None,
                 **kwargs
             )
             if self.retry_on_failure:
@@ -53,16 +52,15 @@ class StarlakeCloudRunOperator(IStarlakeOperator):
                     project_id=self.project_id, 
                     cloud_run_job_region=self.cloud_run_job_region, 
                     source_task_id=task_id, 
-                    outlets=outlets, 
                     **kwargs
                 )
                 job_task >> completion_sensor >> job_status
         return task_completion_sensors
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeOperator.sl_job()"""
+        """Overrides AirflowStarlakeJob.sl_job()"""
         command = ' '.join(arguments)
-        return self.__job_with_completion_sensors__(task_id, command, domain, **kwargs)
+        return self.__job_with_completion_sensors__(task_id=task_id, command=command, **kwargs)
 
 class CloudRunJobCompletionSensor(BashSensor):
     '''
@@ -75,7 +73,6 @@ class CloudRunJobCompletionSensor(BashSensor):
                 mode="reschedule",
                 retries=3, #the number of retries that should be performed before failing the task to avoid infinite loops
                 retry_exit_code=retry_exit_code, #available in 2.6. Implies to combine this sensor and the bottom operator
-                outlets=[Dataset(keep_ascii_only(outlets))],
                 **kwargs
             )
         else:
@@ -97,4 +94,4 @@ class CloudRunJobCheckStatusOperator(BashOperator):
             **kwargs
         )
 
-sl_operator = StarlakeCloudRunOperator()
+sl_operator = AirflowStarlakeCloudRunJob(options=options)
