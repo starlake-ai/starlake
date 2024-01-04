@@ -1,0 +1,54 @@
+import re
+import os
+import json
+from datetime import timedelta, datetime
+
+from airflow.models import Variable
+
+from airflow.operators.dummy import DummyOperator
+
+from airflow.utils.trigger_rule import TriggerRule
+
+def keep_ascii_only(text):
+    return re.sub(r'[^\x00-\x7F]+', '_', text)
+
+def sanitize_id(id: str):
+    return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", id.replace("$", "S")))
+
+class MissingEnvironmentVariable(Exception):
+    pass
+
+def get_context_var(var_name: str, default_value: any=None, options: dict = None, **kwargs):
+    if options.get(var_name):
+        return options.get(var_name)
+    elif default_value is not None:
+        return default_value
+    elif Variable.get(var_name, default_var=None, **kwargs) is not None:
+        return Variable.get(var_name)
+    elif os.getenv(var_name) is not None:
+        return os.getenv(var_name)
+    else:
+        raise MissingEnvironmentVariable(f"{var_name} does not exist")
+
+description="""{{ context.config.comment }}"""
+
+template="{{ context.config.template }}"
+
+options={
+    {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
+    {% endfor %}
+}
+
+DEFAULT_DAG_ARGS = {
+    'depends_on_past': False,
+    'start_date': datetime(2023, 1, 1),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1, 
+    'retry_delay': timedelta(minutes=5),
+    'project_id': "${project_id}"
+}
+
+TODAY = datetime.today().strftime('%Y-%m-%d')
+
+DEFAULT_DAG_NAME=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
