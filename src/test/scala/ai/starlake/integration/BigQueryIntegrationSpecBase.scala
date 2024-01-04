@@ -4,15 +4,15 @@ class BigQueryIntegrationSpecBase extends IntegrationTestBase {
 
   val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
 
-  protected def clearDataDirectories(): Unit = {
+  protected def clearDataDirectories(copy: Boolean = true): Unit = {
     directoriesToClear.foreach { dir =>
       val path = localDir / dir
       if (path.exists) {
         path.delete()
       }
     }
-    val incomingDir = localDir / "incoming"
-    sampleDataDir.copyTo(incomingDir)
+    if (copy)
+      sampleDataDir.copyTo(incomingDir)
 
   }
 
@@ -23,7 +23,7 @@ class BigQueryIntegrationSpecBase extends IntegrationTestBase {
   override def afterAll(): Unit = {
     super.afterAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      clearDataDirectories()
+      clearDataDirectories(false)
     }
   }
 }

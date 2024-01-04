@@ -15,7 +15,6 @@ class LoadSnowflakeIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
     ) {
       clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
       Main.main(
         Array("import")
       )

@@ -404,7 +404,7 @@ trait IngestionJob extends SparkJob {
             }
             if (twoSteps) {
               JdbcDbUtils.withJDBCConnection(connectionRefOptions) { conn =>
-                JdbcDbUtils.dropTable(firstStepTempTable, conn)
+                // JdbcDbUtils.dropTable(firstStepTempTable, conn)
               }
             }
             result
