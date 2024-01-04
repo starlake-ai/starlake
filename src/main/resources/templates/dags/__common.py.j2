@@ -39,29 +39,6 @@ options={
     {% endfor %}
 }
 
-# SL_ENV_VARS is a map of env vars to add to the cloud run job ot the dataproc cluster properties
-def get_sl_env_vars() -> dict:
-    try:
-        return json.loads(get_context_var(var_name="sl_env_var", options=options))
-    except MissingEnvironmentVariable:
-        return {}
-
-SL_ENV_VARS = get_sl_env_vars()
-
-SL_ROOT = get_context_var(
-    var_name='SL_ROOT', 
-    default_value='file://tmp', 
-    options=SL_ENV_VARS
-)
-
-SL_DATASETS = get_context_var(
-    var_name='SL_DATASETS', 
-    default_value=f'{SL_ROOT}/datasets', 
-    options=SL_ENV_VARS
-)
-
-DEFAULT_POOL="default_pool"
-
 DEFAULT_DAG_ARGS = {
     'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
@@ -73,8 +50,5 @@ DEFAULT_DAG_ARGS = {
 }
 
 TODAY = datetime.today().strftime('%Y-%m-%d')
-
-def dummy_op(task_id, trigger_rule=TriggerRule.ALL_SUCCESS, pool=DEFAULT_POOL, **kwargs):
-    return DummyOperator(task_id=task_id, trigger_rule=trigger_rule, pool=pool, **kwargs)
 
 DEFAULT_DAG_NAME=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
