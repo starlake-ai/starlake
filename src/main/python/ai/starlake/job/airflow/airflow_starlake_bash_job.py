@@ -1,7 +1,10 @@
-{% include 'templates/dags/__starlake_operator.py.j2' %}
-from airflow.operators.bash import BashOperator
+from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 
-from airflow.datasets import Dataset
+from ai.starlake.job.airflow.airflow_starlake_job import AirflowStarlakeJob
+
+from airflow.models.baseoperator import BaseOperator
+
+from airflow.operators.bash import BashOperator
 
 class AirflowStarlakeBashJob(AirflowStarlakeJob):
     """Airflow Starlake Bash Job."""
@@ -10,7 +13,7 @@ class AirflowStarlakeBashJob(AirflowStarlakeJob):
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
         """Overrides AirflowStarlakeJob.sl_job()"""
-        command = get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
+        command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return BashOperator(
             task_id=task_id,
@@ -18,5 +21,3 @@ class AirflowStarlakeBashJob(AirflowStarlakeJob):
             cwd=self.sl_root,
             **kwargs
         )
-
-sl_operator = AirflowStarlakeBashJob(options=options)
