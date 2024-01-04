@@ -1,0 +1,105 @@
+from typing import List
+
+from airflow import DAG
+
+# Operators; we need this to operate!
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import BranchPythonOperator
+
+from airflow.decorators import task
+
+from airflow.exceptions import AirflowException
+
+from airflow.utils.task_group import TaskGroup
+from airflow.utils.trigger_rule import TriggerRule
+
+#cron="{{ context.cron }}"
+
+task_deps=json.loads("""{{ context.dependencies }}""")
+
+load_dependencies = get_context_var(var_name='load_dependencies', default_value='False', options=options)
+
+schedule = None
+
+datasets: List[Dataset] = []
+
+def _load_datasets(task: dict):
+    datasets.append(Dataset(keep_ascii_only(task['data']['name'])))
+    if 'children' in task:
+        for child in task['children']:
+            _load_datasets(child)
+
+if load_dependencies.lower() != 'true':
+    for task in task_deps:
+        _load_datasets(task)
+    schedule = datasets
+
+tags = get_context_var(var_name='tags', default_value="", options=options).split()
+
+# [START instantiate_dag]
+with DAG(dag_id=DEFAULT_DAG_NAME,
+         schedule_interval=None, #=cron FIXME
+         schedule=schedule,
+         default_args=DEFAULT_DAG_ARGS,
+         catchup=False,
+         tags=set([tag.upper() for tag in tags]),
+         description=description) as dag:
+
+    start = sl_operator.dummy_op(task_id="start")
+
+    pre_tasks = sl_operator.pre_tasks(dag=dag)
+
+    post_tasks = sl_operator.post_tasks(dag=dag)
+
+    all_done = sl_operator.dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))])
+
+    def create_task(airflow_task_id: str, transform_name: str, task_type: str):
+        if (task_type == 'task'):
+            return sl_operator.sl_transform(
+                task_id=airflow_task_id, 
+                transform_name=transform_name
+            )
+        else:
+            load_domain_and_table = transform_name.split(".",1)
+            domain = load_domain_and_table[0]
+            table = load_domain_and_table[1]
+            return sl_operator.sl_load(
+                task_id=airflow_task_id, 
+                domain=domain, 
+                table=table
+            )
+
+    # build takgroups recursively
+    def generate_task_group_for_task(transform_task):
+        transform_name = transform_task['data']['name']
+        airflow_task_group_id = sanitize_id(transform_name)
+        airflow_task_id = airflow_task_group_id
+        task_type = transform_task['data']['typ']
+        if (task_type == 'task'):
+            airflow_task_id = airflow_task_group_id + "_task"
+        else:
+            airflow_task_id = airflow_task_group_id + "_table"
+
+        if (load_dependencies.lower() == 'true' and 'children' in transform_task):
+            with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
+                for transform_sub_task in transform_task['children']:
+                    generate_task_group_for_task(transform_sub_task)
+                upstream_tasks = list(airflow_task_group.children.values())
+                airflow_task = create_task(airflow_task_id, transform_name, task_type)
+                airflow_task.set_upstream(upstream_tasks)
+            return airflow_task_group
+        else:
+            airflow_task = create_task(airflow_task_id=airflow_task_id, transform_name=transform_name, task_type=task_type)
+            return airflow_task
+
+    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
+
+    if pre_tasks:
+        start >> pre_tasks >> all_transform_tasks
+    else:
+        start >> all_transform_tasks
+
+    all_transform_tasks >> all_done
+
+    if post_tasks:
+        all_done >> post_tasks
