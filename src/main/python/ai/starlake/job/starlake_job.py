@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 
-from ai.starlake.job.common import MissingEnvironmentVariable
+from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 

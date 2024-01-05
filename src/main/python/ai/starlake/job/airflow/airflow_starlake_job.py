@@ -2,11 +2,9 @@ import os
 import re
 from datetime import timedelta, datetime
 
-from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob
 
-from ai.starlake.job.starlake_job import IStarlakeJob
-
-from ai.starlake.job.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id, TODAY
+from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id, TODAY
 
 from airflow.datasets import Dataset
 

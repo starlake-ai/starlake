@@ -3,7 +3,7 @@ import uuid
 
 from airflow import DAG
 
-from ai.starlake.job.common import TODAY
+from ai.starlake.common import TODAY
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 
