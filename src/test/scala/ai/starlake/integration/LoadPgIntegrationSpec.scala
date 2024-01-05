@@ -1,19 +1,19 @@
 package ai.starlake.integration
 
 import ai.starlake.job.Main
+import better.files.File
 
-class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override def sampleDataDir = localDir / "sample-data"
+class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
+  override def templates: File = starlakeDir / "samples"
+  override def localDir: File = templates / "spark"
+  override def sampleDataDir: File = localDir / "sample-data"
+
   if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-    "Import / Load / Transform BQ" should "succeed" in {
+    "Import / Load / Transform PG" should "succeed" in {
       withEnvs(
         "SL_ROOT"                                       -> localDir.pathAsString,
-        "SL_ENV"                                        -> "BQ",
-        "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
-        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
-        "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
+        "SL_ENV"                                        -> "PG",
+        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC"
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
@@ -25,15 +25,14 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         )
       }
     }
-    "Import / Load / Transform BQ 2" should "succeed" in {
+    "Import / Load / Transform PG 2" should "succeed" in {
       withEnvs(
         "SL_ROOT"                                       -> localDir.pathAsString,
-        "SL_ENV"                                        -> "BQ",
+        "SL_ENV"                                        -> "PG",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC"
       ) {
         val sampleDataDir2 = localDir / "sample-data2"
-        sampleDataDir2.copyTo(incomingDir)
-
+        copyFilesToIncomingDir(sampleDataDir2)
         Main.main(
           Array("import")
         )

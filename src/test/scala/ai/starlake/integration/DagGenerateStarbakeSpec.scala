@@ -15,8 +15,8 @@ class DagGenerateStarbakeSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate", "--clean", "--tags", "cust")

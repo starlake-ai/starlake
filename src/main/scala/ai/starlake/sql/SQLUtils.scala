@@ -473,7 +473,7 @@ object SQLUtils extends StrictLogging {
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
-           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) AS SL_SEQ
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
            |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
             """.stripMargin

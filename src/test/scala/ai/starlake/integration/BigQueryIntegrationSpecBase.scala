@@ -1,29 +1,21 @@
 package ai.starlake.integration
 
+import com.google.cloud.bigquery.{BigQueryOptions, TableId}
+
 class BigQueryIntegrationSpecBase extends IntegrationTestBase {
 
-  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
+  val bigquery = BigQueryOptions.newBuilder().build().getService()
 
-  protected def clearDataDirectories(copy: Boolean = true): Unit = {
-    directoriesToClear.foreach { dir =>
-      val path = localDir / dir
-      if (path.exists) {
-        path.delete()
-      }
-    }
-    if (copy)
-      sampleDataDir.copyTo(incomingDir)
-
-  }
-
+  /** We delete the table before running the test to ensure that the test is run in a clean
+    * environment. We do not delete the table after afterwards because we want to be able to inspect
+    * the table after the test.
+    */
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {}
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
     if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-      clearDataDirectories(false)
+      bigquery.delete(TableId.of("sales", "customers"))
+      bigquery.delete(TableId.of("sales", "orders"))
+      bigquery.delete(TableId.of("hr", "sellers"))
+      bigquery.delete(TableId.of("hr", "locations"))
     }
   }
 }

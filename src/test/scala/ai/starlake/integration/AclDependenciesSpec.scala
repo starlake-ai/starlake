@@ -4,8 +4,6 @@ import ai.starlake.job.Main
 
 class AclDependenciesSpec extends IntegrationTestBase {
 
-  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
-
   "All ACL Generation" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       Main.main(
