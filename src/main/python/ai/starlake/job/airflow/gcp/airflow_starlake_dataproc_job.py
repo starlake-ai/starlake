@@ -164,11 +164,11 @@ class StarlakeDataprocCluster():
         )
 
     def delete_dataproc_cluster(
-        self, 
+        self,
         dag: DAG=None,
-        task_id: str=None, 
-        cluster_name: str=None, 
-        region: str=None, 
+        task_id: str=None,
+        cluster_name: str=None,
+        region: str=None,
         **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
         dag_id = dag.dag_id if dag else self.dag_id
