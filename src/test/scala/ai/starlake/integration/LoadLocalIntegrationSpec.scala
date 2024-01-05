@@ -3,6 +3,10 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 
 class LoadLocalIntegrationSpec extends JDBCIntegrationSpecBase {
+  override def templates = starlakeDir / "samples"
+  override def localDir = templates / "spark"
+  override val incomingDir = localDir / "incoming"
+  override def sampleDataDir = localDir / "sample-data"
   "Import / Load / Transform Local" should "succeed" in {
     withEnvs(
       "SL_ROOT"                                       -> localDir.pathAsString,
@@ -12,6 +16,10 @@ class LoadLocalIntegrationSpec extends JDBCIntegrationSpecBase {
     ) {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
+      val hrDir = incomingDir / "hr"
+      hrDir.list(_.isRegularFile).foreach(_.delete())
+      val salesDir = incomingDir / "sales"
+      salesDir.list(_.isRegularFile).foreach(_.delete())
       Main.main(
         Array("import")
       )

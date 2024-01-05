@@ -95,7 +95,6 @@ object FlatRowValidator extends GenericRowValidator {
           for (i <- rowSeq.indices) {
             val colValue = Option(rowSeq(i).asInstanceOf[String])
             val (colAttribute, colType) = attributesAndTypes(i)
-            // val colResult = IngestionUtil.fastValidateCol(colValue, colAttribute, colType)
             val colResult = IngestionUtil.validateCol(
               colValue,
               colAttribute,
@@ -115,7 +114,7 @@ object FlatRowValidator extends GenericRowValidator {
             else Some(toOriginalFormat(row, format, separator))
           )
         }
-      } persist cacheStorageLevel
+      } // persist cacheStorageLevel
 
     val rejectedRDD = checkedRDD
       .filter(_.isRejected)
