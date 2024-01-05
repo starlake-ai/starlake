@@ -2205,6 +2205,23 @@ object IngestionUtil {
     )
   }
 
+  def fastValidateCol(
+    colRawValue: Option[String],
+    colAttribute: Attribute,
+    tpe: Type
+  ): ColResult = {
+    val sparkValue = colRawValue.map(tpe.sparkValue).orNull
+    ColResult(
+      ColInfo(
+        colRawValue,
+        colAttribute.name,
+        tpe.name,
+        tpe.pattern,
+        success = true
+      ),
+      sparkValue
+    )
+  }
 }
 case class NativeBqLoadInfo(
   totalAcceptedRows: Long,
