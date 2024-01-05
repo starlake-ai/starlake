@@ -5,9 +5,9 @@ from airflow import DAG
 
 from ai.starlake.common import TODAY
 
-from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
+from ai.starlake.job import StarlakePreLoadStrategy
 
-from ai.starlake.job.airflow.airflow_starlake_job import AirflowStarlakeJob
+from ai.starlake.job.airflow import AirflowStarlakeJob
 
 from airflow.models.baseoperator import BaseOperator
 
