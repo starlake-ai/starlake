@@ -67,8 +67,8 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 pre_tasks = self.pre_tasks(**kwargs)
 
                 incoming_path = __class__.get_context_var(
-                    var_name='incoming_path', 
-                    default_value=f'{self.sl_root}/incoming', 
+                    var_name='incoming_path',
+                    default_value=f'{self.sl_root}/incoming',
                     options=self.options
                 )
                 list_files_command = f'ls {incoming_path}/{domain}/* | wc -l'
@@ -98,7 +98,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 list_files >> skip_or_start
 
                 import_task = self.sl_import(
-                    task_id=sanitize_id(f'{domain}_import'), 
+                    task_id=sanitize_id(f'{domain}_import'),
                     domain=domain,
                     **kwargs
                 )
@@ -117,7 +117,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
 
                 pending_path = __class__.get_context_var(
                     var_name='pending_path', 
-                    default_value=f'{self.sl_datasets}/pending', 
+                    default_value=f'{self.sl_datasets}/pending',
                     options=self.options
                 )
                 list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
@@ -156,14 +156,14 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 pre_tasks = self.pre_tasks(**kwargs)
 
                 ack_wait_timeout = int(__class__.get_context_var(
-                    var_name='ack_wait_timeout', 
+                    var_name='ack_wait_timeout',
                     default_value=60*60, # 1 hour
                     options=self.options
                 ))
 
                 ack_file = __class__.get_context_var(
-                    var_name='global_ack_file_path', 
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{TODAY}.ack', 
+                    var_name='global_ack_file_path',
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{TODAY}.ack',
                     options=self.options
                 )
 

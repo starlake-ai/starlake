@@ -1,7 +1,5 @@
 import os
 
-from ai.starlake.common import keep_ascii_only
-
 from ai.starlake.job import StarlakePreLoadStrategy
 
 from ai.starlake.job.airflow import AirflowStarlakeJob
@@ -44,7 +42,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
             completion_sensor = CloudRunJobCompletionSensor(
                 task_id=check_completion_id, 
                 project_id=self.project_id, 
-                cloud_run_job_region=self.cloud_run_job_region, 
+                cloud_run_job_region=self.cloud_run_job_region,
                 source_task_id=task_id,
                 retry_exit_code=1 if self.retry_on_failure else None,
                 **kwargs
@@ -57,7 +55,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 job_status = CloudRunJobCheckStatusOperator(
                     task_id=get_completion_status_id, 
                     project_id=self.project_id, 
-                    cloud_run_job_region=self.cloud_run_job_region, 
+                    cloud_run_job_region=self.cloud_run_job_region,
                     source_task_id=task_id, 
                     **kwargs
                 )
