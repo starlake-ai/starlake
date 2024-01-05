@@ -1,10 +1,10 @@
 import os
 
-from ai.starlake.job.common import keep_ascii_only
+from ai.starlake.common import keep_ascii_only
 
-from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
+from ai.starlake.job import StarlakePreLoadStrategy
 
-from ai.starlake.job.airflow.airflow_starlake_job import AirflowStarlakeJob
+from ai.starlake.job.airflow import AirflowStarlakeJob
 
 from airflow.models.baseoperator import BaseOperator
 

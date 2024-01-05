@@ -1,8 +1,7 @@
-from ai.starlake.job.common import keep_ascii_only, sanitize_id
-from ai.starlake.job.airflow.airflow_starlake_job import AirflowStarlakeJob, DEFAULT_DAG_ARGS
+from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 
 import os
-from typing import List
 
 from airflow import DAG
 
