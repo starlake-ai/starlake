@@ -10,7 +10,7 @@ application:
     postgresql:
       type: jdbc
       options:
-        url: "jdbc:postgresql:hr_sales"
+        url: "jdbc:postgresql:starlake"
         driver: "org.postgresql.Driver"
         supportTruncateOnInsert: false
         user: "hruser"

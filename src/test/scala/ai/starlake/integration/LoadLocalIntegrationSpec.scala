@@ -2,7 +2,7 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class LoadLocalIntegrationSpec extends BigQueryIntegrationSpecBase {
+class LoadLocalIntegrationSpec extends JDBCIntegrationSpecBase {
   "Import / Load / Transform Local" should "succeed" in {
     withEnvs(
       "SL_ROOT"                                       -> localDir.pathAsString,
@@ -10,8 +10,8 @@ class LoadLocalIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
       "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
       Main.main(
         Array("import")
       )
@@ -20,4 +20,5 @@ class LoadLocalIntegrationSpec extends BigQueryIntegrationSpecBase {
       )
     }
   }
+
 }
