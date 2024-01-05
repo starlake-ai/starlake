@@ -40,8 +40,8 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
             # check job completion
             check_completion_id = task_id + '_check_completion'
             completion_sensor = CloudRunJobCompletionSensor(
-                task_id=check_completion_id, 
-                project_id=self.project_id, 
+                task_id=check_completion_id,
+                project_id=self.project_id,
                 cloud_run_job_region=self.cloud_run_job_region,
                 source_task_id=task_id,
                 retry_exit_code=1 if self.retry_on_failure else None,
@@ -53,10 +53,10 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 # check job status
                 get_completion_status_id = task_id + '_get_completion_status'
                 job_status = CloudRunJobCheckStatusOperator(
-                    task_id=get_completion_status_id, 
-                    project_id=self.project_id, 
+                    task_id=get_completion_status_id,
+                    project_id=self.project_id,
                     cloud_run_job_region=self.cloud_run_job_region,
-                    source_task_id=task_id, 
+                    source_task_id=task_id,
                     **kwargs
                 )
                 job_task >> completion_sensor >> job_status

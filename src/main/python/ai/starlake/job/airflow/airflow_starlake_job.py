@@ -116,7 +116,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 pre_tasks = self.pre_tasks(**kwargs)
 
                 pending_path = __class__.get_context_var(
-                    var_name='pending_path', 
+                    var_name='pending_path',
                     default_value=f'{self.sl_datasets}/pending',
                     options=self.options
                 )
