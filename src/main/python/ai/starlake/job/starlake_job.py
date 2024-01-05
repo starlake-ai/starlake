@@ -16,8 +16,8 @@ class IStarlakeJob(Generic[T]):
         super().__init__(**kwargs)
         self.options = {} if not options else options
         pre_load_strategy = __class__.get_context_var(
-            var_name="pre_load_strategy", 
-            default_value=StarlakePreLoadStrategy.NONE, 
+            var_name="pre_load_strategy",
+            default_value=StarlakePreLoadStrategy.NONE,
             options=self.options
         ) if not pre_load_strategy else pre_load_strategy
 
@@ -51,7 +51,7 @@ class IStarlakeJob(Generic[T]):
     def pre_tasks(self, *args, **kwargs) -> T|None:
         """Pre tasks."""
         return None
-    
+
     def post_tasks(self, *args, **kwargs) -> T|None:
         """Post tasks."""
         return None

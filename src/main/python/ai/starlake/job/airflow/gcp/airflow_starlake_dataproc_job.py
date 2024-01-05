@@ -83,30 +83,30 @@ class StarlakeDataprocCluster():
         self.main_class = AirflowStarlakeJob.get_context_var("spark_job_main_class", "ai.starlake.job.Main", options)
         self.dataproc_name = AirflowStarlakeJob.get_context_var("dataproc_name", "dataproc-cluster", options)
         self.pool = pool
-        self.id = str(uuid.uuid4())[:8]
+        self.dag_id = str(uuid.uuid4())[:8]
 
     def create_dataproc_cluster(
-        self, 
+        self,
         dag: DAG=None,
-        task_id: str=None, 
-        project_id: str=None, 
-        cluster_name: str=None, 
-        region: str=None, 
-        subnet: str=None, 
-        service_account: str=None, 
-        cluster_properties: dict=None, 
-        image_version: str=None, 
-        master_conf: dict=None, 
-        worker_conf: dict=None, 
-        secondary_worker_conf: dict=None, 
-        is_single_node: bool=False, 
+        task_id: str=None,
+        project_id: str=None,
+        cluster_name: str=None,
+        region: str=None,
+        subnet: str=None,
+        service_account: str=None,
+        cluster_properties: dict=None,
+        image_version: str=None,
+        master_conf: dict=None,
+        worker_conf: dict=None,
+        secondary_worker_conf: dict=None,
+        is_single_node: bool=False,
         **kwargs) -> BaseOperator:
         """
         Create the Cloud Dataproc cluster.
         This operator will be flagged a success if the cluster by this name already exists.
         """
-        id = dag.dag_id if dag else self.id
-        cluster_name = f"{self.dataproc_name}-{id}-{TODAY}" if not cluster_name else cluster_name
+        dag_id = dag.dag_id if dag else self.dag_id
+        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
         task_id = f"create_{cluster_name}" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         region = self.region if not region else region
@@ -171,8 +171,8 @@ class StarlakeDataprocCluster():
         region: str=None, 
         **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
-        id = dag.dag_id if dag else self.id
-        cluster_name = f"{self.dataproc_name}-{id}-{TODAY}" if not cluster_name else cluster_name
+        dag_id = dag.dag_id if dag else self.dag_id
+        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
         task_id = f"delete_{cluster_name}" if not task_id else task_id
         region = self.region if not region else region
         kwargs.update({
@@ -187,22 +187,22 @@ class StarlakeDataprocCluster():
         )
 
     def submit_starlake_job(
-        self, 
+        self,
         dag: DAG=None,
-        task_id: str=None, 
-        cluster_name: str=None, 
-        project_id: str=None, 
-        region: str=None, 
-        arguments: list=None, 
-        jar_list: list=None, 
-        spark_properties: dict=None, 
-        spark_config: dict=None, 
-        main_class: str=None, 
-        retries: int=0, 
+        task_id: str=None,
+        cluster_name: str=None,
+        project_id: str=None,
+        region: str=None,
+        arguments: list=None,
+        jar_list: list=None,
+        spark_properties: dict=None,
+        spark_config: dict=None,
+        main_class: str=None,
+        retries: int=0,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
-        id = dag.dag_id if dag else self.id
-        cluster_name = f"{self.dataproc_name}-{id}-{TODAY}" if not cluster_name else cluster_name
+        dag_id = dag.dag_id if dag else self.dag_id
+        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
         task_id = f"{cluster_name}_submit" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         arguments = [] if not arguments else arguments
