@@ -4,7 +4,7 @@ from datetime import timedelta, datetime
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob
 
-from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id, TODAY
+from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id
 
 from airflow.datasets import Dataset
 
@@ -163,7 +163,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
 
                 ack_file = __class__.get_context_var(
                     var_name='global_ack_file_path',
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{TODAY}.ack',
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{{{{ds}}}}.ack',
                     options=self.options
                 )
 
