@@ -43,7 +43,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 task_id=check_completion_id,
                 project_id=self.project_id,
                 cloud_run_job_region=self.cloud_run_job_region,
-                source_task_id=task_id,
+                source_task_id=job_task.task_id,
                 retry_exit_code=1 if self.retry_on_failure else None,
                 **kwargs
             )
@@ -56,7 +56,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                     task_id=get_completion_status_id,
                     project_id=self.project_id,
                     cloud_run_job_region=self.cloud_run_job_region,
-                    source_task_id=task_id,
+                    source_task_id=job_task.task_id,
                     **kwargs
                 )
                 job_task >> completion_sensor >> job_status
@@ -74,7 +74,7 @@ class CloudRunJobCompletionSensor(BashSensor):
     def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_exit_code: int=None, **kwargs) -> None:
         if retry_exit_code:
             super().__init__(
-                bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids=[{source_task_id}])}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
+                bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
                 mode="reschedule",
                 retries=3, #the number of retries that should be performed before failing the task to avoid infinite loops
                 retry_exit_code=retry_exit_code, #available in 2.6. Implies to combine this sensor and the bottom operator
@@ -82,7 +82,7 @@ class CloudRunJobCompletionSensor(BashSensor):
             )
         else:
             super().__init__(
-                bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids=[{source_task_id}])}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
+                bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
                 mode="reschedule",
                 #retry_exit_code=1, #available in 2.6. Implies to combine this sensor and the bottom operator
                 **kwargs
@@ -94,6 +94,6 @@ class CloudRunJobCheckStatusOperator(BashOperator):
     '''
     def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, **kwargs) -> None:
         super().__init__(
-            bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids=[{source_task_id}])}}}} --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
+            bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}} --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
             **kwargs
         )
