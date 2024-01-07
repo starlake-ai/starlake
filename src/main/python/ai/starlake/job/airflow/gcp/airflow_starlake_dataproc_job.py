@@ -119,8 +119,8 @@ class StarlakeDataprocCluster():
         spark_events_bucket = f'dataproc-{project_id}'
         cluster_properties = self.cluster_properties if not cluster_properties else self.cluster_properties.copy().update({
             "dataproc:job.history.to-gcs.enabled": "true",
-            "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{TODAY}",
-            "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{TODAY}",
+            "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+            "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
         }).update(cluster_properties)
 
         cluster_config = {
@@ -188,7 +188,6 @@ class StarlakeDataprocCluster():
 
     def submit_starlake_job(
         self,
-        dag: DAG=None,
         task_id: str=None,
         cluster_name: str=None,
         project_id: str=None,
@@ -201,17 +200,13 @@ class StarlakeDataprocCluster():
         retries: int=0,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
-        dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id}}}}-{TODAY}" if not cluster_name else cluster_name
         task_id = f"{cluster_name}_submit" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         arguments = [] if not arguments else arguments
         jar_list = self.jar_list if not jar_list else jar_list
         main_class = self.main_class if not main_class else main_class
-        spark_properties_defined = spark_properties is not None
-        spark_properties = self.spark_properties.copy() if not spark_properties_defined else spark_properties
-        if spark_properties_defined:
-            spark_properties.update(self.spark_properties)
+        spark_properties = self.spark_properties.copy() if not spark_properties else self.spark_properties.copy().update(spark_properties)
         spark_config = self.spark_config if not spark_config else spark_config
 
         if spark_config:
