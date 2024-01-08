@@ -17,6 +17,10 @@ __Improvement__:
 - added support for mysql extraction
 - add the ability to rename column during schema and data extraction
 
+__Feature__:
+
+- generic templating framework for dag generation through the definition of a python library for starlake jobs
+
 # 1.0.0:
 - **BREAKING CHANGE**
   - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
