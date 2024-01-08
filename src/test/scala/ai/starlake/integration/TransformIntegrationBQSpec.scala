@@ -2,7 +2,8 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
+class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
+  override def beforeAll(): Unit = {}
   override def templates = starlakeDir / "samples"
 
   override def localDir = templates / "spark"
@@ -13,8 +14,9 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
 
     "Native Snowflake Transform" should "succeed" in {
       withEnvs(
-        "SL_ENV"  -> "PG",
-        "SL_ROOT" -> localDir.pathAsString
+        "SL_ENV"                                        -> "BQ",
+        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
+        "SL_ROOT"                                       -> localDir.pathAsString
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)

@@ -3,5 +3,6 @@ transform:
     write: APPEND
     merge:
       key: [id]
+      on: TARGET
 
 
