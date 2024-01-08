@@ -440,7 +440,7 @@ object SQLUtils extends StrictLogging {
       merge.key.map(key => s"$targetTable.$key IS NULL").mkString(" AND ")
 
     val mergeTimestampCol = merge.timestamp
-    val mergeOn = merge.on.getOrElse(MergeOn.BOTH)
+    val mergeOn = merge.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val canMerge = jdbcEngine.canMerge
 
     val (sourceTable, tempTable) = sourceTableOrStatement match {
@@ -455,7 +455,7 @@ object SQLUtils extends StrictLogging {
            |SELECT  $allAttributesSQL  FROM $sourceTable
             """.stripMargin
 
-      case (false, None, MergeOn.BOTH) =>
+      case (false, None, MergeOn.SOURCE_AND_TARGET) =>
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -469,7 +469,7 @@ object SQLUtils extends StrictLogging {
            |SELECT  $allAttributesSQL  FROM $sourceTable
             """.stripMargin
 
-      case (false, Some(mergeTimestampCol), MergeOn.BOTH) =>
+      case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -485,7 +485,7 @@ object SQLUtils extends StrictLogging {
            |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
            |""".stripMargin
 
-      case (true, None, MergeOn.BOTH) =>
+      case (true, None, MergeOn.SOURCE_AND_TARGET) =>
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -519,7 +519,7 @@ object SQLUtils extends StrictLogging {
              |""".stripMargin
 
         }
-      case (true, Some(mergeTimestampCol), MergeOn.BOTH) =>
+      case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         if (canMerge) {
           s"""
              |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS

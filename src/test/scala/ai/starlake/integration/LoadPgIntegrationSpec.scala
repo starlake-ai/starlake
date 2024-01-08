@@ -8,7 +8,7 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
   override def localDir: File = templates / "spark"
   override def sampleDataDir: File = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
     "Import / Load / Transform PG" should "succeed" in {
       withEnvs(
         "SL_ROOT"                                       -> localDir.pathAsString,

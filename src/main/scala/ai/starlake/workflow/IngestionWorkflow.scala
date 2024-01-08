@@ -708,7 +708,7 @@ class IngestionWorkflow(
     val action = buildTask(config)
     val engine = action.taskDesc.getEngine()
     // TODO Interactive compilation should check table existence
-    val (_, mainSQL, _, _) = action.buildAllSQLQueries(false, None, None, engine)
+    val (_, mainSQL, _, _) = action.buildAllSQLQueries(tableExists = false, None, None, engine)
     val output = settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
     output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
     logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
