@@ -1,3 +1,5 @@
+from typing import Union
+
 from ai.starlake.job import StarlakePreLoadStrategy
 
 from ai.starlake.job.airflow import AirflowStarlakeJob
@@ -8,7 +10,7 @@ from airflow.operators.bash import BashOperator
 
 class AirflowStarlakeBashJob(AirflowStarlakeJob):
     """Airflow Starlake Bash Job."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, options: dict=None, **kwargs):
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
