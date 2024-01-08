@@ -84,7 +84,7 @@ object FlatRowValidator extends GenericRowValidator {
           lazy val colMap: Map[String, Option[String]] = {
             val result = new Array[(String, Option[String])](attributesLen)
             for (i <- rowSeq.indices) {
-              val colValue = Option(rowSeq(i)_.toString)
+              val colValue = Option(rowSeq(i)).map(_.toString)
               val (colAttribute, colType) = attributesAndTypes(i)
               result.update(i, (colAttribute.name, colValue))
             }
