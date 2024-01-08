@@ -137,11 +137,7 @@ object SparkUtils extends StrictLogging {
     createTableColumnTypes: Option[String] = None
   ) = {
     val urlForRedshift = url.replace("jdbc:redshift", "jdbc:postgresql")
-    val fields = schema.fields.map(field =>
-      if (field.name == "input_file_name()") field.copy(name = "input_file_name") else field
-    )
-    val schema2 = schema.copy(fields = fields)
-    JdbcUtils.schemaString(schema2, caseSensitive, urlForRedshift, createTableColumnTypes)
+    JdbcUtils.schemaString(schema, caseSensitive, urlForRedshift, createTableColumnTypes)
   }
 
 }

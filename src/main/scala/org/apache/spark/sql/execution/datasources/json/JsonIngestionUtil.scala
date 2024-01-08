@@ -31,6 +31,7 @@ import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import JsonParser.NumberType._
+import ai.starlake.config.CometColumns
 import com.fasterxml.jackson.core.JsonParser.Feature
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
@@ -387,7 +388,7 @@ object JsonIngestionUtil {
           case Success(datasetType) =>
             val errorList = compareTypes(schemaSparkType, datasetType)
             if (errorList.isEmpty)
-              Right((rowAsString, row.getAs[String]("input_file_name()")))
+              Right((rowAsString, row.getAs[String](CometColumns.cometInputFileNameColumn)))
             else
               Left(errorList)
 

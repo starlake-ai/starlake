@@ -57,4 +57,17 @@ class IntegrationTestBase
     map.remove(key)
   }
 
+  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
+
+  protected def cleanup(): Unit = {
+    directoriesToClear.foreach { dir =>
+      val path = localDir / dir
+      if (path.exists) {
+        path.delete()
+      }
+    }
+  }
+  protected def copyFilesToIncomingDir(dir: File): Unit = {
+    dir.copyTo(incomingDir)
+  }
 }

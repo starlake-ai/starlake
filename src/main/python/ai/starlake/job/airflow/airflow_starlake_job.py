@@ -1,65 +1,14 @@
-{% include 'templates/dags/__starlake_pre_load_strategy.py' %}
-{% include 'templates/dags/__common.py.j2' %}
-from typing import Generic, TypeVar
+import os
+import re
+from datetime import timedelta, datetime
 
-T = TypeVar("T")
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob
 
-class IStarlakeJob(Generic[T]):
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict = options, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.options = {} if not options else options
-        pre_load_strategy = get_context_var(
-            var_name="pre_load_strategy", 
-            default_value=StarlakePreLoadStrategy.NONE, 
-            options=self.options
-        ) if not pre_load_strategy else pre_load_strategy
-
-        if isinstance(pre_load_strategy, str):
-            pre_load_strategy = \
-                StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
-                    else StarlakePreLoadStrategy.NONE
-
-        self.pre_load_strategy: StarlakePreLoadStrategy = pre_load_strategy
-
-        self.sl_env_vars = self._get_sl_env_vars()
-        self.sl_root = get_context_var(var_name='SL_ROOT', default_value='file://tmp', options=self.sl_env_vars)
-        self.sl_datasets = get_context_var(var_name='SL_DATASETS', default_value=f'{self.sl_root}/datasets', options=self.sl_env_vars)
-
-    def sl_import(self, task_id: str, domain: str, **kwargs) -> T:
-        """Import job."""
-        pass
-
-    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> T|None:
-        """Pre-load job."""
-        pass
-
-    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> T:
-        """Load job."""
-        pass
-
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> T:
-        """Transform job."""
-        pass
-
-    def pre_tasks(self, *args, **kwargs) -> T|None:
-        """Pre tasks."""
-        return None
-    
-    def post_tasks(self, *args, **kwargs) -> T|None:
-        """Post tasks."""
-        return None
-
-    def sl_job(self, task_id: str, arguments: dict, **kwargs) -> T:
-        """Generic job."""
-        pass
-
-    def _get_sl_env_vars(self) -> dict:
-        try:
-            return json.loads(get_context_var(var_name="sl_env_var", options=self.options))
-        except MissingEnvironmentVariable:
-            return {}
+from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id
 
 from airflow.datasets import Dataset
+
+from airflow.models import Variable
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -67,28 +16,38 @@ from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperato
 from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
 
 from airflow.operators.bash import BashOperator
+
+from airflow.operators.dummy import DummyOperator
+
 from airflow.operators.python import ShortCircuitOperator
 
 from airflow.sensors.filesystem import FileSensor
 
 from airflow.utils.task_group import TaskGroup
 
-DEFAULT_POOL="default_pool"
+DEFAULT_POOL:str ="default_pool"
+
+DEFAULT_DAG_ARGS = {
+    'depends_on_past': False,
+    'start_date': datetime(2023, 1, 1),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1, 
+    'retry_delay': timedelta(minutes=5)
+}
 
 class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict = options, **kwargs) -> None:
+    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.pool = get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options)
+        self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
+        self.outlets = kwargs.get('outlets', [])
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()"""
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--includes", domain]
-        outlets = [Dataset(keep_ascii_only(domain))]
-        kwargs.update({
-            'outlets': kwargs.get('outlets', []).extend(outlets),
-            'pool': kwargs.get('pool', self.pool)
-        })
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain))]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> BaseOperator|None:
@@ -107,9 +66,9 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
 
-                incoming_path = get_context_var(
-                    var_name='incoming_path', 
-                    default_value=f'{self.sl_root}/incoming', 
+                incoming_path = __class__.get_context_var(
+                    var_name='incoming_path',
+                    default_value=f'{self.sl_root}/incoming',
                     options=self.options
                 )
                 list_files_command = f'ls {incoming_path}/{domain}/* | wc -l'
@@ -139,7 +98,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 list_files >> skip_or_start
 
                 import_task = self.sl_import(
-                    task_id=sanitize_id(f'{domain}_import'), 
+                    task_id=sanitize_id(f'{domain}_import'),
                     domain=domain,
                     **kwargs
                 )
@@ -156,9 +115,9 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
 
-                pending_path = get_context_var(
-                    var_name='pending_path', 
-                    default_value=f'{self.sl_datasets}/pending', 
+                pending_path = __class__.get_context_var(
+                    var_name='pending_path',
+                    default_value=f'{self.sl_datasets}/pending',
                     options=self.options
                 )
                 list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
@@ -196,15 +155,15 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
             with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
                 pre_tasks = self.pre_tasks(**kwargs)
 
-                ack_wait_timeout = int(get_context_var(
-                    var_name='ack_wait_timeout', 
+                ack_wait_timeout = int(__class__.get_context_var(
+                    var_name='ack_wait_timeout',
                     default_value=60*60, # 1 hour
                     options=self.options
                 ))
 
-                ack_file = get_context_var(
-                    var_name='global_ack_file_path', 
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{TODAY}.ack', 
+                ack_file = __class__.get_context_var(
+                    var_name='global_ack_file_path',
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{{{{ds}}}}.ack',
                     options=self.options
                 )
 
@@ -258,27 +217,35 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         """Overrides IStarlakeJob.sl_load()"""
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
-        outlets = [Dataset(keep_ascii_only(f'{domain}.{table}'))]
-        kwargs.update({
-            'outlets': kwargs.get('outlets', []).extend(outlets),
-            'pool': kwargs.get('pool', self.pool)
-        })
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(f'{domain}.{table}'))]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_transform()"""
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
-        transform_options = transform_options if transform_options else get_context_var(transform_name, {}, self.options).get("options")
+        transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options")
         if transform_options:
             arguments.extend(["--options", transform_options])
-        outlets = [Dataset(keep_ascii_only(transform_name))]
-        kwargs.update({
-            'outlets': kwargs.get('outlets', []).extend(outlets),
-            'pool': kwargs.get('pool', self.pool)
-        })
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name))]
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def dummy_op(self, task_id, **kwargs):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return DummyOperator(task_id=task_id, **kwargs)
+
+    @classmethod
+    def get_context_var(cls, var_name: str, default_value: any=None, options: dict = None, **kwargs):
+        """Overrides IStarlakeJob.get_context_var()"""
+        if options and options.get(var_name):
+            return options.get(var_name)
+        elif default_value is not None:
+            return default_value
+        elif Variable.get(var_name, default_var=None, **kwargs) is not None:
+            return Variable.get(var_name)
+        elif os.getenv(var_name) is not None:
+            return os.getenv(var_name)
+        else:
+            raise MissingEnvironmentVariable(f"{var_name} does not exist")

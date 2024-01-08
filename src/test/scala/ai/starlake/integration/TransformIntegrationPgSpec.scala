@@ -16,8 +16,8 @@ class TransformIntegrationPgSpec extends BigQueryIntegrationSpecBase {
         "SL_ENV"  -> "PG",
         "SL_ROOT" -> localDir.pathAsString
       ) {
-        clearDataDirectories()
-        sampleDataDir.copyToDirectory(localDir)
+        cleanup()
+        copyFilesToIncomingDir(sampleDataDir)
         Main.main(
           Array("transform", "--name", "sales_kpi.byseller_kpi")
         )

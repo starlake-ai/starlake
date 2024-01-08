@@ -6,8 +6,6 @@ import ai.starlake.workflow.IngestionWorkflow
 
 class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
-  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
-
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>
       val path = localDir / dir

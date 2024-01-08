@@ -8,7 +8,7 @@ import better.files.File
 class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
   val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
-  val directoriesToClear = List("site")
+  override val directoriesToClear = List("site")
 
   // select quickstart or starbake here
   val projectDir = localDir

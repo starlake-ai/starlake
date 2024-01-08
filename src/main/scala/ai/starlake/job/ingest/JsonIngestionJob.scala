@@ -86,7 +86,9 @@ class JsonIngestionJob(
     Try {
       val dfIn = loadJsonData()
       val dfInWithInputFilename = dfIn.select(
-        org.apache.spark.sql.functions.input_file_name(),
+        org.apache.spark.sql.functions
+          .input_file_name()
+          .alias(CometColumns.cometInputFileNameColumn),
         org.apache.spark.sql.functions.col("value")
       )
       logger.whenDebugEnabled {
