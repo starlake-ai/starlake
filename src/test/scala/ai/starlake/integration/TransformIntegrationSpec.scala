@@ -13,8 +13,8 @@ class TransformIntegrationSpec extends BigQueryIntegrationSpecBase {
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
         "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
       ) {
-        clearDataDirectories()
-        sampleDataDir.copyToDirectory(localDir)
+        cleanup()
+        copyFilesToIncomingDir(sampleDataDir)
         Main.main(
           Array("transform", "--name", "sales_kpi.byseller_kpi", "--compile")
         )

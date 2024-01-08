@@ -14,8 +14,8 @@ class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
         "SL_ROOT" -> localDir.pathAsString,
         "SL_ENV"  -> "BQ"
       ) {
-        clearDataDirectories()
-        sampleDataDir.copyToDirectory(localDir)
+        cleanup()
+        copyFilesToIncomingDir(sampleDataDir)
         Main.main(
           Array("transform", "--name", "bqtest.table1")
         )

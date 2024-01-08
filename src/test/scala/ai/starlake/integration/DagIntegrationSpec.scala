@@ -10,8 +10,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate", "--clean")
@@ -26,8 +26,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate")
@@ -42,8 +42,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain_table"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate")
@@ -58,8 +58,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate")
@@ -74,8 +74,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate")
@@ -89,8 +89,8 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain_table"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
 
       Main.main(
         Array("dag-generate")

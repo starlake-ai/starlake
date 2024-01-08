@@ -14,8 +14,8 @@ class TransformIntegrationRedshiftSpec extends BigQueryIntegrationSpecBase {
         "SL_ENV"  -> "REDSHIFT",
         "SL_ROOT" -> localDir.pathAsString
       ) {
-        clearDataDirectories()
-        sampleDataDir.copyToDirectory(localDir)
+        cleanup()
+        copyFilesToIncomingDir(sampleDataDir)
         Main.main(
           Array("transform", "--name", "sales_kpi.byseller_kpi")
         )

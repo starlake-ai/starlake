@@ -633,7 +633,7 @@ trait IngestionJob extends SparkJob {
         }
         if (settings.appConfig.archiveTable) {
           val (
-            archiveDatabaseName: _root_.scala.Option[_root_.java.lang.String],
+            archiveDatabaseName: scala.Option[String],
             archiveDomainName: String,
             archiveTableName: String
           ) = getArchiveTableComponents()
@@ -2205,6 +2205,23 @@ object IngestionUtil {
     )
   }
 
+  def fastValidateCol(
+    colRawValue: Option[String],
+    colAttribute: Attribute,
+    tpe: Type
+  ): ColResult = {
+    val sparkValue = colRawValue.map(tpe.sparkValue).orNull
+    ColResult(
+      ColInfo(
+        colRawValue,
+        colAttribute.name,
+        tpe.name,
+        tpe.pattern,
+        success = true
+      ),
+      sparkValue
+    )
+  }
 }
 case class NativeBqLoadInfo(
   totalAcceptedRows: Long,

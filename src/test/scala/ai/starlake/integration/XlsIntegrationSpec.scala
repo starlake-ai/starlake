@@ -10,8 +10,8 @@ class XlsIntegrationSpec extends BigQueryIntegrationSpecBase {
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "false"
     ) {
-      clearDataDirectories()
-      sampleDataDir.copyToDirectory(localDir)
+      cleanup()
+      copyFilesToIncomingDir(sampleDataDir)
       val loadDir = localDir / "metadata" / "load"
 
       Main.main(
