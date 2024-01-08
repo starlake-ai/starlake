@@ -7,12 +7,12 @@ from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Union
 
 T = TypeVar("T")
 
 class IStarlakeJob(Generic[T]):
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict, **kwargs) -> None:
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
         super().__init__(**kwargs)
         self.options = {} if not options else options
         pre_load_strategy = __class__.get_context_var(
@@ -36,7 +36,7 @@ class IStarlakeJob(Generic[T]):
         """Import job."""
         pass
 
-    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> T|None:
+    def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
         """Pre-load job."""
         pass
 
@@ -48,11 +48,11 @@ class IStarlakeJob(Generic[T]):
         """Transform job."""
         pass
 
-    def pre_tasks(self, *args, **kwargs) -> T|None:
+    def pre_tasks(self, *args, **kwargs) -> Union[T, None]:
         """Pre tasks."""
         return None
 
-    def post_tasks(self, *args, **kwargs) -> T|None:
+    def post_tasks(self, *args, **kwargs) -> Union[T, None]:
         """Post tasks."""
         return None
 
