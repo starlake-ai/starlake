@@ -44,7 +44,13 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
         } match {
           case Failure(e) if e.isInstanceOf[SQLException] =>
             stmt.executeUpdate(
-              table.createSql.richFormat(Map("table" -> outputDomainAndTablename), Map.empty)
+              table.createSql.richFormat(
+                Map(
+                  "table"       -> outputDomainAndTablename,
+                  "writeFormat" -> settings.appConfig.defaultWriteFormat
+                ),
+                Map.empty
+              )
             )
             conn.commit() // some databases are transactional wrt schema updates
           case Success(_) => ;

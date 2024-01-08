@@ -321,7 +321,11 @@ object Settings extends StrictLogging {
       val engineName = sparkFormat match {
         case None | Some("jdbc") =>
           this.`type`.getOrElse(throw new Exception("Should never happen")) match {
-            case "jdbc"            => options("url").split(':')(1)
+            case "jdbc" =>
+              val engineName = options("url").split(':')(1).toLowerCase()
+              if (engineName == "databricks")
+                "spark"
+              else engineName
             case "bigquery" | "bq" => "bigquery"
             case _                 =>
               // if this is a jdbc url (aka snowflake, redshift ...)
