@@ -70,7 +70,7 @@ class JdbcAutoTask(
     JdbcDbUtils.createSchema(fullDomainName, conn)
 
     val script = scriptTemplate.richFormat(
-      Map("table" -> fullTableName),
+      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
       Map.empty
     )
     JdbcDbUtils.execute(script, conn) match {

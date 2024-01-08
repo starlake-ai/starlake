@@ -822,7 +822,13 @@ object JdbcDbUtils extends LazyLogging {
           val createTableSql = jdbcEngine
             .tables("extract")
             .createSql
-            .richFormat(Map("table" -> s"$auditSchema.SL_LAST_EXPORT"), Map.empty)
+            .richFormat(
+              Map(
+                "table"       -> s"$auditSchema.SL_LAST_EXPORT",
+                "writeFormat" -> settings.appConfig.defaultWriteFormat
+              ),
+              Map.empty
+            )
           execute(createTableSql, connection)
         }
       }
