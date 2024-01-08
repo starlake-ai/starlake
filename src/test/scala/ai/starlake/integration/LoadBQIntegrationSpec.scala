@@ -1,11 +1,12 @@
 package ai.starlake.integration
 
 import ai.starlake.job.Main
+import better.files.File
 
 class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override def sampleDataDir = localDir / "sample-data"
+  override def templates: File = starlakeDir / "samples"
+  override def localDir: File = templates / "spark"
+  override def sampleDataDir: File = localDir / "sample-data"
   if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(

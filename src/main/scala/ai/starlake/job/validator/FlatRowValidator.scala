@@ -88,12 +88,11 @@ object FlatRowValidator extends GenericRowValidator {
               val (colAttribute, colType) = attributesAndTypes(i)
               result.update(i, (colAttribute.name, colValue))
             }
-            println("colMap called")
             result.toMap
           }
 
           for (i <- rowSeq.indices) {
-            val colValue = Option(rowSeq(i).asInstanceOf[String])
+            val colValue = Option(rowSeq(i)).map(_.toString)
             val (colAttribute, colType) = attributesAndTypes(i)
             val colResult = IngestionUtil.validateCol(
               colValue,

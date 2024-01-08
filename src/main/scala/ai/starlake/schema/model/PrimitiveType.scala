@@ -177,7 +177,9 @@ object PrimitiveType {
     }
 
     def fromString(str: String, pattern: String, zone: String): Any = {
-      if (pattern.indexOf("<-TF->") >= 0) {
+      if (str == null || str.isEmpty)
+        null
+      else if (pattern.indexOf("<-TF->") >= 0) {
         val tf = pattern.split("<-TF->")
         if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str.trim).matches())
           true

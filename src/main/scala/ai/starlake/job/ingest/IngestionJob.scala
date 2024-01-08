@@ -633,7 +633,7 @@ trait IngestionJob extends SparkJob {
         }
         if (settings.appConfig.archiveTable) {
           val (
-            archiveDatabaseName: _root_.scala.Option[_root_.java.lang.String],
+            archiveDatabaseName: scala.Option[String],
             archiveDomainName: String,
             archiveTableName: String
           ) = getArchiveTableComponents()

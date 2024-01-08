@@ -221,9 +221,7 @@ class SQLUtilsSpec extends TestHelper {
           true
         )
       sqlMerge.replaceAll("\\s", "") should be("""
-          |MERGE INTO
-          |`starlake-project-id.dataset3.transactions_v3` as SL_INTERNAL_SINK
-          |USING(WITH
+          |CREATE TEMPORARY TABLE SL_SOURCE_TABLE AS (WITH
           |    transactions AS (
           |        SELECT
           |            transaction_id,
@@ -276,10 +274,16 @@ class SQLUtilsSpec extends TestHelper {
           |        LEFT JOIN
           |    sellers s ON t.seller_id = s.seller_id
           |
-          |) as SL_INTERNAL_SOURCE ON SL_INTERNAL_SOURCE.transaction_id = SL_INTERNAL_SINK.transaction_id
-          |WHEN MATCHED THEN UPDATE SET transaction_id = SL_INTERNAL_SOURCE.transaction_id, transaction_date = SL_INTERNAL_SOURCE.transaction_date, amount = SL_INTERNAL_SOURCE.amount, location_info = SL_INTERNAL_SOURCE.location_info, seller_info = SL_INTERNAL_SOURCE.seller_info
+          |);
           |
-          |WHEN NOT MATCHED THEN INSERT (transaction_id,transaction_date,amount,location_info,seller_info) VALUES (transaction_id,transaction_date,amount,location_info,seller_info)
+          |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+          |  SELECT  transaction_id,transaction_date,amount,location_info,seller_info,
+          |          ROW_NUMBER() OVER (PARTITION BY `transaction_id`  ORDER BY (select 0)) AS SL_SEQ
+          |  FROM SL_SOURCE_TABLE;
+          |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  transaction_id,transaction_date,amount,location_info,seller_info  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+          |MERGE INTO `starlake-project-id.dataset3.transactions_v3` USING SL_DEDUP AS SL_INTERNAL_TABLE ON (SL_INTERNAL_TABLE.transaction_id = `starlake-project-id.dataset3.transactions_v3`.transaction_id)
+          |WHEN MATCHED THEN UPDATE SET transaction_id = SL_INTERNAL_TABLE.transaction_id,transaction_date = SL_INTERNAL_TABLE.transaction_date,amount = SL_INTERNAL_TABLE.amount,location_info = SL_INTERNAL_TABLE.location_info,seller_info = SL_INTERNAL_TABLE.seller_info
+          |WHEN NOT MATCHED THEN INSERT (`transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`) VALUES (SL_INTERNAL_TABLE.`transaction_id`,SL_INTERNAL_TABLE.`transaction_date`,SL_INTERNAL_TABLE.`amount`,SL_INTERNAL_TABLE.`location_info`,SL_INTERNAL_TABLE.`seller_info`)
           |""".stripMargin.replaceAll("\\s", ""))
     }
     "Strip comments" should "succeed" in {

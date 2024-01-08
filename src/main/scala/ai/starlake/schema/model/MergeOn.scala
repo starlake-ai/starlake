@@ -43,16 +43,16 @@ object MergeOn {
 
   def fromString(value: String): MergeOn = {
     value.toUpperCase() match {
-      case "TARGET" => MergeOn.TARGET
-      case "BOTH"   => MergeOn.BOTH
+      case "TARGET"            => MergeOn.TARGET
+      case "SOURCE_AND_TARGET" => MergeOn.SOURCE_AND_TARGET
     }
   }
 
   object TARGET extends MergeOn("TARGET")
 
-  object BOTH extends MergeOn("BOTH")
+  object SOURCE_AND_TARGET extends MergeOn("SOURCE_AND_TARGET")
 
-  val mergeOns: Set[MergeOn] = Set(TARGET, BOTH)
+  val mergeOns: Set[MergeOn] = Set(TARGET, SOURCE_AND_TARGET)
 }
 
 class MergeOnDeserializer extends JsonDeserializer[MergeOn] {
