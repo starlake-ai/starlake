@@ -2,6 +2,8 @@ import os
 import re
 from datetime import timedelta, datetime
 
+from typing import Union
+
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob
 
 from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id
@@ -37,7 +39,7 @@ DEFAULT_DAG_ARGS = {
 }
 
 class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str|None, options: dict=None, **kwargs) -> None:
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets = kwargs.get('outlets', [])
@@ -50,7 +52,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain))]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_pre_load(self, domain: str, pre_load_strategy: StarlakePreLoadStrategy|str|None=None, **kwargs) -> BaseOperator|None:
+    def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
         """Overrides IStarlakeJob.sl_pre_load()"""
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \

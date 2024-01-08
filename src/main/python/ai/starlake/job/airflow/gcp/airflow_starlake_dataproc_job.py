@@ -1,6 +1,8 @@
 import os
 import uuid
 
+from typing import Union
+
 from airflow import DAG
 
 from ai.starlake.common import TODAY
@@ -247,7 +249,7 @@ class StarlakeDataprocCluster():
 
 class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
     """Airflow Starlake Dataproc Job."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=None, **kwargs):
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster = StarlakeDataprocCluster(options=self.options, sl_env_vars=self.sl_env_vars, sl_root=self.sl_root, pool=self.pool) if not cluster else cluster
         self.spark_properties = {} if not spark_properties else spark_properties
@@ -263,14 +265,14 @@ class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
             **kwargs
         )
 
-    def pre_tasks(self, *args, **kwargs) -> BaseOperator|None:
+    def pre_tasks(self, *args, **kwargs) -> Union[BaseOperator, None]:
         """Overrides AirflowStarlakeJob.pre_tasks()"""
         return self.cluster.create_dataproc_cluster(
             *args,
             **kwargs
         )
 
-    def post_tasks(self, *args, **kwargs) -> BaseOperator|None:
+    def post_tasks(self, *args, **kwargs) -> Union[BaseOperator, None]:
         """Overrides AirflowStarlakeJob.post_tasks()"""
         return self.cluster.delete_dataproc_cluster(
             *args,
