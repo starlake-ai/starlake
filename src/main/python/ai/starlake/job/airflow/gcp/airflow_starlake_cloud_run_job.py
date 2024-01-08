@@ -1,5 +1,7 @@
 import os
 
+from typing import Union
+
 from ai.starlake.job import StarlakePreLoadStrategy
 
 from ai.starlake.job.airflow import AirflowStarlakeJob
@@ -14,7 +16,7 @@ from airflow.utils.task_group import TaskGroup
 
 class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
     """Airflow Starlake Cloud Run Job."""
-    def __init__(self, pre_load_strategy: StarlakePreLoadStrategy|str=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, retry_on_failure: bool=None, **kwargs):
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, retry_on_failure: bool=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = __class__.get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
