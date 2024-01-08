@@ -88,7 +88,6 @@ object FlatRowValidator extends GenericRowValidator {
               val (colAttribute, colType) = attributesAndTypes(i)
               result.update(i, (colAttribute.name, colValue))
             }
-            println("colMap called")
             result.toMap
           }
 
