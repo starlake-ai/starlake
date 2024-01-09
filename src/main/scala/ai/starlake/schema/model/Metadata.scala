@@ -343,6 +343,7 @@ case class Metadata(
     if (
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
+      sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )
