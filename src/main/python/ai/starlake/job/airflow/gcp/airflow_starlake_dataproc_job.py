@@ -108,7 +108,7 @@ class StarlakeDataprocCluster():
         This operator will be flagged a success if the cluster by this name already exists.
         """
         dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
         task_id = f"create_{cluster_name}" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         region = self.region if not region else region
@@ -159,6 +159,7 @@ class StarlakeDataprocCluster():
 
         return DataprocCreateClusterOperator(
             task_id=task_id,
+            project_id=project_id,
             cluster_name=cluster_name,
             cluster_config=cluster_config,
             region=region,
@@ -169,12 +170,14 @@ class StarlakeDataprocCluster():
         self,
         dag: DAG=None,
         task_id: str=None,
+        project_id: str=None,
         cluster_name: str=None,
         region: str=None,
         **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
         dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
+        project_id = self.project_id if not project_id else project_id
         task_id = f"delete_{cluster_name}" if not task_id else task_id
         region = self.region if not region else region
         kwargs.update({
@@ -183,6 +186,7 @@ class StarlakeDataprocCluster():
         })
         return DataprocDeleteClusterOperator(
             task_id=task_id,
+            project_id=project_id,
             cluster_name=cluster_name,
             region=region,
             **kwargs
@@ -191,8 +195,8 @@ class StarlakeDataprocCluster():
     def submit_starlake_job(
         self,
         task_id: str=None,
-        cluster_name: str=None,
         project_id: str=None,
+        cluster_name: str=None,
         region: str=None,
         arguments: list=None,
         jar_list: list=None,
@@ -202,7 +206,7 @@ class StarlakeDataprocCluster():
         retries: int=0,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
-        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id}}}}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id.replace('_', '-')}}}}" if not cluster_name else cluster_name
         task_id = f"{cluster_name}_submit" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         arguments = [] if not arguments else arguments
@@ -223,8 +227,10 @@ class StarlakeDataprocCluster():
             'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
         })
 
+        region = self.region if not region else region
         return DataprocSubmitJobOperator(
             task_id=task_id,
+            project_id=project_id,
             region=region,
             job={
                 "reference": {
