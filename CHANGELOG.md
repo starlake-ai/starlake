@@ -10,6 +10,7 @@ __Bug Fix__:
 - Throw expected exception when no connection ref found.
 - turn missing additional columns optional on native bigquery csv data ingestion
 - fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
+- table's metadata merge during schema extraction now takes `sink`, `ignore` and `directory` attribute into account.
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
