@@ -37,7 +37,7 @@ class StarlakeDataprocCluster():
             }
         }
         self.worker_conf = {
-            "num_instances": int(AirflowStarlakeJob.get_context_var("dataproc_num_workers", "3", options)),
+            "num_instances": int(AirflowStarlakeJob.get_context_var("dataproc_num_workers", "4", options)),
             "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_worker_machine_type", "n1-standard-4", options),
             "disk_config": {
                 "boot_disk_type": AirflowStarlakeJob.get_context_var("dataproc_worker_disk_type", "pd-standard", options), 
@@ -57,8 +57,8 @@ class StarlakeDataprocCluster():
             "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": AirflowStarlakeJob.get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", sl_env_vars),
             "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": AirflowStarlakeJob.get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", sl_env_vars)
         }
-        self.memAlloc = AirflowStarlakeJob.get_context_var("spark_executor_memory", "22g", options)
-        self.numVcpu = AirflowStarlakeJob.get_context_var("spark_executor_cores", "8", options)
+        self.memAlloc = AirflowStarlakeJob.get_context_var("spark_executor_memory", "11g", options)
+        self.numVcpu = AirflowStarlakeJob.get_context_var("spark_executor_cores", "4", options)
         self.sparkExecutorInstances = AirflowStarlakeJob.get_context_var("spark_executor_instances", "3", options)
         sparkBucket = AirflowStarlakeJob.get_context_var(var_name="spark_bucket", options=options)
         self.spark_properties = {
