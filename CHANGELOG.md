@@ -17,6 +17,7 @@ __Improvement__:
 - warn when starlake version is not installed yet and user want to use it
 - added support for mysql extraction
 - add the ability to rename column during schema and data extraction
+- enhance user error message when defined types is not declared in types
 
 __Feature__:
 
