@@ -24,7 +24,9 @@ import ai.starlake.config.Settings
 import better.files.File
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.SystemUtils
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.{InputStreamReader, OutputStream}
@@ -88,7 +90,10 @@ class LocalStorageHandler(implicit
     val file = localFile(path)
     file.fileInputStream
       .map { is =>
-        action(new InputStreamReader(is, charset))
+        val codecFactory = new CompressionCodecFactory(new Configuration())
+        val decompressedIS =
+          Option(codecFactory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+        action(new InputStreamReader(decompressedIS, charset))
       }
       .get()
   }
