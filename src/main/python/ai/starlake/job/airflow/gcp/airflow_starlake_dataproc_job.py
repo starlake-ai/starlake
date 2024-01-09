@@ -27,7 +27,7 @@ class StarlakeDataprocCluster():
         self.region = AirflowStarlakeJob.get_context_var("dataproc_region", "europe-west1", options)
         self.subnet = AirflowStarlakeJob.get_context_var("dataproc_subnet", "default", options)
         self.service_account = AirflowStarlakeJob.get_context_var("dataproc_service_account", f"service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com", options)
-        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.0.30-debian10", options)
+        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.1.2-debian11", options)
         self.master_conf = {
             "num_instances": 1,
             "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_master_machine_type", "n1-standard-4", options),
@@ -65,7 +65,7 @@ class StarlakeDataprocCluster():
             "spark.hadoop.fs.defaultFS": f"gs://{sparkBucket}",
             "spark.eventLog.enabled": "true",
             "spark.executor.memory": self.memAlloc,
-            "spark.executor.cores": int(self.numVcpu),
+            "spark.executor.cores": str(self.numVcpu),
             "spark.executor.instances": str(self.sparkExecutorInstances),
             "spark.sql.sources.partitionOverwriteMode": "DYNAMIC",
             "spark.sql.legacy.parquet.int96RebaseModeInWrite": "CORRECTED",
@@ -218,7 +218,7 @@ class StarlakeDataprocCluster():
         if spark_config:
             spark_properties.update({
                 "spark.executor.memory": spark_config.get('memAlloc', self.memAlloc),
-                "spark.executor.cores": int(spark_config.get('numVcpu', self.numVcpu)),
+                "spark.executor.cores": str(spark_config.get('numVcpu', self.numVcpu)),
                 "spark.executor.instances": str(spark_config.get('sparkExecutorInstances', self.sparkExecutorInstances))
             })
 
