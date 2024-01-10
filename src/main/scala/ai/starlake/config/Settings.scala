@@ -31,7 +31,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -39,8 +38,8 @@ import org.apache.spark.SparkConf
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
 import pureconfig._
-import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import pureconfig.generic.auto._
+import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.ObjectStreamException
 import java.net.URI
@@ -54,7 +53,7 @@ object Settings extends StrictLogging {
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
   private val referenceClassLoader = Thread.currentThread().getContextClassLoader
-  def invalidateCaches() = {
+  def invalidateCaches(): Unit = {
     ConfigFactory.invalidateCaches()
     _referenceConfig = ConfigFactory.load(referenceClassLoader)
   }
@@ -1046,12 +1045,7 @@ final case class Settings(
       case Some(handler) if !reload => handler
       case _ =>
         implicit val self: Settings = this
-        val handler =
-          if (SystemUtils.IS_OS_WINDOWS || appConfig.useLocalFileSystem)
-            new LocalStorageHandler()
-          else
-            new HdfsStorageHandler(appConfig.fileSystem)
-
+        val handler = new HdfsStorageHandler(appConfig.fileSystem)
         _storageHandler = Some(handler)
         handler
     }
