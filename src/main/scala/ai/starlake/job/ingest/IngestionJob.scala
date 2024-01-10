@@ -467,7 +467,7 @@ trait IngestionJob extends SparkJob {
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
           table = schema.finalName,
-          write = mergedMetadata.write,
+          write = Some(mergedMetadata.getWrite()),
           sink = mergedMetadata.sink,
           acl = schema.acl,
           comment = schema.comment,
@@ -765,8 +765,8 @@ trait IngestionJob extends SparkJob {
   }
 
   private def computeEffectiveInputSchema(): Schema = {
-    mergedMetadata.format match {
-      case Some(Format.DSV) =>
+    mergedMetadata.getFormat() match {
+      case Format.DSV =>
         (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
           case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
             val csvHeaders = storageHandler.readAndExecute(
