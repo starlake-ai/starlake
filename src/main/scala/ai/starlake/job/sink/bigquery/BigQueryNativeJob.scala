@@ -224,11 +224,7 @@ class BigQueryNativeJob(
               CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
             if (metadata.isWithHeader())
               formatOptions.setSkipLeadingRows(1).build
-            metadata.encoding match {
-              case Some(encoding) =>
-                formatOptions.setEncoding(encoding)
-              case None =>
-            }
+            formatOptions.setEncoding(metadata.getEncoding())
             formatOptions.setFieldDelimiter(metadata.getSeparator())
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
