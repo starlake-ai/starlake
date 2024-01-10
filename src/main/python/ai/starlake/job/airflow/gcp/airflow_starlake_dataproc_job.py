@@ -141,9 +141,9 @@ class StarlakeDataprocCluster():
                     **cluster_properties
                 }
             },
-            "lifecycle_config": {
-                "idle_delete_ttl": {"seconds": 3600}
-            }
+            # "lifecycle_config": {
+            #     "idle_delete_ttl": {"seconds": 3600}
+            # }
         }
 
         if is_single_node:
