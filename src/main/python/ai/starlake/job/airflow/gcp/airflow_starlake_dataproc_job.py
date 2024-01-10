@@ -27,7 +27,7 @@ class StarlakeDataprocCluster():
         self.region = AirflowStarlakeJob.get_context_var("dataproc_region", "europe-west1", options)
         self.subnet = AirflowStarlakeJob.get_context_var("dataproc_subnet", "default", options)
         self.service_account = AirflowStarlakeJob.get_context_var("dataproc_service_account", f"service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com", options)
-        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.1.2-debian11", options)
+        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.2-debian12", options)
         self.master_conf = {
             "num_instances": 1,
             "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_master_machine_type", "n1-standard-4", options),
