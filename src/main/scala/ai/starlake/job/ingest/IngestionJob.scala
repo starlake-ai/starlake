@@ -145,7 +145,7 @@ trait IngestionJob extends SparkJob {
     if (settings.appConfig.csvOutputExt.nonEmpty)
       settings.appConfig.csvOutputExt
     else {
-      mergedMetadata.sink.map(_.getSink()).asInstanceOf[FsSink].extension.getOrElse("")
+      mergedMetadata.sink.flatMap(_.getSink().asInstanceOf[FsSink].extension).getOrElse("")
     }
   }
 
@@ -1495,7 +1495,7 @@ trait IngestionJob extends SparkJob {
               .format("csv")
               .option("ignoreLeadingWhiteSpace", value = false)
               .option("ignoreTrailingWhiteSpace", value = false)
-              .option("header", mergedMetadata.isWithHeader())
+              .option("header", false) // header generated manually if any
               .option("delimiter", mergedMetadata.separator.getOrElse("µ"))
               .option("path", targetPath.toString)
           } else
@@ -1545,21 +1545,25 @@ trait IngestionJob extends SparkJob {
         .list(targetPath, ".csv", LocalDateTime.MIN, recursive = false)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
       if (outputList.nonEmpty) {
-        val csvPath = outputList.head
         val finalCsvPath =
           if (csvOutputExtension().nonEmpty) {
-            // Explicitily set extension
+            // Explicitly set extension
             val targetName = path.head.getName
             val index = targetName.lastIndexOf('.')
-            val finalName = (if (index > 0) targetName.substring(0, index)
-                             else targetName) + csvOutputExtension()
+            val filePrefix = if (index > 0) targetName.substring(0, index) else targetName
+            val finalName = filePrefix + csvOutputExtension()
             new Path(targetPath, finalName)
-          } else
-            new Path(
-              targetPath,
-              path.head.getName
-            )
-        storageHandler.move(csvPath, finalCsvPath)
+          } else {
+            new Path(targetPath, path.head.getName)
+          }
+        val withHeader = mergedMetadata.isWithHeader()
+        val delimiter = mergedMetadata.separator.getOrElse("µ")
+        val header =
+          if (withHeader)
+            Some(this.schema.attributes.map(_.getFinalName()).mkString(delimiter))
+          else None
+        storageHandler.copyMerge(header, targetPath, finalCsvPath, deleteSource = true)
+        // storageHandler.move(csvPath, finalCsvPath)
       }
     }
     // output file should have the same name as input file when applying privacy
@@ -1585,7 +1589,7 @@ trait IngestionJob extends SparkJob {
   private def nbFsPartitions(
     dataset: DataFrame
   ): Int = {
-    if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
+    if (dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
       1
     else
       dataset.rdd.getNumPartitions

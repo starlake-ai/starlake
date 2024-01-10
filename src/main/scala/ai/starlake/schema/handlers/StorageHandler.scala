@@ -21,7 +21,9 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.utils.Utils
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
@@ -112,4 +114,21 @@ trait StorageHandler extends StrictLogging {
   def loadExtraConf(): Map[String, String] = Map.empty[String, String]
   // conf passed as env variable
   lazy val extraConf: Map[String, String] = loadExtraConf()
+
+  def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
+
+}
+
+object StorageHandler {
+  private val HAS_DRIVE_LETTER_SPECIFIER = Pattern.compile("^/?[a-zA-Z]:")
+
+  def localFile(path: Path): File = {
+    val pathAsString = path.toUri.getPath
+    val isWindowsFile =
+      SystemUtils.IS_OS_WINDOWS && HAS_DRIVE_LETTER_SPECIFIER.matcher(pathAsString).find()
+    if (isWindowsFile)
+      File(pathAsString.substring(1))
+    else
+      File(pathAsString)
+  }
 }
