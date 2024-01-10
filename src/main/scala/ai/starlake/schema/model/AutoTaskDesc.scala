@@ -74,7 +74,7 @@ case class AutoTaskDesc(
       partition = if (child.partition.isEmpty) partition else child.partition,
       presql = presql ++ child.presql,
       postsql = postsql ++ child.postsql,
-      sink = sink.map(_.merge(child.sink.getOrElse(AllSinks()))),
+      sink = sink.orElse(child.sink).map(_.merge(child.sink.getOrElse(AllSinks()))),
       rls = rls ++ child.rls,
       expectations = expectations ++ child.expectations,
       acl = acl ++ child.acl,

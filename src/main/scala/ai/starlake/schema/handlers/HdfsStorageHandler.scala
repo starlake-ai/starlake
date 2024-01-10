@@ -343,12 +343,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   ): List[Path] = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
-    logger.info(s"list($path, $extension, $since)")
+    logger.debug(s"list($path, $extension, $since)")
     Try {
       if (exists(path)) {
         val iterator: RemoteIterator[LocatedFileStatus] = currentFS.listFiles(path, recursive)
         val files = iterator.filter { status =>
-          logger.info(s"found file=$status")
+          logger.debug(s"found file=$status")
           val time = LocalDateTime.ofInstant(
             Instant.ofEpochMilli(status.getModificationTime),
             ZoneId.systemDefault
@@ -357,7 +357,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
             exclude.exists(_.matcher(status.getPath().getName()).matches())
           !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }.toList
-
+        logger.info(s"Found ${files.size} files")
         val sorted =
           if (sortByName)
             files.sortBy(_.getPath.getName)
