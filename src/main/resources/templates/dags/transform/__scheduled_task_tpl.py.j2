@@ -3,6 +3,7 @@ from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 
 import json
 import os
+import sys
 from typing import List
 
 from airflow import DAG
@@ -40,6 +41,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
          schedule=schedule,
          default_args=DEFAULT_DAG_ARGS,
          catchup=False,
+         user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
+         user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
          tags=set([tag.upper() for tag in tags]),
          description=description) as dag:
 
@@ -95,11 +98,10 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     else:
         start >> all_transform_tasks
 
-    all_done = sl_job.dummy_op(task_id="all_done")
-
     end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
 
-    all_transform_tasks >> all_done >> end
+    all_transform_tasks >> end
 
     if post_tasks:
-        all_done >> post_tasks >> end
+        all_done = sl_job.dummy_op(task_id="all_done")
+        all_transform_tasks >> all_done >> post_tasks >> end
