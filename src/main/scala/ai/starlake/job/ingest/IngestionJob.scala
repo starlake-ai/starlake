@@ -1284,7 +1284,7 @@ trait IngestionJob extends SparkJob {
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
           .schema(incomingSchema)
-          .format("com.google.cloud.spark.bigquery")
+          .format("bigquery")
           .option("table", bqTable)
 
         val existingBigQueryDFReader = (mergeOptions.queryFilter, sink.timestamp) match {

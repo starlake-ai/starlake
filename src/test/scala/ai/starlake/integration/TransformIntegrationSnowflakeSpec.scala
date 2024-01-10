@@ -2,7 +2,7 @@ package ai.starlake.integration
 
 import ai.starlake.job.Main
 
-class TransformIntegrationSnowflakeSpec extends BigQueryIntegrationSpecBase {
+class TransformIntegrationSnowflakeSpec extends IntegrationTestBase {
   val snowflakeDir = starlakeDir / "samples" / "spark"
 
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
