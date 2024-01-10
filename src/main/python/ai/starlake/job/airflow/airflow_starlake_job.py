@@ -47,7 +47,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()"""
         task_id = f"{domain}_import" if not task_id else task_id
-        arguments = ["import", "--includes", domain]
+        arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain))]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)

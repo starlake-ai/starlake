@@ -232,7 +232,9 @@ case class Attribute(
   def sparkType(schemaHandler: SchemaHandler): DataType = {
     def buildStruct(): List[StructField] = {
       if (attributes.isEmpty)
-        throw new Exception("Should never happen: empty list of attributes")
+        throw new Exception(
+          s"Attribute `$name` of type ${`type`} is considered as struct but doesn't have any attributes. Please check the types you defined or add attributes to it."
+        )
       val fields = attributes.map { attr =>
         val structField = StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
         attr.comment.map(structField.withComment).getOrElse(structField)

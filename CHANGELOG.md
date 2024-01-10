@@ -10,16 +10,20 @@ __Bug Fix__:
 - Throw expected exception when no connection ref found.
 - turn missing additional columns optional on native bigquery csv data ingestion
 - fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
+- table's metadata merge during schema extraction now takes `sink`, `ignore` and `directory` attribute into account.
+- Use default load format during native ingestion
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
 - warn when starlake version is not installed yet and user want to use it
 - added support for mysql extraction
 - add the ability to rename column during schema and data extraction
+- enhance user error message when defined types is not declared in types
 
 __Feature__:
 
 - generic templating framework for dag generation through the definition of a python library for starlake jobs
+- load gzip compressed files (.gz extension) into bigquery
 
 # 1.0.0:
 - **BREAKING CHANGE**
@@ -43,7 +47,7 @@ __Improvement__:
   - load individual domain only in extract-schema
 
 __Bug Fix__:
-- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.  
+- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.
 
 # 0.8.0:
 - ** DEPRECATED **

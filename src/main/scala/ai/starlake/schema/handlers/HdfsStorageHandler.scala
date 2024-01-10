@@ -25,6 +25,7 @@ import ai.starlake.utils.conversion.Conversions.convertToScalaIterator
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.{InputStreamReader, OutputStream}
@@ -276,7 +277,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   ): T = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
-    val output: T = Using.resource(new InputStreamReader(currentFS.open(path), charset)) { stream =>
+    val factory = new CompressionCodecFactory(currentFS.getConf)
+    val is = currentFS.open(path)
+    val decompressedIS = Option(factory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+    val output: T = Using.resource(new InputStreamReader(decompressedIS, charset)) { stream =>
       action(stream)
     }
     output
