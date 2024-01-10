@@ -46,7 +46,8 @@ __Improvement__:
   - load individual domain only in extract-schema
 
 __Bug Fix__:
-- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.  
+- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.
+- Use default load format during native ingestion
 
 # 0.8.0:
 - ** DEPRECATED **
