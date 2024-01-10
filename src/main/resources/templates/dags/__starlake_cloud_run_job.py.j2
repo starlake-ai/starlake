@@ -1,4 +1,8 @@
 {% include 'templates/dags/__common.py.j2' %}
 from ai.starlake.job.airflow.gcp import AirflowStarlakeCloudRunJob
 
-sl_job = AirflowStarlakeCloudRunJob(options=options)
+import sys
+
+#variable task_options as a dict of all transform options to apply by task
+#eg task_options = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
+sl_job = AirflowStarlakeCloudRunJob(options=dict(options, **sys.modules[__name__].__dict__.get('tasks_options', {})))
