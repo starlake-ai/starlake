@@ -22,13 +22,12 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.Conversions.convertToScalaIterator
-import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{InputStreamReader, OutputStream}
+import java.io.{ByteArrayInputStream, IOException, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -261,7 +260,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
     pathSecurityCheck(path)
     readAndExecute(path, charset) { is =>
-      IOUtils.toString(is)
+      org.apache.commons.io.IOUtils.toString(is)
     }
   }
 
@@ -514,6 +513,46 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     defaultFS.getScheme
   }
 
+  def copyMerge(
+    header: Option[String],
+    srcDir: Path,
+    dstFile: Path,
+    deleteSource: Boolean
+  ): Boolean = {
+    val currentFS = fs(dstFile)
+
+    if (currentFS.exists(dstFile)) {
+      throw new IOException(s"Target $dstFile already exists")
+    }
+
+    // Source path is expected to be a directory:
+    if (currentFS.getFileStatus(srcDir).isDirectory) {
+
+      val parts = currentFS
+        .listStatus(srcDir)
+        .filter(status => status.isFile)
+        .map(_.getPath)
+      val outputStream = currentFS.create(dstFile)
+      header.foreach { header =>
+        val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
+        val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
+        try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
+        finally { inputStream.close() }
+      }
+      try {
+        parts
+          .filter(part => part.getName().startsWith("part-"))
+          .sortBy(_.getName)
+          .collect { case part =>
+            val inputStream = currentFS.open(part)
+            try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
+            finally { inputStream.close() }
+          }
+        if (deleteSource) parts.foreach(delete)
+      } finally { outputStream.close() }
+      true
+    } else false
+  }
 }
 
 object HdfsStorageHandler

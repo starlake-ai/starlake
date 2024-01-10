@@ -36,7 +36,7 @@ import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.{LocalStorageHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
@@ -201,7 +201,7 @@ class IngestionWorkflow(
                 // we can virtually handle anything
                 def asBetterFile(path: Path): File = {
                   Try {
-                    LocalStorageHandler.localFile(path) // try once
+                    StorageHandler.localFile(path) // try once
                   } match {
                     case Success(file) => file
                     // There is no FileSystem registered that can handle this URI
