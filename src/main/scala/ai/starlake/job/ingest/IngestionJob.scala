@@ -845,7 +845,7 @@ trait IngestionJob extends SparkJob {
         case Some(sql) =>
           logger.info(s"buildSqlSelect: $sql")
           if (asTable)
-            bigqueryJob.RunAndSinkAsTable(sqlOpt, Some(targetTableSchema)).map(_ -> nullCountValues)
+            bigqueryJob.runAndSinkAsTable(sqlOpt, Some(targetTableSchema)).map(_ -> nullCountValues)
           else
             bigqueryJob.runInteractiveQuery(sqlOpt).map(_ -> nullCountValues)
         case None =>

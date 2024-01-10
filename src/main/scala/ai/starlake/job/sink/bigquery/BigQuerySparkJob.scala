@@ -38,14 +38,14 @@ class BigQuerySparkJob(
   override def name: String = s"bqload-${bqTable}"
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
-  logger.info(s"BigQuery Config $cliConfig")
+  logger.debug(s"BigQuery Config $cliConfig")
 
   val bucket: String = conf.get("fs.defaultFS")
 
   /** Prepare the configuration for the BigQuery connector
     */
   def prepareConf(): Configuration = {
-    logger.info(s"BigQuery Config $cliConfig")
+    logger.debug(s"BigQuery Config $cliConfig")
     // fs.default.name
 
     val bucketFromExtraConf = {

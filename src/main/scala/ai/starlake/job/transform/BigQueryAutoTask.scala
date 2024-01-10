@@ -109,15 +109,15 @@ class BigQueryAutoTask(
     if (truncate) {
       // nothing to do, config is created with write_truncate in that case
     }
-    logger.info(s"running BQ Query with config $config")
+    logger.debug(s"running BQ Query with config $config")
     val (preSql, mainSql, postSql, mainIsSelect) =
       computeQueries()
-    logger.info(s"Config $config")
+    logger.debug(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
 
     val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
-        logger.info(s"Running PreSQL BQ Query: $sql")
+        logger.debug(s"Running PreSQL BQ Query: $sql")
         bqNativeJob(config, sql).runInteractiveQuery()
       }
     presqlResult.foreach(Utils.logFailure(_, logger))

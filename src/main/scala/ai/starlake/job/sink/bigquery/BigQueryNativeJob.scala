@@ -36,7 +36,7 @@ class BigQueryNativeJob(
     with BigQueryJobBase {
   override def name: String = s"bqload-${bqNativeTable}"
 
-  logger.info(s"BigQuery Config $cliConfig")
+  logger.debug(s"BigQuery Config $cliConfig")
 
   def loadPathsToBQ(tableInfo: SLTableInfo): Try[NativeBqLoadInfo] = {
     getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
@@ -318,16 +318,16 @@ class BigQueryNativeJob(
       if (settings.appConfig.internal.forall(_.bqAuditSaveInBatchMode)) {
         runBatchQuery().map(_ => BigQueryJobResult(None, 0L, None))
       } else {
-        RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+        runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
       }
     } else if (cliConfig.materializedView) {
-      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
+      runAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
-      RunAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
     }
   }
 
-  def RunAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
+  def runAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
         val materializedViewDefinitionBuilder =
@@ -364,7 +364,7 @@ class BigQueryNativeJob(
     }
   }
 
-  def RunAndSinkAsTable(
+  def runAndSinkAsTable(
     thisSql: scala.Option[String] = None,
     targetTableSchema: scala.Option[BQSchema] = None,
     queryJobTimeoutMs: scala.Option[Long] = None
@@ -391,37 +391,37 @@ class BigQueryNativeJob(
             val partitioning =
               timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
                 .build()
-
-            // Allow Field relaxation / addition in native job when appending to existing partitioned table
-            val tableExists = Try(
-              bigquery()
-                .getTable(tableId)
-                .exists()
-            ).toOption.getOrElse(false)
-
-            if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString && tableExists)
-              queryConfig
-                .setTimePartitioning(partitioning)
-                .setSchemaUpdateOptions(
-                  List(
-                    SchemaUpdateOption.ALLOW_FIELD_ADDITION,
-                    SchemaUpdateOption.ALLOW_FIELD_RELAXATION
-                  ).asJava
-                )
-            else
-              queryConfig.setTimePartitioning(partitioning)
+            queryConfig.setTimePartitioning(partitioning)
           case None =>
             queryConfig
-
         }
+        // Allow Field relaxation / addition in native job when appending to existing partitioned table
+        val tableExists = Try(
+          bigquery()
+            .getTable(tableId)
+            .exists()
+        ).toOption.getOrElse(false)
+
+        logger.info("Schema update options")
+        val queryConfigWithPartitioningAndSchemaUpdate =
+          if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString && tableExists)
+            queryConfigWithPartition
+              .setSchemaUpdateOptions(
+                List(
+                  SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                  SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+                ).asJava
+              )
+          else
+            queryConfigWithPartition
 
         logger.info("Computing clustering")
         val queryConfigWithClustering = cliConfig.outputClustering match {
           case Nil =>
-            queryConfigWithPartition
+            queryConfigWithPartitioningAndSchemaUpdate
           case fields =>
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
-            queryConfigWithPartition.setClustering(clustering)
+            queryConfigWithPartitioningAndSchemaUpdate.setClustering(clustering)
         }
         logger.info("Add user defined functions")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)

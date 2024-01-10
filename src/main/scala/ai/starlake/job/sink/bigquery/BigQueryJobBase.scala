@@ -50,7 +50,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   def settings: Settings
   def cliConfig: BigQueryLoadConfig
-  logger.info(s"cliConfig=$cliConfig")
+  logger.debug(s"cliConfig=$cliConfig")
   lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
     .orElse(Some(settings.appConfig.connectionRef))
 
@@ -195,7 +195,8 @@ trait BigQueryJobBase extends StrictLogging {
   def bigquery(alwaysCreate: Boolean = false)(implicit settings: Settings): BigQuery = {
     val create = alwaysCreate || _bigquery.isEmpty
     if (create) {
-      logger.info(s"Getting BQ credentials for connection $connectionName -> ${connectionRef}")
+      logger.info(s"Getting BQ credentials for connection $connectionName")
+      logger.debug(s"$connectionName -> ${connectionRef}")
 
       val bqOptionsBuilder = BigQueryOptions
         .newBuilder()
