@@ -55,7 +55,8 @@ trait TransformCmd extends Cmd[TransformConfig] {
       builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
-        .action((x, c) => c.copy(options = x))
+        .action((x, c) => c.copy(options = c.options ++ x))
+        .unbounded()
         .text("Job arguments to be used as substitutions")
     )
   }
