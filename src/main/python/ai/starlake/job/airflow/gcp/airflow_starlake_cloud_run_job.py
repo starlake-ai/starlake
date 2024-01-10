@@ -34,7 +34,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                     f"gcloud beta run jobs execute {self.cloud_run_job_name} "
                     f"--args '{command}' "
                     f"{self.update_env_vars} "
-                    f"--region {self.cloud_run_job_region} --project {self.project_id} --task-timeout 300 --format='get(metadata.name)'"
+                    f"--region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'"# --task-timeout 300
                 ),
                 do_xcom_push=True,
                 **kwargs
