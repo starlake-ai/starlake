@@ -70,9 +70,11 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        all_done = sl_job.dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
+        all_done = sl_job.dummy_op(task_id="all_done")
+
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
+
+        all_load_tasks >> all_done >> end
 
         if post_tasks:
-            all_load_tasks >> all_done >> post_tasks
-        else:
-            all_load_tasks >> all_done
+            all_done >> post_tasks >> end
