@@ -124,7 +124,7 @@
 /** COMMUN **/
 
 html{
-    font-size: 62.5%;
+    font-size: 60%;
 }
 html,
 body{
@@ -1414,10 +1414,6 @@ body > img[class*="zoom"] {
     }
     .hero__subtitle {
         font-size: 1.8rem;
-    }
-
-    .subtitle2 {
-        font-size: 3.8rem;
     }
 
     .feature:not(:last-child) {
