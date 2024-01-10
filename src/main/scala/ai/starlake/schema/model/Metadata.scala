@@ -148,16 +148,16 @@ case class Metadata(
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${write}
+       |write:${getWrite()}
        |sink:${sink}
        |directory:${directory}
        |extensions:${extensions}
        |ack:${ack}
-       |options:${options}
+       |options:${getOptions()}
        |loader:${loader}
        |dag:${dagRef}
        |freshness:${freshness}
-       |nullValue:${nullValue}
+       |nullValue:${getNullValue()}
        |emptyIsNull:${emptyIsNull}
        |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
@@ -184,7 +184,7 @@ case class Metadata(
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite()(implicit settings: Settings): WriteMode =
+  def getWrite(): WriteMode =
     getFinalValue(write, APPEND)
 
   @JsonIgnore
@@ -343,6 +343,7 @@ case class Metadata(
     if (
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
+      sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )

@@ -27,7 +27,7 @@ class StarlakeDataprocCluster():
         self.region = AirflowStarlakeJob.get_context_var("dataproc_region", "europe-west1", options)
         self.subnet = AirflowStarlakeJob.get_context_var("dataproc_subnet", "default", options)
         self.service_account = AirflowStarlakeJob.get_context_var("dataproc_service_account", f"service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com", options)
-        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.0.30-debian10", options)
+        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.2-debian12", options)
         self.master_conf = {
             "num_instances": 1,
             "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_master_machine_type", "n1-standard-4", options),
@@ -37,7 +37,7 @@ class StarlakeDataprocCluster():
             }
         }
         self.worker_conf = {
-            "num_instances": int(AirflowStarlakeJob.get_context_var("dataproc_num_workers", "3", options)),
+            "num_instances": int(AirflowStarlakeJob.get_context_var("dataproc_num_workers", "4", options)),
             "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_worker_machine_type", "n1-standard-4", options),
             "disk_config": {
                 "boot_disk_type": AirflowStarlakeJob.get_context_var("dataproc_worker_disk_type", "pd-standard", options), 
@@ -57,15 +57,15 @@ class StarlakeDataprocCluster():
             "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": AirflowStarlakeJob.get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", sl_env_vars),
             "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": AirflowStarlakeJob.get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", sl_env_vars)
         }
-        self.memAlloc = AirflowStarlakeJob.get_context_var("spark_executor_memory", "22g", options)
-        self.numVcpu = AirflowStarlakeJob.get_context_var("spark_executor_cores", "8", options)
+        self.memAlloc = AirflowStarlakeJob.get_context_var("spark_executor_memory", "11g", options)
+        self.numVcpu = AirflowStarlakeJob.get_context_var("spark_executor_cores", "4", options)
         self.sparkExecutorInstances = AirflowStarlakeJob.get_context_var("spark_executor_instances", "3", options)
         sparkBucket = AirflowStarlakeJob.get_context_var(var_name="spark_bucket", options=options)
         self.spark_properties = {
             "spark.hadoop.fs.defaultFS": f"gs://{sparkBucket}",
             "spark.eventLog.enabled": "true",
             "spark.executor.memory": self.memAlloc,
-            "spark.executor.cores": int(self.numVcpu),
+            "spark.executor.cores": str(self.numVcpu),
             "spark.executor.instances": str(self.sparkExecutorInstances),
             "spark.sql.sources.partitionOverwriteMode": "DYNAMIC",
             "spark.sql.legacy.parquet.int96RebaseModeInWrite": "CORRECTED",
@@ -108,7 +108,7 @@ class StarlakeDataprocCluster():
         This operator will be flagged a success if the cluster by this name already exists.
         """
         dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
         task_id = f"create_{cluster_name}" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         region = self.region if not region else region
@@ -159,6 +159,7 @@ class StarlakeDataprocCluster():
 
         return DataprocCreateClusterOperator(
             task_id=task_id,
+            project_id=project_id,
             cluster_name=cluster_name,
             cluster_config=cluster_config,
             region=region,
@@ -169,12 +170,14 @@ class StarlakeDataprocCluster():
         self,
         dag: DAG=None,
         task_id: str=None,
+        project_id: str=None,
         cluster_name: str=None,
         region: str=None,
         **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
         dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
+        project_id = self.project_id if not project_id else project_id
         task_id = f"delete_{cluster_name}" if not task_id else task_id
         region = self.region if not region else region
         kwargs.update({
@@ -183,6 +186,7 @@ class StarlakeDataprocCluster():
         })
         return DataprocDeleteClusterOperator(
             task_id=task_id,
+            project_id=project_id,
             cluster_name=cluster_name,
             region=region,
             **kwargs
@@ -191,8 +195,8 @@ class StarlakeDataprocCluster():
     def submit_starlake_job(
         self,
         task_id: str=None,
-        cluster_name: str=None,
         project_id: str=None,
+        cluster_name: str=None,
         region: str=None,
         arguments: list=None,
         jar_list: list=None,
@@ -202,7 +206,7 @@ class StarlakeDataprocCluster():
         retries: int=0,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
-        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id}}}}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id.replace('_', '-')}}}}" if not cluster_name else cluster_name
         task_id = f"{cluster_name}_submit" if not task_id else task_id
         project_id = self.project_id if not project_id else project_id
         arguments = [] if not arguments else arguments
@@ -214,7 +218,7 @@ class StarlakeDataprocCluster():
         if spark_config:
             spark_properties.update({
                 "spark.executor.memory": spark_config.get('memAlloc', self.memAlloc),
-                "spark.executor.cores": int(spark_config.get('numVcpu', self.numVcpu)),
+                "spark.executor.cores": str(spark_config.get('numVcpu', self.numVcpu)),
                 "spark.executor.instances": str(spark_config.get('sparkExecutorInstances', self.sparkExecutorInstances))
             })
 
@@ -223,8 +227,10 @@ class StarlakeDataprocCluster():
             'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
         })
 
+        region = self.region if not region else region
         return DataprocSubmitJobOperator(
             task_id=task_id,
+            project_id=project_id,
             region=region,
             job={
                 "reference": {
