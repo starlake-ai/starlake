@@ -95,11 +95,10 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     else:
         start >> all_transform_tasks
 
-    all_done = sl_job.dummy_op(task_id="all_done")
-
     end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
 
-    all_transform_tasks >> all_done >> end
+    all_transform_tasks >> end
 
     if post_tasks:
-        all_done >> post_tasks >> end
+        all_done = sl_job.dummy_op(task_id="all_done")
+        all_transform_tasks >> all_done >> post_tasks >> end
