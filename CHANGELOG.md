@@ -11,6 +11,7 @@ __Bug Fix__:
 - turn missing additional columns optional on native bigquery csv data ingestion
 - fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
 - table's metadata merge during schema extraction now takes `sink`, `ignore` and `directory` attribute into account.
+- Use default load format during native ingestion
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
@@ -47,7 +48,6 @@ __Improvement__:
 
 __Bug Fix__:
 - Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.
-- Use default load format during native ingestion
 
 # 0.8.0:
 - ** DEPRECATED **
