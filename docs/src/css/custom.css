@@ -191,7 +191,7 @@ h2{
 .main-wrapper > .container > .row > aside nav ul li a[aria-current="page"],
 .main-wrapper > .container > .row > main h1:first-child,
 html.blog-wrapper .main-wrapper > div > aside nav ul li a.menu__link:hover,
-html.docs-wrapper .main-wrapper > div > aside nav ul li a.menu__link:hover {    
+html.docs-wrapper .main-wrapper > div > aside nav ul li a.menu__link:hover {
     background: var(--gradient) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent;
@@ -1414,6 +1414,10 @@ body > img[class*="zoom"] {
     }
     .hero__subtitle {
         font-size: 1.8rem;
+    }
+
+    .subtitle2 {
+        font-size: 3.8rem;
     }
 
     .feature:not(:last-child) {

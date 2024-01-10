@@ -1,12 +1,12 @@
 ---
 sidebar_position: 230
-title: null
+title: secure
 ---
 
 
 ## Synopsis
 
-**starlake null [options]**
+**starlake secure [options]**
 
 ## Description
 

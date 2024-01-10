@@ -6,8 +6,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-    title: "Supercharge your data pipelines",
-    tagline: 'So your data just keep moving',
+    title: "Declarative Data Pipeline",
+    tagline: 'Effortless Extract / Load / Transform / Orchestrate',
     favicon: 'img/favicon_starlake.ico',
 
     // Set the production url of your site here

@@ -3,6 +3,7 @@ transform:
     write: APPEND
     merge:
       key: [id]
-      on: TARGET
+      timestamp: signup
+      on: SOURCE_AND_TARGET
 
 

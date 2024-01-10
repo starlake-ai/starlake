@@ -6,33 +6,38 @@ import ReactPlayer from 'react-player/lazy';
 
 const FeatureList = [
   {
-    title: 'Low Code / No Code',
+    title: 'Just YAML and regular SQL',
     Svg: require('@site/static/img/lowcode.svg').default,
     description: (
-      <>
-        Starlake Data Pipeline was designed from the ground up to be easily installed and used to ingest your data and expose your insights quickly.
-      </>
+        <>
+            Run on your favorite orchestrator against your favorite warehouse <br/>
+            BigQuery / Databricks / Redshift / Snowflake and many more.
+        </>
     ),
   },
   {
     title: (
         <>
-            On Premise<br/> & Cloud Native
+            Full & Incremental
         </>
     ),
     Svg: require('@site/static/img/cloudnative.svg').default,
     description: (
       <>
-        Starlake Data Pipeline support almost all On Premise and native cloud solutions, including Amazon S3 / Azure Storage / Google Storage / Apache HDFS, Snowflake / Google BigQuery / Amazon Redshift / Apache Hive.
+          Full & Incremental Parallel data extraction <br/>
+          Full & Incremental Load with advanced validation<br/>
+          Full & Incremental Transform with lineage handling
       </>
     ),
   },
   {
-    title: 'DevOps friendly',
+    title: 'Observability & Security',
     Svg: require('@site/static/img/devops.svg').default,
     description: (
       <>
-        Starlake Data Pipeline was designed to fully integrate into the DevOps ecosystem to take advantage of practices like Git Merge Requests, incremental CI/CD, Text based configuration and BYO SQL environment.
+        Validate input files, Test business logic <br/>Secure tables, rows and columns<br/>
+          Generate documentation &
+          metrics
       </>
     ),
   },
@@ -106,7 +111,7 @@ const SplitSectionList = [
   {
     title: (
         <>
-        Lineage<br/>at your <br/>fingertips
+            Run Task<br/>Dependency Graphs<br/>on your Orchestrator
         </>
     ),
     isBackgroundColored: 'no',
@@ -116,7 +121,7 @@ const SplitSectionList = [
     alignImg: 'left',
     description:(
       <p>
-        Visualize your data lineage and relationships and run you transformations instantly on your favorite orchestration engine.
+          Use out-of-the DAG templates to run you transformations instantly on your favorite orchestration engine.
       </p>
     ),
     linkText: 'Read more',
@@ -136,7 +141,8 @@ const SplitSectionList = [
       alignImg: 'left',
       description:(
         <p>
-          share your data catalog with your business users and let them contribute and explore with their favorite tools.
+            Using an Excel like interface, your business users are able to browse,
+            update and validate [extract], [load] or [transform] metadata such as primary/ foreign keys, table/column descriptions and access rules
         </p>
       ),
       linkText: 'Read more',

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 100
-title: null
+title: extract-bq-schema
 ---
 
 
 ## Synopsis
 
-**starlake null [options]**
+**starlake extract-bq-schema [options]**
 
 ## Description
 

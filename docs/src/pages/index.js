@@ -14,8 +14,8 @@ function HomepageHeader() {
   return (
     <header className={clsx(styles.heroBanner)}>
       <div className="container">
-        <h1 className="hero__title title_gradient">Supercharge <br/>your data pipelines</h1>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
+          <h1 className="hero__title title_gradient">Declarative Data Pipeline<br/>One YAML Rule them All</h1>
+          <p className="hero__subtitle" style={{'font-size': '3rem'}}>{siteConfig.tagline}</p>
         <div className={styles.buttons}>
           <Link
             className="violet_btn"

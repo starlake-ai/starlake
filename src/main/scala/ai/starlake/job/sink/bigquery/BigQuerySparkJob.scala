@@ -246,7 +246,7 @@ class BigQuerySparkJob(
                     .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
                   val finalEmptyDF = emptyDF.write
                     .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
+                    .format("bigquery")
                     .option("datePartition", partitionToUpdate)
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
@@ -264,7 +264,7 @@ class BigQuerySparkJob(
                     )
                     .write
                     .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
+                    .format("bigquery")
                     .option("datePartition", partitionStr)
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
@@ -316,7 +316,7 @@ class BigQuerySparkJob(
             }
             val finalDF = sourceDF.write
               .mode(saveMode)
-              .format("com.google.cloud.spark.bigquery")
+              .format("bigquery")
               .option("table", bqTable)
               .option("intermediateFormat", intermediateFormat)
               .options(withFieldRelaxationOptions)
