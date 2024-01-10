@@ -3,6 +3,7 @@ from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 
 import json
 import os
+import sys
 from typing import List
 
 from airflow import DAG
@@ -40,6 +41,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
          schedule=schedule,
          default_args=DEFAULT_DAG_ARGS,
          catchup=False,
+         user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
+         user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
          tags=set([tag.upper() for tag in tags]),
          description=description) as dag:
 
