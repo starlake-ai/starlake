@@ -6,12 +6,13 @@ import ai.starlake.schema.model.Schema.SL_INTERNAL_TABLE
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
-import net.sf.jsqlparser.parser.CCJSqlParserUtil
+import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
 import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
 import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 import java.util.UUID
+import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
 import scala.util.matching.Regex
@@ -120,7 +121,12 @@ object SQLUtils extends StrictLogging {
       sql
         .replaceAll("(?i)WHEN NOT MATCHED AND (.*) THEN ", "WHEN NOT MATCHED THEN ")
         .replaceAll("(?i)WHEN MATCHED (.*) THEN ", "WHEN MATCHED THEN ")
-    CCJSqlParserUtil.parse(parseable)
+    val features = new Consumer[CCJSqlParser] {
+      override def accept(t: CCJSqlParser): Unit = {
+        t.withTimeOut(60 * 1000)
+      }
+    }
+    CCJSqlParserUtil.parse(parseable, features)
   }
 
   def getColumnNames(sql: String): String = {
