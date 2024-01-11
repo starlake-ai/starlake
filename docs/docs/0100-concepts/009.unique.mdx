@@ -105,15 +105,15 @@ That's it, we have defined our loading pipeline.
 Let's say we want to transform the data extracted from the previous example before loading it into a datawarehouse
 
 ```yaml
-
+---
 transform:
   default:
-    write: OVERWRITE
+    write: "OVERWRITE"
   tasks:
-    - name: most_profitable_products
-      write: MERGE
+    - name: "most_profitable_products"
+      write: "MERGE"
       merge:
-        timestamp: signup
+        timestamp: "signup"
         key: [id]
       sql: |              # based on the merge strategy and the current state,
           SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
