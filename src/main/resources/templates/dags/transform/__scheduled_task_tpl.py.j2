@@ -4,7 +4,7 @@ from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 import json
 import os
 import sys
-from typing import List
+from typing import Set
 
 from airflow import DAG
 
@@ -20,18 +20,18 @@ load_dependencies = AirflowStarlakeJob.get_context_var(var_name='load_dependenci
 
 schedule = None
 
-datasets: List[Dataset] = []
+datasets: Set[str] = []
 
 def _load_datasets(task: dict):
     if 'children' in task:
         for child in task['children']:
-            datasets.append(Dataset(keep_ascii_only(child['data']['name'])))
+            datasets.append(keep_ascii_only(child['data']['name']).lower())
             _load_datasets(child)
 
 if load_dependencies.lower() != 'true':
     for task in task_deps:
         _load_datasets(task)
-    schedule = datasets
+    schedule = list(map(lambda dataset: Dataset(dataset), datasets))
 
 tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
 
