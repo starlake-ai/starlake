@@ -22,16 +22,15 @@ The workflow below is a typical use case:
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
-## How is Starlake different ?
-
+## How is Starlake declarative ?
 
 Looking at ELT tools, we can see that they are either:
-- __Code based__: They require to write code to define the data pipelines. This is the case for example for Databricks or Meltano.
-- __GUI based__: They require to use a GUI to define the data pipelines. This is the case for example for Apache NiFi, Airbyte or Fivetran.
+- __Code based__:This is the case for example for Databricks or Meltano.
+- __GUI based__: This is the case for example for Apache NiFi, Airbyte or Fivetran.
 
 Looking at existing data orchestration tools, we can see that they are either:
-- __Code based__: They require to write code to define the data pipelines. This is the case for example for Apache Airflow or Dagster.
-- __GUI based__: They require to use a GUI to define the data pipelines. This is the case for example for Apache NiFi or StreamSets.
+- __Code based__: This is the case for example for Apache Airflow or Dagster.
+- __GUI based__: This is the case for example for Apache NiFi or StreamSets.
 
 
 Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
@@ -57,6 +56,7 @@ Among the properties you may specify in the YAML file, the following are worth m
 * data access policies
 * schema evolution
 
+The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain.
 
 The YAML DSL added value is best explained with an example:
 
@@ -68,7 +68,6 @@ extract:
   connectionRef: "pg-adventure-works-db" # or mssql-adventure-works-db i extracting from SQL Server
   jdbcSchemas:
     - schema: "sales"
-      schedule: "0 0 * * *"                     # (optional) cron expression to schedule the extraction
       tables:
         - name: "salesorderdetail"              # table name or simple "*" to extract all tables
           partitionColumn: "salesorderdetailid" # (optional)  you may parallelize the extraction based on this field
@@ -85,12 +84,6 @@ extract:
 ```
 
 That's it, we have defined our extraction pipeline.
-
-The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain.
-
-Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it on a daily basis on your favorite orchestrator (Airflow, Dagster, Prefect, ...).
-
-
 
 ### Load
 
@@ -127,14 +120,6 @@ table:
 
 That's it, we have defined our loading pipeline.
 
-The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain.
-
-Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it upon file
-arrival on your orchestrator to validate the input against the YAML schema, apply schema updates
-when needed/requested and finally producing a detailed reporting accessible via your favorite BI tool.
-
-Starlake support almost any text base file format including FIXED_WIDTH_FIELDS, CSV, TSV, PSV, JSON, XML, AVRO, PARQUET, ORC ...
-
 
 ### Transform
 
@@ -160,12 +145,12 @@ transform:
             ORDER BY total_revenue DESC
 ```
 
-That's it, we have defined our transformation pipeline. Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
-whenever  the tables referenced in the SQL query are updated.
-
-Starlake will take care of applying the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `merge` property and the input /output tables .
+Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `merge` property and the input /output tables .
 
 ### Orchestrate
+
+Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
+whenever  the tables referenced in the SQL query are updated.
 
 Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, Prefect, ...).
 Simply reference them in your YAML files  and optionally customize them to your needs.
@@ -179,14 +164,10 @@ The resulting DAG is shown below:
 
 ![](docs/static/img/quickstart/transform-dags.png)
 
-
-
-
 ## How it works
 
 Starlake Data Pipeline automates the loading and parsing of files and
-their ingestion into a warehouse where datasets become
-available as strongly typed records.
+their ingestion into a warehouse where datasets become available as strongly typed records.
 
 ![](docs/static/img/workflow.png)
 
@@ -198,7 +179,6 @@ Starlake may be used indistinctly for all or any of these steps.
 * The `load` step allows you to load text files, to ingest POSITION/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
 * The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
 
-The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the
-figure below.
+The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the figure below.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
