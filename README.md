@@ -25,7 +25,7 @@ You may use Starlake for Extract, Load and Transform steps or any combination of
 ## How is Starlake declarative ?
 
 Looking at ELT tools, we can see that they are either:
-- __Code based__:This is the case for example for Databricks or Meltano.
+- __Code based__: This is the case for example for Databricks or Meltano.
 - __GUI based__: This is the case for example for Apache NiFi, Airbyte or Fivetran.
 
 Looking at existing data orchestration tools, we can see that they are either:
