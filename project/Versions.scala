@@ -33,6 +33,6 @@ object Versions {
   val jinja = "2.7.1"
   val snowflakeJDBC = "3.13.30"
   val snowflakeSpark: String = "2.11.3-spark_3.3"
-  val sqlParser = "4.7"
+  val jSqlParser = "4.8"
   val bigQueue = "0.7.0"
 }
