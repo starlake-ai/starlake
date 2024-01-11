@@ -94,7 +94,7 @@ Starlake will take care of generating the corresponding DAG (Directed Acyclic Gr
 
 ### Load
 
-Let's say we want to load the data extracted from the previous example into datawarehouse
+Let's say we want to load the data extracted from the previous example into a datawarehouse
 
 ```yaml
 ---
