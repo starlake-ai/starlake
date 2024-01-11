@@ -49,7 +49,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain))]
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain).lower())]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
@@ -220,7 +220,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(f'{domain}.{table}'))]
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(f'{domain}.{table}').lower())]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
@@ -230,7 +230,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options")
         if transform_options:
             arguments.extend(["--options", transform_options])
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name))]
+        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name).lower())]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
