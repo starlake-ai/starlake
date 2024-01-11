@@ -17,7 +17,8 @@ The workflow below is a typical use case:
 * Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
 * Configure the loading process
 * Start watching your data being available as Tables in your warehouse.
-* Build aggregates using SQL, Jinja and YAML configuration files.
+* Build aggregates using SQL and YAML configuration files.
+* Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator in teh right order.
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
@@ -164,7 +165,7 @@ whenever  the tables referenced in the SQL query are updated.
 
 Starlake will take care of applying the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `merge` property and the input /output tables .
 
-### Orchestration
+### Orchestrate
 
 Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, Prefect, ...).
 Simply reference them in your YAML files  and optionally customize them to your needs.
