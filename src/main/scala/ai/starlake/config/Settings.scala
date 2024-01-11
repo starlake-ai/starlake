@@ -31,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -1045,7 +1046,11 @@ final case class Settings(
       case Some(handler) if !reload => handler
       case _ =>
         implicit val self: Settings = this
-        val handler = new HdfsStorageHandler(appConfig.fileSystem)
+        val handler =
+          if (SystemUtils.IS_OS_WINDOWS || appConfig.useLocalFileSystem)
+            new LocalStorageHandler()
+          else
+            new HdfsStorageHandler(appConfig.fileSystem)
         _storageHandler = Some(handler)
         handler
     }
