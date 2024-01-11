@@ -5,7 +5,7 @@ sidebar_position: 1
 # What is Starlake ?
 
 Starlake is a configuration only Extract, Load and Transform engine.
-The workflow below is a typical use case :
+The workflow below is a typical use case:
 
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
 * Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
@@ -30,11 +30,11 @@ figure below.
 The figure below illustrates the typical data lifecycle in Starlake.
 ![](/img/workflow.png)
 
-* Landing Area : In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
-*-* Pending Area : Files associated with a schema are imported into this area.
-* Accepted Area : Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
-* Business Area : Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-* Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
+* Landing Area: In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
+*-* Pending Area: Files associated with a schema are imported into this area.
+* Accepted Area: Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
+* Business Area: Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
+* Data visualization: parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 
@@ -76,7 +76,7 @@ The Load module supports 2 modes:
 * The native mode, the fatest one will use the target database capabilities to load the data and apply all the required transformations. For example, on BigQuery, starlake use the Bigquery Load API
 * The Spark mode will use Spark to load the data. This mode is slower than the native mode but is the most powerful one and is compatible with all databases. Please note that this mode does not require setting up a Spark cluster, it run out of the box in the starlake docker image.
 
-The table below list the features supported by each mode, the one that meet your requirements depend on the quality of your source and on the audit level you wish to have :
+The table below list the features supported by each mode, the one that meet your requirements depend on the quality of your source and on the audit level you wish to have:
 
 
 |File formats|Spark|Native|

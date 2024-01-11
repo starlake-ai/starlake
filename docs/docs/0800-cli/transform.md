@@ -21,5 +21,5 @@ Parameter|Cardinality|Description
 --reload:`<value>`|*Optional*|Reload YAML  files. Used in server mode
 --truncate:`<value>`|*Optional*|Force table to be truncated before insert. Default value is false
 --recursive:`<value>`|*Optional*|Execute all dependencies recursively. Default value is false
---options:`k1=v1,k2=v2...`|*Optional*|Job arguments to be used as substitutions
+--options:`k1=v1,k2=v2...`|*Optional, Unbounded*|Job arguments to be used as substitutions
 

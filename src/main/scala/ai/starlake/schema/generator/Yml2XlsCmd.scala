@@ -10,7 +10,7 @@ import scala.util.Try
 
 trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
 
-  override val command: String = "yml2xls"
+  override def command: String = "yml2xls"
 
   val parser: OParser[Unit, Yml2XlsConfig] = {
     val builder = OParser.builder[Yml2XlsConfig]

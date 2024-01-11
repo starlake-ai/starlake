@@ -1,12 +1,12 @@
 ---
 sidebar_position: 300
-title: xls2yml
+title: xls2ymljob
 ---
 
 
 ## Synopsis
 
-**starlake xls2yml [options]**
+**starlake xls2ymljob [options]**
 
 ## Description
 

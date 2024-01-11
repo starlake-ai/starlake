@@ -5,7 +5,7 @@ sidebar_position: 1
 # What is Starlake ?
 
 Starlake is a configuration only Extract, Load and Transform engine.
-The workflow below is a typical use case :
+The workflow below is a typical use case:
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
 * Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
 * Configure the loading process
@@ -75,11 +75,11 @@ figure below.
 
 Starlake Data Pipeline steps are described below:
 
-- Landing Area : In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
-- Pending Area : Files associated with a schema are imported into this area.
-- Accepted Area : Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
-- Business Area : Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-- Data visualization : parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
+- Landing Area: In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
+- Pending Area: Files associated with a schema are imported into this area.
+- Accepted Area: Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
+- Business Area: Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
+- Data visualization: parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 

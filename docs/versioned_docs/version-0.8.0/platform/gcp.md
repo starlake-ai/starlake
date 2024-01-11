@@ -138,7 +138,7 @@ The audit log for the above jobs are available in a BigQuery table since we set 
 ## Running Locally with Spark (Dev. Mode) 
 
 When describing your data format, you may need to run, for testing purposes, your job locally against the remote GCP Project hosting your BigQuery datasets.
-In that case, you need to set the GCP_PROJECT env var and create a custom core-site.xml in your classpath as described below :
+In that case, you need to set the GCP_PROJECT env var and create a custom core-site.xml in your classpath as described below:
 
 ````xml
  <configuration>

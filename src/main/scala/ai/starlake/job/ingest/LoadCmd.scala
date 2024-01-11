@@ -10,7 +10,7 @@ import scala.util.Try
 
 trait LoadCmd extends Cmd[LoadConfig] {
 
-  val command = "load"
+  def command = "load"
 
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]

@@ -6,8 +6,8 @@ or ingest all of them at once.
 
 When ingesting the files with the same schema one after the other, it is possible to use a custom ordering policy by settings the `SL_LOAD_STRATEGY` environment variable. Currently, the following ordering policies are defined:
 
-* `ai.starlake.job.load.IngestionTimeStrategy` : Order the files by modification date
-* `ai.starlake.job.load.IngestionNameStrategy` : Order  the files by name
+* `ai.starlake.job.load.IngestionTimeStrategy`: Order the files by modification date
+* `ai.starlake.job.load.IngestionNameStrategy`: Order  the files by name
 
 If you want to use another custom strategy, you'll have to implement the trait below, make it available in the classpath and set the `SL_LOAD_STRATEGY` environment variable
 
@@ -120,11 +120,11 @@ ai.starlake.privacy.ApproxLong(70)|Return a double long with a variation up to 7
 ai.starlake.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
 
 
-Any new privacy strategy should implement the following trait :
+Any new privacy strategy should implement the following trait:
 
 ```scala
 /** @param s: String  => Input string to encrypt
-  * @param colMap : Map[String, Option[String]] => Map of all the attributes and their corresponding values
+  * @param colMap: Map[String, Option[String]] => Map of all the attributes and their corresponding values
   * @param params: List[Any]  => Parameters passed to the algorithm as defined in the conf file.
   *                               Parameter starting with '"' is converted to a string
   *                               Parameter containing a '.' is converted to a double

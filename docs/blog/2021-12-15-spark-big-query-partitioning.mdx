@@ -69,7 +69,7 @@ Incoming and existing records are added up but only the newest version of each p
 </TabItem>
 </Tabs>
 
-There is no good or bad strategy, the use of one of the strategies above depends on the use case. Some use case examples for each of the strategies are :
+There is no good or bad strategy, the use of one of the strategies above depends on the use case. Some use case examples for each of the strategies are:
 - Overwrite mode may be useful when you receive every day the list of all product names.
 - Append mode may be useful when you receive daily sales.
 - Dynamic Partition Overwrite mode may be useful when you ingested the first time a partition, and you need to ingest it again with a different set of data and thus alter only that partition.
@@ -84,7 +84,7 @@ There is no good or bad strategy, the use of one of the strategies above depends
 
 BigQuery is supported by Spark as a source and sink through the [Spark BigQuery connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
 
-Spark comes out of the box with the ability to append or overwrite existing data using a predefined save mode :
+Spark comes out of the box with the ability to append or overwrite existing data using a predefined save mode:
 
 ```scala
 
@@ -102,7 +102,7 @@ incomingDF.write
 
 ### Dynamic Partition Overwrite mode in Spark
 
-To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :
+To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above:
 ```scala
 spark.conf.set("spark.sql.sources.partitionOverwriteMode","DYNAMIC")
 ```
@@ -176,7 +176,7 @@ ON target_table.product = incoming_table.product
 
 Unfortunately the `MERGE` statement is not supported by Apache Spark. It is only supported by Databricks, its commercial version.
 
-To do a merge using the Spark BigQuery connector, we need to do it by following the steps below :
+To do a merge using the Spark BigQuery connector, we need to do it by following the steps below:
 
 
 **Step 1: Create a dataframe with all the rows**

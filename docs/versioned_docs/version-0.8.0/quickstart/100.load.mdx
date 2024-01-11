@@ -322,7 +322,7 @@ env:
   bigQueryMaterializationDataset: "???" # need to be defined for spark loader on BigQuery only
   loader: "???" # native or spark. Need to be defined in the specific env.{{SL_ENV}}.sl.yml file
 ```
-This means that the specific _env.LOCAL.sl.yml_ environment file will be loaded and mixed with the default one :
+This means that the specific _env.LOCAL.sl.yml_ environment file will be loaded and mixed with the default one:
 
 ```yaml title="env.LOCAL.sl.yml is Loaded since SL_ENV is evaluated to LOCAL"
 env:

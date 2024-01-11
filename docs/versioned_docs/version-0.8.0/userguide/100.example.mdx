@@ -109,13 +109,13 @@ folder /mnt/incoming/hr of the landing area.
 ## Recap
 We will load the following files:
 
-From the sales department, customers and orders in delimiter separated files :
+From the sales department, customers and orders in delimiter separated files:
 - customers and orders are appended to the previous imported data
 - new orders are added
 - updated orders replace existing ones
 - and some orders may even be deleted when marked as such in the input dataset
 
-From the HR department, sellers and locations in json files :
+From the HR department, sellers and locations in json files:
 - sellers are imported in a cumulative way while locations are imported as full content and overwrite the existing locations dataset
 - sellers are received as an array of json objects
 - locations are received in JSON file with one json record per line
@@ -147,7 +147,7 @@ Import the datasets into the cluster:
 
 This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS or Cloud Storage folder.
 
-Run the ingestion process as follows :
+Run the ingestion process as follows:
 
 ````shell
 /app/starlake/starlake.sh load

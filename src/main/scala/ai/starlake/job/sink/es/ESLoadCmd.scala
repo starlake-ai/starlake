@@ -11,7 +11,7 @@ import scala.util.Try
 
 trait ESLoadCmd extends Cmd[ESLoadConfig] {
 
-  val command = "esload"
+  def command = "esload"
 
   val parser: OParser[Unit, ESLoadConfig] = {
     val builder = OParser.builder[ESLoadConfig]

@@ -7,7 +7,7 @@ import ai.starlake.utils.JobResult
 import scala.util.Try
 
 object SecureCmd extends LoadCmd {
-  override val command = "secure"
+  override def command = "secure"
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
