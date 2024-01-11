@@ -16,12 +16,13 @@ from airflow.utils.task_group import TaskGroup
 
 class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
     """Airflow Starlake Cloud Run Job."""
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, retry_on_failure: bool=None, **kwargs):
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, retry_on_failure: bool=None, separator:str = ' ', **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = __class__.get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = __class__.get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
-        self.update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+        self.separator = separator if separator != ',' else ' '
+        self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
 
     def __job_with_completion_sensors__(self, task_id: str, command: str, **kwargs) -> TaskGroup:
@@ -32,9 +33,9 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 task_id=task_id,
                 bash_command=(
                     f"gcloud beta run jobs execute {self.cloud_run_job_name} "
-                    f"--args '{command}' "
+                    f"--args \"{command}\" "
                     f"{self.update_env_vars} "
-                    f"--region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'"# --task-timeout 300
+                    f"--region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
                 ),
                 do_xcom_push=True,
                 **kwargs
@@ -66,7 +67,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
 
     def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
         """Overrides AirflowStarlakeJob.sl_job()"""
-        command = ' '.join(arguments)
+        command = f'^{self.separator}^' + self.separator.join(arguments)
         return self.__job_with_completion_sensors__(task_id=task_id, command=command, **kwargs)
 
 class CloudRunJobCompletionSensor(BashSensor):
