@@ -36,7 +36,7 @@ Looking at existing data orchestration tools, we can see that they are either:
 Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
 instead of writing code or using a GUI.
 
-These YAMl files are then interpreted by Starlake runtime to execute your end to end data pipelines.
+These YAML files are then interpreted by Starlake runtime to execute your end to end data pipelines.
 
 Among the properties you may specify in the YAML file, the following are worth mentioning:
 * field normalization
@@ -171,12 +171,12 @@ Simply reference them in your YAML files  and optionally customize them to your 
 
 
 The following dependencies are extracted from your SQL query and used to generate the corresponding DAG:
-![](/img/quickstart/transform-viz.svg)
+![](docs/static/img/quickstart/transform-viz.svg)
 
 
 The resulting DAG is shown below:
 
-![](/img/quickstart/transform-dags.png)
+![](docs/static/img/quickstart/transform-dags.png)
 
 
 
@@ -197,21 +197,7 @@ Starlake may be used indistinctly for all or any of these steps.
 * The `load` step allows you to load text files, to ingest POSITION/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
 * The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
 
-The Load Transform steps support multiple configurations for inputs and outputs as illustrated in the
+The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the
 figure below.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
-
-
-Starlake Data Pipeline steps are described below:
-
-- Landing Area: In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
-- Pending Area: Files associated with a schema are imported into this area.
-- Accepted Area: Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
-- Business Area: Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-- Data visualization: parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
-
-Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
-
-
-
