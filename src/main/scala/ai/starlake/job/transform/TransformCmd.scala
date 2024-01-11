@@ -10,7 +10,7 @@ import scala.util.Try
 
 trait TransformCmd extends Cmd[TransformConfig] {
 
-  val command = "transform"
+  def command = "transform"
 
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]

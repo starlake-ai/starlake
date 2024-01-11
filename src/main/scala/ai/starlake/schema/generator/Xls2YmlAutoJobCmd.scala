@@ -8,7 +8,7 @@ import scala.util.{Success, Try}
 
 object Xls2YmlAutoJobCmd extends Xls2YmlCmd {
 
-  override val command: String = "xls2ymljob"
+  override def command: String = "xls2ymljob"
 
   override def run(config: Xls2YmlConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings

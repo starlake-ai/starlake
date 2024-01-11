@@ -14,7 +14,7 @@ import scala.util.Try
 
 trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
 
-  val command = "xls2yml"
+  def command = "xls2yml"
 
   val parser: OParser[Unit, Xls2YmlConfig] = {
     val builder = OParser.builder[Xls2YmlConfig]

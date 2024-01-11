@@ -499,7 +499,7 @@ __Bug Fix__:
 - Loading empty files when the schema contains script fields
 - Applying default value for an attribute when value in the input data is null
 - Transformation job with BQ engine fails when no views block is defined
-- XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
+- XLS2YML: remove non-breaking spaces from Excel file cells to avoid parsing errors
 - Fix merge using timestamp option
 - Json ingestion fails with complex array of objects
 - Remove duplicates on incoming when existingDF does not exist or is empty

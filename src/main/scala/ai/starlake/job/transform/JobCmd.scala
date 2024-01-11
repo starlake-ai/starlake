@@ -1,5 +1,5 @@
 package ai.starlake.job.transform
 
 object JobCmd extends TransformCmd {
-  override val command: String = "job"
+  override def command: String = "job"
 }

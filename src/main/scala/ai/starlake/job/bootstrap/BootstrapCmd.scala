@@ -10,7 +10,7 @@ import scala.util.{Success, Try}
 
 object BootstrapCmd extends Cmd[BootstrapConfig] {
 
-  override val command: String = "bootstrap"
+  override def command: String = "bootstrap"
 
   val parser: OParser[Unit, BootstrapConfig] = {
     val builder = OParser.builder[BootstrapConfig]

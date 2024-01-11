@@ -8,7 +8,7 @@ import ai.starlake.utils.JobResult
 import scala.util.Try
 
 object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
-  override val command: String = "extract-bq-schema"
+  override def command: String = "extract-bq-schema"
 
   override def run(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
