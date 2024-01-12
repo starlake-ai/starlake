@@ -1,10 +1,13 @@
+import logging
 import os
 import re
 from datetime import timedelta, datetime
 
 from typing import Union
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig
+
+from ai.starlake.job.airflow.airflow_starlake_options import AirflowStarlakeOptions
 
 from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id
 
@@ -38,7 +41,7 @@ DEFAULT_DAG_ARGS = {
     'retry_delay': timedelta(minutes=5)
 }
 
-class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
+class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
@@ -135,9 +138,9 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
                 def f_skip_or_start(**kwargs):
                     task_instance = kwargs['ti']
                     files_tuple = task_instance.xcom_pull(key=None, task_ids=[list_files.task_id])
-                    print('Number of files found: {}'.format(files_tuple))
-                    files_number = files_tuple[0]
-                    return int(files_number) > 1
+                    files_number = int(str(files_tuple[0]).strip())
+                    print('Number of files found: {}'.format(files_number))
+                    return files_number > 1
 
                 skip_or_start = ShortCircuitOperator(
                     task_id = sanitize_id(f'{domain}_skip_or_start'),
@@ -215,15 +218,15 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
         else:
             return self.pre_tasks(**kwargs)
 
-    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> BaseOperator:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None,**kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_load()"""
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(f'{domain}.{table}').lower())]
-        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, **kwargs) -> BaseOperator:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_transform()"""
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
@@ -232,7 +235,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator]):
             arguments.extend(["--options", transform_options])
         self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name).lower())]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def dummy_op(self, task_id, **kwargs):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
