@@ -2,7 +2,7 @@ import os
 
 from typing import Union
 
-from ai.starlake.job import StarlakePreLoadStrategy
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
 from ai.starlake.job.airflow import AirflowStarlakeJob
 
@@ -26,7 +26,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
 
-    def __job_with_completion_sensors__(self, task_id: str, command: str, **kwargs) -> TaskGroup:
+    def __job_with_completion_sensors__(self, task_id: str, command: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> TaskGroup:
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
             # asynchronous job
@@ -66,11 +66,11 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 job_task >> completion_sensor >> job_status
         return task_completion_sensors
 
-    def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides AirflowStarlakeJob.sl_job()"""
         command = f'^{self.separator}^' + self.separator.join(arguments)
         if self.cloud_run_async:
-            return self.__job_with_completion_sensors__(task_id=task_id, command=command, **kwargs)
+            return self.__job_with_completion_sensors__(task_id=task_id, command=command, spark_config=spark_config, **kwargs)
         else:
             # synchronous job
             return BashOperator(

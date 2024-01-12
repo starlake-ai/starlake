@@ -59,7 +59,8 @@ for schedule in schedules:
                     sl_job.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 
-                        table=table["name"]
+                        table=table["name"],
+                        spark_config=spark_config(f'{domain["name"]}.{table["name"]}'.lower()),
                     )
             return domain_load_tasks
 
