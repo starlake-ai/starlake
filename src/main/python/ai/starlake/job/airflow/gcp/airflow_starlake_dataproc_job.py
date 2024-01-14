@@ -120,7 +120,7 @@ class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
         return cluster_config
 
 class StarlakeDataprocCluster(AirflowStarlakeOptions):
-    def __init__(self, cluster_config: StarlakeDataprocClusterConfig, options: dict, sl_env_vars:dict, sl_root:str, pool:str, **kwargs):
+    def __init__(self, cluster_config: StarlakeDataprocClusterConfig, options: dict, pool:str, **kwargs):
         super().__init__()
 
         self.options = {} if not options else options
@@ -263,7 +263,7 @@ class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
     """Airflow Starlake Dataproc Job."""
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeDataprocCluster=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.cluster = StarlakeDataprocCluster(cluster_config=None, options=self.options, sl_env_vars=self.sl_env_vars, sl_root=self.sl_root, pool=self.pool) if not cluster else cluster
+        self.cluster = StarlakeDataprocCluster(cluster_config=None, options=self.options, pool=self.pool) if not cluster else cluster
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides AirflowStarlakeJob.sl_job()"""
