@@ -127,7 +127,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
           envVars
         )
         val options =
-          taskConfig.dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+          taskConfig.dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
         (
           filename,
           taskConfig
@@ -215,7 +215,9 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 "table"       -> table.name,
                 "finalTable"  -> table.finalName
               )
-              val options = dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
@@ -267,7 +269,9 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 "domain"      -> domain.name,
                 "finalDomain" -> domain.finalName
               )
-              val options = dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
@@ -281,7 +285,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               "domain"      -> domain.name,
               "finalDomain" -> domain.finalName
             )
-            val options = dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+            val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
@@ -327,7 +331,9 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               val envVars = schemaHandler.activeEnvVars() ++ Map(
                 "schedule" -> schedule
               )
-              val options = dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
@@ -338,7 +344,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             }
           } else {
             val envVars = schemaHandler.activeEnvVars()
-            val options = dagConfig.options.map(kv => kv._1 -> Utils.parseJinja(kv._2, envVars))
+            val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
