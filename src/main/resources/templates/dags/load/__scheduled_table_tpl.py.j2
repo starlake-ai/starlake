@@ -56,11 +56,12 @@ for schedule in schedules:
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
+                    spark_config_name=AirflowStarlakeOptions.get_context_var('spark_config_name', f'{domain["name"]}.{table["name"]}'.lower(), options)
                     sl_job.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 
                         table=table["name"],
-                        spark_config=spark_config(f'{domain["name"]}.{table["name"]}'.lower()),
+                        spark_config=spark_config(spark_config_name),
                     )
             return domain_load_tasks
 

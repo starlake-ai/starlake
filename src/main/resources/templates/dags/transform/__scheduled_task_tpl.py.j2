@@ -54,11 +54,12 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     post_tasks = sl_job.post_tasks(dag=dag)
 
     def create_task(airflow_task_id: str, task_name: str, task_type: str):
+        spark_config_name=AirflowStarlakeOptions.get_context_var('spark_config_name', task_name.lower(), options)
         if (task_type == 'task'):
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 
                 transform_name=task_name,
-                spark_config=spark_config(task_name.lower())
+                spark_config=spark_config(spark_config_name)
             )
         else:
             load_domain_and_table = task_name.split(".",1)
@@ -68,7 +69,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 task_id=airflow_task_id, 
                 domain=domain, 
                 table=table,
-                spark_config=spark_config(task_name.lower())
+                spark_config=spark_config(spark_config_name)
             )
 
     # build takgroups recursively
