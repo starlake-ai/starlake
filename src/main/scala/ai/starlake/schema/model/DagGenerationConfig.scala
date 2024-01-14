@@ -67,7 +67,7 @@ case class LoadDagGenerationContext(
   schedules: List[DagSchedule]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val updatedOptions = if (config.options.get("SL_TIMEZONE").isEmpty) {
+    val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
       val tz = cal1.getTimeZone();
       config.options + ("SL_TIMEZONE" -> tz.getID)
@@ -87,7 +87,7 @@ case class TransformDagGenerationContext(
   cron: Option[String]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val updatedOptions = if (config.options.get("SL_TIMEZONE").isEmpty) {
+    val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
       val tz = cal1.getTimeZone();
       config.options + ("SL_TIMEZONE" -> tz.getID)
