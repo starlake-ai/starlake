@@ -1,4 +1,5 @@
 from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.job import StarlakeSparkConfig
 from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 
 import json
@@ -52,43 +53,46 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
 
     post_tasks = sl_job.post_tasks(dag=dag)
 
-    def create_task(airflow_task_id: str, transform_name: str, task_type: str):
+    def create_task(airflow_task_id: str, task_name: str, task_type: str):
+        spark_config_name=AirflowStarlakeOptions.get_context_var('spark_config_name', task_name.lower(), options)
         if (task_type == 'task'):
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 
-                transform_name=transform_name
+                transform_name=task_name,
+                spark_config=spark_config(spark_config_name)
             )
         else:
-            load_domain_and_table = transform_name.split(".",1)
+            load_domain_and_table = task_name.split(".",1)
             domain = load_domain_and_table[0]
             table = load_domain_and_table[1]
             return sl_job.sl_load(
                 task_id=airflow_task_id, 
                 domain=domain, 
-                table=table
+                table=table,
+                spark_config=spark_config(spark_config_name)
             )
 
     # build takgroups recursively
-    def generate_task_group_for_task(transform_task):
-        transform_name = transform_task['data']['name']
-        airflow_task_group_id = sanitize_id(transform_name)
+    def generate_task_group_for_task(task):
+        task_name = task['data']['name']
+        airflow_task_group_id = sanitize_id(task_name)
         airflow_task_id = airflow_task_group_id
-        task_type = transform_task['data']['typ']
+        task_type = task['data']['typ']
         if (task_type == 'task'):
             airflow_task_id = airflow_task_group_id + "_task"
         else:
             airflow_task_id = airflow_task_group_id + "_table"
 
-        if (load_dependencies.lower() == 'true' and 'children' in transform_task):
+        if (load_dependencies.lower() == 'true' and 'children' in task):
             with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
-                for transform_sub_task in transform_task['children']:
+                for transform_sub_task in task['children']:
                     generate_task_group_for_task(transform_sub_task)
                 upstream_tasks = list(airflow_task_group.children.values())
-                airflow_task = create_task(airflow_task_id, transform_name, task_type)
+                airflow_task = create_task(airflow_task_id, task_name, task_type)
                 airflow_task.set_upstream(upstream_tasks)
             return airflow_task_group
         else:
-            airflow_task = create_task(airflow_task_id=airflow_task_id, transform_name=transform_name, task_type=task_type)
+            airflow_task = create_task(airflow_task_id=airflow_task_id, task_name=task_name, task_type=task_type)
             return airflow_task
 
     all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]

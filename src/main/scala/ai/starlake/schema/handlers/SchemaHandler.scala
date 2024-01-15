@@ -531,21 +531,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           dagFileContent,
           dagsConfigsPath.toString
         ) match {
-        case Success(dagConfig) =>
-          // we save the raw filename since it willl be instantiaed at runtime (it holds the domain and table vars potentially
-          val rawFilename = dagConfig.filename
-          // Let's reload the dag config and apply the jinja templating
-          val dagConfigResult = YamlSerializer
-            .deserializeDagGenerationConfig(
-              Utils.parseJinja(dagFileContent, activeEnvVars()),
-              dagsConfigsPath.toString
-            )
-          dagConfigResult match {
-            case Success(dagConfig) =>
-              dagConfig.copy(filename = rawFilename)
-            case Failure(err) =>
-              throw err
-          }
+        case Success(dagConfig) => dagConfig
         case Failure(err) =>
           logger.error(
             s"Failed to load dag config in $dagsConfigsPath"
