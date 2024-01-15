@@ -113,15 +113,26 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
     val taskConfigsGroupedByFilename = taskConfigs
       .map { taskConfig =>
+        val envVars = schemaHandler.activeEnvVars() ++ Map(
+          "table"  -> taskConfig.taskDesc.table,
+          "domain" -> taskConfig.taskDesc.domain,
+          "name"   -> taskConfig.taskDesc.name
+        )
         val filename = Utils.parseJinja(
           taskConfig.dagConfig.filename,
-          schemaHandler.activeEnvVars() ++ Map(
-            "table"  -> taskConfig.taskDesc.table,
-            "domain" -> taskConfig.taskDesc.domain,
-            "name"   -> taskConfig.taskDesc.name
-          )
+          envVars
         )
-        (filename, taskConfig)
+        val comment = Utils.parseJinja(
+          taskConfig.dagConfig.comment,
+          envVars
+        )
+        val options =
+          taskConfig.dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
+        (
+          filename,
+          taskConfig
+            .copy(dagConfig = taskConfig.dagConfig.copy(options = options, comment = comment))
+        )
       }
       .groupBy { case (filename, _) => filename }
     taskConfigsGroupedByFilename
@@ -196,19 +207,25 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               val cronIfNone = if (cron == "None") null else cron
               val schedules =
                 List(DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain)))
-              val context = LoadDagGenerationContext(config = dagConfig, schedules)
+
+              val envVars = schemaHandler.activeEnvVars() ++ Map(
+                "schedule"    -> scheduleValue,
+                "domain"      -> domain.name,
+                "finalDomain" -> domain.finalName,
+                "table"       -> table.name,
+                "finalTable"  -> table.finalName
+              )
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
+              val comment = Utils.parseJinja(dagConfig.comment, envVars)
+              val context = LoadDagGenerationContext(
+                config = dagConfig.copy(options = options, comment = comment),
+                schedules
+              )
 
               scheduleIndex = nextScheduleIndex
-              val filename = Utils.parseJinja(
-                dagConfig.filename,
-                schemaHandler.activeEnvVars() ++ Map(
-                  "schedule"    -> scheduleValue,
-                  "domain"      -> domain.name,
-                  "finalDomain" -> domain.finalName,
-                  "table"       -> table.name,
-                  "finalTable"  -> table.finalName
-                )
-              )
+              val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
             }
           }
@@ -247,26 +264,34 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               val (scheduleValue, nextScheduleIndex) =
                 getScheduleName(schedule.schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
-              val context = LoadDagGenerationContext(config = dagConfig, List(schedule))
-              val filename = Utils.parseJinja(
-                dagConfig.filename,
-                schemaHandler.activeEnvVars() ++ Map(
-                  "schedule"    -> scheduleValue,
-                  "domain"      -> domain.name,
-                  "finalDomain" -> domain.finalName
-                )
-              )
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
-            }
-          } else {
-            val context = LoadDagGenerationContext(config = dagConfig, schedules)
-            val filename = Utils.parseJinja(
-              dagConfig.filename,
-              schemaHandler.activeEnvVars() ++ Map(
+              val envVars = schemaHandler.activeEnvVars() ++ Map(
+                "schedule"    -> scheduleValue,
                 "domain"      -> domain.name,
                 "finalDomain" -> domain.finalName
               )
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
+              val comment = Utils.parseJinja(dagConfig.comment, envVars)
+              val context = LoadDagGenerationContext(
+                config = dagConfig.copy(options = options, comment = comment),
+                schedules
+              )
+              val filename = Utils.parseJinja(dagConfig.filename, envVars)
+              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            }
+          } else {
+            val envVars = schemaHandler.activeEnvVars() ++ Map(
+              "domain"      -> domain.name,
+              "finalDomain" -> domain.finalName
             )
+            val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
+            val comment = Utils.parseJinja(dagConfig.comment, envVars)
+            val context = LoadDagGenerationContext(
+              config = dagConfig.copy(options = options, comment = comment),
+              schedules
+            )
+            val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
           }
         }
@@ -303,21 +328,29 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
             .sortBy(_.schedule)
           if (filenameVars.contains("schedule")) {
             dagSchedules.foreach { schedule =>
-              val context = LoadDagGenerationContext(config = dagConfig, List(schedule))
-              val filename = Utils.parseJinja(
-                dagConfig.filename,
-                schemaHandler.activeEnvVars() ++ Map(
-                  "schedule" -> schedule
-                )
+              val envVars = schemaHandler.activeEnvVars() ++ Map(
+                "schedule" -> schedule
               )
+              val options = dagConfig.options.map { case (k, v) =>
+                k -> Utils.parseJinja(v, envVars)
+              }
+              val comment = Utils.parseJinja(dagConfig.comment, envVars)
+              val context = LoadDagGenerationContext(
+                config = dagConfig.copy(options = options, comment = comment),
+                List(schedule)
+              )
+              val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
             }
           } else {
-            val context = LoadDagGenerationContext(config = dagConfig, schedules = dagSchedules)
-            val filename = Utils.parseJinja(
-              dagConfig.filename,
-              schemaHandler.activeEnvVars()
+            val envVars = schemaHandler.activeEnvVars()
+            val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
+            val comment = Utils.parseJinja(dagConfig.comment, envVars)
+            val context = LoadDagGenerationContext(
+              config = dagConfig.copy(options = options, comment = comment),
+              schedules = dagSchedules
             )
+            val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
           }
 

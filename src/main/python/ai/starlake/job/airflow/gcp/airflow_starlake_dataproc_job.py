@@ -7,9 +7,9 @@ from airflow import DAG
 
 from ai.starlake.common import TODAY
 
-from ai.starlake.job import StarlakePreLoadStrategy
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.job.airflow import AirflowStarlakeJob
+from ai.starlake.job.airflow import AirflowStarlakeJob, AirflowStarlakeOptions
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -21,52 +21,202 @@ from airflow.providers.google.cloud.operators.dataproc import (
 
 from airflow.utils.trigger_rule import TriggerRule
 
-class StarlakeDataprocCluster():
-    def __init__(self, options: dict, sl_env_vars:dict, sl_root:str, pool:str):
-        self.project_id = AirflowStarlakeJob.get_context_var("dataproc_project_id", os.getenv("GCP_PROJECT"), options)
-        self.region = AirflowStarlakeJob.get_context_var("dataproc_region", "europe-west1", options)
-        self.subnet = AirflowStarlakeJob.get_context_var("dataproc_subnet", "default", options)
-        self.service_account = AirflowStarlakeJob.get_context_var("dataproc_service_account", f"service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com", options)
-        self.image_version = AirflowStarlakeJob.get_context_var("dataproc_image_version", "2.2-debian12", options)
-        self.master_conf = {
-            "num_instances": 1,
-            "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_master_machine_type", "n1-standard-4", options),
+class StarlakeDataprocMachineConfig():
+    def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, **kwargs):
+        super().__init__()
+        self.num_instances = num_instances
+        self.machine_type = machine_type
+        self.disk_type = disk_type
+        self.disk_size = disk_size
+        self.kwargs = kwargs
+
+    def __config__(self):
+        return dict({
+            "num_instances": self.num_instances,
+            "machine_type_uri": self.machine_type,
             "disk_config": {
-                "boot_disk_type": AirflowStarlakeJob.get_context_var("dataproc_master_disk_type", "pd-standard", options), 
-                "boot_disk_size_gb": int(AirflowStarlakeJob.get_context_var("dataproc_master_disk_size", "1024", options))
+                "boot_disk_type": self.disk_type, 
+                "boot_disk_size_gb": self.disk_size
             }
-        }
-        self.worker_conf = {
-            "num_instances": int(AirflowStarlakeJob.get_context_var("dataproc_num_workers", "4", options)),
-            "machine_type_uri": AirflowStarlakeJob.get_context_var("dataproc_worker_machine_type", "n1-standard-4", options),
-            "disk_config": {
-                "boot_disk_type": AirflowStarlakeJob.get_context_var("dataproc_worker_disk_type", "pd-standard", options), 
-                "boot_disk_size_gb": int(AirflowStarlakeJob.get_context_var("dataproc_worker_disk_size", "1024", options))
-            }
-        }
-        self.cluster_properties = {
+        }, **self.kwargs)
+
+class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, AirflowStarlakeOptions):
+    def __init__(self, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
+        super().__init__(
+            num_instances=1,
+            machine_type=__class__.get_context_var("dataproc_master_machine_type", "n1-standard-4", options) if not machine_type else machine_type,
+            disk_type=__class__.get_context_var("dataproc_master_disk_type", "pd-standard", options) if not disk_type else disk_type,
+            disk_size=int(__class__.get_context_var("dataproc_master_disk_size", "1024", options)) if not disk_size else disk_size,
+            **kwargs
+        )
+
+class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, AirflowStarlakeOptions):
+    def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
+        super().__init__(
+            num_instances=int(__class__.get_context_var("dataproc_num_workers", "4", options)) if not num_instances else num_instances,
+            machine_type=__class__.get_context_var("dataproc_worker_machine_type", "n1-standard-4", options) if not machine_type else machine_type,
+            disk_type=__class__.get_context_var("dataproc_worker_disk_type", "pd-standard", options) if not disk_type else disk_type,
+            disk_size=int(__class__.get_context_var("dataproc_worker_disk_size", "1024", options)) if not disk_size else disk_size,
+            **kwargs
+        )
+
+class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
+    def __init__(self, master_config: StarlakeDataprocMasterConfig, worker_config: StarlakeDataprocWorkerConfig, secondary_worker_config: StarlakeDataprocWorkerConfig, idle_delete_ttl: int, single_node: bool, options: dict, **kwargs):
+        super().__init__()
+        options = {} if not options else options
+        sl_env_vars = __class__.get_sl_env_vars(options)
+        sl_root = __class__.get_sl_root(options)
+        self.project_id = __class__.get_context_var("dataproc_project_id", os.getenv("GCP_PROJECT"), options)
+        self.region = __class__.get_context_var("dataproc_region", "europe-west1", options)
+        self.subnet = __class__.get_context_var("dataproc_subnet", "default", options)
+        self.service_account = __class__.get_context_var("dataproc_service_account", f"service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com", options)
+        self.image_version = __class__.get_context_var("dataproc_image_version", "2.2-debian12", options)
+        self.master_config = StarlakeDataprocMasterConfig(machine_type=None, disk_type=None, disk_size=None, options=options) if not master_config else master_config
+        self.worker_config = StarlakeDataprocWorkerConfig(num_instances=None, machine_type=None, disk_type=None, disk_size=None, options=options) if not worker_config else worker_config
+        self.secondary_worker_config = secondary_worker_config
+        self.idle_delete_ttl = int(__class__.get_context_var("dataproc_idle_delete_ttl", "3600", options)) if not idle_delete_ttl else idle_delete_ttl
+        self.single_node = False if not single_node else single_node
+        self.cluster_properties = dict({
             "dataproc:dataproc.logging.stackdriver.job.driver.enable" : "true",
             "dataproc:dataproc.logging.stackdriver.job.yarn.container.enable": "true",
             "dataproc:dataproc.logging.stackdriver.enable": "true",
             "dataproc:jobs.file-backed-output.enable": "true",
-            "spark-env:SL_HIVE": AirflowStarlakeJob.get_context_var("SL_HIVE", "false", sl_env_vars),
-            "spark-env:SL_GROUPED": AirflowStarlakeJob.get_context_var("SL_GROUPED", "false", sl_env_vars),
+            "spark-env:SL_HIVE": __class__.get_context_var("SL_HIVE", "false", sl_env_vars),
+            "spark-env:SL_GROUPED": __class__.get_context_var("SL_GROUPED", "false", sl_env_vars),
             "spark-env:SL_ROOT": sl_root,
-            "spark-env:SL_AUDIT_SINK_TYPE": AirflowStarlakeJob.get_context_var("SL_AUDIT_SINK_TYPE", "BigQuerySink", sl_env_vars),
-            "spark-env:SL_SINK_REPLAY_TO_FILE": AirflowStarlakeJob.get_context_var("SL_SINK_REPLAY_TO_FILE", "false", sl_env_vars), # replay file generation causes serious performance decrease
-            "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": AirflowStarlakeJob.get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", sl_env_vars),
-            "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": AirflowStarlakeJob.get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", sl_env_vars)
+            "spark-env:SL_AUDIT_SINK_TYPE": __class__.get_context_var("SL_AUDIT_SINK_TYPE", "BigQuerySink", sl_env_vars),
+            "spark-env:SL_SINK_REPLAY_TO_FILE": __class__.get_context_var("SL_SINK_REPLAY_TO_FILE", "false", sl_env_vars), # replay file generation causes serious performance decrease
+            "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": __class__.get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", sl_env_vars),
+            "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": __class__.get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", sl_env_vars)
+        }, **kwargs)
+
+    def __config__(self, **kwargs):
+        cluster_properties = dict(self.cluster_properties, **kwargs)
+        cluster_config = {
+            "master_config": self.master_config.__config__(),
+            "worker_config": self.worker_config.__config__(),
+            "config_bucket": f"dataproc-{self.project_id}",
+            "gce_cluster_config": {
+                "service_account": self.service_account,
+                "subnetwork_uri": f"projects/{self.project_id}/regions/{self.region}/subnetworks/{self.subnet}",
+                "internal_ip_only": True,
+                "tags": ["dataproc"]
+            },
+            "software_config": {
+                "image_version": self.image_version,
+                "properties": {
+                    **cluster_properties
+                }
+            },
+            "lifecycle_config": {
+                "idle_delete_ttl": {"seconds": self.idle_delete_ttl}
+            }
         }
-        self.memAlloc = AirflowStarlakeJob.get_context_var("spark_executor_memory", "11g", options)
-        self.numVcpu = AirflowStarlakeJob.get_context_var("spark_executor_cores", "4", options)
-        self.sparkExecutorInstances = AirflowStarlakeJob.get_context_var("spark_executor_instances", "3", options)
-        sparkBucket = AirflowStarlakeJob.get_context_var(var_name="spark_bucket", options=options)
-        self.spark_properties = {
+        if self.single_node:
+            cluster_config.pop("worker_config")
+            cluster_config["software_config"]["properties"]["dataproc:dataproc.allow.zero.workers"] = "true"
+        elif self.secondary_worker_config:
+            cluster_config["secondary_worker_config"] = self.secondary_worker_config.__config__()
+        return cluster_config
+
+class StarlakeDataprocCluster(AirflowStarlakeOptions):
+    def __init__(self, cluster_config: StarlakeDataprocClusterConfig, options: dict, pool:str, **kwargs):
+        super().__init__()
+
+        self.options = {} if not options else options
+
+        self.cluster_config = StarlakeDataprocClusterConfig(
+            master_config=None, 
+            worker_config=None, 
+            secondary_worker_config=None, 
+            idle_delete_ttl=None, 
+            single_node=None, 
+            options=self.options,
+            **kwargs
+        ) if not cluster_config else cluster_config
+
+        self.dataproc_name = __class__.get_context_var("dataproc_name", "dataproc-cluster", options)
+
+        self.pool = pool
+
+        self.cluster_id = str(uuid.uuid4())[:8]
+
+    def create_dataproc_cluster(
+        self,
+        dag: DAG=None,
+        task_id: str=None,
+        cluster_name: str=None,
+        **kwargs) -> BaseOperator:
+        """
+        Create the Cloud Dataproc cluster.
+        This operator will be flagged a success if the cluster by this name already exists.
+        """
+        cluster_id = dag.dag_id if dag else self.cluster_id
+        cluster_name = f"{self.dataproc_name}-{cluster_id.replace('_', '-')}" if not cluster_name else cluster_name
+        task_id = f"create_{cluster_name}" if not task_id else task_id
+
+        kwargs.update({
+            'pool': kwargs.get('pool', self.pool),
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
+        })
+
+        spark_events_bucket = f'dataproc-{self.cluster_config.project_id}'
+
+        return DataprocCreateClusterOperator(
+            task_id=task_id,
+            project_id=self.cluster_config.project_id,
+            cluster_name=cluster_name,
+            cluster_config=self.cluster_config.__config__(**{
+                    "dataproc:job.history.to-gcs.enabled": "true",
+                    "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+                    "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+            }),
+            region=self.cluster_config.region,
+            **kwargs
+        )
+
+    def delete_dataproc_cluster(
+        self,
+        dag: DAG=None,
+        task_id: str=None,
+        cluster_name: str=None,
+        **kwargs) -> BaseOperator:
+        """Tears down the cluster even if there are failures in upstream tasks."""
+        cluster_id = dag.dag_id if dag else self.cluster_id
+        cluster_name = f"{self.dataproc_name}-{cluster_id.replace('_', '-')}" if not cluster_name else cluster_name
+        task_id = f"delete_{cluster_name}" if not task_id else task_id
+        kwargs.update({
+            'pool': kwargs.get('pool', self.pool),
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
+        })
+        return DataprocDeleteClusterOperator(
+            task_id=task_id,
+            project_id=self.cluster_config.project_id,
+            cluster_name=cluster_name,
+            region=self.cluster_config.region,
+            **kwargs
+        )
+
+    def submit_starlake_job(
+        self,
+        task_id: str=None,
+        cluster_name: str=None,
+        spark_config: StarlakeSparkConfig=None,
+        jar_list: list=None,
+        main_class: str=None,
+        arguments: list=None,
+        **kwargs) -> BaseOperator:
+        """Create a dataproc job on the specified cluster"""
+        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id.replace('_', '-')}}}}" if not cluster_name else cluster_name
+        task_id = f"{cluster_name}_submit" if not task_id else task_id
+        arguments = [] if not arguments else arguments
+        jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",") if not jar_list else jar_list
+        main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options) if not main_class else main_class
+
+        sparkBucket = __class__.get_context_var(var_name="spark_bucket", options=self.options)
+        spark_properties = {
             "spark.hadoop.fs.defaultFS": f"gs://{sparkBucket}",
             "spark.eventLog.enabled": "true",
-            "spark.executor.memory": self.memAlloc,
-            "spark.executor.cores": str(self.numVcpu),
-            "spark.executor.instances": str(self.sparkExecutorInstances),
             "spark.sql.sources.partitionOverwriteMode": "DYNAMIC",
             "spark.sql.legacy.parquet.int96RebaseModeInWrite": "CORRECTED",
             "spark.sql.catalogImplementation": "in-memory",
@@ -76,166 +226,23 @@ class StarlakeDataprocCluster():
             "spark.dynamicAllocation.enabled": "false",
             "spark.shuffle.service.enabled": "false"
         }
-        self.spark_config = {
-            "memAlloc": self.memAlloc,
-            "numVcpu": int(self.numVcpu),
-            "sparkExecutorInstances": str(self.sparkExecutorInstances)
-        }
-        self.jar_list = AirflowStarlakeJob.get_context_var(var_name="spark_jar_list", options=options).split(",")
-        self.main_class = AirflowStarlakeJob.get_context_var("spark_job_main_class", "ai.starlake.job.Main", options)
-        self.dataproc_name = AirflowStarlakeJob.get_context_var("dataproc_name", "dataproc-cluster", options)
-        self.pool = pool
-        self.dag_id = str(uuid.uuid4())[:8]
-
-    def create_dataproc_cluster(
-        self,
-        dag: DAG=None,
-        task_id: str=None,
-        project_id: str=None,
-        cluster_name: str=None,
-        region: str=None,
-        subnet: str=None,
-        service_account: str=None,
-        cluster_properties: dict=None,
-        image_version: str=None,
-        master_conf: dict=None,
-        worker_conf: dict=None,
-        secondary_worker_conf: dict=None,
-        is_single_node: bool=False,
-        **kwargs) -> BaseOperator:
-        """
-        Create the Cloud Dataproc cluster.
-        This operator will be flagged a success if the cluster by this name already exists.
-        """
-        dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
-        task_id = f"create_{cluster_name}" if not task_id else task_id
-        project_id = self.project_id if not project_id else project_id
-        region = self.region if not region else region
-        subnet = self.subnet if not subnet else subnet
-        service_account = self.service_account if not service_account else service_account
-        image_version = self.image_version if not image_version else image_version
-        master_conf = self.master_conf if not master_conf else self.master_conf.copy().update(master_conf)
-        worker_conf = self.worker_conf if not worker_conf else self.worker_conf.copy().update(worker_conf)
-        secondary_worker_conf = {} if not secondary_worker_conf else secondary_worker_conf
-        spark_events_bucket = f'dataproc-{project_id}'
-        cluster_properties = self.cluster_properties if not cluster_properties else self.cluster_properties.copy().update({
-            "dataproc:job.history.to-gcs.enabled": "true",
-            "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
-            "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
-        }).update(cluster_properties)
-
-        cluster_config = {
-            "master_config": master_conf,
-            "worker_config": worker_conf,
-            "config_bucket": f"dataproc-{project_id}",
-            "gce_cluster_config": {
-                "service_account": service_account,
-                "subnetwork_uri": f"projects/{project_id}/regions/{region}/subnetworks/{subnet}",
-                "internal_ip_only": True,
-                "tags": ["dataproc"]
-            },
-            "software_config": {
-                "image_version": image_version,
-                "properties": {
-                    **cluster_properties
-                }
-            },
-            # "lifecycle_config": {
-            #     "idle_delete_ttl": {"seconds": 3600}
-            # }
-        }
-
-        if is_single_node:
-            cluster_config.pop("worker_config")
-            cluster_config["software_config"]["properties"]["dataproc:dataproc.allow.zero.workers"] = "true"
-        elif secondary_worker_conf:
-            cluster_config["secondary_worker_config"] = secondary_worker_conf
+        spark_config = StarlakeSparkConfig(memory=None, cores=None, instances=None, cls_options=self, options=self.options, **spark_properties) if not spark_config else StarlakeSparkConfig(memory=spark_config.memory, cores=spark_config.cores, instances=spark_config.instances, cls_options=self, options=self.options, **dict(spark_properties, **spark_config.spark_properties))
 
         kwargs.update({
             'pool': kwargs.get('pool', self.pool),
             'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
         })
 
-        return DataprocCreateClusterOperator(
-            task_id=task_id,
-            project_id=project_id,
-            cluster_name=cluster_name,
-            cluster_config=cluster_config,
-            region=region,
-            **kwargs
-        )
+        job_id = task_id + "_" + str(uuid.uuid4())[:8]
 
-    def delete_dataproc_cluster(
-        self,
-        dag: DAG=None,
-        task_id: str=None,
-        project_id: str=None,
-        cluster_name: str=None,
-        region: str=None,
-        **kwargs) -> BaseOperator:
-        """Tears down the cluster even if there are failures in upstream tasks."""
-        dag_id = dag.dag_id if dag else self.dag_id
-        cluster_name = f"{self.dataproc_name}-{dag_id.replace('_', '-')}" if not cluster_name else cluster_name
-        project_id = self.project_id if not project_id else project_id
-        task_id = f"delete_{cluster_name}" if not task_id else task_id
-        region = self.region if not region else region
-        kwargs.update({
-            'pool': kwargs.get('pool', self.pool),
-            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
-        })
-        return DataprocDeleteClusterOperator(
-            task_id=task_id,
-            project_id=project_id,
-            cluster_name=cluster_name,
-            region=region,
-            **kwargs
-        )
-
-    def submit_starlake_job(
-        self,
-        task_id: str=None,
-        project_id: str=None,
-        cluster_name: str=None,
-        region: str=None,
-        arguments: list=None,
-        jar_list: list=None,
-        spark_properties: dict=None,
-        spark_config: dict=None,
-        main_class: str=None,
-        retries: int=0,
-        **kwargs) -> BaseOperator:
-        """Create a dataproc job on the specified cluster"""
-        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id.replace('_', '-')}}}}" if not cluster_name else cluster_name
-        task_id = f"{cluster_name}_submit" if not task_id else task_id
-        project_id = self.project_id if not project_id else project_id
-        arguments = [] if not arguments else arguments
-        jar_list = self.jar_list if not jar_list else jar_list
-        main_class = self.main_class if not main_class else main_class
-        spark_properties = self.spark_properties.copy() if not spark_properties else self.spark_properties.copy().update(spark_properties)
-        spark_config = self.spark_config if not spark_config else spark_config
-
-        if spark_config:
-            spark_properties.update({
-                "spark.executor.memory": spark_config.get('memAlloc', self.memAlloc),
-                "spark.executor.cores": str(spark_config.get('numVcpu', self.numVcpu)),
-                "spark.executor.instances": str(spark_config.get('sparkExecutorInstances', self.sparkExecutorInstances))
-            })
-
-        kwargs.update({
-            'pool': kwargs.get('pool', self.pool),
-            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
-        })
-
-        region = self.region if not region else region
         return DataprocSubmitJobOperator(
             task_id=task_id,
-            project_id=project_id,
-            region=region,
+            project_id=self.cluster_config.project_id,
+            region=self.cluster_config.region,
             job={
                 "reference": {
-                    "project_id": project_id,
-                    "job_id": task_id + "__" + str(uuid.uuid4())[:8]
+                    "project_id": self.cluster_config.project_id,
+                    "job_id": job_id
                 },
                 "placement": {
                     "cluster_name": cluster_name
@@ -245,29 +252,25 @@ class StarlakeDataprocCluster():
                     "main_class": main_class,
                     "args": arguments,
                     "properties": {
-                        **spark_properties
+                        **spark_config.__config__()
                     }
                 }
             },
-            retries=retries,
             **kwargs
         )
 
 class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
     """Airflow Starlake Dataproc Job."""
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeDataprocCluster=None, spark_properties: dict=None, spark_config: dict=None, options: dict=None, **kwargs):
+    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeDataprocCluster=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.cluster = StarlakeDataprocCluster(options=self.options, sl_env_vars=self.sl_env_vars, sl_root=self.sl_root, pool=self.pool) if not cluster else cluster
-        self.spark_properties = {} if not spark_properties else spark_properties
-        self.spark_config = {} if not spark_config else spark_config
+        self.cluster = StarlakeDataprocCluster(cluster_config=None, options=self.options, pool=self.pool) if not cluster else cluster
 
-    def sl_job(self, task_id: str, arguments: list, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides AirflowStarlakeJob.sl_job()"""
         return self.cluster.submit_starlake_job(
             task_id=task_id,
             arguments=arguments,
-            spark_properties=self.spark_properties,
-            spark_config=self.spark_config,
+            spark_config=spark_config,
             **kwargs
         )
 
