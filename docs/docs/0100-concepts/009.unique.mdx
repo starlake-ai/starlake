@@ -26,8 +26,9 @@ Among the properties you may specify in the YAML file, the following are worth m
 * field addition (computed fields)
 * metrics computation
 * semantic types by allowing you to set type constraints on the incoming data
-* multiple file formats and source / target databases (Postgres, MySQL, SQL Server, Oracle, Snowflake, Redshift, BigQuery, ...)
-* merge strategy (INSERT OVERWRITE or MERGE INTO)
+* multiple input file formats (FIXED_WIDTH_FIELDS, CSV, JSON, XML, AVRO, PARQUET, ...)
+* source / target databases (Postgres, MySQL, SQL Server, Oracle, Snowflake, Redshift, BigQuery, ...)
+* merge strategy (INSERT, OVERWRITE or MERGE INTO)
 * partitioning and clustering strategies
 * data retention policies
 * data quality rules
@@ -80,7 +81,6 @@ table:
     withHeader: yes     # (optional) auto-detected if not specified
     separator: "|"      # (optional) auto-detected if not specified
     write: "MERGE"
-                        # Please replace it by the adequate file pattern eq. customers-.*.psv if required
   attributes:           # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
@@ -102,7 +102,7 @@ That's it, we have defined our loading pipeline.
 
 ## Transform
 
-Let's say we want to transform the data extracted from the previous example before loading it into a datawarehouse
+Let's say we want to build aggregates from the previously loaded data
 
 ```yaml
 ---
@@ -115,8 +115,8 @@ transform:
       merge:
         timestamp: "signup"
         key: [id]
-      sql: |              # based on the merge strategy and the current state,
-          SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
+      sql: |              # based on the merge strategy,
+          SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT, OVERWRITE statement
             productid,
             SUM(unitprice * orderqty) AS total_revenue
             FROM salesorderdetail
@@ -124,7 +124,7 @@ transform:
             ORDER BY total_revenue DESC
 ```
 
-Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `merge` property and the input /output tables .
+Starlake will automatically apply the right merge strategy (INSERT, OVERWRITE or MERGE INTO) based on `merge` property.
 
 ## Orchestrate
 

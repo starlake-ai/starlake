@@ -20,6 +20,7 @@
 
 package ai.starlake.config
 
+import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
@@ -51,6 +52,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
+  implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
   private val referenceClassLoader = Thread.currentThread().getContextClassLoader
@@ -841,6 +843,12 @@ object Settings extends StrictLogging {
   implicit val storageLevelReader: ConfigReader[StorageLevel] =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
+  def loadConf(conf: Option[Config] = None): AppConfig = {
+    ConfigSource
+      .fromConfig(conf.getOrElse(referenceConfig))
+      .loadOrThrow[AppConfig]
+  }
+
   /** @param config
     *   : usually the default configuration loaded from reference.conf except in tests
     * @return
@@ -852,12 +860,7 @@ object Settings extends StrictLogging {
       config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     // Load reference.conf
-    val loaded = {
-      implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
-      ConfigSource
-        .fromConfig(effectiveConfig)
-        .loadOrThrow[AppConfig]
-    }
+    val loaded = loadConf(Some(effectiveConfig))
 
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
@@ -959,13 +962,7 @@ object Settings extends StrictLogging {
           .withFallback(effectiveConfig)
         logger.debug(effectiveApplicationConfig.toString)
 
-        val mergedSettings = {
-          implicit def hint[A]: ProductHint[A] =
-            ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
-          ConfigSource
-            .fromConfig(effectiveApplicationConfig)
-            .loadOrThrow[AppConfig]
-        }
+        val mergedSettings = loadConf(Some(effectiveApplicationConfig))
 
         val applicationSettings = Settings(
           mergedSettings,
@@ -1084,4 +1081,34 @@ object PrivacyLevels {
     allPrivacy
   }
 
+  def traverse(config: AppConfig): Unit = {
+    val jsonNode = YamlSerializer.mapper.valueToTree(config).asInstanceOf[JsonNode]
+    traverse(jsonNode, jsonNode, "")
+  }
+
+  def traverse(refNode: JsonNode, incomingNode: JsonNode, keyPrefix: String): Unit = {
+    val itRef = refNode.fields().asScala.toList.sortBy(_.getKey).iterator
+    val itIncoming = incomingNode.fields().asScala.toList.sortBy(_.getKey).iterator
+    while (itRef.hasNext) {
+      val refField = itRef.next()
+      val refKey = refField.getKey
+      val refValue = refField.getValue
+      val incomingField = itIncoming.next()
+      val incomingKey = incomingField.getKey
+      val incomingValue = incomingField.getValue
+
+      if (refValue.isObject) {
+        traverse(refValue, incomingValue, s"$keyPrefix$refKey.")
+      } else {
+        val refText = refValue.asText()
+        val incomingText = incomingValue.asText()
+        if (incomingText != refText)
+          println(s"$keyPrefix$refKey = $incomingText")
+      }
+    }
+  }
+  def main(args: Array[String]): Unit = {
+    val config = Settings.loadConf()
+    traverse(config)
+  }
 }

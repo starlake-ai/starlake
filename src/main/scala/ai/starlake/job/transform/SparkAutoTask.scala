@@ -328,7 +328,7 @@ class SparkAutoTask(
       val (preSql, sqlWithParameters, postSql, isSelect) =
         buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.SPARK, localViews)
       preSql.foreach(req => session.sql(req))
-      logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
+      logger.info(s"""$sqlWithParameters""")
       logger.info(s"running sql request using ${taskDesc.getEngine()}")
       val dataframe = (taskDesc.sql, taskDesc.python) match {
         case (Some(_), None) =>

@@ -69,6 +69,10 @@ object SettingsManager {
     val sysProps = System.getProperties()
     val outFile = File(root, "out")
     outFile.createDirectoryIfNotExists()
+    val extensionFile = File(root, "extension.log")
+    if (extensionFile.exists) {
+      extensionFile.delete(swallowIOExceptions = true)
+    }
 
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("database", gcpProject)

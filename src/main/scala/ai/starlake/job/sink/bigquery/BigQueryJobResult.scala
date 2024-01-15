@@ -13,8 +13,8 @@ case class BigQueryJobResult(
 ) extends JobResult {
 
   def show(format: String, rootServe: scala.Option[String]): Unit = {
-    val output = rootServe.map(File(_, "run.log"))
-    output.foreach(_.overwrite(s"Total Bytes Processed: $totalBytesProcessed bytes.\n"))
+    val output = rootServe.map(File(_, "extension.log"))
+    output.foreach(_.append(s"Total Bytes Processed: $totalBytesProcessed bytes.\n"))
     println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
     tableResult.foreach { rows =>
       val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)

@@ -13,6 +13,7 @@ import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{JobResult, Utils}
+import better.files.File
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -122,7 +123,9 @@ class BigQueryAutoTask(
       }
     presqlResult.foreach(Utils.logFailure(_, logger))
 
-    logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
+    logger.info(s"""$mainSql""")
+    val output = settings.appConfig.rootServe.map(File(_, "extension.log"))
+    output.foreach(_.appendLine(s"$mainSql"))
     val jobResult: Try[JobResult] = interactive match {
       case None =>
         if (mainIsSelect) {

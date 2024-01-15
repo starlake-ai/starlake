@@ -123,7 +123,7 @@ That's it, we have defined our loading pipeline.
 
 ### Transform
 
-Let's say we want to transform the data extracted from the previous example before loading it into a datawarehouse
+Let's say we want to build aggregates from the previously loaded data
 
 ```yaml
 
