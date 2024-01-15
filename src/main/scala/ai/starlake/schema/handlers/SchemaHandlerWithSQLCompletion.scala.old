@@ -153,7 +153,7 @@ class SchemaHandlerWithSQLCompletion(storage: StorageHandler, cliEnv: Map[String
     val warningCount = warnings.length
 
     val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(""))
 
     if (errorCount + warningCount > 0) {
@@ -162,7 +162,7 @@ class SchemaHandlerWithSQLCompletion(storage: StorageHandler, cliEnv: Map[String
           s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
         )
       )
-      logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
+      logger.error(s"$errorCount errors  and $warningCount found")
       allErrorsAndWarnings.foreach { err =>
         if (err.severity == Warning)
           logger.warn(err.message)
@@ -171,7 +171,6 @@ class SchemaHandlerWithSQLCompletion(storage: StorageHandler, cliEnv: Map[String
         output.foreach(_.appendLine(err.message))
       }
       logger.error(s"END VALIDATION RESULTS")
-      output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
       if (settings.appConfig.validateOnLoad)
         throw new Exception(
           s"Validation Failed: $errorCount errors and $warningCount warning found"

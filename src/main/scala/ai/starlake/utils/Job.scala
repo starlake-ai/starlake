@@ -51,8 +51,8 @@ trait JobResult {
 case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
   def show(format: String, rootServe: scala.Option[String]): Unit = {
-    val output = rootServe.map(File(_, "run.log"))
-    output.foreach(_.overwrite(s""))
+    val output = rootServe.map(File(_, "extension.log"))
+    output.foreach(_.append(s""))
     prettyPrint(format, headers, rows, output)
   }
 

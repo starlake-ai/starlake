@@ -158,7 +158,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val warningCount = warnings.length
 
     val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(""))
 
     if (errorCount + warningCount > 0) {

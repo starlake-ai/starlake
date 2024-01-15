@@ -102,7 +102,7 @@ class JdbcAutoTask(
         val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
         val (preSql, sqlWithParameters, postSql, asTable) =
           buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.JDBC, Nil)
-        logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
+        logger.info(s"""$sqlWithParameters""")
         logger.info(s"running sql request using JDBC driver")
         interactive match {
           case Some(_) =>

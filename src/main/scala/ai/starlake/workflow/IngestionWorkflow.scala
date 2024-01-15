@@ -44,6 +44,7 @@ import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
@@ -709,9 +710,10 @@ class IngestionWorkflow(
     val engine = action.taskDesc.getEngine()
     // TODO Interactive compilation should check table existence
     val (_, mainSQL, _, _) = action.buildAllSQLQueries(tableExists = false, None, None, engine)
-    val output = settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
-    output.foreach(_.overwrite(s"""START COMPILE SQL $mainSQL END COMPILE SQL"""))
-    logger.info(s"""START COMPILE SQL $mainSQL END COMPILE SQL""")
+    val output =
+      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
+    output.foreach(_.overwrite(s"""$mainSQL"""))
+    logger.info(s"""$mainSQL""")
   }
 
   def transform(
@@ -765,9 +767,9 @@ class IngestionWorkflow(
             case Some(format) =>
               result.map { result =>
                 val bqJobResult = result.asInstanceOf[BigQueryJobResult]
-                logger.info("START INTERACTIVE SQL")
+                logger.info("START INTERACTIVE")
                 bqJobResult.show(format, settings.appConfig.rootServe)
-                logger.info("END INTERACTIVE SQL")
+                logger.info("END INTERACTIVE")
               }
             case None =>
           }
@@ -777,26 +779,26 @@ class IngestionWorkflow(
             case Failure(e) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "transform.log")
+                  File(File(rootServe), "extension.log")
                 )
-              output.foreach(_.overwrite(Utils.exceptionAsString(e)))
+              output.foreach(_.append(Utils.exceptionAsString(e)))
           }
           result.isSuccess
         case Engine.JDBC =>
           (action.run(), transformConfig.interactive) match {
             case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
-              logger.info("""START INTERACTIVE SQL""")
+              logger.info("""START INTERACTIVE""")
               jdbcJobResult.show(format, settings.appConfig.rootServe)
-              logger.info("""END INTERACTIVE SQL""")
+              logger.info("""END INTERACTIVE""")
               true // Sink already done in JDBC
             case (Success(_), _) =>
               true
             case (Failure(exception), _) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "transform.log")
+                  File(File(rootServe), "extension.log")
                 )
-              output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
+              output.foreach(_.append(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
           }
@@ -806,18 +808,29 @@ class IngestionWorkflow(
           (action.run(), transformConfig.interactive) match {
             case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
               // For interactive display. Used by the VSCode plugin
-              logger.info("""START INTERACTIVE SQL""")
+              logger.info("""START INTERACTIVE""")
               dataFrame.show(false)
-              logger.info("""END INTERACTIVE SQL""")
+              logger.info("""END INTERACTIVE""")
+              val dsLogging =
+                new DatasetLogging {
+                  def asString(ds: Dataset[Row]): String = ds.showString(10000, 0)
+                }
+              val output =
+                settings.appConfig.rootServe.map(rootServe =>
+                  File(File(rootServe), "extension.log")
+                )
+              import scala.language.reflectiveCalls
+              val data = dsLogging.asString(dataFrame)
+              output.foreach(_.append(s"""$data"""))
               true
             case (Success(_), None) =>
               true
             case (Failure(exception), _) =>
               val output =
                 settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "transform.log")
+                  File(File(rootServe), "extension.log")
                 )
-              output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
+              output.foreach(_.append(Utils.exceptionAsString(exception)))
               exception.printStackTrace()
               false
             case (Success(_), _) =>
