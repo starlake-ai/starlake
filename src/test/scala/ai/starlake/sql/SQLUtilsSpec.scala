@@ -37,6 +37,10 @@ class SQLUtilsSpec extends TestHelper {
       ))
       // , "cte1", "cte2"))
     }
+    "Extract colum names from select with CTE with set operations" should "return all column names" in {
+      val refs = SQLUtils.extractColumnNames(selectWithCTE1)
+      refs should contain theSameElementsAs (List("*"))
+    }
 
     "Extract tables from CTE" should "return all table names" in {
       val refs = SQLUtils.extractTableNames(selectWithCTE1)
