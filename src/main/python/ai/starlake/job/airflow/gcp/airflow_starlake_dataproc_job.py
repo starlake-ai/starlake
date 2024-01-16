@@ -53,7 +53,7 @@ class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, AirflowStarlak
 class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, AirflowStarlakeOptions):
     def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
         super().__init__(
-            num_instances=int(__class__.get_context_var("dataproc_num_workers", "4", options)) if not num_instances else num_instances,
+            num_instances=int(__class__.get_context_var("dataproc_num_workers", "4", options)) if num_instances is None else num_instances,
             machine_type=__class__.get_context_var("dataproc_worker_machine_type", "n1-standard-4", options) if not machine_type else machine_type,
             disk_type=__class__.get_context_var("dataproc_worker_disk_type", "pd-standard", options) if not disk_type else disk_type,
             disk_size=int(__class__.get_context_var("dataproc_worker_disk_size", "1024", options)) if not disk_size else disk_size,
@@ -75,14 +75,14 @@ class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
         self.worker_config = StarlakeDataprocWorkerConfig(num_instances=None, machine_type=None, disk_type=None, disk_size=None, options=options) if not worker_config else worker_config
         self.secondary_worker_config = secondary_worker_config
         self.idle_delete_ttl = int(__class__.get_context_var("dataproc_idle_delete_ttl", "3600", options)) if not idle_delete_ttl else idle_delete_ttl
-        self.single_node = self.worker_config.num_instances <= 1 if not single_node else single_node
+        self.single_node = self.worker_config.num_instances <= 0 if not single_node else single_node
         self.cluster_properties = dict({
             "dataproc:dataproc.logging.stackdriver.job.driver.enable" : "true",
             "dataproc:dataproc.logging.stackdriver.job.yarn.container.enable": "true",
             "dataproc:dataproc.logging.stackdriver.enable": "true",
             "dataproc:jobs.file-backed-output.enable": "true",
             "spark-env:SL_HIVE": __class__.get_context_var("SL_HIVE", "false", sl_env_vars),
-            "spark-env:SL_GROUPED": __class__.get_context_var("SL_GROUPED", "false", sl_env_vars),
+            "spark-env:SL_GROUPED": __class__.get_context_var("SL_GROUPED", "true", sl_env_vars),
             "spark-env:SL_ROOT": sl_root,
             "spark-env:SL_AUDIT_SINK_TYPE": __class__.get_context_var("SL_AUDIT_SINK_TYPE", "BigQuerySink", sl_env_vars),
             "spark-env:SL_SINK_REPLAY_TO_FILE": __class__.get_context_var("SL_SINK_REPLAY_TO_FILE", "false", sl_env_vars), # replay file generation causes serious performance decrease
