@@ -230,7 +230,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         """Overrides IStarlakeJob.sl_transform()"""
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
-        transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options")
+        transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options", "")
         if transform_options:
             arguments.extend(["--options", transform_options])
         self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name).lower())]
