@@ -34,15 +34,17 @@ dataproc_secondary_worker_config = getattr(sys.modules[__name__], "get_dataproc_
 
 cluster_config_name = AirflowStarlakeOptions.get_context_var("cluster_config_name", os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(), options)
 
+#optional variable jobs as a dict of all options to apply by job
+#eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
 sl_job = AirflowStarlakeDataprocJob(
     cluster_config=StarlakeDataprocClusterConfig(
-        master_config = dataproc_master_config(cluster_config_name),
-        worker_config = dataproc_worker_config(cluster_config_name),
+        master_config = dataproc_master_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_master_properties', {})),
+        worker_config = dataproc_worker_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_worker_properties', {})),
         secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name),
         idle_delete_ttl=None,
         single_node=sys.modules[__name__].__dict__.get('dataproc_single_node', None),
         options=options,
         **sys.modules[__name__].__dict__.get('dataproc_cluster_properties', {})
     ), 
-    options=dict(options, **sys.modules[__name__].__dict__.get('tasks_options', {}))
+    options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )

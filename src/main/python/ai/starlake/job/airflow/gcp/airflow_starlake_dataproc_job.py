@@ -75,7 +75,7 @@ class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
         self.worker_config = StarlakeDataprocWorkerConfig(num_instances=None, machine_type=None, disk_type=None, disk_size=None, options=options) if not worker_config else worker_config
         self.secondary_worker_config = secondary_worker_config
         self.idle_delete_ttl = int(__class__.get_context_var("dataproc_idle_delete_ttl", "3600", options)) if not idle_delete_ttl else idle_delete_ttl
-        self.single_node = False if not single_node else single_node
+        self.single_node = self.worker_config.num_instances <= 1 if not single_node else single_node
         self.cluster_properties = dict({
             "dataproc:dataproc.logging.stackdriver.job.driver.enable" : "true",
             "dataproc:dataproc.logging.stackdriver.job.yarn.container.enable": "true",
