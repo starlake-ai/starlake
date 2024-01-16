@@ -19,6 +19,6 @@ def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
         instances=sys.modules[__name__].__dict__.get('spark_executor_instances', None),
         cls_options=AirflowStarlakeOptions(),
         options=options,
-        **dict(sys.modules[__name__].__dict__.get('spark_properties', {}), **kwargs)
+        **kwargs
     )
 spark_config = getattr(sys.modules[__name__], "get_spark_config", default_spark_config)

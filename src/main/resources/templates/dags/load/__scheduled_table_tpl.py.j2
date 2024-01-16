@@ -61,7 +61,7 @@ for schedule in schedules:
                         task_id=load_task_id, 
                         domain=domain["name"], 
                         table=table["name"],
-                        spark_config=spark_config(spark_config_name),
+                        spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
                     )
             return domain_load_tasks
 
