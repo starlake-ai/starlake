@@ -7,7 +7,12 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
-import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
+import net.sf.jsqlparser.statement.select.{
+  PlainSelect,
+  Select,
+  SelectVisitorAdapter,
+  SetOperationList
+}
 import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 
@@ -74,12 +79,19 @@ object SQLUtils extends StrictLogging {
 
   def extractColumnNames(sql: String): List[String] = {
     var result: List[String] = Nil
+    def extractColumnsFromPlainSelect(plainSelect: PlainSelect): Unit = {
+      val selectItems = Option(plainSelect.getSelectItems).map(_.asScala).getOrElse(Nil)
+      result = selectItems.map { selectItem =>
+        selectItem.getASTNode.jjtGetLastToken().image
+      }.toList
+    }
     val selectVisitorAdapter = new SelectVisitorAdapter() {
       override def visit(plainSelect: PlainSelect): Unit = {
-        val selectItems = Option(plainSelect.getSelectItems).map(_.asScala).getOrElse(Nil)
-        result = selectItems.map { selectItem =>
-          selectItem.getASTNode.jjtGetLastToken().image
-        }.toList
+        extractColumnsFromPlainSelect(plainSelect)
+      }
+      override def visit(setOpList: SetOperationList): Unit = {
+        val plainSelect = setOpList.getSelect(0).getPlainSelect()
+        extractColumnsFromPlainSelect(plainSelect)
       }
     }
     val statementVisitor = new StatementVisitorAdapter() {
