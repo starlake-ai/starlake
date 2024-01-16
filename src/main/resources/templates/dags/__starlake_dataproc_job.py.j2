@@ -4,7 +4,7 @@ import sys
 
 from ai.starlake.job.airflow import AirflowStarlakeOptions
 
-from ai.starlake.job.airflow.gcp import AirflowStarlakeDataprocJob, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
+from ai.starlake.job.airflow.gcp import AirflowStarlakeDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
 
 #optional get_dataproc_master_config function that returns an instance of StarlakeDataprocMasterConfig per dag name
 def default_dataproc_master_config(*args, **kwargs) -> StarlakeDataprocMasterConfig:
@@ -37,14 +37,20 @@ cluster_config_name = AirflowStarlakeOptions.get_context_var("cluster_config_nam
 #optional variable jobs as a dict of all options to apply by job
 #eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
 sl_job = AirflowStarlakeDataprocJob(
-    cluster_config=StarlakeDataprocClusterConfig(
-        master_config = dataproc_master_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_master_properties', {})),
-        worker_config = dataproc_worker_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_worker_properties', {})),
-        secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name),
-        idle_delete_ttl=None,
-        single_node=sys.modules[__name__].__dict__.get('dataproc_single_node', None),
-        options=options,
-        **sys.modules[__name__].__dict__.get('dataproc_cluster_properties', {})
-    ), 
+    cluster = StarlakeDataprocCluster(
+        cluster_config=StarlakeDataprocClusterConfig(
+            cluster_id=sys.modules[__name__].__dict__.get('cluster_id', cluster_config_name),
+            dataproc_name=sys.modules[__name__].__dict__.get('dataproc_name', None),
+            master_config = dataproc_master_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_master_properties', {})),
+            worker_config = dataproc_worker_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_worker_properties', {})),
+            secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name),
+            idle_delete_ttl=sys.modules[__name__].__dict__.get('dataproc_idle_delete_ttl', None),
+            single_node=sys.modules[__name__].__dict__.get('dataproc_single_node', None),
+            options=options,
+            **sys.modules[__name__].__dict__.get('dataproc_cluster_properties', {})
+        ), 
+        pool=sys.modules[__name__].__dict__.get('pool', None),
+        options=options
+    ),
     options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )
