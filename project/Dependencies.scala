@@ -145,7 +145,7 @@ object Dependencies {
   val bigQueue = Seq("com.leansoft" % "bigqueue" % Versions.bigQueue)
 
   val jna_apple_arm_testcontainers = Seq(
-    "net.java.dev.jna" % "jna" % "5.12.1"
+    "net.java.dev.jna" % "jna" % "5.14.0"
   )
 
   val jinja = Seq(
