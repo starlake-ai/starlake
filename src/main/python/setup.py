@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-airflow',
-      version='0.0.8',
+      version='0.0.9',
       description='Starlake Python Distribution For Airflow',
       long_description=long_description,
       long_description_content_type="text/markdown",

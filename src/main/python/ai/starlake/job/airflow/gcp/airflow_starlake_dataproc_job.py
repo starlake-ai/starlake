@@ -61,7 +61,7 @@ class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, AirflowStarlak
         )
 
 class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
-    def __init__(self, master_config: StarlakeDataprocMasterConfig, worker_config: StarlakeDataprocWorkerConfig, secondary_worker_config: StarlakeDataprocWorkerConfig, idle_delete_ttl: int, single_node: bool, options: dict, **kwargs):
+    def __init__(self, cluster_id:str, dataproc_name:str, master_config: StarlakeDataprocMasterConfig, worker_config: StarlakeDataprocWorkerConfig, secondary_worker_config: StarlakeDataprocWorkerConfig, idle_delete_ttl: int, single_node: bool, options: dict, **kwargs):
         super().__init__()
         options = {} if not options else options
         sl_env_vars = __class__.get_sl_env_vars(options)
@@ -89,6 +89,8 @@ class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
             "spark-env:SL_MERGE_OPTIMIZE_PARTITION_WRITE": __class__.get_context_var("SL_MERGE_OPTIMIZE_PARTITION_WRITE", "true", sl_env_vars),
             "spark-env:SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE": __class__.get_context_var("SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE", "dynamic", sl_env_vars)
         }, **kwargs)
+        self.cluster_id = str(uuid.uuid4())[:8] if not cluster_id else cluster_id
+        self.dataproc_name = __class__.get_context_var("dataproc_name", "dataproc-cluster", options) if not dataproc_name else dataproc_name
 
     def __config__(self, **kwargs):
         cluster_properties = dict(self.cluster_properties, **kwargs)
@@ -126,6 +128,8 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
         self.options = {} if not options else options
 
         self.cluster_config = StarlakeDataprocClusterConfig(
+            cluster_id=None,
+            dataproc_name=None,
             master_config=None, 
             worker_config=None, 
             secondary_worker_config=None, 
@@ -135,15 +139,11 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
             **kwargs
         ) if not cluster_config else cluster_config
 
-        self.dataproc_name = __class__.get_context_var("dataproc_name", "dataproc-cluster", options)
-
         self.pool = pool
-
-        self.cluster_id = str(uuid.uuid4())[:8]
 
     def create_dataproc_cluster(
         self,
-        dag: DAG=None,
+        cluster_id: str=None,
         task_id: str=None,
         cluster_name: str=None,
         **kwargs) -> BaseOperator:
@@ -151,9 +151,9 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
         Create the Cloud Dataproc cluster.
         This operator will be flagged a success if the cluster by this name already exists.
         """
-        cluster_id = dag.dag_id if dag else self.cluster_id
-        cluster_name = f"{self.dataproc_name}-{cluster_id.replace('_', '-')}" if not cluster_name else cluster_name
-        task_id = f"create_{cluster_name}" if not task_id else task_id
+        cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        task_id = f"create_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
 
         kwargs.update({
             'pool': kwargs.get('pool', self.pool),
@@ -177,14 +177,14 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
 
     def delete_dataproc_cluster(
         self,
-        dag: DAG=None,
+        cluster_id: str=None,
         task_id: str=None,
         cluster_name: str=None,
         **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
-        cluster_id = dag.dag_id if dag else self.cluster_id
-        cluster_name = f"{self.dataproc_name}-{cluster_id.replace('_', '-')}" if not cluster_name else cluster_name
-        task_id = f"delete_{cluster_name}" if not task_id else task_id
+        cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        task_id = f"delete_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
         kwargs.update({
             'pool': kwargs.get('pool', self.pool),
             'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
@@ -199,6 +199,7 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
 
     def submit_starlake_job(
         self,
+        cluster_id: str=None,
         task_id: str=None,
         cluster_name: str=None,
         spark_config: StarlakeSparkConfig=None,
@@ -207,8 +208,9 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
         arguments: list=None,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
-        cluster_name = f"{self.dataproc_name}-{{{{dag.dag_id.replace('_', '-')}}}}" if not cluster_name else cluster_name
-        task_id = f"{cluster_name}_submit" if not task_id else task_id
+        cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        task_id = f"{cluster_id}_submit" if not task_id else task_id
         arguments = [] if not arguments else arguments
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",") if not jar_list else jar_list
         main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options) if not main_class else main_class
