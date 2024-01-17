@@ -1,5 +1,5 @@
 ---
-sidebar_position: 80
+sidebar_position: 130
 title: extract-script
 ---
 
@@ -47,5 +47,5 @@ Parameter|Cardinality|Description
 --domain:`domain1,domain2 ...`|*Optional*|The domain list for which to generate extract scripts
 --template:`<value>`|*Required*|Script template dir
 --audit-schema:`<value>`|*Required*|Audit DB that will contain the audit export table
---delta-column:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.defaultColumn value.
+--delta-column:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
 

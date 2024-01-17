@@ -1,12 +1,12 @@
 ---
-sidebar_position: 200
-title: load
+sidebar_position: 230
+title: secure
 ---
 
 
 ## Synopsis
 
-**starlake load [options]**
+**starlake secure [options]**
 
 ## Description
 

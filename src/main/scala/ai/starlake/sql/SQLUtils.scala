@@ -469,11 +469,19 @@ object SQLUtils extends StrictLogging {
     }
     val result = (targetTableExists, mergeTimestampCol, mergeOn) match {
       case (false, None, MergeOn.TARGET) =>
+        /*
+        The table does not exist, we can just insert the data
+         */
         s"""
            |SELECT  $allAttributesSQL  FROM $sourceTable
             """.stripMargin
 
       case (false, None, MergeOn.SOURCE_AND_TARGET) =>
+        /*
+        The table does not exist, but we are asked to deduplicate the data from teh input
+        We create a temporary table with a row number and select the first row for each partition
+        And then we insert the data
+         */
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -483,11 +491,19 @@ object SQLUtils extends StrictLogging {
             """.stripMargin
 
       case (false, Some(_), MergeOn.TARGET) =>
+        /*
+        The table does not exist, we can just insert the data
+         */
         s"""
            |SELECT  $allAttributesSQL  FROM $sourceTable
             """.stripMargin
 
       case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
+        /*
+        The table does not exist
+        We create a temporary table with a row number and select the first row for each partition based on the timestamp
+        And then we insert the data
+         */
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -497,6 +513,9 @@ object SQLUtils extends StrictLogging {
             """.stripMargin
 
       case (true, None, MergeOn.TARGET) =>
+        /*
+        The table exists, we can merge the data
+         */
         s"""
            |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
            |WHEN MATCHED THEN UPDATE $matchedUpdateSql
@@ -504,6 +523,9 @@ object SQLUtils extends StrictLogging {
            |""".stripMargin
 
       case (true, None, MergeOn.SOURCE_AND_TARGET) =>
+        /*
+        The table exists, We deduplicated the data from the input and we merge the data
+         */
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
@@ -516,6 +538,9 @@ object SQLUtils extends StrictLogging {
            |""".stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
+        /*
+        The table exists, we can merge the data by joining on the key and comparing the timestamp
+         */
         if (canMerge) {
           s"""
              |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
