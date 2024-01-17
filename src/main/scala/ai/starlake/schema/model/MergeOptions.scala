@@ -24,7 +24,8 @@ case class MergeOptions(
   key: List[String] = Nil,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
-  on: Option[MergeOn] = None // target or both (on source and target
+  on: Option[MergeOn] = None, // target or both (on source and target
+  keepDeleted: Option[Boolean]
 ) {
 
   @JsonIgnore

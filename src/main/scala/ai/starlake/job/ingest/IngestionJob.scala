@@ -31,8 +31,8 @@ import com.google.cloud.bigquery.{
 }
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.functions.{call_udf, col, expr, struct}
-import org.apache.spark.sql.types.{StringType, StructType, TimestampType}
+import org.apache.spark.sql.functions.{call_udf, col, expr, lit, struct}
+import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 import org.apache.spark.sql._
 
 import java.nio.charset.Charset
@@ -293,6 +293,7 @@ trait IngestionJob extends SparkJob {
             val twoSteps = requireTwoSteps(schema, jdbcSink)
             val connectionRefOptions = mergedMetadata.getConnectionRefOptions()
             val hasMergeKey = schema.merge.exists(_.key.nonEmpty)
+            val isSCD2 = schema.merge.exists(_.keepDeleted.getOrElse(false))
             val firstStepTempTable =
               if (!twoSteps) {
                 targetTable
@@ -343,9 +344,28 @@ trait IngestionJob extends SparkJob {
                             datasetWithRenamedAttributes
                               .drop(CometColumns.cometInputFileNameColumn)
                               .schema
+                          val incomingSchemaWithSCD2 =
+                            if (isSCD2) {
+                              incomingSchema
+                                .add(
+                                  StructField(
+                                    settings.appConfig.mergeStartDateTimestamp,
+                                    TimestampType,
+                                    nullable = true
+                                  )
+                                )
+                                .add(
+                                  StructField(
+                                    settings.appConfig.mergeEndDateTimestamp,
+                                    TimestampType,
+                                    nullable = true
+                                  )
+                                )
+                            } else
+                              incomingSchema
                           val addedSchema =
                             SparkUtils.added(
-                              incomingSchema,
+                              incomingSchemaWithSCD2,
                               existingSchema.getOrElse(incomingSchema)
                             )
                           val deletedSchema =
@@ -1676,6 +1696,13 @@ trait IngestionJob extends SparkJob {
       renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
         acc.withColumnRenamed(existingName = name, newName = rename)
       }
+    finalDF
+  }
+
+  private def dfWithSCD2Columns(df: DataFrame): DataFrame = {
+    val finalDF =
+      df.withColumn(settings.appConfig.mergeStartDateTimestamp, lit(null: Timestamp))
+        .withColumn(settings.appConfig.mergeEndDateTimestamp, lit(null: Timestamp))
     finalDF
   }
 

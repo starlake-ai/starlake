@@ -55,10 +55,10 @@ object WriteMode {
 
   def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
-      case "OVERWRITE"        => WriteMode.OVERWRITE
-      case "APPEND" | "MERGE" => WriteMode.APPEND
-      case "ERROR_IF_EXISTS"  => WriteMode.ERROR_IF_EXISTS
-      case "IGNORE"           => WriteMode.IGNORE
+      case "OVERWRITE"                 => WriteMode.OVERWRITE
+      case "APPEND" | "SCD2" | "MERGE" => WriteMode.APPEND
+      case "ERROR_IF_EXISTS"           => WriteMode.ERROR_IF_EXISTS
+      case "IGNORE"                    => WriteMode.IGNORE
       case _ =>
         throw new Exception(s"Invalid Write Mode try one of ${writes}")
     }

@@ -216,7 +216,7 @@ class SQLUtilsSpec extends TestHelper {
       val sqlMerge =
         SQLUtils.buildMergeSqlOnTransform(
           selectWithCTEs,
-          MergeOptions(List("transaction_id")),
+          MergeOptions(List("transaction_id"), keepDeleted = None),
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",
