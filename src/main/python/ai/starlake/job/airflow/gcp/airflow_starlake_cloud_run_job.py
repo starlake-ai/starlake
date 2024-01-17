@@ -1,5 +1,7 @@
 import os
 
+from datetime import timedelta
+
 from typing import Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
@@ -16,15 +18,27 @@ from airflow.utils.task_group import TaskGroup
 
 class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
     """Airflow Starlake Cloud Run Job."""
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, project_id: str=None, cloud_run_job_name: str=None, cloud_run_job_region: str=None, options: dict=None, cloud_run_async:bool=None, retry_on_failure: bool=None, separator:str = ' ', **kwargs):
+    def __init__(
+            self,
+            pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None,
+            project_id: str=None,
+            cloud_run_job_name: str=None,
+            cloud_run_job_region: str=None,
+            options: dict=None,
+            cloud_run_async:bool=None,
+            retry_on_failure: bool=None,
+            retry_delay_in_seconds: float=None,
+            separator:str = ' ',
+            **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = __class__.get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = __class__.get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
-        self.cloud_run_async = __class__.get_context_var(var_name='cloud_run_async', default_value="True", options=self.options).lower == "true" if not cloud_run_async else cloud_run_async
+        self.cloud_run_async = __class__.get_context_var(var_name='cloud_run_async', default_value="True", options=self.options).lower() == "true" if cloud_run_async is None else cloud_run_async
         self.separator = separator if separator != ',' else ' '
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
+        self.retry_delay_in_seconds = float(__class__.get_context_var("retry_delay_in_seconds", "10", self.options)) if retry_delay_in_seconds is None else retry_delay_in_seconds
 
     def __job_with_completion_sensors__(self, task_id: str, command: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> TaskGroup:
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -39,7 +53,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                     f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
                 ),
                 do_xcom_push=True,
-                **kwargs
+                **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
             )
             # check job completion
             check_completion_id = task_id + '_check_completion'
@@ -82,7 +96,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                     f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
                 ),
                 do_xcom_push=True,
-                **kwargs
+                **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
             )
 
 class CloudRunJobCompletionSensor(BashSensor):
@@ -92,7 +106,7 @@ class CloudRunJobCompletionSensor(BashSensor):
     def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_exit_code: int=None, **kwargs) -> None:
         if retry_exit_code:
             super().__init__(
-                bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\""),
+                bash_command=(f"check_completion=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; check_status=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$check_completion\" && test -z \"$check_status\""),
                 mode="reschedule",
                 retries=3, #the number of retries that should be performed before failing the task to avoid infinite loops
                 retry_exit_code=retry_exit_code, #available in 2.6. Implies to combine this sensor and the bottom operator
