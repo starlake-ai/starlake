@@ -355,8 +355,8 @@ class LocalStorageHandler(implicit
         .sortBy(_.name)
         .collect { case part =>
           destFile.append(part.contentAsString)
+          if (deleteSource) part.delete(swallowIOExceptions = true)
         }
-      if (deleteSource) parts.foreach(_.delete(swallowIOExceptions = true))
       true
     } else
       false

@@ -545,10 +545,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           .sortBy(_.getName)
           .collect { case part =>
             val inputStream = currentFS.open(part)
-            try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
-            finally { inputStream.close() }
+            try {
+              org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false)
+              if (deleteSource) delete(part)
+            } finally { inputStream.close() }
           }
-        if (deleteSource) parts.foreach(delete)
+
       } finally { outputStream.close() }
       true
     } else false
