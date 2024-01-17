@@ -56,7 +56,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDF,
           incomingDF,
-          MergeOptions(key = List("id"))
+          MergeOptions(key = List("id"), keepDeleted = None)
         )
       val actual = mergedDF.toJSON.collect()
 
@@ -75,7 +75,7 @@ class MergeUtilsTest extends TestHelper {
       val (_, mergedDF, _) = MergeUtils.computeToMergeAndToDeleteDF(
         existingDF,
         incomingDF,
-        MergeOptions(key = List("id"), timestamp = Some("data.version"))
+        MergeOptions(key = List("id"), timestamp = Some("data.version"), keepDeleted = None)
       )
       val actual = mergedDF.toJSON.collect()
 
@@ -99,7 +99,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDF,
           incomingDF,
-          MergeOptions(key = List("id"))
+          MergeOptions(key = List("id"), keepDeleted = None)
         )
       val actual = mergedDF.toJSON.collect()
 
@@ -177,7 +177,11 @@ class MergeUtilsTest extends TestHelper {
       )
 
       val (_, mergedDF1, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(existingDf1, incomingDf1, MergeOptions(Nil))
+        MergeUtils.computeToMergeAndToDeleteDF(
+          existingDf1,
+          incomingDf1,
+          MergeOptions(Nil, keepDeleted = None)
+        )
 
       assert(mergedDF1.schema.fields.count(_.getComment().isEmpty) == 0)
 
@@ -205,7 +209,11 @@ class MergeUtilsTest extends TestHelper {
       )
 
       val (_, mergedDF2, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(existingDf2, incomingDf2, MergeOptions(Nil))
+        MergeUtils.computeToMergeAndToDeleteDF(
+          existingDf2,
+          incomingDf2,
+          MergeOptions(Nil, keepDeleted = None)
+        )
 
       assert(mergedDF2.schema.fields.count(_.getComment().isEmpty) == 0)
     }

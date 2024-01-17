@@ -18,7 +18,9 @@ class TemplateParamsSpec extends TestHelper {
           Attribute(name = "col3", script = Some("script"))
         ),
         metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
-        merge = Some(MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"))),
+        merge = Some(
+          MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"), keepDeleted = None)
+        ),
         comment = None,
         presql = Nil,
         postsql = Nil
@@ -52,7 +54,9 @@ class TemplateParamsSpec extends TestHelper {
         pattern = Pattern.compile("output_file.*.csv"),
         List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
         metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
-        merge = Some(MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"))),
+        merge = Some(
+          MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"), keepDeleted = None)
+        ),
         comment = None,
         presql = Nil,
         postsql = Nil

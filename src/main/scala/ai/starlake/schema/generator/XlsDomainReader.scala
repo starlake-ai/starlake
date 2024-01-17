@@ -89,10 +89,12 @@ class XlsDomainReader(input: Input) extends XlsModel {
             else
               Mode.fromString(x)
           }
-      val write =
+      val rawWrite =
         Option(row.getCell(headerMap("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(WriteMode.fromString)
+      val keepDeleted = rawWrite.contains("SCD2")
+      val write =
+        rawWrite.map(WriteMode.fromString)
       val format =
         Option(row.getCell(headerMap("_format"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -224,26 +226,32 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   MergeOptions(
                     key = identityKeys.split(",").toList.map(_.trim),
                     timestamp = Some(deltaCol),
-                    queryFilter = Some(filter)
+                    queryFilter = Some(filter),
+                    keepDeleted = Some(keepDeleted)
                   )
                 )
               case (Some(deltaCol), Some(identityKeys), _) =>
                 Some(
                   MergeOptions(
                     key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol)
+                    timestamp = Some(deltaCol),
+                    keepDeleted = Some(keepDeleted)
                   )
                 )
               case (None, Some(identityKeys), Some(filter)) =>
                 Some(
                   MergeOptions(
                     key = identityKeys.split(",").toList.map(_.trim),
-                    queryFilter = Some(filter)
+                    queryFilter = Some(filter),
+                    keepDeleted = Some(keepDeleted)
                   )
                 )
               case (None, Some(identityKeys), _) =>
                 Some(
-                  MergeOptions(key = identityKeys.split(",").toList.map(_.trim))
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    keepDeleted = Some(keepDeleted)
+                  )
                 )
               case _ => None
             }

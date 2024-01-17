@@ -542,6 +542,8 @@ object Settings extends StrictLogging {
     groupedMax: Int,
     mergeForceDistinct: Boolean,
     mergeOptimizePartitionWrite: Boolean,
+    mergeStartDateTimestamp: String,
+    mergeEndDateTimestamp: String,
     area: Area,
     hadoop: Map[String, String],
     connections: Map[String, Connection],
