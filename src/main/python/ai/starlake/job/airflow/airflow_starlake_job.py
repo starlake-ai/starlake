@@ -1,9 +1,8 @@
-import logging
 import os
 import re
 from datetime import timedelta, datetime
 
-from typing import Union
+from typing import Union, List
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig
 
@@ -45,14 +44,15 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
-        self.outlets = kwargs.get('outlets', [])
+        self.outlets: List[Dataset] = kwargs.get('outlets', [])
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()"""
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(domain).lower())]
+        dataset = Dataset(keep_ascii_only(domain).lower())
+        self.outlets += kwargs.get('outlets', []) + [dataset]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
@@ -223,7 +223,8 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(f'{domain}.{table}').lower())]
+        dataset = Dataset(keep_ascii_only(f'{domain}.{table}').lower())
+        self.outlets += kwargs.get('outlets', []) + [dataset]
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
@@ -233,7 +234,8 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options", "")
         if transform_options:
             arguments.extend(["--options", transform_options])
-        self.outlets += kwargs.get('outlets', []) + [Dataset(keep_ascii_only(transform_name).lower())]
+        dataset = Dataset(keep_ascii_only(transform_name).lower())
+        self.outlets += kwargs.get('outlets', []) + [dataset]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 

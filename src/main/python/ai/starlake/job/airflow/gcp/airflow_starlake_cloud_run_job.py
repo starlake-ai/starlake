@@ -53,7 +53,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                     f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
                 ),
                 do_xcom_push=True,
-                **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
+                **kwargs
             )
             # check job completion
             check_completion_id = task_id + '_check_completion'
@@ -84,7 +84,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
         """Overrides AirflowStarlakeJob.sl_job()"""
         command = f'^{self.separator}^' + self.separator.join(arguments)
         if self.cloud_run_async:
-            return self.__job_with_completion_sensors__(task_id=task_id, command=command, spark_config=spark_config, **kwargs)
+            return self.__job_with_completion_sensors__(task_id=task_id, command=command, spark_config=spark_config, **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)}))
         else:
             # synchronous job
             return BashOperator(
