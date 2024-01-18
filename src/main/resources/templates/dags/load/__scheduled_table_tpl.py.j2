@@ -2,6 +2,7 @@ from ai.starlake.common import keep_ascii_only, sanitize_id
 from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 
 import os
+from typing import Union
 
 from airflow import DAG
 
@@ -32,6 +33,10 @@ def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
     return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
+_extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
+
+_extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
+
 # [START instantiate_dag]
 for schedule in schedules:
     tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
@@ -39,7 +44,7 @@ for schedule in schedules:
         tags.append(domain["name"])
     with DAG(dag_id=generate_dag_name(schedule),
              schedule_interval=schedule['cron'],
-             default_args=DEFAULT_DAG_ARGS,
+             default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
              description=description) as dag:
@@ -47,10 +52,7 @@ for schedule in schedules:
 
         post_tasks = sl_job.post_tasks(dag=dag)
 
-        pre_load_tasks = sl_job.sl_pre_load(
-            domain=domain["name"], 
-            dag=dag
-        )
+        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"])
 
         def generate_task_group_for_domain(domain):
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
@@ -72,7 +74,7 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters), sl_job.outlets)))
 
         all_load_tasks >> end
 

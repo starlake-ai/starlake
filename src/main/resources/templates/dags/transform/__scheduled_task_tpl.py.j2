@@ -5,7 +5,7 @@ from ai.starlake.job.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
 import json
 import os
 import sys
-from typing import Set
+from typing import Set, Union
 
 from airflow import DAG
 
@@ -13,7 +13,7 @@ from airflow.datasets import Dataset
 
 from airflow.utils.task_group import TaskGroup
 
-#cron="{{ context.cron }}"
+cron = "{{ context.cron }}"
 
 task_deps=json.loads("""{{ context.dependencies }}""")
 
@@ -22,6 +22,10 @@ load_dependencies = AirflowStarlakeJob.get_context_var(var_name='load_dependenci
 schedule = None
 
 datasets: Set[str] = []
+
+_extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
+
+_extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
 
 def _load_datasets(task: dict):
     if 'children' in task:
@@ -32,15 +36,15 @@ def _load_datasets(task: dict):
 if load_dependencies.lower() != 'true':
     for task in task_deps:
         _load_datasets(task)
-    schedule = list(map(lambda dataset: Dataset(dataset), datasets))
+    schedule = list(map(lambda dataset: Dataset(dataset + _extra_dataset_parameters), datasets))
 
 tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
 
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
-         schedule_interval=None, #=cron FIXME
+         schedule_interval=None if cron == "None" else cron,
          schedule=schedule,
-         default_args=DEFAULT_DAG_ARGS,
+         default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
          catchup=False,
          user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
@@ -102,7 +106,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     else:
         start >> all_transform_tasks
 
-    end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
+    end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters), sl_job.outlets)))
 
     all_transform_tasks >> end
 
