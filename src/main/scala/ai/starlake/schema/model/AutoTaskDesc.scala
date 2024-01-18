@@ -84,7 +84,7 @@ case class AutoTaskDesc(
       python = child.python,
       tags = tags ++ child.tags,
       merge = child.merge.orElse(merge),
-      schedule = child.dagRef.orElse(schedule),
+      schedule = child.schedule.orElse(schedule),
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
       parseSQL = child.parseSQL.orElse(parseSQL),
