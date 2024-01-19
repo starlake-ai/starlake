@@ -382,6 +382,7 @@ case class Metadata(
         errorList ++= freshnessErrors
       case Right(_) =>
     }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else

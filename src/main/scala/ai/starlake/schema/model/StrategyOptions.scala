@@ -1,32 +1,26 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.utils.Formatter.RichFormatter
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import java.util.regex.Pattern
-import ai.starlake.utils.Formatter._
 
-/** How dataset are merged
-  *
-  * @param key
-  *   list of attributes to join existing with incoming dataset. Use renamed columns here.
-  * @param delete
-  *   Optional valid sql condition on the incoming dataset. Use renamed column here.
-  * @param timestamp
-  *   Timestamp column used to identify last version, if not specified currently ingested row is
-  *   considered the last. Maybe prefixed with TIMESTAMP or DATE(default) to specifiy if it is a
-  *   timestamp or a date (useful on dynamic partitioning on BQ to selectively apply PARSE_DATE or
-  *   PARSE_TIMESTAMP
-  * @param queryFilter
-  *   filter incoming data after all transformations have been done
-  */
-case class MergeOptions(
+case class StrategyOptions(
+  `type`: StrategyType,
   key: List[String] = Nil,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
   on: Option[MergeOn] = None, // target or both (on source and target
-  keepDeleted: Option[Boolean]
+  start_ts: Option[String] = None,
+  end_ts: Option[String] = None
 ) {
+
+  @JsonIgnore
+  def isMerge() =
+    `type` != StrategyType.APPEND && `type` != StrategyType.OVERWRITE
+
+  def validate() = {}
 
   @JsonIgnore
   private val lastPat =
@@ -124,6 +118,6 @@ case class MergeOptions(
     }
   }
 
-  def compare(other: MergeOptions): ListDiff[Named] =
+  def compare(other: StrategyOptions): ListDiff[Named] =
     AnyRefDiff.diffAnyRef("", this, other)
 }

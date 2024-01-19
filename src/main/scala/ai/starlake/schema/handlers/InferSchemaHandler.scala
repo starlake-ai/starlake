@@ -153,8 +153,7 @@ object InferSchemaHandler {
       pattern = pattern,
       attributes = attributes,
       metadata = metadata,
-      comment = comment,
-      merge = None
+      comment = comment
     )
 
   /** * Builds the Domain case class

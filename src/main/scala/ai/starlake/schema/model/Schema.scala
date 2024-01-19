@@ -82,7 +82,6 @@ case class Schema(
   pattern: Pattern,
   attributes: List[Attribute],
   metadata: Option[Metadata],
-  merge: Option[MergeOptions],
   comment: Option[String],
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -94,7 +93,8 @@ case class Schema(
   rename: Option[String] = None,
   sample: Option[String] = None,
   filter: Option[String] = None,
-  patternSample: Option[String] = None
+  patternSample: Option[String] = None,
+  strategy: Option[StrategyOptions] = None
 ) extends Named {
 
   def this() = this(
@@ -102,13 +102,13 @@ case class Schema(
     Pattern.compile("."),
     Nil,
     None,
-    None,
     None
   ) // Should never be called. Here for Jackson deserialization only
 
   @JsonIgnore
   def isPrimaryKey(name: String): Boolean = {
-    primaryKey.contains(name) || merge.exists(_.key.contains(name))
+    primaryKey
+      .contains(name) || (strategy.exists(_.key.contains(name)))
   }
 
   def containsRepeatedOrNestedFields(): Boolean = {
@@ -125,6 +125,12 @@ case class Schema(
   @JsonIgnore
   def isFlat(): Boolean = {
     !attributes.exists(_.attributes.nonEmpty)
+  }
+
+  def getStrategy(mergedMetadata: Option[Metadata] = None): StrategyOptions = {
+    val writeMode: WriteMode =
+      mergedMetadata.orElse(metadata).map(_.getWrite()).getOrElse(WriteMode.APPEND)
+    strategy.getOrElse(StrategyOptions(StrategyType.fromString(writeMode.value)))
   }
 
   /** @return
@@ -329,28 +335,6 @@ case class Schema(
         )
     }
 
-    if (merge.isDefined && merge.get.key.isEmpty) {
-      errorList +=
-        ValidationMessage(
-          Error,
-          "Table attributes",
-          s"""Merge key cannot be empty""".stripMargin
-        )
-    }
-    if (merge.isDefined) {
-      metadata.foreach { m =>
-        if (m.getWrite() != WriteMode.APPEND) {
-          errorList +=
-            ValidationMessage(
-              Error,
-              "Table attributes",
-              s"""Merge requires 'Append' write mode""".stripMargin
-            )
-        }
-      }
-
-    }
-
     val duplicateErrorMessage =
       "%s is defined %d times. An attribute can only be defined once."
     for (
@@ -359,6 +343,24 @@ case class Schema(
         .left
     ) {
       errorList ++= errors
+    }
+    if (strategy.isDefined) {
+      if (strategy.get.key.isEmpty) {
+        errorList +=
+          ValidationMessage(
+            Error,
+            "Table attributes",
+            s"""Merge key cannot be empty""".stripMargin
+          )
+      }
+      if (metadata.exists(_.getWrite() != WriteMode.APPEND)) {
+        errorList +=
+          ValidationMessage(
+            Error,
+            "Table attributes",
+            s"""Merge requires 'Append' write mode""".stripMargin
+          )
+      }
     }
 
     if (errorList.nonEmpty)
@@ -559,11 +561,13 @@ case class Schema(
         val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
         acl.copy(grants = grants)
       }),
-      merge = this.merge.map(merge =>
+      strategy = this.strategy.map(merge =>
         if (merge.key.isEmpty) merge.copy(key = this.primaryKey) else merge
       ),
       primaryKey =
-        if (this.primaryKey == Nil) this.merge.map(_.key).getOrElse(Nil) else this.primaryKey
+        if (this.primaryKey.isEmpty)
+          strategy.map(_.key).getOrElse(Nil)
+        else this.primaryKey
     )
   }
 
@@ -574,10 +578,7 @@ case class Schema(
     * @return
     *   query
     */
-  def buildSqlSelectOnLoad(
-    table: String,
-    sourceUris: Option[String]
-  ): String = {
+  def buildSqlSelectOnLoad(table: String, sourceUris: Option[String], quote: String): String = {
     val tableWithInputFileName = {
       sourceUris match {
         case None => table
@@ -597,19 +598,19 @@ case class Schema(
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      s"$script AS `${scriptField.getFinalName()}`"
+      s"$script AS $quote${scriptField.getFinalName()}$quote"
     }
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
       val transform = transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      s"$transform AS `${transformField.getFinalName()}`"
+      s"$transform AS $quote${transformField.getFinalName()}$quote"
     }
 
     val sqlSimple = simpleAttributes.map { field =>
-      s"`${field.getFinalName()}`"
+      s"$quote${field.getFinalName()}$quote"
     }
 
     val sqlIgnored = ignoredAttributes().map { field =>
-      s"`${field.getFinalName()}`"
+      s"$quote${field.getFinalName()}$quote"
     }
 
     val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
@@ -630,29 +631,6 @@ case class Schema(
        |""".stripMargin
   }
 
-  def buildJDBCSqlMergeOnLoad(
-    sourceTable: String,
-    targetTable: String,
-    targetTableExists: Boolean,
-    jdbcDatabase: Engine
-  )(implicit settings: Settings): String = {
-    val (scriptAttributes, transformAttributes) =
-      scriptAndTransformAttributes().partition(_.script.nonEmpty)
-
-    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
-    val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
-
-    val allColumnNames = allOutputAttributes.map(_.getFinalName())
-    SQLUtils.buildJDBCSqlMerge(
-      Left(sourceTable),
-      targetTable,
-      targetTableExists,
-      this.merge.getOrElse(throw new Exception("Should never happen")),
-      allColumnNames,
-      jdbcDatabase
-    )
-  }
-
   def buildBQSqlMergeOnLoad(
     sourceTable: String,
     targetTable: String,
@@ -661,8 +639,11 @@ case class Schema(
     partitionOverwrite: Boolean,
     sourceUris: Option[String],
     targetTableExists: Boolean,
-    jdbcDatabase: Engine
+    jdbcDatabase: Engine,
+    isSCD2: Boolean
   )(implicit settings: Settings): String = {
+    val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
+    val quote = jdbcEngine.quote
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -673,8 +654,17 @@ case class Schema(
       case Nil => ""
       case _   => targetTableFilters.mkString(" AND ")
     }
-
-    if (partitionOverwrite) { // similar to dynamic mode in spark
+    val tempTableSelect = buildSqlSelectOnLoad(sourceTable, sourceUris, quote)
+    if (isSCD2) {
+      SQLUtils.buildJdbcSqlMerge(
+        Right(tempTableSelect),
+        targetTable,
+        targetTableExists,
+        this.getStrategy(),
+        allOutputAttributes.map(_.getFinalName()),
+        jdbcDatabase
+      )
+    } else if (partitionOverwrite) { // similar to dynamic mode in spark
       val (targetColumns, sourceColumns) =
         allOutputAttributes
           .map(f => s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}`")
@@ -687,12 +677,10 @@ case class Schema(
           throw new RuntimeException("No filter applied for partition overwrite. Should not happen")
         case _ => updateTargetFilters.mkString(" AND ")
       }
+
       val inputData =
-        if (merge.forall(_.key.isEmpty))
-          buildSqlSelectOnLoad(
-            sourceTable,
-            sourceUris
-          ) // partition overwrite without deduplication
+        if (!this.getStrategy().isMerge())
+          tempTableSelect // partition overwrite without deduplication
         else
           buildBQSqlMergeOnLoad(
             sourceTable,
@@ -702,7 +690,8 @@ case class Schema(
             partitionOverwrite = false,
             sourceUris,
             targetTableExists,
-            jdbcDatabase
+            jdbcDatabase,
+            isSCD2 = false
           )
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
@@ -711,7 +700,6 @@ case class Schema(
          |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
          |""".stripMargin
     } else {
-      val inputData = buildSqlSelectOnLoad(sourceTable, sourceUris)
       val allAttributesSQL = allOutputAttributes
         .map { attribute =>
           s"`${attribute.getFinalName()}`"
@@ -721,14 +709,12 @@ case class Schema(
 
       // According to the usage above of join clause between target and source table, we assume key not to be null.
       val partitionKeys =
-        this.merge
-          .map(_.key.map(key => s"`$key`").mkString(","))
-          .getOrElse(throw new RuntimeException("Should not happen"))
+        this.getStrategy().key.map(key => s"`$key`").mkString(",")
 
       val whereClauseSQL =
         if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
 
-      val rowSelectionSQL = this.merge.flatMap(_.timestamp) match {
+      val rowSelectionSQL = this.getStrategy().timestamp match {
         case Some(mergeTimestampCol) =>
           s"QUALIFY ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
         case _ =>
@@ -737,7 +723,7 @@ case class Schema(
       }
       if (targetTableExists) {
         s"""SELECT $allAttributesSQL FROM (
-              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($tempTableSelect)
               UNION ALL
               SELECT $allAttributesSQL, '${SL_INTERNAL_TABLE}_TARGET' as $dataSourceColumnName FROM $targetTable
               $whereClauseSQL
@@ -746,7 +732,7 @@ case class Schema(
             """.stripMargin
       } else {
         s"""SELECT $allAttributesSQL FROM (
-              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($inputData)
+              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($tempTableSelect)
             ) AS SL_INTERNAL_QUALIFY
             $rowSelectionSQL
             """.stripMargin
@@ -775,7 +761,6 @@ case class Schema(
         .mergeAll(Nil ++ domainMetadata ++ fallbackSchema.metadata ++ this.metadata)
         .`keepIfDifferent`(domainMetadata.getOrElse(Metadata()))
         .asOption(),
-      merge = this.merge.orElse(fallbackSchema.merge),
       presql = if (this.presql.isEmpty) fallbackSchema.presql else this.presql,
       postsql = if (this.postsql.isEmpty) fallbackSchema.postsql else this.postsql,
       tags = if (this.tags.isEmpty) fallbackSchema.tags else this.tags,
@@ -797,7 +782,6 @@ case class Schema(
     val intersection = this.acl.flatMap(_.grants).intersect(grantees)
     intersection
   }
-
 }
 
 object Schema {
@@ -850,10 +834,7 @@ object Schema {
       Pattern.compile("ignore"),
       buildAttributeTree(obj).attributes,
       None,
-      None,
-      None,
-      Nil,
-      Nil
+      None
     )
   }
 
@@ -865,7 +846,6 @@ object Schema {
       name = taskDesc.name,
       pattern = Pattern.compile(taskDesc.name),
       attributes = attributes,
-      None,
       None,
       taskDesc.comment,
       tags = taskDesc.tags
@@ -898,9 +878,6 @@ object Schema {
 
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
-
-      val mergeDiff: ListDiff[Named] =
-        AnyRefDiff.diffOptionAnyRef("merge", existing.merge, incoming.merge)
 
       val commentDiff: ListDiff[String] =
         AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
@@ -938,7 +915,6 @@ object Schema {
         attributesDiff,
         patternDiff,
         metadataDiff,
-        mergeDiff,
         commentDiff,
         presqlDiff,
         postsqlDiff,

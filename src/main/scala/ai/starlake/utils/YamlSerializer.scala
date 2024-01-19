@@ -13,6 +13,7 @@ import ai.starlake.schema.model.{
   Schema => ModelSchema,
   SchemaRef,
   SchemaRefs,
+  StrategyType,
   TransformDesc
 }
 import better.files.{File, UnicodeCharset}
@@ -22,9 +23,9 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.Charset
+import scala.collection.JavaConverters._
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
 
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = Utils.newYamlMapper()
@@ -173,6 +174,66 @@ object YamlSerializer extends LazyLogging {
     mapper.writeValue(targetFile.toJava, schemaRef)
   }
 
+  private def mergeToStrategy(rootNode: ObjectNode) = {
+    val tableNode = rootNode.path("table")
+    val tablesNode = rootNode.path("tables")
+    if (!tableNode.isMissingNode)
+      mergeToStrategyForTable(tableNode.asInstanceOf[ObjectNode])
+    if (!tablesNode.isMissingNode) {
+      val tablesArray = tablesNode.asInstanceOf[ArrayNode].asScala
+      tablesArray.foreach { tableNode =>
+        mergeToStrategyForTable(tableNode.asInstanceOf[ObjectNode])
+      }
+    }
+  }
+
+  private def mergeToStrategyForTable(tableNode: ObjectNode) = {
+    val strategyNode = tableNode.path("strategy")
+    val mergeNode = tableNode.path("merge")
+    val keyNode = mergeNode.path("key")
+    val timestampNode = mergeNode.path("timestamp")
+    val scd2Node = mergeNode.path("scd2")
+    val metadataNode = tableNode.path("metadata")
+
+    (mergeNode.isMissingNode(), strategyNode.isMissingNode()) match {
+      case (false, false) =>
+        throw new RuntimeException(
+          "Cannot define both strategy and merge in the same table definition"
+        )
+      case (true, false) =>
+        val strategyName = strategyNode.path("type").asText().toUpperCase()
+        if (!metadataNode.isMissingNode) {
+          if (strategyName == "OVERWRITE") {
+            metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("OVERWRITE"))
+          } else {
+            metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("APPEND"))
+          }
+        }
+      case (false, true) =>
+        tableNode.set("strategy", mergeNode)
+        tableNode.remove("merge")
+        if (!metadataNode.isMissingNode)
+          metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("APPEND"))
+        if (!scd2Node.isMissingNode) {
+          mergeNode.asInstanceOf[ObjectNode].set("type", new TextNode("SCD2"))
+          mergeNode.asInstanceOf[ObjectNode].remove("scd2")
+        } else if (!timestampNode.isMissingNode) {
+          mergeNode
+            .asInstanceOf[ObjectNode]
+            .set("type", new TextNode(StrategyType.MERGE_BY_KEY_AND_TIMESTAMP.value))
+        } else if (!keyNode.isMissingNode) {
+          mergeNode
+            .asInstanceOf[ObjectNode]
+            .set("type", new TextNode(StrategyType.MERGE_BY_KEY.value))
+        } else {
+          throw new RuntimeException(
+            "Cannot define merge without key, timestamp or scd2 in the same table definition"
+          )
+        }
+      case (true, true) =>
+    }
+  }
+
   def deserializeSchemaRefs(content: String, path: String): SchemaRefs = {
     Try {
       val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
@@ -182,6 +243,7 @@ object YamlSerializer extends LazyLogging {
         YamlSerializer.renameField(rootNode, "schemas", "tables")
         mapper.treeToValue(rootNode, classOf[SchemaRefs])
       } else {
+        mergeToStrategy(rootNode)
         val ref = mapper.treeToValue(rootNode, classOf[SchemaRef])
         SchemaRefs(List(ref.table))
       }
@@ -204,6 +266,7 @@ object YamlSerializer extends LazyLogging {
           loadNode.asInstanceOf[ObjectNode]
       renameField(domainNode, "schemas", "tables")
       renameField(domainNode, "schemaRefs", "tableRefs")
+      mergeToStrategy(domainNode.asInstanceOf[ObjectNode])
       YamlSerializer.deepChangeFieldValues(rootNode, "type", "None", "Default")
       val domain = mapper.treeToValue(domainNode, classOf[Domain])
       if (domainNode == rootNode)

@@ -10,7 +10,7 @@ title: kafkaload
 
 ## Description
 
-Two modes are available: The batch mode and the streaming mode.
+Two modes are available : The batch mode and the streaming mode.
 
 ### Batch mode
 In batch mode, you start the kafka (off)loader regurarly and the last consumed offset
@@ -39,7 +39,7 @@ Parameter|Cardinality|Description
 ---|---|---
 --config:`<value>`|*Optional*|Topic Name declared in reference.conf file
 --connectionRef:`<value>`|*Optional*|Connection to any specific sink
---format:`<value>`|*Optional*|Read/Write format eq: parquet, json, csv ... Default to parquet.
+--format:`<value>`|*Optional*|Read/Write format eq : parquet, json, csv ... Default to parquet.
 --path:`<value>`|*Optional*|Source file for load and target file for store
 --options:`<value>`|*Optional*|Options to pass to Spark Reader
 --write-config:`<value>`|*Optional*|Topic Name declared in reference.conf file

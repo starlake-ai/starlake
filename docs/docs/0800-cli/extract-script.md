@@ -10,11 +10,11 @@ title: extract-script
 
 ## Description
 
-For domain extraction, the schemas should at least, specify:
+For domain extraction, the schemas should at least, specify :
 - a table name (schemas.name)
 - a file pattern (schemas.pattern) which is used as the export file base name
 - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-- a delta column (schemas.merge.timestamp) if in APPEND mode: the default column which is used to determine new rows for each exports
+- a delta column (schemas.merge.timestamp) if in APPEND mode : the default column which is used to determine new rows for each exports
 - the columns to extract (schemas.attributes.name*)
 
 You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.

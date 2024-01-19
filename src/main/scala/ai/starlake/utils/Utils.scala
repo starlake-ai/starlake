@@ -154,10 +154,6 @@ object Utils extends StrictLogging {
           ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
         case (_, WriteMode.APPEND) =>
           ("CREATE_IF_NEEDED", "WRITE_APPEND")
-        case (_, WriteMode.ERROR_IF_EXISTS) =>
-          ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-        case (_, WriteMode.IGNORE) =>
-          ("CREATE_NEVER", "WRITE_EMPTY")
         case _ =>
           ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       }

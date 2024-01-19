@@ -94,7 +94,7 @@ abstract class AutoTask(
           (select, true)
         } else {
           val (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition) = {
-            taskDesc.merge match {
+            taskDesc.strategy match {
               case Some(mergeOptions) =>
                 val mergeSql =
                   SQLUtils.buildMergeSqlOnTransform(

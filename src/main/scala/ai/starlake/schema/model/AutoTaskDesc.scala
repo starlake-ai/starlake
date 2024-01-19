@@ -46,7 +46,7 @@ case class AutoTaskDesc(
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
-  merge: Option[MergeOptions] = None,
+  strategy: Option[StrategyOptions] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
   recursive: Boolean = false,
@@ -83,7 +83,7 @@ case class AutoTaskDesc(
       attributesDesc = child.attributesDesc,
       python = child.python,
       tags = tags ++ child.tags,
-      merge = child.merge.orElse(merge),
+      strategy = child.strategy.orElse(strategy),
       schedule = child.dagRef.orElse(schedule),
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
@@ -98,7 +98,7 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
-    if (merge.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
+    if (strategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
       Left(List("Merge and write mode are not compatible"))
     } else {
       Right(true)
@@ -113,7 +113,7 @@ case class AutoTaskDesc(
     table = "",
     write = Some(WriteMode.OVERWRITE),
     python = None,
-    merge = None,
+    strategy = None,
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
