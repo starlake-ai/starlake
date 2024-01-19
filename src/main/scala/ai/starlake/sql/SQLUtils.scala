@@ -176,7 +176,7 @@ object SQLUtils extends StrictLogging {
     */
   def buildMergeSqlOnTransform(
     sql: String,
-    mergeOptions: MergeOptions,
+    mergeOptions: StrategyOptions,
     database: Option[String],
     domain: String,
     targetTable: String,
@@ -191,7 +191,7 @@ object SQLUtils extends StrictLogging {
         OutputRef("", domain, targetTable).toSQLString(connection, isFilesystem)
     }
     val columnNames = extractColumnNames(sql)
-    buildJDBCSqlMerge(
+    buildJdbcSqlMerge(
       Right(sql),
       fullTargetTableName,
       targetTableExists,
@@ -424,45 +424,76 @@ object SQLUtils extends StrictLogging {
     sql2.trim
   }
 
-  def buildJDBCSqlMerge(
+  def buildJDBCSQLOnLoad(
+    starlakeSchema: Schema,
+    tempTable: String,
+    targetTable: String,
+    targetTableExists: Boolean,
+    jdbcDatabase: Engine,
+    sourceUris: Option[String],
+    strategy: StrategyOptions
+  )(implicit settings: Settings): String = {
+    val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
+    val quote = jdbcEngine.quote
+    strategy.`type` match {
+      case StrategyType.APPEND | StrategyType.OVERWRITE =>
+        starlakeSchema.buildSqlSelectOnLoad(tempTable, sourceUris, quote)
+      case _ =>
+        val (scriptAttributes, transformAttributes) =
+          starlakeSchema.scriptAndTransformAttributes().partition(_.script.nonEmpty)
+        val simpleAttributes = starlakeSchema.exceptIgnoreScriptAndTransformAttributes()
+        val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
+        val allColumnNames = allOutputAttributes.map(_.getFinalName())
+        val select = starlakeSchema.buildSqlSelectOnLoad(tempTable, sourceUris, quote)
+        SQLUtils.buildJdbcSqlMerge(
+          Right(select),
+          targetTable,
+          targetTableExists,
+          starlakeSchema.getStrategy(),
+          allColumnNames,
+          jdbcDatabase
+        )
+    }
+  }
+
+  def buildJdbcSqlMerge(
     sourceTableOrStatement: Either[String, String],
     targetTable: String,
     targetTableExists: Boolean,
-    merge: MergeOptions,
-    columns: List[String],
+    strategy: StrategyOptions,
+    targetTableColumns: List[String],
     jdbcDatabase: Engine
   )(implicit settings: Settings): String = {
     val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
     val quote = jdbcEngine.quote
-    val allAttributesSQL = columns.mkString(",")
+    val allAttributesSQL = targetTableColumns.mkString(",")
     val partitionKeys =
-      merge.key
+      strategy.key
         .map(key => s"$quote$key$quote")
         .mkString(",")
 
     val (targetColumns, sourceColumns) =
-      columns
+      targetTableColumns
         .map(col => s"$quote$col$quote" -> s"$SL_INTERNAL_TABLE.$quote$col$quote")
         .unzip
     val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
     val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
     val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
-    val matchedUpdateSql = columns
+    val matchedUpdateSql = targetTableColumns
       .map(col => s"$col = $SL_INTERNAL_TABLE.$col")
       .mkString("SET ", ",", "")
 
     val joinCondition =
-      merge.key.map(key => s"$SL_INTERNAL_TABLE.$key = $targetTable.$key").mkString(" AND ")
+      strategy.key.map(key => s"$SL_INTERNAL_TABLE.$key = $targetTable.$key").mkString(" AND ")
 
     val nullJoinCondition =
-      merge.key.map(key => s"$targetTable.$key IS NULL").mkString(" AND ")
+      strategy.key.map(key => s"$targetTable.$key IS NULL").mkString(" AND ")
 
-    val mergeTimestampCol = merge.timestamp
-    val mergeOn = merge.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
-    val isSCD2 = merge.keepDeleted.getOrElse(false)
+    val mergeTimestampCol = strategy.timestamp
+    val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val canMerge = jdbcEngine.canMerge
-    val startTsCol = settings.appConfig.mergeStartDateTimestamp
-    val endTsCol = settings.appConfig.mergeEndDateTimestamp
+    val startTsCol = strategy.start_ts.getOrElse(settings.appConfig.mergeStartTimestamp)
+    val endTsCol = strategy.start_ts.getOrElse(settings.appConfig.mergeEndTimestamp)
 
     val (sourceTable, tempTable) = sourceTableOrStatement match {
       case Left(sourceTable) =>
@@ -470,72 +501,92 @@ object SQLUtils extends StrictLogging {
       case Right(sourceStatement) =>
         ("SL_SOURCE_TABLE", List(s"CREATE TEMPORARY TABLE SL_SOURCE_TABLE AS ($sourceStatement);"))
     }
-    val result = (targetTableExists, mergeTimestampCol, mergeOn, isSCD2) match {
-      case (_, None, _, true) =>
-        throw new Exception("SCD2 is not supported without a merge timestamp column")
-      case (false, Some(_), _, true) =>
-        s"""SELECT  $allAttributesSQL, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable"""
-      case (true, Some(_), _, true) =>
-        /*
-        First we insert all new rows
-        Then we create a temporary table with the updated rows
-        Then we update the end_ts of the old rows
-        Then we insert the new rows
-         */
-        val key = merge.key.mkString(",")
-        s"""
-           |INSERT INTO $targetTable
-           |SELECT $allAttributesSQL, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
-           |LEFT JOIN $targetTable ON ($joinCondition AND $targetTable.$endTsCol IS NULL)
-           |WHERE $nullJoinCondition;
-           |
-           |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
-           |SELECT $key, $mergeTimestampCol FROM $sourceTable AS $SL_INTERNAL_TABLE, $targetTable
-           |WHERE $joinCondition AND $targetTable.$endTsCol IS NULL AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
-           |
-           |UPDATE $targetTable SET $endTsCol = $mergeTimestampCol
-           |FROM SL_UPDATED_RECORDS
-           |WHERE $joinCondition AND $targetTable.$endTsCol IS NULL;
-           |
-           |/* merge into */
-           |INSERT INTO $targetTable
-           |SELECT $allAttributesSQL, $mergeTimestampCol AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
-           |WHERE $key IN (SELECT DISTINCT $key FROM SL_UPDATED_RECORDS);
-           |""".stripMargin
+    val result =
+      strategy.`type` match {
+        case StrategyType.MERGE_BY_KEY =>
+          buildJdbcSqlForMergeByKey(
+            targetTable,
+            targetTableExists,
+            allAttributesSQL,
+            partitionKeys,
+            notMatchedInsertSql,
+            matchedUpdateSql,
+            joinCondition,
+            mergeOn,
+            sourceTable
+          )
+        case StrategyType.MERGE_BY_KEY_AND_TIMESTAMP =>
+          buildJdbcSqlForMergeByKeyAndTimestamp(
+            targetTable,
+            targetTableExists,
+            quote,
+            allAttributesSQL,
+            partitionKeys,
+            sourceColumns,
+            notMatchedInsertColumnsSql,
+            notMatchedInsertSql,
+            matchedUpdateSql,
+            joinCondition,
+            nullJoinCondition,
+            mergeTimestampCol,
+            mergeOn,
+            canMerge,
+            sourceTable
+          )
+        case StrategyType.SCD2 =>
+          buildJdbcSqlForSC2(
+            targetTable,
+            targetTableExists,
+            strategy,
+            quote,
+            allAttributesSQL,
+            partitionKeys,
+            matchedUpdateSql,
+            joinCondition,
+            nullJoinCondition,
+            mergeTimestampCol,
+            mergeOn,
+            startTsCol,
+            endTsCol,
+            sourceTable
+          )
+        case unknownStrategy =>
+          throw new Exception(s"Unknown strategy $unknownStrategy")
+      }
 
-      case (false, None, MergeOn.TARGET, false) =>
-        /*
-        The table does not exist, we can just insert the data
-         */
-        s"""SELECT  $allAttributesSQL  FROM $sourceTable"""
+    val extraPreActions = tempTable.mkString
+    s"$extraPreActions\n$result"
+  }
 
-      case (false, None, MergeOn.SOURCE_AND_TARGET, false) =>
+  private def buildJdbcSqlForSC2(
+    targetTable: String,
+    targetTableExists: Boolean,
+    strategy: StrategyOptions,
+    quote: String,
+    allAttributesSQL: String,
+    partitionKeys: String,
+    matchedUpdateSql: String,
+    joinCondition: String,
+    nullJoinCondition: String,
+    mergeTimestampCol: Option[String],
+    mergeOn: MergeOn,
+    startTsCol: String,
+    endTsCol: String,
+    sourceTable: String
+  ) = {
+    (targetTableExists, mergeTimestampCol, mergeOn) match {
+      case (false, Some(_), MergeOn.TARGET) =>
         /*
-        The table does not exist, but we are asked to deduplicate the data from teh input
-        We create a temporary table with a row number and select the first row for each partition
-        And then we insert the data
-         */
-        s"""
-           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
-           |  SELECT  $allAttributesSQL,
-           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY (select 0)) AS SL_SEQ
-           |  FROM $sourceTable;
-           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
-            """.stripMargin
-
-      case (false, Some(_), MergeOn.TARGET, false) =>
-        /*
-        The table does not exist, we can just insert the data
+            The table does not exist, we can just insert the data
          */
         s"""
            |SELECT  $allAttributesSQL  FROM $sourceTable
             """.stripMargin
-
-      case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET, false) =>
+      case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         /*
-        The table does not exist
-        We create a temporary table with a row number and select the first row for each partition based on the timestamp
-        And then we insert the data
+            The table does not exist
+            We create a temporary table with a row number and select the first row for each partition based on the timestamp
+            And then we insert the data
          */
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
@@ -545,34 +596,113 @@ object SQLUtils extends StrictLogging {
            |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
             """.stripMargin
 
-      case (true, None, MergeOn.TARGET, false) =>
+      case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
         /*
-        The table exists, we can merge the data
+            First we insert all new rows
+            Then we create a temporary table with the updated rows
+            Then we update the end_ts of the old rows
+            Then we insert the new rows
+                INSERT INTO $targetTable
+                SELECT $allAttributesSQL, $mergeTimestampCol AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
+                WHERE $key IN (SELECT DISTINCT $key FROM SL_UPDATED_RECORDS);
          */
+        val key = strategy.key.mkString(",")
         s"""
-           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
-           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
-           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |INSERT INTO $targetTable
+           |SELECT $allAttributesSQL, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
+           |LEFT JOIN $targetTable ON ($joinCondition AND $targetTable.$endTsCol IS NULL)
+           |WHERE $nullJoinCondition;
+           |
+           |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
+           |SELECT $allAttributesSQL FROM $sourceTable AS $SL_INTERNAL_TABLE, $targetTable
+           |WHERE $joinCondition AND $targetTable.$endTsCol IS NULL AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+           |
+           |MERGE INTO $targetTable USING SL_UPDATED_RECORDS AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
            |""".stripMargin
 
-      case (true, None, MergeOn.SOURCE_AND_TARGET, false) =>
+      case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         /*
-        The table exists, We deduplicated the data from the input and we merge the data
+            First we insert all new rows
+            Then we create a temporary table with the updated rows
+            Then we update the end_ts of the old rows
+            Then we insert the new rows
+                INSERT INTO $targetTable
+                SELECT $allAttributesSQL, $mergeTimestampCol AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
+                WHERE $key IN (SELECT DISTINCT $key FROM SL_UPDATED_RECORDS);
+         */
+        val key = strategy.key.mkString(",")
+        s"""
+           |INSERT INTO $targetTable
+           |SELECT $allAttributesSQL, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
+           |LEFT JOIN $targetTable ON ($joinCondition AND $targetTable.$endTsCol IS NULL)
+           |WHERE $nullJoinCondition;
+           |
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
+           |  FROM $sourceTable;
+           |CREATE TEMPORARY TABLE SL_DEDUP AS
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |
+           |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
+           |SELECT $allAttributesSQL FROM SL_DEDUP AS $SL_INTERNAL_TABLE, $targetTable
+           |WHERE $joinCondition AND $targetTable.$endTsCol IS NULL AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
+           |
+           |MERGE INTO $targetTable USING SL_UPDATED_RECORDS AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
+           |""".stripMargin
+      case (_, Some(_), MergeOn(_)) =>
+        throw new Exception("Should never happen !!!")
+      case (_, None, _) =>
+        throw new Exception("SCD2 is not supported without a merge timestamp column")
+
+    }
+  }
+
+  private def buildJdbcSqlForMergeByKeyAndTimestamp(
+    targetTable: String,
+    targetTableExists: Boolean,
+    quote: String,
+    allAttributesSQL: String,
+    partitionKeys: String,
+    sourceColumns: List[String],
+    notMatchedInsertColumnsSql: String,
+    notMatchedInsertSql: String,
+    matchedUpdateSql: String,
+    joinCondition: String,
+    nullJoinCondition: String,
+    mergeTimestampCol: Option[String],
+    mergeOn: MergeOn,
+    canMerge: Boolean,
+    sourceTable: String
+  ) = {
+    (targetTableExists, mergeTimestampCol, mergeOn) match {
+      case (false, Some(_), MergeOn.TARGET) =>
+        /*
+            The table does not exist, we can just insert the data
+         */
+        s"""
+           |SELECT  $allAttributesSQL  FROM $sourceTable
+            """.stripMargin
+
+      case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
+        /*
+            The table does not exist
+            We create a temporary table with a row number and select the first row for each partition based on the timestamp
+            And then we insert the data
          */
         s"""
            |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
-           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
-           |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
-           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
-           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
-           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
-           |""".stripMargin
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
 
-      case (true, Some(mergeTimestampCol), MergeOn.TARGET, false) =>
+      case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
         /*
-        The table exists, we can merge the data by joining on the key and comparing the timestamp
+            The table exists, we can merge the data by joining on the key and comparing the timestamp
          */
         if (canMerge) {
           s"""
@@ -582,8 +712,8 @@ object SQLUtils extends StrictLogging {
              |""".stripMargin
         } else {
           /*
-            We cannot merge, we need to update the data first and then insert the new data
-            The merge into comment instruct starlake runner to execute the request as it is.
+                We cannot merge, we need to update the data first and then insert the new data
+                The merge into comment instruct starlake runner to execute the request as it is.
            */
           s"""
              |UPDATE $targetTable $matchedUpdateSql
@@ -599,7 +729,7 @@ object SQLUtils extends StrictLogging {
              |""".stripMargin
 
         }
-      case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET, false) =>
+      case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         if (canMerge) {
           s"""
              |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
@@ -630,11 +760,70 @@ object SQLUtils extends StrictLogging {
              |WHERE $nullJoinCondition
              |""".stripMargin
         }
-      case (_, _, MergeOn(_), _) =>
+      case (_, Some(_), MergeOn(_)) | (_, None, MergeOn(_)) =>
         throw new Exception("Should never happen !!!")
     }
-    val extraPreActions = tempTable.mkString
-    s"$extraPreActions\n$result"
   }
 
+  private def buildJdbcSqlForMergeByKey(
+    targetTable: String,
+    targetTableExists: Boolean,
+    allAttributesSQL: String,
+    partitionKeys: String,
+    notMatchedInsertSql: String,
+    matchedUpdateSql: String,
+    joinCondition: String,
+    mergeOn: MergeOn,
+    sourceTable: String
+  ) = {
+    (targetTableExists, mergeOn) match {
+      case (false, MergeOn.TARGET) =>
+        /*
+            The table does not exist, we can just insert the data
+         */
+        s"""SELECT  $allAttributesSQL
+           |FROM $sourceTable
+            """.stripMargin
+      case (false, MergeOn.SOURCE_AND_TARGET) =>
+        /*
+            The table does not exist, but we are asked to deduplicate the data from teh input
+            We create a temporary table with a row number and select the first row for each partition
+            And then we insert the data
+         */
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+            """.stripMargin
+      case (true, MergeOn.TARGET) =>
+        /*
+            The table exists, we can merge the data
+         */
+        s"""
+           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+
+      case (true, MergeOn.SOURCE_AND_TARGET) =>
+        /*
+            The table exists, We deduplicated the data from the input and we merge the data
+         */
+        s"""
+           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |  SELECT  $allAttributesSQL,
+           |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
+           |  FROM $sourceTable;
+           |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |WHEN MATCHED THEN UPDATE $matchedUpdateSql
+           |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
+           |""".stripMargin
+      case (_, MergeOn(_)) =>
+        throw new Exception("Should never happen !!!")
+
+    }
+  }
 }

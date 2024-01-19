@@ -60,8 +60,8 @@ class Xls2YmlDomainsSpec extends TestHelper {
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       schema1.attributes.size shouldBe 19
-      schema1.merge.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
-      schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
+      schema1.strategy.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
+      schema1.strategy.map(_.key) shouldBe Some(List("ID1", "ID2"))
 
       val s1MaybePartitions = schema1.metadata.map(_.getPartitionAttributes()).getOrElse(Nil)
       s1MaybePartitions shouldEqual List("sl_year", "sl_month", "sl_day", "sl_hour")

@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, StrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
@@ -221,8 +221,16 @@ class JdbcAutoTask(
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
-        else
-          List(s"CREATE TABLE $fullTableName AS $lastSql")
+        else {
+          if (taskDesc.strategy.exists(_.`type` == StrategyType.SCD2)) {
+            val startTs =
+              s"ALTER TABLE $fullTableName ADD COLUMN ${settings.appConfig.mergeStartTimestamp} TIMESTAMP"
+            val endTs =
+              s"ALTER TABLE $fullTableName ADD COLUMN ${settings.appConfig.mergeEndTimestamp} TIMESTAMP"
+            List(s"CREATE TABLE $fullTableName AS $lastSql", startTs, endTs)
+          } else
+            List(s"CREATE TABLE $fullTableName AS $lastSql")
+        }
 
       } else {
         val mainSql =
@@ -257,6 +265,7 @@ class JdbcAutoTask(
                 List(jdbcDialect.getTruncateQuery(fullTableName))
               else
                 Nil
+            if (this.taskDesc.strategy.exists(_.`type` == StrategyType.SCD2)) {}
             dropSqls ++ mainSqlList
           }
         insertSqls

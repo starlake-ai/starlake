@@ -17,13 +17,21 @@ class TemplateParamsSpec extends TestHelper {
           Attribute(name = "col2", `type` = "long"),
           Attribute(name = "col3", script = Some("script"))
         ),
-        metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
-        merge = Some(
-          MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"), keepDeleted = None)
+        metadata = Option(
+          Metadata(
+            write = Some(WriteMode.APPEND)
+          )
         ),
         comment = None,
         presql = Nil,
-        postsql = Nil
+        postsql = Nil,
+        strategy = Some(
+          StrategyOptions(
+            StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
+            List("col1", "col2"),
+            timestamp = Some("updateCol")
+          )
+        )
       )
 
       val expectedTemplateParams = TemplateParams(
@@ -53,13 +61,22 @@ class TemplateParamsSpec extends TestHelper {
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
         List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
-        metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
-        merge = Some(
-          MergeOptions(List("col1", "col2"), timestamp = Some("updateCol"), keepDeleted = None)
+        metadata = Option(
+          Metadata(
+            write = Some(WriteMode.OVERWRITE),
+            separator = Some("|")
+          )
         ),
         comment = None,
         presql = Nil,
-        postsql = Nil
+        postsql = Nil,
+        strategy = Some(
+          StrategyOptions(
+            StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
+            List("col1", "col2"),
+            timestamp = Some("updateCol")
+          )
+        )
       )
 
       val expectedTemplateParams = TemplateParams(

@@ -1,12 +1,11 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.MergeOptions
+import ai.starlake.schema.model.{StrategyOptions, StrategyType}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField, StructType}
 
 import scala.collection.JavaConverters._
-
 import scala.io.Source
 
 class MergeUtilsTest extends TestHelper {
@@ -56,7 +55,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDF,
           incomingDF,
-          MergeOptions(key = List("id"), keepDeleted = None)
+          StrategyOptions(StrategyType.MERGE_BY_KEY, key = List("id"))
         )
       val actual = mergedDF.toJSON.collect()
 
@@ -75,7 +74,11 @@ class MergeUtilsTest extends TestHelper {
       val (_, mergedDF, _) = MergeUtils.computeToMergeAndToDeleteDF(
         existingDF,
         incomingDF,
-        MergeOptions(key = List("id"), timestamp = Some("data.version"), keepDeleted = None)
+        StrategyOptions(
+          StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
+          key = List("id"),
+          timestamp = Some("data.version")
+        )
       )
       val actual = mergedDF.toJSON.collect()
 
@@ -99,7 +102,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDF,
           incomingDF,
-          MergeOptions(key = List("id"), keepDeleted = None)
+          StrategyOptions(StrategyType.MERGE_BY_KEY, key = List("id"))
         )
       val actual = mergedDF.toJSON.collect()
 
@@ -180,7 +183,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDf1,
           incomingDf1,
-          MergeOptions(Nil, keepDeleted = None)
+          StrategyOptions(StrategyType.APPEND, Nil)
         )
 
       assert(mergedDF1.schema.fields.count(_.getComment().isEmpty) == 0)
@@ -212,7 +215,7 @@ class MergeUtilsTest extends TestHelper {
         MergeUtils.computeToMergeAndToDeleteDF(
           existingDf2,
           incomingDf2,
-          MergeOptions(Nil, keepDeleted = None)
+          StrategyOptions(StrategyType.APPEND, Nil)
         )
 
       assert(mergedDF2.schema.fields.count(_.getComment().isEmpty) == 0)

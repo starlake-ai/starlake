@@ -2,7 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.model.{MergeOptions, Refs}
+import ai.starlake.schema.model.{Refs, StrategyOptions, StrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -216,7 +216,15 @@ class SQLUtilsSpec extends TestHelper {
       val sqlMerge =
         SQLUtils.buildMergeSqlOnTransform(
           selectWithCTEs,
-          MergeOptions(List("transaction_id"), keepDeleted = None),
+          StrategyOptions(
+            `type` = StrategyType.MERGE_BY_KEY,
+            key = List("transaction_id"),
+            timestamp = None,
+            queryFilter = None,
+            on = None,
+            start_ts = None,
+            end_ts = None
+          ),
           Some("starlake-project-id"),
           "dataset3",
           "transactions_v3",

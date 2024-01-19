@@ -91,7 +91,6 @@ object ExpectationReport {
       Attribute("success", "boolean")
     ),
     None,
-    None,
     None
   )
 }

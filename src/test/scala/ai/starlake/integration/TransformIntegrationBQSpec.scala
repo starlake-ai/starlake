@@ -12,7 +12,7 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
 
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
 
-    "Native Snowflake Transform" should "succeed" in {
+    "Native Bigquery Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"                                        -> "BQ",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",

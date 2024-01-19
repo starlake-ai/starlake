@@ -194,7 +194,6 @@ object AuditLog extends StrictLogging {
       Attribute(name, tpe)
     },
     None,
-    None,
     None
   )
 

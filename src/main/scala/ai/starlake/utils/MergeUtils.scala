@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.schema.model.MergeOptions
+import ai.starlake.schema.model.StrategyOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -81,7 +81,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
   def computeToMergeAndToDeleteDF(
     existingDF: DataFrame,
     incomingDF: DataFrame,
-    mergeOptions: MergeOptions
+    mergeOptions: StrategyOptions
   ): (DataFrame, DataFrame, DataFrame) = {
     logger.whenInfoEnabled {
       logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")

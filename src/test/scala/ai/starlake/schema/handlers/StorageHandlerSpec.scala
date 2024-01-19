@@ -83,7 +83,6 @@ class StorageHandlerSpec extends TestHelper {
               )
             ),
             Some(Metadata(withHeader = Some(true))),
-            None,
             Some("Schema Comment"),
             List("SQL1", "SQL2"),
             Nil
@@ -152,7 +151,7 @@ class StorageHandlerSpec extends TestHelper {
         sink = None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        merge = None
+        strategy = None
       )
       val businessJobDef = mapper
         .writer()

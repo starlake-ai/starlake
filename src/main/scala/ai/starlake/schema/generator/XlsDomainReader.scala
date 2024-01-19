@@ -92,7 +92,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val rawWrite =
         Option(row.getCell(headerMap("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val keepDeleted = rawWrite.contains("SCD2")
+      val scd2 = rawWrite.contains("SCD2")
       val write =
         rawWrite.map(WriteMode.fromString)
       val format =
@@ -219,38 +219,58 @@ class XlsDomainReader(input: Input) extends XlsModel {
               }
           )
 
-          val mergeOptions: Option[MergeOptions] =
+          val mergeOptions: Option[StrategyOptions] =
             (deltaColOpt, identityKeysOpt, mergeQueryFilter) match {
               case (Some(deltaCol), Some(identityKeys), Some(filter)) =>
+                val strategyType =
+                  if (scd2)
+                    StrategyType.SCD2
+                  else
+                    StrategyType.MERGE_BY_KEY_AND_TIMESTAMP
                 Some(
-                  MergeOptions(
+                  StrategyOptions(
+                    `type` = strategyType,
                     key = identityKeys.split(",").toList.map(_.trim),
                     timestamp = Some(deltaCol),
-                    queryFilter = Some(filter),
-                    keepDeleted = Some(keepDeleted)
+                    queryFilter = Some(filter)
                   )
                 )
               case (Some(deltaCol), Some(identityKeys), _) =>
+                val strategyType =
+                  if (scd2)
+                    StrategyType.SCD2
+                  else
+                    StrategyType.MERGE_BY_KEY_AND_TIMESTAMP
                 Some(
-                  MergeOptions(
+                  StrategyOptions(
+                    `type` = strategyType,
                     key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol),
-                    keepDeleted = Some(keepDeleted)
+                    timestamp = Some(deltaCol)
                   )
                 )
               case (None, Some(identityKeys), Some(filter)) =>
+                val strategyType =
+                  if (scd2)
+                    StrategyType.SCD2
+                  else
+                    StrategyType.MERGE_BY_KEY
                 Some(
-                  MergeOptions(
+                  StrategyOptions(
+                    `type` = strategyType,
                     key = identityKeys.split(",").toList.map(_.trim),
-                    queryFilter = Some(filter),
-                    keepDeleted = Some(keepDeleted)
+                    queryFilter = Some(filter)
                   )
                 )
               case (None, Some(identityKeys), _) =>
+                val strategyType =
+                  if (scd2)
+                    StrategyType.SCD2
+                  else
+                    StrategyType.MERGE_BY_KEY
                 Some(
-                  MergeOptions(
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    keepDeleted = Some(keepDeleted)
+                  StrategyOptions(
+                    `type` = strategyType,
+                    key = identityKeys.split(",").toList.map(_.trim)
                   )
                 )
               case _ => None
@@ -275,7 +295,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
             pattern = pattern,
             attributes = Nil,
             metadata = Some(metaData),
-            merge = mergeOptions,
+            strategy = mergeOptions,
             comment = comment,
             presql = presql,
             postsql = postsql,
