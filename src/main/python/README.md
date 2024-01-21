@@ -6,7 +6,7 @@ It is recommended to use it in combinaison with **starlake dag generation**, but
 
 ## AirflowStarlakeJob
 
-`ai.starlake.job.airflow.AirflowStarlakeJob` is an abstract **factory** class that extends the generic interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, `load` and `transform` starlake commands.
+`ai.starlake.job.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, `load` and `transform` starlake commands.
 
 ```python
 def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
@@ -102,11 +102,17 @@ This strategy implies that a **ack file** is present at the specified path (opti
 
 ### AirflowStarlakeBashJob
 
+This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator`.
+
 ## Google Cloud Platform
 
 ### AirflowStarlakeDataprocJob
 
+This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.providers.google.cloud.operators.dataproc.DataprocSubmitJobOperator`.
+
 ### AirflowStarlakeCloudRunJob
+
+This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator` and, if the execution has been parameterized to be **asynchronous**, `airflow.sensors.bash.BashSensor` to interact with **Cloud Run job**.
 
 ## Amazon Web Services
 
