@@ -47,7 +47,16 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_import()"""
+        """Overrides IStarlakeJob.sl_import()
+        Generate the Airflow task that will run the starlake `import` command.
+
+        Args:
+            task_id (str): The task id of the task to generate.
+            domain (str): The domain to import.
+
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -219,7 +228,18 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
             return self.pre_tasks(**kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None,**kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_load()"""
+        """Overrides IStarlakeJob.sl_load()
+        Generate the Airflow task that will run the starlake `load` command.
+
+        Args:
+            task_id (str): The task id of the task to generate.
+            domain (str): The domain to load.
+            table (str): The table to load.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -228,7 +248,18 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_transform()"""
+        """Overrides IStarlakeJob.sl_transform()
+        Generate the Airflow task that will run the starlake `transform` command.
+
+        Args:
+            task_id (str): The task id of the task to generate.
+            transform_name (str): The transform to run.
+            transform_options (str): The optional transform options to use.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
         transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options", "")
@@ -238,6 +269,21 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         self.outlets += kwargs.get('outlets', []) + [dataset]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
+
+    def sl_job(self, task_id: str, command: str, options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+        """Overrides IStarlakeJob.sl_job()
+        Generate the Airflow task that will run the starlake command.
+
+        Args:
+            task_id (str): The task id of the task to generate.
+            command (str): The starlake command to run.
+            options (str): The optional options to use.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
+        pass
 
     def dummy_op(self, task_id, **kwargs):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
