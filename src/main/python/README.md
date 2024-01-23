@@ -4,6 +4,16 @@
 
 It is recommended to use it in combination with  **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
 
+## Prerequisites
+
+Before installing `starlake-airflow`, ensure the following minimum versions are installed on your system:
+
+- starlake 1.0.0
+- Python: 3.8 or higher
+- Apache Airflow: 2.6.0 or higher
+
+TODO check for versions later
+
 ## Installation
 
 ```bash
