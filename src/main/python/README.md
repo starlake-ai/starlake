@@ -23,7 +23,7 @@ def sl_import(
 
 | name    | type | description                                           |
 | ------- | ---- | ----------------------------------------------------- |
-| task_id | str  | the optional task id (*{domain}_import* by default) |
+| task_id | str  | the optional task id (*{domain}_import* by default)   |
 | domain  | str  | the required domain to import                         |
 
 ### sl_load
@@ -43,10 +43,10 @@ def sl_load(
 
 | name         | type                | description                                                 |
 | ------------ | ------------------- | ----------------------------------------------------------- |
-| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default) |
+| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default)   |
 | domain       | str                 | the required domain of the table to load                    |
 | table        | str                 | the required table to load                                  |
-| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`        |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`          |
 
 ### sl_transform
 
@@ -64,10 +64,10 @@ def sl_transform(
 
 | name              | type                | description                                            |
 | ----------------- | ------------------- | ------------------------------------------------------ |
-| task_id           | str                 | the optional task id (*{transform_name}* by default) |
+| task_id           | str                 | the optional task id (*{transform_name}* by default)   |
 | transform_name    | str                 | the transform to run                                   |
 | transform_options | str                 | the optional transform options                         |
-| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`   |
+| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
 
 ### sl_job
 
@@ -87,7 +87,7 @@ def sl_job(
 | ------------ | ------------------- | ----------------------------------------------------- |
 | task_id      | str                 | the required task id                                  |
 | arguments    | list                | The required arguments of the starlake command to run |
-| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`  |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`    |
 
 ### Init
 
@@ -150,20 +150,69 @@ This strategy implies that a **ack file** is present at the specified path (opti
 
 The following options can be specified for all concrete factory classes:
 
-| name                           | type | description                                                                                 |
-| ------------------------------ | ---- | ------------------------------------------------------------------------------------------- |
-| **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                          |
+| name                     | type | description                                                                         |
+| ------------------------ | ---- | ----------------------------------------------------------------------------------- |
+| **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                    |
+| **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string            |
 | **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                             |
-| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)         |
+| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)   |
 | **pending_path**         | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default) |
-| **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)         |
-| **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                          |
+| **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)   |
+| **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                    |
+
+## Data-aware scheduling
+
+The `ai.starlake.job.airflow.AirflowStarlakeJob` class is also responsible for recording the outlets related to the execution of each starlake command, usefull for scheduling DAGs using **data-aware scheduling**.
+
+All the outlets that have been recorded are available in the `outlets` property of the instance of the concrete class.
+
+```python
+def __init__(
+    self, 
+    pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], 
+    options: dict=None, 
+    **kwargs) -> None:
+    #...
+    self.outlets: List[Dataset] = kwargs.get('outlets', [])
+
+def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+    #...
+    dataset = Dataset(keep_ascii_only(domain).lower())
+    self.outlets += kwargs.get('outlets', []) + [dataset]
+    #...
+
+def sl_load(
+    self, 
+    task_id: str, 
+    domain: str, 
+    table: str, 
+    spark_config: StarlakeSparkConfig=None,
+    **kwargs) -> BaseOperator:
+    #...
+    dataset = Dataset(keep_ascii_only(f'{domain}.{table}').lower())
+    self.outlets += kwargs.get('outlets', []) + [dataset]
+    #...
+
+def sl_transform(
+    self, 
+    task_id: str, 
+    transform_name: str, 
+    transform_options: str=None, 
+    spark_config: StarlakeSparkConfig=None, 
+    **kwargs) -> BaseOperator:
+    #...
+    dataset = Dataset(keep_ascii_only(transform_name).lower())
+    self.outlets += kwargs.get('outlets', []) + [dataset]
+    #...
+```
+
+In conjonction with the starlake dag generation, the `outlets` property can be used to schedule effortless DAGs that will run the **transform** commands.
 
 ## On premise
 
 ### AirflowStarlakeBashJob
 
-This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator`.
+This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator`. Usefull for **on premise** execution.
 
 ## Google Cloud Platform
 
