@@ -220,6 +220,106 @@ In conjonction with the starlake dag generation, the `outlets` property can be u
 
 This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator`. Usefull for **on premise** execution.
 
+An additional `SL_STARLAKE_PATH` option is required to specify the **path** to the `starlake` **executable**.
+
+#### Example
+
+The following example shows how to use `AirflowStarlakeBashJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+
+```python
+from ai.starlake.job.airflow.bash import AirflowStarlakeBashJob
+from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.job.airflow import DEFAULT_DAG_ARGS
+
+import os
+
+from airflow import DAG
+
+from airflow.datasets import Dataset
+
+from airflow.utils.task_group import TaskGroup
+
+description="""example to load domain(s) using airflow starlake bash job"""
+
+options = {
+    'sl_env_var':'{"SL_ROOT": "/starlake/samples/starbake"}', 
+    'pre_load_strategy':'imported', 
+    'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
+}
+
+sl_job = AirflowStarlakeBashJob(options=options)
+
+schedules= [{
+    'schedule': 'None',
+    'cron': None,
+    'domains': [{
+        'name':'starbake',
+        'final_name':'starbake',
+        'tables': [
+            {
+                'name': 'Customers',
+                'final_name': 'Customers'
+            },
+            {
+                'name': 'Ingredients',
+                'final_name': 'Ingredients'
+            },
+            {
+                'name': 'Orders',
+                'final_name': 'Orders'
+            },
+            {
+                'name': 'Products',
+                'final_name': 'Products'
+            }
+        ]
+    }]
+}]
+
+def generate_dag_name(schedule):
+    dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
+    return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
+
+# [START instantiate_dag]
+for schedule in schedules:
+    for domain in schedule["domains"]:
+        tags.append(domain["name"])
+    with DAG(dag_id=generate_dag_name(schedule),
+             schedule_interval=schedule['cron'],
+             default_args=DEFAULT_DAG_ARGS,
+             catchup=False,
+             tags=set([tag.upper() for tag in tags]),
+             description=description) as dag:
+        start = sl_job.dummy_op(task_id="start")
+
+        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"])
+
+        def generate_task_group_for_domain(domain):
+            with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
+                for table in domain["tables"]:
+                    load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
+                    sl_job.sl_load(
+                        task_id=load_task_id, 
+                        domain=domain["name"], 
+                        table=table["name"]
+                    )
+            return domain_load_tasks
+
+        all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
+
+        if pre_load_tasks:
+            start >> pre_load_tasks >> all_load_tasks
+        else:
+            start >> all_load_tasks
+
+        all_done = sl_job.dummy_op(task_id="all_done", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+sl_job.outlets)
+
+        all_load_tasks >> all_done
+
+```
+
+![dag generated with AirflowStarlakeBashJob](images/dagsWithAirflowStarlakeBashJob.png)
+
 ## Google Cloud Platform
 
 ### AirflowStarlakeDataprocJob
