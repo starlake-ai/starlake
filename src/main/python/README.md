@@ -10,7 +10,7 @@ Before installing `starlake-airflow`, ensure the following minimum versions are 
 
 - starlake 1.0.0
 - Python: 3.8 or higher
-- Apache Airflow: 2.6.0 or higher
+- Apache Airflow: 2.4 or higher
 
 TODO check for versions later
 
