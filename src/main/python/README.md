@@ -106,7 +106,7 @@ To initialize this class, you may specify the optional **pre load strategy** and
 
 #### StarlakePreLoadStrategy
 
-`ai.starlake.job.airflow.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
+`ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
 
 The pre load strategy is implemented by `sl_pre_load` method that will generate the Airflow group of tasks corresponding to the strategy choosen.
 
