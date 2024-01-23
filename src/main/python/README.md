@@ -142,7 +142,7 @@ def sl_pre_load(
 
 ##### StarlakePreLoadStrategy.NONE
 
-No pre load strategy.
+No pre-load strategy: All loads task group will be directly executed. no pre-load tasks group will be created. TODO include Image. 
 
 ##### StarlakePreLoadStrategy.IMPORTED
 
