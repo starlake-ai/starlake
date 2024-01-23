@@ -1,8 +1,8 @@
 # starlake-airflow
 
-starlake-airflow is the Starlake Python Distribution for **Airflow**.
+**starlake-airflow** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **Airflow**.
 
-It is recommended to use it in combinaison with **starlake dag generation**, but can be used directly as is in your DAGs.
+It is recommended to use it in combinaison with **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
 
 ## AirflowStarlakeJob
 
