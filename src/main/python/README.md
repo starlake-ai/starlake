@@ -2,7 +2,7 @@
 
 **starlake-airflow** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **Airflow**.
 
-It is recommended to use it in combinaison with **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
+It is recommended to use it in combination with  **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
 
 ## Installation
 
@@ -77,7 +77,7 @@ def sl_transform(
 
 ### sl_job
 
-Ultimitely, all of these methods will call the `sl_job` method that neeeds to be **implemented** in all **concrete** factory classes.
+Ultimately, all these methods will call the `sl_job` method  method that needs to be **implemented** in all **concrete** factory classes.
 
 ```python
 def sl_job(
@@ -114,7 +114,7 @@ To initialize this class, you may specify the optional **pre load strategy** and
 
 `ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
 
-The pre load strategy is implemented by `sl_pre_load` method that will generate the Airflow group of tasks corresponding to the strategy choosen.
+The pre-load strategy is implemented by the `sl_pre_load` method that will generate the Airflow group of tasks corresponding to the chosen strategy.
 
 ```python
 def sl_pre_load(
@@ -136,7 +136,7 @@ No pre load strategy.
 
 ##### StarlakePreLoadStrategy.IMPORTED
 
-This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
+This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default, if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
 
 ![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
 
@@ -148,13 +148,13 @@ This strategy implies that at least one file is present in the pending datasets 
 
 ##### StarlakePreLoadStrategy.ACK
 
-This strategy implies that a **ack file** is present at the specified path (option `global_ack_file_path`), otherwise the loading of the domain will be skipped.
+This strategy implies that an **ack file** is present at the specified path (option `global_ack_file_path`), otherwise the loading of the domain will be skipped.
 
 ![ack strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/ack.png)
 
 #### Options
 
-The following options can be specified for all concrete factory classes:
+The following options can be specified in all concrete factory classes:
 
 | name                     | type | description                                                                               |
 | ------------------------ | ---- | ----------------------------------------------------------------------------------------- |
