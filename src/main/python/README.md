@@ -4,6 +4,12 @@
 
 It is recommended to use it in combinaison with **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
 
+## Installation
+
+```bash
+pip install starlake-airflow --upgrade
+```
+
 ## AirflowStarlakeJob
 
 `ai.starlake.job.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
@@ -162,7 +168,7 @@ The following options can be specified for all concrete factory classes:
 
 ## Data-aware scheduling
 
-The `ai.starlake.job.airflow.AirflowStarlakeJob` class is also responsible for recording the outlets related to the execution of each starlake command, usefull for scheduling DAGs using **data-aware scheduling**.
+The `ai.starlake.job.airflow.AirflowStarlakeJob` class is also responsible for recording the `outlets` related to the execution of each starlake command, usefull for scheduling DAGs using **data-aware scheduling**.
 
 All the outlets that have been recorded are available in the `outlets` property of the instance of the concrete class.
 
