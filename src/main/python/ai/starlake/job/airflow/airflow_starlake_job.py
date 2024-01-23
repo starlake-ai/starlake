@@ -42,6 +42,11 @@ DEFAULT_DAG_ARGS = {
 
 class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
+        """Overrides IStarlakeJob.__init__()
+        Args:
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
+            options (dict): The options to use.
+        """
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
