@@ -138,19 +138,19 @@ No pre load strategy.
 
 This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
 
-![imported strategy example](images/imported.png)
+![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
 
 ##### StarlakePreLoadStrategy.PENDING
 
 This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default if option `pending_path` has not been specified), otherwise the loading of the domain will be skipped.
 
-![pending strategy example](images/pending.png)
+![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/pending.png)
 
 ##### StarlakePreLoadStrategy.ACK
 
 This strategy implies that a **ack file** is present at the specified path (option `global_ack_file_path`), otherwise the loading of the domain will be skipped.
 
-![ack strategy example](images/ack.png)
+![ack strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/ack.png)
 
 #### Options
 
@@ -325,7 +325,7 @@ for schedule in schedules:
             all_load_tasks >> all_done
 ```
 
-![dag generated with AirflowStarlakeBashJob](images/dagsWithAirflowStarlakeBashJob.png)
+![dag generated with AirflowStarlakeBashJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeBashJob.png)
 
 ## Google Cloud Platform
 
@@ -409,7 +409,7 @@ sl_job = AirflowStarlakeDataprocJob(options=options)
 #...
 ```
 
-![dag generated with AirflowStarlakeDataprocJob](images/dagsWithAirflowStarlakeDataprocJob.png)
+![dag generated with AirflowStarlakeDataprocJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeDataprocJob.png)
 
 ### AirflowStarlakeCloudRunJob
 
@@ -457,7 +457,7 @@ sl_job = AirflowStarlakeCloudRunJob(options=options)
 #...
 ```
 
-![dag generated with AirflowStarlakeCloudRunJob synchronously](images/dagsWithAirflowStarlakeCloudRunJobSynchronous.png)
+![dag generated with AirflowStarlakeCloudRunJob synchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeCloudRunJobSynchronous.png)
 
 ##### Asynchronous execution
 
@@ -480,7 +480,7 @@ options = {
 #...
 ```
 
-![dag generated with AirflowStarlakeCloudRunJob asynchronously](images/dagsWithAirflowStarlakeCloudRunJobAsynchronous.png)
+![dag generated with AirflowStarlakeCloudRunJob asynchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeCloudRunJobAsynchronous.png)
 
 ## Amazon Web Services
 
