@@ -42,12 +42,26 @@ DEFAULT_DAG_ARGS = {
 
 class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
+        """Overrides IStarlakeJob.__init__()
+        Args:
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
+            options (dict): The options to use.
+        """
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_import()"""
+        """Overrides IStarlakeJob.sl_import()
+        Generate the Airflow task that will run the starlake `import` command.
+
+        Args:
+            task_id (str): The optional task id ({domain}_import by default).
+            domain (str): The required domain to import.
+
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{domain}_import" if not task_id else task_id
         arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -56,7 +70,16 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
-        """Overrides IStarlakeJob.sl_pre_load()"""
+        """Overrides IStarlakeJob.sl_pre_load()
+        Generate the Airflow group of tasks that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
+
+        Args:
+            domain (str): The required domain to load.
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
+        
+        Returns:
+            Union[BaseOperator, None]: The Airflow group of tasks or None.
+        """
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
                 StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
@@ -219,7 +242,18 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
             return self.pre_tasks(**kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None,**kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_load()"""
+        """Overrides IStarlakeJob.sl_load()
+        Generate the Airflow task that will run the starlake `load` command.
+
+        Args:
+            task_id (str): The optional task id ({domain}_{table}_load by default).
+            domain (str): The required domain of the table to load.
+            table (str): The required table to load.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{domain}_{table}_load" if not task_id else task_id
         arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -228,7 +262,18 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides IStarlakeJob.sl_transform()"""
+        """Overrides IStarlakeJob.sl_transform()
+        Generate the Airflow task that will run the starlake `transform` command.
+
+        Args:
+            task_id (str): The optional task id ({transform_name} by default).
+            transform_name (str): The transform to run.
+            transform_options (str): The optional transform options to use.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
         transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options", "")

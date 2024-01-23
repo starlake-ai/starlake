@@ -35,19 +35,59 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         self.sl_datasets = __class__.get_sl_datasets(self.options)
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> T:
-        """Import job."""
+        """Import job.
+        Generate the scheduler task that will run the starlake `import` command.
+
+        Args:
+            task_id (str): The optional task id.
+            domain (str): The required domain to import.
+
+        Returns:
+            T: The scheduler task.
+        """
         pass
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
-        """Pre-load job."""
+        """Pre-load job.
+        Generate the scheduler task that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
+
+        Args:
+            domain (str): The required domain to load.
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
+        
+        Returns:
+            Union[T, None]: The scheduler task or None.
+        """
         pass
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
-        """Load job."""
+        """Load job.
+        Generate the scheduler task that will run the starlake `load` command.
+
+        Args:
+            task_id (str): The optional task id.
+            domain (str): The required domain of the table to load.
+            table (str): The required table to load.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            T: The scheduler task.
+        """
         pass
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
-        """Transform job."""
+        """Transform job.
+        Generate the scheduler task that will run the starlake `transform` command.
+
+        Args:
+            task_id (str): The optional task id.
+            transform_name (str): The transform to run.
+            transform_options (str): The optional transform options to use.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            T: The scheduler task.
+        """
         pass
 
     def pre_tasks(self, *args, **kwargs) -> Union[T, None]:
@@ -59,6 +99,16 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         return None
 
     def sl_job(self, task_id: str, arguments: dict, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
-        """Generic job."""
+        """Generic job.
+        Generate the scheduler task that will run the starlake command.
+
+        Args:
+            task_id (str): The required task id.
+            arguments (list): The required arguments of the starlake command to run.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            T: The scheduler task.
+        """
         pass
 
