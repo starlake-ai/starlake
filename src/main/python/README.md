@@ -8,69 +8,86 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 
 `ai.starlake.job.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, `load` and `transform` starlake commands.
 
-```python
-def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
-    """Generate the Airflow task that will run the starlake `import` command.
+### sl_import
 
-    Args:
-        task_id (str): The task id of the task to generate.
-        domain (str): The domain to import.
-
-    Returns:
-        BaseOperator: The Airflow task.
-    """
-    #...
-
-def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None,**kwargs) -> BaseOperator:
-    """Overrides IStarlakeJob.sl_load()
-    Generate the Airflow task that will run the starlake `load` command.
-
-    Args:
-        task_id (str): The task id of the task to generate.
-        domain (str): The domain to load.
-        table (str): The table to load.
-        spark_config (StarlakeSparkConfig): The optional spark configuration to use.
-  
-    Returns:
-        BaseOperator: The Airflow task.
-    """
-    #...
-
-def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-    """Overrides IStarlakeJob.sl_transform()
-    Generate the Airflow task that will run the starlake `transform` command.
-
-    Args:
-        task_id (str): The task id of the task to generate.
-        transform_name (str): The transform to run.
-        transform_options (str): The optional transform options to use.
-        spark_config (StarlakeSparkConfig): The optional spark configuration to use.
-  
-    Returns:
-        BaseOperator: The Airflow task.
-    """
-    #...
-
-```
-
-Ultimitely, all of these methods will call the `sl_job` method that neeeds to be implemented in all concrete factory classes.
+It generates the Airflow task that will run the starlake `import` command.
 
 ```python
-def sl_job(self, task_id: str, command: str, options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-    """Overrides IStarlakeJob.sl_job()
-    Generate the Airflow task that will run the starlake command.
-
-    Args:
-        task_id (str): The task id of the task to generate.
-        command (str): The starlake command to run.
-        options (str): The optional options to use.
-        spark_config (StarlakeSparkConfig): The optional spark configuration to use.
-  
-    Returns:
-        BaseOperator: The Airflow task.
-    """
-    pass
+def sl_import(
+    self, 
+    task_id: str, 
+    domain: str, 
+    **kwargs) -> BaseOperator:
+    #...
 ```
+
+| name    | type | description                                           |
+| ------- | ---- | ----------------------------------------------------- |
+| task_id | str  | the optional task id (*{domain}_import* by default)   |
+| domain  | str  | the required domain to import                         |
+
+### sl_load
+
+It generates the Airflow task that will run the starlake `load` command.
+
+```python
+def sl_load(
+    self, 
+    task_id: str, 
+    domain: str, 
+    table: str, 
+    spark_config: StarlakeSparkConfig=None,
+    **kwargs) -> BaseOperator:
+    #...
+```
+
+| name         | type                | description                                                 |
+| ------------ | ------------------- | ----------------------------------------------------------- |
+| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default)   |
+| domain       | str                 | the required domain of the table to load                    |
+| table        | str                 | the required table to load                                  |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`          |
+
+### sl_transform
+
+It generates the Airflow task that will run the starlake `transform` command.
+
+```python
+def sl_transform(
+    self, 
+    task_id: str, 
+    transform_name: str, 
+    transform_options: str=None, 
+    spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+    #...
+```
+
+| name              | type                | description                                            |
+| ----------------- | ------------------- | ------------------------------------------------------ |
+| task_id           | str                 | the optional task id (*{transform_name}* by default)   |
+| transform_name    | str                 | the transform to run                                   |
+| transform_options | str                 | the optional transform options                         |
+| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
+
+### sl_job
+
+Ultimitely, all of these methods will call the `sl_job` method that neeeds to be **implemented** in all **concrete** factory classes.
+
+```python
+def sl_job(
+    self, 
+    task_id: str, 
+    arguments: list, 
+    spark_config: StarlakeSparkConfig=None, 
+    **kwargs) -> BaseOperator:
+    #...
+```
+
+| name              | type                | description                                            |
+| ----------------- | ------------------- | ------------------------------------------------------ |
+| task_id           | str                 | the required task id                                   |
+| arguments         | list                | The required arguments of the starlake command to run  |
+| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
 
 ### Init
 
@@ -90,6 +107,22 @@ To initialize this class, you may specify the optional **pre load strategy** and
 #### StarlakePreLoadStrategy
 
 `ai.starlake.job.airflow.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
+
+The pre load strategy is implemented by `sl_pre_load` method that will generate the Airflow group of tasks corresponding to the strategy choosen.
+
+```python
+def sl_pre_load(
+    self, 
+    domain: str, 
+    pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None,
+    **kwargs) -> BaseOperator:
+    #...
+```
+
+| name              | type                | description                                            |
+| ----------------- | ------------------- | ------------------------------------------------------ |
+| domain            | str                 | the domain to load                                     |
+| pre_load_strategy | str                 | the optional pre load strategy (self.pre_load_strategy by default)|
 
 ##### StarlakePreLoadStrategy.NONE
 
@@ -117,14 +150,14 @@ This strategy implies that a **ack file** is present at the specified path (opti
 
 The following options can be specified for all concrete factory classes:
 
-| name                      | type | comment |
-| ------------------------- | ---- | ------- |
-| **default_pool**          | str  | pool of slots to use (`default_pool` by default)|
-| **pre_load_strategy**     | str  | one of `none` (default), `imported`, `pending` or `ack`|
-| **incoming_path**         | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)|
-| **pending_path**          | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default)|
-| **global_ack_file_path**  | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)|
-| **ack_wait_timeout**      | int  | timeout in seconds to wait for the ack file(`1 hour` by default)|
+| name                           | type | description                                                                                 |
+| ------------------------------ | ---- | ------------------------------------------------------------------------------------------- |
+| **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                          |
+| **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                             |
+| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)         |
+| **pending_path**         | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default) |
+| **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)         |
+| **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                          |
 
 ## On premise
 

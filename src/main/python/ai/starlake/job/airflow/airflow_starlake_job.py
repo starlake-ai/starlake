@@ -56,8 +56,8 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Generate the Airflow task that will run the starlake `import` command.
 
         Args:
-            task_id (str): The task id of the task to generate.
-            domain (str): The domain to import.
+            task_id (str): The optional task id ({domain}_import by default).
+            domain (str): The required domain to import.
 
         Returns:
             BaseOperator: The Airflow task.
@@ -237,9 +237,9 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Generate the Airflow task that will run the starlake `load` command.
 
         Args:
-            task_id (str): The task id of the task to generate.
-            domain (str): The domain to load.
-            table (str): The table to load.
+            task_id (str): The optional task id ({domain}_{{table}}_load by default).
+            domain (str): The required domain of the table to load.
+            table (str): The required table to load.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
         
         Returns:
@@ -257,7 +257,7 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Generate the Airflow task that will run the starlake `transform` command.
 
         Args:
-            task_id (str): The task id of the task to generate.
+            task_id (str): The optional task id ({transform_name}} by default).
             transform_name (str): The transform to run.
             transform_options (str): The optional transform options to use.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
@@ -275,14 +275,13 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
-    def sl_job(self, task_id: str, command: str, options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
         Args:
-            task_id (str): The task id of the task to generate.
-            command (str): The starlake command to run.
-            options (str): The optional options to use.
+            task_id (str): The required task id.
+            arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
         
         Returns:
