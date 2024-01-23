@@ -62,7 +62,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
                 project_id=self.project_id,
                 cloud_run_job_region=self.cloud_run_job_region,
                 source_task_id=job_task.task_id,
-                retry_exit_code=1 if self.retry_on_failure else None,
+                retry_on_failure=self.retry_on_failure,
                 **kwargs
             )
             if self.retry_on_failure:
@@ -103,20 +103,33 @@ class CloudRunJobCompletionSensor(BashSensor):
     '''
     This sensor checks the completion of a cloud run job.
     '''
-    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_exit_code: int=None, **kwargs) -> None:
-        if retry_exit_code:
+    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_on_failure: bool=None, **kwargs) -> None:
+        if retry_on_failure:
             super().__init__(
-                bash_command=(f"check_completion=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; check_status=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$check_completion\" && test -z \"$check_status\""),
+                bash_command=(
+                    "check_completion=`gcloud beta run jobs executions describe "
+                    f"{{{{ task_instance.xcom_pull(key=None, task_ids='{source_task_id}') }}}} "
+                    f"--region {cloud_run_job_region} "
+                    f"--project {project_id} "
+                    "--format='value(status.completionTime, status.cancelledCounts)' "
+                    "| sed 's/[[:blank:]]//g'`; "
+                    "if [ -z \"$check_completion\" ]; then exit 2; else "
+                    "check_status=`gcloud beta run jobs executions describe "
+                    f"{{{{ task_instance.xcom_pull(key=None, task_ids='{source_task_id}') }}}} "
+                    f"--region {cloud_run_job_region} "
+                    f"--project {project_id} "
+                    "--format='value(status.failedCount, status.cancelledCounts)' "
+                    "| sed 's/[[:blank:]]//g'`; "
+                    "test -z \"$check_status\" && exit 0 || exit 1; fi"
+                ),
                 mode="reschedule",
-                retries=3, #the number of retries that should be performed before failing the task to avoid infinite loops
-                retry_exit_code=retry_exit_code, #available in 2.6. Implies to combine this sensor and the bottom operator
+                retry_exit_code=2, #retry_exit_code requires airflow v2.6
                 **kwargs
             )
         else:
             super().__init__(
                 bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
                 mode="reschedule",
-                #retry_exit_code=1, #available in 2.6. Implies to combine this sensor and the bottom operator
                 **kwargs
             )
 
