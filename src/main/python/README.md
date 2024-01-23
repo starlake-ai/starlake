@@ -6,11 +6,11 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 
 ## AirflowStarlakeJob
 
-`ai.starlake.job.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, `load` and `transform` starlake commands.
+`ai.starlake.job.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
 
 ### sl_import
 
-It generates the Airflow task that will run the starlake `import` command.
+It generates the Airflow task that will run the starlake [import](https://starlake-ai.github.io/starlake/docs/cli/import) command.
 
 ```python
 def sl_import(
@@ -23,12 +23,12 @@ def sl_import(
 
 | name    | type | description                                           |
 | ------- | ---- | ----------------------------------------------------- |
-| task_id | str  | the optional task id (*{domain}_import* by default)   |
+| task_id | str  | the optional task id (*{domain}_import* by default) |
 | domain  | str  | the required domain to import                         |
 
 ### sl_load
 
-It generates the Airflow task that will run the starlake `load` command.
+It generates the Airflow task that will run the starlake [load](https://starlake-ai.github.io/starlake/docs/cli/load) command.
 
 ```python
 def sl_load(
@@ -43,14 +43,14 @@ def sl_load(
 
 | name         | type                | description                                                 |
 | ------------ | ------------------- | ----------------------------------------------------------- |
-| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default)   |
+| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default) |
 | domain       | str                 | the required domain of the table to load                    |
 | table        | str                 | the required table to load                                  |
-| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`          |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`        |
 
 ### sl_transform
 
-It generates the Airflow task that will run the starlake `transform` command.
+It generates the Airflow task that will run the starlake [transform](https://starlake-ai.github.io/starlake/docs/cli/transform) command.
 
 ```python
 def sl_transform(
@@ -64,10 +64,10 @@ def sl_transform(
 
 | name              | type                | description                                            |
 | ----------------- | ------------------- | ------------------------------------------------------ |
-| task_id           | str                 | the optional task id (*{transform_name}* by default)   |
+| task_id           | str                 | the optional task id (*{transform_name}* by default) |
 | transform_name    | str                 | the transform to run                                   |
 | transform_options | str                 | the optional transform options                         |
-| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
+| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`   |
 
 ### sl_job
 
@@ -83,11 +83,11 @@ def sl_job(
     #...
 ```
 
-| name              | type                | description                                            |
-| ----------------- | ------------------- | ------------------------------------------------------ |
-| task_id           | str                 | the required task id                                   |
-| arguments         | list                | The required arguments of the starlake command to run  |
-| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
+| name         | type                | description                                           |
+| ------------ | ------------------- | ----------------------------------------------------- |
+| task_id      | str                 | the required task id                                  |
+| arguments    | list                | The required arguments of the starlake command to run |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`  |
 
 ### Init
 
@@ -119,10 +119,10 @@ def sl_pre_load(
     #...
 ```
 
-| name              | type                | description                                            |
-| ----------------- | ------------------- | ------------------------------------------------------ |
-| domain            | str                 | the domain to load                                     |
-| pre_load_strategy | str                 | the optional pre load strategy (self.pre_load_strategy by default)|
+| name              | type | description                                                        |
+| ----------------- | ---- | ------------------------------------------------------------------ |
+| domain            | str  | the domain to load                                                 |
+| pre_load_strategy | str  | the optional pre load strategy (self.pre_load_strategy by default) |
 
 ##### StarlakePreLoadStrategy.NONE
 
