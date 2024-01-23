@@ -27,10 +27,10 @@ def sl_import(
     #...
 ```
 
-| name    | type | description                                           |
-| ------- | ---- | ----------------------------------------------------- |
-| task_id | str  | the optional task id (*{domain}_import* by default)   |
-| domain  | str  | the required domain to import                         |
+| name    | type | description                                         |
+| ------- | ---- | --------------------------------------------------- |
+| task_id | str  | the optional task id (`{domain}_import` by default) |
+| domain  | str  | the required domain to import                       |
 
 ### sl_load
 
@@ -47,12 +47,12 @@ def sl_load(
     #...
 ```
 
-| name         | type                | description                                                 |
-| ------------ | ------------------- | ----------------------------------------------------------- |
-| task_id      | str                 | the optional task id (*{domain}_{table}_load* by default)   |
-| domain       | str                 | the required domain of the table to load                    |
-| table        | str                 | the required table to load                                  |
-| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`          |
+| name         | type                | description                                               |
+| ------------ | ------------------- | --------------------------------------------------------- |
+| task_id      | str                 | the optional task id (`{domain}_{table}_load` by default) |
+| domain       | str                 | the required domain of the table to load                  |
+| table        | str                 | the required table to load                                |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`        |
 
 ### sl_transform
 
@@ -68,12 +68,12 @@ def sl_transform(
     #...
 ```
 
-| name              | type                | description                                            |
-| ----------------- | ------------------- | ------------------------------------------------------ |
-| task_id           | str                 | the optional task id (*{transform_name}* by default)   |
-| transform_name    | str                 | the transform to run                                   |
-| transform_options | str                 | the optional transform options                         |
-| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`     |
+| name              | type                | description                                          |
+| ----------------- | ------------------- | ---------------------------------------------------- |
+| task_id           | str                 | the optional task id (`{transform_name}` by default) |
+| transform_name    | str                 | the transform to run                                 |
+| transform_options | str                 | the optional transform options                       |
+| spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`   |
 
 ### sl_job
 
@@ -156,15 +156,15 @@ This strategy implies that a **ack file** is present at the specified path (opti
 
 The following options can be specified for all concrete factory classes:
 
-| name                     | type | description                                                                         |
-| ------------------------ | ---- | ----------------------------------------------------------------------------------- |
-| **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                    |
-| **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string            |
-| **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                             |
-| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)   |
+| name                     | type | description                                                                               |
+| ------------------------ | ---- | ----------------------------------------------------------------------------------------- |
+| **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                          |
+| **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string                  |
+| **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                                   |
+| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)         |
 | **pending_path**         | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default) |
-| **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)   |
-| **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                    |
+| **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)         |
+| **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                          |
 
 ## Data-aware scheduling
 
@@ -212,7 +212,7 @@ def sl_transform(
     #...
 ```
 
-In conjonction with the starlake dag generation, the `outlets` property can be used to schedule effortless DAGs that will run the **transform** commands.
+In conjonction with the starlake dag generation, the `outlets` property can be used to schedule **effortless** DAGs that will run the **transform** commands.
 
 ## On premise
 
@@ -335,13 +335,13 @@ This class is a concrete implementation of `AirflowStarlakeJob` that overrides t
 
 It delegates to an instance of the `ai.starlake.job.airflow.gcp.StarlakeDataprocCluster` class the responsibility to :
 
-* create the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocCreateClusterOperator`
-* submit jobs to the latter by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocSubmitJobOperator`
-* delete the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocDeleteClusterOperator`
+* **create** the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocCreateClusterOperator`
+* **submit Dataproc job** to the latter by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocSubmitJobOperator`
+* **delete** the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocDeleteClusterOperator`
 
 This instance is available in the `cluster` property of the `AirflowStarlakeDataprocJob` class and can be configured using the `ai.starlake.job.airflow.gcp.StarlakeDataprocClusterConfig` class.
 
-The creation of the **Dataproc cluster** can be performed by calling the `create_cluster` method of the `cluster` property or by calling the `pre_tasks` method of the AirflowStarlakeDataprocJob (the call to the `pre_load` method will, behind the scene, call the `pre_tasks` method and add the optional resulting task to the group of tasks).
+The creation of the **Dataproc cluster** can be performed by calling the `create_cluster` method of the `cluster` property or by calling the `pre_tasks` method of the AirflowStarlakeDataprocJob (the call to the `pre_load` method will, behind the scene, call the `pre_tasks` method and add the optional resulting task to the group of Airflow tasks).
 
 The deletion of the **Dataproc cluster** can be performed by calling the `delete_cluster` method of the `cluster` property or by calling the `post_tasks` method of the AirflowStarlakeDataprocJob.
 
@@ -349,37 +349,37 @@ The deletion of the **Dataproc cluster** can be performed by calling the `delete
 
 Additional options may be specified to configure the **Dataproc cluster**.
 
-| name                     | type | description                                                                         |
-| ------------------------ | ---- | ----------------------------------------------------------------------------------- |
-| **cluster_id**           | str  | the optional unique id of the cluster that will participate in the definition of the Dataproc cluster name (if not specified) |
-| **dataproc_name**        | str  | the optional dataproc name of the cluster that will participate in the definition of the Dataproc cluster name (if not specified) |
-| **dataproc_project_id**  | str  | the optional dataproc project id (the project id on which the composer has been instantiated by default)|
-| **dataproc_region**      | str  | the optional region (`europe-west1` by default)                                     |
-| **dataproc_subnet**      | str  | the optional subnet (the `default` subnet if not specified)                         |
-| **dataproc_service_account** | str  | the optional service account (service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com by default)|
-| **dataproc_image_version** | str  | the image version of the dataproc cluster (`2.2-debian1` by default)              |
-| **dataproc_master_machine_type**  | str  | the optional master machine type (`n1-standard-4` by default)              |
-| **dataproc_master_disk_type** | str  | the optional master disk type (`pd-standard` by default)                       |
-| **dataproc_master_disk_size** | int  | the optional master disk size (`1024` by default)                              |
-| **dataproc_worker_machine_type**  | str  | the optional worker machine type (`n1-standard-4` by default)              |
-| **dataproc_worker_disk_type** | str  | the optional worker disk size (`pd-standard` by default)                       |
-| **dataproc_worker_disk_size** | int  | the optional worker disk size (`1024` by default)                              |
-| **dataproc_num_workers** | int  | the optional number of workers (`4` by default)                                     |
+| name                             | type | description                                                          |
+| -------------------------------- | ---- | -------------------------------------------------------------------- |
+| **cluster_id**                   | str  | the optional unique id of the cluster that will participate in the definition of the Dataproc cluster name (if not specified)     |
+| **dataproc_name**                | str  | the optional dataproc name of the cluster that will participate in the definition of the Dataproc cluster name (if not specified) |
+| **dataproc_project_id**          | str  | the optional dataproc project id (the project id on which the composer has been instantiated by default) |
+| **dataproc_region**              | str  | the optional region (`europe-west1` by default)                      |
+| **dataproc_subnet**              | str  | the optional subnet (the `default` subnet if not specified)          |
+| **dataproc_service_account**     | str  | the optional service account (`service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com` by default) |
+| **dataproc_image_version**       | str  | the image version of the dataproc cluster (`2.2-debian1` by default) |
+| **dataproc_master_machine_type** | str  | the optional master machine type (`n1-standard-4` by default)        |
+| **dataproc_master_disk_type**    | str  | the optional master disk type (`pd-standard` by default)             |
+| **dataproc_master_disk_size**    | int  | the optional master disk size (`1024` by default)                    |
+| **dataproc_worker_machine_type** | str  | the optional worker machine type (`n1-standard-4` by default)        |
+| **dataproc_worker_disk_type**    | str  | the optional worker disk size (`pd-standard` by default)             |
+| **dataproc_worker_disk_size**    | int  | the optional worker disk size (`1024` by default)                    |
+| **dataproc_num_workers**         | int  | the optional number of workers (`4` by default)                      |
 
-All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDataprocCluster** or if the latter was not been defined when instantiating **AirflowStarlakeDataprocJob**.
+All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDataprocCluster** or if the latter was not defined when instantiating **AirflowStarlakeDataprocJob**.
 
 #### Dataproc Job configuration
 
 Additional options may be specified to configure the **Dataproc job**.
 
-| name                     | type | description                                                                         |
-| ------------------------ | ---- | ----------------------------------------------------------------------------------- |
-| **spark_jar_list**       | str  | the required list of spark jars to be used (using `,` as separator)                 |
-| **spark_bucket**         | str  | the required bucket to use for spark and biqquery temporary storage                 |
-| **spark_job_main_class** | str  | the optional main class of the spark job (`ai.starlake.job.Main` by default)        |
-| **spark_executor_memory**| str  | the optional amount of memory to use per executor process (`11g` by default)        |
-| **spark_executor_cores** | int  | the optional number of cores to use on each executor (`4` by default)               |
-| **spark_executor_instances**| int  | the optional number of executor instances (`1` by default)                       |
+| name                         | type | description                                                                  |
+| ---------------------------- | ---- | ---------------------------------------------------------------------------- |
+| **spark_jar_list**           | str  | the required list of spark jars to be used (using `,` as separator)          |
+| **spark_bucket**             | str  | the required bucket to use for spark and biqquery temporary storage          |
+| **spark_job_main_class**     | str  | the optional main class of the spark job (`ai.starlake.job.Main` by default) |
+| **spark_executor_memory**    | str  | the optional amount of memory to use per executor process (`11g` by default) |
+| **spark_executor_cores**     | int  | the optional number of cores to use on each executor (`4` by default)        |
+| **spark_executor_instances** | int  | the optional number of executor instances (`1` by default)                   |
 
 `spark_executor_memory`, `spark_executor_cores` and `spark_executor_instances` options will be used by default if no **StarlakeSparkConfig** was passed to the `sl_load` and `sl_transform` methods.
 
@@ -413,7 +413,74 @@ sl_job = AirflowStarlakeDataprocJob(options=options)
 
 ### AirflowStarlakeCloudRunJob
 
-This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator` and, if the execution has been parameterized to be **asynchronous**, `airflow.sensors.bash.BashSensor` to wait for the completion of the **Cloud Run job** execution.
+This class is a concrete implementation of `AirflowStarlakeJob` that overrides the `sl_job` method that will run the starlake command by executing **Cloud Run job**.
+
+#### Cloud Run job configuration
+
+Additional options may be specified to configure the **Cloud Run job**.
+
+| name                         | type | description                                                                  |
+| ---------------------------- | ---- | ---------------------------------------------------------------------------- |
+| **cloud_run_project_id**     | str  | the optional cloud run project id (the project id on which the composer has been instantiated by default) |
+| **cloud_run_job_name**       | str  | the required name of the cloud run job                                       |
+| **cloud_run_region**         | str  | the optional region (`europe-west1` by default)                              |
+| **cloud_run_async**          | bool | the optional flag to run the cloud run job asynchronously (`True` by default)|
+| **retry_on_failure**         | bool | the optional flag to retry the cloud run job on failure (`False` by default) |
+| **retry_delay_in_seconds**   | int  | the optional delay in seconds to wait before retrying the cloud run job (`10` by default) |
+
+If the execution has been parameterized to be **asynchronous**, an `airflow.sensors.bash.BashSensor` will be instantiated to wait for the completion of the **Cloud Run job** execution.
+
+#### AirflowStarlakeCloudRunJob Examples
+
+The following examples shows how to use `AirflowStarlakeCloudRunJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+
+##### Synchronous execution
+
+```python
+description="""example to load domain(s) using airflow starlake cloud run job synchronously"""
+
+options = {
+    # General options
+    'sl_env_var':'{"SL_ROOT": "gs://my-bucket/starbake"}', 
+    'pre_load_strategy':'ack', 
+    'global_ack_file_path':'gs://my-bucket/starbake/pending/HighValueCustomers/2024-22-01.ack', 
+    # Cloud run options
+    'cloud_run_job_name':'starlake', 
+    'cloud_run_project_id':'starbake',
+    'cloud_run_async':'False'
+}
+
+from ai.starlake.job.airflow.gcp import AirflowStarlakeCloudRunJob
+
+sl_job = AirflowStarlakeCloudRunJob(options=options)
+# all the code following the instantiation of the starlake job is exactly the same as that defined for AirflowStarlakeBashJob
+#...
+```
+
+![dag generated with AirflowStarlakeCloudRunJob synchronously](images/dagsWithAirflowStarlakeCloudRunJobSynchronous.png)
+
+##### Asynchronous execution
+
+```python
+
+description="""example to load domain(s) using airflow starlake cloud run job asynchronously"""
+
+options = {
+    # General options
+    'sl_env_var':'{"SL_ROOT": "gs://my-bucket/starbake"}', 
+    'pre_load_strategy':'pending', 
+    # Cloud run options
+    'cloud_run_job_name':'starlake', 
+    'cloud_run_project_id':'starbake',
+#    'cloud_run_async':'True'
+    'retry_on_failure':'True', 
+}
+
+# all the code following the options is exactly the same as that defined above
+#...
+```
+
+![dag generated with AirflowStarlakeCloudRunJob asynchronously](images/dagsWithAirflowStarlakeCloudRunJobAsynchronous.png)
 
 ## Amazon Web Services
 
