@@ -142,7 +142,7 @@ def sl_pre_load(
 
 ##### StarlakePreLoadStrategy.NONE
 
-No pre-load strategy: All loads task group will be directly executed. no pre-load tasks group will be created. TODO include Image. 
+No pre-load strategy: All loads task group will be directly executed. no pre-load tasks group will be created. include reference to [src/main/python/ai/starlake/job/airflow/airflow_starlake_job.py](https://github.com/zedach/starlake/blob/eb67c427a32222d0b83016f01b18862f4ca49ea4/src/main/python/ai/starlake/job/airflow/airflow_starlake_job.py#L134) TODO include Image. 
 
 ##### StarlakePreLoadStrategy.IMPORTED
 
