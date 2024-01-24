@@ -87,7 +87,7 @@ def sl_transform(
 
 ### sl_job
 
-Ultimately, all these methods will call the `sl_job` method  method that needs to be **implemented** in all **concrete** factory classes.
+Ultimately, all these methods will call the `sl_job` method that needs to be **implemented** in all **concrete** factory classes.
 
 ```python
 def sl_job(
