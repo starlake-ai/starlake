@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
-
-from ai.starlake.common import MissingEnvironmentVariable
-
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
@@ -45,7 +40,9 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        pass
+        task_id = f"{domain}_import" if not task_id else task_id
+        arguments = ["import", "--include", domain]
+        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
         """Pre-load job.
@@ -73,7 +70,9 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        pass
+        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        arguments = ["load", "--domains", domain, "--tables", table]
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
         """Transform job.
@@ -88,7 +87,12 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        pass
+        task_id = f"{transform_name}" if not task_id else task_id
+        arguments = ["transform", "--name", transform_name]
+        transform_options = transform_options if transform_options else self.__class__.get_context_var(transform_name, {}, self.options).get("options", "")
+        if transform_options:
+            arguments.extend(["--options", transform_options])
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def pre_tasks(self, *args, **kwargs) -> Union[T, None]:
         """Pre tasks."""

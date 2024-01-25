@@ -9,7 +9,7 @@ from ai.starlake.common import TODAY
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.job.airflow import AirflowStarlakeJob, AirflowStarlakeOptions
+from ai.starlake.airflow import AirflowStarlakeJob, AirflowStarlakeOptions
 
 from airflow.models.baseoperator import BaseOperator
 
