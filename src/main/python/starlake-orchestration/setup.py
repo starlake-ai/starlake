@@ -7,15 +7,23 @@ from setuptools import find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-setup(name='starlake-airflow',
-      version='0.0.15',
-      description='Starlake Python Distribution For Airflow',
+setup(name='starlake-orchestration',
+      version='0.0.1b5',
+      description='Starlake Python Distribution For orchestration',
       long_description=long_description,
       long_description_content_type="text/markdown",
       author='Stéphane Manciot',
       author_email='stephane.manciot@gmail.com',
       license='Apache 2.0',
-#      url='https://www.python.org/starlake-airflow/',
+#      url='https://github.com/starlake-ai/starlake/tree/master/src/main/python/starlake-orchestration',
       packages=find_packages(include=['ai', 'ai.*']),
+      extras_require={
+        "airflow": ["starlake-airflow>=0.0.16b3"],
+        "dagster": ["starlake-dagster>=0.0.1"],
+        "shell": [],
+        "gcp": [],
+        "aws": [],
+        "azure": [],
+      },
 #      python_requires='>=3.8',
 )

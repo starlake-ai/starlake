@@ -2,9 +2,9 @@
 import os
 import sys
 
-from ai.starlake.job.airflow import AirflowStarlakeOptions
+from ai.starlake.airflow import AirflowStarlakeOptions
 
-from ai.starlake.job.airflow.gcp import AirflowStarlakeDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
+from ai.starlake.airflow.gcp import AirflowStarlakeDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
 
 #optional get_dataproc_master_config function that returns an instance of StarlakeDataprocMasterConfig per dag name
 def default_dataproc_master_config(*args, **kwargs) -> StarlakeDataprocMasterConfig:

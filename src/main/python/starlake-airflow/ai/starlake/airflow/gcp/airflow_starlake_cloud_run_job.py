@@ -6,7 +6,7 @@ from typing import Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.job.airflow import AirflowStarlakeJob
+from ai.starlake.airflow import AirflowStarlakeJob
 
 from airflow.models.baseoperator import BaseOperator
 

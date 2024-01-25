@@ -62,12 +62,10 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
-        task_id = f"{domain}_import" if not task_id else task_id
-        arguments = ["import", "--include", domain]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         dataset = Dataset(keep_ascii_only(domain).lower())
         self.outlets += kwargs.get('outlets', []) + [dataset]
-        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
+        return super().sl_import(task_id=task_id, domain=domain, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
         """Overrides IStarlakeJob.sl_pre_load()
@@ -254,12 +252,10 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
-        task_id = f"{domain}_{table}_load" if not task_id else task_id
-        arguments = ["load", "--domains", domain, "--tables", table]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         dataset = Dataset(keep_ascii_only(f'{domain}.{table}').lower())
         self.outlets += kwargs.get('outlets', []) + [dataset]
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
+        return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_transform()
@@ -274,30 +270,11 @@ class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
-        task_id = f"{transform_name}" if not task_id else task_id
-        arguments = ["transform", "--name", transform_name]
-        transform_options = transform_options if transform_options else __class__.get_context_var(transform_name, {}, self.options).get("options", "")
-        if transform_options:
-            arguments.extend(["--options", transform_options])
         dataset = Dataset(keep_ascii_only(transform_name).lower())
         self.outlets += kwargs.get('outlets', []) + [dataset]
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
+        return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
     def dummy_op(self, task_id, **kwargs):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return DummyOperator(task_id=task_id, **kwargs)
-
-    @classmethod
-    def get_context_var(cls, var_name: str, default_value: any=None, options: dict = None, **kwargs):
-        """Overrides IStarlakeJob.get_context_var()"""
-        if options and options.get(var_name):
-            return options.get(var_name)
-        elif default_value is not None:
-            return default_value
-        elif Variable.get(var_name, default_var=None, **kwargs) is not None:
-            return Variable.get(var_name)
-        elif os.getenv(var_name) is not None:
-            return os.getenv(var_name)
-        else:
-            raise MissingEnvironmentVariable(f"{var_name} does not exist")
