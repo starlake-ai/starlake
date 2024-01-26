@@ -62,6 +62,11 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
           s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime.availableProcessors()}"
         ),
       builder
+        .opt[Unit]("ignoreExtractionFailure")
+        .action((_, c) => c.copy(ignoreExtractionFailure = true))
+        .optional()
+        .text("Don't fail extraction job when any extraction fails."),
+      builder
         .opt[Unit]("clean")
         .action((_, c) => c.copy(cleanOnExtract = true))
         .optional()

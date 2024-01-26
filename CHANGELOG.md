@@ -2,6 +2,8 @@
 # Release notes
 
 # 1.1.0:
+**BREAKING CHANGE** 
+- Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
 
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
@@ -12,6 +14,8 @@ __Bug Fix__:
 - fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
 - table's metadata merge during schema extraction now takes `sink`, `ignore` and `directory` attribute into account.
 - Use default load format during native ingestion
+- Mysql extraction could fetch wrong table's information
+- Data extraction fresh enough was done on any success state, it now only consider successful extractions
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
