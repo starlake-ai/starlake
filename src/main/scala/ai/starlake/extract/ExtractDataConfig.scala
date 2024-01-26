@@ -27,6 +27,7 @@ case class ExtractDataConfig(
   parallelism: Option[Int] = None,
   fullExport: Boolean = true,
   ifExtractedBefore: Option[Long] = None,
+  ignoreExtractionFailure: Boolean = false,
   cleanOnExtract: Boolean = false,
   includeSchemas: Seq[String] = Seq.empty,
   excludeSchemas: Seq[String] = Seq.empty,

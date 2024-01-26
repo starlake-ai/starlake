@@ -1,6 +1,8 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.exceptions.DataExtractionException
+import ai.starlake.extract.JdbcDbUtils.dbQuote
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
@@ -27,7 +29,7 @@ import java.time.{Instant, ZoneId}
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-import scala.collection.mutable
+import scala.collection.{mutable, GenTraversable}
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
@@ -433,11 +435,20 @@ object JdbcDbUtils extends LazyLogging {
                     // Find all foreign keys
 
                     val foreignKeysResultSet = use(
-                      databaseMetaData.getImportedKeys(
-                        jdbcSchema.catalog.orNull,
-                        schemaName,
-                        tableName
-                      )
+                      databaseType match {
+                        case Mysql =>
+                          databaseMetaData.getImportedKeys(
+                            schemaName,
+                            null,
+                            tableName
+                          )
+                        case Unknown =>
+                          databaseMetaData.getImportedKeys(
+                            jdbcSchema.catalog.orNull,
+                            schemaName,
+                            tableName
+                          )
+                      }
                     )
                     val foreignKeys = new Iterator[(String, String)] {
                       def hasNext: Boolean = foreignKeysResultSet.next()
@@ -471,12 +482,22 @@ object JdbcDbUtils extends LazyLogging {
 
                     // Extract all columns
                     val columnsResultSet = use(
-                      databaseMetaData.getColumns(
-                        jdbcSchema.catalog.orNull,
-                        schemaName,
-                        tableName,
-                        null
-                      )
+                      databaseType match {
+                        case Mysql =>
+                          databaseMetaData.getColumns(
+                            schemaName,
+                            null,
+                            tableName,
+                            null
+                          )
+                        case Unknown =>
+                          databaseMetaData.getColumns(
+                            jdbcSchema.catalog.orNull,
+                            schemaName,
+                            tableName,
+                            null
+                          )
+                      }
                     )
                     val remarks: Map[TableRemarks, TableRemarks] = (
                       if (skipRemarks) None
@@ -573,11 +594,20 @@ object JdbcDbUtils extends LazyLogging {
 
                     //      // Find primary keys
                     val primaryKeysResultSet = use(
-                      databaseMetaData.getPrimaryKeys(
-                        jdbcSchema.catalog.orNull,
-                        schemaName,
-                        tableName
-                      )
+                      databaseType match {
+                        case Mysql =>
+                          databaseMetaData.getPrimaryKeys(
+                            schemaName,
+                            null,
+                            tableName
+                          )
+                        case Unknown =>
+                          databaseMetaData.getPrimaryKeys(
+                            jdbcSchema.catalog.orNull,
+                            schemaName,
+                            tableName
+                          )
+                      }
                     )
                     val primaryKeys = new Iterator[String] {
                       def hasNext: Boolean = primaryKeysResultSet.next()
@@ -751,20 +781,6 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  /** @param jdbcConnectionUrl
-    *   used to know which database we are targeting.
-    */
-  private def getColNameQuote(jdbcConnectionUrl: String) = {
-    val specialColNameQuote = List(
-      "jdbc:mysql" -> '`',
-      "jdbc:h2"    -> '`'
-    )
-    specialColNameQuote
-      .find { case (jdbcPrefix, _) => jdbcConnectionUrl.contains(jdbcPrefix) }
-      .map { case (_, colNameQuote) => colNameQuote }
-      .getOrElse('"')
-  }
-
   /** Extract data and save to output directory
     * @param schemaHandler
     * @param jdbcSchema
@@ -797,6 +813,7 @@ object JdbcDbUtils extends LazyLogging {
     parallelism: Option[Int],
     fullExportCli: Boolean,
     extractionPredicate: Option[Long => Boolean],
+    ignoreExtractionFailure: Boolean,
     cleanOnExtract: Boolean,
     includeTables: Seq[String],
     excludeTables: Seq[String],
@@ -805,44 +822,561 @@ object JdbcDbUtils extends LazyLogging {
     settings: Settings
   ): Unit = {
     val auditConnectionOptions = auditConnectionInfo.options
-    val jdbcUrl = connectionOptions("url")
-    // Because mysql does not support "" when framing column names to handle cases where
-    // column names are keywords in the target dialect
-    val colNameQuoteData = getColNameQuote(jdbcUrl)
-    val colNameQuoteAudit = getColNameQuote(auditConnectionOptions("url"))
-
-    withJDBCConnection(auditConnectionOptions) { connection =>
-      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
-      val existLastExportTable =
-        tableExists(connection, jdbcUrl, s"${auditSchema}.SL_LAST_EXPORT")
-      if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
-        createSchema(auditSchema, connection)
-        val jdbcEngineName = auditConnectionInfo.getJdbcEngineName()
-        settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
-          val createTableSql = jdbcEngine
-            .tables("extract")
-            .createSql
-            .richFormat(
-              Map(
-                "table"       -> s"$auditSchema.SL_LAST_EXPORT",
-                "writeFormat" -> settings.appConfig.defaultWriteFormat
-              ),
-              Map.empty
-            )
-          execute(createTableSql, connection)
-        }
-      }
-    }
+    val dataJdbcUrl = connectionOptions("url")
+    val auditJdbcUrl = auditConnectionOptions("url")
+    def dataQuote: String => String = dbQuote(dataJdbcUrl, _)
+    createExportAuditSchemaIfNotExists(auditConnectionInfo, auditConnectionOptions, dataJdbcUrl)
 
     // Some database accept strange chars (aka DB2). We get rid of them
     val domainName = jdbcSchema.sanitizeName match {
       case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
       case _          => jdbcSchema.schema
     }
-    baseOutputDir.createDirectories()
-    val outputDir = File(baseOutputDir, domainName)
-    outputDir.createDirectories()
+    val outputDir = createDomainOutputDir(baseOutputDir, domainName)
 
+    val filteredJdbcSchema: JDBCSchema = filterTablesToExtract(jdbcSchema, includeTables)
+
+    // with includeSchemas we may have tables empty. If empty, by default we fetch all tables.
+    // This is the short-circuit.
+    val doTablesExtraction = jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
+    if (doTablesExtraction) {
+      // Map tables to columns and primary keys
+      implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(parallelism)
+      val selectedTablesAndColumns: Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
+        JdbcDbUtils.extractJDBCTables(
+          filteredJdbcSchema.copy(exclude = excludeTables.toList),
+          connectionOptions,
+          skipRemarks = true,
+          keepOriginalName = true
+        )
+      val globalStart = System.currentTimeMillis()
+      val extractionResults: List[Try[Unit]] =
+        ExtractUtils
+          .makeParallel(selectedTablesAndColumns)
+          .map { case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+            Try {
+              val context = s"[${jdbcSchema.schema}.$tableName]"
+
+              // Get the current table partition column and  connection options if any
+              val currentTableDefinition = getCurrentTableDefinition(jdbcSchema, tableName)
+              val currentTableConnectionOptions =
+                currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
+
+              if (
+                isExtractionNeeded(
+                  extractionPredicate,
+                  auditConnectionOptions,
+                  jdbcSchema,
+                  tableName,
+                  auditJdbcUrl
+                )
+              ) {
+                if (cleanOnExtract) {
+                  logger.info(s"Deleting all files of $tableName")
+                  outputDir.list
+                    .filter(f =>
+                      s"^$tableName-\\d{14}[\\.\\-].*".r.pattern.matcher(f.name).matches()
+                    )
+                    .foreach { f =>
+                      f.delete(swallowIOExceptions = true)
+                      logger.debug(f"${f.pathAsString} deleted")
+                    }
+                }
+                val formatter = DateTimeFormatter
+                  .ofPattern("yyyyMMddHHmmss")
+                  .withZone(ZoneId.systemDefault())
+                val dateTime = formatter.format(Instant.now())
+
+                // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
+                val cols =
+                  selectedColumns
+                    .map(c =>
+                      c.name -> c.rename match {
+                        case (name, Some(newName)) =>
+                          dataQuote(name) + " as " + dataQuote(newName)
+                        case (name, _) => dataQuote(name)
+                      }
+                    )
+                    .mkString(",")
+                val partitionColumn = currentTableDefinition
+                  .flatMap(_.partitionColumn)
+                  .orElse(jdbcSchema.partitionColumn)
+
+                val fetchSize =
+                  currentTableDefinition.flatMap(_.fetchSize).orElse(jdbcSchema.fetchSize)
+
+                val fullExport =
+                  if (fullExportCli) fullExportCli
+                  else
+                    currentTableDefinition
+                      .flatMap(_.fullExport)
+                      .orElse(jdbcSchema.fullExport)
+                      .getOrElse(
+                        false
+                      ) // should not happen since fillWithDefaultValues should be called and have false as default one
+
+                val numPartitions = currentTableDefinition
+                  .flatMap { tbl =>
+                    tbl.numPartitions
+                  }
+                  .orElse(jdbcSchema.numPartitions)
+                  .getOrElse(defaultNumPartitions)
+
+                partitionColumn match {
+                  case None =>
+                    extractTableData(
+                      jdbcSchema,
+                      connectionOptions,
+                      limit,
+                      outputFormat,
+                      auditConnectionOptions,
+                      dataJdbcUrl,
+                      auditJdbcUrl,
+                      outputDir,
+                      tableName,
+                      context,
+                      currentTableConnectionOptions,
+                      dateTime,
+                      cols,
+                      fetchSize
+                    )
+                  case Some(partitionColumn) =>
+                    extractTablePartionnedData(
+                      jdbcSchema,
+                      connectionOptions,
+                      auditConnectionOptions,
+                      dataJdbcUrl,
+                      auditJdbcUrl,
+                      tableName,
+                      selectedColumns,
+                      context,
+                      fullExport,
+                      numPartitions,
+                      partitionColumn,
+                      cols,
+                      schemaHandler,
+                      fetchSize,
+                      limit,
+                      outputDir,
+                      dateTime,
+                      outputFormat
+                    )
+                }
+              } else {
+                logger.info(s"Extraction skipped. $domainName.$tableName data is fresh enough.")
+                Success(())
+              }
+            }.flatten
+          }
+          .toList
+      forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+      val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(globalStart)
+      val nbFailures = extractionResults.count(_.isFailure)
+      val dataExtractionFailures = extractionResults
+        .flatMap {
+          case Failure(e: DataExtractionException) => Some(s"${e.domain}.${e.table}")
+          case _                                   => None
+        }
+        .mkString(", ")
+      nbFailures match {
+        case 0 =>
+          logger.info(s"Extracted sucessfully all tables in $elapsedTime")
+        case nb if ignoreExtractionFailure && dataExtractionFailures.nonEmpty =>
+          logger.warn(s"Failed to extract $nb tables: $dataExtractionFailures")
+        case nb if dataExtractionFailures.nonEmpty =>
+          throw new RuntimeException(s"Failed to extract $nb tables: $dataExtractionFailures")
+        case nb =>
+          throw new RuntimeException(s"Encountered $nb failures during extraction")
+      }
+    } else {
+      logger.info("Tables extraction skipped")
+    }
+  }
+
+  private def isExtractionNeeded(
+    extractionPredicate: Option[Long => Boolean],
+    auditConnectionOptions: Map[String, String],
+    jdbcSchema: JDBCSchema,
+    tableName: String,
+    auditJdbcUrl: String
+  )(implicit settings: Settings) = {
+    extractionPredicate
+      .flatMap { predicate =>
+        withJDBCConnection(auditConnectionOptions) { connection =>
+          LastExportUtils.getLastSuccessfulAllExport(
+            connection,
+            jdbcSchema.schema,
+            tableName,
+            auditJdbcUrl
+          )
+        }.map(t => predicate(t.getTime))
+      }
+      .getOrElse(true)
+  }
+
+  private def getCurrentTableDefinition(jdbcSchema: JDBCSchema, tableName: TableName) = {
+    jdbcSchema.tables
+      .flatMap { table =>
+        if (table.name.contains("*") || table.name.equalsIgnoreCase(tableName)) {
+          Some(table)
+        } else {
+          None
+        }
+      }
+      .sortBy(
+        // Table with exact name has precedence over *
+        _.name.equalsIgnoreCase(tableName)
+      )(Ordering.Boolean.reverse)
+      .headOption
+  }
+
+  private def extractTablePartionnedData(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    auditConnectionOptions: Map[String, String],
+    dataJdbcUrl: String,
+    auditJdbcUrl: String,
+    tableName: TableName,
+    selectedColumns: Columns,
+    context: String,
+    fullExport: Boolean,
+    numPartitions: Int,
+    partitionColumn: String,
+    cols: String,
+    schemaHandler: SchemaHandler,
+    fetchSize: Option[Int],
+    limit: Int,
+    outputDir: File,
+    dateTime: String,
+    outputFormat: FileFormat
+  )(implicit
+    settings: Settings,
+    forkJoinTaskSupport: Option[ForkJoinTaskSupport]
+  ): Try[Unit] = {
+    def dataQuote = dbQuote(dataJdbcUrl, _)
+    lazy val stringPartitionFuncTpl =
+      jdbcSchema.stringPartitionFunc.orElse(getStringPartitionFunc(dataJdbcUrl))
+    // Table is partitioned, we only extract part of it. Actually, we need to export everything
+    // that has not been exported based on the last exported value present in the audit log.
+
+    // This is applied when the table is exported for the first time
+
+    /** @param columnExprToDistribute
+      *   expression to use in order to distribute data.
+      */
+    def sqlFirst(columnExprToDistribute: String) =
+      s"""select $cols
+         |from ${dataQuote(jdbcSchema.schema)}.${dataQuote(tableName)}
+         |where $columnExprToDistribute <= ?""".stripMargin
+
+    /** @param columnExprToDistribute
+      *   expression to use in order to distribute data.
+      */
+    def sqlNext(columnExprToDistribute: String) =
+      s"""select $cols
+         |from ${dataQuote(jdbcSchema.schema)}.${dataQuote(tableName)}
+         |where $columnExprToDistribute <= ? and $columnExprToDistribute > ?""".stripMargin
+
+    // Get the partition column type. Since comparing numeric, big decimal, date and timestamps are not the same
+    val partitionColumnType =
+      selectedColumns
+        .find(_.name.equalsIgnoreCase(partitionColumn))
+        .flatMap(attr => schemaHandler.types().find(_.name == attr.`type`))
+        .map(_.primitiveType)
+        .getOrElse(
+          throw new Exception(
+            s"Could not find column type for partition column $partitionColumn in table ${jdbcSchema.schema}.$tableName"
+          )
+        )
+    // Get the boundaries of each partition that will be handled by a specific thread.
+    val boundaries = withJDBCConnection(connectionOptions) { connection =>
+      def getBoundariesWith(auditConnection: SQLConnection) = {
+        auditConnection.setAutoCommit(false)
+        LastExportUtils.getBoundaries(
+          connection,
+          auditConnection,
+          jdbcSchema.schema,
+          tableName,
+          partitionColumn,
+          partitionColumnType,
+          numPartitions,
+          dataJdbcUrl,
+          auditJdbcUrl,
+          stringPartitionFuncTpl,
+          fullExport
+        )
+      }
+
+      if (connectionOptions == auditConnectionOptions) {
+        getBoundariesWith(connection)
+      } else {
+        withJDBCConnection(auditConnectionOptions) { auditConnection =>
+          getBoundariesWith(auditConnection)
+        }
+      }
+    }
+
+    logger.info(s"$context Boundaries : $boundaries")
+    val tableStart = System.currentTimeMillis()
+    // Export in parallel mode
+    var tableCount = new AtomicLong();
+    val extractionResults: GenTraversable[Try[Int]] =
+      ExtractUtils.makeParallel(boundaries.partitions.zipWithIndex).map { case (bounds, index) =>
+        Try {
+          val boundaryContext = s"$context[$index]"
+          logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
+          val quotedPartitionColumn = dataQuote(partitionColumn)
+
+          def sql(
+            columnToDistribute: String = quotedPartitionColumn
+          ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
+          else
+            sqlNext(columnToDistribute)
+
+          withJDBCConnection(connectionOptions) { connection =>
+            val (effectiveSql, statementFiller) = partitionColumnType match {
+              case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
+                val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
+                sql() -> ((st: PreparedStatement) => {
+                  st.setLong(1, upper)
+                  if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                })
+              case PrimitiveType.decimal =>
+                val (lower, upper) =
+                  bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
+                sql() -> ((st: PreparedStatement) => {
+                  st.setBigDecimal(1, upper)
+                  if (!(boundaries.firstExport && index == 0))
+                    st.setBigDecimal(2, lower)
+                })
+
+              case PrimitiveType.date =>
+                val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
+                sql() -> ((st: PreparedStatement) => {
+                  st.setDate(1, upper)
+                  if (!(boundaries.firstExport && index == 0)) st.setDate(2, lower)
+                })
+
+              case PrimitiveType.timestamp =>
+                val (lower, upper) =
+                  bounds.asInstanceOf[(Timestamp, Timestamp)]
+                sql() -> ((st: PreparedStatement) => {
+                  st.setTimestamp(1, upper)
+                  if (!(boundaries.firstExport && index == 0))
+                    st.setTimestamp(2, lower)
+                })
+              case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
+                stringPartitionFuncTpl match {
+                  case Some(tpl) =>
+                    val stringPartitionFunc =
+                      Utils.parseJinjaTpl(
+                        tpl,
+                        Map(
+                          "col"           -> quotedPartitionColumn,
+                          "nb_partitions" -> numPartitions.toString
+                        )
+                      )
+                    val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
+                    sql(stringPartitionFunc) -> ((st: PreparedStatement) => {
+                      st.setLong(1, upper)
+                      if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                    })
+                  case None =>
+                    throw new RuntimeException(
+                      "Should never happen since stringPartitionFuncTpl is always defined here"
+                    )
+                }
+              case _ =>
+                throw new Exception(
+                  s"type $partitionColumnType not supported for partition columnToDistribute"
+                )
+            }
+            logger.info(s"$boundaryContext SQL: $effectiveSql")
+            val partitionStart = System.currentTimeMillis()
+            connection.setAutoCommit(false)
+            val statement = connection.prepareStatement(effectiveSql)
+            statementFiller(statement)
+            fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
+
+            val count = extractPartitionToFile(
+              boundaryContext,
+              limit,
+              outputDir,
+              tableName,
+              dateTime,
+              Some(index),
+              statement,
+              outputFormat
+            ) match {
+              case Failure(exception) =>
+                logger.error(f"$boundaryContext Encountered an error during extraction.")
+                Utils.logException(logger, exception)
+                throw exception
+              case Success(value) =>
+                value
+            }
+            val currentTableCount = tableCount.addAndGet(count)
+
+            val lineLength = 100
+            val progressPercent =
+              if (boundaries.count == 0) lineLength
+              else (currentTableCount * lineLength / boundaries.count).toInt
+            val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+            val progressPercentUnfilled =
+              (progressPercent until lineLength).map(_ => " ").mkString
+            val progressBar =
+              s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+            val partitionEnd = System.currentTimeMillis()
+            val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
+            logger.info(
+              s"$context $progressBar. Elapsed time: $elapsedTime"
+            )
+            val deltaRow = DeltaRow(
+              domain = jdbcSchema.schema,
+              schema = tableName,
+              lastExport = boundaries.max,
+              start = new Timestamp(partitionStart),
+              end = new Timestamp(partitionEnd),
+              duration = (partitionEnd - partitionStart).toInt,
+              mode = jdbcSchema.writeMode().toString,
+              count = count,
+              success = true,
+              message = partitionColumn,
+              step = index.toString
+            )
+            withJDBCConnection(auditConnectionOptions) { connection =>
+              LastExportUtils.insertNewLastExport(
+                connection,
+                deltaRow,
+                Some(partitionColumnType),
+                auditJdbcUrl
+              )
+            }
+          }
+        }.recoverWith { case _: Exception =>
+          Failure(new DataExtractionException(jdbcSchema.schema, tableName))
+        }
+      }
+    val success = if (extractionResults.exists(_.isFailure)) {
+      logger.error(s"$context An error occured during extraction.")
+      extractionResults.foreach {
+        case Failure(exception) =>
+          Utils.logException(logger, exception)
+        case Success(_) => // do nothing
+      }
+      false
+    } else {
+      true
+    }
+    val tableEnd = System.currentTimeMillis()
+    val duration = (tableEnd - tableStart).toInt
+    val elapsedTime = ExtractUtils.toHumanElapsedTime(duration)
+    logger.info(s"$context Extracted all lines in $elapsedTime")
+    val deltaRow = DeltaRow(
+      domain = jdbcSchema.schema,
+      schema = tableName,
+      lastExport = boundaries.max,
+      start = new Timestamp(tableStart),
+      end = new Timestamp(tableEnd),
+      duration = duration,
+      mode = jdbcSchema.writeMode().toString,
+      count = boundaries.count,
+      success = success,
+      message = partitionColumn,
+      step = "ALL"
+    )
+    withJDBCConnection(auditConnectionOptions) { connection =>
+      LastExportUtils.insertNewLastExport(
+        connection,
+        deltaRow,
+        Some(partitionColumnType),
+        auditJdbcUrl
+      )
+    }
+    if (success)
+      Success(())
+    else
+      Failure(new RuntimeException(s"$context An error occured during extraction."))
+  }
+
+  private def extractTableData(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    limit: Int,
+    outputFormat: FileFormat,
+    auditConnectionOptions: Map[String, String],
+    dataJdbcUrl: String,
+    auditJdbcUrl: String,
+    outputDir: File,
+    tableName: TableName,
+    context: String,
+    currentTableConnectionOptions: Map[String, String],
+    dateTime: String,
+    cols: String,
+    fetchSize: Option[Int]
+  )(implicit settings: Settings): Try[Unit] = {
+    // non partitioned tables are fully extracted there is no delta mode
+    def dataQuote = dbQuote(dataJdbcUrl, _)
+    val sql =
+      s"""select $cols from ${dataQuote(jdbcSchema.schema)}.${dataQuote(tableName)}"""
+    val tableStart = System.currentTimeMillis()
+    val (count, success) = Try {
+      withJDBCConnection(connectionOptions ++ currentTableConnectionOptions) { connection =>
+        connection.setAutoCommit(false)
+        val statement = connection.prepareStatement(sql)
+        fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
+        logger.info(s"$context Fetch size = ${statement.getFetchSize}")
+        logger.info(s"$context SQL: $sql")
+        // Export the whole table now
+        extractPartitionToFile(
+          context,
+          limit,
+          outputDir,
+          tableName,
+          dateTime,
+          None,
+          statement,
+          outputFormat
+        )
+      }
+    }.flatten match {
+      case Success(count) =>
+        count -> true
+      case Failure(e) =>
+        logger.error(s"$context An error occured during extraction.")
+        Utils.logException(logger, e)
+        -1L -> false
+    }
+    val tableEnd = System.currentTimeMillis()
+    // Log the extraction in the audit database
+    val deltaRow = DeltaRow(
+      domain = jdbcSchema.schema,
+      schema = tableName,
+      lastExport = tableStart,
+      start = new Timestamp(tableStart),
+      end = new Timestamp(tableEnd),
+      duration = (tableEnd - tableStart).toInt,
+      mode = jdbcSchema.writeMode().toString,
+      count = count,
+      success = count >= 0,
+      message = "FULL",
+      step = "ALL"
+    )
+    withJDBCConnection(auditConnectionOptions) { connection =>
+      LastExportUtils.insertNewLastExport(
+        connection,
+        deltaRow,
+        None,
+        auditJdbcUrl
+      )
+    }
+    if (success)
+      Success(())
+    else
+      Failure(new DataExtractionException(jdbcSchema.schema, tableName))
+  }
+
+  private def filterTablesToExtract(jdbcSchema: JDBCSchema, includeTables: Seq[TableName]) = {
     val lowerCasedIncludeTables = includeTables.map(_.toLowerCase)
     val filteredJdbcSchema = if (lowerCasedIncludeTables.nonEmpty) {
       val additionalTables = jdbcSchema.tables.find(_.name.trim == "*") match {
@@ -865,395 +1399,42 @@ object JdbcDbUtils extends LazyLogging {
     } else {
       jdbcSchema
     }
+    filteredJdbcSchema
+  }
 
-    // with includeSchemas we may have tables empty. If empty, by default we fetch all tables.
-    // This is the short-circuit.
-    val doTablesExtraction = jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
-    if (doTablesExtraction) {
-      // Map tables to columns and primary keys
-      implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(parallelism)
-      val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
-        JdbcDbUtils.extractJDBCTables(
-          filteredJdbcSchema.copy(exclude = excludeTables.toList),
-          connectionOptions,
-          skipRemarks = true,
-          keepOriginalName = true
-        )
-      val globalStart = System.currentTimeMillis()
-      ExtractUtils.makeParallel(selectedTablesAndColumns).foreach {
-        case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
-          val context = s"[${jdbcSchema.schema}.$tableName]"
+  private def createDomainOutputDir(baseOutputDir: File, domainName: TableName): File = {
+    baseOutputDir.createDirectories()
+    val outputDir = File(baseOutputDir, domainName)
+    outputDir.createDirectories()
+    outputDir
+  }
 
-          // Get the current table partition column and  connection options if any
-          val currentTable = jdbcSchema.tables
-            .flatMap { table =>
-              if (table.name.contains("*") || table.name.equalsIgnoreCase(tableName)) {
-                Some(table)
-              } else {
-                None
-              }
-            }
-            .sortBy(
-              // Table with exact name has precedence over *
-              _.name.equalsIgnoreCase(tableName)
-            )(Ordering.Boolean.reverse)
-            .headOption
-          val currentTableConnectionOptions =
-            currentTable.map(_.connectionOptions).getOrElse(Map.empty)
-
-          val doExtraction = extractionPredicate
-            .flatMap { predicate =>
-              withJDBCConnection(auditConnectionOptions) { connection =>
-                LastExportUtils.getLastAllExport(
-                  connection,
-                  jdbcSchema.schema,
-                  tableName,
-                  colNameQuoteAudit
-                )
-              }.map(t => predicate(t.getTime))
-            }
-            .getOrElse(true)
-          if (doExtraction) {
-            if (cleanOnExtract) {
-              logger.info(s"Deleting all files of $tableName")
-              outputDir.list
-                .filter(f => s"^$tableName-\\d{14}[\\.\\-].*".r.pattern.matcher(f.name).matches())
-                .foreach { f =>
-                  f.delete(swallowIOExceptions = true)
-                  logger.debug(f"${f.pathAsString} deleted")
-                }
-            }
-            val formatter = DateTimeFormatter
-              .ofPattern("yyyyMMddHHmmss")
-              .withZone(ZoneId.systemDefault())
-            val dateTime = formatter.format(Instant.now())
-
-            // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-            val cols =
-              selectedColumns
-                .map(c =>
-                  c.name -> c.rename match {
-                    case (name, Some(newName)) =>
-                      colNameQuoteData + name + colNameQuoteData + " as " + colNameQuoteData + newName + colNameQuoteData
-                    case (name, _) => colNameQuoteData + name + colNameQuoteData
-                  }
-                )
-                .mkString(",")
-            val partitionColumn = currentTable
-              .flatMap(_.partitionColumn)
-              .orElse(jdbcSchema.partitionColumn)
-
-            val fetchSize = currentTable.flatMap(_.fetchSize).orElse(jdbcSchema.fetchSize)
-
-            val fullExport =
-              if (fullExportCli) fullExportCli
-              else
-                currentTable
-                  .flatMap(_.fullExport)
-                  .orElse(jdbcSchema.fullExport)
-                  .getOrElse(
-                    false
-                  ) // should not happen since fillWithDefaultValues should be called and have false as default one
-
-            val numPartitions = currentTable
-              .flatMap { tbl =>
-                tbl.numPartitions
-              }
-              .orElse(jdbcSchema.numPartitions)
-              .getOrElse(defaultNumPartitions)
-
-            partitionColumn match {
-              case None =>
-                // non partitioned tables are fully extracted there is no delta mode
-                val sql =
-                  s"""select $cols from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData"""
-                val tableStart = System.currentTimeMillis()
-                val count = Try {
-                  withJDBCConnection(connectionOptions ++ currentTableConnectionOptions) {
-                    connection =>
-                      connection.setAutoCommit(false)
-                      val statement = connection.prepareStatement(sql)
-                      fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-                      logger.info(s"$context Fetch size = ${statement.getFetchSize}")
-                      logger.info(s"$context SQL: $sql")
-                      // Export the whole table now
-                      extractPartitionToFile(
-                        context,
-                        limit,
-                        outputDir,
-                        tableName,
-                        dateTime,
-                        None,
-                        statement,
-                        outputFormat
-                      )
-                  }
-                } match {
-                  case Success(count) =>
-                    count
-                  case Failure(e) =>
-                    Utils.logException(logger, e)
-                    -1
-                }
-                val tableEnd = System.currentTimeMillis()
-                // Log the extraction in the audit database
-                val deltaRow = DeltaRow(
-                  domain = jdbcSchema.schema,
-                  schema = tableName,
-                  lastExport = tableStart,
-                  start = new Timestamp(tableStart),
-                  end = new Timestamp(tableEnd),
-                  duration = (tableEnd - tableStart).toInt,
-                  mode = jdbcSchema.writeMode().toString,
-                  count = count,
-                  success = count >= 0,
-                  message = "FULL",
-                  step = "ALL"
-                )
-                withJDBCConnection(auditConnectionOptions) { connection =>
-                  LastExportUtils.insertNewLastExport(
-                    connection,
-                    deltaRow,
-                    None,
-                    colNameQuoteAudit,
-                    colNameQuoteAudit
-                  )
-                }
-
-              case Some(partitionColumn) =>
-                lazy val stringPartitionFuncTpl =
-                  jdbcSchema.stringPartitionFunc.orElse(getStringPartitionFunc(jdbcUrl))
-                // Table is partitioned, we only extract part of it. Actually, we need to export everything
-                // that has not been exported based on the last exported value present in the audit log.
-
-                // This is applied when the table is exported for the first time
-                def sqlFirst(columnToDistribute: String) =
-                  s"""select $cols
-                     |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
-                     |where $columnToDistribute <= ?""".stripMargin
-
-                def sqlNext(columnToDistribute: String) =
-                  s"""select $cols
-                     |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
-                     |where $columnToDistribute <= ? and $columnToDistribute > ?""".stripMargin
-
-                // Get the partition column type. Since comparing numeric, big decimal, date and timestamps are not the same
-                val partitionColumnType =
-                  selectedColumns
-                    .find(_.name.equalsIgnoreCase(partitionColumn))
-                    .flatMap(attr => schemaHandler.types().find(_.name == attr.`type`))
-                    .map(_.primitiveType)
-                    .getOrElse(
-                      throw new Exception(
-                        s"Could not find column type for partition column $partitionColumn in table ${jdbcSchema.schema}.$tableName"
-                      )
-                    )
-                // Get the boundaries of each partition that will be handled by a specific thread.
-                val boundaries = withJDBCConnection(connectionOptions) { connection =>
-                  def getBoundariesWith(auditConnection: SQLConnection) = {
-                    auditConnection.setAutoCommit(false)
-                    LastExportUtils.getBoundaries(
-                      connection,
-                      auditConnection,
-                      jdbcSchema.schema,
-                      tableName,
-                      partitionColumn,
-                      partitionColumnType,
-                      numPartitions,
-                      colNameQuoteData,
-                      colNameQuoteAudit,
-                      stringPartitionFuncTpl,
-                      fullExport
-                    )
-                  }
-
-                  if (connectionOptions == auditConnectionOptions) {
-                    getBoundariesWith(connection)
-                  } else {
-                    withJDBCConnection(auditConnectionOptions) { auditConnection =>
-                      getBoundariesWith(auditConnection)
-                    }
-                  }
-                }
-
-                logger.info(s"$context Boundaries : $boundaries")
-                val tableStart = System.currentTimeMillis()
-                // Export in parallel mode
-                var tableCount = new AtomicLong();
-                val success = Try {
-                  ExtractUtils.makeParallel(boundaries.partitions.zipWithIndex).foreach {
-                    case (bounds, index) =>
-                      val boundaryContext = s"$context[$index]"
-                      logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
-                      val quotedPartitionColumn =
-                        s"$colNameQuoteData$partitionColumn$colNameQuoteData"
-
-                      def sql(
-                        columnToDistribute: String = quotedPartitionColumn
-                      ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
-                      else
-                        sqlNext(columnToDistribute)
-
-                      withJDBCConnection(connectionOptions) { connection =>
-                        val (effectiveSql, statementFiller) = partitionColumnType match {
-                          case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
-                            val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
-                            sql() -> ((st: PreparedStatement) => {
-                              st.setLong(1, upper)
-                              if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
-                            })
-                          case PrimitiveType.decimal =>
-                            val (lower, upper) =
-                              bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
-                            sql() -> ((st: PreparedStatement) => {
-                              st.setBigDecimal(1, upper)
-                              if (!(boundaries.firstExport && index == 0))
-                                st.setBigDecimal(2, lower)
-                            })
-
-                          case PrimitiveType.date =>
-                            val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
-                            sql() -> ((st: PreparedStatement) => {
-                              st.setDate(1, upper)
-                              if (!(boundaries.firstExport && index == 0)) st.setDate(2, lower)
-                            })
-
-                          case PrimitiveType.timestamp =>
-                            val (lower, upper) =
-                              bounds.asInstanceOf[(Timestamp, Timestamp)]
-                            sql() -> ((st: PreparedStatement) => {
-                              st.setTimestamp(1, upper)
-                              if (!(boundaries.firstExport && index == 0))
-                                st.setTimestamp(2, lower)
-                            })
-                          case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
-                            stringPartitionFuncTpl match {
-                              case Some(tpl) =>
-                                val stringPartitionFunc =
-                                  Utils.parseJinjaTpl(
-                                    tpl,
-                                    Map(
-                                      "col"           -> quotedPartitionColumn,
-                                      "nb_partitions" -> numPartitions.toString
-                                    )
-                                  )
-                                val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
-                                sql(stringPartitionFunc) -> ((st: PreparedStatement) => {
-                                  st.setLong(1, upper)
-                                  if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
-                                })
-                              case None =>
-                                throw new RuntimeException(
-                                  "Should never happen since stringPartitionFuncTpl is always defined here"
-                                )
-                            }
-                          case _ =>
-                            throw new Exception(
-                              s"type $partitionColumnType not supported for partition columnToDistribute"
-                            )
-                        }
-                        logger.info(s"$boundaryContext SQL: $effectiveSql")
-                        val partitionStart = System.currentTimeMillis()
-                        connection.setAutoCommit(false)
-                        val statement = connection.prepareStatement(effectiveSql)
-                        statementFiller(statement)
-                        fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-
-                        val count = extractPartitionToFile(
-                          boundaryContext,
-                          limit,
-                          outputDir,
-                          tableName,
-                          dateTime,
-                          Some(index),
-                          statement,
-                          outputFormat
-                        )
-                        val currentTableCount = tableCount.addAndGet(count)
-
-                        val lineLength = 100
-                        val progressPercent =
-                          if (boundaries.count == 0) lineLength
-                          else (currentTableCount * lineLength / boundaries.count).toInt
-                        val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
-                        val progressPercentUnfilled =
-                          (progressPercent until lineLength).map(_ => " ").mkString
-                        val progressBar =
-                          s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
-                        val partitionEnd = System.currentTimeMillis()
-                        val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
-                        logger.info(
-                          s"$context $progressBar. Elapsed time: $elapsedTime"
-                        )
-                        val deltaRow = DeltaRow(
-                          domain = jdbcSchema.schema,
-                          schema = tableName,
-                          lastExport = boundaries.max,
-                          start = new Timestamp(partitionStart),
-                          end = new Timestamp(partitionEnd),
-                          duration = (partitionEnd - partitionStart).toInt,
-                          mode = jdbcSchema.writeMode().toString,
-                          count = count,
-                          success = true,
-                          message = partitionColumn,
-                          step = index.toString
-                        )
-                        withJDBCConnection(auditConnectionOptions) { connection =>
-                          LastExportUtils.insertNewLastExport(
-                            connection,
-                            deltaRow,
-                            Some(partitionColumnType),
-                            colNameQuoteAudit,
-                            colNameQuoteAudit
-                          )
-                        }
-                      }
-                  }
-                } match {
-                  case Success(_) =>
-                    true
-                  case Failure(e) =>
-                    Utils.logException(logger, e)
-                    false
-                }
-                val tableEnd = System.currentTimeMillis()
-                val duration = (tableEnd - tableStart).toInt
-                val elapsedTime = ExtractUtils.toHumanElapsedTime(duration)
-                logger.info(s"$context Extracted all lines in $elapsedTime")
-                val deltaRow = DeltaRow(
-                  domain = jdbcSchema.schema,
-                  schema = tableName,
-                  lastExport = boundaries.max,
-                  start = new Timestamp(tableStart),
-                  end = new Timestamp(tableEnd),
-                  duration = duration,
-                  mode = jdbcSchema.writeMode().toString,
-                  count = boundaries.count,
-                  success = success,
-                  message = partitionColumn,
-                  step = "ALL"
-                )
-                withJDBCConnection(auditConnectionOptions) { connection =>
-                  LastExportUtils.insertNewLastExport(
-                    connection,
-                    deltaRow,
-                    Some(partitionColumnType),
-                    colNameQuoteAudit,
-                    colNameQuoteAudit
-                  )
-                }
-
-            }
-          } else {
-            logger.info(s"Extraction skipped. $domainName.$tableName data is fresh enough.")
-          }
+  private def createExportAuditSchemaIfNotExists(
+    auditConnectionInfo: Settings.Connection,
+    auditConnectionOptions: Map[String, String],
+    jdbcUrl: String
+  )(implicit settings: Settings): Unit = {
+    withJDBCConnection(auditConnectionOptions) { connection =>
+      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
+      val existLastExportTable =
+        tableExists(connection, jdbcUrl, s"${auditSchema}.SL_LAST_EXPORT")
+      if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
+        createSchema(auditSchema, connection)
+        val jdbcEngineName = auditConnectionInfo.getJdbcEngineName()
+        settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
+          val createTableSql = jdbcEngine
+            .tables("extract")
+            .createSql
+            .richFormat(
+              Map(
+                "table"       -> s"$auditSchema.SL_LAST_EXPORT",
+                "writeFormat" -> settings.appConfig.defaultWriteFormat
+              ),
+              Map.empty
+            )
+          execute(createTableSql, connection)
+        }
       }
-
-      forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
-      val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(globalStart)
-      logger.info(s"Extracted all tables in $elapsedTime")
-    } else {
-      logger.info("Tables extraction skipped")
     }
   }
 
@@ -1279,47 +1460,52 @@ object JdbcDbUtils extends LazyLogging {
     index: Option[Int],
     statement: PreparedStatement,
     outputFormat: FileFormat
-  ): Long = {
+  ): Try[Long] = {
     val filename = index
       .map(index => tableName + s"-$dateTime-$index.csv")
       .getOrElse(tableName + s"-$dateTime.csv")
-    logger.info(s"$context Starting extraction into $filename")
     val outFile = File(outputDir, filename)
-    val outFileWriter = outFile.newFileOutputStream(append = false)
-    val writerSettings = new CsvWriterSettings()
-    val format = new CsvFormat()
-    outputFormat.quote.flatMap(_.headOption).foreach { q =>
-      format.setQuote(q)
-    }
-    outputFormat.escape.flatMap(_.headOption).foreach(format.setQuoteEscape)
-    outputFormat.separator.foreach(format.setDelimiter)
-    writerSettings.setFormat(format)
-    outputFormat.nullValue.foreach(writerSettings.setNullValue)
-    outputFormat.withHeader.foreach(writerSettings.setHeaderWritingEnabled)
-    val csvRoutines = new CsvRoutines(writerSettings)
+    Try {
+      logger.info(s"$context Starting extraction into $filename")
+      val outFileWriter = outFile.newFileOutputStream(append = false)
+      val writerSettings = new CsvWriterSettings()
+      val format = new CsvFormat()
+      outputFormat.quote.flatMap(_.headOption).foreach { q =>
+        format.setQuote(q)
+      }
+      outputFormat.escape.flatMap(_.headOption).foreach(format.setQuoteEscape)
+      outputFormat.separator.foreach(format.setDelimiter)
+      writerSettings.setFormat(format)
+      outputFormat.nullValue.foreach(writerSettings.setNullValue)
+      outputFormat.withHeader.foreach(writerSettings.setHeaderWritingEnabled)
+      val csvRoutines = new CsvRoutines(writerSettings)
 
-    statement.setMaxRows(limit)
-    val rs = statement.executeQuery()
-    val extractionStartMs = System.currentTimeMillis()
-    val objectRowWriterProcessor = new SLObjectRowWriterProcessor()
-    outputFormat.datePattern.foreach(dtp =>
-      objectRowWriterProcessor.convertType(classOf[java.sql.Date], Conversions.toDate(dtp))
-    )
-    outputFormat.timestampPattern.foreach(tp =>
-      objectRowWriterProcessor.convertType(classOf[java.sql.Timestamp], Conversions.toDate(tp))
-    )
-    writerSettings.setQuoteAllFields(true)
-    writerSettings.setRowWriterProcessor(objectRowWriterProcessor)
-    csvRoutines.write(
-      rs,
-      outFileWriter,
-      outputFormat.encoding.getOrElse(StandardCharsets.UTF_8.name())
-    )
-    val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
-    logger.info(
-      s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $filename in $elapsedTime"
-    )
-    objectRowWriterProcessor.getRecordsCount()
+      statement.setMaxRows(limit)
+      val rs = statement.executeQuery()
+      val extractionStartMs = System.currentTimeMillis()
+      val objectRowWriterProcessor = new SLObjectRowWriterProcessor()
+      outputFormat.datePattern.foreach(dtp =>
+        objectRowWriterProcessor.convertType(classOf[java.sql.Date], Conversions.toDate(dtp))
+      )
+      outputFormat.timestampPattern.foreach(tp =>
+        objectRowWriterProcessor.convertType(classOf[java.sql.Timestamp], Conversions.toDate(tp))
+      )
+      writerSettings.setQuoteAllFields(true)
+      writerSettings.setRowWriterProcessor(objectRowWriterProcessor)
+      csvRoutines.write(
+        rs,
+        outFileWriter,
+        outputFormat.encoding.getOrElse(StandardCharsets.UTF_8.name())
+      )
+      val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
+      logger.info(
+        s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $filename in $elapsedTime"
+      )
+      objectRowWriterProcessor.getRecordsCount()
+    }.recoverWith { case e =>
+      outFile.delete()
+      Failure(e)
+    }
   }
 
   def jdbcOptions(jdbcOptions: Map[String, String], sparkFormat: String) = {
@@ -1343,6 +1529,27 @@ object JdbcDbUtils extends LazyLogging {
     } else
       jdbcOptions
     CaseInsensitiveMap[String](options)
+  }
+
+  def dbQuote(jdbcConnectionUrl: String, value: String): String = {
+    // Because mysql does not support "" when framing column names to handle cases where
+    // column names are keywords in the target dialect
+    val quote = getColNameQuote(jdbcConnectionUrl)
+    quote + value + quote
+  }
+
+  /** @param jdbcConnectionUrl
+    *   used to know which database we are targeting.
+    */
+  private def getColNameQuote(jdbcConnectionUrl: String) = {
+    val specialColNameQuote = List(
+      "jdbc:mysql" -> '`',
+      "jdbc:h2"    -> '`'
+    )
+    specialColNameQuote
+      .find { case (jdbcPrefix, _) => jdbcConnectionUrl.contains(jdbcPrefix) }
+      .map { case (_, colNameQuote) => colNameQuote }
+      .getOrElse('"')
   }
 }
 
@@ -1368,8 +1575,8 @@ object LastExportUtils extends LazyLogging {
     partitionColumn: String,
     partitionColumnType: PrimitiveType,
     nbPartitions: Int,
-    colNameDataQuote: Char,
-    colNameAuditQuote: Char,
+    dataJdbcUrl: String,
+    auditJdbcUrl: String,
     stringPartitionFuncTpl: => Option[String],
     fullExport: Boolean
   )(implicit settings: Settings): Bounds = {
@@ -1382,7 +1589,7 @@ object LastExportUtils extends LazyLogging {
             domain,
             table,
             "last_long",
-            colNameAuditQuote,
+            auditJdbcUrl,
             fullExport
           ) { rs =>
             if (rs.next()) {
@@ -1391,38 +1598,37 @@ object LastExportUtils extends LazyLogging {
             } else
               None
           }
-        internalBoundaries(conn, domain, table, partitionColumn, colNameDataQuote, None) {
-          statement =>
-            statement.setLong(1, lastExport.getOrElse(Long.MinValue))
-            executeQuery(statement) { rs =>
-              rs.next()
-              val count = rs.getLong(1)
-              val (min, max) =
-                if (partitionColumnType == PrimitiveType.long)
-                  (rs.getLong(2), rs.getLong(3))
-                else if (partitionColumnType == PrimitiveType.int)
-                  (rs.getInt(2).toLong, rs.getInt(3).toLong)
-                else // short
-                  (rs.getShort(2).toLong, rs.getShort(3).toLong)
+        internalBoundaries(conn, domain, table, partitionColumn, dataJdbcUrl, None) { statement =>
+          statement.setLong(1, lastExport.getOrElse(Long.MinValue))
+          executeQuery(statement) { rs =>
+            rs.next()
+            val count = rs.getLong(1)
+            val (min, max) =
+              if (partitionColumnType == PrimitiveType.long)
+                (rs.getLong(2), rs.getLong(3))
+              else if (partitionColumnType == PrimitiveType.int)
+                (rs.getInt(2).toLong, rs.getInt(3).toLong)
+              else // short
+                (rs.getShort(2).toLong, rs.getShort(3).toLong)
 
-              val interval = (max - min) / nbPartitions
-              val intervals = partitionRange.map { index =>
-                val upper =
-                  if (index == nbPartitions - 1)
-                    max
-                  else
-                    min + (interval * (index + 1))
-                (min + (interval * index), upper)
-              }.toArray
-              Bounds(
-                lastExport.isEmpty,
-                PrimitiveType.long,
-                count,
-                min,
-                max,
-                intervals.asInstanceOf[Array[(Any, Any)]]
-              )
-            }
+            val interval = (max - min) / nbPartitions
+            val intervals = partitionRange.map { index =>
+              val upper =
+                if (index == nbPartitions - 1)
+                  max
+                else
+                  min + (interval * (index + 1))
+              (min + (interval * index), upper)
+            }.toArray
+            Bounds(
+              lastExport.isEmpty,
+              PrimitiveType.long,
+              count,
+              min,
+              max,
+              intervals.asInstanceOf[Array[(Any, Any)]]
+            )
+          }
         }
 
       case PrimitiveType.decimal =>
@@ -1432,7 +1638,7 @@ object LastExportUtils extends LazyLogging {
             domain,
             table,
             "last_decimal",
-            colNameAuditQuote,
+            auditJdbcUrl,
             fullExport
           ) { rs =>
             if (rs.next())
@@ -1440,32 +1646,31 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, domain, table, partitionColumn, colNameDataQuote, None) {
-          statement =>
-            statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
-            executeQuery(statement) { rs =>
-              rs.next()
-              val count = rs.getLong(1)
-              val min = Option(rs.getBigDecimal(2)).getOrElse(MIN_DECIMAL)
-              val max = Option(rs.getBigDecimal(3)).getOrElse(MIN_DECIMAL)
-              val interval = max.subtract(min).divide(new java.math.BigDecimal(nbPartitions))
-              val intervals = partitionRange.map { index =>
-                val upper =
-                  if (index == nbPartitions - 1)
-                    max
-                  else
-                    min.add(interval.multiply(new java.math.BigDecimal(index + 1)))
-                (min.add(interval.multiply(new java.math.BigDecimal(index))), upper)
-              }.toArray
-              Bounds(
-                lastExport.isEmpty,
-                PrimitiveType.decimal,
-                count,
-                min,
-                max,
-                intervals.asInstanceOf[Array[(Any, Any)]]
-              )
-            }
+        internalBoundaries(conn, domain, table, partitionColumn, dataJdbcUrl, None) { statement =>
+          statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
+          executeQuery(statement) { rs =>
+            rs.next()
+            val count = rs.getLong(1)
+            val min = Option(rs.getBigDecimal(2)).getOrElse(MIN_DECIMAL)
+            val max = Option(rs.getBigDecimal(3)).getOrElse(MIN_DECIMAL)
+            val interval = max.subtract(min).divide(new java.math.BigDecimal(nbPartitions))
+            val intervals = partitionRange.map { index =>
+              val upper =
+                if (index == nbPartitions - 1)
+                  max
+                else
+                  min.add(interval.multiply(new java.math.BigDecimal(index + 1)))
+              (min.add(interval.multiply(new java.math.BigDecimal(index))), upper)
+            }.toArray
+            Bounds(
+              lastExport.isEmpty,
+              PrimitiveType.decimal,
+              count,
+              min,
+              max,
+              intervals.asInstanceOf[Array[(Any, Any)]]
+            )
+          }
         }
 
       case PrimitiveType.date =>
@@ -1475,7 +1680,7 @@ object LastExportUtils extends LazyLogging {
             domain,
             table,
             "last_date",
-            colNameAuditQuote,
+            auditJdbcUrl,
             fullExport
           ) { rs =>
             if (rs.next())
@@ -1483,32 +1688,31 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, domain, table, partitionColumn, colNameDataQuote, None) {
-          statement =>
-            statement.setDate(1, lastExport.getOrElse(MIN_DATE))
-            executeQuery(statement) { rs =>
-              rs.next()
-              val count = rs.getLong(1)
-              val min = Option(rs.getDate(2)).getOrElse(MIN_DATE)
-              val max = Option(rs.getDate(3)).getOrElse(MIN_DATE)
-              val interval = (max.getTime() - min.getTime()) / nbPartitions
-              val intervals = partitionRange.map { index =>
-                val upper =
-                  if (index == nbPartitions - 1)
-                    max
-                  else
-                    new java.sql.Date(min.getTime() + (interval * (index + 1)))
-                (new java.sql.Date(min.getTime() + (interval * index)), upper)
-              }.toArray
-              Bounds(
-                lastExport.isEmpty,
-                PrimitiveType.date,
-                count,
-                min,
-                max,
-                intervals.asInstanceOf[Array[(Any, Any)]]
-              )
-            }
+        internalBoundaries(conn, domain, table, partitionColumn, dataJdbcUrl, None) { statement =>
+          statement.setDate(1, lastExport.getOrElse(MIN_DATE))
+          executeQuery(statement) { rs =>
+            rs.next()
+            val count = rs.getLong(1)
+            val min = Option(rs.getDate(2)).getOrElse(MIN_DATE)
+            val max = Option(rs.getDate(3)).getOrElse(MIN_DATE)
+            val interval = (max.getTime() - min.getTime()) / nbPartitions
+            val intervals = partitionRange.map { index =>
+              val upper =
+                if (index == nbPartitions - 1)
+                  max
+                else
+                  new java.sql.Date(min.getTime() + (interval * (index + 1)))
+              (new java.sql.Date(min.getTime() + (interval * index)), upper)
+            }.toArray
+            Bounds(
+              lastExport.isEmpty,
+              PrimitiveType.date,
+              count,
+              min,
+              max,
+              intervals.asInstanceOf[Array[(Any, Any)]]
+            )
+          }
         }
 
       case PrimitiveType.timestamp =>
@@ -1518,7 +1722,7 @@ object LastExportUtils extends LazyLogging {
             domain,
             table,
             "last_ts",
-            colNameAuditQuote,
+            auditJdbcUrl,
             fullExport
           ) { rs =>
             if (rs.next())
@@ -1526,32 +1730,31 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, domain, table, partitionColumn, colNameDataQuote, None) {
-          statement =>
-            statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
-            executeQuery(statement) { rs =>
-              rs.next()
-              val count = rs.getLong(1)
-              val min = Option(rs.getTimestamp(2)).getOrElse(MIN_TS)
-              val max = Option(rs.getTimestamp(3)).getOrElse(MIN_TS)
-              val interval = (max.getTime() - min.getTime()) / nbPartitions
-              val intervals = partitionRange.map { index =>
-                val upper =
-                  if (index == nbPartitions - 1)
-                    max
-                  else
-                    new java.sql.Timestamp(min.getTime() + (interval * (index + 1)))
-                (new java.sql.Timestamp(min.getTime() + (interval * index)), upper)
-              }.toArray
-              Bounds(
-                lastExport.isEmpty,
-                PrimitiveType.timestamp,
-                count,
-                min,
-                max,
-                intervals.asInstanceOf[Array[(Any, Any)]]
-              )
-            }
+        internalBoundaries(conn, domain, table, partitionColumn, dataJdbcUrl, None) { statement =>
+          statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
+          executeQuery(statement) { rs =>
+            rs.next()
+            val count = rs.getLong(1)
+            val min = Option(rs.getTimestamp(2)).getOrElse(MIN_TS)
+            val max = Option(rs.getTimestamp(3)).getOrElse(MIN_TS)
+            val interval = (max.getTime() - min.getTime()) / nbPartitions
+            val intervals = partitionRange.map { index =>
+              val upper =
+                if (index == nbPartitions - 1)
+                  max
+                else
+                  new java.sql.Timestamp(min.getTime() + (interval * (index + 1)))
+              (new java.sql.Timestamp(min.getTime() + (interval * index)), upper)
+            }.toArray
+            Bounds(
+              lastExport.isEmpty,
+              PrimitiveType.timestamp,
+              count,
+              min,
+              max,
+              intervals.asInstanceOf[Array[(Any, Any)]]
+            )
+          }
         }
       case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
         if (!fullExport) {
@@ -1563,7 +1766,7 @@ object LastExportUtils extends LazyLogging {
           Utils.parseJinjaTpl(
             _,
             Map(
-              "col"           -> s"$colNameDataQuote$partitionColumn$colNameDataQuote",
+              "col"           -> s"${dbQuote(dataJdbcUrl, partitionColumn)}",
               "nb_partitions" -> nbPartitions.toString
             )
           )
@@ -1573,7 +1776,7 @@ object LastExportUtils extends LazyLogging {
           domain,
           table,
           partitionColumn,
-          colNameDataQuote,
+          dataJdbcUrl,
           stringPartitionFunc
         ) { statement =>
           statement.setLong(1, Long.MinValue)
@@ -1623,15 +1826,18 @@ object LastExportUtils extends LazyLogging {
     domain: String,
     table: String,
     columnName: String,
-    colQuote: Char,
+    jdbcUrl: String,
     fullExport: Boolean
   )(apply: ResultSet => Option[T])(implicit settings: Settings): Option[T] = {
     val auditSchema = settings.appConfig.audit.getDomain()
     if (fullExport) {
       None
     } else {
+      val quote = dbQuote(jdbcUrl, _)
       val SQL_LAST_EXPORT_VALUE =
-        s"""select max($colQuote$columnName$colQuote) from $auditSchema.SL_LAST_EXPORT where ${colQuote}domain${colQuote} like ? and ${colQuote}schema${colQuote} like ?"""
+        s"""select max(${quote(columnName)}) from $auditSchema.SL_LAST_EXPORT where ${quote(
+            "domain"
+          )} like ? and ${quote("schema")} like ?"""
       val preparedStatement = conn.prepareStatement(SQL_LAST_EXPORT_VALUE)
       preparedStatement.setString(1, domain)
       preparedStatement.setString(2, table)
@@ -1644,34 +1850,37 @@ object LastExportUtils extends LazyLogging {
     domain: String,
     table: String,
     partitionColumn: String,
-    colQuote: Char,
+    jdbcUrl: String,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
-    val quotedColumn = s"$colQuote$partitionColumn$colQuote"
+    def quote = dbQuote(jdbcUrl, _)
+    val quotedColumn = quote(partitionColumn)
     val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
       s"""select count($quotedColumn) as count_value, min($columnToDistribute) as min_value, max($columnToDistribute) as max_value
-           |from $colQuote$domain$colQuote.$colQuote$table$colQuote
+           |from ${quote(domain)}.${quote(table)}
            |where $columnToDistribute > ?""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
     apply(preparedStatement)
   }
 
-  def getLastAllExport(
+  def getLastSuccessfulAllExport(
     conn: SQLConnection,
     domain: String,
     schema: String,
-    colNameQuote: Char
+    jdbcUrl: String
   )(implicit settings: Settings): Option[Timestamp] = {
     val auditSchema = settings.appConfig.audit.getDomain()
+    def quote: String => String = JdbcDbUtils.dbQuote(jdbcUrl, _)
     val lastExtractionSQL =
       s"""
-         |select max(${colNameQuote}start_ts${colNameQuote})
+         |select max(${quote("start_ts")})
          |  from $auditSchema.SL_LAST_EXPORT
          |where
-         |  ${colNameQuote}domain${colNameQuote} = ?
-         |  and ${colNameQuote}schema${colNameQuote} = ?
-         |  and ${colNameQuote}step${colNameQuote} = ?""".stripMargin
+         |  ${quote("domain")} = ?
+         |  and ${quote("schema")} = ?
+         |  and ${quote("step")} = ?
+         |  and success""".stripMargin
     logger.debug(lastExtractionSQL)
     val preparedStatement = conn.prepareStatement(lastExtractionSQL)
     preparedStatement.setString(1, domain)
@@ -1689,10 +1898,10 @@ object LastExportUtils extends LazyLogging {
     conn: SQLConnection,
     row: DeltaRow,
     partitionColumnType: Option[PrimitiveType],
-    colStart: Char,
-    colEnd: Char
+    jdbcUrl: String
   )(implicit settings: Settings): Int = {
     conn.setAutoCommit(true)
+    def quote = dbQuote(jdbcUrl, _)
     val cols = List(
       "domain",
       "schema",
@@ -1704,7 +1913,7 @@ object LastExportUtils extends LazyLogging {
       "success",
       "message",
       "step"
-    ).map(col => colStart + col + colEnd).mkString(",")
+    ).map(col => quote(col)).mkString(",")
     val auditSchema = settings.appConfig.audit.getDomain()
     val fullReport =
       s"""insert into $auditSchema.SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
@@ -1725,7 +1934,9 @@ object LastExportUtils extends LazyLogging {
               )
           }
           val auditSchema = settings.appConfig.audit.getDomain()
-          s"""insert into $auditSchema.SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+          s"""insert into $auditSchema.SL_LAST_EXPORT($cols, ${quote(
+              lastExportColumn
+            )}) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
 
     val preparedStatement = conn.prepareStatement(sqlInsert)
