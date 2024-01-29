@@ -27,7 +27,7 @@ import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
 import pureconfig._
@@ -349,6 +350,33 @@ object Settings extends StrictLogging {
 
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
+
+    def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
+
+    lazy val jdbcUrl: String = applyIfConnectionTypeIs(
+      ConnectionType.JDBC,
+      options.getOrElse(
+        "url",
+        throw new RuntimeException(s"Missing url in connection options.")
+      )
+    )
+
+    lazy val dialect: JdbcDialect =
+      applyIfConnectionTypeIs(ConnectionType.JDBC, SparkUtils.dialect(jdbcUrl))
+
+    def quoteIdentifier(identifier: String): String = dialect.quoteIdentifier(identifier)
+
+    def mergeOptionsWith(additionalConnectionOptions: Map[String, String]): Connection = {
+      this.copy(options = options ++ additionalConnectionOptions)
+    }
+
+    private def applyIfConnectionTypeIs[T](connectionType: ConnectionType, action: => T): T = {
+      getType() match {
+        case `connectionType` => action
+        case _ =>
+          throw new RuntimeException(s"Can only be used for ${getType().value} connection type")
+      }
+    }
   }
 
   object Connection {
@@ -611,6 +639,16 @@ object Settings extends StrictLogging {
       } else {
         s"file$protocolSeperator"
       }
+    }
+
+    @JsonIgnore
+    def getConnection(connectionRef: String): Connection = {
+      connections.getOrElse(
+        connectionRef,
+        throw new Exception(
+          s"Connection $connectionRef not found. Please check your connection definition."
+        )
+      )
     }
 
     @JsonIgnore

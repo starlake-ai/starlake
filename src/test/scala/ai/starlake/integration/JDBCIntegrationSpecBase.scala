@@ -27,7 +27,7 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase {
       val connection = settings.appConfig.connections(connectionRef)
       val jdbcOptions =
         JdbcDbUtils.jdbcOptions(connection.options, connection.sparkFormat.getOrElse("jdbc"))
-      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
+      JdbcDbUtils.withJDBCConnection(connection.copy(options = jdbcOptions)) { conn =>
         // drop table using jdbc statement connection conn in the lines below
         val allTables = List("sales.customers", "sales.orders", "hr.locations", "hr.sellers")
         allTables.foreach { table =>

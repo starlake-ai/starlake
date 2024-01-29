@@ -221,8 +221,9 @@ case class Metadata(
     getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
-  def getConnectionRefOptions()(implicit settings: Settings): Map[String, String] =
-    settings.appConfig.connections(this.getConnectionRef()).options
+  def getConnection()(implicit settings: Settings): Settings.Connection = {
+    settings.appConfig.getConnection(this.getConnectionRef())
+  }
 
   @JsonIgnore
   def getEngine()(implicit settings: Settings): Engine = {

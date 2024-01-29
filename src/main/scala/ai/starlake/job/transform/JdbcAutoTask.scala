@@ -7,7 +7,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import ai.starlake.utils.{JdbcJobResult, JobResult, Utils}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.jdbc.JdbcDialect
 
@@ -52,9 +52,8 @@ class JdbcAutoTask(
   }
 
   lazy val tableExists: Boolean = {
-    JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
-      val url = connection.options("url")
-      JdbcDbUtils.tableExists(conn, url, fullTableName)
+    JdbcDbUtils.withJDBCConnection(connection) { conn =>
+      JdbcDbUtils.tableExists(conn, connection.jdbcUrl, fullTableName)
     }
   }
 
@@ -98,7 +97,7 @@ class JdbcAutoTask(
   def runJDBC(): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
-      JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+      JdbcDbUtils.withJDBCConnection(connection) { conn =>
         val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
         val (preSql, sqlWithParameters, postSql, asTable) =
           buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.JDBC, Nil)
@@ -133,7 +132,7 @@ class JdbcAutoTask(
             val jdbcDialect =
               connection.options.get("url") match {
                 case Some(url) =>
-                  val jdbcDialect = SparkUtils.dialect(url)
+                  val jdbcDialect = connection.dialect
                   logger.debug(s"JDBC dialect $jdbcDialect")
                   jdbcDialect
                 case None =>

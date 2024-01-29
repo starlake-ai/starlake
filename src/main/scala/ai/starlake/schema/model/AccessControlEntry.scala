@@ -41,7 +41,7 @@ object AccessControlEntry {
   ): Try[Unit] =
     Try {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
-        JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+        JdbcDbUtils.withJDBCConnection(connection) { conn =>
           sqls.foreach { sql =>
             val stmt = conn.createStatement()
             stmt.execute(sql)
