@@ -496,6 +496,8 @@ class ExtractSpec extends TestHelper {
         |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: ${Runtime
           .getRuntime()
           .availableProcessors()}
+        |  --ignoreExtractionFailure
+        |                           Don't fail extraction job when any extraction fails.
         |  --clean                  Clean all files of table only when it is extracted.
         |  --outputDir <value>     Where to output csv files
         |  --incremental            Export only new data since last extraction.
@@ -510,7 +512,6 @@ class ExtractSpec extends TestHelper {
         |  --excludeTables table1,table2,table3...
         |                           Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored.
         |""".stripMargin
-    println(expected)
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
   }
