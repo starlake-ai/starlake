@@ -443,7 +443,7 @@ object JdbcDbUtils extends LazyLogging {
                         case d if d.isMySQL() =>
                           databaseMetaData.getImportedKeys(
                             schemaName,
-                            null,
+                            None.orNull,
                             tableName
                           )
                         case _ =>
@@ -490,16 +490,16 @@ object JdbcDbUtils extends LazyLogging {
                         case d if d.isMySQL() =>
                           databaseMetaData.getColumns(
                             schemaName,
-                            null,
+                            None.orNull,
                             tableName,
-                            null
+                            None.orNull
                           )
                         case _ =>
                           databaseMetaData.getColumns(
                             jdbcSchema.catalog.orNull,
                             schemaName,
                             tableName,
-                            null
+                            None.orNull
                           )
                       }
                     )
@@ -599,7 +599,7 @@ object JdbcDbUtils extends LazyLogging {
                         case d if d.isMySQL() =>
                           databaseMetaData.getPrimaryKeys(
                             schemaName,
-                            null,
+                            None.orNull,
                             tableName
                           )
                         case _ =>
@@ -1389,7 +1389,9 @@ object JdbcDbUtils extends LazyLogging {
           skipRemarks = true,
           keepOriginalName = true
         )(settings, None)
-        .find(_._1.equalsIgnoreCase(lastExportTableName))
+        .find { case (tableName, _) =>
+          tableName.equalsIgnoreCase(lastExportTableName)
+        }
         .map { case (_, (_, columns, _)) =>
           columns
         }
@@ -1535,13 +1537,13 @@ object LastExportUtils extends LazyLogging {
           executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
-            val (min, max) =
-              if (tableExtractDataConfig.partitionColumnType == PrimitiveType.long)
-                (rs.getLong(2), rs.getLong(3))
-              else if (tableExtractDataConfig.partitionColumnType == PrimitiveType.int)
-                (rs.getInt(2).toLong, rs.getInt(3).toLong)
-              else // short
-                (rs.getShort(2).toLong, rs.getShort(3).toLong)
+            val (min, max) = {
+              tableExtractDataConfig.partitionColumnType match {
+                case PrimitiveType.long => (rs.getLong(2), rs.getLong(3))
+                case PrimitiveType.int  => (rs.getInt(2).toLong, rs.getInt(3).toLong)
+                case _                  => (rs.getShort(2).toLong, rs.getShort(3).toLong)
+              }
+            }
 
             val interval = (max - min) / tableExtractDataConfig.nbPartitions
             val intervals = partitionRange.map { index =>

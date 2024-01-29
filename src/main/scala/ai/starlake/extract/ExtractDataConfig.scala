@@ -127,7 +127,7 @@ case class UnpartitionnedTableExtractDataConfig(
   columnsProjection: List[Attribute],
   fullExport: Boolean,
   fetchSize: Option[Int]
-) extends TableExtractDataConfig {}
+) extends TableExtractDataConfig
 
 case class PartitionnedTableExtractDataConfig(
   domain: String,
