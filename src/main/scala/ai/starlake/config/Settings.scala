@@ -353,6 +353,7 @@ object Settings extends StrictLogging {
 
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
 
+    @JsonIgnore
     lazy val jdbcUrl: String = applyIfConnectionTypeIs(
       ConnectionType.JDBC,
       options.getOrElse(
@@ -361,6 +362,7 @@ object Settings extends StrictLogging {
       )
     )
 
+    @JsonIgnore
     lazy val dialect: JdbcDialect =
       applyIfConnectionTypeIs(ConnectionType.JDBC, SparkUtils.dialect(jdbcUrl))
 
