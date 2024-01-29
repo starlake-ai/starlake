@@ -291,7 +291,7 @@ trait IngestionJob extends SparkJob {
             val jdbcSink = mergedMetadata.getSink().asInstanceOf[JdbcSink]
             val targetTable = domain.finalName + "." + schema.finalName
             val twoSteps = requireTwoSteps(schema, jdbcSink)
-            val connectionRefOptions = mergedMetadata.getConnectionRefOptions()
+            val connection = mergedMetadata.getConnection()
             val hasMergeKey = schema.merge.exists(_.key.nonEmpty)
             val firstStepTempTable =
               if (!twoSteps) {
@@ -313,7 +313,7 @@ trait IngestionJob extends SparkJob {
                 createDisposition = CreateDisposition.valueOf(createDisposition),
                 writeDisposition = WriteDisposition.valueOf(writeDisposition),
                 format = "jdbc",
-                options = connectionRefOptions
+                options = connection.options
               )
               // Create table and load the data using Spark
               val jdbcJob = new sparkJdbcLoader(jdbcConnectionLoadConfig)
@@ -323,14 +323,14 @@ trait IngestionJob extends SparkJob {
                 firstStepResult match {
                   case Success(loadFileResult) =>
                     logger.info(s"First step result: $loadFileResult")
-                    JdbcDbUtils.withJDBCConnection(connectionRefOptions) { conn =>
-                      val url = connectionRefOptions("url")
+                    JdbcDbUtils.withJDBCConnection(connection) { conn =>
                       val expectationsResult = runExpectations(firstStepTempTable, conn)
                       val keepGoing =
                         expectationsResult.isSuccess || !settings.appConfig.expectations.failOnError
                       if (keepGoing) {
                         // is it a new table ?
-                        val targetTableExists = JdbcDbUtils.tableExists(conn, url, targetTable)
+                        val targetTableExists =
+                          JdbcDbUtils.tableExists(conn, connection.jdbcUrl, targetTable)
 
                         if (targetTableExists) {
                           // update target table schema if needed
@@ -338,7 +338,7 @@ trait IngestionJob extends SparkJob {
                             s"Schema ${domain.finalName}"
                           )
                           val existingSchema =
-                            SparkUtils.getSchemaOption(conn, connectionRefOptions, targetTable)
+                            SparkUtils.getSchemaOption(conn, connection.options, targetTable)
                           val incomingSchema =
                             datasetWithRenamedAttributes
                               .drop(CometColumns.cometInputFileNameColumn)
@@ -403,7 +403,7 @@ trait IngestionJob extends SparkJob {
                 result
             }
             if (twoSteps) {
-              JdbcDbUtils.withJDBCConnection(connectionRefOptions) { conn =>
+              JdbcDbUtils.withJDBCConnection(connection) { conn =>
                 JdbcDbUtils.dropTable(firstStepTempTable, conn)
               }
             }
