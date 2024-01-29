@@ -2,6 +2,7 @@ package ai.starlake.job.sink.jdbc
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.SaveMode
@@ -41,9 +42,11 @@ class sparkJdbcLoader(
           case Right(df)  => df
         }
       val outputDomain = cliConfig.outputDomainAndTableName.split("\\.")(0)
-      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
-        val url = jdbcOptions("url")
-        val exists = tableExists(conn, url, cliConfig.outputDomainAndTableName)
+      val connectionSettings =
+        Settings.Connection(Some(ConnectionType.JDBC.value), None, None, None, jdbcOptions)
+      JdbcDbUtils.withJDBCConnection(connectionSettings) { conn =>
+        val exists =
+          tableExists(conn, connectionSettings.jdbcUrl, cliConfig.outputDomainAndTableName)
         if (!exists && settings.appConfig.createSchemaIfNotExists) {
           logger.info(s"table ${cliConfig.outputDomainAndTableName} not found, trying to create it")
           JdbcDbUtils.createSchema(outputDomain, conn)
@@ -80,7 +83,11 @@ class sparkJdbcLoader(
           alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
         } else {
           val optionsWrite =
-            new JdbcOptionsInWrite(url, cliConfig.outputDomainAndTableName, jdbcOptions)
+            new JdbcOptionsInWrite(
+              connectionSettings.jdbcUrl,
+              cliConfig.outputDomainAndTableName,
+              jdbcOptions
+            )
 
           logger.info(
             s"Table ${cliConfig.outputDomainAndTableName} not found, creating it with schema $schema"
