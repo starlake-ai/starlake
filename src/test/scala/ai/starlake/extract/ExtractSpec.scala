@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Metadata, Mode, Schema}
 import ai.starlake.utils.YamlSerializer
@@ -23,7 +24,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2").options,
+        settings.appConfig.connections("test-h2"),
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -38,7 +39,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2").options,
+        settings.appConfig.connections("test-h2"),
         None
       ) { case (domain, _, _) =>
         assert(domain.metadata.isEmpty)
@@ -48,7 +49,7 @@ class ExtractSpec extends TestHelper {
 
   private def testSchemaExtraction(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String],
+    connectionSettings: Connection,
     domainTemplate: Option[Domain]
   )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
   (implicit settings: Settings) = {
@@ -74,7 +75,7 @@ class ExtractSpec extends TestHelper {
     implicit val fjp: Option[ForkJoinTaskSupport] = ExtractUtils.createForkSupport()
     new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
       jdbcSchema,
-      connectionOptions,
+      connectionSettings,
       outputDir,
       domainTemplate,
       None
@@ -373,7 +374,7 @@ class ExtractSpec extends TestHelper {
             )
           )
         ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2").options,
+        settings.appConfig.connections("test-h2"),
         tmpDir,
         None,
         None
@@ -435,7 +436,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2").options,
+        settings.appConfig.connections("test-h2"),
         tmpDir,
         None,
         None
@@ -495,6 +496,8 @@ class ExtractSpec extends TestHelper {
         |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: ${Runtime
           .getRuntime()
           .availableProcessors()}
+        |  --ignoreExtractionFailure
+        |                           Don't fail extraction job when any extraction fails.
         |  --clean                  Clean all files of table only when it is extracted.
         |  --outputDir <value>     Where to output csv files
         |  --incremental            Export only new data since last extraction.
@@ -509,7 +512,6 @@ class ExtractSpec extends TestHelper {
         |  --excludeTables table1,table2,table3...
         |                           Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored.
         |""".stripMargin
-    println(expected)
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
   }
