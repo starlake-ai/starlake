@@ -81,7 +81,16 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
         return task_completion_sensors
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()"""
+        """Overrides AirflowStarlakeJob.sl_job()
+        Generate the Airflow task that will run the starlake command.
+        
+        Args:
+            task_id (str): The required task id.
+            arguments (list): The required arguments of the starlake command to run.
+            
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         command = f'^{self.separator}^' + self.separator.join(arguments)
         if self.cloud_run_async:
             return self.__job_with_completion_sensors__(task_id=task_id, command=command, spark_config=spark_config, **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)}))

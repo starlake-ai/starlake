@@ -102,7 +102,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """Post tasks."""
         return None
 
-    def sl_job(self, task_id: str, arguments: dict, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
         """Generic job.
         Generate the scheduler task that will run the starlake command.
 
