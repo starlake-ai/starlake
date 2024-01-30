@@ -14,7 +14,16 @@ class AirflowStarlakeBashJob(AirflowStarlakeJob):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()"""
+        """Overrides AirflowStarlakeJob.sl_job()
+        Generate the Airflow task that will run the starlake command.
+
+        Args:
+            task_id (str): The required task id.
+            arguments (list): The required arguments of the starlake command to run.
+
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return BashOperator(

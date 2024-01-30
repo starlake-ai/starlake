@@ -1,4 +1,3 @@
-import os
 import re
 from datetime import timedelta, datetime
 
@@ -8,11 +7,9 @@ from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSpark
 
 from ai.starlake.airflow.airflow_starlake_options import AirflowStarlakeOptions
 
-from ai.starlake.common import keep_ascii_only, MissingEnvironmentVariable, sanitize_id
+from ai.starlake.common import keep_ascii_only, sanitize_id
 
 from airflow.datasets import Dataset
-
-from airflow.models import Variable
 
 from airflow.models.baseoperator import BaseOperator
 

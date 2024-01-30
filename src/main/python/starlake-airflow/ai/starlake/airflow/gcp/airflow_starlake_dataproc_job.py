@@ -268,7 +268,16 @@ class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
         self.cluster = StarlakeDataprocCluster(cluster_config=None, options=self.options, pool=self.pool) if not cluster else cluster
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()"""
+        """Overrides AirflowStarlakeJob.sl_job()
+        Generate the Airflow task that will run the starlake command.
+        
+        Args:
+            task_id (str): The required task id.
+            arguments (list): The required arguments of the starlake command to run.
+        
+        Returns:
+            BaseOperator: The Airflow task.
+        """
         return self.cluster.submit_starlake_job(
             task_id=task_id,
             arguments=arguments,
