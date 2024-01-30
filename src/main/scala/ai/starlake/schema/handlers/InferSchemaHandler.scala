@@ -48,33 +48,38 @@ object InferSchemaHandler {
 
     schemaWithIndex
       .map { case (row, index) =>
-        row.dataType.typeName match {
-
+        row.dataType match {
           // if the datatype is a struct {...} containing one or more other field
-          case "struct" =>
+          case st: StructType =>
             Attribute(
               row.name,
               row.dataType.typeName,
               Some(false),
               !row.nullable,
-              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType], format)
+              attributes = createAttributes(lines, st, format)
             )
 
-          case "array" =>
-            val elemType = row.dataType.asInstanceOf[ArrayType].elementType
-            if (elemType.typeName.equals("struct"))
-              // if the array contains elements of type struct.
-              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-              Attribute(
-                row.name,
-                elemType.typeName,
-                Some(true),
-                !row.nullable,
-                attributes = createAttributes(lines, elemType.asInstanceOf[StructType], format)
-              )
-            else
-              // if it is a regular array. {ages: [21, 25]}
-              Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
+          case dt: ArrayType =>
+            dt.elementType match {
+              case st: StructType =>
+                // if the array contains elements of type struct.
+                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
+                Attribute(
+                  row.name,
+                  st.typeName,
+                  Some(true),
+                  !row.nullable,
+                  attributes = createAttributes(lines, st, format)
+                )
+              case _ =>
+                // if it is a regular array. {ages: [21, 25]}
+                Attribute(
+                  row.name,
+                  PrimitiveType.from(dt.elementType).value,
+                  Some(true),
+                  !row.nullable
+                )
+            }
 
           // if the datatype is a simple Attribute
           case _ =>
@@ -93,7 +98,7 @@ object InferSchemaHandler {
                 else
                   "timestamp"
               } else
-                row.dataType.typeName
+                PrimitiveType.from(row.dataType).value
             Attribute(row.name, cellType, Some(false), !row.nullable)
         }
       }

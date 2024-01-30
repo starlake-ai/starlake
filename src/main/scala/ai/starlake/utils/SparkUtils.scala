@@ -127,7 +127,7 @@ object SparkUtils extends StrictLogging {
     val reworkedUrl =
       url.replace("jdbc:redshift", "jdbc:postgresql").replace("jdbc:as400", "jdbc:db2")
     val jdbcDialect = JdbcDialects.get(reworkedUrl)
-    logger.info(s"JDBC dialect $jdbcDialect")
+    logger.debug(s"JDBC dialect $jdbcDialect")
     jdbcDialect
   }
 
