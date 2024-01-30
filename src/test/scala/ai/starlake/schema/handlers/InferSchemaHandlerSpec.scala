@@ -126,7 +126,7 @@ class InferSchemaHandlerSpec extends TestHelper {
       val dsv1: List[Attribute] = List(
         Attribute("_c0", "string", Some(false), required = false),
         Attribute("_c1", "string", Some(false), required = false),
-        Attribute("_c2", "integer", Some(false), required = false)
+        Attribute("_c2", "int", Some(false), required = false)
       )
       dsv shouldBe dsv1
 
