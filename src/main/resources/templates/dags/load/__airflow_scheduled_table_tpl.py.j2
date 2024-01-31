@@ -1,5 +1,5 @@
 from ai.starlake.common import keep_ascii_only, sanitize_id
-from ai.starlake.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
+from ai.starlake.airflow import StarlakeAirflowJob, DEFAULT_DAG_ARGS
 
 import os
 from typing import Union
@@ -39,7 +39,7 @@ _extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_d
 
 # [START instantiate_dag]
 for schedule in schedules:
-    tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
+    tags = StarlakeAirflowJob.get_context_var(var_name='tags', default_value="", options=options).split()
     for domain in schedule["domains"]:
         tags.append(domain["name"])
     with DAG(dag_id=generate_dag_name(schedule),
@@ -58,7 +58,7 @@ for schedule in schedules:
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
                 for table in domain["tables"]:
                     load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}_load')
-                    spark_config_name=AirflowStarlakeOptions.get_context_var('spark_config_name', f'{domain["name"]}.{table["name"]}'.lower(), options)
+                    spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', f'{domain["name"]}.{table["name"]}'.lower(), options)
                     sl_job.sl_load(
                         task_id=load_task_id, 
                         domain=domain["name"], 

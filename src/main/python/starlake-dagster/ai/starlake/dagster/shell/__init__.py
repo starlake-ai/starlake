@@ -1,2 +1,2 @@
 # package ai.starlake.dagster.shell
-from .dagster_starlake_shell_job import DagsterStarlakeShellJob
+from .starlake_dagster_shell_job import StarlakeDagsterShellJob

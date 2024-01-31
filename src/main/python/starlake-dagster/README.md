@@ -10,9 +10,9 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 pip install starlake-orchestration[dagster] --upgrade
 ```
 
-## DagsterStarlakeJob
+## StarlakeDagsterJob
 
-`ai.starlake.dagster.DagsterStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
+`ai.starlake.dagster.StarlakeDagsterJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
 
 ### sl_import
 
@@ -167,15 +167,15 @@ The following options can be specified for all concrete factory classes:
 
 ## On premise
 
-### DagsterStarlakeShellJob
+### StarlakeDagsterShellJob
 
-This class is a concrete implementation of `DagsterStarlakeJob` that generates nodes using dagster-shell library. Usefull for **on premise** execution.
+This class is a concrete implementation of `StarlakeDagsterJob` that generates nodes using dagster-shell library. Usefull for **on premise** execution.
 
 An additional `SL_STARLAKE_PATH` option is required to specify the **path** to the `starlake` **executable**.
 
-#### DagsterStarlakeShellJob Example
+#### StarlakeDagsterShellJob Example
 
-The following example shows how to use `DagsterStarlakeShellJob` to generate dynamically Jobs that **load** domains using `starlake` and record corresponding Dagster `assets`.
+The following example shows how to use `StarlakeDagsterShellJob` to generate dynamically Jobs that **load** domains using `starlake` and record corresponding Dagster `assets`.
 
 ```python
 description="""example to load domain(s) using dagster starlake shell job"""
@@ -188,9 +188,9 @@ options = {
     'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
 }
 
-from ai.starlake.dagster.shell import DagsterStarlakeShellJob
+from ai.starlake.dagster.shell import StarlakeDagsterShellJob
 
-sl_job = DagsterStarlakeShellJob(options=options)
+sl_job = StarlakeDagsterShellJob(options=options)
 
 schedules= [
     {
@@ -287,6 +287,6 @@ defs = Definitions(
 
 ```
 
-![jobs generated with DagsterStarlakeShellJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster/jobsWithDagsterStarlakeShellJob.png)
+![jobs generated with StarlakeDagsterShellJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster/jobsWithStarlakeDagsterShellJob.png)
 
 ## Cloud

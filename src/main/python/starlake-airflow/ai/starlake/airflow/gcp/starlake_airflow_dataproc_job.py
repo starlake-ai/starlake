@@ -3,13 +3,11 @@ import uuid
 
 from typing import Union
 
-from airflow import DAG
-
 from ai.starlake.common import TODAY
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.airflow import AirflowStarlakeJob, AirflowStarlakeOptions
+from ai.starlake.airflow import StarlakeAirflowJob, StarlakeAirflowOptions
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -40,7 +38,7 @@ class StarlakeDataprocMachineConfig():
             }
         }, **self.kwargs)
 
-class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, AirflowStarlakeOptions):
+class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, StarlakeAirflowOptions):
     def __init__(self, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
         super().__init__(
             num_instances=1,
@@ -50,7 +48,7 @@ class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, AirflowStarlak
             **kwargs
         )
 
-class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, AirflowStarlakeOptions):
+class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, StarlakeAirflowOptions):
     def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
         super().__init__(
             num_instances=int(__class__.get_context_var("dataproc_num_workers", "4", options)) if num_instances is None else num_instances,
@@ -60,7 +58,7 @@ class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, AirflowStarlak
             **kwargs
         )
 
-class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
+class StarlakeDataprocClusterConfig(StarlakeAirflowOptions):
     def __init__(self, cluster_id:str, dataproc_name:str, master_config: StarlakeDataprocMasterConfig, worker_config: StarlakeDataprocWorkerConfig, secondary_worker_config: StarlakeDataprocWorkerConfig, idle_delete_ttl: int, single_node: bool, options: dict, **kwargs):
         super().__init__()
         options = {} if not options else options
@@ -121,7 +119,7 @@ class StarlakeDataprocClusterConfig(AirflowStarlakeOptions):
             cluster_config["secondary_worker_config"] = self.secondary_worker_config.__config__()
         return cluster_config
 
-class StarlakeDataprocCluster(AirflowStarlakeOptions):
+class StarlakeDataprocCluster(StarlakeAirflowOptions):
     def __init__(self, cluster_config: StarlakeDataprocClusterConfig, options: dict, pool:str, **kwargs):
         super().__init__()
 
@@ -261,14 +259,14 @@ class StarlakeDataprocCluster(AirflowStarlakeOptions):
             **kwargs
         )
 
-class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
+class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
     """Airflow Starlake Dataproc Job."""
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeDataprocCluster=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster = StarlakeDataprocCluster(cluster_config=None, options=self.options, pool=self.pool) if not cluster else cluster
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()
+        """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
         
         Args:
@@ -286,14 +284,14 @@ class AirflowStarlakeDataprocJob(AirflowStarlakeJob):
         )
 
     def pre_tasks(self, *args, **kwargs) -> Union[BaseOperator, None]:
-        """Overrides AirflowStarlakeJob.pre_tasks()"""
+        """Overrides StarlakeAirflowJob.pre_tasks()"""
         return self.cluster.create_dataproc_cluster(
             *args,
             **kwargs
         )
 
     def post_tasks(self, *args, **kwargs) -> Union[BaseOperator, None]:
-        """Overrides AirflowStarlakeJob.post_tasks()"""
+        """Overrides StarlakeAirflowJob.post_tasks()"""
         return self.cluster.delete_dataproc_cluster(
             *args,
             **kwargs

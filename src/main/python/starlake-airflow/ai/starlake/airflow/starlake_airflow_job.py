@@ -5,7 +5,7 @@ from typing import Union, List
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig
 
-from ai.starlake.airflow.airflow_starlake_options import AirflowStarlakeOptions
+from ai.starlake.airflow.airflow_starlake_options import StarlakeAirflowOptions
 
 from ai.starlake.common import keep_ascii_only, sanitize_id
 
@@ -37,7 +37,7 @@ DEFAULT_DAG_ARGS = {
     'retry_delay': timedelta(minutes=5)
 }
 
-class AirflowStarlakeJob(IStarlakeJob[BaseOperator], AirflowStarlakeOptions):
+class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         """Overrides IStarlakeJob.__init__()
         Args:

@@ -6,7 +6,7 @@ from ai.starlake.job import StarlakeOptions
 
 from airflow.models import Variable
 
-class AirflowStarlakeOptions(StarlakeOptions):
+class StarlakeAirflowOptions(StarlakeOptions):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
