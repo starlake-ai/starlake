@@ -222,7 +222,7 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             remove_ack_file_node = OpDefinition(
                 name=f"{domain}_remove_ack_file",
                 compute_fn=remove_ack_file,
-                ins={"remove_ack_file": In(str)},
+                ins={"remove_ack_file": In(bool)},
                 outs={"load_domain": Out(str)},
             )
 
