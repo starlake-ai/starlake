@@ -51,12 +51,12 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
 
             def list_files(context, config):
                 output, return_code = execute_shell_command(
-                    shell_command=list_files_command, 
+                    shell_command=list_files_command,
                     output_logging="STREAM",
                     log=context.log,
-                    cwd=self.sl_root, 
-                    env=self.sl_env_vars, 
-                    log_shell_command=True, 
+                    cwd=self.sl_root,
+                    env=self.sl_env_vars,
+                    log_shell_command=True,
                 )
 
                 if return_code:
@@ -173,12 +173,12 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
 
             def check_ack_file(context, config):
                 output, return_code = execute_shell_command(
-                    shell_command=check_ack_file_command, 
+                    shell_command=check_ack_file_command,
                     output_logging="STREAM",
                     log=context.log,
-                    cwd=self.sl_root, 
-                    env=self.sl_env_vars, 
-                    log_shell_command=True, 
+                    cwd=self.sl_root,
+                    env=self.sl_env_vars,
+                    log_shell_command=True,
                 )
 
                 if return_code:
@@ -206,12 +206,12 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
 
             def remove_ack_file(context, config):
                 output, return_code = execute_shell_command(
-                    shell_command=remove_ack_file_command, 
+                    shell_command=remove_ack_file_command,
                     output_logging="STREAM",
                     log=context.log,
-                    cwd=self.sl_root, 
-                    env=self.sl_env_vars, 
-                    log_shell_command=True, 
+                    cwd=self.sl_root,
+                    env=self.sl_env_vars,
+                    log_shell_command=True,
                 )
 
                 if return_code:
@@ -246,7 +246,7 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             )
 
         else:
-            None
+            return None
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_import()
@@ -299,6 +299,15 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
-        """Overrides IStarlakeJob.sl_job()"""
-        pass
+        """Overrides IStarlakeJob.sl_job()
+        Generate the Dagster node that will run the starlake command.
+        
+        Args:
+            task_id (str): The reqired task id.
+            arguments (list): The required arguments of the starlake command to run.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+        
+        Returns:
+            NodeDefinition: The Dastger node.
+        """
 
