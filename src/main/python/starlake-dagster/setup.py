@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-dagster',
-      version='0.0.1b1',
+      version='0.0.1',
       description='Starlake Python Distribution For Dagster',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -17,7 +17,7 @@ setup(name='starlake-dagster',
       license='Apache 2.0',
 #      url='https://github.com/starlake-ai/starlake/tree/master/src/main/python/starlake-dagster',
       packages=find_packages(include=['ai', 'ai.*']),
-      install_requires=['starlake-orchestration>=0.0.1b6'],
+      install_requires=['starlake-orchestration>=0.0.1'],
       extras_require={
         "dagster": [], #["dagster"],
         "shell": ["dagster-shell"],
