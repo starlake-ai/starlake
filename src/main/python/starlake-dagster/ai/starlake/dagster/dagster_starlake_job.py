@@ -113,12 +113,12 @@ class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
 
             def list_files(context, config):
                 output, return_code = execute_shell_command(
-                    shell_command=list_files_command, 
+                    shell_command=list_files_command,
                     output_logging="STREAM",
                     log=context.log,
-                    cwd=self.sl_root, 
-                    env=self.sl_env_vars, 
-                    log_shell_command=True, 
+                    cwd=self.sl_root,
+                    env=self.sl_env_vars,
+                    log_shell_command=True,
                 )
 
                 if return_code:
