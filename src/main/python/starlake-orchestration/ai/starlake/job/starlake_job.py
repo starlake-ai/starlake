@@ -10,6 +10,11 @@ T = TypeVar("T")
 
 class IStarlakeJob(Generic[T], StarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
+        """Init the class.
+        Args:
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
+            options (dict): The options to use.
+        """
         super().__init__(**kwargs)
         self.options = {} if not options else options
         pre_load_strategy = __class__.get_context_var(
