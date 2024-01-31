@@ -1122,7 +1122,7 @@ object JdbcDbUtils extends LazyLogging {
                         tpl,
                         Map(
                           "col"           -> quotedPartitionColumn,
-                          "nb_partitions" -> extractConfig.numPartitions.toString
+                          "nb_partitions" -> tableExtractDataConfig.nbPartitions.toString
                         )
                       )
                     val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
