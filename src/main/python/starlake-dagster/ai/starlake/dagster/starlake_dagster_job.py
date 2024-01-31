@@ -6,9 +6,9 @@ from ai.starlake.common import sanitize_id
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions
 
-from dagster import AssetKey, Failure
+from dagster import AssetKey, Failure, InputMapping, OutputMapping, DependencyDefinition, GraphDefinition, OpDefinition, Output, In, Out
 
-from dagster._core.definitions import NodeDefinition, OpDefinition, DependencyDefinition, GraphDefinition, OutputMapping, Output, In, Out
+from dagster._core.definitions import NodeDefinition
 
 from dagster_shell import execute_shell_command
 
@@ -73,16 +73,25 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             skip_or_start_node = OpDefinition(
                 name=f"{domain}_skip_or_start",
                 compute_fn=list_files,
-                ins={},
+                ins={"domain": In(str)},
                 outs={"import_domain": Out(str, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
             )
 
             import_node = self.sl_import(task_id=None, domain=domain, ins={"domain": In(str)})
 
+            input_mappings=[
+                InputMapping(
+                    graph_input_name="domain", 
+                    mapped_node_name=skip_or_start_node._name,
+                    mapped_node_input_name="domain",
+                )
+            ]
+
             output_mappings=[
                 OutputMapping(
-                    graph_output_name="asset", mapped_node_name=import_node._name,
-                    mapped_node_output_name="asset"
+                    graph_output_name="load_domain", 
+                    mapped_node_name=import_node._name,
+                    mapped_node_output_name="asset",
                 )
             ]
 
@@ -95,6 +104,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 name=f"{domain}_pre_load",
                 node_defs=[skip_or_start_node, import_node],
                 dependencies=dependencies,
+                input_mappings=input_mappings,
                 output_mappings=output_mappings,
             )
 
@@ -135,16 +145,25 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             skip_or_start_node = OpDefinition(
                 name=f"{domain}_skip_or_start",
                 compute_fn=list_files,
-                ins={},
+                ins={"domain": In(str)},
                 outs={"load_domain": Out(str, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
             )
 
             dependencies = dict()
 
+            input_mappings=[
+                InputMapping(
+                    graph_input_name="domain", 
+                    mapped_node_name=skip_or_start_node._name,
+                    mapped_node_input_name="domain",
+                )
+            ]
+
             output_mappings=[
                 OutputMapping(
-                    graph_output_name="asset", mapped_node_name=skip_or_start_node._name,
-                    mapped_node_output_name="load_domain"
+                    graph_output_name="load_domain", 
+                    mapped_node_name=skip_or_start_node._name,
+                    mapped_node_output_name="load_domain",
                 )
             ]
 
@@ -152,6 +171,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 name=f"{domain}_pre_load",
                 node_defs=[skip_or_start_node],
                 dependencies=dependencies,
+                input_mappings=input_mappings,
                 output_mappings=output_mappings,
             )
 
@@ -195,7 +215,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             skip_or_start_node = OpDefinition(
                 name=f"{domain}_skip_or_start",
                 compute_fn=check_ack_file,
-                ins={},
+                ins={"domain": In(str)},
                 outs={"remove_ack_file": Out(bool, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
             )
 
@@ -231,10 +251,19 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 'remove_ack_file': DependencyDefinition(skip_or_start_node._name, 'remove_ack_file')
             }
 
+            input_mappings=[
+                InputMapping(
+                    graph_input_name="domain", 
+                    mapped_node_name=skip_or_start_node._name,
+                    mapped_node_input_name="domain",
+                )
+            ]
+
             output_mappings=[
                 OutputMapping(
-                    graph_output_name="asset", mapped_node_name=remove_ack_file_node._name,
-                    mapped_node_output_name="load_domain"
+                    graph_output_name="load_domain", 
+                    mapped_node_name=remove_ack_file_node._name,
+                    mapped_node_output_name="load_domain",
                 )
             ]
 
@@ -242,6 +271,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 name=f"{domain}_pre_load",
                 node_defs=[skip_or_start_node, remove_ack_file_node],
                 dependencies=dependencies,
+                input_mappings=input_mappings,
                 output_mappings=output_mappings,
             )
 
@@ -303,7 +333,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Generate the Dagster node that will run the starlake command.
         
         Args:
-            task_id (str): The reqired task id.
+            task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
         
@@ -311,3 +341,22 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             NodeDefinition: The Dastger node.
         """
 
+    def dummy_op(self, task_id: str, **kwargs) -> NodeDefinition:
+        """Dummy op.
+        Generate a Dagster dummy op.
+
+        Args:
+            task_id (str): The required task id.
+
+        Returns:
+            OpDefinition: The Dastger node.
+        """
+        def compute_fn(context, config):
+            yield Output(value="dummy", output_name="result")
+
+        return OpDefinition(
+            compute_fn=compute_fn,
+            name=task_id,
+            ins=kwargs.get("ins", {}),
+            outs={f"result": Out(str)},
+        )

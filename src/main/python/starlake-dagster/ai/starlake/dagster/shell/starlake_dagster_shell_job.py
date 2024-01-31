@@ -22,7 +22,7 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
         Generate the Dagster node that will run the starlake command.
 
         Args:
-            task_id (str): The reqired task id.
+            task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
 
         Returns:
@@ -47,7 +47,6 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
             if asset_key:
                 yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
-                yield Output(value=','.join(asset_key.path), output_name="asset")
 
             yield Output(value=output, output_name="result")
 
@@ -55,5 +54,5 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
             compute_fn=compute_fn,
             name=task_id,
             ins=kwargs.get("ins", {}),
-            outs={"result": Out(str), "asset": Out(str) if asset_key else None},
+            outs={"result": Out(str)},
         )

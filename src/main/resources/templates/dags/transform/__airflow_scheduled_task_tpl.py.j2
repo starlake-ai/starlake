@@ -76,7 +76,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {}))
             )
 
-    # build takgroups recursively
+    # build taskgroups recursively
     def generate_task_group_for_task(task):
         task_name = task['data']['name']
         airflow_task_group_id = sanitize_id(task_name)
