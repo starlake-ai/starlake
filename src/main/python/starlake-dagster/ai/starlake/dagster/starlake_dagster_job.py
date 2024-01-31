@@ -12,7 +12,7 @@ from dagster._core.definitions import NodeDefinition, OpDefinition, DependencyDe
 
 from dagster_shell import execute_shell_command
 
-class DagsterStarlakeJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
+class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 

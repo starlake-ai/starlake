@@ -1,10 +1,10 @@
-{% include 'templates/dags/__common.py.j2' %}
+{% include 'templates/dags/__common_airflow.py.j2' %}
 import os
 import sys
 
-from ai.starlake.airflow import AirflowStarlakeOptions
+from ai.starlake.airflow import StarlakeAirflowOptions
 
-from ai.starlake.airflow.gcp import AirflowStarlakeDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
+from ai.starlake.airflow.gcp import StarlakeAirflowDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
 
 #optional get_dataproc_master_config function that returns an instance of StarlakeDataprocMasterConfig per dag name
 def default_dataproc_master_config(*args, **kwargs) -> StarlakeDataprocMasterConfig:
@@ -32,11 +32,11 @@ dataproc_worker_config = getattr(sys.modules[__name__], "get_dataproc_worker_con
 #optional get_dataproc_secondary_worker_config function that returns an instance of StarlakeDataprocWorkerConfig per dag name
 dataproc_secondary_worker_config = getattr(sys.modules[__name__], "get_dataproc_secondary_worker_config", lambda dag_name: None)
 
-cluster_config_name = AirflowStarlakeOptions.get_context_var("cluster_config_name", os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(), options)
+cluster_config_name = StarlakeAirflowOptions.get_context_var("cluster_config_name", os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(), options)
 
 #optional variable jobs as a dict of all options to apply by job
 #eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
-sl_job = AirflowStarlakeDataprocJob(
+sl_job = StarlakeAirflowDataprocJob(
     cluster = StarlakeDataprocCluster(
         cluster_config=StarlakeDataprocClusterConfig(
             cluster_id=sys.modules[__name__].__dict__.get('cluster_id', cluster_config_name),

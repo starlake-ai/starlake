@@ -1,6 +1,6 @@
 from ai.starlake.common import keep_ascii_only, sanitize_id
 from ai.starlake.job import StarlakeSparkConfig
-from ai.starlake.airflow import AirflowStarlakeJob, DEFAULT_DAG_ARGS
+from ai.starlake.airflow import StarlakeAirflowJob, DEFAULT_DAG_ARGS
 
 import json
 import os
@@ -17,7 +17,7 @@ cron = "{{ context.cron }}"
 
 task_deps=json.loads("""{{ context.dependencies }}""")
 
-load_dependencies = AirflowStarlakeJob.get_context_var(var_name='load_dependencies', default_value='False', options=options)
+load_dependencies = StarlakeAirflowJob.get_context_var(var_name='load_dependencies', default_value='False', options=options)
 
 schedule = None
 
@@ -38,7 +38,7 @@ if load_dependencies.lower() != 'true':
         _load_datasets(task)
     schedule = list(map(lambda dataset: Dataset(dataset + _extra_dataset_parameters), datasets))
 
-tags = AirflowStarlakeJob.get_context_var(var_name='tags', default_value="", options=options).split()
+tags = StarlakeAirflowJob.get_context_var(var_name='tags', default_value="", options=options).split()
 
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
@@ -58,7 +58,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     post_tasks = sl_job.post_tasks(dag=dag)
 
     def create_task(airflow_task_id: str, task_name: str, task_type: str):
-        spark_config_name=AirflowStarlakeOptions.get_context_var('spark_config_name', task_name.lower(), options)
+        spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', task_name.lower(), options)
         if (task_type == 'task'):
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 

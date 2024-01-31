@@ -2,19 +2,19 @@ from typing import Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.airflow import AirflowStarlakeJob
+from ai.starlake.airflow import StarlakeAirflowJob
 
 from airflow.models.baseoperator import BaseOperator
 
 from airflow.operators.bash import BashOperator
 
-class AirflowStarlakeBashJob(AirflowStarlakeJob):
+class StarlakeAirflowBashJob(StarlakeAirflowJob):
     """Airflow Starlake Bash Job."""
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()
+        """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
         Args:

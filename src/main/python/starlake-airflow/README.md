@@ -10,9 +10,9 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 pip install starlake-airflow --upgrade
 ```
 
-## AirflowStarlakeJob
+## StarlakeAirflowJob
 
-`ai.starlake.airflow.AirflowStarlakeJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
+`ai.starlake.airflow.StarlakeAirflowJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the `import`, [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
 
 ### sl_import
 
@@ -168,7 +168,7 @@ The following options can be specified for all concrete factory classes:
 
 ## Data-aware scheduling
 
-The `ai.starlake.airflow.AirflowStarlakeJob` class is also responsible for recording the `outlets` related to the execution of each starlake command, usefull for scheduling DAGs using **data-aware scheduling**.
+The `ai.starlake.airflow.StarlakeAirflowJob` class is also responsible for recording the `outlets` related to the execution of each starlake command, usefull for scheduling DAGs using **data-aware scheduling**.
 
 All the outlets that have been recorded are available in the `outlets` property of the instance of the concrete class.
 
@@ -216,15 +216,15 @@ In conjonction with the starlake dag generation, the `outlets` property can be u
 
 ## On premise
 
-### AirflowStarlakeBashJob
+### StarlakeAirflowBashJob
 
-This class is a concrete implementation of `AirflowStarlakeJob` that generates tasks using `airflow.operators.bash.BashOperator`. Usefull for **on premise** execution.
+This class is a concrete implementation of `StarlakeAirflowJob` that generates tasks using `airflow.operators.bash.BashOperator`. Usefull for **on premise** execution.
 
 An additional `SL_STARLAKE_PATH` option is required to specify the **path** to the `starlake` **executable**.
 
-#### AirflowStarlakeBashJob Example
+#### StarlakeAirflowBashJob Example
 
-The following example shows how to use `AirflowStarlakeBashJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+The following example shows how to use `StarlakeAirflowBashJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
 ```python
 description="""example to load domain(s) using airflow starlake bash job"""
@@ -237,9 +237,9 @@ options = {
     'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
 }
 
-from ai.starlake.airflow.bash import AirflowStarlakeBashJob
+from ai.starlake.airflow.bash import StarlakeAirflowBashJob
 
-sl_job = AirflowStarlakeBashJob(options=options)
+sl_job = StarlakeAirflowBashJob(options=options)
 
 schedules= [{
     'schedule': 'None',
@@ -325,13 +325,13 @@ for schedule in schedules:
             all_load_tasks >> all_done
 ```
 
-![dag generated with AirflowStarlakeBashJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeBashJob.png)
+![dag generated with StarlakeAirflowBashJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithStarlakeAirflowBashJob.png)
 
 ## Google Cloud Platform
 
-### AirflowStarlakeDataprocJob
+### StarlakeAirflowDataprocJob
 
-This class is a concrete implementation of `AirflowStarlakeJob` that overrides the `sl_job` method that will run the starlake command by submitting **Dataproc job** to the configured **Dataproc cluster**.
+This class is a concrete implementation of `StarlakeAirflowJob` that overrides the `sl_job` method that will run the starlake command by submitting **Dataproc job** to the configured **Dataproc cluster**.
 
 It delegates to an instance of the `ai.starlake.airflow.gcp.StarlakeDataprocCluster` class the responsibility to :
 
@@ -339,11 +339,11 @@ It delegates to an instance of the `ai.starlake.airflow.gcp.StarlakeDataprocClus
 * **submit Dataproc job** to the latter by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocSubmitJobOperator`
 * **delete** the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocDeleteClusterOperator`
 
-This instance is available in the `cluster` property of the `AirflowStarlakeDataprocJob` class and can be configured using the `ai.starlake.airflow.gcp.StarlakeDataprocClusterConfig` class.
+This instance is available in the `cluster` property of the `StarlakeAirflowDataprocJob` class and can be configured using the `ai.starlake.airflow.gcp.StarlakeDataprocClusterConfig` class.
 
-The creation of the **Dataproc cluster** can be performed by calling the `create_cluster` method of the `cluster` property or by calling the `pre_tasks` method of the AirflowStarlakeDataprocJob (the call to the `pre_load` method will, behind the scene, call the `pre_tasks` method and add the optional resulting task to the group of Airflow tasks).
+The creation of the **Dataproc cluster** can be performed by calling the `create_cluster` method of the `cluster` property or by calling the `pre_tasks` method of the StarlakeAirflowDataprocJob (the call to the `pre_load` method will, behind the scene, call the `pre_tasks` method and add the optional resulting task to the group of Airflow tasks).
 
-The deletion of the **Dataproc cluster** can be performed by calling the `delete_cluster` method of the `cluster` property or by calling the `post_tasks` method of the AirflowStarlakeDataprocJob.
+The deletion of the **Dataproc cluster** can be performed by calling the `delete_cluster` method of the `cluster` property or by calling the `post_tasks` method of the StarlakeAirflowDataprocJob.
 
 #### Dataproc cluster configuration
 
@@ -366,7 +366,7 @@ Additional options may be specified to configure the **Dataproc cluster**.
 | **dataproc_worker_disk_size**    | int  | the optional worker disk size (`1024` by default)                    |
 | **dataproc_num_workers**         | int  | the optional number of workers (`4` by default)                      |
 
-All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDataprocCluster** or if the latter was not defined when instantiating **AirflowStarlakeDataprocJob**.
+All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDataprocCluster** or if the latter was not defined when instantiating **StarlakeAirflowDataprocJob**.
 
 #### Dataproc Job configuration
 
@@ -383,9 +383,9 @@ Additional options may be specified to configure the **Dataproc job**.
 
 `spark_executor_memory`, `spark_executor_cores` and `spark_executor_instances` options will be used by default if no **StarlakeSparkConfig** was passed to the `sl_load` and `sl_transform` methods.
 
-#### AirflowStarlakeDataprocJob Example
+#### StarlakeAirflowDataprocJob Example
 
-The following example shows how to use `AirflowStarlakeDataprocJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+The following example shows how to use `StarlakeAirflowDataprocJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
 ```python
 description="""example to load domain(s) using airflow starlake dataproc job"""
@@ -401,19 +401,19 @@ options = {
     'spark_jar_list':'gcs://artifacts/starlake.jar', 
 }
 
-from ai.starlake.airflow.gcp import AirflowStarlakeDataprocJob
+from ai.starlake.airflow.gcp import StarlakeAirflowDataprocJob
 
-sl_job = AirflowStarlakeDataprocJob(options=options)
+sl_job = StarlakeAirflowDataprocJob(options=options)
 
-# all the code following the instantiation of the starlake job is exactly the same as that defined for AirflowStarlakeBashJob
+# all the code following the instantiation of the starlake job is exactly the same as that defined for StarlakeAirflowBashJob
 #...
 ```
 
-![dag generated with AirflowStarlakeDataprocJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeDataprocJob.png)
+![dag generated with StarlakeAirflowDataprocJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithStarlakeAirflowDataprocJob.png)
 
-### AirflowStarlakeCloudRunJob
+### StarlakeAirflowCloudRunJob
 
-This class is a concrete implementation of `AirflowStarlakeJob` that overrides the `sl_job` method that will run the starlake command by executing **Cloud Run job**.
+This class is a concrete implementation of `StarlakeAirflowJob` that overrides the `sl_job` method that will run the starlake command by executing **Cloud Run job**.
 
 #### Cloud Run job configuration
 
@@ -430,9 +430,9 @@ Additional options may be specified to configure the **Cloud Run job**.
 
 If the execution has been parameterized to be **asynchronous**, an `airflow.sensors.bash.BashSensor` will be instantiated to wait for the completion of the **Cloud Run job** execution.
 
-#### AirflowStarlakeCloudRunJob Examples
+#### StarlakeAirflowCloudRunJob Examples
 
-The following examples shows how to use `AirflowStarlakeCloudRunJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+The following examples shows how to use `StarlakeAirflowCloudRunJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
 ##### Synchronous execution
 
@@ -450,14 +450,14 @@ options = {
     'cloud_run_async':'False'
 }
 
-from ai.starlake.airflow.gcp import AirflowStarlakeCloudRunJob
+from ai.starlake.airflow.gcp import StarlakeAirflowCloudRunJob
 
-sl_job = AirflowStarlakeCloudRunJob(options=options)
-# all the code following the instantiation of the starlake job is exactly the same as that defined for AirflowStarlakeBashJob
+sl_job = StarlakeAirflowCloudRunJob(options=options)
+# all the code following the instantiation of the starlake job is exactly the same as that defined for StarlakeAirflowBashJob
 #...
 ```
 
-![dag generated with AirflowStarlakeCloudRunJob synchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeCloudRunJobSynchronous.png)
+![dag generated with StarlakeAirflowCloudRunJob synchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithStarlakeAirflowCloudRunJobSynchronous.png)
 
 ##### Asynchronous execution
 
@@ -480,7 +480,7 @@ options = {
 #...
 ```
 
-![dag generated with AirflowStarlakeCloudRunJob asynchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithAirflowStarlakeCloudRunJobAsynchronous.png)
+![dag generated with StarlakeAirflowCloudRunJob asynchronously](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithStarlakeAirflowCloudRunJobAsynchronous.png)
 
 ## Amazon Web Services
 

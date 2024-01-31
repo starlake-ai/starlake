@@ -1,7 +1,7 @@
 import sys
 
 from ai.starlake.job import StarlakeSparkConfig
-from ai.starlake.airflow import AirflowStarlakeOptions
+from ai.starlake.airflow import StarlakeAirflowOptions
 
 description="""{{ context.config.comment }}"""
 
@@ -17,7 +17,7 @@ def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
         memory=sys.modules[__name__].__dict__.get('spark_executor_memory', None),
         cores=sys.modules[__name__].__dict__.get('spark_executor_cores', None),
         instances=sys.modules[__name__].__dict__.get('spark_executor_instances', None),
-        cls_options=AirflowStarlakeOptions(),
+        cls_options=StarlakeAirflowOptions(),
         options=options,
         **kwargs
     )

@@ -1,6 +1,6 @@
 from typing import Union
 
-from ai.starlake.dagster import DagsterStarlakeJob
+from ai.starlake.dagster import StarlakeDagsterJob
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
@@ -12,7 +12,7 @@ from dagster_shell import execute_shell_command
 
 from dagster_shell.ops import ShellOpConfig
 
-class DagsterStarlakeShellJob(DagsterStarlakeJob):
+class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)

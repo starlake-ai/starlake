@@ -1,2 +1,2 @@
 # package ai.starlake.dagster
-from .dagster_starlake_job import DagsterStarlakeJob
+from .starlake_dagster_job import StarlakeDagsterJob

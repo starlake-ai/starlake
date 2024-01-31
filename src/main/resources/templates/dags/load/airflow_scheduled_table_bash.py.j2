@@ -5,5 +5,5 @@
 # - incoming_path: the path to the incoming landing zone (if not specified, the default SL_ROOT/incoming path will be used) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 #
-{% include 'templates/dags/__starlake_bash_job.py.j2' %}
-{% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}
+{% include 'templates/dags/__starlake_airflow_bash_job.py.j2' %}
+{% include 'templates/dags/load/__airflow_scheduled_table_tpl.py.j2' %}

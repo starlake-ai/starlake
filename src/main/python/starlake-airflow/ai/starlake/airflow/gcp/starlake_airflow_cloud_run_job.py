@@ -6,7 +6,7 @@ from typing import Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from ai.starlake.airflow import AirflowStarlakeJob
+from ai.starlake.airflow import StarlakeAirflowJob
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -16,7 +16,7 @@ from airflow.sensors.bash import BashSensor
 
 from airflow.utils.task_group import TaskGroup
 
-class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
+class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
     """Airflow Starlake Cloud Run Job."""
     def __init__(
             self,
@@ -81,7 +81,7 @@ class AirflowStarlakeCloudRunJob(AirflowStarlakeJob):
         return task_completion_sensors
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
-        """Overrides AirflowStarlakeJob.sl_job()
+        """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
         
         Args:
