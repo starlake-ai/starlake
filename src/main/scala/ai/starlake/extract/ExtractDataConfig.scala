@@ -102,6 +102,8 @@ sealed trait TableExtractDataConfig {
   def fullExport: Boolean
   def fetchSize: Option[Int]
 
+  def tableOutputDir: File
+
   val extractionDateTime: String = {
     val formatter = DateTimeFormatter
       .ofPattern("yyyyMMddHHmmss")
@@ -126,7 +128,8 @@ case class UnpartitionnedTableExtractDataConfig(
   table: String,
   columnsProjection: List[Attribute],
   fullExport: Boolean,
-  fetchSize: Option[Int]
+  fetchSize: Option[Int],
+  tableOutputDir: File
 ) extends TableExtractDataConfig
 
 case class PartitionnedTableExtractDataConfig(
@@ -138,5 +141,6 @@ case class PartitionnedTableExtractDataConfig(
   partitionColumn: String,
   partitionColumnType: PrimitiveType,
   hashFunc: Option[String],
-  nbPartitions: Int
+  nbPartitions: Int,
+  tableOutputDir: File
 ) extends TableExtractDataConfig

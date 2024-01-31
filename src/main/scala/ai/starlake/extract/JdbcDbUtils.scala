@@ -807,7 +807,7 @@ object JdbcDbUtils extends LazyLogging {
       case Some(true) => Utils.keepAlphaNum(extractConfig.jdbcSchema.schema)
       case _          => extractConfig.jdbcSchema.schema
     }
-    val outputDir = createDomainOutputDir(extractConfig.baseOutputDir, domainName)
+    val tableOutputDir = createDomainOutputDir(extractConfig.baseOutputDir, domainName)
 
     val filteredJdbcSchema: JDBCSchema =
       filterTablesToExtract(extractConfig.jdbcSchema, extractConfig.includeTables)
@@ -887,7 +887,8 @@ object JdbcDbUtils extends LazyLogging {
                       partitionColumn,
                       partitionColumnType,
                       stringPartitionFuncTpl,
-                      numPartitions
+                      numPartitions,
+                      tableOutputDir
                     )
                   case None =>
                     UnpartitionnedTableExtractDataConfig(
@@ -895,7 +896,8 @@ object JdbcDbUtils extends LazyLogging {
                       tableName,
                       selectedColumns,
                       fullExport,
-                      fetchSize
+                      fetchSize,
+                      tableOutputDir
                     )
                 }
               }
@@ -909,7 +911,7 @@ object JdbcDbUtils extends LazyLogging {
               ) {
                 if (extractConfig.cleanOnExtract) {
                   logger.info(s"Deleting all files of $tableName")
-                  outputDir.list
+                  tableOutputDir.list
                     .filter(f =>
                       s"^$tableName-\\d{14}[\\.\\-].*".r.pattern.matcher(f.name).matches()
                     )
@@ -1426,7 +1428,7 @@ object JdbcDbUtils extends LazyLogging {
       .getOrElse(
         tableExtractDataConfig.table + s"-${tableExtractDataConfig.extractionDateTime}.csv"
       )
-    val outFile = File(extractConfig.baseOutputDir, filename)
+    val outFile = File(tableExtractDataConfig.tableOutputDir, filename)
     Try {
       logger.info(s"$context Starting extraction into $filename")
       val outFileWriter = outFile.newFileOutputStream(append = false)
@@ -1532,7 +1534,7 @@ object LastExportUtils extends LazyLogging {
             } else
               None
           }
-        internalBoundaries(conn, extractConfig, tableExtractDataConfig) { statement =>
+        internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setLong(1, lastExport.getOrElse(Long.MinValue))
           executeQuery(statement) { rs =>
             rs.next()
@@ -1579,7 +1581,7 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, extractConfig, tableExtractDataConfig) { statement =>
+        internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
           executeQuery(statement) { rs =>
             rs.next()
@@ -1622,7 +1624,7 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, extractConfig, tableExtractDataConfig) { statement =>
+        internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setDate(1, lastExport.getOrElse(MIN_DATE))
           executeQuery(statement) { rs =>
             rs.next()
@@ -1663,7 +1665,7 @@ object LastExportUtils extends LazyLogging {
             else
               None
           }
-        internalBoundaries(conn, extractConfig, tableExtractDataConfig) { statement =>
+        internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
           executeQuery(statement) { rs =>
             rs.next()
@@ -1707,7 +1709,8 @@ object LastExportUtils extends LazyLogging {
         internalBoundaries(
           conn,
           extractConfig,
-          tableExtractDataConfig
+          tableExtractDataConfig,
+          stringPartitionFunc
         ) { statement =>
           statement.setLong(1, Long.MinValue)
           executeQuery(statement) { rs =>
@@ -1778,10 +1781,11 @@ object LastExportUtils extends LazyLogging {
   private def internalBoundaries[T](
     conn: SQLConnection,
     extractConfig: ExtractDataConfig,
-    tableExtractDataConfig: PartitionnedTableExtractDataConfig
+    tableExtractDataConfig: PartitionnedTableExtractDataConfig,
+    hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
     val quotedColumn = extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
-    val columnToDistribute = tableExtractDataConfig.hashFunc.getOrElse(quotedColumn)
+    val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
       s"""select count($quotedColumn) as count_value, min($columnToDistribute) as min_value, max($columnToDistribute) as max_value
            |from ${extractConfig.data.quoteIdentifier(
