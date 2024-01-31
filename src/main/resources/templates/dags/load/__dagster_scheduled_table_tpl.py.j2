@@ -1,0 +1,80 @@
+import os
+
+from dagster import ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping
+
+schedules= [{% for schedule in context.schedules %}
+    {
+        'schedule': '{{ schedule.schedule }}',
+        'cron': {% if schedule.cron is not none %}'{{ schedule.cron }}'{% else %}None{% endif %},
+        'domains': [{% for domain in schedule.domains %}
+            {
+                'name':'{{ domain.name }}',
+                'final_name':'{{ domain.final_name}}',
+                'tables': [{% for table in domain.tables %}
+                    {
+                        'name': '{{ table.name }}',
+                        'final_name': '{{ table.final_name }}'
+                    }{% if not loop.last  %},{% endif %}{% endfor %}
+                ]
+            }{% if not loop.last  %},{% endif %}{% endfor %}
+        ]
+    }{% if not loop.last  %},{% endif %}{% endfor %}
+]
+
+def load_domain(domain: dict) -> GraphDefinition:
+    pld = sl_job.sl_pre_load(domain=domain["name"])
+    tables = [table["name"] for table in domain["tables"]]
+    ins={"domain": In(str)} if pld else {}
+    op_tables = [sl_job.sl_load(task_id=None, domain=domain["name"], table=table, ins=ins) for table in tables]
+    input_mappings=[
+        InputMapping(
+            graph_input_name="domain", mapped_node_name=f"{op_table._name}",
+            mapped_node_input_name="domain"
+        )
+        for op_table in op_tables
+    ] if ins else []
+    ld = GraphDefinition(
+        name=f"{domain['name']}_load",
+        node_defs=op_tables,
+        dependencies={},
+        input_mappings=input_mappings,
+    )
+    dependencies = dict()
+    if pld:
+        dependencies[ld._name] = {
+            'domain': DependencyDefinition(pld._name, 'asset')
+        }
+    return GraphDefinition(
+        name=f"{domain['name']}",
+        node_defs=[ld] + ([pld] if pld else []),
+        dependencies=dependencies,
+    )
+
+def load_domains(schedule: dict) -> GraphDefinition:
+    return GraphDefinition(
+        name='schedule',
+        node_defs=[load_domain(domain) for domain in schedule["domains"]],        
+        dependencies={},
+    )
+
+def job_name(schedule) -> str:
+    job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
+    return (f"{job_name}-{schedule['schedule']}" if len(schedules) > 1 else job_name)
+
+def generate_job(schedule: dict) -> JobDefinition:
+    return JobDefinition(
+        name=job_name(schedule),
+        description=description,
+        graph_def=load_domains(schedule),
+    )
+
+crons = []
+for schedule in schedules:
+    cron = schedule['cron']
+    if(cron):
+        crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron))
+
+defs = Definitions(
+   jobs=[generate_job(schedule) for schedule in schedules],
+   schedules=crons,
+)
