@@ -21,15 +21,18 @@ schedules= [{% for schedule in context.schedules %}
     }{% if not loop.last  %},{% endif %}{% endfor %}
 ]
 
+start = sl_job.dummy_op(task_id="start")
+
 def load_domain(domain: dict) -> GraphDefinition:
     pld = sl_job.sl_pre_load(domain=domain["name"])
     tables = [table["name"] for table in domain["tables"]]
-    ins={"domain": In(str)} if pld else {}
+    ins={"domain": In(str)}
     op_tables = [sl_job.sl_load(task_id=None, domain=domain["name"], table=table, ins=ins) for table in tables]
-    input_mappings=[
+    ld_input_mappings=[
         InputMapping(
-            graph_input_name="domain", mapped_node_name=f"{op_table._name}",
-            mapped_node_input_name="domain"
+            graph_input_name="domain", 
+            mapped_node_name=f"{op_table._name}",
+            mapped_node_input_name="domain",
         )
         for op_table in op_tables
     ] if ins else []
@@ -37,24 +40,44 @@ def load_domain(domain: dict) -> GraphDefinition:
         name=f"{domain['name']}_load",
         node_defs=op_tables,
         dependencies={},
-        input_mappings=input_mappings,
+        input_mappings=ld_input_mappings,
     )
     dependencies = dict()
     if pld:
         dependencies[ld._name] = {
-            'domain': DependencyDefinition(pld._name, 'asset')
+            'domain': DependencyDefinition(pld._name, 'load_domain')
         }
+    input_mappings = [
+        InputMapping(
+            graph_input_name="domain", 
+            mapped_node_name=f"{pld._name}",
+            mapped_node_input_name="domain",
+        )
+    ] if pld else [
+        InputMapping(
+            graph_input_name="domain", 
+            mapped_node_name=f"{ld._name}",
+            mapped_node_input_name="domain",
+        )
+    ]
     return GraphDefinition(
         name=f"{domain['name']}",
         node_defs=[ld] + ([pld] if pld else []),
         dependencies=dependencies,
+        input_mappings=input_mappings,
     )
 
 def load_domains(schedule: dict) -> GraphDefinition:
+    node_defs = [load_domain(domain) for domain in schedule["domains"]]
+    dependencies = dict()
+    for node_def in node_defs:
+        dependencies[node_def._name] = {
+            'domain': DependencyDefinition(start._name, 'result')
+        }
     return GraphDefinition(
         name='schedule',
-        node_defs=[load_domain(domain) for domain in schedule["domains"]],        
-        dependencies={},
+        node_defs=node_defs + [start],        
+        dependencies=dependencies,
     )
 
 def job_name(schedule) -> str:

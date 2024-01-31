@@ -5,5 +5,5 @@
 # - load_dependencies: whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies will not be added) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 #
-{% include 'templates/dags/__starlake_bash_job.py.j2' %}
-{% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}
+{% include 'templates/dags/__starlake_airflow_bash_job.py.j2' %}
+{% include 'templates/dags/transform/__airflow_scheduled_task_tpl.py.j2' %}
