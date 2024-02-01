@@ -62,7 +62,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
         JdbcDbUtils.extractData(
           ExtractDataConfig(
             jdbcSchema,
-            outputDir(config.outputDir),
+            dataOutputDir(config.outputDir),
             config.limit,
             config.numPartitions,
             config.parallelism,
