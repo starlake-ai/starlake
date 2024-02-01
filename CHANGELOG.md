@@ -4,6 +4,7 @@
 # 1.1.0:
 **BREAKING CHANGE** 
 - Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
+- Default data extraction output dir is now in 'metadata/extract' instead of 'metadata/load'.
 
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely
