@@ -18,7 +18,10 @@ abstract class Extract {
       paths.find(_.getName() == mappingFilename).getOrElse(new Path(mappingFilename))
     }
   }
-  protected def outputDir(outputDir: Option[String])(implicit settings: Settings): File =
+  protected def schemaOutputDir(outputDir: Option[String])(implicit settings: Settings): File =
     File(outputDir.getOrElse(DatasetArea.load.toString))
+
+  protected def dataOutputDir(outputDir: Option[String])(implicit settings: Settings): File =
+    File(outputDir.getOrElse(DatasetArea.extract.toString))
 
 }

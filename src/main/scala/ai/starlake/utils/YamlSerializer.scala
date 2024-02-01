@@ -100,14 +100,18 @@ object YamlSerializer extends LazyLogging {
         }
       case _ =>
     }
-    if (
-      !jdbcNode
-        .path("default")
-        .isMissingNode && !jdbcNode.path("default").path("tables").isMissingNode
-    ) {
-      logger.warn(
-        "tables defined in default are ignored. Please define them in jdbcSchemas"
-      )
+    val defaultNode = jdbcNode.path("default")
+    if (!defaultNode.isMissingNode) {
+      if (!defaultNode.path("tables").isMissingNode) {
+        logger.warn(
+          "tables defined in default are ignored. Please define them in jdbcSchemas"
+        )
+      }
+      if (!defaultNode.path("exclude").isMissingNode) {
+        logger.warn(
+          "exclude defined in default is ignored. Please define it in jdbcSchemas"
+        )
+      }
     }
     val jdbcSchemas = mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
     jdbcSchemas.propageGlobalJdbcSchemas()
