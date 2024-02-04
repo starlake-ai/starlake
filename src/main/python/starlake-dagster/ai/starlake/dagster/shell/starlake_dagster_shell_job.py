@@ -4,13 +4,11 @@ from ai.starlake.dagster import StarlakeDagsterJob
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from dagster import Failure, OpDefinition, Output, AssetMaterialization, AssetKey, Out
+from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op
 
 from dagster._core.definitions import NodeDefinition
 
 from dagster_shell import execute_shell_command
-
-from dagster_shell.ops import ShellOpConfig
 
 class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
@@ -32,7 +30,12 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
         asset_key: AssetKey = kwargs.get("asset", None)
 
-        def compute_fn(context, config: ShellOpConfig):
+        @op(
+            name=task_id,
+            ins=kwargs.get("ins", {}),
+            out={kwargs.get("out", "result"): Out(str)},
+        )
+        def job(context, **kwargs):
             output, return_code = execute_shell_command(
                 shell_command=command,
                 output_logging="STREAM",
@@ -50,9 +53,4 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
             yield Output(value=output, output_name="result")
 
-        return OpDefinition(
-            compute_fn=compute_fn,
-            name=task_id,
-            ins=kwargs.get("ins", {}),
-            outs={"result": Out(str)},
-        )
+        return job
