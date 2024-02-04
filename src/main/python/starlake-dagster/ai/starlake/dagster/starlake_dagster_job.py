@@ -6,9 +6,11 @@ from ai.starlake.common import sanitize_id
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions
 
-from dagster import AssetKey, Failure, InputMapping, OutputMapping, DependencyDefinition, GraphDefinition, OpDefinition, Output, In, Out
+from dagster import AssetKey, Failure, Output, In, Out, op, graph
 
 from dagster._core.definitions import NodeDefinition
+
+from dagster._core.definitions.output import OutputDefinition
 
 from dagster_shell import execute_shell_command
 
@@ -49,7 +51,12 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             if incoming_path.startswith('gs://'):
                 list_files_command = "gsutil " + list_files_command
 
-            def list_files(context, config):
+            @op(
+                name=f"{domain}_check_incoming_files",
+                ins={"domain": In(str)},
+                out={"incoming_files": Out(str, is_required=False), "no_incoming_files": Out(str, is_required=False)}
+            )
+            def list_files(context, domain, **kwargs):
                 output, return_code = execute_shell_command(
                     shell_command=list_files_command,
                     output_logging="STREAM",
@@ -66,62 +73,43 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 context.log.info('Number of files found: {}'.format(files_number))
 
                 if int(files_number) > 0:
-                    yield Output(domain, "import_domain")
+                    yield Output(domain, "incoming_files")
                 else:
-                    yield Output(True, "skipped")
+                    yield Output(domain, "no_incoming_files")
 
-            skip_or_start_node = OpDefinition(
-                name=f"{domain}_skip_or_start",
-                compute_fn=list_files,
-                ins={"domain": In(str)},
-                outs={"import_domain": Out(str, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
-            )
+            import_node = self.sl_import(task_id=None, domain=domain, ins={"incoming_files": In(str)}, out="domain_imported", required=False)
 
-            import_node = self.sl_import(task_id=None, domain=domain, ins={"domain": In(str)})
-
-            input_mappings=[
-                InputMapping(
-                    graph_input_name="domain", 
-                    mapped_node_name=skip_or_start_node._name,
-                    mapped_node_input_name="domain",
-                )
-            ]
-
-            output_mappings=[
-                OutputMapping(
-                    graph_output_name="load_domain", 
-                    mapped_node_name=import_node._name,
-                    mapped_node_output_name="asset",
-                )
-            ]
-
-            dependencies = dict()
-            dependencies[import_node._name] = {
-                'domain': DependencyDefinition(skip_or_start_node._name, 'import_domain')
-            }
-
-            return GraphDefinition(
+            @graph(
                 name=f"{domain}_pre_load",
-                node_defs=[skip_or_start_node, import_node],
-                dependencies=dependencies,
-                input_mappings=input_mappings,
-                output_mappings=output_mappings,
+                description=f"Check if domain '{domain}' can be loaded by applying {pre_load_strategy} strategy",
+                input_defs=list_files.input_defs,
+                output_defs=[OutputDefinition(name="load_domain", dagster_type=str, is_required=False), OutputDefinition(name="skipped", dagster_type=str, is_required=False)]
             )
+            def pre_load_graph(domain, **kwargs):
+                import_domain, skip = list_files(domain, **kwargs)
+                return {"load_domain": import_node(import_domain), "skipped": skip}
+
+            return pre_load_graph
 
         elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
 
-            imported_path = self.__class__.get_context_var(
+            pending_path = self.__class__.get_context_var(
                 var_name='pending_path',
                 default_value=f'{self.sl_datasets}/pending',
                 options=self.options
             )
 
-            list_files_command = f'ls {imported_path}/{domain}/* | wc -l'
+            list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
 
-            if imported_path.startswith('gs://'):
+            if pending_path.startswith('gs://'):
                 list_files_command = "gsutil " + list_files_command
 
-            def list_files(context, config):
+            @op(
+                name=f"{domain}_check_pending_files",
+                ins={"domain": In(str)},
+                out={"pending_files": Out(str, is_required=False), "no_pending_files": Out(str, is_required=False)}
+            )
+            def list_files(context, domain, **kwargs):
                 output, return_code = execute_shell_command(
                     shell_command=list_files_command,
                     output_logging="STREAM",
@@ -138,60 +126,44 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 context.log.info('Number of files found: {}'.format(files_number))
 
                 if int(files_number) > 0:
-                    yield Output(domain, "load_domain")
+                    yield Output(domain, "pending_files")
                 else:
-                    yield Output(True, "skipped")
+                    yield Output(domain, "no_pending_files")
 
-            skip_or_start_node = OpDefinition(
-                name=f"{domain}_skip_or_start",
-                compute_fn=list_files,
-                ins={"domain": In(str)},
-                outs={"load_domain": Out(str, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
-            )
-
-            dependencies = dict()
-
-            input_mappings=[
-                InputMapping(
-                    graph_input_name="domain", 
-                    mapped_node_name=skip_or_start_node._name,
-                    mapped_node_input_name="domain",
-                )
-            ]
-
-            output_mappings=[
-                OutputMapping(
-                    graph_output_name="load_domain", 
-                    mapped_node_name=skip_or_start_node._name,
-                    mapped_node_output_name="load_domain",
-                )
-            ]
-
-            return GraphDefinition(
+            @graph(
                 name=f"{domain}_pre_load",
-                node_defs=[skip_or_start_node],
-                dependencies=dependencies,
-                input_mappings=input_mappings,
-                output_mappings=output_mappings,
+                description=f"Check if domain '{domain}' can be loaded by applying {pre_load_strategy} strategy",
+                input_defs=list_files.input_defs,
+                output_defs=[OutputDefinition(name="load_domain", dagster_type=str, is_required=False), OutputDefinition(name="skipped", dagster_type=str, is_required=False)]
             )
+            def pre_load_graph(domain, **kwargs):
+                load_domain, skip = list_files(domain, **kwargs)
+                return {"load_domain": load_domain, "skipped": skip}
+
+            return pre_load_graph
 
         elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
 
             def current_dt():
                 return datetime.today().strftime('%Y-%m-%d')
 
-            ack_file = self.__class__.get_context_var(
-                var_name='global_ack_file_path',
-                default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
-                options=self.options
+            @op(
+                name=f"{domain}_check_ack_file",
+                ins={"domain": In(str)},
+                out={"ack_file": Out(str, is_required=False), "no_ack_file": Out(str, is_required=False)}
             )
+            def check_ack_file(context, domain, **kwargs):
+                ack_file = self.__class__.get_context_var(
+                    var_name='global_ack_file_path',
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
+                    options=self.options
+                )
 
-            check_ack_file_command = f'ls {ack_file} | wc -l'
+                check_ack_file_command = f'ls {ack_file} | wc -l'
 
-            if ack_file.startswith('gs://'):
-                check_ack_file_command = "gsutil " + check_ack_file_command
+                if ack_file.startswith('gs://'):
+                    check_ack_file_command = "gsutil " + check_ack_file_command
 
-            def check_ack_file(context, config):
                 output, return_code = execute_shell_command(
                     shell_command=check_ack_file_command,
                     output_logging="STREAM",
@@ -208,23 +180,21 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 context.log.info('Number of files found: {}'.format(files_number))
 
                 if int(files_number) > 0:
-                    yield Output(True, "remove_ack_file")
+                    yield Output(ack_file, "ack_file")
                 else:
-                    yield Output(True, "skipped")
+                    yield Output(domain, "no_ack_file")
 
-            skip_or_start_node = OpDefinition(
-                name=f"{domain}_skip_or_start",
-                compute_fn=check_ack_file,
-                ins={"domain": In(str)},
-                outs={"remove_ack_file": Out(bool, is_required=False), "skipped": Out(bool, is_required=False)}, # branching
+            @op(
+                name=f"{domain}_remove_ack_file",
+                ins={"ack_file": In(str)},
+                out={"ack_file_removed": Out(str)}
             )
+            def remove_ack_file(context, ack_file, **kwargs):
+                remove_ack_file_command = f'rm {ack_file}'
 
-            remove_ack_file_command = f'rm {ack_file}'
+                if ack_file.startswith('gs://'):
+                    remove_ack_file_command = "gsutil " + remove_ack_file_command
 
-            if ack_file.startswith('gs://'):
-                remove_ack_file_command = "gsutil " + remove_ack_file_command
-
-            def remove_ack_file(context, config):
                 output, return_code = execute_shell_command(
                     shell_command=remove_ack_file_command,
                     output_logging="STREAM",
@@ -239,41 +209,19 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
 
                 yield Output(domain, "load_domain")
 
-            remove_ack_file_node = OpDefinition(
-                name=f"{domain}_remove_ack_file",
-                compute_fn=remove_ack_file,
-                ins={"remove_ack_file": In(bool)},
-                outs={"load_domain": Out(str)},
-            )
+            skipped_node = self.dummy_op(task_id=f"{domain}_skipped", ins={"no_ack_file": In(str)}, out="skipped")
 
-            dependencies = dict()
-            dependencies[remove_ack_file_node._name] = {
-                'remove_ack_file': DependencyDefinition(skip_or_start_node._name, 'remove_ack_file')
-            }
-
-            input_mappings=[
-                InputMapping(
-                    graph_input_name="domain", 
-                    mapped_node_name=skip_or_start_node._name,
-                    mapped_node_input_name="domain",
-                )
-            ]
-
-            output_mappings=[
-                OutputMapping(
-                    graph_output_name="load_domain", 
-                    mapped_node_name=remove_ack_file_node._name,
-                    mapped_node_output_name="load_domain",
-                )
-            ]
-
-            return GraphDefinition(
+            @graph(
                 name=f"{domain}_pre_load",
-                node_defs=[skip_or_start_node, remove_ack_file_node],
-                dependencies=dependencies,
-                input_mappings=input_mappings,
-                output_mappings=output_mappings,
+                description=f"Check if domain '{domain}' can be loaded by applying {pre_load_strategy} strategy",
+                input_defs=check_ack_file.input_defs,
+                output_defs=[OutputDefinition(name="load_domain", dagster_type=str, is_required=False), OutputDefinition(name="skipped", dagster_type=str, is_required=False)]
             )
+            def pre_load_graph(domain, **kwargs):
+                ack_file, skip = check_ack_file(domain, **kwargs)
+                return {"load_domain": remove_ack_file(ack_file), "skipped": skip}
+
+            return pre_load_graph
 
         else:
             return None
@@ -341,22 +289,24 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             NodeDefinition: The Dastger node.
         """
 
-    def dummy_op(self, task_id: str, **kwargs) -> NodeDefinition:
+    def dummy_op(self, task_id: str, out: str = "result", required: bool = True, **kwargs) -> NodeDefinition:
         """Dummy op.
         Generate a Dagster dummy op.
 
         Args:
             task_id (str): The required task id.
+            required (bool, optional): The optional required flag. Defaults to True.
 
         Returns:
-            OpDefinition: The Dastger node.
+            NodeDefinition: The Dastger node.
         """
-        def compute_fn(context, config):
-            yield Output(value="dummy", output_name="result")
-
-        return OpDefinition(
-            compute_fn=compute_fn,
+        @op(
             name=task_id,
+            required_resource_keys=set(),
             ins=kwargs.get("ins", {}),
-            outs={f"result": Out(str)},
+            out={out: Out(dagster_type=str, is_required=required)}
         )
+        def dummy(**kwargs):
+            yield Output(value=task_id, output_name=out)
+
+        return dummy
