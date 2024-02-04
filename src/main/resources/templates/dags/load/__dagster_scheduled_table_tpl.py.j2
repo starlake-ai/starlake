@@ -88,7 +88,7 @@ def load_domain(domain: dict) -> GraphDefinition:
             load_domain, skip = pld(domain)
             return load_domain_result([ld(load_domain), skip])
         else:
-            return load_domain_result([ld(domain['name'])])
+            return ld(domain)
 
     return domain_graph
 
