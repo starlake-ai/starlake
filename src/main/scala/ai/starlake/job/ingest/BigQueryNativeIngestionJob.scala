@@ -9,13 +9,7 @@ import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{JobResult, Utils}
-import com.google.cloud.bigquery.{
-  Field,
-  LegacySQLTypeName,
-  Schema => BQSchema,
-  StandardTableDefinition,
-  TableId
-}
+import com.google.cloud.bigquery.{Schema => BQSchema, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
@@ -68,20 +62,25 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
           effectiveSchema.finalName
         )
 
-      val targetConfig = ingestionJob
-        .buildCommonNativeBQLoadConfig(
-          createDisposition,
-          writeDisposition,
-          bqSink,
-          schemaWithMergedMetadata
-        )
-        .copy(
+      val targetConfig =
+        BigQueryLoadConfig(
+          connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
+          source = Left(path.map(_.toString).mkString(",")),
           outputTableId = Some(targetTableId),
-          days = bqSink.days,
+          sourceFormat = settings.appConfig.defaultWriteFormat,
+          createDisposition = createDisposition,
+          writeDisposition = writeDisposition,
           outputPartition = bqSink.timestamp,
           outputClustering = bqSink.clustering.getOrElse(Nil),
+          days = bqSink.days,
           requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-          rls = effectiveSchema.rls
+          rls = effectiveSchema.rls,
+          partitionsToUpdate = Nil,
+          starlakeSchema = Some(schemaWithMergedMetadata),
+          domainTags = domain.tags,
+          domainDescription = domain.comment,
+          outputDatabase = schemaHandler.getDatabase(domain),
+          dynamicPartitionOverwrite = bqSink.dynamicPartitionOverwrite
         )
       val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
       if (twoSteps) {
@@ -91,18 +90,14 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
             domain.finalName,
             SQLUtils.temporaryTableName(effectiveSchema.finalName)
           )
-        val firstStepConfig = ingestionJob
-          .buildCommonNativeBQLoadConfig(
-            createDisposition,
-            writeDisposition,
-            bqSink,
-            schemaWithMergedMetadata
-          )
-          .copy(
-            outputTableId = Some(firstStepTempTable),
-            outputTableDesc = Some("Temporary table created during data ingestion."),
-            days = Some(1)
-          )
+        val firstStepConfig =
+          targetConfig
+            .copy(
+              outputTableId = Some(firstStepTempTable),
+              outputTableDesc = Some("Temporary table created during data ingestion."),
+              days = Some(1)
+            )
+
         val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
         val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
           firstStepTempTable,
@@ -213,12 +208,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
         val secondStepResult =
           targetBigqueryJob.cliConfig.outputTableId
             .map { _ =>
-              BigQueryNativeIngestionJob.updateTargetTableSchema(
-                targetBigqueryJob,
-                targetTableSchema,
-                strategy.`type` == StrategyType.SCD2,
-                schema.comment
-              )
               applyBigQuerySecondStepSQL(
                 firstStepTempTable,
                 schema
@@ -332,16 +321,14 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     firstStepTempTableId: TableId,
     starlakeSchema: Schema
   ): Try[JobResult] = {
+    val incomingSparkSchema = starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler)
+
     val tempTable = BigQueryUtils.tableIdToTableName(firstStepTempTableId)
     val sourceUris = path.map(_.toString).mkString(",").replace("'", "\\'")
     val targetTableName = s"${domain.finalName}.${schema.finalName}"
 
-    val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(
-      tempTable,
-      Some(sourceUris),
-      "`",
-      applyTransformAndIgnore = true
-    )
+    val sqlWithTransformedFields =
+      starlakeSchema.buildSqlSelectOnLoad(tempTable, Some(sourceUris))
 
     val taskDesc = AutoTaskDesc(
       name = targetTableName,
@@ -361,118 +348,16 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       strategy = schema.strategy,
       parseSQL = Some(true)
     )
-    val jobResult =
+    val job =
       new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false)(
         settings,
         storageHandler,
         schemaHandler
-      ).run()
+      )
+
+    job.updateBigQueryTableSchema(incomingSparkSchema)
+    val jobResult = job.run()
     jobResult
-  }
-
-}
-
-object BigQueryNativeIngestionJob extends StrictLogging {
-
-  /** return all partitions and the number of null records */
-  private def computePartitions(
-    bigqueryJob: BigQueryNativeJob,
-    partitionName: String,
-    sql: String
-  ): (List[String], Long) = {
-    val totalColumnName = "total"
-    val detectImpliedPartitions =
-      s"SELECT cast(date(`$partitionName`) as STRING) AS $partitionName, countif($partitionName IS NULL) AS $totalColumnName FROM ($sql) GROUP BY $partitionName"
-    bigqueryJob.runInteractiveQuery(Some(detectImpliedPartitions), pageSize = Some(1000)) match {
-      case Failure(exception) => throw exception
-      case Success(result) =>
-        val (partitions, nullCountValues) = result.tableResult
-          .map(
-            _.iterateAll()
-              .iterator()
-              .asScala
-              .foldLeft(List[String]() -> 0L) { case ((partitions, nullCount), row) =>
-                val updatedPartitions = scala
-                  .Option(row.get(partitionName))
-                  .filterNot(_.isNull)
-                  .map(_.getStringValue) match {
-                  case Some(value) => value +: partitions
-                  case None        => partitions
-                }
-                updatedPartitions -> (nullCount + row.get(totalColumnName).getLongValue)
-              }
-          )
-          .getOrElse(Nil -> 0L)
-        partitions.sorted -> nullCountValues
-    }
-  }
-
-  def updateTargetTableSchema(
-    bigqueryJob: BigQueryNativeJob,
-    incomingTableSchema: BQSchema,
-    isSCD2: Boolean,
-    tableComment: Option[String]
-  )(implicit settings: Settings): Try[StandardTableDefinition] = {
-    val incomingTableSchemaWithSCD2 =
-      if (
-        isSCD2 && !incomingTableSchema.getFields.asScala.exists(
-          _.getName == settings.appConfig.scd2StartTimestamp
-        )
-      ) {
-        val startCol = Field
-          .newBuilder(
-            settings.appConfig.scd2StartTimestamp,
-            LegacySQLTypeName.TIMESTAMP
-          )
-          .setMode(Field.Mode.NULLABLE)
-          .build()
-        val endCol = Field
-          .newBuilder(
-            settings.appConfig.scd2EndTimestamp,
-            LegacySQLTypeName.TIMESTAMP
-          )
-          .setMode(Field.Mode.NULLABLE)
-          .build()
-        val allFields = incomingTableSchema.getFields.asScala.toList :+ startCol :+ endCol
-        BQSchema.of(allFields.asJava)
-      } else
-        incomingTableSchema
-
-    val tableId = bigqueryJob.tableId
-    if (bigqueryJob.tableExists(tableId)) {
-      val existingTableSchema = bigqueryJob.getBQSchema(tableId)
-      // detect new columns
-      val newColumns = incomingTableSchemaWithSCD2.getFields.asScala
-        .filterNot(field =>
-          existingTableSchema.getFields.asScala.exists(_.getName == field.getName)
-        )
-        .toList
-      // Update target table schema with new columns if any
-      if (newColumns.nonEmpty) {
-        bigqueryJob.updateTableSchema(tableId, incomingTableSchema)
-      } else
-        Try(bigqueryJob.getTableDefinition(tableId))
-    } else {
-      val config = bigqueryJob.cliConfig
-      val partitionField = config.outputPartition.map { partitionField =>
-        FieldPartitionInfo(partitionField, config.days, config.requirePartitionFilter)
-      }
-      val clusteringFields = config.outputClustering match {
-        case Nil    => None
-        case fields => Some(ClusteringInfo(fields.toList))
-      }
-      bigqueryJob.getOrCreateTable(
-        config.domainDescription,
-        TableInfo(
-          tableId,
-          tableComment,
-          Some(incomingTableSchemaWithSCD2),
-          partitionField,
-          clusteringFields
-        ),
-        None
-      ) map { case (table, definition) => definition }
-    }
   }
 
 }

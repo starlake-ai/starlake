@@ -2,6 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
+import ai.starlake.job.ingest.strategies.JdbcStrategiesBuilder
 import ai.starlake.schema.model.{Refs, StrategyOptions, StrategyType}
 
 class SQLUtilsSpec extends TestHelper {
@@ -212,24 +213,29 @@ class SQLUtilsSpec extends TestHelper {
     }
 
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
-      val sqlMerge =
-        SQLUtils.buildMergeSqlOnTransform(
-          selectWithCTEs,
-          StrategyOptions(
-            `type` = StrategyType.UPSERT_BY_KEY,
-            key = List("transaction_id"),
-            timestamp = None,
-            queryFilter = None,
-            on = None,
-            start_ts = None,
-            end_ts = None
-          ),
-          Some("starlake-project-id"),
-          "dataset3",
-          "transactions_v3",
-          new Connection(Some("BQ"), None, None, None, Map.empty),
-          true
+      val strategy =
+        StrategyOptions(
+          `type` = StrategyType.UPSERT_BY_KEY,
+          key = List("transaction_id"),
+          timestamp = None,
+          queryFilter = None,
+          on = None,
+          start_ts = None,
+          end_ts = None
         )
+
+      val sqlMerge =
+        new JdbcStrategiesBuilder().buildSQLForStrategy(
+          strategy,
+          selectWithCTEs,
+          "starlake-project-id.dataset3.transactions_v3",
+          targetTableExists = true,
+          List("transaction_id", "transaction_date", "amount", "location_info", "seller_info"),
+          truncate = false,
+          materializedView = false,
+          settings.appConfig.jdbcEngines("bigquery")
+        )
+
       sqlMerge.replaceAll("\\s", "") should be("""
           |CREATE TEMPORARY TABLE SL_SOURCE_TABLE AS (WITH
           |    transactions AS (
