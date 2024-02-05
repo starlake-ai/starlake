@@ -5,7 +5,7 @@ from typing import Union, List
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig
 
-from ai.starlake.airflow.airflow_starlake_options import StarlakeAirflowOptions
+from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
 from ai.starlake.common import keep_ascii_only, sanitize_id
 

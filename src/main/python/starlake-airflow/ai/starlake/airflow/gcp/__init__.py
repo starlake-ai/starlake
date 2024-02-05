@@ -1,4 +1,4 @@
-__all__ = ['airflow_starlake_cloud_run_job', 'airflow_starlake_dataproc_job']
+__all__ = ['starlake_airflow_cloud_run_job', 'starlake_airflow_dataproc_job']
 
 from .starlake_airflow_cloud_run_job import StarlakeAirflowCloudRunJob
 from .starlake_airflow_dataproc_job import StarlakeAirflowDataprocJob, StarlakeDataprocCluster, StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
