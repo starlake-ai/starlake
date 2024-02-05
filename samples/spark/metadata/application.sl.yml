@@ -39,9 +39,9 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        writeMethod: "direct" # direct or indirect
+        writeMethod: "indirect" # direct or indirect
         location: "europe-west1" # EU or US
-        #gcsBucket: "starlake-app" # required in indirect mode only
+        gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
