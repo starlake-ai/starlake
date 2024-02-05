@@ -11,11 +11,12 @@ sealed case class StrategyType(value: String) {
   override def toString: String = value
   def toWriteMode(): WriteMode = {
     this match {
-      case StrategyType.APPEND                     => WriteMode.APPEND
-      case StrategyType.OVERWRITE                  => WriteMode.OVERWRITE
-      case StrategyType.MERGE_BY_KEY               => WriteMode.APPEND
-      case StrategyType.MERGE_BY_KEY_AND_TIMESTAMP => WriteMode.APPEND
-      case StrategyType.SCD2                       => WriteMode.APPEND
+      case StrategyType.OVERWRITE                   => WriteMode.OVERWRITE
+      case StrategyType.APPEND                      => WriteMode.APPEND
+      case StrategyType.UPSERT_BY_KEY               => WriteMode.APPEND
+      case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => WriteMode.APPEND
+      case StrategyType.SCD2                        => WriteMode.APPEND
+      case StrategyType.OVERWRITE_BY_PARTITION      => WriteMode.APPEND
       case _ =>
         throw new Exception("Should never happen")
     }
@@ -27,11 +28,13 @@ object StrategyType {
 
   def fromString(value: String): StrategyType = {
     value.toUpperCase match {
-      case "APPEND" | "MERGE"           => StrategyType.APPEND
-      case "OVERWRITE"                  => StrategyType.OVERWRITE
-      case "MERGE_BY_KEY"               => StrategyType.MERGE_BY_KEY
-      case "MERGE_BY_KEY_AND_TIMESTAMP" => StrategyType.MERGE_BY_KEY_AND_TIMESTAMP
-      case "SCD2"                       => StrategyType.SCD2
+      case "OVERWRITE"                   => StrategyType.OVERWRITE
+      case "APPEND"                      => StrategyType.APPEND
+      case "UPSERT_BY_KEY"               => StrategyType.UPSERT_BY_KEY
+      case "UPSERT_BY_KEY_AND_TIMESTAMP" => StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
+      case "SCD2"                        => StrategyType.SCD2
+      case "OVERWRITE_BY_PARTITION"      => StrategyType.OVERWRITE_BY_PARTITION
+      case _                             => StrategyType(value)
 
     }
   }
@@ -40,14 +43,16 @@ object StrategyType {
 
   object OVERWRITE extends StrategyType("OVERWRITE")
 
-  object MERGE_BY_KEY extends StrategyType("MERGE_BY_KEY")
+  object UPSERT_BY_KEY extends StrategyType("UPSERT_BY_KEY")
 
-  object MERGE_BY_KEY_AND_TIMESTAMP extends StrategyType("MERGE_BY_KEY_AND_TIMESTAMP")
+  object UPSERT_BY_KEY_AND_TIMESTAMP extends StrategyType("UPSERT_BY_KEY_AND_TIMESTAMP")
+
+  object OVERWRITE_BY_PARTITION extends StrategyType("OVERWRITE_BY_PARTITION")
 
   object SCD2 extends StrategyType("SCD2")
 
   val strategies: Set[StrategyType] =
-    Set(APPEND, OVERWRITE, MERGE_BY_KEY, MERGE_BY_KEY_AND_TIMESTAMP, SCD2)
+    Set(APPEND, OVERWRITE, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, SCD2, OVERWRITE_BY_PARTITION)
 }
 
 class StrategyNameDeserializer extends JsonDeserializer[StrategyType] {

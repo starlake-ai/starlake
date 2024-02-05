@@ -2,7 +2,6 @@ package ai.starlake.utils
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.WriteMode
-import ai.starlake.schema.model.WriteMode.{APPEND, OVERWRITE}
 
 class UtilsSpec extends TestHelper {
   new WithSettings() {
@@ -11,23 +10,16 @@ class UtilsSpec extends TestHelper {
       Utils.exceptionAsString(new Exception("test")) should startWith(expected)
     }
     "BigQuery Table Creation / Write Mapping" should "Map to correct BQ Mappings" in {
-      Utils.getDBDisposition(APPEND, hasMergeKeyDefined = true, isJDBC = false) should equal(
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-      )
-      Utils.getDBDisposition(OVERWRITE, hasMergeKeyDefined = false, isJDBC = false) should equal(
+      Utils.getDBDisposition(WriteMode.OVERWRITE) should equal(
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       )
       Utils.getDBDisposition(
-        WriteMode.APPEND,
-        hasMergeKeyDefined = false,
-        isJDBC = false
+        WriteMode.APPEND
       ) should equal(
         ("CREATE_IF_NEEDED", "WRITE_APPEND")
       )
       Utils.getDBDisposition(
-        WriteMode.OVERWRITE,
-        hasMergeKeyDefined = false,
-        isJDBC = false
+        WriteMode.OVERWRITE
       ) should equal(
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       )

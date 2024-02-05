@@ -181,16 +181,16 @@ object SQLUtils extends StrictLogging {
     domain: String,
     targetTable: String,
     connection: Connection,
-    isFilesystem: Boolean,
     targetTableExists: Boolean
   )(implicit settings: Settings): String = {
     val fullTargetTableName = database match {
       case Some(db) =>
-        OutputRef(db, domain, targetTable).toSQLString(connection, isFilesystem)
+        OutputRef(db, domain, targetTable).toSQLString(connection)
       case None =>
-        OutputRef("", domain, targetTable).toSQLString(connection, isFilesystem)
+        OutputRef("", domain, targetTable).toSQLString(connection)
     }
     val columnNames = extractColumnNames(sql)
+
     buildJdbcSqlMerge(
       Right(sql),
       fullTargetTableName,
@@ -206,7 +206,6 @@ object SQLUtils extends StrictLogging {
     refs: Refs,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
-    localViews: List[String],
     connection: Connection
   )(implicit
     settings: Settings
@@ -218,7 +217,6 @@ object SQLUtils extends StrictLogging {
         refs,
         domains,
         tasks,
-        localViews,
         SQLUtils.fromsRegex,
         "FROM",
         connection
@@ -230,7 +228,6 @@ object SQLUtils extends StrictLogging {
         refs,
         domains,
         tasks,
-        localViews,
         SQLUtils.joinRegex,
         "JOIN",
         connection
@@ -244,14 +241,13 @@ object SQLUtils extends StrictLogging {
     refs: Refs,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
-    localViews: List[String],
     fromOrJoinRegex: Regex,
     keyword: String,
     connection: Connection
   )(implicit
     settings: Settings
   ): String = {
-    val ctes = SQLUtils.extractCTENames(sql) ++ localViews
+    val ctes = SQLUtils.extractCTENames(sql)
     var resolvedSQL = ""
     var startIndex = 0
     val fromMatches = fromOrJoinRegex
@@ -283,8 +279,7 @@ object SQLUtils extends StrictLogging {
               domains,
               tasks,
               ctes,
-              connection,
-              localViews.nonEmpty
+              connection
             )
             source = source.replaceAll(tableFound, resolvedTableName)
           }
@@ -302,8 +297,7 @@ object SQLUtils extends StrictLogging {
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     ctes: List[String],
-    connection: Connection,
-    isFilesystem: Boolean
+    connection: Connection
   )(implicit
     settings: Settings
   ): String = {
@@ -316,29 +310,25 @@ object SQLUtils extends StrictLogging {
         tableName.replaceAll(quote, "")
       }
       val tableTuple = quoteFreeTableName.split("\\.").toList
-      if (isFilesystem) {
-        // We keep only the table name, the database and domain names are ignored for filesystem
-        tableTuple.last
-      } else {
-        // We need to find it in the refs
-        val activeEnvRefs = refs
-        val databaseDomainTableRef =
-          activeEnvRefs
-            .getOutputRef(tableTuple)
-            .map(_.toSQLString(connection, isFilesystem))
-        val resolvedTableName = databaseDomainTableRef.getOrElse {
-          resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
-            case Success((database, domain, table)) =>
-              ai.starlake.schema.model
-                .OutputRef(database, domain, table)
-                .toSQLString(connection, isFilesystem)
-            case Failure(e) =>
-              Utils.logException(logger, e)
-              throw e
-          }
+
+      // We need to find it in the refs
+      val activeEnvRefs = refs
+      val databaseDomainTableRef =
+        activeEnvRefs
+          .getOutputRef(tableTuple)
+          .map(_.toSQLString(connection))
+      val resolvedTableName = databaseDomainTableRef.getOrElse {
+        resolveTableRefInDomainsAndJobs(tableTuple, domains, tasks) match {
+          case Success((database, domain, table)) =>
+            ai.starlake.schema.model
+              .OutputRef(database, domain, table)
+              .toSQLString(connection)
+          case Failure(e) =>
+            Utils.logException(logger, e)
+            throw e
         }
-        resolvedTableName
       }
+      resolvedTableName
     }
   }
 
@@ -431,20 +421,31 @@ object SQLUtils extends StrictLogging {
     targetTableExists: Boolean,
     jdbcDatabase: Engine,
     sourceUris: Option[String],
-    strategy: StrategyOptions
+    strategy: StrategyOptions,
+    applyTransformAndIgnore: Boolean
   )(implicit settings: Settings): String = {
     val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
     val quote = jdbcEngine.quote
     strategy.`type` match {
       case StrategyType.APPEND | StrategyType.OVERWRITE =>
-        starlakeSchema.buildSqlSelectOnLoad(tempTable, sourceUris, quote)
+        starlakeSchema.buildSqlSelectOnLoad(
+          tempTable,
+          sourceUris,
+          quote,
+          applyTransformAndIgnore = applyTransformAndIgnore
+        )
       case _ =>
         val (scriptAttributes, transformAttributes) =
           starlakeSchema.scriptAndTransformAttributes().partition(_.script.nonEmpty)
         val simpleAttributes = starlakeSchema.exceptIgnoreScriptAndTransformAttributes()
         val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
         val allColumnNames = allOutputAttributes.map(_.getFinalName())
-        val select = starlakeSchema.buildSqlSelectOnLoad(tempTable, sourceUris, quote)
+        val select = starlakeSchema.buildSqlSelectOnLoad(
+          tempTable,
+          sourceUris,
+          quote,
+          applyTransformAndIgnore = applyTransformAndIgnore
+        )
         SQLUtils.buildJdbcSqlMerge(
           Right(select),
           targetTable,
@@ -467,7 +468,7 @@ object SQLUtils extends StrictLogging {
     val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
     val quote = jdbcEngine.quote
     val allAttributesSQL = targetTableColumns.mkString(",")
-    val partitionKeys =
+    val mergeKeys =
       strategy.key
         .map(key => s"$quote$key$quote")
         .mkString(",")
@@ -483,7 +484,7 @@ object SQLUtils extends StrictLogging {
       .map(col => s"$col = $SL_INTERNAL_TABLE.$col")
       .mkString("SET ", ",", "")
 
-    val joinCondition =
+    val mergeKeyJoinCondition =
       strategy.key.map(key => s"$SL_INTERNAL_TABLE.$key = $targetTable.$key").mkString(" AND ")
 
     val nullJoinCondition =
@@ -492,8 +493,8 @@ object SQLUtils extends StrictLogging {
     val mergeTimestampCol = strategy.timestamp
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val canMerge = jdbcEngine.canMerge
-    val startTsCol = strategy.start_ts.getOrElse(settings.appConfig.mergeStartTimestamp)
-    val endTsCol = strategy.start_ts.getOrElse(settings.appConfig.mergeEndTimestamp)
+    val startTsCol = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTsCol = strategy.start_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
 
     val (sourceTable, tempTable) = sourceTableOrStatement match {
       case Left(sourceTable) =>
@@ -503,30 +504,30 @@ object SQLUtils extends StrictLogging {
     }
     val result =
       strategy.`type` match {
-        case StrategyType.MERGE_BY_KEY =>
+        case StrategyType.UPSERT_BY_KEY =>
           buildJdbcSqlForMergeByKey(
             targetTable,
             targetTableExists,
             allAttributesSQL,
-            partitionKeys,
+            mergeKeys,
             notMatchedInsertSql,
             matchedUpdateSql,
-            joinCondition,
+            mergeKeyJoinCondition,
             mergeOn,
             sourceTable
           )
-        case StrategyType.MERGE_BY_KEY_AND_TIMESTAMP =>
+        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildJdbcSqlForMergeByKeyAndTimestamp(
             targetTable,
             targetTableExists,
             quote,
             allAttributesSQL,
-            partitionKeys,
+            mergeKeys,
             sourceColumns,
             notMatchedInsertColumnsSql,
             notMatchedInsertSql,
             matchedUpdateSql,
-            joinCondition,
+            mergeKeyJoinCondition,
             nullJoinCondition,
             mergeTimestampCol,
             mergeOn,
@@ -540,9 +541,9 @@ object SQLUtils extends StrictLogging {
             strategy,
             quote,
             allAttributesSQL,
-            partitionKeys,
+            mergeKeys,
             matchedUpdateSql,
-            joinCondition,
+            mergeKeyJoinCondition,
             nullJoinCondition,
             mergeTimestampCol,
             mergeOn,
@@ -613,7 +614,7 @@ object SQLUtils extends StrictLogging {
            |LEFT JOIN $targetTable ON ($joinCondition AND $targetTable.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
-           |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
+           |CREATE TEMPORARY VIEW SL_UPDATED_RECORDS AS
            |SELECT $allAttributesSQL FROM $sourceTable AS $SL_INTERNAL_TABLE, $targetTable
            |WHERE $joinCondition AND $targetTable.$endTsCol IS NULL AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol;
            |
@@ -676,15 +677,13 @@ object SQLUtils extends StrictLogging {
     mergeOn: MergeOn,
     canMerge: Boolean,
     sourceTable: String
-  ) = {
+  ): String = {
     (targetTableExists, mergeTimestampCol, mergeOn) match {
       case (false, Some(_), MergeOn.TARGET) =>
         /*
             The table does not exist, we can just insert the data
          */
-        s"""
-           |SELECT  $allAttributesSQL  FROM $sourceTable
-            """.stripMargin
+        s"""SELECT  $allAttributesSQL  FROM $sourceTable"""
 
       case (false, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         /*
@@ -693,11 +692,11 @@ object SQLUtils extends StrictLogging {
             And then we insert the data
          */
         s"""
-           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |CREATE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
            |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
-           |SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+           |SELECT  $allAttributesSQL FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
             """.stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
@@ -727,27 +726,26 @@ object SQLUtils extends StrictLogging {
              |WHERE $nullJoinCondition
              |
              |""".stripMargin
-
         }
       case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
         if (canMerge) {
           s"""
-             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |CREATE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
              |  SELECT  $allAttributesSQL,
              |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
              |  FROM $sourceTable;
-             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |CREATE TEMPORARY VIEW SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
              |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
              |WHEN MATCHED AND $SL_INTERNAL_TABLE.$mergeTimestampCol > $targetTable.$mergeTimestampCol THEN UPDATE $matchedUpdateSql
              |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
              |""".stripMargin
         } else {
           s"""
-             |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+             |CREATE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
              |  SELECT  $allAttributesSQL,
              |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
              |  FROM $sourceTable;
-             |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |CREATE TEMPORARY VIEW SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
              |
              |UPDATE $targetTable $matchedUpdateSql
              |FROM SL_DEDUP AS $SL_INTERNAL_TABLE
@@ -772,7 +770,7 @@ object SQLUtils extends StrictLogging {
     partitionKeys: String,
     notMatchedInsertSql: String,
     matchedUpdateSql: String,
-    joinCondition: String,
+    mergeKeyJoinCondition: String,
     mergeOn: MergeOn,
     sourceTable: String
   ) = {
@@ -791,7 +789,7 @@ object SQLUtils extends StrictLogging {
             And then we insert the data
          */
         s"""
-           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |CREATE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
            |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY (select 0)) AS SL_SEQ
            |  FROM $sourceTable;
@@ -802,7 +800,7 @@ object SQLUtils extends StrictLogging {
             The table exists, we can merge the data
          */
         s"""
-           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |MERGE INTO $targetTable USING $sourceTable AS $SL_INTERNAL_TABLE ON ($mergeKeyJoinCondition)
            |WHEN MATCHED THEN UPDATE $matchedUpdateSql
            |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
            |""".stripMargin
@@ -812,12 +810,12 @@ object SQLUtils extends StrictLogging {
             The table exists, We deduplicated the data from the input and we merge the data
          */
         s"""
-           |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
+           |CREATE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
            |  SELECT  $allAttributesSQL,
            |          ROW_NUMBER() OVER (PARTITION BY $partitionKeys  ORDER BY (select 0)) AS SL_SEQ
            |  FROM $sourceTable;
            |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  $allAttributesSQL  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
-           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($joinCondition)
+           |MERGE INTO $targetTable USING SL_DEDUP AS $SL_INTERNAL_TABLE ON ($mergeKeyJoinCondition)
            |WHEN MATCHED THEN UPDATE $matchedUpdateSql
            |WHEN NOT MATCHED THEN INSERT $notMatchedInsertSql
            |""".stripMargin
@@ -826,4 +824,34 @@ object SQLUtils extends StrictLogging {
 
     }
   }
+
+  def targetColumnsForSelectSql(targetTableColumns: List[String], quote: String): String =
+    targetTableColumns.map(col => s"$quote$col$quote").mkString(",")
+
+  def incomingColumnsForSelectSql(
+    incomingTable: String,
+    targetTableColumns: List[String],
+    quote: String
+  ): String =
+    targetTableColumns.map(col => s"$incomingTable.$quote$col$quote").mkString(",")
+
+  def setForUpdateSql(
+    incomingTable: String,
+    targetTableColumns: List[String],
+    quote: String
+  ): String =
+    targetTableColumns
+      .map(col => s"$quote$col$quote = $incomingTable.$quote$col$quote")
+      .mkString("SET ", ",", "")
+
+  def mergeKeyJoinCondition(
+    incomingTable: String,
+    targetTable: String,
+    columns: List[String],
+    quote: String
+  ): String =
+    columns
+      .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
+      .mkString(" AND ")
+
 }

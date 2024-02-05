@@ -222,7 +222,7 @@ object AuditLog extends StrictLogging {
             presql = Nil,
             postsql = Nil,
             sink = Some(settings.appConfig.audit.sink),
-            parseSQL = Some(false),
+            parseSQL = Some(true),
             _auditTableName = Some("audit"),
             taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
           )
@@ -231,7 +231,8 @@ object AuditLog extends StrictLogging {
               auditTaskDesc,
               Map.empty,
               None,
-              truncate = false
+              truncate = false,
+              engine = auditTaskDesc.getSinkConnection().getEngine()
             )
           val res = task.run()
           Utils.logFailure(res, logger)

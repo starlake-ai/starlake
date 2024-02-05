@@ -3,6 +3,9 @@ table:
   pattern: "sellers-.*.json"
   primaryKey:
     - id
+  strategy:
+    type: "UPSERT_BY_KEY"
+    key: [id]
   metadata:
     array: true
     format: "SIMPLE_JSON"

@@ -50,33 +50,35 @@ case class StrategyOptions(
   @JsonIgnore
   val lastEndQueryFilter: Int = if (queryFilterContainsLast) lastMatcher.end(3) else -1
 
-  private def formatQuery(activeEnv: Map[String, String], options: Map[String, String])(implicit
+  private def formatQuery(
+    activeEnv: Map[String, String] = Map.empty,
+    options: Map[String, String] = Map.empty
+  )(implicit
     settings: Settings
   ): Option[String] =
     queryFilter.map(_.richFormat(activeEnv, options))
 
   def buidlBQQuery(
     partitions: List[String],
-    activeEnv: Map[String, String],
     options: Map[String, String]
   )(implicit
     settings: Settings
   ): Option[String] = {
     val filteredPartitions = partitions.filter(!_.startsWith("__"))
     (queryFilterContainsLast, queryFilterContainsLatest) match {
-      case (true, false)  => buildBQQueryForLast(filteredPartitions, activeEnv, options)
-      case (false, true)  => buildBQQueryForLastest(filteredPartitions, activeEnv, options)
-      case (false, false) => formatQuery(activeEnv, options)
+      case (true, false)  => buildBQQueryForLast(filteredPartitions, options)
+      case (false, true)  => buildBQQueryForLastest(filteredPartitions, options)
+      case (false, false) => formatQuery(options)
       case (true, true) =>
-        val last = buildBQQueryForLast(filteredPartitions, activeEnv, options)
-        this.copy(queryFilter = last).buildBQQueryForLastest(filteredPartitions, activeEnv, options)
+        val last = buildBQQueryForLast(filteredPartitions, options)
+        this.copy(queryFilter = last).buildBQQueryForLastest(filteredPartitions, options)
     }
   }
 
   private def buildBQQueryForLastest(
     partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
+    activeEnv: Map[String, String] = Map.empty,
+    options: Map[String, String] = Map.empty
   )(implicit
     settings: Settings
   ): Option[String] = {
@@ -87,8 +89,8 @@ case class StrategyOptions(
 
   private def buildBQQueryForLast(
     partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
+    activeEnv: Map[String, String] = Map.empty,
+    options: Map[String, String] = Map.empty
   )(implicit
     settings: Settings
   ): Option[String] = {

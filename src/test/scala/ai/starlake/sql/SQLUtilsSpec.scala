@@ -142,7 +142,6 @@ class SQLUtilsSpec extends TestHelper {
           Refs(Nil),
           Nil,
           Nil,
-          Nil,
           SQLUtils.fromsRegex,
           "FROM",
           new Connection(Some("SPARK"), Some("parquet"), None, None, Map.empty)
@@ -217,7 +216,7 @@ class SQLUtilsSpec extends TestHelper {
         SQLUtils.buildMergeSqlOnTransform(
           selectWithCTEs,
           StrategyOptions(
-            `type` = StrategyType.MERGE_BY_KEY,
+            `type` = StrategyType.UPSERT_BY_KEY,
             key = List("transaction_id"),
             timestamp = None,
             queryFilter = None,
@@ -229,7 +228,6 @@ class SQLUtilsSpec extends TestHelper {
           "dataset3",
           "transactions_v3",
           new Connection(Some("BQ"), None, None, None, Map.empty),
-          false,
           true
         )
       sqlMerge.replaceAll("\\s", "") should be("""

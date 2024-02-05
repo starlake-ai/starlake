@@ -120,7 +120,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             ),
             python = None,
             strategy = None,
-            parseSQL = Some(false)
+            parseSQL = Some(true)
           )
           val businessTaskDef = mapper
             .writer()

@@ -1,6 +1,7 @@
 package ai.starlake.utils
 
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
@@ -79,6 +80,23 @@ object SparkUtils extends StrictLogging {
     }
   }
 
+  def createSchema(session: SparkSession, domain: String): Unit = {
+    SparkUtils.sql(session, s"CREATE SCHEMA IF NOT EXISTS ${domain}")
+  }
+
+  def truncateTable(session: SparkSession, tableName: String): Unit = {
+    SparkUtils.sql(session, s"TRUNCATE TABLE $tableName")
+  }
+
+  def truncateTable(conn: Connection, tableName: String): Unit = {
+    val statement = conn.createStatement
+    try {
+      statement.executeUpdate(s"TRUNCATE TABLE $tableName")
+    } finally {
+      statement.close()
+    }
+  }
+
   /** Creates a table with a given schema. Updated from Spark 3.0.1
     */
   def createTable(
@@ -100,6 +118,13 @@ object SparkUtils extends StrictLogging {
         else
           strSchema.replaceAll("\"", "")
 
+      logger.info(
+        s"Creating table $tableName with schema $finalStrSchema and options $createTableOptions"
+      )
+      val domainName = tableName.split('.').head
+      statement.executeUpdate(
+        s"CREATE SCHEMA IF NOT EXISTS $domainName"
+      )
       logger.info(
         s"Creating table $tableName with schema $finalStrSchema and options $createTableOptions"
       )
@@ -140,4 +165,15 @@ object SparkUtils extends StrictLogging {
     JdbcUtils.schemaString(schema, caseSensitive, urlForRedshift, createTableColumnTypes)
   }
 
+  def sql(session: SparkSession, sql: String): DataFrame = {
+    try {
+      logger.info(s"Running Spark SQL $sql")
+      session.sql(sql)
+    } catch {
+      case e: Exception =>
+        logger.error(s"Error when executing sql $sql")
+        throw e
+    }
+
+  }
 }

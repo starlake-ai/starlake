@@ -9,11 +9,9 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase {
   override def sampleDataDir = localDir / "sample-data"
   "Import / Load / Transform Local" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                                       -> localDir.pathAsString,
-      "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
-      "SL_ENV"                                        -> "LOCAL",
-      "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
-      "SL_MERGE_OPTIMIZE_PARTITION_WRITE"             -> "true"
+      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
+      "SL_ENV"                      -> "LOCAL"
     ) {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
@@ -25,5 +23,19 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase {
       )
     }
   }
-
+  "Import / Load / Transform Local 2" should "succeed" in {
+    withEnvs(
+      "SL_ROOT" -> localDir.pathAsString,
+      "SL_ENV"  -> "LOCAL"
+    ) {
+      val sampleDataDir2 = localDir / "sample-data2"
+      copyFilesToIncomingDir(sampleDataDir2)
+      Main.main(
+        Array("import")
+      )
+      Main.main(
+        Array("load")
+      )
+    }
+  }
 }

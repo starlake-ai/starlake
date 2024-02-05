@@ -122,8 +122,8 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def createSchema(domainName: String, conn: SQLConnection): Unit = {
-    execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+  def createSchema(conn: SQLConnection, domainName: String): Unit = {
+    executeUpdate(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $domainName", e)
@@ -133,7 +133,7 @@ object JdbcDbUtils extends LazyLogging {
 
   @throws[Exception]
   def dropTable(tableName: String, conn: SQLConnection): Unit = {
-    execute(s"DROP TABLE IF EXISTS $tableName", conn) match {
+    executeUpdate(s"DROP TABLE IF EXISTS $tableName", conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $tableName", e)
@@ -169,25 +169,29 @@ object JdbcDbUtils extends LazyLogging {
     }
     val statement = connection.createStatement()
     try {
-      val res = statement.execute(script)
+      val res = statement.executeUpdate(script)
       connection.commit()
-      res
+      true
     } finally {
       statement.close()
       connection.setAutoCommit(isAutoCommit)
     }
   }
 
-  def execute(script: String, connection: java.sql.Connection): Try[Boolean] = {
+  def executeUpdate(script: String, connection: java.sql.Connection): Try[Boolean] = {
+    logger.info(s"Running $script")
     val statement = connection.createStatement()
     val result = Try {
-      statement.execute(script)
+      val count = statement.executeUpdate(script)
+      logger.info(s"$count records affected")
+      true
     }
     result match {
       case Failure(exception) =>
-        logger.error(s"Error running sql $script", exception)
+        logger.error(s"Error running $script", exception)
         throw exception
-      case Success(value) => value
+      case Success(value) =>
+        logger.info(s"Executed $script with return value $value")
     }
     statement.close()
     result
@@ -815,7 +819,7 @@ object JdbcDbUtils extends LazyLogging {
       val existLastExportTable =
         tableExists(connection, jdbcUrl, s"${auditSchema}.SL_LAST_EXPORT")
       if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
-        createSchema(auditSchema, connection)
+        createSchema(connection, auditSchema)
         val jdbcEngineName = auditConnectionInfo.getJdbcEngineName()
         settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
           val createTableSql = jdbcEngine
@@ -828,7 +832,7 @@ object JdbcDbUtils extends LazyLogging {
               ),
               Map.empty
             )
-          execute(createTableSql, connection)
+          executeUpdate(createTableSql, connection)
         }
       }
     }

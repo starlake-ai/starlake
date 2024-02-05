@@ -43,9 +43,7 @@ object AccessControlEntry {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
         JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
           sqls.foreach { sql =>
-            val stmt = conn.createStatement()
-            stmt.execute(sql)
-            stmt.close()
+            JdbcDbUtils.executeUpdate(sql, conn)
           }
         }
       }

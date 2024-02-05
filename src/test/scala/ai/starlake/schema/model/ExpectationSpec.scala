@@ -31,8 +31,7 @@ class ExpectationSpec extends TestHelper {
           |{% macro count_max_occurrences(col, table='sl_this') %}
           |    SELECT max(cnt)
           |    FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
-          |    GROUP BY {{ col }}
-          |    HAVING cnt > 1)
+          |    GROUP BY {{ col }})
           |{% endmacro %}
           |""".stripMargin
       val expectationQuery =

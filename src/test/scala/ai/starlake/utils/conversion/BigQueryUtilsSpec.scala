@@ -131,7 +131,7 @@ class BigQueryUtilsSpec extends TestHelper {
           .domains()
           .flatMap(_.tables)
           .find(_.name == "complexUser")
-          .map(_.bqSchemaFinal(schemaHandler))
+          .map(_.bqSchemaWithoutIgnore(schemaHandler))
 
         val bqSchemaExpected = BQSchema.of(
           Field

@@ -88,6 +88,7 @@ trait TestHelper
   def baseConfigString =
     s"""
        |SL_ASSERTIONS_ACTIVE=true
+       |SL_DEFAULT_WRITE_FORMAT=delta
        |SL_ROOT="${starlakeTestRoot}"
        |SL_TEST_ID="${starlakeTestId}"
        |SL_LOCK_PATH="${starlakeTestRoot}/locks"
@@ -213,6 +214,11 @@ trait TestHelper
   def prepareSchema(schema: StructType): StructType =
     StructType(schema.fields.filterNot(f => List("year", "month", "day").contains(f.name)))
 
+  def getTodayCondition: String = {
+    val now = LocalDate.now
+    s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
+  }
+
   def getTodayPartitionPath: String = {
     val now = LocalDate.now
     s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
@@ -317,6 +323,7 @@ trait TestHelper
   }
 
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
+
     TestHelper.sparkSession(isettings, _testId)
   }
 
@@ -510,6 +517,7 @@ object TestHelper {
 
   def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
     if (testId != _testId) {
+      // BetterFile("metastore_db").delete(swallowIOExceptions = true)
       val job = new SparkJob {
         override def name: String = s"test-${UUID.randomUUID()}"
 
@@ -530,6 +538,7 @@ object TestHelper {
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
     if (_session != null) {
       _session.stop()
+      // BetterFile("metastore_db").delete(swallowIOExceptions = true)
     }
     val job = new SparkJob {
       override def name: String = s"test-${UUID.randomUUID()}"

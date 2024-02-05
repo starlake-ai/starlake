@@ -1,9 +1,8 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{StrategyOptions, StrategyType}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 import scala.io.Source
@@ -42,73 +41,6 @@ class MergeUtilsTest extends TestHelper {
       assertThrows[RuntimeException] {
         MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
       }
-    }
-
-    "merging two dataset with duplicated lines" should "apply upsert" in {
-      val schema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
-      val existingDF =
-        sparkSession.read.schema(schema).json(getResPath("/sample/merge/existing.jsonl"))
-      val incomingDF =
-        sparkSession.read.schema(schema).json(getResPath("/sample/merge/incoming.jsonl"))
-
-      val (_, mergedDF, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(
-          existingDF,
-          incomingDF,
-          StrategyOptions(StrategyType.MERGE_BY_KEY, key = List("id"))
-        )
-      val actual = mergedDF.toJSON.collect()
-
-      val stream = getClass.getResourceAsStream("/expected/merge/merge-simple.jsonl")
-      val expected = scala.io.Source.fromInputStream(stream).getLines().toList
-      actual should contain theSameElementsAs expected
-    }
-
-    "merging two dataset with duplicated lines using timestamp" should "keep the latest line of each" in {
-      val schema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
-      val existingDF =
-        sparkSession.read.schema(schema).json(getResPath("/sample/merge/existing.jsonl"))
-      val incomingDF =
-        sparkSession.read.schema(schema).json(getResPath("/sample/merge/incoming.jsonl"))
-
-      val (_, mergedDF, _) = MergeUtils.computeToMergeAndToDeleteDF(
-        existingDF,
-        incomingDF,
-        StrategyOptions(
-          StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
-          key = List("id"),
-          timestamp = Some("data.version")
-        )
-      )
-      val actual = mergedDF.toJSON.collect()
-
-      val stream = getClass.getResourceAsStream("/expected/merge/merge-with-timestamp.jsonl")
-      val expected =
-        Source.fromInputStream(stream).getLines().toList
-      actual should contain theSameElementsAs expected
-    }
-
-    "merging two dataset with duplicated lines and different schemas" should "apply upsert and update schema" in {
-      val existingSchema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
-      val incomingSchema =
-        StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT,`new`: STRING>,`field` STRING")
-      val existingDF =
-        sparkSession.read.schema(existingSchema).json(getResPath("/sample/merge/existing.jsonl"))
-      val incomingDF = sparkSession.read
-        .schema(incomingSchema)
-        .json(getResPath("/sample/merge/incoming-new-schema.jsonl"))
-
-      val (_, mergedDF, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(
-          existingDF,
-          incomingDF,
-          StrategyOptions(StrategyType.MERGE_BY_KEY, key = List("id"))
-        )
-      val actual = mergedDF.toJSON.collect()
-
-      val stream = getClass.getResourceAsStream("/expected/merge/merge-new-schema.jsonl")
-      val expected = Source.fromInputStream(stream).getLines().toList
-      actual should contain theSameElementsAs expected
     }
 
     "build missing type with nested fields" should "succeed" in {
@@ -178,47 +110,6 @@ class MergeUtilsTest extends TestHelper {
         Seq(Row("1", 100L), Row("4", 40L)).asJava,
         existingSchema1
       )
-
-      val (_, mergedDF1, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(
-          existingDf1,
-          incomingDf1,
-          StrategyOptions(StrategyType.APPEND, Nil)
-        )
-
-      assert(mergedDF1.schema.fields.count(_.getComment().isEmpty) == 0)
-
-      val incomingSchema2 = StructType(
-        Array(
-          StructField("field1", StringType).withComment("description field 1"),
-          StructField("field2", IntegerType).withComment("description field 2")
-        )
-      )
-      val existingSchema2 = StructType(
-        Array(
-          StructField("field1", StringType).withComment("description field 1"),
-          StructField("field2", LongType).withComment("description field 2"),
-          StructField("field3", StringType).withComment("description field 3")
-        )
-      )
-
-      val incomingDf2 = sparkSession.createDataFrame(
-        Seq(Row("1", 10), Row("2", 20)).asJava,
-        incomingSchema2
-      )
-      val existingDf2 = sparkSession.createDataFrame(
-        Seq(Row("1", 100L, "val1"), Row("4", 40L, "val2")).asJava,
-        existingSchema2
-      )
-
-      val (_, mergedDF2, _) =
-        MergeUtils.computeToMergeAndToDeleteDF(
-          existingDf2,
-          incomingDf2,
-          StrategyOptions(StrategyType.APPEND, Nil)
-        )
-
-      assert(mergedDF2.schema.fields.count(_.getComment().isEmpty) == 0)
     }
   }
 }

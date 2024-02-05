@@ -27,7 +27,7 @@ class TemplateParamsSpec extends TestHelper {
         postsql = Nil,
         strategy = Some(
           StrategyOptions(
-            StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
+            StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
             List("col1", "col2"),
             timestamp = Some("updateCol")
           )
@@ -72,7 +72,7 @@ class TemplateParamsSpec extends TestHelper {
         postsql = Nil,
         strategy = Some(
           StrategyOptions(
-            StrategyType.MERGE_BY_KEY_AND_TIMESTAMP,
+            StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
             List("col1", "col2"),
             timestamp = Some("updateCol")
           )
