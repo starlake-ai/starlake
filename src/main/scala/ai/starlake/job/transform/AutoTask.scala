@@ -90,7 +90,7 @@ abstract class AutoTask(
   def substituteRefTaskMainSQL(sql: String) = {
     val selectStatement = Utils.parseJinja(sql, allVars)
     val select =
-      SQLUtils.buildSingleSQLQueryOnTransform(
+      SQLUtils.substituteRefInSQLSelect(
         selectStatement,
         schemaHandler.refs(),
         schemaHandler.domains(),

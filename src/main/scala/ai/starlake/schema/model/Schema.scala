@@ -22,29 +22,13 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Schema.SL_INTERNAL_TABLE
 import ai.starlake.schema.model.Severity._
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
-import org.apache.spark.sql.types.{
-  ArrayType,
-  BooleanType,
-  ByteType,
-  DateType,
-  DecimalType,
-  DoubleType,
-  IntegerType,
-  LongType,
-  ShortType,
-  StringType,
-  StructField,
-  StructType,
-  TimestampType
-}
+import org.apache.spark.sql.types._
 
 import java.util.regex.Pattern
 import scala.collection.mutable
@@ -571,57 +555,52 @@ case class Schema(
     */
   def buildSqlSelectOnLoad(
     table: String,
-    sourceUris: Option[String],
-    quote: String,
-    applyTransformAndIgnore: Boolean
+    sourceUris: Option[String]
   ): String = {
-    if (!applyTransformAndIgnore) {
-      s"""SELECT * FROM $table""".stripMargin
-    } else {
-      val tableWithInputFileName = {
-        sourceUris match {
-          case None => table
-          case Some(sourceUris) =>
-            s"""
+    val tableWithInputFileName = {
+      sourceUris match {
+        case None => table
+        case Some(sourceUris) =>
+          s"""
          |(
          | SELECT *, '${sourceUris}' as ${CometColumns.cometInputFileNameColumn} FROM $table
          |)
          |""".stripMargin
-        }
       }
+    }
 
-      val (scriptAttributes, transformAttributes) =
-        scriptAndTransformAttributes().partition(_.script.nonEmpty)
+    val (scriptAttributes, transformAttributes) =
+      scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
-      val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
 
-      val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
-        val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-        s"$script AS $quote${scriptField.getFinalName()}$quote"
-      }
-      val sqlTransforms: List[String] = transformAttributes.map { transformField =>
-        val transform =
-          transformField.transform.getOrElse(throw new Exception("Should never happen"))
-        s"$transform AS $quote${transformField.getFinalName()}$quote"
-      }
+    val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
+      val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
+      s"$script AS ${scriptField.getFinalName()}"
+    }
+    val sqlTransforms: List[String] = transformAttributes.map { transformField =>
+      val transform =
+        transformField.transform.getOrElse(throw new Exception("Should never happen"))
+      s"$transform AS ${transformField.getFinalName()}"
+    }
 
-      val sqlSimple = simpleAttributes.map { field =>
-        s"$quote${field.getFinalName()}$quote"
-      }
+    val sqlSimple = simpleAttributes.map { field =>
+      s"${field.getFinalName()}"
+    }
 
-      val sqlIgnored = ignoredAttributes().map { field =>
-        s"$quote${field.getFinalName()}$quote"
-      }
+    val sqlIgnored = ignoredAttributes().map { field =>
+      s"${field.getFinalName()}"
+    }
 
-      val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
-      val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
+    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
+    val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
 
-      val sourceTableFilterSQL = this.filter match {
-        case Some(filter) => s"WHERE $filter"
-        case None         => ""
+    val sourceTableFilterSQL = this.filter match {
+      case Some(filter) => s"WHERE $filter"
+      case None         => ""
 
-      }
-      s"""
+    }
+    s"""
        |SELECT $allFinalAttributes
        |  FROM (
        |    SELECT $allAttributes
@@ -629,127 +608,7 @@ case class Schema(
        |  ) AS SL_INTERNAL_FROM_SELECT
        |  $sourceTableFilterSQL
        |""".stripMargin
-    }
-  }
 
-  def buildBQSqlMergeOnLoad(
-    sourceTable: String,
-    targetTable: String,
-    targetTableFilters: List[String],
-    updateTargetFilters: List[String],
-    partitionOverwrite: Boolean,
-    sourceUris: Option[String],
-    targetTableExists: Boolean,
-    jdbcDatabase: Engine,
-    isSCD2: Boolean,
-    applyTransformAndIgnore: Boolean
-  )(implicit settings: Settings): String = {
-    val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
-    val quote = jdbcEngine.quote
-    val (scriptAttributes, transformAttributes) =
-      scriptAndTransformAttributes().partition(_.script.nonEmpty)
-
-    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
-    val allOutputAttributes = simpleAttributes ++ transformAttributes ++ scriptAttributes
-
-    val targetTableFilterSQL = targetTableFilters match {
-      case Nil => ""
-      case _   => targetTableFilters.mkString(" AND ")
-    }
-    val tempTableSelect =
-      buildSqlSelectOnLoad(sourceTable, sourceUris, quote, applyTransformAndIgnore)
-    if (isSCD2) {
-      SQLUtils.buildJdbcSqlMerge(
-        Right(tempTableSelect),
-        targetTable,
-        targetTableExists,
-        this.getStrategy(),
-        allOutputAttributes.map(_.getFinalName()),
-        jdbcDatabase
-      )
-    } else if (partitionOverwrite) { // similar to dynamic mode in spark
-      val (targetColumns, sourceColumns) =
-        allOutputAttributes
-          .map(f => s"`${f.getFinalName()}`" -> s"$SL_INTERNAL_TABLE.`${f.getFinalName()}`")
-          .unzip
-      val notMatchedInsertColumnsSql = targetColumns.mkString("(", ",", ")")
-      val notMatchedInsertValuesSql = sourceColumns.mkString("(", ",", ")")
-      val notMatchedInsertSql = s"""$notMatchedInsertColumnsSql VALUES $notMatchedInsertValuesSql"""
-      val updateTargetFiltersSQL = updateTargetFilters match {
-        case Nil =>
-          throw new RuntimeException("No filter applied for partition overwrite. Should not happen")
-        case _ => updateTargetFilters.mkString(" AND ")
-      }
-
-      val inputData =
-        if (!this.getStrategy().isMerge())
-          tempTableSelect // partition overwrite without deduplication
-        else
-          buildBQSqlMergeOnLoad(
-            sourceTable,
-            targetTable,
-            targetTableFilters,
-            updateTargetFilters,
-            partitionOverwrite = false,
-            sourceUris,
-            targetTableExists,
-            jdbcDatabase,
-            isSCD2 = false,
-            applyTransformAndIgnore
-          )
-      val joinAdditionalClauseSQL =
-        if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
-      s"""MERGE INTO $targetTable USING ($inputData) AS $SL_INTERNAL_TABLE ON FALSE
-         |WHEN NOT MATCHED BY SOURCE $joinAdditionalClauseSQL THEN DELETE
-         |WHEN NOT MATCHED $joinAdditionalClauseSQL THEN INSERT $notMatchedInsertSql
-         |""".stripMargin
-    } else {
-      val allAttributesSQL = allOutputAttributes
-        .map { attribute =>
-          s"`${attribute.getFinalName()}`"
-        }
-        .mkString(",")
-      val dataSourceColumnName = "SL_DATASOURCE_INFORMATION"
-
-      // According to the usage above of join clause between target and source table, we assume key not to be null.
-      val partitionKeys =
-        this.getStrategy().key.map(key => s"`$key`").mkString(",")
-
-      val whereClauseSQL =
-        if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
-
-      val rowSelectionSQL = this.getStrategy().`type` match {
-        case StrategyType.UPSERT_BY_KEY =>
-          s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
-        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
-          val mergeTimestampCol = this
-            .getStrategy()
-            .timestamp
-            .getOrElse(
-              throw new RuntimeException(
-                "Timestamp column is not defined for merge by key and timestamp strategy"
-              )
-            )
-          s"QUALIFY ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
-        case _ => throw new RuntimeException("Unsupported merge strategy")
-      }
-      if (targetTableExists) {
-        s"""SELECT $allAttributesSQL FROM (
-              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($tempTableSelect)
-              UNION ALL
-              SELECT $allAttributesSQL, '${SL_INTERNAL_TABLE}_TARGET' as $dataSourceColumnName FROM $targetTable
-              $whereClauseSQL
-            ) AS SL_INTERNAL_QUALIFY_UNION_ALL
-            $rowSelectionSQL
-            """.stripMargin
-      } else {
-        s"""SELECT $allAttributesSQL FROM (
-              SELECT $allAttributesSQL, '$SL_INTERNAL_TABLE' as `$dataSourceColumnName`  FROM ($tempTableSelect)
-            ) AS SL_INTERNAL_QUALIFY
-            $rowSelectionSQL
-            """.stripMargin
-      }
-    }
   }
 
   /** @param fallbackSchema
