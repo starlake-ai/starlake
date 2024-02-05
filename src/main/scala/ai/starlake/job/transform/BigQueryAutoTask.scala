@@ -152,14 +152,13 @@ class BigQueryAutoTask(
         taskDesc.getSql()
       }
 
-    logger.info(s"""$mainSql""")
     val output = settings.appConfig.rootServe.map(File(_, "extension.log"))
     output.foreach(_.appendLine(s"$mainSql"))
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
           val source = loadedDF
-            .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
+            .map(df => Right(df))
             .getOrElse(Left(""))
 
           val presqlResult: List[Try[JobResult]] = runSqls(preSql)

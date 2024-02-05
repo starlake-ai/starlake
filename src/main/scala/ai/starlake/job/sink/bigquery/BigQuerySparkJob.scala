@@ -195,7 +195,6 @@ class BigQuerySparkJob(
             val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
             val orderedFields = tableColNames.flatMap { fieldsMap.get }
             val orderedDF = sourceDF.select(orderedFields.map(col): _*)
-
             orderedDF.write
               .mode(saveMode)
               .format("bigquery")
