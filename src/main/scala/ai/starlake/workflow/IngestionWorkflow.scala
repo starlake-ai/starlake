@@ -32,7 +32,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQuerySparkJob
 }
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
+import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator._
@@ -311,24 +311,25 @@ class IngestionWorkflow(
         storageHandler.move(path, targetPath)
       }
 
-      val filteredResolved = if (settings.appConfig.privacyOnly) {
-        val (withPrivacy, noPrivacy) =
-          resolved.partition { case (schema, _) =>
-            schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
+      val filteredResolved =
+        if (settings.appConfig.privacyOnly) {
+          val (withPrivacy, noPrivacy) =
+            resolved.partition { case (schema, _) =>
+              schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
+            }
+          // files for schemas without any privacy attributes are moved directly to accepted area
+          noPrivacy.foreach {
+            case (Some(schema), path) =>
+              storageHandler.move(
+                path,
+                new Path(new Path(DatasetArea.accepted(domain.name), schema.name), path.getName)
+              )
+            case (None, _) => throw new Exception("Should never happen")
           }
-        // files for schemas without any privacy attributes are moved directly to accepted area
-        noPrivacy.foreach {
-          case (Some(schema), path) =>
-            storageHandler.move(
-              path,
-              new Path(new Path(DatasetArea.accepted(domain.name), schema.name), path.getName)
-            )
-          case (None, _) => throw new Exception("Should never happen")
+          withPrivacy
+        } else {
+          resolved
         }
-        withPrivacy
-      } else {
-        resolved
-      }
 
       // We group files with the same schema to ingest them together in a single step.
       val groupedResolved: Map[Schema, Iterable[Path]] = filteredResolved.map {
@@ -697,6 +698,7 @@ class IngestionWorkflow(
       config.options,
       config.interactive,
       config.truncate,
+      taskDesc.getEngine(),
       resultPageSize = 1000
     )(
       settings,
@@ -707,9 +709,8 @@ class IngestionWorkflow(
 
   def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
     val action = buildTask(config)
-    val engine = action.taskDesc.getEngine()
     // TODO Interactive compilation should check table existence
-    val (_, mainSQL, _, _) = action.buildAllSQLQueries(tableExists = false, None, None, engine)
+    val mainSQL = action.buildAllSQLQueries(None)
     val output =
       settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(s"""$mainSQL"""))
@@ -852,7 +853,7 @@ class IngestionWorkflow(
   }
 
   def jdbcload(config: JdbcConnectionLoadConfig): Try[JobResult] = {
-    val loadJob = new sparkJdbcLoader(config)
+    val loadJob = new SparkJdbcWriter(config)
     val res = loadJob.run()
     Utils.logFailure(res, logger)
   }
@@ -926,7 +927,7 @@ class IngestionWorkflow(
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
               val config = BigQueryLoadConfig(
-                connectionRef = Some(metadata.getConnectionRef()),
+                connectionRef = Some(metadata.getSinkConnectionRef()),
                 outputTableId = Some(
                   BigQueryJobBase
                     .extractProjectDatasetAndTable(database, domain.name, schema.finalName)

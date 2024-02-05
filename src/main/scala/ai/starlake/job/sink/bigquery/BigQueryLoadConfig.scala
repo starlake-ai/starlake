@@ -24,9 +24,8 @@ case class BigQueryLoadConfig(
   domainDescription: Option[String] = None,
   materializedView: Boolean = false,
   outputTableDesc: Option[String] = None,
-  sqlSource: Option[String] = None,
   attributesDesc: List[AttributeDesc] = Nil,
-  outputDatabase: Option[String],
+  outputDatabase: Option[String] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None,
   dynamicPartitionOverwrite: Option[Boolean] = None

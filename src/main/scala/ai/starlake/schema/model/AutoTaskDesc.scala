@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings.Connection
-import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.config.{DatasetArea, Settings}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -53,12 +53,17 @@ case class AutoTaskDesc(
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None,
-  taskTimeoutMs: Option[Long] = None
+  taskTimeoutMs: Option[Long] = None,
+  _dbComment: Option[String] = None
 ) extends Named {
 
-  @JsonIgnore
-  def getTablePartName(): String = {
-    this.name.split('.').last
+  def getStrategy()(implicit settings: Settings): StrategyOptions = {
+    val st1 = strategy
+      .getOrElse(StrategyOptions(StrategyType.APPEND))
+
+    val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+    st1.copy(start_ts = Some(startTs), end_ts = Some(endTs))
   }
 
   def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
@@ -129,7 +134,7 @@ case class AutoTaskDesc(
       table match {
         case "continuous" | "discrete" | "frequencies" =>
           DatasetArea.metrics(domain, table)
-        case "audit" =>
+        case "audit" | "expectations" =>
           DatasetArea.audit(domain, table)
         case "rejected" =>
           new Path(DatasetArea.rejected(domain), table)
@@ -140,31 +145,33 @@ case class AutoTaskDesc(
       new Path(DatasetArea.business(domain), table)
   }
 
-  @JsonIgnore
-  def getHiveDB()(implicit settings: Settings): String = {
-    StorageArea.area(domain, None)
-  }
-
   def getDatabase()(implicit settings: Settings): Option[String] = {
     database
       .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
   def getEngine()(implicit settings: Settings): Engine = {
-    getConnection().getEngine()
+    getDefaultConnection().getEngine()
   }
 
-  def getConnection()(implicit settings: Settings): Connection = {
+  def getSinkConnection()(implicit settings: Settings): Connection = {
     val connectionRef =
       sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig
       .connection(connectionRef)
-      .getOrElse(throw new Exception("Connection not found"))
+      .getOrElse(throw new Exception(s"Connection not found: $connectionRef"))
     connection
   }
 
-  def getConnectionType()(implicit settings: Settings): ConnectionType = {
-    getConnection().getType()
+  def getDefaultConnection()(implicit settings: Settings): Connection = {
+    val connection = settings.appConfig
+      .connection(settings.appConfig.connectionRef)
+      .getOrElse(throw new Exception(s"Connection not found: ${settings.appConfig.connectionRef}"))
+    connection
+  }
+
+  def getSinkConnectionType()(implicit settings: Settings): ConnectionType = {
+    getSinkConnection().getType()
   }
 
   def getSinkConfig()(implicit settings: Settings): Option[Sink] =

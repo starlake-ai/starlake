@@ -63,135 +63,45 @@ abstract class AutoTask(
 
   override def name: String = taskDesc.name
 
-  protected val connectionRef: String =
+  protected val sinkConnectionRef: String =
     sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
 
-  protected val connection: Settings.Connection = settings.appConfig.connections(connectionRef)
+  protected val sinkConnection: Settings.Connection =
+    settings.appConfig.connections(sinkConnectionRef)
 
-  def buildAllSQLQueries(
-    tableExists: Boolean,
-    partitionColumn: Option[String],
-    destinationTable: Option[String],
-    engine: Engine, // for dynamic partitioning SQL syntax
-    localViews: List[String] = Nil // for local development mode only
-  ): (List[String], String, List[String], Boolean) = {
-    // available jinja variables to build sql query depending on
-    // whether the table exist or not.
-    val allVars = schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
-    val selectStatement = Utils.parseJinja(taskDesc.getSql(), allVars)
-    val (mergeSql, isSelect) =
-      if (taskDesc.parseSQL.getOrElse(true)) {
-        if (!tableExists) {
-          val select =
-            SQLUtils.buildSingleSQLQueryOnTransform(
-              selectStatement,
-              schemaHandler.refs(),
-              schemaHandler.domains(),
-              schemaHandler.tasks(),
-              localViews,
-              taskDesc.getConnection()
-            )
-          (select, true)
-        } else {
-          val (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition) = {
-            taskDesc.strategy match {
-              case Some(mergeOptions) =>
-                val mergeSql =
-                  SQLUtils.buildMergeSqlOnTransform(
-                    selectStatement,
-                    mergeOptions,
-                    taskDesc.getDatabase(),
-                    taskDesc.domain,
-                    taskDesc.table,
-                    taskDesc.getConnection(),
-                    localViews.nonEmpty,
-                    tableExists
-                  )
-                logger.debug(s"Merge SQL: $mergeSql")
-                (mergeSql, false)
-              case None =>
-                val select =
-                  SQLUtils.buildSingleSQLQueryOnTransform(
-                    selectStatement,
-                    schemaHandler.refs(),
-                    schemaHandler.domains(),
-                    schemaHandler.tasks(),
-                    localViews,
-                    taskDesc.getConnection()
-                  )
-                (select, true)
-            }
-          }
-          val (finalSql, isSelectAfterDynamicPartition) = {
-            (partitionColumn, destinationTable) match {
-              case (Some(partitionColumn), Some(destinationTable)) =>
-                engine match {
-                  case Engine.SPARK =>
-                    val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
-                    val writeFormat = settings.appConfig.defaultWriteFormat
-                    session.sql(
-                      s"create temporary table $tempTable as ($sqlBeforeDynamicPartition) using $writeFormat;"
-                    )
-                    val arrayOfPartitionToDelete =
-                      session
-                        .sql(s"select distinct $partitionColumn from $tempTable")
-                        .collect()
-                        .map(_.getAs[String](0))
-                        .mkString("('", "','", "')")
-                    val deleteSql =
-                      s"delete from $destinationTable where $partitionColumn in $arrayOfPartitionToDelete"
-                    val insertSql =
-                      s"insert into $destinationTable select * from $tempTable"
-                    val mergeSQL =
-                      s"""
-                       |$deleteSql;
-                       |/* merge into */
-                       |$insertSql;
-                       |""".stripMargin
+  protected val runEngine: Engine = taskDesc.getEngine()
 
-                    logger.debug(mergeSQL)
-                    (mergeSQL, false)
-                  case Engine.BQ =>
-                    val tempTable = SQLUtils.temporaryTableName(taskDesc.table)
-                    val columnNamesString =
-                      SQLUtils.getColumnNames(selectStatement)
-                    val mergeSQL =
-                      s"""
-                         |declare incoming_partitions array<date>;
-                         |
-                         |create temporary table $tempTable as ($sqlBeforeDynamicPartition);
-                         |
-                         |set (incoming_partitions) = (
-                         |  select as struct array_agg(distinct date($partitionColumn))
-                         |  from $tempTable
-                         |);
-                         |
-                         |merge into $destinationTable dest
-                         |using $tempTable src
-                         |on false
-                         |when not matched by source and date($partitionColumn) in unnest(incoming_partitions) then delete
-                         |when not matched then insert $columnNamesString values $columnNamesString
-                         |""".stripMargin
-                    logger.debug(mergeSQL)
-                    (mergeSQL, false)
-                  case _ =>
-                    (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition)
-                }
-              case (_, _) =>
-                (sqlBeforeDynamicPartition, isSelectBeforeDynamicPartition)
-            }
+  protected def strategy: StrategyOptions = taskDesc.getStrategy()
 
-          }
-          (finalSql, isSelectAfterDynamicPartition)
-        }
-      } else {
-        (selectStatement, true)
-      }
+  protected def isMerge(sql: String): Boolean = {
+    sql.toLowerCase().contains("merge into")
+  }
 
-    val preSql = parseJinja(taskDesc.presql, allVars)
-    val postSql = parseJinja(taskDesc.postsql, allVars)
+  protected def tableExists: Boolean
 
-    (preSql, mergeSql, postSql, isSelect)
+  protected lazy val allVars =
+    schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
+  protected lazy val preSql = parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
+  protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
+
+  val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
+  val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
+
+  def substituteRefTaskMainSQL(sql: String) = {
+    val selectStatement = Utils.parseJinja(sql, allVars)
+    val select =
+      SQLUtils.buildSingleSQLQueryOnTransform(
+        selectStatement,
+        schemaHandler.refs(),
+        schemaHandler.domains(),
+        schemaHandler.tasks(),
+        taskDesc.getSinkConnection()
+      )
+    select
+  }
+
+  def buildAllSQLQueries(sql: Option[String]): String = {
+    throw new Exception("Implemented in subclasses only")
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
@@ -205,7 +115,7 @@ abstract class AutoTask(
     * @param sqls
     * @return
     */
-  private def parseJinja(sqls: List[String], vars: Map[String, Any]): List[String] = {
+  protected def parseJinja(sqls: List[String], vars: Map[String, Any]): List[String] = {
     val result = Utils
       .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters ++ vars)
     logger.debug(s"Parse Jinja result: $result")
@@ -254,10 +164,12 @@ abstract class AutoTask(
 
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(
-      taskDesc.getWrite(),
-      hasMergeKeyDefined = false,
-      taskDesc.getEngine() == Engine.SPARK
+      taskDesc.getWrite()
     )
+
+  def isMaterializedView(): Boolean = {
+    taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
+  }
 }
 
 object AutoTask extends StrictLogging {
@@ -268,7 +180,7 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(_, Map.empty, None, false))
+      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false))
   }
 
   def task(
@@ -276,13 +188,14 @@ object AutoTask extends StrictLogging {
     configOptions: Map[String, String],
     interactive: Option[String],
     truncate: Boolean,
+    engine: Engine,
     resultPageSize: Int = 1
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): AutoTask = {
-    taskDesc.getEngine() match {
+    engine match {
       case Engine.BQ =>
         new BigQueryAutoTask(
           taskDesc,

@@ -81,7 +81,7 @@ class JsonIngestionJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
 
     Try {
       val dfIn = loadJsonData()
@@ -174,7 +174,7 @@ class JsonIngestionJob(
         (validationResult.errors.union(rejectedDS), validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (validationResult.errors.union(rejectedDS), validationResult.accepted, rejectedRecordCount);
     }
   }

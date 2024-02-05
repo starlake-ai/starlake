@@ -56,7 +56,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
             .write
             .mode(config.writeMode.getOrElse(APPEND).toSaveMode)
           writer
-            .options(config.options.toMap)
+            .options(config.options)
             .option("ignoreLeadingWhiteSpace", false)
             .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)

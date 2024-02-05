@@ -76,12 +76,12 @@ load:
           required: true
           privacy: "NONE"
         - name: "YEAR"
-          type: "string"
+          type: "int"
           array: false
           required: false
           privacy: "NONE"
         - name: "MONTH"
-          type: "string"
+          type: "int"
           array: false
           required: false
           privacy: "NONE"
@@ -120,7 +120,7 @@ load:
           privacy: None
           required: false
       postsql:
-        - "Select name from SL_THIS"
+        - "UPDATE DOMAIN.employee SET name = 'John'"
       metadata:
         mode: "FILE"
         format: "DSV"

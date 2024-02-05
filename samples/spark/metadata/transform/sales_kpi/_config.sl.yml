@@ -1,9 +1,9 @@
 transform:
   default:
     write: APPEND
-    merge:
-      key: [id]
-      timestamp: signup
-      on: SOURCE_AND_TARGET
-
+  tasks:
+    - name: byseller_kpi
+      parseSQL: false
+      sink:
+        timestamp: timestamp
 

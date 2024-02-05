@@ -49,7 +49,7 @@ load:
           required: false
           privacy: "NONE"
         - name: "MONTH"
-          type: "string"
+          type: "int"
           array: false
           required: false
           privacy: "NONE"

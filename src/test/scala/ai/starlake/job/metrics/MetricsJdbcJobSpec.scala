@@ -4,8 +4,8 @@ import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
+import ai.starlake.schema.model.{StrategyOptions, StrategyType}
 import ai.starlake.{JdbcChecks, TestHelper}
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -384,8 +384,8 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           settings.appConfig,
           Left("ignore"),
           settings.appConfig.audit.getDomain() + ".discrete",
-          CreateDisposition.CREATE_IF_NEEDED,
-          WriteDisposition.WRITE_APPEND
+          StrategyOptions(StrategyType.APPEND),
+          createTableIfAbsent = true
         )
 
         val discreteMetricsDf: DataFrame = sparkSession.read

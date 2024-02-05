@@ -44,5 +44,9 @@ trait Formatter {
 
       result.toSet
     }
+
+    def splitSql(separator: String = ";\n"): List[String] = {
+      str.split(separator).filter(_.trim.nonEmpty).toList
+    }
   }
 }

@@ -193,14 +193,6 @@ case class Schema(
     StructType(fields)
   }
 
-  /** This Schema as a Spark Catalyst Schema, with renamed attributes
-    *
-    * @return
-    *   Spark Catalyst Schema
-    */
-  def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
-
   private def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,
     p: Attribute => Boolean
@@ -260,10 +252,6 @@ case class Schema(
 
   def sparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
-
-  def bqSchemaFinal(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
-  }
 
   def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkSchemaWithoutIgnoreAndScript(schemaHandler))
@@ -344,22 +332,25 @@ case class Schema(
     ) {
       errorList ++= errors
     }
-    if (strategy.isDefined) {
-      if (strategy.get.key.isEmpty) {
-        errorList +=
-          ValidationMessage(
-            Error,
-            "Table attributes",
-            s"""Merge key cannot be empty""".stripMargin
-          )
-      }
-      if (metadata.exists(_.getWrite() != WriteMode.APPEND)) {
-        errorList +=
-          ValidationMessage(
-            Error,
-            "Table attributes",
-            s"""Merge requires 'Append' write mode""".stripMargin
-          )
+
+    strategy.foreach { strategy =>
+      if (strategy.isMerge()) {
+        if (strategy.key.isEmpty) {
+          errorList +=
+            ValidationMessage(
+              Error,
+              "Table attributes",
+              s"""key cannot be empty""".stripMargin
+            )
+        }
+        if (metadata.exists(_.getWrite() != WriteMode.APPEND)) {
+          errorList +=
+            ValidationMessage(
+              Error,
+              "Table attributes",
+              s"""Merge requires 'Append' write mode""".stripMargin
+            )
+        }
       }
     }
 
@@ -578,50 +569,59 @@ case class Schema(
     * @return
     *   query
     */
-  def buildSqlSelectOnLoad(table: String, sourceUris: Option[String], quote: String): String = {
-    val tableWithInputFileName = {
-      sourceUris match {
-        case None => table
-        case Some(sourceUris) =>
-          s"""
+  def buildSqlSelectOnLoad(
+    table: String,
+    sourceUris: Option[String],
+    quote: String,
+    applyTransformAndIgnore: Boolean
+  ): String = {
+    if (!applyTransformAndIgnore) {
+      s"""SELECT * FROM $table""".stripMargin
+    } else {
+      val tableWithInputFileName = {
+        sourceUris match {
+          case None => table
+          case Some(sourceUris) =>
+            s"""
          |(
          | SELECT *, '${sourceUris}' as ${CometColumns.cometInputFileNameColumn} FROM $table
          |)
          |""".stripMargin
+        }
       }
-    }
 
-    val (scriptAttributes, transformAttributes) =
-      scriptAndTransformAttributes().partition(_.script.nonEmpty)
+      val (scriptAttributes, transformAttributes) =
+        scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
-    val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
+      val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
 
-    val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
-      val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      s"$script AS $quote${scriptField.getFinalName()}$quote"
-    }
-    val sqlTransforms: List[String] = transformAttributes.map { transformField =>
-      val transform = transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      s"$transform AS $quote${transformField.getFinalName()}$quote"
-    }
+      val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
+        val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
+        s"$script AS $quote${scriptField.getFinalName()}$quote"
+      }
+      val sqlTransforms: List[String] = transformAttributes.map { transformField =>
+        val transform =
+          transformField.transform.getOrElse(throw new Exception("Should never happen"))
+        s"$transform AS $quote${transformField.getFinalName()}$quote"
+      }
 
-    val sqlSimple = simpleAttributes.map { field =>
-      s"$quote${field.getFinalName()}$quote"
-    }
+      val sqlSimple = simpleAttributes.map { field =>
+        s"$quote${field.getFinalName()}$quote"
+      }
 
-    val sqlIgnored = ignoredAttributes().map { field =>
-      s"$quote${field.getFinalName()}$quote"
-    }
+      val sqlIgnored = ignoredAttributes().map { field =>
+        s"$quote${field.getFinalName()}$quote"
+      }
 
-    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
-    val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
+      val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
+      val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
 
-    val sourceTableFilterSQL = this.filter match {
-      case Some(filter) => s"WHERE $filter"
-      case None         => ""
+      val sourceTableFilterSQL = this.filter match {
+        case Some(filter) => s"WHERE $filter"
+        case None         => ""
 
-    }
-    s"""
+      }
+      s"""
        |SELECT $allFinalAttributes
        |  FROM (
        |    SELECT $allAttributes
@@ -629,6 +629,7 @@ case class Schema(
        |  ) AS SL_INTERNAL_FROM_SELECT
        |  $sourceTableFilterSQL
        |""".stripMargin
+    }
   }
 
   def buildBQSqlMergeOnLoad(
@@ -640,7 +641,8 @@ case class Schema(
     sourceUris: Option[String],
     targetTableExists: Boolean,
     jdbcDatabase: Engine,
-    isSCD2: Boolean
+    isSCD2: Boolean,
+    applyTransformAndIgnore: Boolean
   )(implicit settings: Settings): String = {
     val jdbcEngine = settings.appConfig.jdbcEngines(jdbcDatabase.toString)
     val quote = jdbcEngine.quote
@@ -654,7 +656,8 @@ case class Schema(
       case Nil => ""
       case _   => targetTableFilters.mkString(" AND ")
     }
-    val tempTableSelect = buildSqlSelectOnLoad(sourceTable, sourceUris, quote)
+    val tempTableSelect =
+      buildSqlSelectOnLoad(sourceTable, sourceUris, quote, applyTransformAndIgnore)
     if (isSCD2) {
       SQLUtils.buildJdbcSqlMerge(
         Right(tempTableSelect),
@@ -691,7 +694,8 @@ case class Schema(
             sourceUris,
             targetTableExists,
             jdbcDatabase,
-            isSCD2 = false
+            isSCD2 = false,
+            applyTransformAndIgnore
           )
       val joinAdditionalClauseSQL =
         if (updateTargetFiltersSQL.trim.isEmpty) "" else f"AND $updateTargetFiltersSQL"
@@ -714,12 +718,20 @@ case class Schema(
       val whereClauseSQL =
         if (targetTableFilterSQL.isEmpty) "" else s"WHERE $targetTableFilterSQL"
 
-      val rowSelectionSQL = this.getStrategy().timestamp match {
-        case Some(mergeTimestampCol) =>
-          s"QUALIFY ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
-        case _ =>
-          // use dense_rank instead of row_number in order to have the same behavior as in spark ingestion
+      val rowSelectionSQL = this.getStrategy().`type` match {
+        case StrategyType.UPSERT_BY_KEY =>
           s"QUALIFY DENSE_RANK() OVER (PARTITION BY $partitionKeys ORDER BY CASE $dataSourceColumnName WHEN '$SL_INTERNAL_TABLE' THEN 2 ELSE 1 END DESC) = 1"
+        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+          val mergeTimestampCol = this
+            .getStrategy()
+            .timestamp
+            .getOrElse(
+              throw new RuntimeException(
+                "Timestamp column is not defined for merge by key and timestamp strategy"
+              )
+            )
+          s"QUALIFY ROW_NUMBER() OVER (PARTITION BY $partitionKeys ORDER BY `$mergeTimestampCol` DESC) = 1"
+        case _ => throw new RuntimeException("Unsupported merge strategy")
       }
       if (targetTableExists) {
         s"""SELECT $allAttributesSQL FROM (
@@ -835,20 +847,6 @@ object Schema {
       buildAttributeTree(obj).attributes,
       None,
       None
-    )
-  }
-
-  def fromTaskDesc(taskDesc: AutoTaskDesc): Schema = {
-    val attributes: List[Attribute] = taskDesc.attributesDesc.map { ad =>
-      Attribute(name = ad.name, accessPolicy = ad.accessPolicy, comment = Some(ad.comment))
-    }
-    Schema(
-      name = taskDesc.name,
-      pattern = Pattern.compile(taskDesc.name),
-      attributes = attributes,
-      None,
-      taskDesc.comment,
-      tags = taskDesc.tags
     )
   }
 

@@ -193,6 +193,7 @@ case class AllSinks(
       case ConnectionType.JDBC   => JdbcSink.fromAllSinks(this)
       case ConnectionType.BQ     => BigQuerySink.fromAllSinks(this)
       case ConnectionType.ES     => EsSink.fromAllSinks(this)
+      case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(this)
       case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.getType()}")
 
     }
@@ -325,6 +326,29 @@ case class GcpLogSink(
     AllSinks(
       connectionRef = connectionRef,
       options = options
+    )
+  }
+}
+
+@JsonTypeName("KAFKA")
+case class KafkaSink(
+  connectionRef: Option[String] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink {
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+  def toAllSinks(): AllSinks = {
+    AllSinks(
+      connectionRef = connectionRef,
+      options = options
+    )
+  }
+}
+
+object KafkaSink {
+  def fromAllSinks(allSinks: AllSinks): KafkaSink = {
+    KafkaSink(
+      allSinks.connectionRef,
+      allSinks.options
     )
   }
 }

@@ -226,7 +226,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   if (scd2)
                     StrategyType.SCD2
                   else
-                    StrategyType.MERGE_BY_KEY_AND_TIMESTAMP
+                    StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
                 Some(
                   StrategyOptions(
                     `type` = strategyType,
@@ -240,7 +240,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   if (scd2)
                     StrategyType.SCD2
                   else
-                    StrategyType.MERGE_BY_KEY_AND_TIMESTAMP
+                    StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
                 Some(
                   StrategyOptions(
                     `type` = strategyType,
@@ -253,7 +253,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   if (scd2)
                     StrategyType.SCD2
                   else
-                    StrategyType.MERGE_BY_KEY
+                    StrategyType.UPSERT_BY_KEY
                 Some(
                   StrategyOptions(
                     `type` = strategyType,
@@ -266,7 +266,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   if (scd2)
                     StrategyType.SCD2
                   else
-                    StrategyType.MERGE_BY_KEY
+                    StrategyType.UPSERT_BY_KEY
                 Some(
                   StrategyOptions(
                     `type` = strategyType,
