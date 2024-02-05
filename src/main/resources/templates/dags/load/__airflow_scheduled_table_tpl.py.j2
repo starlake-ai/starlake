@@ -1,5 +1,5 @@
 from ai.starlake.common import keep_ascii_only, sanitize_id
-from ai.starlake.airflow import StarlakeAirflowJob, DEFAULT_DAG_ARGS
+from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
 import os
 from typing import Union
@@ -39,7 +39,7 @@ _extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_d
 
 # [START instantiate_dag]
 for schedule in schedules:
-    tags = StarlakeAirflowJob.get_context_var(var_name='tags', default_value="", options=options).split()
+    tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
     for domain in schedule["domains"]:
         tags.append(domain["name"])
     with DAG(dag_id=generate_dag_name(schedule),

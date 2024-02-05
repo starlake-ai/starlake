@@ -138,25 +138,25 @@ def sl_pre_load(
 | domain            | str  | the domain to load                                                 |
 | pre_load_strategy | str  | the optional pre load strategy (self.pre_load_strategy by default) |
 
-##### StarlakePreLoadStrategy.NONE
+##### NONE
 
 The load of the domain will not be conditionned and no pre-load tasks will be executed.
 
 ![none strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/none.png)
 
-##### StarlakePreLoadStrategy.IMPORTED
+##### IMPORTED
 
 This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default, if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
 
 ![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
 
-##### StarlakePreLoadStrategy.PENDING
+##### PENDING
 
 This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default if option `pending_path` has not been specified), otherwise the loading of the domain will be skipped.
 
 ![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/pending.png)
 
-##### StarlakePreLoadStrategy.ACK
+##### ACK
 
 This strategy implies that an **ack file** is present at the specified path (option `global_ack_file_path`), otherwise the loading of the domain will be skipped.
 
@@ -232,7 +232,7 @@ This class is a concrete implementation of `StarlakeAirflowJob` that generates t
 
 An additional `SL_STARLAKE_PATH` option is required to specify the **path** to the `starlake` **executable**.
 
-#### StarlakeAirflowBashJob Example
+#### StarlakeAirflowBashJob load Example
 
 The following example shows how to use `StarlakeAirflowBashJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
@@ -337,19 +337,197 @@ for schedule in schedules:
 
 ![dag generated with StarlakeAirflowBashJob](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagsWithStarlakeAirflowBashJob.png)
 
+#### StarlakeAirflowBashJob Transform Examples
+
+The following example shows how to use `StarlakeAirflowBashJob` to generate dynamically **transform** Jobs using `starlake` and record corresponding `outlets`.
+
+```python
+options = {
+    # General options
+    'sl_env_var':'{"SL_ROOT": "/starlake/samples/starbake"}', 
+    'pre_load_strategy':'imported', 
+    # Bash options
+    'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
+}
+
+from ai.starlake.airflow.bash import StarlakeAirflowBashJob
+
+sl_job = StarlakeAirflowBashJob(options=options)
+
+from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.job import StarlakeSparkConfig
+from ai.starlake.airflow import StarlakeAirflowJob, DEFAULT_DAG_ARGS
+
+import json
+import os
+import sys
+from typing import Set, Union
+
+from airflow import DAG
+
+from airflow.datasets import Dataset
+
+from airflow.utils.task_group import TaskGroup
+
+cron = "None"
+
+task_deps=json.loads("""[ {
+  "data" : {
+    "name" : "Customers.HighValueCustomers",
+    "typ" : "task",
+    "parent" : "Customers.CustomerLifeTimeValue",
+    "parentTyp" : "task",
+    "parentRef" : "CustomerLifetimeValue",
+    "sink" : "Customers.HighValueCustomers"
+  },
+  "children" : [ {
+    "data" : {
+      "name" : "Customers.CustomerLifeTimeValue",
+      "typ" : "task",
+      "parent" : "starbake.Customers",
+      "parentTyp" : "table",
+      "parentRef" : "starbake.Customers",
+      "sink" : "Customers.CustomerLifeTimeValue"
+    },
+    "children" : [ {
+      "data" : {
+        "name" : "starbake.Customers",
+        "typ" : "table",
+        "parentTyp" : "unknown"
+      },
+      "task" : false
+    }, {
+      "data" : {
+        "name" : "starbake.Orders",
+        "typ" : "table",
+        "parentTyp" : "unknown"
+      },
+      "task" : false
+    } ],
+    "task" : true
+  } ],
+  "task" : true
+} ]""")
+
+load_dependencies = StarlakeAirflowJob.get_context_var(var_name='load_dependencies', default_value='False', options=options)
+
+schedule = None
+
+datasets: Set[str] = []
+
+_extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
+
+_extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
+
+# if you choose to not load the dependencies, a schedule will be created to check if the dependencies are met
+def _load_datasets(task: dict):
+    if 'children' in task:
+        for child in task['children']:
+            datasets.append(keep_ascii_only(child['data']['name']).lower())
+            _load_datasets(child)
+
+if load_dependencies.lower() != 'true':
+    for task in task_deps:
+        _load_datasets(task)
+    schedule = list(map(lambda dataset: Dataset(dataset + _extra_dataset_parameters), datasets))
+
+tags = StarlakeAirflowJob.get_context_var(var_name='tags', default_value="", options=options).split()
+
+# [START instantiate_dag]
+with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
+         schedule_interval=None if cron == "None" else cron,
+         schedule=schedule,
+         default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
+         catchup=False,
+         user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
+         user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
+         tags=set([tag.upper() for tag in tags]),
+         description=description) as dag:
+
+    start = sl_job.dummy_op(task_id="start")
+
+    pre_tasks = sl_job.pre_tasks(dag=dag)
+
+    post_tasks = sl_job.post_tasks(dag=dag)
+
+    def create_task(airflow_task_id: str, task_name: str, task_type: str):
+        spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', task_name.lower(), options)
+        if (task_type == 'task'):
+            return sl_job.sl_transform(
+                task_id=airflow_task_id, 
+                transform_name=task_name,
+                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {}))
+            )
+        else:
+            load_domain_and_table = task_name.split(".",1)
+            domain = load_domain_and_table[0]
+            table = load_domain_and_table[1]
+            return sl_job.sl_load(
+                task_id=airflow_task_id, 
+                domain=domain, 
+                table=table,
+                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {}))
+            )
+
+    # build takgroups recursively
+    def generate_task_group_for_task(task):
+        task_name = task['data']['name']
+        airflow_task_group_id = sanitize_id(task_name)
+        airflow_task_id = airflow_task_group_id
+        task_type = task['data']['typ']
+        if (task_type == 'task'):
+            airflow_task_id = airflow_task_group_id + "_task"
+        else:
+            airflow_task_id = airflow_task_group_id + "_table"
+
+        if (load_dependencies.lower() == 'true' and 'children' in task):
+            with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
+                for transform_sub_task in task['children']:
+                    generate_task_group_for_task(transform_sub_task)
+                upstream_tasks = list(airflow_task_group.children.values())
+                airflow_task = create_task(airflow_task_id, task_name, task_type)
+                airflow_task.set_upstream(upstream_tasks)
+            return airflow_task_group
+        else:
+            airflow_task = create_task(airflow_task_id=airflow_task_id, task_name=task_name, task_type=task_type)
+            return airflow_task
+
+    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
+
+    if pre_tasks:
+        start >> pre_tasks >> all_transform_tasks
+    else:
+        start >> all_transform_tasks
+
+    end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters), sl_job.outlets)))
+
+    all_transform_tasks >> end
+
+    if post_tasks:
+        all_done = sl_job.dummy_op(task_id="all_done")
+        all_transform_tasks >> all_done >> post_tasks >> end
+
+```
+
+![transform without dependencies](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/bashTransformWithoutDependencies.png)
+
+If you want to load the dependencies, you just need to set the `load_dependencies` option to `True`:
+
+![transform without dependencies](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/bashTransformWithDependencies.png)
+
 ## Google Cloud Platform
 
 ### StarlakeAirflowDataprocJob
 
 This class is a concrete implementation of `StarlakeAirflowJob` that overrides the `sl_job` method that will run the starlake command by submitting **Dataproc job** to the configured **Dataproc cluster**.
 
-It delegates to an instance of the `ai.starlake.airflow.gcp.StarlakeDataprocCluster` class the responsibility to :
+It delegates to an instance of the `ai.starlake.airflow.gcp.StarlakeAirflowDataprocCluster` class the responsibility to :
 
 * **create** the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocCreateClusterOperator`
 * **submit Dataproc job** to the latter by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocSubmitJobOperator`
 * **delete** the **Dataproc cluster** by instantiating `airflow.providers.google.cloud.operators.dataproc.DataprocDeleteClusterOperator`
 
-This instance is available in the `cluster` property of the `StarlakeAirflowDataprocJob` class and can be configured using the `ai.starlake.airflow.gcp.StarlakeDataprocClusterConfig` class.
+This instance is available in the `cluster` property of the `StarlakeAirflowDataprocJob` class and can be configured using the `ai.starlake.airflow.gcp.StarlakeAirflowDataprocClusterConfig` class.
 
 The creation of the **Dataproc cluster** can be performed by calling the `create_cluster` method of the `cluster` property or by calling the `pre_tasks` method of the StarlakeAirflowDataprocJob (the call to the `pre_load` method will, behind the scene, call the `pre_tasks` method and add the optional resulting task to the group of Airflow tasks).
 
@@ -376,7 +554,7 @@ Additional options may be specified to configure the **Dataproc cluster**.
 | **dataproc_worker_disk_size**    | int  | the optional worker disk size (`1024` by default)                    |
 | **dataproc_num_workers**         | int  | the optional number of workers (`4` by default)                      |
 
-All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDataprocCluster** or if the latter was not defined when instantiating **StarlakeAirflowDataprocJob**.
+All of these options will be used by default if no **StarlakeAirflowDataprocClusterConfig** was defined when instantiating **StarlakeAirflowDataprocCluster** or if the latter was not defined when instantiating **StarlakeAirflowDataprocJob**.
 
 #### Dataproc Job configuration
 
@@ -393,7 +571,7 @@ Additional options may be specified to configure the **Dataproc job**.
 
 `spark_executor_memory`, `spark_executor_cores` and `spark_executor_instances` options will be used by default if no **StarlakeSparkConfig** was passed to the `sl_load` and `sl_transform` methods.
 
-#### StarlakeAirflowDataprocJob Example
+#### StarlakeAirflowDataprocJob load Example
 
 The following example shows how to use `StarlakeAirflowDataprocJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
@@ -440,7 +618,7 @@ Additional options may be specified to configure the **Cloud Run job**.
 
 If the execution has been parameterized to be **asynchronous**, an `airflow.sensors.bash.BashSensor` will be instantiated to wait for the completion of the **Cloud Run job** execution.
 
-#### StarlakeAirflowCloudRunJob Examples
+#### StarlakeAirflowCloudRunJob load Examples
 
 The following examples shows how to use `StarlakeAirflowCloudRunJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
 
