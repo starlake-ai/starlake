@@ -7,8 +7,6 @@ import sys
 from typing import Set, List
 
 
-from ai.starlake.dagster import StarlakeDagsterJob
-
 from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition
 
 cron = "{{ context.cron }}"
@@ -18,7 +16,7 @@ task_deps=json.loads("""{{ context.dependencies }}""")
 job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
 
 # if you want to load dependencies, set load_dependencies to True in the options
-load_dependencies: bool = StarlakeDagsterJob.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
+load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
 sensor = None
 
@@ -74,7 +72,7 @@ def compute_task_id(task) -> str:
     return task_id
 
 def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start": In(Nothing)}):
-    spark_config_name=StarlakeDagsterJob.get_context_var('spark_config_name', task_name.lower(), options)
+    spark_config_name=sl_job.get_context_var('spark_config_name', task_name.lower(), options)
     if (task_type == 'task'):
         return sl_job.sl_transform(
             task_id=task_id, 

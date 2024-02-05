@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-airflow',
-      version='0.1.2',
+      version='0.1.2.1',
       description='Starlake Python Distribution For Airflow',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -17,7 +17,7 @@ setup(name='starlake-airflow',
       license='Apache 2.0',
 #      url='https://github.com/starlake-ai/starlake/tree/master/src/main/python/starlake-airflow',
       packages=find_packages(include=['ai', 'ai.*']),
-      install_requires=['starlake-orchestration>=0.1.2'],
+      install_requires=['starlake-orchestration>=0.1.2.1'],
       extras_require={
         "airflow": ["airflow>=2.4.0"],
         "shell": [],
