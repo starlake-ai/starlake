@@ -23,7 +23,9 @@ schedules= [{% for schedule in context.schedules %}
     }{% if not loop.last  %},{% endif %}{% endfor %}
 ]
 
-start = sl_job.dummy_op(task_id="start")
+pre_tasks = sl_job.pre_tasks()
+
+start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
 
 def load_domain(domain: dict) -> GraphDefinition:
     tables = [table["name"] for table in domain["tables"]]
@@ -97,8 +99,7 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
 
     nodes = [start]
 
-    pre_tasks = sl_job.pre_tasks()
-    if pre_tasks:
+    if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
         result = list(pre_tasks.output_dict.keys())[0]
         if result:
             dependencies[start._name] = {
@@ -125,8 +126,8 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
-    post_tasks = sl_job.post_tasks()
-    if post_tasks:
+    post_tasks = sl_job.post_tasks(ins = {"start": In(str)})
+    if post_tasks and post_tasks.input_dict.keys().__len__() > 0:
         input = list(post_tasks.input_dict.keys())[0]
         if input:
             dependencies[post_tasks._name] = {

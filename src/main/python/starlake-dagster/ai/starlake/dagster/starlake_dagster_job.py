@@ -49,7 +49,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             list_files_command = f'ls {incoming_path}/{domain}/* | wc -l'
 
             if incoming_path.startswith('gs://'):
-                list_files_command = "gsutil " + list_files_command
+                list_files_command = f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gsutil " + list_files_command
 
             @op(
                 name=f"{domain}_check_incoming_files",
@@ -102,7 +102,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
 
             if pending_path.startswith('gs://'):
-                list_files_command = "gsutil " + list_files_command
+                list_files_command = f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gsutil " + list_files_command
 
             @op(
                 name=f"{domain}_check_pending_files",
@@ -162,7 +162,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 check_ack_file_command = f'ls {ack_file} | wc -l'
 
                 if ack_file.startswith('gs://'):
-                    check_ack_file_command = "gsutil " + check_ack_file_command
+                    check_ack_file_command = f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gsutil " + check_ack_file_command
 
                 output, return_code = execute_shell_command(
                     shell_command=check_ack_file_command,
@@ -193,7 +193,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 remove_ack_file_command = f'rm {ack_file}'
 
                 if ack_file.startswith('gs://'):
-                    remove_ack_file_command = "gsutil " + remove_ack_file_command
+                    remove_ack_file_command = f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gsutil " + remove_ack_file_command
 
                 output, return_code = execute_shell_command(
                     shell_command=remove_ack_file_command,
