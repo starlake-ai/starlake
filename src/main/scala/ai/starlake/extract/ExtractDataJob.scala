@@ -3,7 +3,7 @@ package ai.starlake.extract
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
@@ -32,7 +32,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       .read(mappingPath(config.extractConfig))
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
-      YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
+      YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
     val dataConnectionSettings = jdbcSchemas.connectionRef match {
       case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
       case None                => throw new Exception(s"No connectionRef defined for jdbc schemas.")

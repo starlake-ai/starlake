@@ -47,9 +47,8 @@ table:
     write: "OVERWRITE"
     sink:
       partition:
-        attributes:
-          - "YEAR"
-          - "MONTH"
+        - "YEAR"
+        - "MONTH"
   merge:
     key:
       - "PK"

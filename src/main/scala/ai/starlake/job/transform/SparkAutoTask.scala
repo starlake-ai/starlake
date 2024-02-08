@@ -471,8 +471,8 @@ class SparkAutoTask(
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
       if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
-        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
           incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())

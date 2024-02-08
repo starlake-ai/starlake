@@ -47,9 +47,9 @@ trait StrategiesBuilder extends StrictLogging {
     // transform into a create table as or merge into or update from / insert as
     val lastSql = allSqls.last
     val scd2StartTimestamp =
-      strategy.start_ts.getOrElse(throw new IllegalArgumentException("strategy requires start_ts"))
+      strategy.startTs.getOrElse(throw new IllegalArgumentException("strategy requires startTs"))
     val scd2EndTimestamp =
-      strategy.end_ts.getOrElse(throw new IllegalArgumentException("strategy requires end_ts"))
+      strategy.endTs.getOrElse(throw new IllegalArgumentException("strategy requires endTs"))
     val finalSqls =
       if (!tableExists) { // Table may have been created yet
         // If table does not exist we know for sure that the sql request is a SELECT
@@ -110,10 +110,10 @@ trait StrategiesBuilder extends StrictLogging {
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink
   )(implicit settings: Settings): String = {
-    val startTsCol = strategy.start_ts.getOrElse(
+    val startTsCol = strategy.startTs.getOrElse(
       throw new Exception("SCD2 is not supported without a start timestamp column")
     )
-    val endTsCol = strategy.end_ts.getOrElse(
+    val endTsCol = strategy.endTs.getOrElse(
       throw new Exception("SCD2 is not supported without an end timestamp column")
     )
     val mergeTimestampCol = strategy.timestamp

@@ -78,7 +78,8 @@ object Dependencies {
   )
 
   val scalaTest = Seq(
-    "org.scalatest" %% "scalatest" % Versions.scalatest % Test
+    "org.scalatest" %% "scalatest" % Versions.scalatest % Test,
+    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test
   )
 
   val h2 = Seq(
@@ -159,7 +160,11 @@ object Dependencies {
 
   val jSqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser)
 
+  val jsonSchemaValidator = Seq(
+    "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
+  )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp ++ jsonSchemaValidator // ++ bigQueue
 }

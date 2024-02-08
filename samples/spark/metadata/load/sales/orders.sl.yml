@@ -1,10 +1,10 @@
   table:
     name: "orders"
     pattern: "orders-.*.csv"
-    writeStrategy:
-      type: APPEND
     metadata:
       separator: ","
+      writeStrategy:
+        type: APPEND
     attributes:
       - name: "order_id"
         type: "string"

@@ -3,12 +3,12 @@ table:
     pattern: "flat_locations-.*.json"
     primaryKey:
       - id
-    writeStrategy:
-      type: "OVERWRITE"
     metadata:
       array: false
       format: "JSON"
       schedule: "0 0 * * *"
+      writeStrategy:
+        type: "OVERWRITE"
     acl:
       - role: viewer
         grants:

@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 
 class Yml2XlsSpec extends TestHelper {
@@ -41,8 +41,8 @@ class Yml2XlsSpec extends TestHelper {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
         val yamlPath =
           File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
-        val yamlDomain = YamlSerializer
-          .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
+        val yamlDomain = YamlSerde
+          .deserializeYamlLoadConfig(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")

@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
@@ -237,7 +237,7 @@ object InferSchemaHandler {
         )
       }
     } else {
-      YamlSerializer.serializeToFile(tablePath, table)
+      YamlSerde.serializeToFile(tablePath, TableDesc(table))
     }
     tablePath
   }

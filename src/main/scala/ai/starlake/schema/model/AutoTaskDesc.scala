@@ -5,6 +5,8 @@ import ai.starlake.config.{DatasetArea, Settings}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
+case class TaskDesc(task: AutoTaskDesc)
+
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
   * @param sql
@@ -33,7 +35,7 @@ case class AutoTaskDesc(
   database: Option[String],
   domain: String,
   table: String,
-  write: Option[WriteMode],
+  write: Option[WriteMode], // Deprecated, replaced by write strategy
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -63,9 +65,9 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getStrategy()(implicit settings: Settings): WriteStrategy = {
     val st1 = writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.APPEND)))
-    val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-    val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-    st1.copy(start_ts = Some(startTs), end_ts = Some(endTs))
+    val startTs = st1.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = st1.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+    st1.copy(startTs = Some(startTs), endTs = Some(endTs))
   }
 
   @JsonIgnore

@@ -12,10 +12,9 @@ load:
     write: "APPEND"
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
     ack: "ack"
   tables:
     - name: "User"
@@ -105,9 +104,8 @@ load:
         write: "OVERWRITE"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
+            - "YEAR"
+            - "MONTH"
       merge:
         key:
           - "PK"

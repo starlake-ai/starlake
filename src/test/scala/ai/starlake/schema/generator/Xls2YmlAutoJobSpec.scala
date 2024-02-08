@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -26,7 +26,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
 
     val outputFile = File(DatasetArea.transform.toString + s"/someDomain/someJob.sl.yml")
     println(outputFile.contentAsString)
-    val result: AutoTaskDesc = YamlSerializer.deserializeTask(outputFile.contentAsString)
+    val result: AutoTaskDesc = YamlSerde.deserializeTask(outputFile.contentAsString)
 
     "Parsing a sample xlsx file" should "generate a yml file sqlEngine BQ" in {
       outputFile.exists() shouldBe true
@@ -54,7 +54,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
 
     val outputFile2 = File(DatasetArea.transform.toString + "/someDomain/someJob2.sl.yml")
 
-    val result2 = YamlSerializer.deserializeTask(outputFile2.contentAsString)
+    val result2 = YamlSerde.deserializeTask(outputFile2.contentAsString)
 
     "Parsing a sample xlsx file" should "generate a yml file sqlEngine BQ 2" in {
       outputFile2.exists() shouldBe true
@@ -67,7 +67,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     )
     val outputFileBQ = File(DatasetArea.transform.toString + "/someDomain/someJobBQ.sl.yml")
 
-    val resultBQ = YamlSerializer.deserializeTask(outputFileBQ.contentAsString)
+    val resultBQ = YamlSerde.deserializeTask(outputFileBQ.contentAsString)
 
     "Parsing a sample xlsx file" should "generate a yml file engine bq" in {
       outputFileBQ.exists() shouldBe true

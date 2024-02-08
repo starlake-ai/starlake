@@ -1,7 +1,7 @@
 package ai.starlake.job.bootstrap
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.utils.{JarUtil, YamlSerializer}
+import ai.starlake.utils.{JarUtil, YamlSerde}
 import better.files.File
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.typesafe.scalalogging.StrictLogging
@@ -97,7 +97,7 @@ object Bootstrap extends StrictLogging {
           val appFile = metadataFolder / "application.sl.yml"
 
           val contents = appFile.contentAsString
-          val rootNode = YamlSerializer.mapper.readTree(contents)
+          val rootNode = YamlSerde.mapper.readTree(contents)
           val appNode = rootNode.path("application").asInstanceOf[ObjectNode]
           val connectionsNode = appNode.path("connections").asInstanceOf[ObjectNode]
 
@@ -129,7 +129,7 @@ object Bootstrap extends StrictLogging {
                 }
               }
             }
-            appFile.overwrite(YamlSerializer.mapper.writeValueAsString(rootNode))
+            appFile.overwrite(YamlSerde.mapper.writeValueAsString(rootNode))
           }
         }
       }

@@ -37,7 +37,7 @@ import ai.starlake.schema.model.Severity._
   * @param types
   *   : Type list
   */
-case class Types(types: List[Type]) {
+case class TypesDesc(types: List[Type]) {
   def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
 
   def checkValidity(): Either[List[ValidationMessage], Boolean] = {
@@ -69,7 +69,6 @@ case class Type(
   zone: Option[String] = None,
   sample: Option[String] = None,
   comment: Option[String] = None,
-  indexMapping: Option[IndexMapping] = None,
   ddlMapping: Option[Map[String, String]] = None
 ) {
   def this() = this("", "") // Should never be called. Here for Jackson deserialization only

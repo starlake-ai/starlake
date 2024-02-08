@@ -3,7 +3,7 @@ package ai.starlake.integration
 import ai.starlake.config.Settings
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -13,6 +13,7 @@ class IntegrationTestBase
     extends AnyFlatSpec
     with Matchers
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with StrictLogging {
 
   implicit val copyOptions = File.CopyOptions(overwrite = true)
@@ -21,8 +22,16 @@ class IntegrationTestBase
   logger.info(starlakeDir.pathAsString)
   def templates = starlakeDir / "samples" / "templates"
   def localDir = templates / "spark"
-  val incomingDir = localDir / "incoming"
+  def incomingDir = localDir / "incoming"
   def sampleDataDir = templates / "sample-data"
+
+  override def beforeEach(): Unit = {
+    cleanup()
+  }
+
+  override def afterEach(): Unit = {
+    cleanup()
+  }
 
   def withEnvs[T](envList: Tuple2[String, String]*)(fun: => T): T = {
     val existingValues = envList.flatMap { case (k, _) =>
@@ -57,11 +66,16 @@ class IntegrationTestBase
     map.remove(key)
   }
 
-  val directoriesToClear = List("incoming", "audit", "datasets", "diagrams")
+  val directoriesToClear =
+    List("incoming", "audit", "datasets", "diagrams", "metadata/dags/generated")
 
   protected def cleanup(): Unit = {
+    cleanup(localDir)
+  }
+
+  protected def cleanup(directory: File): Unit = {
     directoriesToClear.foreach { dir =>
-      val path = localDir / dir
+      val path = directory / dir
       if (path.exists) {
         path.delete()
       }

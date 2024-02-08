@@ -14,10 +14,9 @@ load:
     write: "APPEND"
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "locations"
       pattern: "locations.*"

@@ -27,6 +27,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import scala.collection.immutable.Seq
 
 /** Recognized file type format. This will select the correct parser
   *
@@ -144,8 +145,8 @@ case class AllSinks(
   // FS
   format: Option[String] = None,
   extension: Option[String] = None,
-  partition: Option[List[String]] = None,
   // clustering: Option[Seq[String]] = None,
+  partition: Option[Seq[String]] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
@@ -166,19 +167,19 @@ case class AllSinks(
 
   def merge(child: AllSinks): AllSinks = {
     AllSinks(
-      child.connectionRef.orElse(this.connectionRef),
-      child.clustering.orElse(this.clustering),
-      child.days.orElse(this.days),
-      child.requirePartitionFilter.orElse(this.requirePartitionFilter),
-      child.materializedView.orElse(this.materializedView),
-      child.enableRefresh.orElse(this.enableRefresh),
-      child.refreshIntervalMs.orElse(this.refreshIntervalMs),
-      child.id.orElse(this.id),
-      child.format.orElse(this.format),
-      child.extension.orElse(this.extension),
-      child.partition.orElse(this.partition),
-      child.coalesce.orElse(this.coalesce),
-      child.options.orElse(this.options)
+      connectionRef = child.connectionRef.orElse(this.connectionRef),
+      clustering = child.clustering.orElse(this.clustering),
+      days = child.days.orElse(this.days),
+      requirePartitionFilter = child.requirePartitionFilter.orElse(this.requirePartitionFilter),
+      materializedView = child.materializedView.orElse(this.materializedView),
+      enableRefresh = child.enableRefresh.orElse(this.enableRefresh),
+      refreshIntervalMs = child.refreshIntervalMs.orElse(this.refreshIntervalMs),
+      id = child.id.orElse(this.id),
+      format = child.format.orElse(this.format),
+      extension = child.extension.orElse(this.extension),
+      partition = child.partition.orElse(this.partition),
+      coalesce = child.coalesce.orElse(this.coalesce),
+      options = child.options.orElse(this.options)
     )
   }
   def toAllSinks(): AllSinks = this
@@ -215,7 +216,7 @@ case class AllSinks(
   */
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  partition: Option[List[String]] = None,
+  partition: Option[Seq[String]] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
@@ -296,7 +297,7 @@ case class FsSink(
   format: Option[String] = None,
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
-  partition: Option[List[String]] = None,
+  partition: Option[Seq[String]] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink {
@@ -382,13 +383,13 @@ object GcpLogSink {
 object FsSink {
   def fromAllSinks(allSinks: AllSinks): FsSink = {
     FsSink(
-      allSinks.connectionRef,
-      allSinks.format,
-      allSinks.extension,
-      allSinks.clustering,
-      allSinks.partition,
-      allSinks.coalesce,
-      allSinks.options
+      connectionRef = allSinks.connectionRef,
+      format = allSinks.format,
+      extension = allSinks.extension,
+      clustering = allSinks.clustering,
+      partition = allSinks.partition,
+      coalesce = allSinks.coalesce,
+      options = allSinks.options
     )
   }
 }
@@ -402,7 +403,7 @@ object FsSink {
   *   Batch size of each JDBC bulk insert
   */
 @JsonTypeName("JDBC")
-case class JdbcSink(connectionRef: Option[String] = None, partition: Option[List[String]] = None)
+case class JdbcSink(connectionRef: Option[String] = None, partition: Option[Seq[String]] = None)
     extends Sink {
   def toAllSinks(): AllSinks = {
     AllSinks(

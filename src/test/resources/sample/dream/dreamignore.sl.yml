@@ -12,11 +12,9 @@ load:
     write: "OVERWRITE"
     sink:
       partition:
-        sampling: 0.5
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "segment"
       pattern: "OneClient_Segmentation.*.*"

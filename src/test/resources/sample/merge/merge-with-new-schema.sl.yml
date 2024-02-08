@@ -65,9 +65,8 @@ load:
         write: "APPEND"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
+            - "YEAR"
+            - "MONTH"
       merge:
         key:
           - "PK"

@@ -148,7 +148,7 @@ object SQLUtils extends StrictLogging {
 
   def substituteRefInSQLSelect(
     sql: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     connection: Connection
@@ -183,7 +183,7 @@ object SQLUtils extends StrictLogging {
 
   def buildSingleSQLQueryForRegex(
     sql: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     fromOrJoinRegex: Regex,
@@ -238,7 +238,7 @@ object SQLUtils extends StrictLogging {
 
   private def resolveTableNameInSql(
     tableName: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     ctes: List[String],

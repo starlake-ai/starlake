@@ -5,8 +5,7 @@ table:
       separator: "|"
       sink:
         partition:
-          attributes:
-            - signup
+          - signup
     merge:
       # for BQ only
       #queryFilter: date(signup) in last(4)

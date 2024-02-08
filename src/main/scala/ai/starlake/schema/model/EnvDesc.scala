@@ -79,7 +79,7 @@ case class Ref(
     this(InputRef(), OutputRef()) // Should never be called. Here for Jackson deserialization only
 }
 
-case class Refs(refs: List[Ref]) {
+case class RefDesc(refs: List[Ref]) {
   @JsonCreator
   def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
 
@@ -156,7 +156,7 @@ case class Refs(refs: List[Ref]) {
   }
 }
 
-case class Env(
+case class EnvDesc(
   env: Map[String, String]
 ) {
   @JsonCreator

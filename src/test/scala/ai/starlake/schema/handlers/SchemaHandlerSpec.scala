@@ -701,7 +701,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business.sl.yml"
+        val filename = "/sample/metadata/transform/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
         job.success.value.name shouldBe "business2"
@@ -750,7 +750,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business_with_vars.sl.yml"
+        val filename = "/sample/metadata/transform/business_with_vars/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val content = storageHandler.read(jobPath)
         val vars = content.extractVars()
@@ -769,7 +769,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/my-jinja-job.sl.yml"
+        val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
 
@@ -1065,6 +1065,5 @@ class SchemaHandlerSpec extends TestHelper {
         )
       }
     }
-
   }
 }

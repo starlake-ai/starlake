@@ -13,11 +13,9 @@ load:
     write: "OVERWRITE"
     sink:
       partition:
-        sampling: 0.5
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
     dagRef: "sample"
     schedule: "0 0 0 * * ?"
   tables:

@@ -27,12 +27,16 @@ import ai.starlake.utils.Formatter._
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -319,6 +323,7 @@ object Utils extends StrictLogging {
     mapper
       .setSerializationInclusion(Include.NON_EMPTY)
       .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+      .registerModule(new HadoopModule())
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     mapper
   }
@@ -413,4 +418,17 @@ object Utils extends StrictLogging {
       }
     }
   }
+}
+
+class HadoopModule extends SimpleModule {
+  class HadoopPathSerializer(pathClass: Class[Path]) extends StdSerializer[Path](pathClass) {
+    def this() = {
+      this(classOf[Path])
+    }
+
+    override def serialize(value: Path, jGen: JsonGenerator, provider: SerializerProvider): Unit = {
+      jGen.writeString(value.toString)
+    }
+  }
+  this.addSerializer(new HadoopPathSerializer())
 }

@@ -28,11 +28,10 @@ import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerde}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
@@ -188,13 +187,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def loadTypes(filename: String): List[Type] = {
+    // TODO: remove deprecated file path in a version
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")
-    if (storage.exists(typesCometPath))
-      mapper.readValue(storage.read(typesCometPath), classOf[Types]).types
-    else if (storage.exists(deprecatedTypesPath))
-      mapper.readValue(storage.read(deprecatedTypesPath), classOf[Types]).types
-    else
+    if (storage.exists(typesCometPath)) {
+      YamlSerde.deserializeYamlTypes(storage.read(typesCometPath), typesCometPath.toString)
+    } else if (storage.exists(deprecatedTypesPath)) {
+      YamlSerde.deserializeYamlTypes(
+        storage.read(deprecatedTypesPath),
+        typesCometPath.toString
+      )
+    } else
       List.empty[Type]
   }
 
@@ -234,11 +237,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     if (storage.exists(externalPath)) {
       val content = Utils
         .parseJinja(storage.read(externalPath), activeEnvVars())
-      mapper
-        .readValue(content, classOf[ExternalSourceHolder])
-        .external
-        .projects
-        .getOrElse(Nil)
+      YamlSerde.deserializeYamlExternal(content, externalPath.toString)
     } else
       List.empty[ExternalDatabase]
   }
@@ -306,7 +305,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._activeEnvVars
   }
 
-  def refs(reload: Boolean = false): Refs = {
+  def refs(reload: Boolean = false): RefDesc = {
     if (reload) loadRefs()
     this._refs
   }
@@ -316,9 +315,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def loadActiveEnvVars(): Map[String, String] = {
-    def loadEnv(path: Path): Option[Env] =
+    def loadEnv(path: Path): Option[EnvDesc] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]))
+        Option(YamlSerde.deserializeYamlEnvConfig(storage.read(path), path.toString))
       else {
         logger.warn(s"Env file $path not found")
         None
@@ -364,14 +363,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   @throws[Exception]
-  private def loadRefs(): Refs = {
+  private def loadRefs(): RefDesc = {
     val refsPath = new Path(DatasetArea.metadata, "refs.sl.yml")
     val refs = if (storage.exists(refsPath)) {
       val rawContent = storage.read(refsPath)
       val content = Utils.parseJinja(rawContent, activeEnvVars())
-      YamlSerializer.mapper.readValue(content, classOf[Refs])
+      YamlSerde.deserializeYamlRefs(content, refsPath.toString)
     } else
-      Refs(settings.appConfig.refs)
+      RefDesc(settings.appConfig.refs)
     this._refs = refs
     this._refs
   }
@@ -401,8 +400,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map { directory =>
         val configPath = new Path(directory, "_config.sl.yml")
         if (storage.exists(configPath)) {
-          val domainOnly = YamlSerializer
-            .deserializeDomain(
+          val domainOnly = YamlSerde
+            .deserializeYamlLoadConfig(
               if (raw) storage.read(configPath)
               else Utils.parseJinja(storage.read(configPath), activeEnvVars()),
               configPath.toString
@@ -530,8 +529,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     dagsConfigsPaths.map { dagsConfigsPath =>
       val dagConfigName = dagsConfigsPath.getName().dropRight(".sl.yml".length)
       val dagFileContent = storage.read(dagsConfigsPath)
-      val dagConfig = YamlSerializer
-        .deserializeDagGenerationConfig(
+      val dagConfig = YamlSerde
+        .deserializeYamlDagConfig(
           dagFileContent,
           dagsConfigsPath.toString
         ) match {
@@ -677,7 +676,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map { tableRefName =>
         val schemaPath = new Path(folder, tableRefName)
         logger.info(s"Loading schema from $schemaPath")
-        YamlSerializer.deserializeSchemaRefs(
+        YamlSerde.deserializeYamlTables(
           if (raw)
             storage.read(schemaPath)
           else
@@ -715,7 +714,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     loadJobTasks(jobDesc, jobParentPath)
   }
 
-  def loadJobTasks(jobDesc: AutoJobDesc, jobFolder: Path): Try[AutoJobDesc] = {
+  def loadJobTasks(
+    jobDesc: AutoJobDesc,
+    jobFolder: Path
+  ): Try[AutoJobDesc] = {
     Try {
       // Load task refs and inject them in the job
       val autoTasksRefs = loadTaskRefs(jobDesc, jobFolder)
@@ -819,29 +821,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     logger.info("Loading job " + jobPath)
     val fileContent = storage.read(jobPath)
     val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
-    val rootNode = mapper.readTree(rootContent)
-    val tranformNode = rootNode.path("transform")
-    val autojobNode =
-      if (tranformNode.isNull() || tranformNode.isMissingNode) {
-        logger.warn(
-          s"Defining an autojob outside a transform node is now deprecated. Please update definition $jobPath"
-        )
-        rootNode
-      } else
-        tranformNode
-    val taskPathNode = autojobNode.path("tasks")
-    if (!taskPathNode.isMissingNode) {
-      val tasksNode = taskPathNode.asInstanceOf[ArrayNode]
-      for (i <- 0 until tasksNode.size()) {
-        val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
-        YamlSerializer.upgradeTaskNode(taskNode)
-      }
+    YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
+      case Failure(exception) =>
+        throw exception
+      case Success(autoJobDesc) => autoJobDesc
     }
-    val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
-    jobDesc
   }
 
-  private def loadTaskRefs(jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
+  private def loadTaskRefs(
+    jobDesc: AutoJobDesc,
+    folder: Path
+  ): List[AutoTaskDesc] = {
     // List[(prefix, filename, extension)]
     val allFiles =
       storage
@@ -864,41 +854,43 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       !jobDesc.tasks.exists(_.name.equalsIgnoreCase(taskName))
     }
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
-    val autoTasksRefs = autoTasksRefNames.map { case (taskFilePrefix, taskFilename, extension) =>
-      extension match {
-        case "sl.yml" =>
-          val taskPath = new Path(folder, taskFilename)
-          val taskNode = loadTaskRefNode(
-            Utils
-              .parseJinja(storage.read(taskPath), activeEnvVars())
-          )
-          YamlSerializer.upgradeTaskNode(taskNode)
-          val taskDesc = YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskFilePrefix)
-          val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
-          taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
-        case _ =>
-          AutoTaskDesc(
-            name = taskFilePrefix,
-            sql = None,
-            database = None,
-            domain = "",
-            table = "",
-            write = None,
-            _filenamePrefix = taskFilePrefix,
-            taskTimeoutMs = None
-          )
-      }
+    val autoTasksRefs = autoTasksRefNames.flatMap {
+      case (taskFilePrefix, taskFilename, extension) =>
+        extension match {
+          case "sl.yml" =>
+            Try {
+              val taskPath = new Path(folder, taskFilename)
+              val taskNode = YamlSerde.deserializeYamlTaskAsJson(
+                Utils
+                  .parseJinja(storage.read(taskPath), activeEnvVars()),
+                taskPath.toString
+              )
+              YamlSerde.upgradeTaskNode(taskNode)
+              val taskDesc = YamlSerde.deserializeTaskNode(taskNode).copy(name = taskFilePrefix)
+              val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
+              taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
+            } match {
+              case Failure(_) =>
+                // TODO: could not deserialise. Since we support legacy we may encounter sl.yml files that doesn't define task nor _config.sl.yml. We should add breaking change to remove this behavior and have a strict definition of config files.
+                None
+              case Success(value) => Some(value)
+            }
+          case _ =>
+            Some(
+              AutoTaskDesc(
+                name = taskFilePrefix,
+                sql = None,
+                database = None,
+                domain = "",
+                table = "",
+                write = None,
+                _filenamePrefix = taskFilePrefix,
+                taskTimeoutMs = None
+              )
+            )
+        }
     }
     autoTasksRefs
-  }
-
-  private def loadTaskRefNode(content: String): ObjectNode = {
-    val rootNode = mapper.readTree(content)
-    val taskNode = rootNode.path("task")
-    if (taskNode.isNull() || taskNode.isMissingNode) // backward compatibility
-      rootNode.asInstanceOf[ObjectNode]
-    else
-      taskNode.asInstanceOf[ObjectNode]
   }
 
   /** @param basePath
@@ -948,7 +940,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val jobs = paths
       .map { path =>
-        YamlSerializer.deserializeJob(
+        YamlSerde.deserializeYamlTransform(
           Utils.parseJinja(storage.read(path), activeEnvVars()),
           path.toString
         )
@@ -969,7 +961,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def iamPolicyTags(): Option[IamPolicyTags] = {
     val path = DatasetArea.iamPolicyTags()
     if (storage.exists(path))
-      Some(YamlSerializer.deserializeIamPolicyTags(storage.read(path)))
+      Some(YamlSerde.deserializeIamPolicyTags(storage.read(path)))
     else
       None
   }

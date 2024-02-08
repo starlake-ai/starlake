@@ -21,13 +21,13 @@
 package ai.starlake.schema.model
 
 import ai.starlake.TestHelper
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.{Utils, YamlSerde}
 import org.scalatest.BeforeAndAfterAll
 
 import java.io.InputStream
 
-class EnvSpec extends TestHelper with BeforeAndAfterAll {
-  var env: Env = _
+class EnvDescSpec extends TestHelper with BeforeAndAfterAll {
+  var env: EnvDesc = _
 
   override def beforeAll(): Unit = {
     new WithSettings() {
@@ -38,12 +38,11 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
         .getLines()
         .mkString("\n")
       val content = Utils.parseJinja(lines, Map("PROJECT_ID" -> "starlake-dev"))
-      env = YamlSerializer.mapper.readValue(content, classOf[Env])
+      env = YamlSerde.mapper.readValue(content, classOf[EnvDesc])
     }
   }
   new WithSettings() {
     "Load connections.sl.yml" should "succeed" in {
-      val str = YamlSerializer.mapper.writeValueAsString(settings.appConfig.connections.keys)
       assert(settings.appConfig.connections.size == 5)
     }
   }

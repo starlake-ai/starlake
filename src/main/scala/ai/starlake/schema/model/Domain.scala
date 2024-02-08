@@ -27,7 +27,7 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
-import ai.starlake.utils.YamlSerializer.{serializeToFile, serializeToPath}
+import ai.starlake.utils.YamlSerde.{serializeToFile, serializeToPath}
 import better.files.File
 
 import scala.annotation.nowarn
