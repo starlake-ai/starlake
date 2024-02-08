@@ -71,9 +71,9 @@ trait IngestionJob extends SparkJob {
 
   lazy val strategy: WriteStrategy = {
     val s = mergedMetadata.getStrategyOptions()
-    val startTs = s.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-    val endTs = s.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-    s.copy(start_ts = Some(startTs), end_ts = Some(endTs))
+    val startTs = s.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = s.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+    s.copy(startTs = Some(startTs), endTs = Some(endTs))
   }
 
   def targetTableName: String = domain.finalName + "." + schema.finalName

@@ -28,9 +28,9 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     // transform into a create table as or merge into or update from / insert as
     val lastSql = allSqls.last
     val scd2StartTimestamp =
-      strategy.start_ts.getOrElse(throw new IllegalArgumentException("strategy requires start_ts"))
+      strategy.startTs.getOrElse(throw new IllegalArgumentException("strategy requires startTs"))
     val scd2EndTimestamp =
-      strategy.end_ts.getOrElse(throw new IllegalArgumentException("strategy requires end_ts"))
+      strategy.endTs.getOrElse(throw new IllegalArgumentException("strategy requires endTs"))
     val finalSqls =
       if (!tableExists) {
         // Table may have been created yet. Happen only for AutoTask, At ingestion, the table is always created upfront

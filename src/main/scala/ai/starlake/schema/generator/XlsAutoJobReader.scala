@@ -57,7 +57,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val clustering =
         Option(
           row.getCell(headerMapSchema("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toSeq)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
 
       val tags =
         Option(

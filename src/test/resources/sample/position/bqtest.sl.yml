@@ -15,8 +15,7 @@ load:
     sink:
       connectionRef: bqtest
       partition:
-        attributes:
-          - date
+        - date
   tables:
     - name: "account"
       metadata:

@@ -12,10 +12,9 @@ load:
     write: "SCD2"
     sink:
       partition:
-        attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+        - sl_year
+        - sl_month
+        - sl_day
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
@@ -65,9 +64,8 @@ load:
         write: "APPEND"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
+            - "YEAR"
+            - "MONTH"
       merge:
         key:
           - "PK"

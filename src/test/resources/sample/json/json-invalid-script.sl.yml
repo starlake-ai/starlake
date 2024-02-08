@@ -9,11 +9,10 @@ load:
     write: "APPEND"
     sink:
       partition:
-        attributes:
-          - sl_year
-          - sl_month
-          - sl_day
-  schemas:
+        - sl_year
+        - sl_month
+        - sl_day
+  tables:
     - name: "sample_json"
       pattern: "complex.*"
       attributes:

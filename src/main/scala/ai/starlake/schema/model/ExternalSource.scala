@@ -2,7 +2,7 @@ package ai.starlake.schema.model
 
 import com.fasterxml.jackson.annotation.JsonCreator
 
-case class ExternalSourceHolder(
+case class ExternalDesc(
   external: ExternalSource
 ) {
   @JsonCreator
@@ -16,6 +16,7 @@ case class ExternalSource(
   def this() = this(None)
 }
 
+//TODO: should we rename "project" as database instead?
 case class ExternalDatabase(project: String, domains: Option[List[ExternalDomain]] = None) {
   @JsonCreator
   def this() = this("", None)

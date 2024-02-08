@@ -66,8 +66,8 @@ case class Schema(
   name: String,
   pattern: Pattern,
   attributes: List[Attribute],
-  metadata: Option[Metadata],
-  comment: Option[String],
+  metadata: Option[Metadata] = None,
+  comment: Option[String] = None,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
   tags: Set[String] = Set.empty,
@@ -775,5 +775,5 @@ object Schema {
   }
 }
 
-case class SchemaRefs(tables: List[Schema])
-case class SchemaRef(table: Schema)
+case class TablesDesc(tables: List[Schema])
+case class TableDesc(table: Schema)

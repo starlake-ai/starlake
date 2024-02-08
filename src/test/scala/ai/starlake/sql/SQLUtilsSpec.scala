@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
 import ai.starlake.job.strategies.StrategiesBuilder
-import ai.starlake.schema.model.{AllSinks, Refs, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model.{AllSinks, RefDesc, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -140,12 +140,12 @@ class SQLUtilsSpec extends TestHelper {
       val resultSQL =
         SQLUtils.buildSingleSQLQueryForRegex(
           selectWithCTE,
-          Refs(Nil),
+          RefDesc(Nil),
           Nil,
           Nil,
           SQLUtils.fromsRegex,
           "FROM",
-          new Connection(Some("SPARK"), Some("parquet"), None, None, Map.empty)
+          new Connection("SPARK", Some("parquet"), None, None, Map.empty)
         )
       resultSQL should equal(
         """with mycte as (
@@ -220,8 +220,8 @@ class SQLUtilsSpec extends TestHelper {
           timestamp = None,
           queryFilter = None,
           on = None,
-          start_ts = None,
-          end_ts = None
+          startTs = None,
+          endTs = None
         )
 
       val sqlMerge =

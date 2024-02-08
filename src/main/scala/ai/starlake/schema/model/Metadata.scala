@@ -29,6 +29,7 @@ import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
+import scala.collection.immutable.Seq
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
@@ -192,17 +193,15 @@ case class Metadata(
   @JsonIgnore
   def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
 
-  @JsonIgnore
   // scalastyle:off null
   def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
   // scalastyle:on null
 
   @JsonIgnore
-  def getPartitionAttributes()(implicit settings: Settings): List[String] = {
+  def getPartitionAttributes()(implicit settings: Settings): Seq[String] = {
     this.getSink().toAllSinks().partition.getOrElse(Nil)
   }
 
-  @JsonIgnore
   def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)

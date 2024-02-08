@@ -6,13 +6,13 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
 
   val samplesDir = starlakeDir / "samples"
   logger.info(starlakeDir.pathAsString)
-  val starbakeDir = samplesDir / "starbake"
-  logger.info(starbakeDir.pathAsString)
+  override val localDir = samplesDir / "starbake"
+  logger.info(localDir.pathAsString)
 
   "Recursive Transform" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString
+        "SL_ROOT" -> localDir.pathAsString
       ) {
         Main.main(
           Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
@@ -24,8 +24,8 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "sample test" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT"     -> starbakeDir.pathAsString,
-        "SL_METADATA" -> starbakeDir.pathAsString
+        "SL_ROOT"     -> localDir.pathAsString,
+        "SL_METADATA" -> localDir.pathAsString
       ) {
         Main.main(
           Array("acl-dependencies", "--all")
@@ -36,7 +36,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString
+        "SL_ROOT" -> localDir.pathAsString
       ) {
         Main.main(
           Array("lineage", "--viz", "--all")
@@ -48,7 +48,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+        "SL_ROOT" -> localDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
         Main.main(
           Array("table-dependencies")
@@ -60,7 +60,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Job GraphViz Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+        "SL_ROOT" -> localDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
         Main.main(
           Array(

@@ -13,7 +13,7 @@ load:
     escape: "\\"
     write: "APPEND"
     writeMode: "APPEND"
-  schemas:
+  tables:
   - name: "User"
     pattern: "SCHEMA-.*.dsv"
     attributes:

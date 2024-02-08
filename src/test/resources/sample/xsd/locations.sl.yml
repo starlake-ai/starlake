@@ -18,10 +18,9 @@ load:
       rowValidationXSDPath: __SL_TEST_ROOT__/metadata/sample/xsd/locations.xsd
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "locations"
       pattern: "locations.*"

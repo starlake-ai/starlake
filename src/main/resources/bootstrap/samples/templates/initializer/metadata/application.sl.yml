@@ -41,7 +41,7 @@ application:
         warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
         db: "{{SNOWFLAKE_DB}}"
         keep_column_case: "off"
-        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     spark-snowflake:
       type: jdbc
       sparkFormat: snowflake
@@ -54,7 +54,7 @@ application:
         sfDatabase: "{{SNOWFLAKE_DB}}"
         keep_column_case: "off"
         autopushdown: on
-        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     localFilesystem:
       type: "fs"
   spark:

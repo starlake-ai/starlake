@@ -13,8 +13,8 @@ case class WriteStrategy(
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
   on: Option[MergeOn] = None, // target or both (on source and target
-  start_ts: Option[String] = None,
-  end_ts: Option[String] = None
+  startTs: Option[String] = None,
+  endTs: Option[String] = None
 ) {
 
   @JsonIgnore
