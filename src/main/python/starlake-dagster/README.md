@@ -632,4 +632,98 @@ If we want to load the dependencies, we just need to set the `load_dependencies`
 
 ![transform job generated with StarlakeDagsterShellJob with dependencies](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster/transformWithDependencies.png)
 
-## Cloud
+## Google Cloud Platform
+
+### StarlakeDagsterDataprocJob
+
+This class is a concrete implementation of `StarlakeDagsterJob` that overrides the `sl_job` method that will run the starlake command by submitting **Dataproc job** to the configured **Dataproc cluster**.
+
+It delegates to an instance of the `dagster_gcp.DataprocResource` class the responsibility to :
+
+* **create** the **Dataproc cluster** 
+* **submit Dataproc job** to the latter
+* **delete** the **Dataproc cluster**
+
+This instance is available through the `__dataproc__` property of the `StarlakeDagsterDataprocJob` class and is configured using the `ai.starlake.gcp.StarlakeDataprocClusterConfig` class.
+
+The creation of the **Dataproc cluster** can be performed by calling the `pre_tasks` method of the StarlakeDagsterDataprocJob.
+
+The deletion of the **Dataproc cluster** can be performed by calling the `post_tasks` method of the StarlakeDagsterDataprocJob.
+
+#### Dataproc cluster configuration
+
+Additional options may be specified to configure the **Dataproc cluster**.
+
+| name                             | type | description                                                          |
+| -------------------------------- | ---- | -------------------------------------------------------------------- |
+| **cluster_id**                   | str  | the optional unique id of the cluster that will participate in the definition of the Dataproc cluster name (if not specified)     |
+| **dataproc_name**                | str  | the optional dataproc name of the cluster that will participate in the definition of the Dataproc cluster name (if not specified) |
+| **dataproc_project_id**          | str  | the optional dataproc project id (the project id on which the composer has been instantiated by default) |
+| **dataproc_region**              | str  | the optional region (`europe-west1` by default)                      |
+| **dataproc_subnet**              | str  | the optional subnet (the `default` subnet if not specified)          |
+| **dataproc_service_account**     | str  | the optional service account (`service-{self.project_id}@dataproc-accounts.iam.gserviceaccount.com` by default) |
+| **dataproc_image_version**       | str  | the image version of the dataproc cluster (`2.2-debian1` by default) |
+| **dataproc_master_machine_type** | str  | the optional master machine type (`n1-standard-4` by default)        |
+| **dataproc_master_disk_type**    | str  | the optional master disk type (`pd-standard` by default)             |
+| **dataproc_master_disk_size**    | int  | the optional master disk size (`1024` by default)                    |
+| **dataproc_worker_machine_type** | str  | the optional worker machine type (`n1-standard-4` by default)        |
+| **dataproc_worker_disk_type**    | str  | the optional worker disk size (`pd-standard` by default)             |
+| **dataproc_worker_disk_size**    | int  | the optional worker disk size (`1024` by default)                    |
+| **dataproc_num_workers**         | int  | the optional number of workers (`4` by default)                      |
+
+All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDagsterDataprocJob**.
+
+#### Dataproc Job configuration
+
+Additional options may be specified to configure the **Dataproc job**.
+
+| name                         | type | description                                                                  |
+| ---------------------------- | ---- | ---------------------------------------------------------------------------- |
+| **spark_jar_list**           | str  | the required list of spark jars to be used (using `,` as separator)          |
+| **spark_bucket**             | str  | the required bucket to use for spark and biqquery temporary storage          |
+| **spark_job_main_class**     | str  | the optional main class of the spark job (`ai.starlake.job.Main` by default) |
+| **spark_executor_memory**    | str  | the optional amount of memory to use per executor process (`11g` by default) |
+| **spark_executor_cores**     | int  | the optional number of cores to use on each executor (`4` by default)        |
+| **spark_executor_instances** | int  | the optional number of executor instances (`1` by default)                   |
+
+`spark_executor_memory`, `spark_executor_cores` and `spark_executor_instances` options will be used by default if no **StarlakeSparkConfig** was passed to the `sl_load` and `sl_transform` methods.
+
+#### StarlakeDagsterDataprocJob load Example
+
+The following example shows how to use `StarlakeDagsterDataprocJob` to generate dynamically DAGs that **load** domains using `starlake` and record corresponding `outlets`.
+
+```python
+description="""example to load domain(s) using dagster starlake dataproc job"""
+
+options = {
+    # General options
+    'sl_env_var':'{"SL_ROOT": "gcs://starlake/samples/starbake"}', 
+    'pre_load_strategy':'pending', 
+    # Dataproc cluster configuration
+    'dataproc_project_id':'starbake',
+    # Dataproc job configuration 
+    'spark_bucket':'my-bucket', 
+    'spark_jar_list':'gcs://artifacts/starlake.jar', 
+}
+
+from ai.starlake.dagster.gcp import StarlakeDagsterDataprocJob
+
+sl_job = StarlakeDagsterDataprocJob(options=options)
+
+# all the code following the instantiation of the starlake job is exactly the same as that defined for StarlakeDagsterBashJob
+#...
+```
+
+### StarlakeDagsterCloudRunJob
+
+This class is a concrete implementation of `StarlakeDagsterJob` that overrides the `sl_job` method that will run the starlake command by executing **Cloud Run job**.
+
+#### Cloud Run job configuration
+
+Additional options may be specified to configure the **Cloud Run job**.
+
+| name                         | type | description                                                                  |
+| ---------------------------- | ---- | ---------------------------------------------------------------------------- |
+| **cloud_run_project_id**     | str  | the optional cloud run project id (the project id on which the composer has been instantiated by default) |
+| **cloud_run_job_name**       | str  | the required name of the cloud run job                                       |
+| **cloud_run_region**         | str  | the optional region (`europe-west1` by default)                              |
