@@ -1,6 +1,6 @@
 dag:
     comment: "sample dag configuration"
-    template: "transform/scheduled_task_bash.py.j2"
+    template: "transform/airflow_scheduled_task_bash.py.j2"
     filename: "{{table}}.py"
     options:
         profileVar: "DATAPROC_MEDIUM"
