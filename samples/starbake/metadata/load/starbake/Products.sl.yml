@@ -62,12 +62,12 @@ table:
       ignore: false
   metadata:
     mode: "FILE"
-    format: "DSV"
+    format: "JSON"
     encoding: "UTF-8"
     multiline: false
     array: false
     withHeader: false
-    separator: ";"
+    separator: ""
     quote: "\""
     escape: "\\"
     write: "APPEND"
