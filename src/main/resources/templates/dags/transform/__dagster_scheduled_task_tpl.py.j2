@@ -98,7 +98,7 @@ pre_tasks = sl_job.pre_tasks()
 
 start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
 
-def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]) -> NodeDefinition :
+def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition], snodes: set) -> NodeDefinition :
     task_name = task['data']['name']
     task_type = task['data']['typ']
     task_id = compute_task_id(task)
@@ -111,9 +111,11 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
 
         for child in task['children']:
             child_task_id = compute_task_id(child)
-            ins[child_task_id] = In(Nothing)
-            parent_dependencies[child_task_id] = DependencyDefinition(child_task_id, 'result')
-            nodes.append(generate_node_for_task(child, dependencies, nodes))
+            if child_task_id not in snodes:
+              ins[child_task_id] = In(Nothing)
+              parent_dependencies[child_task_id] = DependencyDefinition(child_task_id, 'result')
+              nodes.append(generate_node_for_task(child, dependencies, nodes, snodes))
+              snodes.add(child_task_id)
 
         dependencies[task_id] = parent_dependencies
 
@@ -133,6 +135,7 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
 def generate_job():
     dependencies = dict()
     nodes = [start]
+    snodes = set()
 
     if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
         result = list(pre_tasks.output_dict.keys())[0]
@@ -145,7 +148,7 @@ def generate_job():
     ins = dict()
     end_dependencies = dict()
     for task in task_deps:
-        node = generate_node_for_task(task, dependencies, nodes)
+        node = generate_node_for_task(task, dependencies, nodes, snodes)
         ins[node._name] = In(Nothing)
         end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
     end = sl_job.dummy_op(task_id="end", ins=ins)

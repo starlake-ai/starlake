@@ -18,6 +18,8 @@ application:
     FS:
       type: local
 
+  defaultWriteFormat: "parquet" # "parquet" (default) or "delta"
+
   dagRef:
-    load: "load"
-    transform: "transform"
+    load: "dagster_load_shell"
+    transform: "dagster_transform_shell"
