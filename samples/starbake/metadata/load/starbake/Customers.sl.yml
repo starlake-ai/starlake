@@ -39,8 +39,8 @@ table:
     encoding: "UTF-8"
     multiline: false
     array: false
-    withHeader: false
-    separator: ";"
+    withHeader: true
+    separator: ","
     quote: "\""
     escape: "\\"
     write: "OVERWRITE"
