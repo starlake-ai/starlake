@@ -45,14 +45,13 @@ We're good to go
 ./starlake transform --name Products.TopSellingProfitableProducts 
 ```
 
-Notes:
+## Run DAGs
 
-- We should check if connection exists, not just when running load. Maybe sth like starlake compile
-- If there is an error of keys in load, the file are already moved to ingesting
-- Improve error, for example, if I have connectionRef:  starbake-bigquery, but i forget to create the connection, the error is cannot find key starbake-bigquery. It should be instead, connection starbake-bigquery is not present in connections ...
-- audit table should be partitioned
-- In audit log, we have -1 in SINK_ACCEPTED & SINK_REJECTED step. Maybe we should just change it to null ?
-- Location is EU by default, it should be required (TO TEST)
-- transform accept only one file as arg, not many. Can we maybe run all the customers transformations, and it's up to starlake to run them in the right order ?
-- If a query ends with ;, transform failed
-- Can we disable scala log ? Log only the "business/starlake log" ?
+1. Install the dagster webserver
+   `python3 -m pip install dagster-webserver`
+2. Install the starlage dagster libraries
+   `python3 -m pip install starlake-dagster[shell]`
+3. Generate DAGs
+`./starlake dag-generate --clean`
+4. Load the DAGs with dagster
+`dagster dev -f metadata/dags/generated/load/starbake.py -f metadata/dags/generated/transform/CustomerLifetimeValue.py -f metadata/dags/generated/transform/HighValueCustomers.py -f metadata/dags/generated/transform/ProductPerformance.py -f metadata/dags/generated/transform/ProductProfitability.py -f metadata/dags/generated/transform/MostProfitableProducts.py -f metadata/dags/generated/transform/TopSellingProducts.py -f metadata/dags/generated/transform/TopSellingProfitableProducts.py`
