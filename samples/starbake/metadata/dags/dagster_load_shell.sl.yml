@@ -1,5 +1,5 @@
 dag:
-    comment: "dag configuration for {{domain}}"
+    comment: "data loading for {{domain}}"
     template: "load/dagster_scheduled_table_shell.py.j2"
     filename: "{{domain}}.py"
     options:

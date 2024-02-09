@@ -49,9 +49,9 @@ We're good to go
 
 1. Install the dagster webserver
    `python3 -m pip install dagster-webserver`
-2. Install the starlage dagster libraries
+2. Install the starlake dagster libraries for shell
    `python3 -m pip install starlake-dagster[shell]`
 3. Generate DAGs
 `./starlake dag-generate --clean`
 4. Load the DAGs with dagster
-`dagster dev -f metadata/dags/generated/load/starbake.py -f metadata/dags/generated/transform/CustomerLifetimeValue.py -f metadata/dags/generated/transform/HighValueCustomers.py -f metadata/dags/generated/transform/ProductPerformance.py -f metadata/dags/generated/transform/ProductProfitability.py -f metadata/dags/generated/transform/MostProfitableProducts.py -f metadata/dags/generated/transform/TopSellingProducts.py -f metadata/dags/generated/transform/TopSellingProfitableProducts.py`
+`DAGSTER_HOME=${PWD} dagster dev -f metadata/dags/generated/load/starbake.py -f metadata/dags/generated/transform/CustomerLifetimeValue.py -f metadata/dags/generated/transform/HighValueCustomers.py -f metadata/dags/generated/transform/ProductPerformance.py -f metadata/dags/generated/transform/ProductProfitability.py -f metadata/dags/generated/transform/MostProfitableProducts.py -f metadata/dags/generated/transform/TopSellingProducts.py -f metadata/dags/generated/transform/TopSellingProfitableProducts.py`

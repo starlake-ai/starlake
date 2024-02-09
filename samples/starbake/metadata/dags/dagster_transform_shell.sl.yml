@@ -1,5 +1,5 @@
 dag:
-    comment: "dag configuration for {{name}}"
+    comment: "data transformation for {{name}}"
     template: "transform/dagster_scheduled_task_shell.py.j2"
     filename: "{{table}}.py"
     options:
