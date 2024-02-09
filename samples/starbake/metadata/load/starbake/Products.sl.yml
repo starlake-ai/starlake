@@ -72,6 +72,6 @@ table:
     escape: "\\"
     write: "APPEND"
     sink:
-      connectionRef: "FS"
+      connectionRef: "{{connectionRef}}"
   primaryKey:
     - "product_id"

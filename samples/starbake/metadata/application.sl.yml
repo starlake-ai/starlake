@@ -1,11 +1,11 @@
 ---
 application:
   loader: "native" # "spark" (default) or "native"
-  connectionRef: starbake-bigquery
+  connectionRef: "{{connectionRef}}"
 
   audit:
     sink:
-      connectionRef: starbake-bigquery
+      connectionRef: "{{connectionRef}}"
 
   connections:
     starbake-bigquery:
@@ -15,6 +15,8 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+    FS:
+      type: local
 
   dagRef:
     load: "load"

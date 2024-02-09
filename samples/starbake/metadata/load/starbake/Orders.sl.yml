@@ -66,6 +66,6 @@ table:
     escape: "\\"
     write: "APPEND"
     sink:
-      connectionRef: "FS"
+      connectionRef: "{{connectionRef}}"
   primaryKey:
     - "order_id"
