@@ -3,7 +3,7 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 
 class TransformIntegrationSpec extends BigQueryIntegrationSpecBase {
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(

@@ -40,7 +40,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
-    schema.strategy.nonEmpty ||
+    schema.strategy.exists(_.isMerge()) ||
     schema.filter.nonEmpty ||
     sink.dynamicPartitionOverwrite.getOrElse(false) ||
     settings.appConfig.archiveTable

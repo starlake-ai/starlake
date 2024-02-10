@@ -187,13 +187,15 @@ case class AllSinks(
 
     val connection = settings.appConfig.connections
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
+    val options = this.options.getOrElse(connection.options)
+    val allSinksWithOptions = this.copy(options = Some(options))
     connection.getType() match {
-      case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(this)
-      case ConnectionType.FS     => FsSink.fromAllSinks(this)
-      case ConnectionType.JDBC   => JdbcSink.fromAllSinks(this)
-      case ConnectionType.BQ     => BigQuerySink.fromAllSinks(this)
-      case ConnectionType.ES     => EsSink.fromAllSinks(this)
-      case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(this)
+      case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(allSinksWithOptions)
+      case ConnectionType.FS     => FsSink.fromAllSinks(allSinksWithOptions)
+      case ConnectionType.JDBC   => JdbcSink.fromAllSinks(allSinksWithOptions)
+      case ConnectionType.BQ     => BigQuerySink.fromAllSinks(allSinksWithOptions)
+      case ConnectionType.ES     => EsSink.fromAllSinks(allSinksWithOptions)
+      case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(allSinksWithOptions)
       case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.getType()}")
 
     }
@@ -302,7 +304,28 @@ case class FsSink(
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink {
+
+  def getFormat()(implicit settings: Settings) = {
+    format.getOrElse(settings.appConfig.defaultWriteFormat)
+  }
+
+  def getPartitionByClauseSQL(): String =
+    partition.map(_.attributes).map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+
+  def getClusterByClauseSQL(): String =
+    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
+
+  def getTableOptionsClause(): String = {
+    val opts = options.getOrElse(Map.empty)
+    if (opts.isEmpty) {
+      ""
+    } else {
+      opts.map { case (k, v) => s"'$k'='$v'" }.mkString("OPTIONS(", ",", ")")
+    }
+  }
+
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef = connectionRef,

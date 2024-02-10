@@ -383,7 +383,8 @@ object Settings extends StrictLogging {
     canMerge: Boolean,
     quote: String,
     viewPrefix: String,
-    preactions: String
+    preactions: String,
+    strategyBuilder: String
   )
 
   object JdbcEngine {

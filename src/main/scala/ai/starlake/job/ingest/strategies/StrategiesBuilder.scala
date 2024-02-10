@@ -1,19 +1,36 @@
 package ai.starlake.job.ingest.strategies
 
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{Sink, StrategyOptions, StrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.reflect.runtime.{universe => ru}
+
 trait StrategiesBuilder extends StrictLogging {
-  def createTemporaryView(viewName: String, jdbcEngine: JdbcEngine): String = {
-    if (jdbcEngine.viewPrefix.isEmpty) {
-      s"CREATE OR REPLACE TEMPORARY VIEW $viewName"
-    } else {
-      s"CREATE OR REPLACE VIEW ${jdbcEngine.viewPrefix}$viewName"
-    }
+  def buildSQLForStrategy(
+    strategy: StrategyOptions,
+    selectStatement: String,
+    fullTableName: String,
+    targetTableColumns: List[String],
+    targetTableExists: Boolean,
+    truncate: Boolean,
+    materializedView: Boolean,
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String
+
+  protected def createTemporaryView(viewName: String): String = {
+    s"CREATE OR REPLACE TEMPORARY VIEW $viewName"
   }
+
+  protected def createTable(fullTableName: String, sparkSinkFormat: String): String = {
+    s"CREATE TABLE $fullTableName"
+  }
+
+  protected def tempViewName(name: String) = name
 
   protected def buildMainSql(
     sqlWithParameters: String,
@@ -21,8 +38,9 @@ trait StrategiesBuilder extends StrictLogging {
     materializedView: Boolean,
     tableExists: Boolean,
     truncate: Boolean,
-    fullTableName: String
-  ): List[String] = {
+    fullTableName: String,
+    sinkConfig: Sink
+  )(implicit settings: Settings): List[String] = {
     val allSqls = sqlWithParameters.splitSql()
     val preMainSqls = allSqls.dropRight(1)
     // The last SQL may be a select. This what wea re going to
@@ -44,14 +62,12 @@ trait StrategiesBuilder extends StrictLogging {
             val endTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2EndTimestamp TIMESTAMP"
             List(
-              s"DROP TABLE IF EXISTS $fullTableName",
               s"CREATE TABLE $fullTableName AS ($lastSql)",
               startTs,
               endTs
             )
           } else
             List(
-              s"DROP TABLE IF EXISTS $fullTableName",
               s"CREATE TABLE $fullTableName AS ($lastSql)"
             )
         }
@@ -81,5 +97,18 @@ trait StrategiesBuilder extends StrictLogging {
         insertSqls
       }
     preMainSqls ++ finalSqls
+  }
+}
+
+object StrategiesBuilder {
+  def apply(className: String): StrategiesBuilder = {
+    val mirror = ru.runtimeMirror(getClass.getClassLoader)
+    val classSymbol: ru.ClassSymbol =
+      mirror.staticClass(className)
+    val consMethodSymbol = classSymbol.primaryConstructor.asMethod
+    val classMirror = mirror.reflectClass(classSymbol)
+    val consMethodMirror = classMirror.reflectConstructor(consMethodSymbol)
+    val strategyBuilder = consMethodMirror.apply().asInstanceOf[StrategiesBuilder]
+    strategyBuilder
   }
 }

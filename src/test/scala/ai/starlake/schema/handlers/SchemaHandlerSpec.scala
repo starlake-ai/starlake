@@ -22,6 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
@@ -101,6 +102,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
         getDomain("DOMAIN").foreach { domain =>
@@ -183,7 +185,8 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
-        sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
+
         cleanMetadata
         cleanDatasets
         loadPending
@@ -193,22 +196,27 @@ class SchemaHandlerSpec extends TestHelper {
         validator.loadPending()
 
         val accepted: Array[Row] = sparkSession
-          .sql(s"select * from $datasetDomainName.Players")
+          .sql(s"select PK, firstName, lastName, DOB, YEAR, MONTH from $datasetDomainName.Players")
           .collect()
         // Input contains a row with an older timestamp
         // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
 
         accepted.foreach(println)
-        val expected: Array[Row] =
+        val expected =
           sparkSession.read
             .option("encoding", "UTF-8")
             .schema(
-              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` INT,`MONTH` INT,`title` STRING"
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT"
             )
             .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-entitled.csv"))
+
+        expected.createOrReplaceTempView("expected")
+        val expectedFinalDf =
+          sparkSession
+            .sql("select PK, firstName, lastName, DOB, YEAR, MONTH from expected")
             .collect()
-        expected.foreach(println)
-        accepted should contain theSameElementsAs expected
+        expectedFinalDf.foreach(println)
+        accepted should contain theSameElementsAs expectedFinalDf
       }
     }
   }
@@ -234,11 +242,7 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName
         )
 
-        // Check rejected
-//        val rejectedDf = sparkSession.read
-//          .parquet(starlakeDatasetsPath + s"/rejected/$datasetDomainName/User")
-
-        val rejectedDf = sparkSession.sql("select * from domain_rejected.user")
+        val rejectedDf = sparkSession.sql("select * from audit.rejected")
 
         val expectedRejectedF =
           sparkSession.read
@@ -274,6 +278,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
         // loadPending
@@ -333,6 +338,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/employee.csv"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
         loadPending
@@ -396,10 +402,11 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
-        sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
         loadPending
+        println(starlakeDatasetsPath)
 
         private val firstLevel: List[Path] = storageHandler
           .listDirectories(
@@ -466,6 +473,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -505,6 +513,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -540,6 +549,7 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/xml/locations.xml"
       ) {
         sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -579,7 +589,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xsd/locations.xml"
       ) {
-        sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -625,6 +635,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         import org.scalatest.TryValues._
 
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
@@ -673,6 +684,7 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
 
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
@@ -691,6 +703,7 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
         import org.scalatest.TryValues._
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
@@ -732,6 +745,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -767,6 +781,15 @@ class SchemaHandlerSpec extends TestHelper {
             |},
             |"source_file_name": {
             |  "type": "keyword"
+            |},
+            |"year":{
+            |  "type":"long"
+            |},
+            |"month":{
+            | "type":"long"
+            |},
+            |"day": {
+            |"type":"long"
             |}
             |}
             |  }
@@ -785,6 +808,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -845,7 +869,7 @@ class SchemaHandlerSpec extends TestHelper {
         )
         val fileContent = readFileContent(tempFile)
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
-        fileContent.trim shouldBe expectedFileContent.trim
+        fileContent.trim should equal(expectedFileContent.trim)
         val domains = schemaHandler.domains()
         val result = domains.head.asDot(false, Set("dream.segment", "dream.client"))
         result.trim shouldBe """
@@ -914,15 +938,18 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName
         )
 
-        // If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
-        Try {
-          printDF(
-            sparkSession.read.parquet(
-              starlakeDatasetsPath + "/rejected/dream/client"
-            ),
-            "dream/client"
-          )
+        val auditConnectionOptions = settings.appConfig.audit.sink.getSink().getConnection().options
+        JdbcDbUtils.withJDBCConnection(auditConnectionOptions) { conn =>
+          // drop table using jdbc statement connection conn in the lines below
+          val rs = conn
+            .createStatement()
+            .executeQuery(
+              s"select count(*) from audit.rejected where domain = '$datasetDomainName' and schema = 'client'"
+            )
+          rs.next()
+          rs.getInt(1) shouldBe 0
         }
+
         val acceptedDf =
           sparkSession
             .sql(s"select * from $datasetDomainName.client where $getTodayCondition")
@@ -942,7 +969,6 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedDf.columns.length shouldBe expectedAccepted.columns.length
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
-
     }
     "Schema with external refs" should "produce import external refs into domain" in {
       new SpecTrait(

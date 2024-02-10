@@ -2,16 +2,16 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.strategies.JdbcStrategiesBuilder
+import ai.starlake.job.ingest.strategies.StrategiesBuilder
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, StrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
-import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
@@ -50,7 +50,7 @@ class JdbcAutoTask(
     runJDBC(None)
   }
 
-  override lazy val tableExists: Boolean = {
+  override def tableExists: Boolean = {
     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
       val url = sinkConnection.options("url")
       val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
@@ -63,7 +63,7 @@ class JdbcAutoTask(
     }
   }
 
-  private def createAuditTable(conn: java.sql.Connection): Boolean = {
+  def createAuditTable(conn: java.sql.Connection): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
     val entry = taskDesc._auditTableName.getOrElse(
@@ -104,15 +104,16 @@ class JdbcAutoTask(
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
     val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-    val mainSql = new JdbcStrategiesBuilder().buildSQLForStrategy(
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
       strategy,
       sqlWithParameters,
       fullTableName,
-      tableExists,
       columnNames,
+      tableExists,
       truncate = truncate,
       materializedView = isMaterializedView(),
-      jdbcSinkEngine
+      jdbcSinkEngine,
+      sinkConfig
     )
     mainSql
   }

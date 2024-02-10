@@ -51,8 +51,7 @@ class ExpectationSpec extends TestHelper {
         s"""
         |SELECT max(cnt)
         |    FROM (SELECT id, count(*) as cnt FROM sl_this
-        |    GROUP BY id
-        |    HAVING cnt > 1)""".stripMargin.trim
+        |    GROUP BY id)""".stripMargin.trim
       )
     }
   }

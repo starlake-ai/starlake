@@ -172,6 +172,7 @@ object SparkUtils extends StrictLogging {
     } catch {
       case e: Exception =>
         logger.error(s"Error when executing sql $sql")
+        e.printStackTrace()
         throw e
     }
 

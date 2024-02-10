@@ -10,18 +10,16 @@ application:
     postgresql:
       type: jdbc
       options:
-        url: "jdbc:postgresql:starlake"
+        url: "jdbc:postgresql:{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
-        supportTruncateOnInsert: false
-        user: "hruser"
-        password: "dbuser123"
+        user: "{{POSTGRES_USER}}"
+        password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
     redshift:
       type: jdbc
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
-        supportTruncateOnInsert: false
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false

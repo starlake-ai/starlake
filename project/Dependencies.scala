@@ -147,6 +147,12 @@ object Dependencies {
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
 
+  val pgGcp = Seq(
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.15.0" % Test,
+    "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "org.postgresql" % "postgresql" % "42.7.1" % Test
+  )
+
   val jinja = Seq(
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
@@ -155,5 +161,5 @@ object Dependencies {
 
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser // ++ bigQueue
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
 }

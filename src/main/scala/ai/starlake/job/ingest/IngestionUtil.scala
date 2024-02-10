@@ -80,7 +80,6 @@ object IngestionUtil {
         presql = Nil,
         postsql = Nil,
         sink = Some(settings.appConfig.audit.sink),
-        parseSQL = Some(false),
         _auditTableName = Some("rejected")
       )
     val autoTask = new SparkAutoTask(
@@ -89,7 +88,7 @@ object IngestionUtil {
       None,
       truncate = false
     )
-    val res = autoTask.sink(Some(rejectedDF))
+    val res = autoTask.sink(rejectedDF)
     if (res) {
       Success(rejectedDF, rejectedPath)
     } else {

@@ -122,7 +122,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
         .opt[String]("write_strategy")
         .action((x, c) => c.copy(strategy = StrategyOptions(StrategyType(x))))
         .text(
-          "Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition"
+          "One of the write strategies: APPEND, OVERWRITE (see strategy types)"
         )
     )
   }

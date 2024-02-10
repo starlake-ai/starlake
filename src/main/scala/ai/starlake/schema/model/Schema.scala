@@ -22,6 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Format.{DSV, XML}
 import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
@@ -125,20 +126,6 @@ case class Schema(
 
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
-
-  /** @return
-    *   Are the parittions columns defined in the metadata valid column names
-    */
-  def validatePartitionColumns()(implicit settings: Settings): Boolean = {
-    metadata.forall(
-      _.getPartitionAttributes().forall(
-        attributes
-          .map(_.getFinalName())
-          .union(Metadata.CometPartitionColumns)
-          .contains
-      )
-    )
-  }
 
   def scriptAndTransformAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
@@ -296,8 +283,12 @@ case class Schema(
       }
     }
 
+    val format = this.metadata.map(_.getFormat()).getOrElse(DSV)
+    def isXMLAttribute: Attribute => Boolean = (format == XML && _.getFinalName().startsWith("_"))
     val firstScriptedFiedlIndex = attributes.indexWhere(_.script.isDefined)
-    val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(_.script.isEmpty)
+    val lastNonScriptedFiedlIndex =
+      attributes.lastIndexWhere(x => x.script.isEmpty && !isXMLAttribute(x))
+
     if (firstScriptedFiedlIndex >= 0 && firstScriptedFiedlIndex < lastNonScriptedFiedlIndex) {
       errorList +=
         ValidationMessage(

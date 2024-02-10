@@ -101,8 +101,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      val result = sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      val result = sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -201,14 +201,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
       )
 
+      sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
       workflow.autoJob(
         TransformConfig("user.user")
       )
 
-      val result = sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      val result = sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -262,8 +263,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(6)
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
@@ -275,6 +276,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
+      sparkSession.sql("DROP DATABASE IF EXISTS user CASCADE")
 
       val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
@@ -316,8 +318,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      sparkSession
+        .table("user.user")
         .select("fullName")
         .take(7)
         .map(r => r.getString(0))
@@ -375,8 +377,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
 
-      val result = sparkSession.read
-        .load(pathGraduateDatasetProgramBusiness.toString)
+      val result = sparkSession
+        .table("graduateProgram.output")
         .select("*")
 
       result

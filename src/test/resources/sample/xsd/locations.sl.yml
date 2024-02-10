@@ -19,9 +19,9 @@ load:
     sink:
       partition:
         attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+          - year
+          - month
+          - day
   tables:
     - name: "locations"
       pattern: "locations.*"
@@ -56,3 +56,24 @@ load:
               attributes:
                 - name: "test2"
                   type: "string"
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"

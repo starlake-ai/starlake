@@ -18,7 +18,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     val actualColumns = existingSchema.map(field => field.name.toLowerCase() -> field).toMap
     // computeNewColumns(actualSchema, expectedSchema)
 
-    StructType(
+    val result = StructType(
       incomingSchema
         .flatMap(incomingField =>
           actualColumns
@@ -40,6 +40,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
             )
         )
     )
+    result
   }
   def computeNewColumns(
     existingSchema: StructType,

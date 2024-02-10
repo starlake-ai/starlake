@@ -52,19 +52,19 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  val sparkSinkFormat =
+    taskDesc.sink.flatMap(_.format).getOrElse(settings.appConfig.defaultWriteFormat)
+
   val sinkConfig = taskDesc.getSinkConfig()
 
   def fullTableName: String
 
   def run(): Try[JobResult]
-  // def buildMergeStatement(partitionColumn: String, destinationTable: String): String
-
-  // def sink(maybeDataFrame: Option[DataFrame]): Boolean
 
   override def name: String = taskDesc.name
 
   protected val sinkConnectionRef: String =
-    sinkConfig.flatMap(_.connectionRef).getOrElse(settings.appConfig.connectionRef)
+    sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   protected val sinkConnection: Settings.Connection =
     settings.appConfig.connections(sinkConnectionRef)
@@ -77,7 +77,7 @@ abstract class AutoTask(
     sql.toLowerCase().contains("merge into")
   }
 
-  protected def tableExists: Boolean
+  def tableExists: Boolean
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)

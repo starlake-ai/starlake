@@ -115,37 +115,6 @@ trait IngestionJob extends SparkJob {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  def getSinkConnectionType(): ConnectionType = {
-    val connectionRef =
-      mergedMetadata.getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
-    settings.appConfig.connections(connectionRef).getType()
-  }
-
-  private def csvOutput(): Boolean = {
-    mergedMetadata.getSink() match {
-      case fsSink: FsSink =>
-        val format = fsSink.format.getOrElse("")
-        (settings.appConfig.csvOutput || format == "csv") &&
-        !settings.appConfig.grouped && fsSink.partition.isEmpty && path.nonEmpty
-      case _ =>
-        false
-    }
-  }
-
-  /** This function is called only if csvOutput is true This means we are sure that sink is an
-    * FsSink
-    *
-    * @return
-    */
-  private def csvOutputExtension(): String = {
-
-    if (settings.appConfig.csvOutputExt.nonEmpty)
-      settings.appConfig.csvOutputExt
-    else {
-      mergedMetadata.sink.flatMap(_.getSink().asInstanceOf[FsSink].extension).getOrElse("")
-    }
-  }
-
   private def extractHiveTableAcl(): List[String] = {
 
     if (settings.appConfig.isHiveCompatible()) {
@@ -339,9 +308,6 @@ trait IngestionJob extends SparkJob {
     // Make sure domain is valid
     checkDomainValidity()
 
-    // run presql
-    runPrePostSql(mergedMetadata.getEngine(), schema.presql)
-
     // Run selected ingestion engine
     val jobResult = selectLoadEngine() match {
       case Engine.BQ =>
@@ -357,11 +323,6 @@ trait IngestionJob extends SparkJob {
       .recoverWith { case exception =>
         // on failure log failures
         logLoadFailureInAudit(now, exception)
-      }
-      .map { jobResult =>
-        // on success run post sql
-        runPrePostSql(mergedMetadata.getEngine(), schema.postsql)
-        jobResult
       }
       .map { case counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount) =>
         // On success log counters
@@ -527,60 +488,6 @@ trait IngestionJob extends SparkJob {
     dataFrame.columns.map(colName => attributesMap(colName)).toList
   }
 
-  /*
-  private def sinkToFile(
-                          dataset: DataFrame,
-                          targetPath: Path,
-                          area: StorageArea,
-                          strategy: StrategyOptions,
-                          writeFormat: String
-                        ): Unit = {
-      if (csvOutput() && area == StorageArea.accepted) {
-        val outputList = storageHandler
-          .list(targetPath, ".csv", LocalDateTime.MIN, recursive = false)
-          .filterNot(path => schema.pattern.matcher(path.getName).matches())
-        if (outputList.nonEmpty) {
-          val finalCsvPath =
-            if (csvOutputExtension().nonEmpty) {
-              // Explicitly set extension
-              val targetName = path.head.getName
-              val index = targetName.lastIndexOf('.')
-              val filePrefix = if (index > 0) targetName.substring(0, index) else targetName
-              val finalName = filePrefix + csvOutputExtension()
-              new Path(targetPath, finalName)
-            } else {
-              new Path(targetPath, path.head.getName)
-            }
-          val withHeader = mergedMetadata.isWithHeader()
-          val delimiter = mergedMetadata.separator.getOrElse("µ")
-          val header =
-            if (withHeader)
-              Some(this.schema.attributes.map(_.getFinalName()).mkString(delimiter))
-            else None
-          storageHandler.copyMerge(header, targetPath, finalCsvPath, deleteSource = true)
-          // storageHandler.move(csvPath, finalCsvPath)
-        }
-      }
-      // output file should have the same name as input file when applying privacy
-      if (
-        settings.appConfig.defaultWriteFormat == "text" && settings.appConfig.privacyOnly && area != StorageArea.rejected
-      ) {
-        val pathsOutput = storageHandler
-          .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
-          .filterNot(path => schema.pattern.matcher(path.getName).matches())
-        if (pathsOutput.nonEmpty) {
-          val txtPath = pathsOutput.head
-          val finalTxtPath = new Path(
-            targetPath,
-            path.head.getName
-          )
-          storageHandler.move(txtPath, finalTxtPath)
-        }
-      }
-      applyHiveTableAcl()
-    }
-  }
-   */
   private def nbFsPartitions(
     dataset: DataFrame
   ): Int = {
@@ -843,7 +750,21 @@ trait IngestionJob extends SparkJob {
         storageHandler,
         schemaHandler
       )
-      if (autoTask.sink(Some(mergedDF))) {
+      if (autoTask.sink(mergedDF)) {
+        taskDesc.getSinkConfig() match {
+          case fsSink: FsSink =>
+            if (isCSV(fsSink)) {
+              val separator = mergedMetadata.separator
+              val header =
+                if (mergedMetadata.isWithHeader())
+                  Some(mergedDF.columns.toList)
+                else None
+              autoTask.exportToCSV(domain.finalName, schema.finalName, header, separator)
+            }
+          case _ =>
+            false
+        }
+
         Success(0L)
       } else {
         Failure(new Exception("Failed to sink"))
@@ -852,73 +773,9 @@ trait IngestionJob extends SparkJob {
     result.flatten
   }
 
-  /*
-  private def bqSinkOneStep(
-    loadedDF: DataFrame,
-    sink: BigQuerySink,
-    createDisposition: String,
-    writeDisposition: String,
-    outputTableId: TableId
-  ): Try[JobResult] = {
-    /* We load the schema from the postsql returned dataframe if any */
-    val tableSchema = Some(schema.bqSchemaWithoutIgnore(schemaHandler))
-    /*
-    schema.postsql match {
-      case Nil => Some(schema.bqSchemaWithoutIgnore(schemaHandler))
-      case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-    }
-   */
-    val config = BigQueryLoadConfig(
-      connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
-      source = Right(loadedDF),
-      outputTableId = Some(outputTableId),
-      sourceFormat = settings.appConfig.defaultWriteFormat,
-      createDisposition = createDisposition,
-      writeDisposition = writeDisposition,
-      outputPartition = sink.timestamp,
-      outputClustering = sink.clustering.getOrElse(Nil),
-      days = sink.days,
-      requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
-      rls = schema.rls,
-      starlakeSchema = Some(schema),
-      domainTags = domain.tags,
-      domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain),
-      dynamicPartitionOverwrite = sink.dynamicPartitionOverwrite
-    )
-    val res = new BigQuerySparkJob(
-      config,
-      tableSchema,
-      schema.comment
-    ).run()
-    res
-  }
-   */
-  def buildCommonNativeBQLoadConfig(
-    createDisposition: String,
-    writeDisposition: String,
-    bqSink: BigQuerySink,
-    schemaWithMergedMetadata: Schema
-  ): BigQueryLoadConfig = {
-    BigQueryLoadConfig(
-      connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
-      source = Left(path.map(_.toString).mkString(",")),
-      outputTableId = None,
-      sourceFormat = settings.appConfig.defaultWriteFormat,
-      createDisposition = createDisposition,
-      writeDisposition = writeDisposition,
-      outputPartition = None,
-      outputClustering = Nil,
-      days = None,
-      requirePartitionFilter = false,
-      rls = Nil,
-      partitionsToUpdate = Nil,
-      starlakeSchema = Some(schemaWithMergedMetadata),
-      domainTags = domain.tags,
-      domainDescription = domain.comment,
-      outputDatabase = schemaHandler.getDatabase(domain),
-      dynamicPartitionOverwrite = bqSink.dynamicPartitionOverwrite
-    )
+  private def isCSV(fsSink: FsSink) = {
+    (settings.appConfig.csvOutput || fsSink.format.getOrElse("") == "csv") && !strategy
+      .isMerge()
   }
 
   @nowarn

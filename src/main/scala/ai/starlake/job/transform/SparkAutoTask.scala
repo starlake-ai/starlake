@@ -1,8 +1,8 @@
 package ai.starlake.job.transform
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.strategies.SparkSQLStrategiesBuilder
+import ai.starlake.job.ingest.strategies.StrategiesBuilder
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
@@ -16,12 +16,13 @@ import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import better.files.File
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
-import java.time.{Instant, LocalDateTime}
+import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
 class SparkAutoTask(
@@ -40,24 +41,17 @@ class SparkAutoTask(
     ) {
 
   override def run(): Try[JobResult] = {
-    if (
-      sinkConnection.getType() != ConnectionType.FS ||
-      taskDesc.getDefaultConnection().getType() != ConnectionType.FS
-    ) {
-      runSparkOnAny()
-    } else {
-      runSparkOnSpark()
-    }
-    /*
-    val res = runSpark()
-    res match {
-      case Success(SparkJobResult(None, _)) =>
-      case Success(SparkJobResult(Some(dataframe), _)) if interactive.isEmpty =>
-        sink(Some(dataframe))
-      case Failure(_) =>
-    }
-    res
-     */
+    val result =
+      if (
+        sinkConnection.getType() != ConnectionType.FS ||
+        taskDesc.getDefaultConnection().getType() != ConnectionType.FS
+      ) {
+        runSparkOnAny()
+      } else {
+        runSparkOnSpark(taskDesc.getSql())
+      }
+
+    result
   }
 
   def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
@@ -97,82 +91,7 @@ class SparkAutoTask(
 
   val fullTableName = s"${taskDesc.domain}.${taskDesc.table}"
 
-  private def sinkToFile2(dataframe: DataFrame, sink: FsSink): Boolean = {
-    val coalesce = sink.coalesce.getOrElse(false)
-    val targetPath = taskDesc.getTargetPath()
-    logger.info(s"About to write resulting dataset to $targetPath")
-    // Target Path exist only if a storage area has been defined at task or job level
-    // To execute a task without writing to disk simply avoid the area at the job and task level
-
-    val sinkPartition = sink.partition.getOrElse(Partition(attributes = taskDesc.partition))
-
-    val partitionedDF =
-      if (coalesce)
-        dataframe.repartition(1)
-      else
-        dataframe
-
-    val partitionedDFWriter = partitionedDF.write
-    /*      partitionedDatasetWriter(
-        partitionedDF,
-        sinkPartition.attributes
-      )
-     */
-    val clusteredDFWriter = sink.clustering match {
-      case None          => partitionedDFWriter
-      case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
-    }
-
-    val finalDatasetWithoutPath = clusteredDFWriter
-      .mode(taskDesc.getWrite().toSaveMode)
-      .format(sink.format.getOrElse(settings.appConfig.defaultWriteFormat))
-      .options(sink.getOptions())
-
-    val finalDataset =
-      if (settings.appConfig.privacyOnly) {
-        finalDatasetWithoutPath.option("path", targetPath.toString)
-      } else {
-        finalDatasetWithoutPath
-      }
-    val fullTableName = s"${taskDesc.domain}.${taskDesc.table}"
-    SparkUtils.createSchema(session, taskDesc.domain)
-    SparkUtils.sql(session, s"USE ${taskDesc.domain}")
-    if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite && tableExists)
-      SparkUtils.sql(session, s"DROP TABLE IF EXISTS ${taskDesc.table}")
-    finalDataset.saveAsTable(fullTableName)
-    val tableTagPairs =
-      Utils.extractTags(this.taskDesc.tags) + ("comment" -> taskDesc.comment.getOrElse(""))
-    val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
-    SparkUtils.sql(session, s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)")
-
-    if (Utils.isRunningInDatabricks()) {
-      taskDesc.attributesDesc.foreach { attrDesc =>
-        SparkUtils.sql(
-          session,
-          s"ALTER TABLE ${taskDesc.table} CHANGE COLUMN $attrDesc.name COMMENT '${attrDesc.comment}'"
-        )
-      }
-    }
-    // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
-    // We use the pathname when we write to FS
-    if (coalesce) {
-      val extension =
-        sink.extension.getOrElse(
-          sink.format.getOrElse(settings.appConfig.defaultWriteFormat)
-        )
-      finalDataset.option("path", targetPath.toString).save()
-      val csvPath = storageHandler
-        .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
-        .head
-      val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-      storageHandler.move(csvPath, finalPath)
-    }
-    true
-  }
-
-  private def sinkToES(): Try[JobResult] = {
-    val targetPath =
-      new Path(DatasetArea.path(this.taskDesc.domain), this.taskDesc.table)
+  private def sinkToES(dataframe: DataFrame): Try[JobResult] = {
     val sink: EsSink = this.taskDesc.sink
       .map(_.getSink())
       .map(_.asInstanceOf[EsSink])
@@ -184,9 +103,9 @@ class SparkAutoTask(
         timestamp = sink.timestamp,
         id = sink.id,
         format = settings.appConfig.defaultWriteFormat,
-        domain = this.taskDesc.domain,
-        schema = this.taskDesc.table,
-        dataset = Some(Left(targetPath)),
+        domain = taskDesc.domain,
+        schema = taskDesc.table,
+        dataset = Some(Right(dataframe)),
         options = sink.getOptions()
       )
 
@@ -195,44 +114,33 @@ class SparkAutoTask(
 
   }
 
-  def sink(maybeDataFrame: Option[DataFrame]): Boolean = {
-    val sinkOption = this.sinkConfig
-    logger.info(s"sinking data to $sinkOption")
-    maybeDataFrame match {
-      case None =>
-        logger.info("No dataframe to sink. Sink done natively  to the source")
-        true
-      case Some(dataframe) =>
-        val result =
-          sinkOption match {
-            case Some(sink) =>
-              sink match {
-                case _: EsSink =>
-                  sinkToES()
+  def sink(dataframe: DataFrame): Boolean = {
+    val sink = this.sinkConfig
+    logger.info(s"sinking data to $sink")
+    val result =
+      sink match {
+        case _: EsSink =>
+          sinkToES(dataframe)
 
-                case _: FsSink =>
-                  sinkToFile(dataframe)
+        case _: FsSink =>
+          sinkToFile(dataframe)
 
-                case _: BigQuerySink =>
-                  sinkToBQ(dataframe)
+        case _: BigQuerySink =>
+          sinkToBQ(dataframe)
 
-                case _: JdbcSink =>
-                  sinkToJDBC(dataframe)
+        case _: JdbcSink =>
+          sinkToJDBC(dataframe)
 
-                case _: KafkaSink =>
-                  sinkToKafka(dataframe)
-                case _ =>
-                  dataframe.write.format("console").save()
-                  throw new Exception(
-                    s"No supported Sink is activated for this job $sink, dumping to console"
-                  )
+        case _: KafkaSink =>
+          sinkToKafka(dataframe)
+        case _ =>
+          dataframe.write.format("console").save()
+          throw new Exception(
+            s"No supported Sink is activated for this job $sink, dumping to console"
+          )
 
-              }
-            case None =>
-              throw new Exception("Sink is not activated for this job")
-          }
-        Utils.throwFailure(result, logger)
-    }
+      }
+    Utils.throwFailure(result, logger)
   }
 
   private def sinkToKafka(mergedDF: DataFrame): Try[DataFrame] = Try {
@@ -243,12 +151,7 @@ class SparkAutoTask(
   }
 
   private def sinkToBQ2(dataframe: DataFrame): Try[JobResult] = {
-    val bqSink =
-      this.sinkConfig
-        .getOrElse(
-          throw new Exception("Sink of type BigQuery must be specified when loading data to BQ !!!")
-        )
-        .asInstanceOf[BigQuerySink]
+    val bqSink = this.sinkConfig.asInstanceOf[BigQuerySink]
 
     val source = Right(Utils.setNullableStateOfColumn(dataframe, nullable = true))
     val (createDisposition, writeDisposition) = {
@@ -284,24 +187,25 @@ class SparkAutoTask(
   }
 
   override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(false))
+    assert(taskDesc.parseSQL.getOrElse(true))
     val columnNames = SQLUtils.extractColumnNames(sql.getOrElse(taskDesc.getSql()))
     val mainSql =
-      new SparkSQLStrategiesBuilder()
+      StrategiesBuilder(jdbcSinkEngine.strategyBuilder)
         .buildSQLForStrategy(
-          sql.getOrElse(taskDesc.getSql()),
           strategy,
+          sql.getOrElse(taskDesc.getSql()),
           fullTableName,
-          tableExists,
           columnNames,
+          tableExists,
           truncate,
           isMaterializedView(),
-          jdbcSinkEngine
+          jdbcSinkEngine,
+          sinkConfig
         )
     mainSql
   }
 
-  def runSparkOnBigQuery(): Option[DataFrame] = {
+  def runSparkQueryOnBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
       connectionRef = Some(settings.appConfig.connectionRef)
     )
@@ -315,7 +219,7 @@ class SparkAutoTask(
     }
   }
 
-  def runSparkOnJdbc(): Option[DataFrame] = {
+  def runSparkQueryOnJdbc(): Option[DataFrame] = {
     val runConnection = taskDesc.getDefaultConnection()
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
@@ -332,13 +236,13 @@ class SparkAutoTask(
     val dataFrameToSink = buildDataFrameToSink()
     if (interactive.isEmpty) {
       dataFrameToSink.map { df =>
-        sink(Some(df))
+        sink(df)
       }
     }
     SparkJobResult(dataFrameToSink)
   }
 
-  def runSparkOnFS(): Option[DataFrame] = {
+  def runSparkQueryOnFS(): Option[DataFrame] = {
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     runSqls(List(sqlWithParameters), "Main")
   }
@@ -346,23 +250,34 @@ class SparkAutoTask(
   private def buildDataFrameToSink(): Option[DataFrame] = {
     val dataframe = runEngine match {
       case Engine.SPARK =>
-        runSparkOnFS()
+        runSparkQueryOnFS()
       case Engine.BQ =>
-        runSparkOnBigQuery()
+        runSparkQueryOnBigQuery()
       case Engine.JDBC =>
-        runSparkOnJdbc()
+        runSparkQueryOnJdbc()
       case _ =>
         throw new Exception(s"Unsupported engine ${runEngine}")
     }
     dataframe
   }
 
-  def runSparkOnSpark(): Try[SparkJobResult] = {
+  def runSparkOnSpark(sql: String): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
     Try {
+      if (taskDesc._dbComment.nonEmpty || taskDesc.tags.nonEmpty) {
+        val domainComment = taskDesc._dbComment.getOrElse("")
+        val tableTagPairs = Utils.extractTags(taskDesc.tags) + ("comment" -> domainComment)
+        val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+        SparkUtils.sql(
+          session,
+          s"CREATE SCHEMA IF NOT EXISTS ${taskDesc.domain} WITH DBPROPERTIES($tagsAsString)"
+        )
+      } else {
+        SparkUtils.createSchema(session, taskDesc.domain)
+      }
 
       // we replace any ref in the sql
-      val sqlNoRefs = substituteRefTaskMainSQL(taskDesc.getSql())
+      val sqlNoRefs = substituteRefTaskMainSQL(sql)
       val jobResult = interactive match {
         case Some(_) =>
           // just run the request and return the dataframe
@@ -371,8 +286,8 @@ class SparkAutoTask(
         case None =>
           runSqls(preSql, "Pre")
           val jobResult =
-            (taskDesc.sql, taskDesc.python) match {
-              case (Some(_), None) =>
+            (sql, taskDesc.python) match {
+              case (_, None) =>
                 val sqlToRun =
                   if (taskDesc.parseSQL.getOrElse(true)) {
                     // we need to generate the insert / merge / create table
@@ -381,19 +296,35 @@ class SparkAutoTask(
                     // we just run the sql since ethe user has provided the sql to run
                     sqlNoRefs
                   }
-                runSqls(sqlToRun.splitSql(), "Main")
-              case (None, Some(pythonFile)) =>
+                val result = runSqls(sqlToRun.splitSql(), "Main")
+                if (isCSV()) {
+                  exportToCSV(taskDesc.domain, taskDesc.table, None, None)
+                }
+                result
+
+              case ("", Some(pythonFile)) =>
                 runPySpark(pythonFile)
-              case (None, None) =>
-                throw new Exception(
-                  s"At least one SQL or Python command should be present in task ${taskDesc.name}"
-                )
-              case (Some(_), Some(_)) =>
+              case (_, _) =>
                 throw new Exception(
                   s"Only one of 'sql' or 'python' attribute may be defined ${taskDesc.name}"
                 )
             }
           runSqls(postSql, "Post")
+          if (taskDesc._auditTableName.isEmpty) {
+            if (taskDesc.comment.nonEmpty || taskDesc.tags.nonEmpty) {
+              val tableComment = taskDesc.comment.getOrElse("")
+              val tableTagPairs = Utils.extractTags(taskDesc.tags) + ("comment" -> tableComment)
+              val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+              SparkUtils.sql(
+                session,
+                s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
+              )
+            }
+            /////////////////
+
+            /////////////////
+            applyHiveTableAcl()
+          }
           if (settings.appConfig.expectations.active) {
             new ExpectationJob(
               taskDesc.database,
@@ -416,6 +347,16 @@ class SparkAutoTask(
       logAuditFailure(start, end, e)
       Failure(e)
     }
+  }
+
+  private def isCSV() = {
+    (settings.appConfig.csvOutput || sinkConfig
+      .asInstanceOf[FsSink]
+      .format
+      .getOrElse(
+        ""
+      ) == "csv") && !strategy
+      .isMerge()
   }
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
@@ -479,11 +420,44 @@ class SparkAutoTask(
 
   }
 
-  override lazy val tableExists: Boolean = {
-    val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
-    if (!exists && taskDesc._auditTableName.isDefined)
-      createAuditTable() // We are sinking to an audit table. We need to create it first
-    exists
+  override def tableExists: Boolean = {
+    val sink = this.sinkConfig
+    val result = {
+      Try {
+        sink match {
+          case _: FsSink =>
+            val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
+            if (!exists && taskDesc._auditTableName.isDefined) {
+              createAuditTable()
+            } else
+              exists
+
+          case _: BigQuerySink =>
+            val bqJob =
+              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
+                settings,
+                storageHandler,
+                schemaHandler
+              )
+            bqJob.tableExists
+          case _: JdbcSink =>
+            val jdbcJob = new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
+              settings,
+              storageHandler,
+              schemaHandler
+            )
+            jdbcJob.tableExists
+          case other =>
+            throw new Exception(
+              s"No supported on $other"
+            )
+
+        }
+      }
+    }
+    Utils.throwFailure(result, logger)
+    logger.info(s"tableExists $fullTableName: $result")
+    result.getOrElse(false)
   }
 
   ///////////////////////////////////////////////////
@@ -536,19 +510,7 @@ class SparkAutoTask(
     } else {
       val sink =
         sinkConfig
-          .getOrElse(throw new Exception("Should never happen"))
           .asInstanceOf[FsSink]
-      val partitionedByClause =
-        sink.partition.map(_.attributes).map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
-
-      val clusterByClause =
-        sink.clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
-
-      val options =
-        sink.options
-          .map(_.map { case (k, v) => s"'$k'='$v'" }
-            .mkString("OPTIONS(", ",", ")"))
-          .getOrElse("")
 
       val comment = taskDesc.comment.map(c => s"COMMENT '$c'").getOrElse("")
       val tableTagPairs = Utils.extractTags(taskDesc.tags)
@@ -568,13 +530,14 @@ class SparkAutoTask(
 
       val ddlTable =
         s"""CREATE TABLE $fullTableName($fields)
-           |USING ${settings.appConfig.defaultWriteFormat}
-           |$options
-           |$partitionedByClause
-           |$clusterByClause
+           |USING ${sink.getFormat()}
+           |${sink.getTableOptionsClause()}
+           |${sink.getPartitionByClauseSQL()}
+           |${sink.getClusterByClauseSQL()}
            |$comment
            |$tblProperties
            |""".stripMargin
+      logger.info(s"Creating table $fullTableName with DDL $ddlTable")
       session.sql(ddlTable)
     }
   }
@@ -584,58 +547,24 @@ class SparkAutoTask(
   ): Try[JobResult] = {
     // Ingestion done with Spark but not yet sinked.
     // This is called by sinkRejected and sinkAccepted
-    val writeMode = strategy.`type`.toWriteMode()
-    dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
-    val incomingSchema = dataset.schema
-    val allAttributes = incomingSchema.fieldNames.mkString(",")
     // We check if the table exists before updating the table schema below
-    if (taskDesc._dbComment.nonEmpty || taskDesc.tags.nonEmpty) {
-      val domainComment = taskDesc._dbComment.getOrElse("")
-      val tableTagPairs = Utils.extractTags(taskDesc.tags) + ("comment" -> domainComment)
-      val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
-      SparkUtils.sql(
-        session,
-        s"CREATE SCHEMA IF NOT EXISTS ${taskDesc.domain} WITH DBPROPERTIES($tagsAsString)"
-      )
-    } else {
-      SparkUtils.createSchema(session, taskDesc.domain)
-    }
+    val incomingSchema = dataset.schema
     if (taskDesc._auditTableName.isEmpty) {
       // We are not writing to an audit table. We are writing to the final table
       // Update the table schema and create it if required
       updateSparkTableSchema(incomingSchema)
     }
 
-    val sqls =
-      new SparkSQLStrategiesBuilder().buildSQLForStrategy(
-        s"SELECT $allAttributes FROM SL_INTERNAL_VIEW",
-        strategy,
-        fullTableName,
-        tableExists,
-        incomingSchema.fieldNames.toList,
-        truncate = truncate,
-        isMaterializedView(),
-        settings.appConfig.jdbcEngines("spark")
-      )
+    dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
+    val allAttributes = incomingSchema.fieldNames.mkString(",")
+    val result =
+      if (dataset.columns.length > 0) {
+        runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
 
-    if (dataset.columns.length > 0) {
-      val result = Try {
-        val df = runSqls(sqls.splitSql(), "Main")
-        if (taskDesc._auditTableName.isEmpty) {
-          if (taskDesc._dbComment.nonEmpty || taskDesc.tags.nonEmpty) {
-            val tableComment = taskDesc.comment.getOrElse("")
-            val tableTagPairs = Utils.extractTags(taskDesc.tags) + ("comment" -> tableComment)
-            val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
-            SparkUtils.sql(session, s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)")
-          }
-          applyHiveTableAcl()
-        }
-        SparkJobResult(df)
+      } else {
+        Success(SparkJobResult(None))
       }
-      result
-    } else {
-      Success(SparkJobResult(None))
-    }
+    result
   }
 
   ///////////////////////////////////////////////////
@@ -806,4 +735,43 @@ class SparkAutoTask(
     result
   }
 
+  /** This function is called only if csvOutput is true This means we are sure that sink is an
+    * FsSink
+    *
+    * @return
+    */
+  private def csvOutputExtension(): String =
+    sinkConfig.asInstanceOf[FsSink].extension.getOrElse(settings.appConfig.csvOutputExt)
+
+  def exportToCSV(
+    domainName: String,
+    tableName: String,
+    header: Option[List[String]],
+    separator: Option[String]
+  ): Boolean = {
+    val tblMetadata = session.sessionState.catalog.getTableMetadata(
+      new TableIdentifier(tableName, Some(domainName))
+    )
+    val location = new Path(tblMetadata.location)
+
+    val extension =
+      if (csvOutputExtension().nonEmpty) {
+        val ext = csvOutputExtension()
+        if (ext.startsWith("."))
+          ext
+        else
+          s".$ext"
+      } else {
+        ".csv"
+      }
+    val finalCsvPath = new Path(location, tableName + extension)
+    val withHeader = header.isDefined
+    val delimiter = separator.getOrElse("µ")
+    val headerString =
+      if (withHeader)
+        Some(header.getOrElse(throw new Exception("should never happen")).mkString(delimiter))
+      else
+        None
+    storageHandler.copyMerge(headerString, location, finalCsvPath, deleteSource = true)
+  }
 }
