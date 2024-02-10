@@ -11,18 +11,22 @@ class AutoTaskSpec extends TestHelper {
       new SpecTrait(
         jobFilename = Some("_config.sl.yml"),
         sourceDomainOrJobPathname = "/sample/job/sql/_config.sl.yml",
-        datasetDomainName = "file",
+        datasetDomainName = "result",
         sourceDatasetPathName = ""
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS result CASCADE")
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
         workflow.autoJob(TransformConfig(name = "result.file"))
 
-        readFileContent(
-          new Path(starlakeDatasetsPath + "/business/result/file/file.csv")
-        ) shouldBe "  Name|Last Name   |"
+        val location = getTablePath("result", "file")
+        println(starlakeDatasetsPath)
+        val content = readFileContent(
+          new Path(s"$location/file.csv")
+        )
+        content shouldBe "  Name|Last Name   |"
       }
     }
     "File Sink Spark Options in Python job description " should "be applied to resulting file" in {

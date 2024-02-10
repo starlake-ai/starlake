@@ -24,10 +24,11 @@ trait LoadStrategy {
     *   List of Path
     */
   def list(
-    storageHanlder: StorageHandler,
+    storageHandler: StorageHandler,
     path: Path,
     extension: String = "",
     since: LocalDateTime = LocalDateTime.MIN,
     recursive: Boolean
   ): List[Path]
+
 }

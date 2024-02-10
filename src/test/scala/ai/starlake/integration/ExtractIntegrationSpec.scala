@@ -11,7 +11,7 @@ class ExtractIntegrationSpec extends TestHelper {
 
   new WithSettings() {
     "Extract Data" should "succeed" in {
-      val jdbcOptions = settings.appConfig.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -19,7 +19,7 @@ class ExtractIntegrationSpec extends TestHelper {
       )
       val sql: String =
         """
-          |drop table if exists test_table1;
+          |drop table if exists test_table1 cascade;
           |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
           |create view test_view1 AS SELECT NAME FROM test_table1;
           |insert into test_table1 values (1,'A');
@@ -45,7 +45,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val config =
         """
           |extract:
-          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
           |    - schema: "PUBLIC" # Database schema where tables are located
           |      tables:
@@ -77,7 +77,7 @@ class ExtractIntegrationSpec extends TestHelper {
       assert(files.size == 2)
     }
     "Extract Schema" should "succeed" in {
-      val jdbcOptions = settings.appConfig.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -85,8 +85,8 @@ class ExtractIntegrationSpec extends TestHelper {
       )
       val sql: String =
         """
-          |drop table if exists test_view1;
-          |drop table if exists test_table1;
+          |drop view if exists test_view1;
+          |drop table if exists test_table1 cascade;
           |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
           |create view test_view1 AS SELECT NAME FROM test_table1;
           |insert into test_table1 values (1,'A');
@@ -112,7 +112,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val config =
         """
           |extract:
-          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
           |    - schema: "PUBLIC" # Database schema where tables are located
           |      tables:

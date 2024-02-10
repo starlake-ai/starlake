@@ -1,27 +1,27 @@
 package ai.starlake.job.ingest.strategies
 
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{MergeOn, Sink, StrategyOptions, StrategyType}
 import ai.starlake.sql.SQLUtils
 
 class JdbcStrategiesBuilder extends StrategiesBuilder {
-
   def buildSQLForStrategy(
     strategy: StrategyOptions,
     selectStatement: String,
     fullTableName: String,
-    targetTableExists: Boolean,
     targetTableColumns: List[String],
+    targetTableExists: Boolean,
     truncate: Boolean,
     materializedView: Boolean,
-    jdbcEngine: JdbcEngine
-  ): String = {
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String = {
 
-    val viewPrefix = jdbcEngine.viewPrefix
     val (sourceTable, tempTable) =
       (
-        s"${jdbcEngine.viewPrefix}SL_INCOMING",
-        List(s"${createTemporaryView("SL_INCOMING", jdbcEngine)} AS ($selectStatement);")
+        s"${tempViewName("SL_INCOMING")}",
+        List(s"${createTemporaryView("SL_INCOMING")} AS ($selectStatement);")
       )
 
     val result: String =
@@ -37,7 +37,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             materializedView,
             targetTableExists,
             truncate,
-            fullTableName
+            fullTableName,
+            sinkConfig
           ).mkString(";\n")
 
         case StrategyType.UPSERT_BY_KEY =>
@@ -49,7 +50,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             strategy,
             truncate,
             materializedView,
-            jdbcEngine
+            jdbcEngine,
+            sinkConfig
           )
         case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
@@ -60,7 +62,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             strategy,
             truncate,
             materializedView,
-            jdbcEngine
+            jdbcEngine,
+            sinkConfig
           )
         case StrategyType.SCD2 =>
           buildSqlForSC2(
@@ -71,7 +74,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             strategy,
             truncate,
             materializedView,
-            jdbcEngine
+            jdbcEngine,
+            sinkConfig
           )
         case StrategyType.OVERWRITE_BY_PARTITION =>
           ""
@@ -83,7 +87,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     s"$extraPreActions\n$result"
   }
 
-  protected def buildSqlForMergeByKey(
+  private def buildSqlForMergeByKey(
     sourceTable: String,
     targetTableFullName: String,
     targetTableExists: Boolean,
@@ -91,12 +95,11 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     strategy: StrategyOptions,
     truncate: Boolean,
     materializedView: Boolean,
-    jdbcEngine: JdbcEngine
-  ): String = {
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String = {
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
-    val viewPrefix = jdbcEngine.viewPrefix
-
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
@@ -120,7 +123,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
           materializedView,
           targetTableExists,
           truncate,
-          targetTableFullName
+          targetTableFullName,
+          sinkConfig
         ).mkString(";\n")
 
       case (false, MergeOn.SOURCE_AND_TARGET) =>
@@ -130,16 +134,17 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             And then we insert the data
          */
         val mainSql = buildMainSql(
-          s"SELECT  $targetColumnsAsSelectString  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1",
+          s"SELECT  $targetColumnsAsSelectString  FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")} WHERE SL_SEQ = 1",
           strategy,
           materializedView,
           targetTableExists,
           truncate,
-          targetTableFullName
+          targetTableFullName,
+          sinkConfig
         ).mkString(";\n")
 
         s"""
-           |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+           |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
            |  SELECT  $targetColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY (select 0)) AS SL_SEQ
            |  FROM $sourceTable;
@@ -191,13 +196,15 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
           SQLUtils.setForUpdateSql(s"SL_DEDUP", targetTableColumns, quote)
 
         s"""
-           |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+           |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
            |  SELECT  $targetColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
            |  FROM $sourceTable;
            |
            |CREATE TEMPORARY TABLE SL_DEDUP AS
-           |  SELECT  $targetColumnsAsSelectString  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |  SELECT  $targetColumnsAsSelectString
+           |  FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
+           |  WHERE SL_SEQ = 1;
            |
            |MERGE INTO $targetTableFullName USING SL_DEDUP ON ($mergeKeyJoinCondition)
            |WHEN MATCHED THEN UPDATE $paramsForUpdateSql
@@ -208,6 +215,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
 
     }
   }
+
   private def buildSqlForMergeByKeyAndTimestamp(
     sourceTable: String,
     targetTableFullName: String,
@@ -216,14 +224,13 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     strategy: StrategyOptions,
     truncate: Boolean,
     materializedView: Boolean,
-    jdbcEngine: JdbcEngine
-  ): String = {
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String = {
     val mergeTimestampCol = strategy.timestamp
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
     val canMerge = jdbcEngine.canMerge
-    val viewPrefix = jdbcEngine.viewPrefix
-
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
@@ -244,7 +251,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
           materializedView,
           targetTableExists,
           truncate,
-          targetTableFullName
+          targetTableFullName,
+          sinkConfig
         ).mkString(";\n")
         mainSql
       case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
@@ -296,7 +304,6 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
              |FROM $sourceTable AS SL_INCOMING
              |WHERE $mergeKeyJoinCondition AND SL_INCOMING.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
              |
-             |/* merge into */
              |INSERT INTO $targetTableFullName$paramsForInsertSql
              |SELECT $sourceCols FROM $sourceTable AS SL_INCOMING
              |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition)
@@ -311,16 +318,19 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             And then we insert the data
          */
         val mainSql = buildMainSql(
-          s"""SELECT  $targetColumnsAsSelectString FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1""",
+          s"""SELECT  $targetColumnsAsSelectString
+             |FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
+             |WHERE SL_SEQ = 1""".stripMargin,
           strategy,
           materializedView,
           targetTableExists,
           truncate,
-          targetTableFullName
+          targetTableFullName,
+          sinkConfig
         ).mkString(";\n")
 
         s"""
-           |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+           |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
            |  SELECT  $targetColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
@@ -344,14 +354,15 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             SQLUtils.setForUpdateSql("SL_INCOMING", targetTableColumns, quote)
 
           s"""
-             |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+             |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
              |  SELECT  $targetColumnsAsSelectString,
              |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
              |  FROM $sourceTable;
              |
              |CREATE TEMPORARY TABLE SL_DEDUP AS
              |  SELECT  $targetColumnsAsSelectString
-             |  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |   FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
+             |   WHERE SL_SEQ = 1;
              |
              |MERGE INTO $targetTableFullName USING SL_DEDUP AS SL_INCOMING ON ($mergeKeyJoinCondition)
              |WHEN MATCHED AND SL_INCOMING.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol THEN UPDATE $paramsForUpdateSql
@@ -360,7 +371,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         } else {
           val mergeKeyJoinCondition =
             SQLUtils.mergeKeyJoinCondition(
-              s"${viewPrefix}SL_DEDUP",
+              s"${tempViewName("SL_DEDUP")}",
               targetTableFullName,
               strategy.key,
               quote
@@ -372,34 +383,42 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
               .mkString(" AND ")
 
           val paramsForUpdateSql =
-            SQLUtils.setForUpdateSql(s"${viewPrefix}SL_DEDUP", targetTableColumns, quote)
+            SQLUtils.setForUpdateSql(
+              s"${tempViewName("SL_DEDUP")}",
+              targetTableColumns,
+              quote
+            )
 
           val viewWithRownumCols = SQLUtils.incomingColumnsForSelectSql(
-            s"${viewPrefix}SL_VIEW_WITH_ROWNUM",
+            s"${tempViewName("SL_VIEW_WITH_ROWNUM")}",
             targetTableColumns,
             quote
           )
           val dedupCols = SQLUtils.incomingColumnsForSelectSql(
-            s"${viewPrefix}SL_DEDUP",
+            s"${tempViewName("SL_DEDUP")}",
             targetTableColumns,
             quote
           )
           s"""
-             |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+             |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
              |  SELECT  $targetColumnsAsSelectString,
              |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
              |  FROM $sourceTable;
-             |${createTemporaryView("SL_DEDUP", jdbcEngine)} AS
+             |${createTemporaryView("SL_DEDUP")} AS
              |  SELECT  $viewWithRownumCols
-             |  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+             |   FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
+             |   WHERE SL_SEQ = 1;
              |
              |UPDATE $targetTableFullName $paramsForUpdateSql
-             |FROM ${viewPrefix}SL_DEDUP
-             |WHERE $mergeKeyJoinCondition AND ${viewPrefix}SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
+             |FROM ${tempViewName("SL_DEDUP")}
+             |WHERE $mergeKeyJoinCondition
+             |  AND
+             |  ${tempViewName(
+              "SL_DEDUP"
+            )}.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
              |
-             |/* merge into */
              |INSERT INTO $targetTableFullName($targetColumnsAsSelectString)
-             |SELECT $dedupCols FROM ${viewPrefix}SL_DEDUP
+             |SELECT $dedupCols FROM ${tempViewName("SL_DEDUP")}
              |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition)
              |WHERE $nullJoinCondition
              |""".stripMargin
@@ -417,10 +436,9 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     strategy: StrategyOptions,
     truncate: Boolean,
     materializedView: Boolean,
-    jdbcEngine: JdbcEngine
-  ): String = {
-    val viewPrefix = jdbcEngine.viewPrefix
-
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String = {
     val startTsCol = strategy.start_ts.getOrElse(
       throw new Exception("SCD2 is not supported without a start timestamp column")
     )
@@ -461,11 +479,13 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             And then we insert the data
          */
         s"""
-           |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)} AS
+           |${createTemporaryView("SL_VIEW_WITH_ROWNUM")} AS
            |  SELECT  $targetColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
-           |SELECT  $targetColumnsAsSelectString  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+           |SELECT  $targetColumnsAsSelectString  FROM ${tempViewName(
+            "SL_VIEW_WITH_ROWNUM"
+          )} WHERE SL_SEQ = 1
             """.stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.TARGET) =>
@@ -549,13 +569,15 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
-           |${createTemporaryView("SL_VIEW_WITH_ROWNUM", jdbcEngine)}  AS
+           |${createTemporaryView("SL_VIEW_WITH_ROWNUM")}  AS
            |  SELECT  $targetColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
-           |  
-           |${createTemporaryView("SL_DEDUP", jdbcEngine)}  AS
-           |SELECT  $targetTableColumns  FROM ${viewPrefix}SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+           |
+           |${createTemporaryView("SL_DEDUP")}  AS
+           |SELECT  $targetTableColumns
+           |  FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
+           |  WHERE SL_SEQ = 1;
            |
            |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
            |SELECT $targetColumnsAsSelectString FROM SL_DEDUP, $targetTableFullName

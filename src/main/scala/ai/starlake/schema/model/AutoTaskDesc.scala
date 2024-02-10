@@ -57,6 +57,9 @@ case class AutoTaskDesc(
   _dbComment: Option[String] = None
 ) extends Named {
 
+  @JsonIgnore
+  def getTableName(): String = this.table
+
   def getStrategy()(implicit settings: Settings): StrategyOptions = {
     val st1 = strategy
       .getOrElse(StrategyOptions(StrategyType.APPEND))
@@ -174,8 +177,8 @@ case class AutoTaskDesc(
     getSinkConnection().getType()
   }
 
-  def getSinkConfig()(implicit settings: Settings): Option[Sink] =
-    this.sink.map(_.getSink()).orElse(Some(AllSinks().getSink()))
+  def getSinkConfig()(implicit settings: Settings): Sink =
+    this.sink.map(_.getSink()).getOrElse(AllSinks().getSink())
 }
 
 object AutoTaskDesc {

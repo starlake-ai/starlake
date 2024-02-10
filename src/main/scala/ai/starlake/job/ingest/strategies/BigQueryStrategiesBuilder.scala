@@ -1,7 +1,8 @@
 package ai.starlake.job.ingest.strategies
 
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{MergeOn, Sink, StrategyOptions, StrategyType}
 import ai.starlake.sql.SQLUtils
 
 class BigQueryStrategiesBuilder extends StrategiesBuilder {
@@ -13,8 +14,9 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableExists: Boolean,
     truncate: Boolean,
     materializedView: Boolean,
-    jdbcEngine: JdbcEngine
-  ): String = {
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings): String = {
     val result =
       strategy.`type` match {
         case StrategyType.APPEND | StrategyType.OVERWRITE =>
@@ -27,16 +29,17 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             materializedView,
             targetTableExists,
             truncate,
-            fullTableName
+            fullTableName,
+            sinkConfig
           ).mkString(";\n")
 
         case StrategyType.UPSERT_BY_KEY =>
           buildSqlForMergeByKey(
+            strategy,
             selectStatement,
             fullTableName,
-            targetTableExists,
             targetTableColumns,
-            strategy,
+            targetTableExists,
             jdbcEngine
           )
         case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
@@ -74,14 +77,14 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     result
   }
 
-  protected def buildSqlForMergeByKey(
+  private def buildSqlForMergeByKey(
+    strategy: StrategyOptions,
     selectStatement: String,
     targetTableFullName: String,
-    targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    targetTableExists: Boolean,
     jdbcEngine: JdbcEngine
-  ): String = {
+  )(implicit settings: Settings): String = {
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
     val viewPrefix = jdbcEngine.viewPrefix
@@ -189,7 +192,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableColumns: List[String],
     strategy: StrategyOptions,
     jdbcEngine: JdbcEngine
-  ): String = {
+  )(implicit settings: Settings): String = {
     val mergeTimestampCol = strategy.timestamp
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
@@ -292,7 +295,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableColumns: List[String],
     strategy: StrategyOptions,
     jdbcEngine: JdbcEngine
-  ) = {
+  )(implicit settings: Settings): String = {
     val viewPrefix = jdbcEngine.viewPrefix
 
     val mergeTimestampCol = strategy.timestamp
@@ -430,6 +433,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
 
     }
   }
+
   private def buildSqlForPartitionOverwrite(
     sourceTable: String,
     targetTableFullName: String,
@@ -437,7 +441,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableColumns: List[String],
     strategy: StrategyOptions,
     jdbcEngine: JdbcEngine
-  ): String = {
+  )(implicit settings: Settings): String = {
     val mergeTimestampCol = strategy.timestamp
     s"""
          |declare incoming_partitions array<date>;

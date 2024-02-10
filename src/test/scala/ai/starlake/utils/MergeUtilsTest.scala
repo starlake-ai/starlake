@@ -37,10 +37,9 @@ class MergeUtilsTest extends TestHelper {
       val invalidSchema = StructType
         .fromDDL("`root` STRUCT<`field`: BIGINT>,`note` STRING")
         .add("other", StringType, nullable = false)
+      val computedSchema = MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
 
-      assertThrows[RuntimeException] {
-        MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
-      }
+      computedSchema should equal(actualSchema)
     }
 
     "build missing type with nested fields" should "succeed" in {

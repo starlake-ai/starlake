@@ -47,7 +47,7 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
       println(str)
       val str2 = YamlSerializer.mapper.writeValueAsString(settings.appConfig)
       println(str2)
-      assert(settings.appConfig.connections.size == 6)
+      assert(settings.appConfig.connections.size == 7)
     }
   }
 

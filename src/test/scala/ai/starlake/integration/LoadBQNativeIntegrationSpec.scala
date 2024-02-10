@@ -6,7 +6,7 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
   override def templates = starlakeDir / "samples"
   override def localDir = templates / "spark"
   override def sampleDataDir = localDir / "sample-data"
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ NATIVE" should "succeed" in {
       withEnvs(
         "SL_ROOT" -> localDir.pathAsString,

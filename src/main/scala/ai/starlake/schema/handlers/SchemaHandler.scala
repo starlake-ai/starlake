@@ -264,7 +264,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private def listSqlj2Files(path: Path) = {
+  private def listSqlj2Files(path: Path): List[Path] = {
     val j2Files = storage.list(path, extension = ".sql.j2", recursive = true)
     val sqlFiles = storage.list(path, extension = ".sql", recursive = true)
     val allFiles = j2Files ++ sqlFiles
@@ -1106,7 +1106,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
-        val xsdAttributes = topElement.head.attributes
+        val (nonScripted, scripted) = topElement.head.attributes.partition(_.script.isEmpty)
+        val xsdAttributes = nonScripted ++ scripted
+        // val xsdAttributes = sordtedAttrs.head.attributes
         val merged = Attribute.mergeAll(
           xsdAttributes,
           ymlSchema.attributes,

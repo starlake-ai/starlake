@@ -27,13 +27,19 @@ import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
-import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
+import com.dimafeng.testcontainers.{
+  ElasticsearchContainer,
+  JdbcDatabaseContainer,
+  KafkaContainer,
+  PostgreSQLContainer
+}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -101,6 +107,29 @@ trait TestHelper
        |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
         .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
        |include required("application-test.conf")
+       |connections.test-pg {
+       |    type = "jdbc"
+       |    ## The default URI is in memory only
+       |    options {
+       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.postgresql.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |connections.audit {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "driver": "org.postgresql.Driver"
+       |      "user": "test"
+       |      "password": "test"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |
+       |
        |
        |""".stripMargin
 
@@ -195,8 +224,8 @@ trait TestHelper
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {
     try {
-
-      op(Settings(configuration))
+      implicit val settings = Settings(configuration)
+      op(settings)
     } catch {
       case e: Throwable =>
         logger.error("Error in test", e)
@@ -227,7 +256,6 @@ trait TestHelper
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
     settings.appConfig.connections.values.foreach(_.checkValidity())
-
     implicit def withSettings: WithSettings = this
 
     def storageHandler = settings.storageHandler()
@@ -345,7 +373,6 @@ trait TestHelper
         val dir = new Directory(fDatasets)
         dir.deleteRecursively()
         new File(starlakeDatasetsPath).mkdir()
-
         jobFilename match {
           case Some(_) =>
             deliverSourceJob()
@@ -367,6 +394,14 @@ trait TestHelper
     def deleteSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
       val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
       storageHandler.delete(domainPath)
+    }
+
+    def getTablePath(domain: String, table: String): String = {
+      val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
+        new TableIdentifier(table, Some(domain))
+      )
+      tblMetadata.location.getPath
+
     }
 
     def deleteSourceDomains(): Unit = {
@@ -499,6 +534,7 @@ trait TestHelper
     val esDockerImageName = DockerImageName.parse(s"$esDockerImage:$esDockerTag")
     ElasticsearchContainer.Def(esDockerImageName).start()
   }
+
   def deepEquals(l1: List[Attribute], l2: List[Attribute]): Boolean = {
     l1.zip(l2).foreach { case (a1, a2) =>
       a1.name should equal(a2.name)
@@ -511,9 +547,34 @@ trait TestHelper
 }
 
 object TestHelper {
+  lazy val pgContainer: PostgreSQLContainer = {
+    val pgDockerImage = "postgres"
+    val pgDockerTag = "13.3"
+    val pgDockerImageName = DockerImageName.parse(s"$pgDockerImage:$pgDockerTag")
+    val initScriptParam =
+      JdbcDatabaseContainer.CommonParams(initScriptPath = Option("init-test-pg.sql"))
+    val container = PostgreSQLContainer
+      .Def(
+        pgDockerImageName,
+        databaseName = "starlake",
+        username = "test",
+        password = "test",
+        commonJdbcParams = initScriptParam
+      )
+      .createContainer()
+    container.start()
+    container
+  }
 
   private var _session: SparkSession = null
   private var _testId: String = null
+
+  def stopSession() = {
+    if (_session != null) {
+      _session.stop()
+      _session = null
+    }
+  }
 
   def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
     if (testId != _testId) {

@@ -412,9 +412,14 @@ class IngestionWorkflow(
   ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
-    val files = Utils
-      .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
-      .list(settings.storageHandler(), pendingArea, recursive = false)
+    val loadStrategy =
+      Utils
+        .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
+
+    val files =
+      loadStrategy
+        .list(settings.storageHandler(), pendingArea, recursive = false)
+
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
@@ -447,6 +452,7 @@ class IngestionWorkflow(
       )
       (schema, path)
     }
+
     if (schemas.isEmpty) {
       logger.info(s"No Files found to ingest.")
     }
@@ -932,7 +938,6 @@ class IngestionWorkflow(
                   BigQueryJobBase
                     .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
                 ),
-                sourceFormat = settings.appConfig.defaultWriteFormat,
                 rls = schema.rls,
                 acl = schema.acl,
                 starlakeSchema = Some(schema),

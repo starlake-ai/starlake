@@ -15,19 +15,18 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
   private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
     super.beforeAll()
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
     }
   }
   override def afterAll(): Unit = {
     super.afterAll()
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
     }
   }
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-    it should "overwrite partitions dynamically" in {
-
+  it should "overwrite partitions dynamically" in {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       val bigQueryConfiguration: Config = {
         val config = ConfigFactory.parseString("""
                                                  |connectionRef = "sparkbq"

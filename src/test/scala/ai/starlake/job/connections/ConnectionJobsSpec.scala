@@ -14,7 +14,7 @@ class ConnectionJobsSpec extends TestHelper {
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
       pending
-      val connection = "test-h2"
+      val connection = "test-pg"
       val session = sparkSession
       import session.implicits._
       val usersDF = Seq(

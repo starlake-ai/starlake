@@ -2,25 +2,24 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
-import ai.starlake.job.ingest.strategies.BigQueryStrategiesBuilder
+import ai.starlake.job.ingest.strategies.StrategiesBuilder
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
-import ai.starlake.job.sink.bigquery.{
-  BigQueryJobBase,
-  BigQueryJobResult,
-  BigQueryLoadConfig,
-  BigQueryNativeJob,
-  BigQuerySparkJob
-}
+import ai.starlake.job.sink.bigquery._
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, Utils}
 import better.files.File
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
-import com.google.cloud.bigquery.{Schema => BQSchema}
+import com.google.cloud.bigquery.{
+  Field,
+  LegacySQLTypeName,
+  Schema => BQSchema,
+  StandardTableDefinition
+}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
@@ -54,7 +53,7 @@ class BigQueryAutoTask(
 
   val fullTableName: String = BigQueryJobBase.getBqTableForNative(tableId)
 
-  override protected lazy val tableExists: Boolean = {
+  override def tableExists: Boolean = {
     val tableExists =
       bqNativeJob(bigQuerySinkConfig, "ignore sql", Some(settings.appConfig.shortJobTimeoutMs))
         .tableExists(
@@ -62,8 +61,30 @@ class BigQueryAutoTask(
           taskDesc.domain,
           taskDesc.table
         )
-    tableExists
+
+    if (!tableExists && taskDesc._auditTableName.isDefined) {
+      createAuditTable()
+    } else
+      tableExists
   }
+
+  private def createAuditTable(): Boolean = {
+    // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
+    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+    val entry = taskDesc._auditTableName.getOrElse(
+      throw new Exception(
+        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+      )
+    )
+    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+
+    val script = scriptTemplate.richFormat(
+      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
+      Map.empty
+    )
+    runSqls(List(script)).forall(_.isSuccess)
+  }
+
   private val bigQuerySinkConfig: BigQueryLoadConfig = {
     val bqSink =
       taskDesc.sink
@@ -313,7 +334,8 @@ class BigQueryAutoTask(
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
     val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-    val mainSql = new BigQueryStrategiesBuilder().buildSQLForStrategy(
+
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
       strategy,
       sqlWithParameters,
       fullTableName,
@@ -321,7 +343,8 @@ class BigQueryAutoTask(
       tableExists,
       truncate,
       isMaterializedView(),
-      jdbcSinkEngine
+      jdbcSinkEngine,
+      sinkConfig
     )
     mainSql
   }
@@ -393,10 +416,7 @@ class BigQueryAutoTask(
         }
     } else {
       val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
-      val sink =
-        sinkConfig
-          .getOrElse(throw new Exception("bigquery sink not found"))
-          .asInstanceOf[BigQuerySink]
+      val sink = sinkConfig.asInstanceOf[BigQuerySink]
 
       val partitionField = sink.timestamp.map { partitionField =>
         FieldPartitionInfo(partitionField, sink.days, sink.requirePartitionFilter.getOrElse(false))

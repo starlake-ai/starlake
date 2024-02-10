@@ -6,7 +6,7 @@ import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** Convert parquet files to CSV. The folder hierarchy should be in the form
   * /input_folder/domain/schema/part*.parquet Once converted the csv files is put in the folder
@@ -66,7 +66,14 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           if (config.deleteSource)
             storageHandler.delete(path)
           Some(csvPath)
-        }.getOrElse(None)
+        } match {
+          case Success(result) =>
+            Option(result)
+          case Failure(e) =>
+            e.printStackTrace()
+            None
+
+        }
       } else {
         None
       }

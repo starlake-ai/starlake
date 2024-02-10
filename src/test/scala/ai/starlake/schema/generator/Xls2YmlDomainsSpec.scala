@@ -17,18 +17,18 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val schema1Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
     val schema2Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
-    val result: Domain = YamlSerializer
+    lazy val result: Domain = YamlSerializer
       .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
       case Success(value)     => value
       case Failure(exception) => throw exception
     }
 
-    val schema1: Schema = YamlSerializer
+    lazy val schema1: Schema = YamlSerializer
       .deserializeSchemaRefs(schema1Path.contentAsString, schema1Path.pathAsString)
       .tables
       .head
 
-    val schema2: Schema = YamlSerializer
+    lazy val schema2: Schema = YamlSerializer
       .deserializeSchemaRefs(schema2Path.contentAsString, schema2Path.pathAsString)
       .tables
       .head
@@ -51,7 +51,8 @@ class Xls2YmlDomainsSpec extends TestHelper {
           None,
           None,
           None,
-          Some(Partition(List("sl_year", "sl_month", "sl_day", "sl_hour"), None, Nil))
+          Some(Partition(List("sl_year", "sl_month", "sl_day", "sl_hour"), None, Nil)),
+          options = Some(Map.empty)
         )
       )
     }

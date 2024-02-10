@@ -10,7 +10,7 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
 
   override def sampleDataDir = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Native Bigquery Transform" should "succeed" in {
       withEnvs(

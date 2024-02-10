@@ -20,15 +20,15 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{StringType, StructField}
 
 import scala.util.{Failure, Success, Try}
 
@@ -99,8 +99,6 @@ class JsonIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sourceSparkSchema(schemaHandler)
-
   /** Where the magic happen
     *
     * @param dataset
@@ -108,9 +106,9 @@ class JsonIngestionJob(
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val rdd: RDD[Row] = dataset.rdd
-
+    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
-      .parseRDD(rdd, schemaSparkType)
+      .parseRDD(rdd, validationSchema)
       .persist(settings.appConfig.cacheStorageLevel)
 
     val withValidSchema: RDD[String] =
@@ -137,8 +135,6 @@ class JsonIngestionJob(
     val loadSchema = schema
       .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
-
-    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
 
     val toValidate = session.read
       .schema(loadSchema)
