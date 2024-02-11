@@ -1,6 +1,7 @@
 ---
 application:
   loader: "native" # "spark" (default) or "native"
+  engine: "SPARK"
   connectionRef: "{{connectionRef}}"
 
   audit:
@@ -15,8 +16,8 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
-    FS:
-      type: local
+    localFileSystem:
+      type: "fs" # Connection to local file system (parquet files)
 
   defaultWriteFormat: "parquet" # "parquet" (default) or "delta"
 

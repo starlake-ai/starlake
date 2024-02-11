@@ -9,10 +9,7 @@ WITH ProductCostSummary AS (
             WHEN SUM(op.quantity) > 0 THEN (SUM(op.quantity * op.price) - SUM(i.price * pi.quantity)) / SUM(op.quantity)
             ELSE 0
             END AS profit_per_unit
-    FROM
-        starbake.Orders o
-            CROSS JOIN
-        UNNEST(o.products) AS op
+        FROM (select product.* from (select explode(o.products) as product from starbake.Orders o)) AS op
             JOIN
         starbake.Products p
         ON
@@ -25,7 +22,7 @@ WITH ProductCostSummary AS (
             FROM
                 starbake.Products p
                     JOIN
-                UNNEST(p.ingredients) AS i
+                (SELECT ingedient.* FROM (SELECT explode(p.ingredients) as ingedient from starbake.Products p)) AS i
         ) AS pi
                  ON
                          p.product_id = pi.product_id

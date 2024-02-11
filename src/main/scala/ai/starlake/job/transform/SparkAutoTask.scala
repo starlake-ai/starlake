@@ -164,9 +164,12 @@ class SparkAutoTask(
     */
   private def registerFSViews(): List[String] = {
     val acceptedPath = DatasetArea.accepted(".")
-    val domains =
+    var domains =
       if (storageHandler.exists(acceptedPath)) storageHandler.listDirectories(acceptedPath)
       else Nil
+    val businessPath = DatasetArea.business(".")
+    if (storageHandler.exists(businessPath))
+      domains = domains ++ storageHandler.listDirectories(businessPath)
     domains.flatMap { domain =>
       val domainName = domain.getName
       val tables = storageHandler.listDirectories(domain)
@@ -318,7 +321,7 @@ class SparkAutoTask(
           sinkConfig
             .exists(_.isInstanceOf[FsSink]) && settings.appConfig.fileSystem.startsWith("file:")
         ) {
-          // we are in local development mode pnly
+          // we are in local development mode only
           registerFSViews()
         } else {
           Nil
