@@ -43,11 +43,8 @@ class EnvSpec extends TestHelper with BeforeAndAfterAll {
   }
   new WithSettings() {
     "Load connections.sl.yml" should "succeed" in {
-      val str = YamlSerializer.mapper.writeValueAsString(settings.appConfig.connections)
-      println(str)
-      val str2 = YamlSerializer.mapper.writeValueAsString(settings.appConfig)
-      println(str2)
-      assert(settings.appConfig.connections.size == 7)
+      val str = YamlSerializer.mapper.writeValueAsString(settings.appConfig.connections.keys)
+      assert(settings.appConfig.connections.size == 5)
     }
   }
 

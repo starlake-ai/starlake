@@ -17,7 +17,7 @@ class ExtractIntegrationSpec extends TestHelper {
         jdbcOptions.options("user"),
         jdbcOptions.options("password")
       )
-      val sql: String =
+      val sqls: String =
         """
           |drop table if exists test_table1 cascade;
           |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
@@ -40,7 +40,10 @@ class ExtractIntegrationSpec extends TestHelper {
           |                              step VARCHAR(255) not NULL
           |                             );""".stripMargin
       val st = conn.createStatement()
-      st.execute(sql)
+      sqls.split(";").foreach { sql =>
+        st.executeUpdate(sql)
+      }
+      st.close()
 
       val config =
         """
@@ -83,7 +86,7 @@ class ExtractIntegrationSpec extends TestHelper {
         jdbcOptions.options("user"),
         jdbcOptions.options("password")
       )
-      val sql: String =
+      val sqls: String =
         """
           |drop view if exists test_view1;
           |drop table if exists test_table1 cascade;
@@ -107,7 +110,10 @@ class ExtractIntegrationSpec extends TestHelper {
           |                              step VARCHAR(255) not NULL
           |                             );""".stripMargin
       val st = conn.createStatement()
-      st.execute(sql)
+      sqls.split(";").foreach { sql =>
+        st.executeUpdate(sql)
+      }
+      st.close()
 
       val config =
         """
