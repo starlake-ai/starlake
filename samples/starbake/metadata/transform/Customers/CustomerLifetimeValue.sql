@@ -14,9 +14,7 @@ With CustomerOrderSummary AS (
                 order_id,
                 SUM(price * quantity) AS products_total
             FROM
-                starbake.Orders
-                    CROSS JOIN
-                UNNEST(products) AS product
+                (select customer_id, order_id, product.* from (select o.customer_id, o.order_id, explode(o.products) as product from starbake.Orders o))
             GROUP BY
                 customer_id,
                 order_id

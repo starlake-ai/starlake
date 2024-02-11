@@ -9,9 +9,7 @@ WITH ProductSalesSummary AS (
             ELSE 0 
             END AS average_revenue_per_unit
     FROM
-        starbake.Orders o
-            CROSS JOIN
-        UNNEST(o.products) AS op
+        (select product.* from (select explode(o.products) as product from starbake.Orders o)) AS op
             JOIN
         starbake.Products p
         ON
