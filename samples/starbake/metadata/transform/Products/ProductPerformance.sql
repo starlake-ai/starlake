@@ -1,4 +1,10 @@
-WITH ProductSalesSummary AS (
+WITH op AS (
+    SELECT
+        *
+    FROM
+        starbake.Orders {{CROSS_JOIN_UNNEST}}(products) AS op
+),
+ProductSalesSummary AS (
     SELECT
         p.product_id,
         p.name AS product_name,
@@ -9,11 +15,7 @@ WITH ProductSalesSummary AS (
             ELSE 0 
             END AS average_revenue_per_unit
     FROM
-        (select product.* from (select explode(o.products) as product from starbake.Orders o)) AS op
-            JOIN
-        starbake.Products p
-        ON
-                op.product_id = p.product_id
+        op JOIN starbake.Products p ON op.product_id = p.product_id
     GROUP BY
         p.product_id,
         p.name
