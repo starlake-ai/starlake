@@ -164,13 +164,16 @@ class SparkAutoTask(
     */
   private def registerFSViews(): List[String] = {
     val acceptedPath = DatasetArea.accepted(".")
-    var domains =
+    val domains =
       if (storageHandler.exists(acceptedPath)) storageHandler.listDirectories(acceptedPath)
       else Nil
     val businessPath = DatasetArea.business(".")
-    if (storageHandler.exists(businessPath))
-      domains = domains ++ storageHandler.listDirectories(businessPath)
-    domains.flatMap { domain =>
+    (domains ++ {
+      if (storageHandler.exists(businessPath))
+        storageHandler.listDirectories(businessPath)
+      else
+        List.empty
+    }).flatMap { domain =>
       val domainName = domain.getName
       val tables = storageHandler.listDirectories(domain)
       tables.flatMap { table =>
