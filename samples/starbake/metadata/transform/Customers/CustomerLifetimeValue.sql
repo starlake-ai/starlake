@@ -12,11 +12,10 @@ With CustomerOrderSummary AS (
             SELECT
                 customer_id,
                 order_id,
-                SUM(price * quantity) AS products_total
+                SUM(product.price * product.quantity) AS products_total
             FROM
                 starbake.Orders
-                    CROSS JOIN
-                UNNEST(products) AS product
+                    {{CROSS_JOIN_UNNEST}}(products) AS product
             GROUP BY
                 customer_id,
                 order_id

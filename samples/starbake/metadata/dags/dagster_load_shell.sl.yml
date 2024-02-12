@@ -1,0 +1,11 @@
+dag:
+    comment: "data loading for {{domain}}"
+    template: "load/dagster_scheduled_table_shell.py.j2"
+    filename: "{{domain}}.py"
+    options:
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        SL_STARLAKE_PATH: "{{SL_ROOT}}/starlake"
+
+        pre_load_strategy: "none" # pending, imported, ack, none - default is none
+        global_ack_file_path: "{{SL_ROOT}}/datasets/pending/starbake/GO.ack" # only used when pre_load_strategy is ack
+        ack_wait_timeout: "60" # in seconds, default is 60*60 (1 hour)
