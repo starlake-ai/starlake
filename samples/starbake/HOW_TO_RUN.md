@@ -55,3 +55,6 @@ We're good to go
 `./starlake dag-generate --clean`
 4. Load the DAGs with dagster
 `DAGSTER_HOME=${PWD} dagster dev -f metadata/dags/generated/load/starbake.py -f metadata/dags/generated/transform/CustomerLifetimeValue.py -f metadata/dags/generated/transform/HighValueCustomers.py -f metadata/dags/generated/transform/ProductPerformance.py -f metadata/dags/generated/transform/ProductProfitability.py -f metadata/dags/generated/transform/MostProfitableProducts.py -f metadata/dags/generated/transform/TopSellingProducts.py -f metadata/dags/generated/transform/TopSellingProfitableProducts.py`
+5. Browse `http://localhost:3000/locations`
+
+![dagster](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/dagster.png)
