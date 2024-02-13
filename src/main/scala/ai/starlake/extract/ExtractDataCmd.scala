@@ -9,12 +9,12 @@ import scopt.OParser
 
 import scala.util.Try
 
-trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
+trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
 
   val command = "extract-data"
 
-  val parser: OParser[Unit, ExtractDataConfig] = {
-    val builder = OParser.builder[ExtractDataConfig]
+  val parser: OParser[Unit, UserExtractDataConfig] = {
+    val builder = OParser.builder[UserExtractDataConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
@@ -61,6 +61,11 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
         .text(
           s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime.availableProcessors()}"
         ),
+      builder
+        .opt[Unit]("ignoreExtractionFailure")
+        .action((_, c) => c.copy(ignoreExtractionFailure = true))
+        .optional()
+        .text("Don't fail extraction job when any extraction fails."),
       builder
         .opt[Unit]("clean")
         .action((_, c) => c.copy(cleanOnExtract = true))
@@ -135,11 +140,11 @@ trait ExtractDataCmd extends Cmd[ExtractDataConfig] {
     * @return
     *   Option of case class JDBC2YmlConfig.
     */
-  def parse(args: Seq[String]): Option[ExtractDataConfig] = {
-    OParser.parse(parser, args, ExtractDataConfig(), setup)
+  def parse(args: Seq[String]): Option[UserExtractDataConfig] = {
+    OParser.parse(parser, args, UserExtractDataConfig(), setup)
   }
 
-  override def run(config: ExtractDataConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: UserExtractDataConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
     Try(new ExtractData(schemaHandler).run(config)).map(_ => JobResult.empty)

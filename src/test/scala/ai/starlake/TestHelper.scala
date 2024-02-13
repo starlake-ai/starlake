@@ -546,10 +546,10 @@ trait TestHelper
   }
 }
 
-object TestHelper {
+object TestHelper extends StrictLogging {
   lazy val pgContainer: PostgreSQLContainer = {
     val pgDockerImage = "postgres"
-    val pgDockerTag = "13.3"
+    val pgDockerTag = "latest"
     val pgDockerImageName = DockerImageName.parse(s"$pgDockerImage:$pgDockerTag")
     val initScriptParam =
       JdbcDatabaseContainer.CommonParams(initScriptPath = Option("init-test-pg.sql"))

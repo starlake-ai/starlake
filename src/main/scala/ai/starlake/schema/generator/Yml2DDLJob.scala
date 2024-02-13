@@ -104,7 +104,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connectionRef match {
           case Some(connection) =>
-            val connectionOptions = settings.appConfig.connections(connection).options
+            val connectionSettings = settings.appConfig.getConnection(connection)
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
               ExtractUtils.createForkSupport(config.parallelism)
             JdbcDbUtils.extractJDBCTables(
@@ -118,7 +118,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 List("TABLE"),
                 None
               ),
-              connectionOptions,
+              connectionSettings,
               skipRemarks = true,
               keepOriginalName = true
             )

@@ -25,7 +25,7 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     *   : Application configuration file
     */
   def run(
-    config: ExtractDataConfig
+    config: UserExtractDataConfig
   )(implicit settings: Settings): Unit = {
     val content = settings
       .storageHandler()
@@ -33,46 +33,50 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
-    val connectionOptions = jdbcSchemas.connectionRef
-      .flatMap(settings.appConfig.connections.get(_).map(_.options))
-      .getOrElse(
-        throw new Exception(s"No connectionRef found. Please check your connectionRef property")
-      )
+    val dataConnectionSettings = jdbcSchemas.connectionRef match {
+      case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
+      case None                => throw new Exception(s"No connectionRef defined for jdbc schemas.")
+    }
     val auditConnectionRef =
       jdbcSchemas.auditConnectionRef.getOrElse(settings.appConfig.audit.getConnectionRef())
 
-    val auditConnectionInfo = settings.appConfig.connections
-      .getOrElse(auditConnectionRef, throw new Exception("No connection found for audit"))
+    val auditConnectionSettings = settings.appConfig.getConnection(auditConnectionRef)
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
 
+    implicit val implicitSchemaHandler: SchemaHandler = schemaHandler
     jdbcSchemas.jdbcSchemas
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true
           case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
           case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
-          case (_, _)     => throw new RuntimeException("Should not happen")
+          case (_, _) =>
+            throw new RuntimeException(
+              "You can't specify includeShemas and excludeSchemas at the same time"
+            )
         }
       }
       .foreach { jdbcSchema =>
         assert(config.numPartitions > 0)
         JdbcDbUtils.extractData(
-          schemaHandler,
-          jdbcSchema,
-          connectionOptions ++ jdbcSchema.connectionOptions,
-          auditConnectionInfo,
-          outputDir(config.outputDir),
-          config.limit,
-          config.numPartitions,
-          config.parallelism,
-          config.fullExport,
-          config.ifExtractedBefore
-            .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
-          config.cleanOnExtract,
-          config.includeTables,
-          config.excludeTables,
-          fileFormat
+          ExtractDataConfig(
+            jdbcSchema,
+            dataOutputDir(config.outputDir),
+            config.limit,
+            config.numPartitions,
+            config.parallelism,
+            config.fullExport,
+            config.ifExtractedBefore
+              .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
+            config.ignoreExtractionFailure,
+            config.cleanOnExtract,
+            config.includeTables,
+            config.excludeTables,
+            fileFormat,
+            dataConnectionSettings.mergeOptionsWith(jdbcSchema.connectionOptions),
+            auditConnectionSettings
+          )
         )
       }
   }
