@@ -1,9 +1,0 @@
-# This template executes individual bash jobs and requires the following dag generation options set:
-#
-# - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
-# - SL_STARLAKE_PATH: the path to the starlake executable [OPTIONAL]
-# - incoming_path: the path to the incoming landing zone (if not specified, the default SL_ROOT/incoming path will be used) [OPTIONAL]
-# - tags: a list of tags to be applied to the dag [OPTIONAL]
-#
-{% include 'templates/dags/__starlake_bash_job.py.j2' %}
-{% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}

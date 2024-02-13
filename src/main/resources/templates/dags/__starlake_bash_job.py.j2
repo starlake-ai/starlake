@@ -1,8 +1,0 @@
-{% include 'templates/dags/__common.py.j2' %}
-from ai.starlake.job.airflow.bash import AirflowStarlakeBashJob
-
-import sys
-
-#optional variable jobs as a dict of all options to apply by job
-#eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
-sl_job = AirflowStarlakeBashJob(options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {})))

@@ -1,0 +1,55 @@
+{% include 'templates/dags/__common_airflow.py.j2' %}
+import os
+import sys
+
+from ai.starlake.job import StarlakeOptions
+
+from ai.starlake.dagster.gcp import StarlakeDagsterDataprocJob
+
+from ai.starlake.gcp import StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
+
+#optional get_dataproc_master_config function that returns an instance of StarlakeDataprocMasterConfig per dag name
+def default_dataproc_master_config(*args, **kwargs) -> StarlakeDataprocMasterConfig:
+    return StarlakeDataprocMasterConfig(
+        machine_type=sys.modules[__name__].__dict__.get('dataproc_master_machine_type', None), 
+        disk_type=sys.modules[__name__].__dict__.get('dataproc_master_disk_type', None),
+        disk_size=sys.modules[__name__].__dict__.get('dataproc_master_disk_size', None), 
+        options=options,
+        **kwargs
+    )
+dataproc_master_config = getattr(sys.modules[__name__], "get_dataproc_master_config", default_dataproc_master_config)
+
+#optional get_dataproc_worker_config function that returns an instance of StarlakeDataprocWorkerConfig per dag name
+def default_dataproc_worker_config(*args, **kwargs) -> StarlakeDataprocWorkerConfig:
+    return StarlakeDataprocWorkerConfig(
+        num_instances=sys.modules[__name__].__dict__.get('dataproc_worker_num_instances', None),
+        machine_type=sys.modules[__name__].__dict__.get('dataproc_worker_machine_type', None), 
+        disk_type=sys.modules[__name__].__dict__.get('dataproc_worker_disk_type', None),
+        disk_size=sys.modules[__name__].__dict__.get('dataproc_worker_disk_size', None), 
+        options=options,
+        **kwargs
+    )
+dataproc_worker_config = getattr(sys.modules[__name__], "get_dataproc_worker_config", default_dataproc_worker_config)
+
+#optional get_dataproc_secondary_worker_config function that returns an instance of StarlakeDataprocWorkerConfig per dag name
+dataproc_secondary_worker_config = getattr(sys.modules[__name__], "get_dataproc_secondary_worker_config", lambda dag_name: None)
+
+cluster_config_name = StarlakeOptions.get_context_var("cluster_config_name", os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(), options)
+
+#optional variable jobs as a dict of all options to apply by job
+#eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
+sl_job = StarlakeDagsterDataprocJob(
+    cluster_config=StarlakeDataprocClusterConfig(
+        cluster_id=sys.modules[__name__].__dict__.get('cluster_id', cluster_config_name),
+        dataproc_name=sys.modules[__name__].__dict__.get('dataproc_name', None),
+        master_config = dataproc_master_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_master_properties', {})),
+        worker_config = dataproc_worker_config(cluster_config_name, **sys.modules[__name__].__dict__.get('dataproc_worker_properties', {})),
+        secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name),
+        idle_delete_ttl=sys.modules[__name__].__dict__.get('dataproc_idle_delete_ttl', None),
+        single_node=sys.modules[__name__].__dict__.get('dataproc_single_node', None),
+        options=options,
+        **sys.modules[__name__].__dict__.get('dataproc_cluster_properties', {})
+    ), 
+    pool=sys.modules[__name__].__dict__.get('pool', None),
+    options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
+)

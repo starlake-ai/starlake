@@ -17,9 +17,11 @@ class ExtractIntegrationSpec extends TestHelper {
         jdbcOptions.options("user"),
         jdbcOptions.options("password")
       )
+      logger.info(TestHelper.pgContainer.jdbcUrl)
       val sqls: String =
         """
           |drop table if exists test_table1 cascade;
+          |drop table if exists test_table2 cascade;
           |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
           |create view test_view1 AS SELECT NAME FROM test_table1;
           |insert into test_table1 values (1,'A');
@@ -39,18 +41,24 @@ class ExtractIntegrationSpec extends TestHelper {
           |                              message VARCHAR(255) not NULL,
           |                              step VARCHAR(255) not NULL
           |                             );""".stripMargin
-      val st = conn.createStatement()
       sqls.split(";").foreach { sql =>
-        st.executeUpdate(sql)
+        logger.info("execute update : " + sql.trim)
+        val st = conn.createStatement()
+        st.executeUpdate(sql.trim)
+        st.close()
       }
+      val st = conn.createStatement()
+      val rs = st.executeQuery("select current_database()")
+      rs.next()
+      println(rs.getString(1))
       st.close()
-
+      conn.close()
       val config =
         """
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
-          |    - schema: "PUBLIC" # Database schema where tables are located
+          |    - schema: "public" # Database schema where tables are located
           |      tables:
           |        - name: "*" # Takes all tables
           |      tableTypes: # One or many of the types below

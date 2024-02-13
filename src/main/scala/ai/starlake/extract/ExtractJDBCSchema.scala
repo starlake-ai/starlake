@@ -1,6 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -38,11 +39,11 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
         .richFormat(schemaHandler.activeEnvVars(), Map.empty)
       val jdbcSchemas =
         YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
-      val connectionOptions = jdbcSchemas.connectionRef
-        .flatMap(settings.appConfig.connections.get(_).map(_.options))
-        .getOrElse(
-          throw new Exception(s"No connectionRef found. Please check your connectionRef property")
-        )
+      val connectionSettings = jdbcSchemas.connectionRef match {
+        case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
+        case None => throw new Exception(s"No connectionRef defined for jdbc schemas.")
+      }
+
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
         ExtractUtils.createForkSupport(config.parallelism)
       ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
@@ -60,8 +61,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
         ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
           extractSchema(
             jdbcSchema,
-            connectionOptions,
-            outputDir(config.outputDir),
+            connectionSettings,
+            schemaOutputDir(config.outputDir),
             domainTemplate,
             currentDomain
           )
@@ -72,7 +73,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
 
   def extractSchema(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String],
+    connectionSettings: Connection,
     baseOutputDir: File,
     domainTemplate: Option[Domain],
     currentDomain: Option[Domain]
@@ -86,7 +87,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     }
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
-    val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
+    val extractedDomain = extractDomain(jdbcSchema, connectionSettings, domainTemplate)
     val domain = extractedDomain.copy(
       comment = extractedDomain.comment.orElse(currentDomain.flatMap(_.comment)),
       tags =
@@ -158,7 +159,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     */
   private def extractDomain(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String],
+    connectionSettings: Connection,
     domainTemplate: Option[Domain]
   )(implicit
     settings: Settings,
@@ -167,7 +168,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     val selectedTablesAndColumns =
       JdbcDbUtils.extractJDBCTables(
         jdbcSchema,
-        connectionOptions,
+        connectionSettings,
         skipRemarks = false,
         keepOriginalName = false
       )

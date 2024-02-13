@@ -1,0 +1,26 @@
+# This template executes individual dataproc jobs and requires the following dag generation options set:
+# - dataproc_name: the name of the dataproc cluster [OPTIONAL]
+# - dataproc_project_id: the project id of the dataproc cluster (if not set, the project id of the composer environment will be used) [OPTIONAL]
+# - dataproc_region: the region of the dataproc cluster (if not set, europe-west1 will be used) [OPTIONAL]
+# - dataproc_subnet: the subnetwork of the dataproc cluster (if not set, the default subnetwork will be used) [OPTIONAL]
+# - dataproc_service_account: the service account of the dataproc cluster (if not set, the default service account will be used) [OPTIONAL]
+# - dataproc_image_version: the image version of the dataproc cluster (if not set, 2.2-debian12 will be used) [OPTIONAL]
+# - dataproc_master_machine_type: the master machine type of the dataproc cluster (if not set, n1-standard-4 will be used) [OPTIONAL]
+# - dataproc_master_disk_size: the master disk size of the dataproc cluster (if not set, 1024 will be used) [OPTIONAL]
+# - dataproc_master_disk_type: the master disk type of the dataproc cluster (if not set, pd-standard will be used) [OPTIONAL]
+# - dataproc_worker_machine_type: the worker machine type of the dataproc cluster (if not set, n1-standard-4 will be used) [OPTIONAL]
+# - dataproc_worker_disk_size: the worker disk size of the dataproc cluster (if not set, 1024 will be used) [OPTIONAL]
+# - dataproc_worker_disk_type: the worker disk type of the dataproc cluster (if not set, pd-standard will be used) [OPTIONAL]
+# - dataproc_num_workers: the number of workers of the dataproc cluster (if not set, 4 will be used) [OPTIONAL]
+# - spark_jar_list: the list of spark jars to be used [REQUIRED]
+# - spark_bucket: the bucket to use for spark and biqquery temporary storage [REQUIRED]
+# - spark_job_main_class: the main class of the spark job (if not set, the main class ai.starlake.job.Main will be used) [OPTIONAL]
+# - spark_executor_memory: the amount of memory to use per executor process (if not set, 11g will be used) [OPTIONAL]
+# - spark_executor_cores: the number of cores to use on each executor (if not set, 4 will be used) [OPTIONAL]
+# - spark_executor_instances: the number of executor instances (if not set, 3 will be used) [OPTIONAL]
+# - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
+# - incoming_path: the path to the incoming landing zone (if not specified, the default SL_ROOT/incoming path will be used) [OPTIONAL]
+# - tags: a list of tags to be applied to the dag [OPTIONAL]
+# Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
+{% include 'templates/dags/__starlake_dagster_dataproc_job.py.j2' %}
+{% include 'templates/dags/load/__dagster_scheduled_table_tpl.py.j2' %}
