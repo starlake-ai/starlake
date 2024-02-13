@@ -1,52 +1,60 @@
-Thi
+# starbake
 
-## Install 
+## Prerequisites
+
+Before installing starbake, ensure the following minimum versions are installed on your system:
+
+- jdk: 11 or higher
+- python: 3.8 or higher
+
+## Install
 
 1. Install Starlake
-    `SL_VERSION=1.0.0-SNAPSHOT sh /Users/elarib/Work/Starlake/starlake/distrib/starlake.sh`
-2. Generate dummy files
-   `pip install faker`
-   `python _scripts/dummy_data_generator.py`
+  `../../distrib/setup.sh --target=.`
+2. Create a virtual environment (optional)
+   `python3 -m pip install virtualenv`
+   `python3 -m venv .venv`
+3. Activate the virtual environment (optional)
+   `source .venv/bin/activate`
+4. Generate dummy files
+   `python3 -m pip install -r _scripts/requirements.txt`
+   `python3 _scripts/dummy_data_generator.py`
 
 We're good to go
 
-
-## Run Starlake 
+## Run Starlake
 
 1. Import from incoming to pending
-`sh starbake.sh import`
-
+`./starlake import`
 
 2. Load data to bigquery
-`sh starbake.sh load`
+`./starlake load`
 
 3. Run the transformation in order
+
+```bash
+./starlake transform --name Customers.CustomerLifetimeValue 
+./starlake transform --name Customers.HighValueCustomers 
+
+./starlake transform --name Products.ProductProfitability 
+./starlake transform --name Products.MostProfitableProducts 
+
+./starlake transform --name Products.ProductPerformance 
+
+./starlake transform --name Products.TopSellingProducts 
+./starlake transform --name Products.TopSellingProfitableProducts 
 ```
-sh starbake.sh transform --name Customers.CustomerLifetimeValue 
-sh starbake.sh transform --name Customers.HighValueCustomers 
 
-sh starbake.sh transform --name Products.ProductProfitability 
-sh starbake.sh transform --name Products.MostProfitableProducts 
+## Run DAGs
 
-sh starbake.sh transform --name Products.ProductPerformance 
+1. Install the dagster webserver
+   `python3 -m pip install dagster-webserver`
+2. Install the starlake dagster libraries for shell
+   `python3 -m pip install starlake-dagster[shell]`
+3. Generate DAGs
+`./starlake dag-generate --clean`
+4. Load the DAGs with dagster
+`DAGSTER_HOME=${PWD} dagster dev -f metadata/dags/generated/load/starbake.py -f metadata/dags/generated/transform/CustomerLifetimeValue.py -f metadata/dags/generated/transform/HighValueCustomers.py -f metadata/dags/generated/transform/ProductPerformance.py -f metadata/dags/generated/transform/ProductProfitability.py -f metadata/dags/generated/transform/MostProfitableProducts.py -f metadata/dags/generated/transform/TopSellingProducts.py -f metadata/dags/generated/transform/TopSellingProfitableProducts.py`
+5. Browse `http://localhost:3000/locations`
 
-sh starbake.sh transform --name Products.TopSellingProducts 
-sh starbake.sh transform --name Products.TopSellingProfitableProducts 
-```
-
-
-
-
-
-
-Notes:
-. We should check if connections exists, not just when running load. Maybe sth like starlake compile
-. If there is was an error of keys in load, the file are already moved to ingesting
-. Improve error, for example, if i have connectionRef:  starbake-bigquery, but i forget to create the create connection, the error is cannot find key starbake-bigquery. It should be instead, connection starbake-bigquery is not present in connections ...
-. audit table should be partionned
-. In audit log, we have -1 in SINK_ACCEPTED & SINK_REJECTED step. Maybe we should just change it to null ?
-. Location is EU by default, it should be required (TO TEST)
-. transform accept only one file as arg, not many. Can we maybe run all the customers transfromations, and it's up to starlake to run them in the right order ?
-. If a query ends with ;, transform failed
-. Can we disable scala log ? Log only the "business/starlake log" ?
-.
+![dagster](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/dagster.png)

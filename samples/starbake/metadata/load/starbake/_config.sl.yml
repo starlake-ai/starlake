@@ -2,4 +2,4 @@
 load:
   name: "starbake"
   metadata:
-    directory: "/Users/hayssams/git/public/starlake/samples/local/quickstart/datasets/incoming/starbake/day_1"
+    directory: "datasets/incoming/starbake/day_1"
