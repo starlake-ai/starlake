@@ -632,7 +632,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_table_bash.py.j2* instantiates a `StarlakeAirflowBashJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/airflow_scheduled_table_bash.py.j2"
 # This template executes individual bash jobs and requires the following dag generation options set:
 # - SL_STARLAKE_PATH: the path to the starlake executable [OPTIONAL]
 # ...
@@ -642,7 +642,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_table_cloud_run.py.j2* instantiates a `StarlakeAirflowCloudRunJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/airflow_scheduled_table_cloud_run.py.j2"
 # This template executes individual cloud run jobs and requires the following dag generation options set:
 # - cloud_run_project_id: the project id where the job is located (if not set, the project id of the composer environment will be used) [OPTIONAL]
 # - cloud_run_job_region: the region where the job is located (if not set, europe-west1 will be used) [OPTIONAL]
@@ -654,7 +654,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_table_dataproc.py.j2* instantiates a `StarlakeAirflowDataprocJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/airflow_scheduled_table_dataproc.py.j2"
 # This template executes individual dataproc jobs and requires the following dag generation options set:
 # - dataproc_project_id: the project id of the dataproc cluster (if not set, the project id of the composer environment will be used) [OPTIONAL]
 # - dataproc_region: the region of the dataproc cluster (if not set, europe-west1 will be used) [OPTIONAL]
@@ -679,7 +679,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_table_shell.py.j2* instantiates a `StarlakeDagsterShellJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/dagster_scheduled_table_shell.py.j2"
 # This template executes individual shell jobs and requires the following dag generation options set:
 # - SL_STARLAKE_PATH: the path to the starlake executable [OPTIONAL]
 # ...
@@ -689,7 +689,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_table_cloud_run.py.j2* instantiates a `StarlakeDagsterCloudRunJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/dagster_scheduled_table_cloud_run.py.j2"
 # This template executes individual cloud run jobs and requires the following dag generation options set:
 # - cloud_run_project_id: the project id where the job is located (if not set, the project id of the composer environment will be used) [OPTIONAL]
 # - cloud_run_job_region: the region where the job is located (if not set, europe-west1 will be used) [OPTIONAL]
@@ -701,7 +701,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_table_dataproc.py.j2* instantiates a `StarlakeDagsterDataprocJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/load/dagster_scheduled_table_dataproc.py.j2"
 # This template executes individual dataproc jobs and requires the following dag generation options set:
 # - dataproc_project_id: the project id of the dataproc cluster (if not set, the project id of the composer environment will be used) [OPTIONAL]
 # - dataproc_region: the region of the dataproc cluster (if not set, europe-west1 will be used) [OPTIONAL]
@@ -736,7 +736,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_task_bash.py.j2* instantiates a `StarlakeAirflowBashJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/airflow_scheduled_task_bash.py.j2"
 # ...
 {% include 'templates/dags/__starlake_airflow_bash_job.py.j2' %}
 {% include 'templates/dags/load/__airflow_scheduled_task_tpl.py.j2' %}
@@ -744,7 +744,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_task_cloud_run.py.j2* instantiates a `StarlakeAirflowCloudRunJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/airflow_scheduled_task_cloud_run.py.j2"
 # ...
 {% include 'templates/dags/__starlake_airflow_cloud_run_job.py.j2' %}
 {% include 'templates/dags/load/__airflow_scheduled_table_tpl.py.j2' %}
@@ -752,7 +752,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *airflow_scheduled_task_dataproc.py.j2* instantiates a `StarlakeAirflowDataprocJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/airflow_scheduled_task_dataproc.py.j2"
 # ...
 {% include 'templates/dags/__starlake_airflow_dataproc_job.py.j2' %}
 {% include 'templates/dags/load/__airflow_scheduled_table_tpl.py.j2' %}
@@ -771,7 +771,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_task_shell.py.j2* instantiates a `StarlakeDagsterShellJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/dagster_scheduled_task_shell.py.j2"
 # ...
 {% include 'templates/dags/__starlake_dagster_shell_job.py.j2' %}
 {% include 'templates/dags/load/__dagster_scheduled_task_tpl.py.j2' %}
@@ -779,7 +779,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_task_cloud_run.py.j2* instantiates a `StarlakeDagsterCloudRunJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/dagster_scheduled_task_cloud_run.py.j2"
 # ...
 {% include 'templates/dags/__starlake_dagster_cloud_run_job.py.j2' %}
 {% include 'templates/dags/load/__dagster_scheduled_table_tpl.py.j2' %}
@@ -787,7 +787,7 @@ All extend this abstract template by instantiating the corresponding concrete fa
 
 - *dagster_scheduled_task_dataproc.py.j2* instantiates a `StarlakeDagsterDataprocJob` class.
 
-```python
+```python title="src/main/resources/templates/dags/transform/dagster_scheduled_task_dataproc.py.j2"
 # ...
 {% include 'templates/dags/__starlake_dagster_dataproc_job.py.j2' %}
 {% include 'templates/dags/load/__dagster_scheduled_table_tpl.py.j2' %}
@@ -979,7 +979,7 @@ jobs = [
 
 Finally, we will have to define a specific **DAG configuration** that will make use of our **customized DAG template**.
 
-```yaml
+```yaml title="metadata/dags/custom_transform_cloud_run.yml"
 ---
 dag:
   comment: "agregation dag for domain {{domain}} with cloud run" # will appear as a description of the dag
@@ -1127,7 +1127,7 @@ dataproc_cluster_properties = {
 {% include 'templates/dags/transform/scheduled_task_dataproc.py.j2' %} # the base Starlake DAG template that needs to be extended
 ```
 
-```yaml
+```yaml title="metadata/dags/custom_transform_dataproc.yml"
 ---
 # norm_dataproc_domain.sl.yml our DAG configuration using our customized DAG template
 
@@ -1389,7 +1389,7 @@ In this strategy (**load_dependencies** = *False*), the default strategy, the sc
 
 In this strategy, a **schedule** will be created to **check** if the **dependencies** are **met** via the use of **Airflow Datasets**.
 
-```python
+```python title="src/main/resources/template/dags/transform/__airflow_scheduled_task_tpl.py.j2"
 #...
 schedule = None
 
@@ -1430,7 +1430,7 @@ Those **required Datasets** are **updated** for **each** **load** and **task** t
 
 The *ai.starlake.airflow.StarlakeAirflowJob* class is responsible for **recording** the **outlets** related to the execution of each starlake command.
 
-```python
+```python title="ai.starlake.airflow.StarlakeAirflowJob"
 def __init__(
     self,
     pre_load_strategy: Union[StarlakePreLoadStrategy, str, None],
@@ -1472,7 +1472,7 @@ def sl_transform(
 
 All the **outlets** that have been **recorded** are **available** in the *outlets* *property* of the **starlake concrete factory class instance** and are used at the very **last step** of the corresponding DAG to update the Datasets.
 
-```python
+```python title="src/main/resources/template/dags/transform/__airflow_scheduled_task_tpl.py.j2"
     end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters), sl_job.outlets)))
 ```
 
@@ -1486,7 +1486,7 @@ In conjonction with the Starlake dag generation, the outlets property can be use
 
 In this strategy, a **sensor** will be created to **check** if the **dependencies** are **met** via the use of **Dagster Assets**.
 
-```python
+```python title="src/main/resources/template/dags/transform/__dagster_scheduled_task_tpl.py.j2"
 #...
 from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, SkipReason, Definitions
 
