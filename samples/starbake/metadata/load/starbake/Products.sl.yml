@@ -62,16 +62,16 @@ table:
       ignore: false
   metadata:
     mode: "FILE"
-    format: "DSV"
+    format: "JSON"
     encoding: "UTF-8"
     multiline: false
     array: false
     withHeader: false
-    separator: ";"
+    separator: ""
     quote: "\""
     escape: "\\"
     write: "APPEND"
     sink:
-      connectionRef: "FS"
+      connectionRef: "{{connectionRef}}"
   primaryKey:
     - "product_id"
