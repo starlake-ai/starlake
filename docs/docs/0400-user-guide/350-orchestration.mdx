@@ -1184,10 +1184,6 @@ resource "google_storage_bucket_object" "composer_storage_objects" {
     merge(local.composer_storage_variables, {jobs=jsonencode(local.jobs)}, {clusters=jsonencode(var.clusters)})
   )
   bucket   = var.composer_bucket
-  depends_on = [
-    google_storage_bucket_object.metadata_storage_objects,
-    null_resource.generate_int_dags
-  ]
 }
 ```
 
