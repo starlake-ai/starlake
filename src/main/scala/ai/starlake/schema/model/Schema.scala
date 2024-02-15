@@ -78,8 +78,7 @@ case class Schema(
   rename: Option[String] = None,
   sample: Option[String] = None,
   filter: Option[String] = None,
-  patternSample: Option[String] = None,
-  strategy: Option[StrategyOptions] = None
+  patternSample: Option[String] = None
 ) extends Named {
 
   def this() = this(
@@ -92,8 +91,8 @@ case class Schema(
 
   @JsonIgnore
   def isPrimaryKey(name: String): Boolean = {
-    primaryKey
-      .contains(name) || (strategy.exists(_.key.contains(name)))
+    val isStrategyKey = metadata.exists(_.writeStrategy.exists(_.key.contains(name)))
+    primaryKey.contains(name) || isStrategyKey
   }
 
   def containsRepeatedOrNestedFields(): Boolean = {
@@ -110,12 +109,6 @@ case class Schema(
   @JsonIgnore
   def isFlat(): Boolean = {
     !attributes.exists(_.attributes.nonEmpty)
-  }
-
-  def getStrategy(mergedMetadata: Option[Metadata] = None): StrategyOptions = {
-    val writeMode: WriteMode =
-      mergedMetadata.orElse(metadata).map(_.getWrite()).getOrElse(WriteMode.APPEND)
-    strategy.getOrElse(StrategyOptions(StrategyType.fromString(writeMode.value)))
   }
 
   /** @return
@@ -308,7 +301,7 @@ case class Schema(
       errorList ++= errors
     }
 
-    strategy.foreach { strategy =>
+    metadata.map(_.getStrategyOptions()).foreach { strategy =>
       if (strategy.isMerge()) {
         if (strategy.key.isEmpty) {
           errorList +=
@@ -527,14 +520,17 @@ case class Schema(
         val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
         acl.copy(grants = grants)
       }),
-      strategy = this.strategy.map(merge =>
-        if (merge.key.isEmpty) merge.copy(key = this.primaryKey) else merge
-      ),
-      primaryKey =
-        if (this.primaryKey.isEmpty)
-          strategy.map(_.key).getOrElse(Nil)
-        else this.primaryKey
+      metadata = metadata
+        .map(m =>
+          m.copy(writeStrategy = m.writeStrategy.map { s =>
+            if (s.key.isEmpty) s.copy(key = this.primaryKey) else s
+          })
+        ),
+      primaryKey = if (this.primaryKey.isEmpty) {
+        metadata.flatMap(_.writeStrategy.map(_.key)).getOrElse(Nil)
+      } else this.primaryKey
     )
+
   }
 
   /** @param table

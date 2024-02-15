@@ -3,7 +3,7 @@ table:
     pattern: "flat_locations-.*.json"
     primaryKey:
       - id
-    strategy:
+    writeStrategy:
       type: "OVERWRITE"
     metadata:
       array: false

@@ -38,7 +38,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       result.table shouldBe "dataset"
       result.write shouldBe Some(WriteMode.OVERWRITE)
       result.sink.map { sink =>
-        sink.timestamp shouldBe Some("partitionCol")
+        sink.partition shouldBe Some(List("partitionCol"))
         sink.requirePartitionFilter shouldBe Some(true)
       }
       result.comment shouldBe Some("jointure source1 et source2")

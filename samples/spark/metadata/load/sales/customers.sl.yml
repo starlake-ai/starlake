@@ -1,6 +1,6 @@
 ---
 table:
-  strategy:
+  writeStrategy:
     type: "UPSERT_BY_KEY_AND_TIMESTAMP"
     timestamp: signup
     on: SOURCE_AND_TARGET

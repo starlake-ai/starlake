@@ -435,7 +435,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        outputPartition = sink.flatMap(_.timestamp),
+        outputPartition = sink.flatMap(_.getPartitionColumn()),
         outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
         days = sink.flatMap(_.days),
         requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),

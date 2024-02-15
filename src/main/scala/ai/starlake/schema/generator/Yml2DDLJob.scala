@@ -181,7 +181,6 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 .getSink()
                 .toAllSinks()
                 .partition
-                .map(_.getAttributes())
                 .getOrElse(Nil),
               "clustered"     -> mergedMetadata.getClustering().getOrElse(Nil),
               "primaryKeys"   -> schema.primaryKey,

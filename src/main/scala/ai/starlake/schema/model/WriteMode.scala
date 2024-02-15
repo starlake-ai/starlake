@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.schema.model.WriteMode.{APPEND, MERGE, OVERWRITE}
+import ai.starlake.schema.model.WriteMode.{APPEND, OVERWRITE}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -42,7 +42,6 @@ sealed case class WriteMode(value: String) {
     this match {
       case OVERWRITE => SaveMode.Overwrite
       case APPEND    => SaveMode.Append
-      case MERGE     => SaveMode.Append
       case _ =>
         throw new Exception("Should never happen")
     }
@@ -53,8 +52,9 @@ object WriteMode {
 
   def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
-      case "OVERWRITE"                 => WriteMode.OVERWRITE
-      case "APPEND" | "SCD2" | "MERGE" => WriteMode.APPEND
+      case "OVERWRITE" => WriteMode.OVERWRITE
+      case "APPEND"    => WriteMode.APPEND
+      case "SCD2"      => WriteMode.APPEND // From XLSReader Only
       case _ =>
         throw new Exception(s"Invalid Write Mode try one of ${writes}")
     }
@@ -63,8 +63,6 @@ object WriteMode {
   object OVERWRITE extends WriteMode("OVERWRITE")
 
   object APPEND extends WriteMode("APPEND")
-
-  object MERGE extends WriteMode("MERGE")
 
   val writes: Set[WriteMode] = Set(OVERWRITE, APPEND)
 }

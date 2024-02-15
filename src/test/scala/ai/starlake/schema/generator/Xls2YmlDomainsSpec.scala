@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{Domain, Format, FsSink, Partition, Schema}
+import ai.starlake.schema.model.{Domain, Format, FsSink, Schema}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
@@ -51,7 +51,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
           None,
           None,
           None,
-          Some(Partition(List("sl_year", "sl_month", "sl_day", "sl_hour"), None, Nil)),
+          Some(List("sl_year", "sl_month", "sl_day", "sl_hour")),
           options = Some(Map.empty)
         )
       )
@@ -61,8 +61,9 @@ class Xls2YmlDomainsSpec extends TestHelper {
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       schema1.attributes.size shouldBe 19
-      schema1.strategy.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
-      schema1.strategy.map(_.key) shouldBe Some(List("ID1", "ID2"))
+
+      schema1.metadata.flatMap(_.writeStrategy.flatMap(_.timestamp)) shouldBe Some("ATTRIBUTE_1")
+      schema1.metadata.flatMap(_.writeStrategy.map(_.key)) shouldBe Some(List("ID1", "ID2"))
 
       val s1MaybePartitions = schema1.metadata.map(_.getPartitionAttributes()).getOrElse(Nil)
       s1MaybePartitions shouldEqual List("sl_year", "sl_month", "sl_day", "sl_hour")

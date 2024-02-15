@@ -837,9 +837,9 @@ class SchemaHandlerSpec extends TestHelper {
           |encoding: ISO-8859-1
           |format: POSITION
           |sink:
-          |  type: BQ
-          |  timestamp: _PARTITIONTIME
-          |write: OVERWRITE
+          |  partition: ["_PARTITIONTIME"]
+          |writeStrategy:
+          |  type: OVERWRITE
           |""".stripMargin
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
 
@@ -848,8 +848,8 @@ class SchemaHandlerSpec extends TestHelper {
         format = Some(ai.starlake.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
-        sink = Some(BigQuerySink(timestamp = Some("_PARTITIONTIME")).toAllSinks()),
-        write = Some(WriteMode.OVERWRITE)
+        sink = Some(BigQuerySink(partition = Some(List("_PARTITIONTIME"))).toAllSinks()),
+        writeStrategy = Some(StrategyOptions(StrategyType.OVERWRITE))
       )
     }
     "Exporting domain as Dot" should "create a valid dot file" in {

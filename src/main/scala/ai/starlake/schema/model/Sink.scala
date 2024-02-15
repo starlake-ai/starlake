@@ -127,25 +127,24 @@ case class AllSinks(
   connectionRef: Option[String] = None,
   // depending on the connection.type coming from the connection ref, some of the options below may be required
   // BigQuery
-  timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
   materializedView: Option[Boolean] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None,
+  // partition: Option[List[String]] = None,
+
   // ES
   id: Option[String] = None,
-  // timestamp: Option[String] = None,
+  // partition: Option[String] = None,
   // options: Option[Map[String, String]] = None,
 
   // FS
   format: Option[String] = None,
   extension: Option[String] = None,
-
+  partition: Option[List[String]] = None,
   // clustering: Option[Seq[String]] = None,
-  partition: Option[Partition] = None,
-  dynamicPartitionOverwrite: Option[Boolean] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
@@ -165,7 +164,6 @@ case class AllSinks(
   def merge(child: AllSinks): AllSinks = {
     AllSinks(
       child.connectionRef.orElse(this.connectionRef),
-      child.timestamp.orElse(this.timestamp),
       child.clustering.orElse(this.clustering),
       child.days.orElse(this.days),
       child.requirePartitionFilter.orElse(this.requirePartitionFilter),
@@ -176,12 +174,12 @@ case class AllSinks(
       child.format.orElse(this.format),
       child.extension.orElse(this.extension),
       child.partition.orElse(this.partition),
-      child.dynamicPartitionOverwrite.orElse(this.dynamicPartitionOverwrite),
       child.coalesce.orElse(this.coalesce),
       child.options.orElse(this.options)
     )
   }
   def toAllSinks(): AllSinks = this
+
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
@@ -205,8 +203,6 @@ case class AllSinks(
 /** When the sink *type* field is set to BQ, the options below should be provided.
   * @param location
   *   : Database location (EU, US, ...)
-  * @param timestamp:
-  *   The timestamp column to use for table partitioning if any. No partitioning by default
   * @param clustering:
   *   List of ordered columns to use for table clustering
   * @param days:
@@ -214,10 +210,9 @@ case class AllSinks(
   * @param requirePartitionFilter:
   *   Should be require a partition filter on every request ? No by default.
   */
-@JsonTypeName("BQ")
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  timestamp: Option[String] = None,
+  partition: Option[List[String]] = None,
   dynamicPartitionOverwrite: Option[Boolean] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -229,23 +224,25 @@ final case class BigQuerySink(
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef,
-      timestamp,
       clustering,
       days,
       requirePartitionFilter,
       materializedView,
       enableRefresh,
-      refreshIntervalMs
+      refreshIntervalMs,
+      partition = partition
     )
   }
+
+  @JsonIgnore
+  def getPartitionColumn(): Option[String] = this.partition.flatMap(_.headOption)
 }
 
 object BigQuerySink {
   def fromAllSinks(allSinks: AllSinks): BigQuerySink = {
     BigQuerySink(
       connectionRef = allSinks.connectionRef,
-      timestamp = allSinks.timestamp,
-      dynamicPartitionOverwrite = allSinks.dynamicPartitionOverwrite,
+      partition = allSinks.partition,
       clustering = allSinks.clustering,
       days = allSinks.days,
       requirePartitionFilter = allSinks.requirePartitionFilter,
@@ -263,7 +260,6 @@ object BigQuerySink {
   * @param timestamp:
   *   Timestamp field format as expected by Elasticsearch ("{beginTs|yyyy.MM.dd}" for example).
   */
-@JsonTypeName("ES")
 case class EsSink(
   connectionRef: Option[String] = None,
   id: Option[String] = None,
@@ -274,7 +270,7 @@ case class EsSink(
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef = connectionRef,
-      timestamp = timestamp,
+      partition = timestamp.map(List(_)),
       id = id,
       options = options
     )
@@ -286,21 +282,19 @@ object EsSink {
     EsSink(
       allSinks.connectionRef,
       allSinks.id,
-      allSinks.timestamp,
+      allSinks.partition.flatMap(_.headOption),
       allSinks.options
     )
   }
 }
 // We had to set format and extension outside options because of the bug below
 // https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
-@JsonTypeName("FS")
 case class FsSink(
   connectionRef: Option[String] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
-  partition: Option[Partition] = None,
-  dynamicPartitionOverwrite: Option[Boolean] = None,
+  partition: Option[List[String]] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink {
@@ -310,7 +304,7 @@ case class FsSink(
   }
 
   def getPartitionByClauseSQL(): String =
-    partition.map(_.attributes).map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
 
   def getClusterByClauseSQL(): String =
     clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
@@ -339,7 +333,6 @@ case class FsSink(
   }
 }
 
-@JsonTypeName("GCPLOG")
 case class GcpLogSink(
   connectionRef: Option[String] = None,
   options: Option[Map[String, String]] = None
@@ -353,7 +346,6 @@ case class GcpLogSink(
   }
 }
 
-@JsonTypeName("KAFKA")
 case class KafkaSink(
   connectionRef: Option[String] = None,
   options: Option[Map[String, String]] = None
@@ -393,7 +385,6 @@ object FsSink {
       allSinks.extension,
       allSinks.clustering,
       allSinks.partition,
-      allSinks.dynamicPartitionOverwrite,
       allSinks.coalesce,
       allSinks.options
     )

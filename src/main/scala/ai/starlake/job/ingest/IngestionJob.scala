@@ -70,7 +70,7 @@ trait IngestionJob extends SparkJob {
   def options: Map[String, String]
 
   lazy val strategy: StrategyOptions = {
-    val s = schema.getStrategy(Some(mergedMetadata))
+    val s = mergedMetadata.getStrategyOptions()
     val startTs = s.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
     val endTs = s.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
     s.copy(start_ts = Some(startTs), end_ts = Some(endTs))
@@ -457,7 +457,7 @@ trait IngestionJob extends SparkJob {
       val bqSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
       val sink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
 
-      val partitionField = sink.timestamp.map { partitionField =>
+      val partitionField = sink.getPartitionColumn().map { partitionField =>
         FieldPartitionInfo(partitionField, sink.days, sink.requirePartitionFilter.getOrElse(false))
       }
       val clusteringFields = sink.clustering.flatMap { fields =>

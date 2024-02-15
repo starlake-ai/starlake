@@ -672,6 +672,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val schemaRefs = requestedTables
       .map { tableRefName =>
         val schemaPath = new Path(folder, tableRefName)
+        logger.info(s"Loading schema from $schemaPath")
         YamlSerializer.deserializeSchemaRefs(
           if (raw)
             storage.read(schemaPath)
