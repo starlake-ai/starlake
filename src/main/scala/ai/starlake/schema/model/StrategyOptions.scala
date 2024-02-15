@@ -23,6 +23,9 @@ case class StrategyOptions(
   def validate() = {}
 
   @JsonIgnore
+  def getWriteMode() = `type`.toWriteMode()
+
+  @JsonIgnore
   private val lastPat =
     Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
 

@@ -32,7 +32,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
 
   val options: Map[String, String] = ingestionJob.options
 
-  val strategy: StrategyOptions = schema.getStrategy(Some(ingestionJob.mergedMetadata))
+  val strategy: StrategyOptions = ingestionJob.mergedMetadata.getStrategyOptions()
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
@@ -40,7 +40,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
-    schema.strategy.exists(_.isMerge()) ||
+    strategy.isMerge() ||
     schema.filter.nonEmpty ||
     sink.dynamicPartitionOverwrite.getOrElse(false) ||
     settings.appConfig.archiveTable
@@ -70,7 +70,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
           sourceFormat = settings.appConfig.defaultWriteFormat,
           createDisposition = createDisposition,
           writeDisposition = writeDisposition,
-          outputPartition = bqSink.timestamp,
+          outputPartition = bqSink.getPartitionColumn(),
           outputClustering = bqSink.clustering.getOrElse(Nil),
           days = bqSink.days,
           requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
@@ -345,7 +345,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       acl = schema.acl,
       comment = schema.comment,
       tags = schema.tags,
-      strategy = schema.strategy,
+      strategy = mergedMetadata.writeStrategy,
       parseSQL = Some(true)
     )
     val job =

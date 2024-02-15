@@ -19,19 +19,18 @@ class TemplateParamsSpec extends TestHelper {
         ),
         metadata = Option(
           Metadata(
-            write = Some(WriteMode.APPEND)
+            writeStrategy = Some(
+              StrategyOptions(
+                StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
+                List("col1", "col2"),
+                timestamp = Some("updateCol")
+              )
+            )
           )
         ),
         comment = None,
         presql = Nil,
-        postsql = Nil,
-        strategy = Some(
-          StrategyOptions(
-            StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
-            List("col1", "col2"),
-            timestamp = Some("updateCol")
-          )
-        )
+        postsql = Nil
       )
 
       val expectedTemplateParams = TemplateParams(
@@ -63,20 +62,19 @@ class TemplateParamsSpec extends TestHelper {
         List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
         metadata = Option(
           Metadata(
-            write = Some(WriteMode.OVERWRITE),
-            separator = Some("|")
+            separator = Some("|"),
+            writeStrategy = Some(
+              StrategyOptions(
+                StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
+                List("col1", "col2"),
+                timestamp = Some("updateCol")
+              )
+            )
           )
         ),
         comment = None,
         presql = Nil,
-        postsql = Nil,
-        strategy = Some(
-          StrategyOptions(
-            StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
-            List("col1", "col2"),
-            timestamp = Some("updateCol")
-          )
-        )
+        postsql = Nil
       )
 
       val expectedTemplateParams = TemplateParams(
@@ -86,7 +84,7 @@ class TemplateParamsSpec extends TestHelper {
           ("col1", "string", false, PrivacyLevel.None),
           ("col2", "long", false, PrivacyLevel.None)
         ),
-        fullExport = true,
+        fullExport = false,
         dsvDelimiter = "|",
         deltaColumn = None,
         auditDB = None,

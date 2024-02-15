@@ -74,7 +74,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
+              BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
             strategy = None
           )
@@ -116,7 +116,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "SL_BQ_TEST_TABLE_DYNAMIC",
             Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
+              BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
             strategy = None
           )

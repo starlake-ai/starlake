@@ -171,7 +171,7 @@ class SparkAutoTask(
         sourceFormat = settings.appConfig.defaultWriteFormat,
         createDisposition = createDisposition,
         writeDisposition = writeDisposition,
-        outputPartition = bqSink.timestamp,
+        outputPartition = bqSink.getPartitionColumn(),
         outputClustering = bqSink.clustering.getOrElse(Nil),
         days = bqSink.days,
         requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),

@@ -710,7 +710,6 @@ object JdbcDbUtils extends LazyLogging {
             )
           ),
           metadata = None,
-          strategy = None,
           comment = Option(tableRemarks),
           presql = Nil,
           postsql = Nil,

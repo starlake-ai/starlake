@@ -97,7 +97,7 @@ class BigQueryAutoTask(
       outputTableId = Some(tableId),
       createDisposition = createDisposition,
       writeDisposition = if (truncate) "WRITE_TRUNCATE" else writeDisposition,
-      outputPartition = bqSink.timestamp,
+      outputPartition = bqSink.getPartitionColumn(),
       outputClustering = bqSink.clustering.getOrElse(Nil),
       days = bqSink.days,
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
@@ -202,7 +202,7 @@ class BigQueryAutoTask(
                     sourceFormat = settings.appConfig.defaultWriteFormat,
                     createDisposition = createDisposition,
                     writeDisposition = writeDisposition,
-                    outputPartition = bqSink.timestamp,
+                    outputPartition = bqSink.getPartitionColumn(),
                     outputClustering = bqSink.clustering.getOrElse(Nil),
                     days = bqSink.days,
                     requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
@@ -418,7 +418,7 @@ class BigQueryAutoTask(
       val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
       val sink = sinkConfig.asInstanceOf[BigQuerySink]
 
-      val partitionField = sink.timestamp.map { partitionField =>
+      val partitionField = sink.getPartitionColumn().map { partitionField =>
         FieldPartitionInfo(partitionField, sink.days, sink.requirePartitionFilter.getOrElse(false))
       }
       val clusteringFields = sink.clustering.flatMap { fields =>

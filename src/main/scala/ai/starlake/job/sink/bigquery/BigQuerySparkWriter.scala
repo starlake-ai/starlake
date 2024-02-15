@@ -53,7 +53,7 @@ object BigQuerySparkWriter extends StrictLogging {
               sourceFormat = settings.appConfig.defaultWriteFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              outputPartition = sink.timestamp,
+              outputPartition = sink.getPartitionColumn(),
               outputClustering = sink.clustering.getOrElse(Nil),
               days = sink.days,
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),

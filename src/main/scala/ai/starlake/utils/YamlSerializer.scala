@@ -192,13 +192,13 @@ object YamlSerializer extends LazyLogging {
   }
 
   private def mergeToStrategyForTable(tableNode: ObjectNode) = {
-    val strategyNode = tableNode.path("strategy")
+    val strategyNode = tableNode.path("writeStrategy")
     val mergeNode = tableNode.path("merge")
     val keyNode = mergeNode.path("key")
     val timestampNode = mergeNode.path("timestamp")
     val scd2Node = mergeNode.path("scd2")
     val metadataNode = tableNode.path("metadata")
-
+    mergeToStrategyForMetadata(metadataNode)
     (mergeNode.isMissingNode(), strategyNode.isMissingNode()) match {
       case (false, false) =>
         throw new RuntimeException(
@@ -206,15 +206,21 @@ object YamlSerializer extends LazyLogging {
         )
       case (true, false) =>
         val strategyName = strategyNode.path("type").asText().toUpperCase()
+
         if (!metadataNode.isMissingNode) {
           if (strategyName == "OVERWRITE") {
             metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("OVERWRITE"))
           } else {
             metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("APPEND"))
           }
+        } else {
+          val metadataNodeNew = mapper.readTree("{}")
+          tableNode.set("metadata", metadataNodeNew)
         }
+        tableNode.path("metadata").asInstanceOf[ObjectNode].set("writeStrategy", strategyNode)
+        tableNode.remove("writeStrategy")
       case (false, true) =>
-        tableNode.set("strategy", mergeNode)
+        metadataNode.asInstanceOf[ObjectNode].set("writeStrategy", mergeNode)
         tableNode.remove("merge")
         if (!metadataNode.isMissingNode)
           metadataNode.asInstanceOf[ObjectNode].set("write", new TextNode("APPEND"))
@@ -237,21 +243,55 @@ object YamlSerializer extends LazyLogging {
       case (true, true) =>
         // merge nod and strategy node are both missing we will use metadata.write value
         if (!metadataNode.isMissingNode) {
-
-          val strategyNode =
-            metadataNode.asInstanceOf[ObjectNode].path("write") match {
-              case node if node.isMissingNode => // do nothing
-                mapper.readTree("{type: APPEND}")
-              case node =>
-                val writeType = node.asInstanceOf[TextNode].textValue().toUpperCase()
-                if (writeType == "OVERWRITE")
-                  mapper.readTree("{type: OVERWRITE}")
-                else
+          if (metadataNode.path("writeStrategy").isMissingNode()) {
+            val strategyNode =
+              metadataNode.asInstanceOf[ObjectNode].path("write") match {
+                case node if node.isMissingNode => // do nothing
                   mapper.readTree("{type: APPEND}")
-            }
-          tableNode.set("strategy", strategyNode)
-
+                case node =>
+                  val writeType = node.asInstanceOf[TextNode].textValue().toUpperCase()
+                  if (writeType == "OVERWRITE")
+                    mapper.readTree("{type: OVERWRITE}")
+                  else
+                    mapper.readTree("{type: APPEND}")
+              }
+            metadataNode.asInstanceOf[ObjectNode].set("writeStrategy", strategyNode)
+          }
         }
+    }
+  }
+
+  private def mergeToStrategyForMetadata(metadataNode: JsonNode): Unit = {
+    if (!metadataNode.isMissingNode()) {
+      val sinkNode = metadataNode.path("sink")
+      if (!sinkNode.isMissingNode) {
+        val partitionNode = sinkNode.path("partition")
+        if (!partitionNode.isMissingNode()) {
+          val partitionAttributesNode = partitionNode.path("attributes")
+          if (!partitionAttributesNode.isMissingNode()) {
+            sinkNode.asInstanceOf[ObjectNode].remove("partition")
+            sinkNode.asInstanceOf[ObjectNode].set("partition", partitionAttributesNode)
+          }
+        }
+        val dynamicPartitionOverwrite =
+          sinkNode.path("dynamicPartitionOverwrite")
+        if (
+          !dynamicPartitionOverwrite.isMissingNode() &&
+          dynamicPartitionOverwrite.asText().toBoolean
+        ) {
+          sinkNode.asInstanceOf[ObjectNode].remove("dynamicPartitionOverwrite")
+          val strategyNode =
+            mapper.readTree("{type: OVERWRITE_BY_PARTITION}")
+          metadataNode.asInstanceOf[ObjectNode].set("writeStrategy", strategyNode)
+        }
+
+        val timestampNode = sinkNode.path("timestamp")
+        if (!timestampNode.isMissingNode()) {
+          val timestamp = timestampNode.asText()
+          sinkNode.asInstanceOf[ObjectNode].remove("timestamp")
+          sinkNode.asInstanceOf[ObjectNode].set("partition", mapper.readTree(s"""["$timestamp"]"""))
+        }
+      }
     }
   }
 
@@ -262,7 +302,12 @@ object YamlSerializer extends LazyLogging {
       val tableNode = rootNode.path("table")
       if (tableNode.isNull || tableNode.isMissingNode) {
         YamlSerializer.renameField(rootNode, "schemas", "tables")
-        mapper.treeToValue(rootNode, classOf[SchemaRefs])
+        val tablesNode = rootNode.path("tables")
+        tablesNode.asInstanceOf[ArrayNode].asScala.foreach { tableNode =>
+          mergeToStrategyForTable(tableNode.asInstanceOf[ObjectNode])
+        }
+        val res = mapper.treeToValue(rootNode, classOf[SchemaRefs])
+        res
       } else {
         mergeToStrategy(rootNode)
         val ref = mapper.treeToValue(rootNode, classOf[SchemaRef])
@@ -287,7 +332,10 @@ object YamlSerializer extends LazyLogging {
           loadNode.asInstanceOf[ObjectNode]
       renameField(domainNode, "schemas", "tables")
       renameField(domainNode, "schemaRefs", "tableRefs")
-      mergeToStrategy(domainNode.asInstanceOf[ObjectNode])
+      mergeToStrategy(domainNode)
+      val metadataNode = domainNode.path("metadata")
+      mergeToStrategyForMetadata(metadataNode)
+
       YamlSerializer.deepChangeFieldValues(rootNode, "type", "None", "Default")
       val domain = mapper.treeToValue(domainNode, classOf[Domain])
       if (domainNode == rootNode)

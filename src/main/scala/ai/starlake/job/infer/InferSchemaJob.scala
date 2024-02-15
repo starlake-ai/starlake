@@ -22,7 +22,16 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{Attribute, Domain, Format, Metadata, Position, WriteMode}
+import ai.starlake.schema.model.{
+  Attribute,
+  Domain,
+  Format,
+  Metadata,
+  Position,
+  StrategyOptions,
+  StrategyType,
+  WriteMode
+}
 import better.files.File
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
@@ -256,12 +265,16 @@ class InferSchemaJob(implicit settings: Settings) {
             separator
           )
 
+          val strategy = StrategyOptions(
+            `type` = StrategyType.fromWriteMode(writeMode)
+          )
+
           InferSchemaHandler.createSchema(
             schemaName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
             comment,
             attributes,
-            Some(metadata.copy(write = Some(writeMode)))
+            Some(metadata.copy(writeStrategy = Some(strategy)))
           )
       }
 

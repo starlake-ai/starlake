@@ -100,16 +100,21 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(0).setCellValue(schemaName)
       schemaRow.createCell(1).setCellValue(schema.pattern.toString)
       schemaRow.createCell(2).setCellValue(metadata.mode.map(_.toString).getOrElse(""))
-      if (schema.getStrategy().`type` == StrategyType.SCD2)
+      if (metadata.getStrategyOptions().`type` == StrategyType.SCD2)
         schemaRow.createCell(3).setCellValue(StrategyType.SCD2.value)
       else
-        schemaRow.createCell(3).setCellValue(metadata.write.map(_.toString).getOrElse(""))
+        schemaRow
+          .createCell(3)
+          .setCellValue(
+            metadata.writeStrategy.map(_.getWriteMode()).getOrElse(WriteMode.APPEND).toString
+          )
+
       schemaRow.createCell(4).setCellValue(metadata.format.map(_.toString).getOrElse(""))
       schemaRow.createCell(5).setCellValue(metadata.withHeader.map(_.toString).getOrElse(""))
       schemaRow.getCell(5).setCellType(CellType.BOOLEAN)
       schemaRow.createCell(6).setCellValue(metadata.getSeparator())
 
-      schema.strategy.foreach { mergeOptions =>
+      metadata.writeStrategy.foreach { mergeOptions =>
         schemaRow.createCell(7).setCellValue(mergeOptions.timestamp.getOrElse(""))
         schemaRow.createCell(8).setCellValue(mergeOptions.key.mkString(","))
         schemaRow.createCell(15).setCellValue(mergeOptions.queryFilter.getOrElse(""))
@@ -120,13 +125,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         .createCell(11)
         .setCellValue("")
 
-      val partitionColumns = metadata.sink
-        .flatMap(
-          _.timestamp.map(timestamp => Partition(List(timestamp)))
-        )
-        .orElse {
-          metadata.sink.flatMap(_.partition)
-        }
+      val partitionColumns = metadata.sink.flatMap(_.partition)
 
       val clusteringColumns = metadata.sink match {
         case Some(sink) =>
@@ -135,7 +134,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       }
       schemaRow
         .createCell(12)
-        .setCellValue(partitionColumns.map(_.getAttributes().mkString(",")).getOrElse(""))
+        .setCellValue(partitionColumns.map(_.mkString(",")).getOrElse(""))
       schemaRow
         .createCell(13)
         .setCellValue("FS")

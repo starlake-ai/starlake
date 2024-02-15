@@ -118,10 +118,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val encodingOpt =
         Option(row.getCell(headerMap("_encoding"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val partitionSamplingOpt =
-        Option(row.getCell(headerMap("_sampling"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .flatMap(formatter.formatCellValue)
-          .map(_.toDouble)
       val partitionColumns =
         Option(row.getCell(headerMap("_partitioning"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -171,110 +167,81 @@ class XlsDomainReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_escape"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
 
+      val writeStrategy = (deltaColOpt, identityKeysOpt, mergeQueryFilter, write) match {
+        case (Some(deltaCol), Some(identityKeys), filter, _) =>
+          val strategyType =
+            if (scd2)
+              StrategyType.SCD2
+            else
+              StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
+          StrategyOptions(
+            `type` = strategyType,
+            key = identityKeys.split(",").toList.map(_.trim),
+            timestamp = Some(deltaCol),
+            queryFilter = filter
+          )
+        case (None, Some(identityKeys), filter, _) =>
+          val strategyType =
+            if (scd2)
+              StrategyType.SCD2
+            else
+              StrategyType.UPSERT_BY_KEY
+          StrategyOptions(
+            `type` = strategyType,
+            key = identityKeys.split(",").toList.map(_.trim),
+            queryFilter = filter
+          )
+        case (_, _, _, Some(write)) =>
+          StrategyOptions(`type` = StrategyType.fromWriteMode(write))
+        case (_, _, _, _) =>
+          StrategyOptions(`type` = StrategyType.APPEND)
+      }
+
+      val sinkRes = sinkColumnsOpt
+        .map(Sink.xlsfromConnectionType)
+        .map {
+          case fsSink: FsSink =>
+            val clusteredFsSink = clusteringOpt match {
+              case Some(cluster) => fsSink.copy(clustering = Some(cluster))
+              case None          => fsSink
+            }
+            val partition = partitionColumns match {
+              case Nil => None
+              case _ =>
+                Some(partitionColumns)
+            }
+            clusteredFsSink.copy(partition = partition).toAllSinks()
+          case bqSink: BigQuerySink =>
+            val partitionBqSink = partitionColumns match {
+              case ts :: Nil =>
+                bqSink
+                  .copy(partition = Some(List(ts))) // only one column allowed for BigQuery
+              case _ =>
+                throw new Exception("Only one partitioning column allowed for BigQuery")
+            }
+            val clusteredBqSink = clusteringOpt match {
+              case Some(cluster) =>
+                partitionBqSink.copy(clustering = Some(cluster))
+              case _ => partitionBqSink
+            }
+            clusteredBqSink.toAllSinks()
+          case sink =>
+            sink.toAllSinks()
+        }
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
-            mode,
-            format,
+            mode = mode,
+            format = format,
             encoding = encodingOpt,
             multiline = None,
             array = None,
-            withHeader,
-            separator,
+            withHeader = withHeader,
+            separator = separator,
             escape = escape,
-            write = write,
-            sink = sinkColumnsOpt
-              .map(Sink.xlsfromConnectionType)
-              .map {
-                case fsSink: FsSink =>
-                  val clusteredFsSink = clusteringOpt match {
-                    case Some(cluster) => fsSink.copy(clustering = Some(cluster))
-                    case None          => fsSink
-                  }
-                  val partition = (partitionSamplingOpt, partitionColumns) match {
-                    case (None, Nil) => None
-                    case _ =>
-                      Some(
-                        Partition(
-                          attributes = partitionColumns
-                        )
-                      )
-                  }
-                  clusteredFsSink.copy(partition = partition).toAllSinks()
-                case bqSink: BigQuerySink =>
-                  val partitionBqSink = partitionColumns match {
-                    case ts :: Nil =>
-                      bqSink.copy(timestamp = Some(ts)) // only one column allowed for BigQuery
-                    case _ =>
-                      throw new Exception("Only one partitioning column allowed for BigQuery")
-                  }
-                  val clusteredBqSink = clusteringOpt match {
-                    case Some(cluster) =>
-                      partitionBqSink.copy(clustering = Some(cluster))
-                    case _ => partitionBqSink
-                  }
-                  clusteredBqSink.toAllSinks()
-                case sink =>
-                  sink.toAllSinks()
-              }
+            sink = sinkRes,
+            writeStrategy = Some(writeStrategy)
           )
-
-          val mergeOptions: Option[StrategyOptions] =
-            (deltaColOpt, identityKeysOpt, mergeQueryFilter) match {
-              case (Some(deltaCol), Some(identityKeys), Some(filter)) =>
-                val strategyType =
-                  if (scd2)
-                    StrategyType.SCD2
-                  else
-                    StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
-                Some(
-                  StrategyOptions(
-                    `type` = strategyType,
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol),
-                    queryFilter = Some(filter)
-                  )
-                )
-              case (Some(deltaCol), Some(identityKeys), _) =>
-                val strategyType =
-                  if (scd2)
-                    StrategyType.SCD2
-                  else
-                    StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
-                Some(
-                  StrategyOptions(
-                    `type` = strategyType,
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol)
-                  )
-                )
-              case (None, Some(identityKeys), Some(filter)) =>
-                val strategyType =
-                  if (scd2)
-                    StrategyType.SCD2
-                  else
-                    StrategyType.UPSERT_BY_KEY
-                Some(
-                  StrategyOptions(
-                    `type` = strategyType,
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    queryFilter = Some(filter)
-                  )
-                )
-              case (None, Some(identityKeys), _) =>
-                val strategyType =
-                  if (scd2)
-                    StrategyType.SCD2
-                  else
-                    StrategyType.UPSERT_BY_KEY
-                Some(
-                  StrategyOptions(
-                    `type` = strategyType,
-                    key = identityKeys.split(",").toList.map(_.trim)
-                  )
-                )
-              case _ => None
-            }
 
           val tablePolicies = policiesOpt
             .map { tablePolicies =>
@@ -295,7 +262,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
             pattern = pattern,
             attributes = Nil,
             metadata = Some(metaData),
-            strategy = mergeOptions,
             comment = comment,
             presql = presql,
             postsql = postsql,

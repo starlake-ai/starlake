@@ -33,7 +33,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         Option(row.getCell(headerMapSchema("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(WriteMode.fromString)
-      val sinkOpt =
+      val partitionOpt =
         Option(
           row.getCell(headerMapSchema("_partition"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         )
@@ -68,7 +68,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       )
       val rls = withPredicate
 
-      val isPartition = sinkOpt.nonEmpty
+      val isPartition = partitionOpt.nonEmpty
 
       val task =
         if (domainOpt.isEmpty) None
@@ -81,10 +81,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
               write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
-              sink = Some(sinkOpt match {
-                case Some(sink) =>
+              sink = Some(partitionOpt match {
+                case Some(partition) =>
                   BigQuerySink(
-                    timestamp = Some(sink),
+                    partition = Some(List(partition)),
                     requirePartitionFilter = Some(true)
                   ).toAllSinks()
                 case _ => BigQuerySink().toAllSinks()

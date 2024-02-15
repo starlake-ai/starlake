@@ -3,7 +3,7 @@ table:
   pattern: "sellers-.*.json"
   primaryKey:
     - id
-  strategy:
+  writeStrategy:
     type: "UPSERT_BY_KEY"
     key: [id]
   metadata:

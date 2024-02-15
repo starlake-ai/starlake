@@ -25,6 +25,7 @@ sealed case class StrategyType(value: String) {
 }
 
 object StrategyType {
+  def fromWriteMode(mode: WriteMode): StrategyType = fromString(mode.value)
 
   def fromString(value: String): StrategyType = {
     value.toUpperCase match {
