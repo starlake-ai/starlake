@@ -32,7 +32,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
 
   val options: Map[String, String] = ingestionJob.options
 
-  val strategy: StrategyOptions = ingestionJob.mergedMetadata.getStrategyOptions()
+  val strategy: WriteStrategy = ingestionJob.mergedMetadata.getStrategyOptions()
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 

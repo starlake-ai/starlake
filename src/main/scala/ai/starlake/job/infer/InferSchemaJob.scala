@@ -28,9 +28,9 @@ import ai.starlake.schema.model.{
   Format,
   Metadata,
   Position,
-  StrategyOptions,
-  StrategyType,
-  WriteMode
+  WriteMode,
+  WriteStrategy,
+  WriteStrategyType
 }
 import better.files.File
 import org.apache.hadoop.fs.Path
@@ -265,8 +265,8 @@ class InferSchemaJob(implicit settings: Settings) {
             separator
           )
 
-          val strategy = StrategyOptions(
-            `type` = StrategyType.fromWriteMode(writeMode)
+          val strategy = WriteStrategy(
+            `type` = WriteStrategyType.fromWriteMode(writeMode)
           )
 
           InferSchemaHandler.createSchema(

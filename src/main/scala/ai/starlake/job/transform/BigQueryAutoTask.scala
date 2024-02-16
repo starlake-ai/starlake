@@ -131,7 +131,7 @@ class BigQueryAutoTask(
 
   private def addSCD2Columns(config: BigQueryLoadConfig): Unit = {
     taskDesc.strategy match {
-      case Some(strategyOptions) if strategyOptions.`type` == StrategyType.SCD2 =>
+      case Some(strategyOptions) if strategyOptions.`type` == WriteStrategyType.SCD2 =>
         config.outputTableId.foreach { tableId =>
           val scd2Cols = List(
             strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp),
@@ -362,7 +362,7 @@ class BigQueryAutoTask(
 
     val tableExists = bigqueryJob.tableExists(tableId)
 
-    val isSCD2 = strategy.`type` == StrategyType.SCD2
+    val isSCD2 = strategy.`type` == WriteStrategyType.SCD2
     def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
       if (
         isSCD2 && !incomingTableSchema.getFields.asScala.exists(

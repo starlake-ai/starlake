@@ -6,8 +6,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 
 import java.util.regex.Pattern
 
-case class StrategyOptions(
-  `type`: StrategyType,
+case class WriteStrategy(
+  `type`: WriteStrategyType,
   key: List[String] = Nil,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
@@ -18,7 +18,7 @@ case class StrategyOptions(
 
   @JsonIgnore
   def isMerge() =
-    `type` != StrategyType.APPEND && `type` != StrategyType.OVERWRITE
+    `type` != WriteStrategyType.APPEND && `type` != WriteStrategyType.OVERWRITE
 
   def validate() = {}
 
@@ -123,6 +123,6 @@ case class StrategyOptions(
     }
   }
 
-  def compare(other: StrategyOptions): ListDiff[Named] =
+  def compare(other: WriteStrategy): ListDiff[Named] =
     AnyRefDiff.diffAnyRef("", this, other)
 }

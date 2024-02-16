@@ -126,7 +126,7 @@ case class Metadata(
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true,
   schedule: Option[String] = None,
-  writeStrategy: Option[StrategyOptions] = None
+  writeStrategy: Option[WriteStrategy] = None
 ) {
 
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
@@ -165,9 +165,9 @@ case class Metadata(
   def getMode(): Mode = getFinalValue(mode, FILE)
 
   @JsonIgnore
-  def getStrategyOptions(): StrategyOptions = {
+  def getStrategyOptions(): WriteStrategy = {
     val writeMode: WriteMode = this.getWrite()
-    writeStrategy.getOrElse(StrategyOptions(StrategyType.fromString(writeMode.value)))
+    writeStrategy.getOrElse(WriteStrategy(WriteStrategyType.fromString(writeMode.value)))
   }
 
   def getFormat(): Format = getFinalValue(format, DSV)

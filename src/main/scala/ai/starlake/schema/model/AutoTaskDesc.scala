@@ -46,7 +46,7 @@ case class AutoTaskDesc(
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
-  strategy: Option[StrategyOptions] = None,
+  strategy: Option[WriteStrategy] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
   recursive: Boolean = false,
@@ -60,9 +60,9 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getTableName(): String = this.table
 
-  def getStrategy()(implicit settings: Settings): StrategyOptions = {
+  def getStrategy()(implicit settings: Settings): WriteStrategy = {
     val st1 = strategy
-      .getOrElse(StrategyOptions(StrategyType.APPEND))
+      .getOrElse(WriteStrategy(WriteStrategyType.APPEND))
 
     val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
     val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)

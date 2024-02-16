@@ -171,10 +171,10 @@ class XlsDomainReader(input: Input) extends XlsModel {
         case (Some(deltaCol), Some(identityKeys), filter, _) =>
           val strategyType =
             if (scd2)
-              StrategyType.SCD2
+              WriteStrategyType.SCD2
             else
-              StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
-          StrategyOptions(
+              WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
+          WriteStrategy(
             `type` = strategyType,
             key = identityKeys.split(",").toList.map(_.trim),
             timestamp = Some(deltaCol),
@@ -183,18 +183,18 @@ class XlsDomainReader(input: Input) extends XlsModel {
         case (None, Some(identityKeys), filter, _) =>
           val strategyType =
             if (scd2)
-              StrategyType.SCD2
+              WriteStrategyType.SCD2
             else
-              StrategyType.UPSERT_BY_KEY
-          StrategyOptions(
+              WriteStrategyType.UPSERT_BY_KEY
+          WriteStrategy(
             `type` = strategyType,
             key = identityKeys.split(",").toList.map(_.trim),
             queryFilter = filter
           )
         case (_, _, _, Some(write)) =>
-          StrategyOptions(`type` = StrategyType.fromWriteMode(write))
+          WriteStrategy(`type` = WriteStrategyType.fromWriteMode(write))
         case (_, _, _, _) =>
-          StrategyOptions(`type` = StrategyType.APPEND)
+          WriteStrategy(`type` = WriteStrategyType.APPEND)
       }
 
       val sinkRes = sinkColumnsOpt

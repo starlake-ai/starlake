@@ -71,7 +71,7 @@ abstract class AutoTask(
 
   protected val runEngine: Engine = taskDesc.getEngine()
 
-  protected def strategy: StrategyOptions = taskDesc.getStrategy()
+  protected def strategy: WriteStrategy = taskDesc.getStrategy()
 
   protected def isMerge(sql: String): Boolean = {
     sql.toLowerCase().contains("merge into")

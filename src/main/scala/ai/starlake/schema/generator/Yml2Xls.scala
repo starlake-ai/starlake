@@ -100,8 +100,8 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(0).setCellValue(schemaName)
       schemaRow.createCell(1).setCellValue(schema.pattern.toString)
       schemaRow.createCell(2).setCellValue(metadata.mode.map(_.toString).getOrElse(""))
-      if (metadata.getStrategyOptions().`type` == StrategyType.SCD2)
-        schemaRow.createCell(3).setCellValue(StrategyType.SCD2.value)
+      if (metadata.getStrategyOptions().`type` == WriteStrategyType.SCD2)
+        schemaRow.createCell(3).setCellValue(WriteStrategyType.SCD2.value)
       else
         schemaRow
           .createCell(3)

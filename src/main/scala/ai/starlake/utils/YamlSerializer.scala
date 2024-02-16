@@ -13,8 +13,8 @@ import ai.starlake.schema.model.{
   Schema => ModelSchema,
   SchemaRef,
   SchemaRefs,
-  StrategyType,
-  TransformDesc
+  TransformDesc,
+  WriteStrategyType
 }
 import better.files.{File, UnicodeCharset}
 import com.fasterxml.jackson.databind.node.{ArrayNode, MissingNode, ObjectNode, TextNode}
@@ -230,11 +230,11 @@ object YamlSerializer extends LazyLogging {
         } else if (!timestampNode.isMissingNode) {
           mergeNode
             .asInstanceOf[ObjectNode]
-            .set("type", new TextNode(StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP.value))
+            .set("type", new TextNode(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP.value))
         } else if (!keyNode.isMissingNode) {
           mergeNode
             .asInstanceOf[ObjectNode]
-            .set("type", new TextNode(StrategyType.UPSERT_BY_KEY.value))
+            .set("type", new TextNode(WriteStrategyType.UPSERT_BY_KEY.value))
         } else {
           throw new RuntimeException(
             "Cannot define merge without key, timestamp or scd2 in the same table definition"

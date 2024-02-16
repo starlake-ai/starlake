@@ -849,7 +849,7 @@ class SchemaHandlerSpec extends TestHelper {
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
         sink = Some(BigQuerySink(partition = Some(List("_PARTITIONTIME"))).toAllSinks()),
-        writeStrategy = Some(StrategyOptions(StrategyType.OVERWRITE))
+        writeStrategy = Some(WriteStrategy(WriteStrategyType.OVERWRITE))
       )
     }
     "Exporting domain as Dot" should "create a valid dot file" in {
