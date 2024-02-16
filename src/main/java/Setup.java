@@ -1,21 +1,14 @@
 import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
 import java.security.KeyManagementException;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.TrustStrategy;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.ssl.SSLContextBuilder;
+import javax.net.ssl.*;
 
 public class Setup {
 
@@ -279,15 +272,36 @@ public class Setup {
         return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
     }
 
-    public static HttpClient getHttpClient() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
-        HttpClientBuilder clientBuilder = HttpClientBuilder.create();
-//        if (host != null) {
+    public static void setTrustManager() throws NoSuchAlgorithmException, KeyManagementException {
+        if(host != null){
             System.out.println("Using proxy, disabling Certificate check");
-            clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).setSSLContext(
-                    new SSLContextBuilder().loadTrustMaterial(null, (TrustStrategy) (arg0, arg1) -> true).build()
-            );
-//        }
-        return clientBuilder.build();
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
+                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
+            }
+            };
+
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Create all-trusting host name verifier
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            };
+
+            // Install the all-trusting host verifier
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -304,6 +318,7 @@ public class Setup {
 
             setProxy();
 
+            setTrustManager();
 
             if (!anyDependencyEnabled()) {
                 ENABLE_AZURE = true;
@@ -363,7 +378,7 @@ public class Setup {
         }
     }
 
-    public static void downloadSpark(File binDir) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    public static void downloadSpark(File binDir) throws IOException {
         downloadAndDisplayProgress(new JarDependency[]{SPARK_JAR}, binDir, false);
         String tgzName = SPARK_JAR.getUrlName();
         final File sparkFile = new File(binDir, tgzName);
@@ -383,7 +398,7 @@ public class Setup {
         log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
     }
 
-    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
@@ -417,18 +432,17 @@ public class Setup {
         }
     }
 
-    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException {
         final int CHUNK_SIZE = 1024;
         int filePartIndex = urlStr.lastIndexOf("/") + 1;
         String name = urlStr.substring(filePartIndex);
         String urlFolder = urlStr.substring(0, filePartIndex);
         System.out.println("Downloading to " + file + " from " + urlFolder + " ...");
-        HttpClient client = getHttpClient();
-        HttpGet request = new HttpGet(urlStr);
-        HttpResponse response = client.execute(request);
-        HttpEntity entity = response.getEntity();
-        long lengthOfFile = entity.getContentLength();
-        InputStream input = new BufferedInputStream(entity.getContent());
+        URL url = new URL(urlStr);
+        URLConnection conexion = url.openConnection();
+        conexion.connect();
+        int lengthOfFile = conexion.getContentLength();
+        InputStream input = new BufferedInputStream(url.openStream());
         OutputStream output = new FileOutputStream(file);
         byte data[] = new byte[CHUNK_SIZE];
         long total = 0;
