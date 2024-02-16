@@ -2,12 +2,12 @@ package ai.starlake.job.ingest.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, Sink, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{MergeOn, Sink, WriteStrategy, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 
 class BigQueryStrategiesBuilder extends StrategiesBuilder {
   def buildSQLForStrategy(
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     selectStatement: String,
     fullTableName: String,
     targetTableColumns: List[String],
@@ -19,7 +19,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
   )(implicit settings: Settings): String = {
     val result =
       strategy.`type` match {
-        case StrategyType.APPEND | StrategyType.OVERWRITE =>
+        case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =
             SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
@@ -33,7 +33,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             sinkConfig
           ).mkString(";\n")
 
-        case StrategyType.UPSERT_BY_KEY =>
+        case WriteStrategyType.UPSERT_BY_KEY =>
           buildSqlForMergeByKey(
             strategy,
             selectStatement,
@@ -42,7 +42,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             targetTableExists,
             jdbcEngine
           )
-        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+        case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
             selectStatement,
             fullTableName,
@@ -51,7 +51,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             strategy,
             jdbcEngine
           )
-        case StrategyType.SCD2 =>
+        case WriteStrategyType.SCD2 =>
           buildSqlForSC2(
             selectStatement,
             fullTableName,
@@ -60,7 +60,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             strategy,
             jdbcEngine
           )
-        case StrategyType.OVERWRITE_BY_PARTITION =>
+        case WriteStrategyType.OVERWRITE_BY_PARTITION =>
           buildSqlForPartitionOverwrite(
             selectStatement,
             fullTableName,
@@ -78,7 +78,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
   }
 
   private def buildSqlForMergeByKey(
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     selectStatement: String,
     targetTableFullName: String,
     targetTableColumns: List[String],
@@ -190,7 +190,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     jdbcEngine: JdbcEngine
   )(implicit settings: Settings): String = {
     val mergeTimestampCol = strategy.timestamp
@@ -293,7 +293,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     jdbcEngine: JdbcEngine
   )(implicit settings: Settings): String = {
     val viewPrefix = jdbcEngine.viewPrefix
@@ -439,7 +439,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     jdbcEngine: JdbcEngine
   )(implicit settings: Settings): String = {
     val mergeTimestampCol = strategy.timestamp

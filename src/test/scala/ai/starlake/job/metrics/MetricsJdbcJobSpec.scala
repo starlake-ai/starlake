@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
-import ai.starlake.schema.model.{StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{WriteStrategy, WriteStrategyType}
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
@@ -384,7 +384,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           settings.appConfig,
           Left("ignore"),
           settings.appConfig.audit.getDomain() + ".discrete",
-          StrategyOptions(StrategyType.APPEND),
+          WriteStrategy(WriteStrategyType.APPEND),
           createTableIfAbsent = true
         )
 

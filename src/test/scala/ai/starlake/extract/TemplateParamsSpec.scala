@@ -20,8 +20,8 @@ class TemplateParamsSpec extends TestHelper {
         metadata = Option(
           Metadata(
             writeStrategy = Some(
-              StrategyOptions(
-                StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
+              WriteStrategy(
+                WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
                 List("col1", "col2"),
                 timestamp = Some("updateCol")
               )
@@ -64,8 +64,8 @@ class TemplateParamsSpec extends TestHelper {
           Metadata(
             separator = Some("|"),
             writeStrategy = Some(
-              StrategyOptions(
-                StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
+              WriteStrategy(
+                WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP,
                 List("col1", "col2"),
                 timestamp = Some("updateCol")
               )

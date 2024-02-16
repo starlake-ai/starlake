@@ -467,7 +467,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.`type` == StrategyType.SCD2) {
+      if (strategy.`type` == WriteStrategyType.SCD2) {
         val res =
           incomingSchema
             .add(

@@ -2,7 +2,7 @@ package ai.starlake.job.ingest.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{FsSink, MergeOn, Sink, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{FsSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 
@@ -14,7 +14,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
 
   override protected def buildMainSql(
     sqlWithParameters: String,
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     materializedView: Boolean,
     tableExists: Boolean,
     truncate: Boolean,
@@ -46,7 +46,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                |${sink.getClusterByClauseSQL()}
                |AS ($lastSql)
                |""".stripMargin
-          if (strategy.`type` == StrategyType.SCD2) {
+          if (strategy.`type` == WriteStrategyType.SCD2) {
             val startTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2StartTimestamp TIMESTAMP"
             val endTs =
@@ -64,7 +64,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
         val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
         val insertSqls =
-          if (strategy.`type` == StrategyType.OVERWRITE) {
+          if (strategy.`type` == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
@@ -80,7 +80,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.`type` == StrategyType.SCD2) {}
+            if (strategy.`type` == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls
@@ -98,7 +98,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     */
 
   def buildSQLForStrategy(
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     selectStatement: String,
     fullTableName: String,
     targetTableColumns: List[String],
@@ -117,7 +117,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
          |""".stripMargin
     val sqls =
       strategy.`type` match {
-        case StrategyType.APPEND | StrategyType.OVERWRITE =>
+        case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           buildMainSql(
             s"""SELECT $selectAllAttributes FROM SL_INCOMING""",
             strategy,
@@ -128,7 +128,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
             sinkConfig
           ).mkString(";\n")
 
-        case StrategyType.UPSERT_BY_KEY =>
+        case WriteStrategyType.UPSERT_BY_KEY =>
           this.buildSqlForMergeByKey(
             "SL_INCOMING",
             fullTableName,
@@ -139,7 +139,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
             engine,
             sinkConfig
           )
-        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+        case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
             "SL_INCOMING",
             fullTableName,
@@ -150,7 +150,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
             engine,
             sinkConfig
           )
-        case StrategyType.OVERWRITE_BY_PARTITION =>
+        case WriteStrategyType.OVERWRITE_BY_PARTITION =>
           buildSqlForOverwriteByPartition(
             "SL_INCOMING",
             fullTableName,
@@ -162,7 +162,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
             sinkConfig
           )
 
-        case StrategyType.SCD2 =>
+        case WriteStrategyType.SCD2 =>
           val nullJoinCondition =
             strategy.key.map(key => s"$fullTableName.$key IS NULL").mkString(" AND ")
           val startTsCol =
@@ -179,7 +179,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink
@@ -188,9 +188,12 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
-    val mergeTimestampCol =
-      strategy.timestamp.getOrElse(throw new Exception("timestamp is required"))
-    s"""INSERT OVERWRITE TABLE $targetTableFullName PARTITION ($mergeTimestampCol) SELECT $targetColumnsAsSelectString FROM $sourceTable""".stripMargin
+    val partitionColumns = sinkConfig
+      .asInstanceOf[FsSink]
+      .partition
+      .getOrElse(throw new Exception("partition column is required"))
+    val partitionColumnsAsString = partitionColumns.mkString(",")
+    s"""INSERT OVERWRITE TABLE $targetTableFullName PARTITION ($partitionColumnsAsString) SELECT $targetColumnsAsSelectString FROM $sourceTable""".stripMargin
   }
 
   private def buildSqlForMergeByKey(
@@ -198,7 +201,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink
@@ -297,7 +300,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink

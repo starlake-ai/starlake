@@ -2,7 +2,7 @@ package ai.starlake.job.ingest.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{Sink, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{Sink, WriteStrategy, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import com.typesafe.scalalogging.StrictLogging
@@ -11,7 +11,7 @@ import scala.reflect.runtime.{universe => ru}
 
 trait StrategiesBuilder extends StrictLogging {
   def buildSQLForStrategy(
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     selectStatement: String,
     fullTableName: String,
     targetTableColumns: List[String],
@@ -34,7 +34,7 @@ trait StrategiesBuilder extends StrictLogging {
 
   protected def buildMainSql(
     sqlWithParameters: String,
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     materializedView: Boolean,
     tableExists: Boolean,
     truncate: Boolean,
@@ -56,7 +56,7 @@ trait StrategiesBuilder extends StrictLogging {
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
         else {
-          if (strategy.`type` == StrategyType.SCD2) {
+          if (strategy.`type` == WriteStrategyType.SCD2) {
             val startTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2StartTimestamp TIMESTAMP"
             val endTs =
@@ -75,7 +75,7 @@ trait StrategiesBuilder extends StrictLogging {
         val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
         val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
         val insertSqls =
-          if (strategy.`type` == StrategyType.OVERWRITE) {
+          if (strategy.`type` == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
@@ -91,7 +91,7 @@ trait StrategiesBuilder extends StrictLogging {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.`type` == StrategyType.SCD2) {}
+            if (strategy.`type` == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls

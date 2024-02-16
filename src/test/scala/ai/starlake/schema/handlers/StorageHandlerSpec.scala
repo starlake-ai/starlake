@@ -51,7 +51,7 @@ class StorageHandlerSpec extends TestHelper {
             separator = Some(";"),
             quote = Some("\""),
             escape = Some("\\"),
-            writeStrategy = Some(StrategyOptions(`type` = StrategyType.APPEND)),
+            writeStrategy = Some(WriteStrategy(`type` = WriteStrategyType.APPEND)),
             directory = Some(s"${starlakeTestRoot}/incoming/DOMAIN")
           )
         ),

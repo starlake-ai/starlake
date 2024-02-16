@@ -1,13 +1,13 @@
 package ai.starlake.job.sink.jdbc
 
-import ai.starlake.schema.model.{RowLevelSecurity, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{RowLevelSecurity, WriteStrategy, WriteStrategyType}
 import ai.starlake.utils.Utils
 import org.apache.spark.sql.DataFrame
 
 case class JdbcConnectionLoadConfig(
   sourceFile: Either[String, DataFrame] = Left(""),
   outputDomainAndTableName: String = "",
-  strategy: StrategyOptions = StrategyOptions(StrategyType.APPEND),
+  strategy: WriteStrategy = WriteStrategy(WriteStrategyType.APPEND),
   format: String = "jdbc",
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None,

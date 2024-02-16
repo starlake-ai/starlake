@@ -3,7 +3,7 @@ package ai.starlake.job.sink.jdbc
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{ConnectionType, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{ConnectionType, WriteStrategy, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.JobResult
 import org.apache.spark.sql.DataFrame
@@ -65,7 +65,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
     comet: Settings.AppConfig,
     sourceFile: Either[String, DataFrame],
     outputTable: String,
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     createTableIfAbsent: Boolean
   )(implicit settings: Settings): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but we need to get rid of the defaults in the ctor above
@@ -120,7 +120,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
         ),
       builder
         .opt[String]("write_strategy")
-        .action((x, c) => c.copy(strategy = StrategyOptions(StrategyType(x))))
+        .action((x, c) => c.copy(strategy = WriteStrategy(WriteStrategyType(x))))
         .text(
           "One of the write strategies: APPEND, OVERWRITE (see strategy types)"
         )

@@ -148,6 +148,8 @@ case class AllSinks(
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
+  // partition: Option[List[String]] = None,
+
 ) {
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
@@ -400,10 +402,12 @@ object FsSink {
   *   Batch size of each JDBC bulk insert
   */
 @JsonTypeName("JDBC")
-case class JdbcSink(connectionRef: Option[String] = None) extends Sink {
+case class JdbcSink(connectionRef: Option[String] = None, partition: Option[List[String]] = None)
+    extends Sink {
   def toAllSinks(): AllSinks = {
     AllSinks(
-      connectionRef = connectionRef
+      connectionRef = connectionRef,
+      partition = partition
     )
   }
 }
@@ -411,7 +415,8 @@ case class JdbcSink(connectionRef: Option[String] = None) extends Sink {
 object JdbcSink {
   def fromAllSinks(allSinks: AllSinks): JdbcSink = {
     JdbcSink(
-      allSinks.connectionRef
+      allSinks.connectionRef,
+      allSinks.partition
     )
   }
 }

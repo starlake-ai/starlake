@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
 import ai.starlake.job.ingest.strategies.StrategiesBuilder
-import ai.starlake.schema.model.{AllSinks, Refs, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{AllSinks, Refs, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -214,8 +214,8 @@ class SQLUtilsSpec extends TestHelper {
 
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
       val strategy =
-        StrategyOptions(
-          `type` = StrategyType.UPSERT_BY_KEY,
+        WriteStrategy(
+          `type` = WriteStrategyType.UPSERT_BY_KEY,
           key = List("transaction_id"),
           timestamp = None,
           queryFilter = None,

@@ -2,12 +2,12 @@ package ai.starlake.job.ingest.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, Sink, StrategyOptions, StrategyType}
+import ai.starlake.schema.model.{JdbcSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 
 class JdbcStrategiesBuilder extends StrategiesBuilder {
   def buildSQLForStrategy(
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     selectStatement: String,
     fullTableName: String,
     targetTableColumns: List[String],
@@ -26,7 +26,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
 
     val result: String =
       strategy.`type` match {
-        case StrategyType.APPEND | StrategyType.OVERWRITE =>
+        case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =
             SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
@@ -41,7 +41,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             sinkConfig
           ).mkString(";\n")
 
-        case StrategyType.UPSERT_BY_KEY =>
+        case WriteStrategyType.UPSERT_BY_KEY =>
           buildSqlForMergeByKey(
             sourceTable,
             fullTableName,
@@ -53,7 +53,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             jdbcEngine,
             sinkConfig
           )
-        case StrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+        case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
             sourceTable,
             fullTableName,
@@ -65,7 +65,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             jdbcEngine,
             sinkConfig
           )
-        case StrategyType.SCD2 =>
+        case WriteStrategyType.SCD2 =>
           buildSqlForSC2(
             sourceTable,
             fullTableName,
@@ -77,8 +77,18 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             jdbcEngine,
             sinkConfig
           )
-        case StrategyType.OVERWRITE_BY_PARTITION =>
-          ""
+        case WriteStrategyType.OVERWRITE_BY_PARTITION =>
+          buildSqlForOverwriteByPartition(
+            sourceTable,
+            fullTableName,
+            targetTableExists,
+            targetTableColumns,
+            strategy,
+            truncate,
+            materializedView,
+            jdbcEngine,
+            sinkConfig
+          )
         case unknownStrategy =>
           throw new Exception(s"Unknown strategy $unknownStrategy")
       }
@@ -87,12 +97,57 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     s"$extraPreActions\n$result"
   }
 
+  private def buildSqlForOverwriteByPartition(
+    sourceTable: String,
+    fullTableName: String,
+    targetTableExists: Boolean,
+    targetTableColumns: List[String],
+    strategy: WriteStrategy,
+    truncate: Boolean,
+    materializedView: Boolean,
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  )(implicit settings: Settings) = {
+    val quote = jdbcEngine.quote
+    val partitionColumn = sinkConfig
+      .asInstanceOf[JdbcSink]
+      .partition
+      .flatMap(_.headOption)
+      .getOrElse(throw new Exception("Partition is required for OVERWRITE_BY_PARTITION"))
+
+    val deletePartitionSQL =
+      s"DELETE FROM $fullTableName WHERE $partitionColumn = $sourceTable.$partitionColumn"
+
+    val targetColumnsAsSelectString =
+      SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
+
+    val insertPartitionSQL =
+      buildMainSql(
+        s"SELECT $targetColumnsAsSelectString FROM $sourceTable",
+        strategy.copy(`type` = WriteStrategyType.APPEND),
+        materializedView,
+        targetTableExists,
+        truncate,
+        fullTableName,
+        sinkConfig
+      )
+
+    val allSql =
+      if (targetTableExists)
+        deletePartitionSQL :: insertPartitionSQL
+      else
+        insertPartitionSQL
+
+    allSql.mkString(";\n")
+
+  }
+
   private def buildSqlForMergeByKey(
     sourceTable: String,
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
@@ -221,7 +276,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
@@ -433,7 +488,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
-    strategy: StrategyOptions,
+    strategy: WriteStrategy,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,

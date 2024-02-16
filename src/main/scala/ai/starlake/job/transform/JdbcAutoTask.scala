@@ -5,7 +5,7 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.strategies.StrategiesBuilder
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, StrategyType}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
@@ -89,7 +89,7 @@ class JdbcAutoTask(
 
   def addSCD2Columns(connection: Connection): Unit = {
     this.taskDesc.strategy match {
-      case Some(strategyOptions) if strategyOptions.`type` == StrategyType.SCD2 =>
+      case Some(strategyOptions) if strategyOptions.`type` == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTsCol = strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
         val scd2Columns = List(startTsCol, endTsCol)
@@ -262,7 +262,7 @@ class JdbcAutoTask(
 
   def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
     // update target table schema if needed
-    val isSCD2 = strategy.`type` == StrategyType.SCD2
+    val isSCD2 = strategy.`type` == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
       if (isSCD2) {
         incomingSchema
