@@ -10,7 +10,8 @@ import TabItem from '@theme/TabItem';
 
 
 Now that we have seen how to load and transform data, we will see how to orchestrate the tasks using the `starlake` command line tool.<br/>
-starlake is not an orchestration tool, but it can be used to generate your DAG based on templates and to run your transforms in the right order on your tools of choice for scheduling and monitoring batch oriented workflows.<br/>
+starlake is not an orchestration tool, but it can be used to generate your DAG based on templates and to run your transforms in the right
+order on your tools of choice for scheduling and monitoring batch oriented workflows.<br/>
 <br/>
 Starlake DAG generation relies on:
 
@@ -32,7 +33,7 @@ Before using Starlake dag generation, ensure the following minimum versions are 
 
 ```Additional requirements for Airflow```
 
-- **Apache Airflow**: 2.4.0 or higher (2.6.0 or higher is recommanded with cloud-run)
+- **Apache Airflow**: 2.4.0 or higher (2.6.0 or higher is recommended with cloud-run)
 - **starlake-airflow**: 0.1.2.1 or higher
 
 </TabItem>
@@ -57,7 +58,7 @@ where options are:
 | parameter               | cardinality | description                                                                                                                |
 | ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
 | --outputDir `<value>` | optional    | Path for saving the resulting DAG file(s) (*${SL_ROOT}/metadata/dags/generated* by default).                             |
-| --clean                 | optional    | Wether to clean the resulting DAG file(s) before or not (*false* by default)                                             |
+| --clean                 | optional    | Should the existing DAG file(s) be removed first (*false* by default)                                             |
 | --domains               | optional    | Wether to generate DAG file(s) to load schema(s) or not (*true* by default if *--tasks* option has not been specified) |
 | --tasks                 | optional    | Whether to generate DAG file(s) for tasks or not  (*true* by default if *--domains* option has not been specified)     |
 | --tags `<value>`      | optional    | Whether to generate DAG file(s) for the specified tags only (no tags by default)                                           |
