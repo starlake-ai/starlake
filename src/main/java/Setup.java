@@ -1,9 +1,21 @@
 import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.ssl.SSLContextBuilder;
 
 public class Setup {
 
@@ -267,6 +279,21 @@ public class Setup {
         return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
     }
 
+    public static HttpClient getHttpClient() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+        HttpClientBuilder clientBuilder = HttpClientBuilder.create();
+        if (host != null) {
+            System.out.println("Using proxy, disabling Certificate check");
+            clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).setSSLContext(
+                    new SSLContextBuilder().loadTrustMaterial(null, new TrustStrategy() {
+                        public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+                            return true;
+                        }
+                    }).build()
+            );
+        }
+        return clientBuilder.build();
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -340,7 +367,7 @@ public class Setup {
         }
     }
 
-    public static void downloadSpark(File binDir) throws IOException {
+    public static void downloadSpark(File binDir) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         downloadAndDisplayProgress(new JarDependency[]{SPARK_JAR}, binDir, false);
         String tgzName = SPARK_JAR.getUrlName();
         final File sparkFile = new File(binDir, tgzName);
@@ -360,7 +387,7 @@ public class Setup {
         log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
     }
 
-    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException {
+    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
@@ -394,17 +421,18 @@ public class Setup {
         }
     }
 
-    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException {
+    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         final int CHUNK_SIZE = 1024;
         int filePartIndex = urlStr.lastIndexOf("/") + 1;
         String name = urlStr.substring(filePartIndex);
         String urlFolder = urlStr.substring(0, filePartIndex);
         System.out.println("Downloading to " + file + " from " + urlFolder + " ...");
-        URL url = new URL(urlStr);
-        URLConnection conexion = url.openConnection();
-        conexion.connect();
-        int lengthOfFile = conexion.getContentLength();
-        InputStream input = new BufferedInputStream(url.openStream());
+        HttpClient client = getHttpClient();
+        HttpGet request = new HttpGet(urlStr);
+        HttpResponse response = client.execute(request);
+        HttpEntity entity = response.getEntity();
+        long lengthOfFile = entity.getContentLength();
+        InputStream input = new BufferedInputStream(entity.getContent());
         OutputStream output = new FileOutputStream(file);
         byte data[] = new byte[CHUNK_SIZE];
         long total = 0;
