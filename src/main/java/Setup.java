@@ -281,16 +281,12 @@ public class Setup {
 
     public static HttpClient getHttpClient() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         HttpClientBuilder clientBuilder = HttpClientBuilder.create();
-        if (host != null) {
+//        if (host != null) {
             System.out.println("Using proxy, disabling Certificate check");
             clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).setSSLContext(
-                    new SSLContextBuilder().loadTrustMaterial(null, new TrustStrategy() {
-                        public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
-                            return true;
-                        }
-                    }).build()
+                    new SSLContextBuilder().loadTrustMaterial(null, (TrustStrategy) (arg0, arg1) -> true).build()
             );
-        }
+//        }
         return clientBuilder.build();
     }
 
