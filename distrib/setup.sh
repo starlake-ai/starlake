@@ -32,7 +32,7 @@ get_installation_directory() {
 
 get_from_url() {
     local url=$1
-    local response=$(curl -s -w "%{http_code}" "$url")
+    local response=$(curl -k -s -w "%{http_code}" "$url")
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
