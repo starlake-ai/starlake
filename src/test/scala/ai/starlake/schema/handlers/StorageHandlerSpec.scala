@@ -151,7 +151,7 @@ class StorageHandlerSpec extends TestHelper {
         sink = None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        strategy = None
+        writeStrategy = None
       )
       val businessJobDef = mapper
         .writer()

@@ -119,7 +119,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
               BigQuerySink(connectionRef = None).toAllSinks()
             ),
             python = None,
-            strategy = None,
+            writeStrategy = None,
             parseSQL = Some(true)
           )
           val businessTaskDef = mapper

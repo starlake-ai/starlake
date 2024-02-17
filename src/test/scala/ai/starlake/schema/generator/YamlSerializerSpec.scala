@@ -15,7 +15,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        strategy = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc("user", List(task))
@@ -43,7 +43,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        strategy = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc(
@@ -76,7 +76,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        strategy = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc("user", List(task))

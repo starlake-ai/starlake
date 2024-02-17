@@ -27,6 +27,5 @@ case class BigQueryLoadConfig(
   attributesDesc: List[AttributeDesc] = Nil,
   outputDatabase: Option[String] = None,
   enableRefresh: Option[Boolean] = None,
-  refreshIntervalMs: Option[Long] = None,
-  dynamicPartitionOverwrite: Option[Boolean] = None
+  refreshIntervalMs: Option[Long] = None
 )

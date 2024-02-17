@@ -130,7 +130,7 @@ class BigQueryAutoTask(
   }
 
   private def addSCD2Columns(config: BigQueryLoadConfig): Unit = {
-    taskDesc.strategy match {
+    taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.`type` == WriteStrategyType.SCD2 =>
         config.outputTableId.foreach { tableId =>
           val scd2Cols = List(
@@ -349,10 +349,35 @@ class BigQueryAutoTask(
     mainSql
   }
 
+  private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
+    val isSCD2 = strategy.`type` == WriteStrategyType.SCD2
+    if (
+      isSCD2 && !incomingTableSchema.getFields.asScala.exists(
+        _.getName().toLowerCase() == settings.appConfig.scd2StartTimestamp.toLowerCase()
+      )
+    ) {
+      val startCol = Field
+        .newBuilder(
+          settings.appConfig.scd2StartTimestamp,
+          LegacySQLTypeName.TIMESTAMP
+        )
+        .setMode(Field.Mode.NULLABLE)
+        .build()
+      val endCol = Field
+        .newBuilder(
+          settings.appConfig.scd2EndTimestamp,
+          LegacySQLTypeName.TIMESTAMP
+        )
+        .setMode(Field.Mode.NULLABLE)
+        .build()
+      val allFields = incomingTableSchema.getFields.asScala.toList :+ startCol :+ endCol
+      BQSchema.of(allFields.asJava)
+    } else
+      incomingTableSchema
+  }
+
   def updateBigQueryTableSchema(incomingSparkSchema: StructType): Unit = {
     val bigqueryJob = bqNativeJob(bigQuerySinkConfig, "ignore sql")
-    // When merging to BigQuery, load existing DF from BigQuery
-    val bqTable = s"${taskDesc.domain}.${taskDesc.table}"
     val tableId =
       BigQueryJobBase.extractProjectDatasetAndTable(
         taskDesc.getDatabase(),
@@ -361,33 +386,6 @@ class BigQueryAutoTask(
       )
 
     val tableExists = bigqueryJob.tableExists(tableId)
-
-    val isSCD2 = strategy.`type` == WriteStrategyType.SCD2
-    def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
-      if (
-        isSCD2 && !incomingTableSchema.getFields.asScala.exists(
-          _.getName == settings.appConfig.scd2StartTimestamp
-        )
-      ) {
-        val startCol = Field
-          .newBuilder(
-            settings.appConfig.scd2StartTimestamp,
-            LegacySQLTypeName.TIMESTAMP
-          )
-          .setMode(Field.Mode.NULLABLE)
-          .build()
-        val endCol = Field
-          .newBuilder(
-            settings.appConfig.scd2EndTimestamp,
-            LegacySQLTypeName.TIMESTAMP
-          )
-          .setMode(Field.Mode.NULLABLE)
-          .build()
-        val allFields = incomingTableSchema.getFields.asScala.toList :+ startCol :+ endCol
-        BQSchema.of(allFields.asJava)
-      } else
-        incomingTableSchema
-    }
 
     if (tableExists) {
       val bqTable = bigqueryJob.getTable(tableId)

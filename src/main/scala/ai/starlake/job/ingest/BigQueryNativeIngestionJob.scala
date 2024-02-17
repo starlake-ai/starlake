@@ -42,7 +42,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       .hasTransformOrIgnoreOrScriptColumns() ||
     strategy.isMerge() ||
     schema.filter.nonEmpty ||
-    sink.dynamicPartitionOverwrite.getOrElse(false) ||
     settings.appConfig.archiveTable
   }
 
@@ -79,8 +78,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
           starlakeSchema = Some(schemaWithMergedMetadata),
           domainTags = domain.tags,
           domainDescription = domain.comment,
-          outputDatabase = schemaHandler.getDatabase(domain),
-          dynamicPartitionOverwrite = bqSink.dynamicPartitionOverwrite
+          outputDatabase = schemaHandler.getDatabase(domain)
         )
       val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
       if (twoSteps) {
@@ -345,7 +343,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       acl = schema.acl,
       comment = schema.comment,
       tags = schema.tags,
-      strategy = mergedMetadata.writeStrategy,
+      writeStrategy = mergedMetadata.writeStrategy,
       parseSQL = Some(true)
     )
     val job =

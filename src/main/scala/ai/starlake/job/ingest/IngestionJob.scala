@@ -392,7 +392,6 @@ trait IngestionJob extends SparkJob {
     */
   private def updateBigQueryTableSchema(bigqueryJob: BigQueryNativeJob): Unit = {
     // When merging to BigQuery, load existing DF from BigQuery
-    val bqTable = s"${domain.finalName}.${schema.finalName}"
     val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
       schemaHandler.getDatabase(this.domain),
       this.domain.finalName,
@@ -743,7 +742,7 @@ trait IngestionJob extends SparkJob {
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
-        strategy = Some(strategy)
+        writeStrategy = Some(strategy)
       )
       val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, false)(
         settings,
