@@ -29,6 +29,7 @@ __Feature__:
 
 - generic templating framework for dag generation through the definition of a python library for starlake jobs
 - load gzip compressed files (.gz extension) into bigquery
+- add adaptive load and supports the following strategy: OVERWRITE, APPEND, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, OVERWRITE_BY_PARTITION
 
 # 1.0.0:
 - **BREAKING CHANGE**

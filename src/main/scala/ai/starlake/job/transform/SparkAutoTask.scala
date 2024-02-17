@@ -150,6 +150,7 @@ class SparkAutoTask(
           )
         val csvPath = storageHandler
           .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+          .map(_.path)
           .head
         val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
         storageHandler.move(csvPath, finalPath)
