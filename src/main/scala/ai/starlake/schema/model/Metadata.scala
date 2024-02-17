@@ -126,7 +126,8 @@ case class Metadata(
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true,
-  schedule: Option[String] = None
+  schedule: Option[String] = None,
+  writeStrategy: Option[WriteStrategy] = None
 ) {
 
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
@@ -299,6 +300,7 @@ case class Metadata(
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
+      writeStrategy = merge(this.writeStrategy, child.writeStrategy),
       schedule = mergedSchedule
       // fillWithDefaultValue = merge(this.fillWithDefaultValue, child.fillWithDefaultValue)
     )
@@ -332,7 +334,8 @@ case class Metadata(
       dagRef = if (parent.dagRef != this.dagRef) this.dagRef else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
-      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
+      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None,
+      writeStrategy = if (parent.writeStrategy != this.writeStrategy) this.writeStrategy else None
       // fillWithDefaultValue = if (parent.fillWithDefaultValue != this.fillWithDefaultValue) this.fillWithDefaultValue else None
     )
   }
@@ -346,7 +349,7 @@ case class Metadata(
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
       sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
-      freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
+      freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty || writeStrategy.nonEmpty
     )
       Some(this)
     else

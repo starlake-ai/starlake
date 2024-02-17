@@ -21,7 +21,7 @@ trait ExpectationAssertionHandler extends StrictLogging {
     val context = Map("count" -> count, "result" -> result, "results" -> results)
     logger.info(s"Submitting expectation: $assertion with context $context")
     val assertionCode = assertion
-    val assertionFunction = CompilerUtils.compile[java.lang.Boolean](assertionCode)
+    val assertionFunction = CompilerUtils.compileExpectation(assertionCode)
     val assertionResult = assertionFunction(context)
     context ++ Map("assertion" -> assertionResult)
   }

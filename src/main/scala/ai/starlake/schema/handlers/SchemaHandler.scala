@@ -96,20 +96,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   private def checkDomainsVars(): List[ValidationMessage] = {
-    val paths = storage.list(
-      DatasetArea.load,
-      extension = ".sl.yml",
-      recursive = true,
-      exclude = Some(Pattern.compile("_.*"))
-    )
-    paths.flatMap(checkVarsAreDefined)
+    storage
+      .list(
+        DatasetArea.load,
+        extension = ".sl.yml",
+        recursive = true,
+        exclude = Some(Pattern.compile("_.*"))
+      )
+      .map(_.path)
+      .flatMap(checkVarsAreDefined)
   }
 
   def checkJobsVars(): List[ValidationMessage] = {
-    val paths = storage.list(DatasetArea.transform, ".sl.yml", recursive = true)
+    val paths = storage.list(DatasetArea.transform, ".sl.yml", recursive = true).map(_.path)
     val ymlWarnings = paths.flatMap(checkVarsAreDefined)
     val sqlPaths =
-      storage.list(DatasetArea.transform, ".sql.j2", recursive = true) ++ storage.list(
+      (storage.list(DatasetArea.transform, ".sql.j2", recursive = true) ++ storage.list(
         DatasetArea.transform,
         ".sql",
         recursive = true
@@ -117,7 +119,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         DatasetArea.transform,
         ".py",
         recursive = true
-      )
+      )).map(_.path)
     val sqlWarnings = sqlPaths.flatMap { path =>
       val filename = path.getName()
       val prefix = if (filename.endsWith(".sql.j2")) {
@@ -217,7 +219,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   lazy val jinjavaMacros: String = {
-    val j2Files = storage.list(DatasetArea.expectations, ".j2", recursive = true)
+    val j2Files = storage.list(DatasetArea.expectations, ".j2", recursive = true).map(_.path)
     val macros = j2Files
       .map { path =>
         val content = storage.read(path)
@@ -257,7 +259,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   private def loadSqlJ2File(path: Path, viewName: String): Option[String] = {
-    val viewFile = listSqlj2Files(path).find(_.getName().startsWith(s"$viewName.sql"))
+    val viewFile =
+      listSqlj2Files(path).find(_.path.getName().startsWith(s"$viewName.sql")).map(_.path)
     viewFile.map { viewFile =>
       val (viewName, viewContent) = loadSqlJ2File(viewFile)
       viewContent
@@ -522,7 +525,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       Nil
   }
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
-    val dagsConfigsPaths = storage.list(path = dagPath, extension = ".sl.yml", recursive = false)
+    val dagsConfigsPaths =
+      storage.list(path = dagPath, extension = ".sl.yml", recursive = false).map(_.path)
     dagsConfigsPaths.map { dagsConfigsPath =>
       val dagConfigName = dagsConfigsPath.getName().dropRight(".sl.yml".length)
       val dagFileContent = storage.read(dagsConfigsPath)
@@ -660,7 +664,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val tableRefNames =
       storage
         .list(folder, extension = ".sl.yml", recursive = true)
-        .map(_.getName())
+        .map(_.path.getName())
         .filter(!_.startsWith("_config."))
 
     val requestedTables =
@@ -841,7 +845,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val allFiles =
       storage
         .list(folder, recursive = true)
-        .map(_.getName())
+        .map(_.path.getName())
         .filter(name => !name.startsWith("_config."))
         .flatMap { filename =>
           // improve the code below to handle more than one extension
@@ -932,12 +936,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def deserializedJobs(jobPath: Path): List[(Path, Try[AutoJobDesc])] = {
-    val paths = storage.list(
-      jobPath,
-      extension = ".sl.yml",
-      recursive = true,
-      exclude = Some(Pattern.compile("_.*"))
-    )
+    val paths = storage
+      .list(
+        jobPath,
+        extension = ".sl.yml",
+        recursive = true,
+        exclude = Some(Pattern.compile("_.*"))
+      )
+      .map(_.path)
 
     val jobs = paths
       .map { path =>

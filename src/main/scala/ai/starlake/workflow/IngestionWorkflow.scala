@@ -35,8 +35,9 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{sparkJdbcLoader, JdbcConnectionLoadConfig}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.schema.AdaptiveWriteStrategy
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
@@ -143,24 +144,26 @@ class IngestionWorkflow(
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
-        val domainFolderContent = storageHandler
+        val domainFolderFilesInfo = storageHandler
           .list(inputDir, "", recursive = false)
-          .filterNot(_.getName().startsWith(".")) // ignore files starting with '.' aka .DS_Store
+          .filterNot(
+            _.path.getName().startsWith(".")
+          ) // ignore files starting with '.' aka .DS_Store
 
         val tablesPattern = domain.tables.map(_.pattern)
-        val tableExtensions = listExtensionsMatchesInFolder(domainFolderContent, tablesPattern)
+        val tableExtensions = listExtensionsMatchesInFolder(domainFolderFilesInfo, tablesPattern)
 
         val filesToScan =
           if (domain.getAck().nonEmpty)
-            domainFolderContent.filter(_.getName.endsWith(domain.getAck()))
+            domainFolderFilesInfo.filter(_.path.getName.endsWith(domain.getAck()))
           else
-            domainFolderContent
+            domainFolderFilesInfo
 
-        filesToScan.foreach { path =>
+        filesToScan.foreach { fileInfo =>
           val (filesToLoad, tmpDir) = {
-            val fileName = path.getName
+            val fileName = fileInfo.path.getName
             val pathWithoutLastExt = new Path(
-              path.getParent,
+              fileInfo.path.getParent,
               (domain.getAck(), fileName.lastIndexOf('.')) match {
                 case ("", -1) => fileName
                 case ("", i)  => fileName.substring(0, i)
@@ -169,14 +172,17 @@ class IngestionWorkflow(
             )
 
             val zipExtensions = List(".gz", ".tgz", ".zip")
-            val (existingRawFile, existingArchiveFile) = {
+            val (existingRawFileInfo, existingArchiveFileInfo) = {
               val findPathWithExt = if (domain.getAck().isEmpty) {
                 // the file is always the one being iterated over, we just need to check the extension
-                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
+                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => fileInfo)
               } else {
                 // for each extension, look if there exists a file near the .ack one
                 (extensions: List[String]) =>
-                  extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
+                  extensions
+                    .map(pathWithoutLastExt.suffix)
+                    .find(storageHandler.exists)
+                    .map(storageHandler.stat)
               }
               (
                 findPathWithExt(
@@ -187,11 +193,11 @@ class IngestionWorkflow(
             }
 
             if (domain.getAck().nonEmpty)
-              storageHandler.delete(path)
+              storageHandler.delete(fileInfo.path)
 
-            (existingArchiveFile, existingRawFile, storageHandler.getScheme()) match {
-              case (Some(zipPath), _, "file") =>
-                logger.info(s"Found compressed file $zipPath")
+            (existingArchiveFileInfo, existingRawFileInfo, storageHandler.getScheme()) match {
+              case (Some(zipFileInfo), _, "file") =>
+                logger.info(s"Found compressed file $zipFileInfo")
                 storageHandler.mkdirs(pathWithoutLastExt)
 
                 // We use Java nio to handle archive files
@@ -221,14 +227,14 @@ class IngestionWorkflow(
 
                 // File is a proxy to java.nio.Path / working with Uri
                 val tmpDir = asBetterFile(pathWithoutLastExt)
-                val zipFile = asBetterFile(zipPath)
+                val zipFile = asBetterFile(zipFileInfo.path)
                 zipFile.extension() match {
                   case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
                   case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
                   case Some(".zip") => zipFile.unzipTo(tmpDir)
                   case _            => logger.error(s"Unsupported archive type for $zipFile")
                 }
-                storageHandler.delete(zipPath)
+                storageHandler.delete(zipFileInfo.path)
                 val inZipExtensions =
                   listExtensionsMatchesInFolder(
                     storageHandler
@@ -238,17 +244,17 @@ class IngestionWorkflow(
                 (
                   storageHandler
                     .list(pathWithoutLastExt, recursive = false)
-                    .filter(path =>
+                    .filter(fileInfo =>
                       inZipExtensions
-                        .exists(path.getName.endsWith)
+                        .exists(fileInfo.path.getName.endsWith)
                     ),
                   Some(pathWithoutLastExt)
                 )
-              case (_, Some(filePath), _) =>
-                logger.info(s"Found raw file $filePath")
-                (List(filePath), None)
+              case (_, Some(rawFileInfo), _) =>
+                logger.info(s"Found raw file ${rawFileInfo.path}")
+                (List(rawFileInfo), None)
               case (_, _, _) =>
-                logger.warn(s"Ignoring file for path $path")
+                logger.warn(s"Ignoring file for path ${fileInfo.path}")
                 (List.empty, None)
             }
           }
@@ -256,8 +262,8 @@ class IngestionWorkflow(
           val destFolder = DatasetArea.pending(domain.name)
           filesToLoad.foreach { file =>
             logger.info(s"Importing $file")
-            val destFile = new Path(destFolder, file.getName)
-            storageHandler.moveFromLocal(file, destFile)
+            val destFile = new Path(destFolder, file.path.getName)
+            storageHandler.moveFromLocal(file.path, destFile)
           }
 
           tmpDir.foreach(storageHandler.delete)
@@ -269,12 +275,12 @@ class IngestionWorkflow(
   }
 
   private def listExtensionsMatchesInFolder(
-    domainFolderContent: List[Path],
+    domainFolderContent: List[FileInfo],
     tablesPattern: List[Pattern]
   ): List[String] = {
     val tableExtensions: List[String] = tablesPattern.flatMap { pattern =>
-      domainFolderContent.flatMap { path =>
-        val fileName = path.getName
+      domainFolderContent.flatMap { fileInfo =>
+        val fileName = fileInfo.path.getName
         if (pattern.matcher(fileName).matches()) {
           val res: Option[String] = fileName.lastIndexOf('.') match {
             case -1 => None
@@ -304,11 +310,11 @@ class IngestionWorkflow(
     val result: List[Boolean] = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name, config.tables.toList)
-      unresolved.foreach { case (_, path) =>
+      unresolved.foreach { case (_, fileInfo) =>
         val targetPath =
-          new Path(DatasetArea.unresolved(domain.name), path.getName)
-        logger.info(s"Unresolved file : ${path.getName}")
-        storageHandler.move(path, targetPath)
+          new Path(DatasetArea.unresolved(domain.name), fileInfo.path.getName)
+        logger.info(s"Unresolved file : ${fileInfo.path.getName}")
+        storageHandler.move(fileInfo.path, targetPath)
       }
 
       val filteredResolved = if (settings.appConfig.privacyOnly) {
@@ -318,10 +324,13 @@ class IngestionWorkflow(
           }
         // files for schemas without any privacy attributes are moved directly to accepted area
         noPrivacy.foreach {
-          case (Some(schema), path) =>
+          case (Some(schema), fileInfo) =>
             storageHandler.move(
-              path,
-              new Path(new Path(DatasetArea.accepted(domain.name), schema.name), path.getName)
+              fileInfo.path,
+              new Path(
+                new Path(DatasetArea.accepted(domain.name), schema.name),
+                fileInfo.path.getName
+              )
             )
           case (None, _) => throw new Exception("Should never happen")
         }
@@ -331,10 +340,12 @@ class IngestionWorkflow(
       }
 
       // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[Path]] = filteredResolved.map {
-        case (Some(schema), path) => (schema, path)
-        case (None, _)            => throw new Exception("Should never happen")
-      } groupBy { case (schema, _) => schema } mapValues (it => it.map { case (_, path) => path })
+      val groupedResolved: Map[Schema, Iterable[FileInfo]] = filteredResolved.map {
+        case (Some(schema), fileInfo) => (schema, fileInfo)
+        case (None, _)                => throw new Exception("Should never happen")
+      } groupBy { case (schema, _) => schema } mapValues (it =>
+        it.map { case (_, fileInfo) => fileInfo }
+      )
 
       case class JobContext(
         domain: Domain,
@@ -342,49 +353,54 @@ class IngestionWorkflow(
         paths: List[Path],
         options: Map[String, String]
       )
-      groupedResolved.map { case (schema, pendingPaths) =>
-        logger.info(s"""Ingest resolved file : ${pendingPaths
-            .map(_.getName)
-            .mkString(",")} with schema ${schema.name}""")
-
-        // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
-        val groupedPendingPathsIterator =
-          pendingPaths.grouped(settings.appConfig.groupedMax)
-        groupedPendingPathsIterator.map { pendingPaths =>
-          val ingestingPaths = pendingPaths.map { pendingPath =>
-            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-            if (!storageHandler.move(pendingPath, ingestingPath)) {
-              logger.error(s"Could not move $pendingPath to $ingestingPath")
-            }
-            ingestingPath
-          }
-          val jobs = if (settings.appConfig.grouped) {
-            JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
-          } else {
-            // We ingest all the files but return false if one of them fails.
-            ingestingPaths.map { path =>
-              JobContext(domain, schema, path :: Nil, config.options)
-            }
-          }
-          val (parJobs, forkJoinPool) =
-            makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
-          val res = parJobs.map { jobContext =>
-            ingest(
-              jobContext.domain,
-              jobContext.schema,
-              jobContext.paths,
-              jobContext.options
-            ) match {
-              case Failure(e) =>
-                e.printStackTrace()
-                false
-              case Success(r) => true
-            }
-          }.toList
-          forkJoinPool.foreach(_.shutdown())
-          res.forall(_ == true)
+      groupedResolved.toList
+        .flatMap { case (schema, pendingPaths) =>
+          AdaptiveWriteStrategy.adaptThenGroup(schema, pendingPaths)
         }
-      }
+        .map { case (schema, pendingPaths) =>
+          logger.info(s"""Ingest resolved file : ${pendingPaths
+              .map(_.path.getName)
+              .mkString(",")} with schema ${schema.name}""")
+
+          // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
+          val groupedPendingPathsIterator =
+            pendingPaths.grouped(settings.appConfig.groupedMax)
+          groupedPendingPathsIterator.map { pendingPaths =>
+            val ingestingPaths = pendingPaths.map { pendingPath =>
+              val ingestingPath =
+                new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
+              if (!storageHandler.move(pendingPath.path, ingestingPath)) {
+                logger.error(s"Could not move $pendingPath to $ingestingPath")
+              }
+              ingestingPath
+            }
+            val jobs = if (settings.appConfig.grouped) {
+              JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+            } else {
+              // We ingest all the files but return false if one of them fails.
+              ingestingPaths.map { path =>
+                JobContext(domain, schema, path :: Nil, config.options)
+              }
+            }
+            val (parJobs, forkJoinPool) =
+              makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
+            val res = parJobs.map { jobContext =>
+              ingest(
+                jobContext.domain,
+                jobContext.schema,
+                jobContext.paths,
+                jobContext.options
+              ) match {
+                case Failure(e) =>
+                  e.printStackTrace()
+                  false
+                case Success(r) => true
+              }
+            }.toList
+            forkJoinPool.foreach(_.shutdown())
+            res.forall(_ == true)
+          }
+        }
     }.flatten
     result.forall(_ == true)
   }
@@ -408,7 +424,7 @@ class IngestionWorkflow(
   private def pending(
     domainName: String,
     schemasName: List[String]
-  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+  ): (Iterable[(Option[Schema], FileInfo)], Iterable[(Option[Schema], FileInfo)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val files = Utils
@@ -426,7 +442,7 @@ class IngestionWorkflow(
           s"We will only watch files that match the schemas name:" +
           s" $schemasName for the Domain: ${dom.name}"
         )
-        files.filter(f => predicate(dom, schemasName, f))
+        files.filter(f => predicate(dom, schemasName, f.path))
       } else {
         logger.info(
           s"We will watch all the files for the Domain:" +
@@ -438,7 +454,7 @@ class IngestionWorkflow(
     val schemas = for {
       dom <- domain.toList
       (schema, path) <- filteredFiles(dom).map { file =>
-        (dom.findSchema(file.getName), file)
+        (dom.findSchema(file.path.getName), file)
       }
     } yield {
       logger.info(
