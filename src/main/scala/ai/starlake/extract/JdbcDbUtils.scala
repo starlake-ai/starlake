@@ -201,7 +201,6 @@ object JdbcDbUtils extends LazyLogging {
     logger.info(s"Running $script")
     val statement = connection.createStatement()
     val result = Try {
-      statement.execute(script)
       val count = statement.executeUpdate(script)
       logger.info(s"$count records affected")
       true

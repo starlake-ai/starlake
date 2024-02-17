@@ -302,23 +302,21 @@ case class Schema(
     }
 
     metadata.map(_.getStrategyOptions()).foreach { strategy =>
-      if (strategy.isMerge()) {
-        if (strategy.key.isEmpty) {
-          errorList +=
-            ValidationMessage(
-              Error,
-              "Table attributes",
-              s"""key cannot be empty""".stripMargin
-            )
-        }
-        if (metadata.exists(_.getWrite() != WriteMode.APPEND)) {
-          errorList +=
-            ValidationMessage(
-              Error,
-              "Table attributes",
-              s"""Merge requires 'Append' write mode""".stripMargin
-            )
-        }
+      if (strategy.`type`.requireKey() && strategy.key.isEmpty) {
+        errorList +=
+          ValidationMessage(
+            Error,
+            "Table/Metadata/Strategy attributes",
+            s"""key cannot be empty""".stripMargin
+          )
+      }
+      if (strategy.`type`.requireTimestamp() && strategy.timestamp.isEmpty) {
+        errorList +=
+          ValidationMessage(
+            Error,
+            "Table/Metadata/Strategy attributes",
+            s"""timestamp cannot be empty""".stripMargin
+          )
       }
     }
 

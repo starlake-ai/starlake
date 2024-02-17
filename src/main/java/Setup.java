@@ -6,7 +6,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 public class Setup {
-
     private static class JarDependency {
 
         private final String url;

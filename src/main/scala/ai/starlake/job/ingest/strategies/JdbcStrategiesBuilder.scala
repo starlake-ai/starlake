@@ -116,7 +116,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
       .getOrElse(throw new Exception("Partition is required for OVERWRITE_BY_PARTITION"))
 
     val deletePartitionSQL =
-      s"DELETE FROM $fullTableName WHERE $partitionColumn = $sourceTable.$partitionColumn"
+      s"DELETE FROM $fullTableName WHERE $partitionColumn IN (SELECT DISTINCT $partitionColumn FROM $sourceTable)"
 
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)

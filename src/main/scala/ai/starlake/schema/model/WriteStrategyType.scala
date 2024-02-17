@@ -22,6 +22,23 @@ sealed case class WriteStrategyType(value: String) {
     }
 
   }
+
+  def requireKey(): Boolean = {
+    this match {
+      case WriteStrategyType.UPSERT_BY_KEY               => true
+      case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => true
+      case WriteStrategyType.SCD2                        => true
+      case _                                             => false
+    }
+  }
+
+  def requireTimestamp(): Boolean = {
+    this match {
+      case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => true
+      case WriteStrategyType.SCD2                        => true
+      case _                                             => false
+    }
+  }
 }
 
 object WriteStrategyType {
