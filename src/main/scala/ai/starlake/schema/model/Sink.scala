@@ -215,7 +215,6 @@ case class AllSinks(
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
   partition: Option[List[String]] = None,
-  dynamicPartitionOverwrite: Option[Boolean] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,

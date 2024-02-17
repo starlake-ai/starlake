@@ -468,24 +468,34 @@ class SparkAutoTask(
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
       if (strategy.`type` == WriteStrategyType.SCD2) {
-        val res =
+        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+
+        val scd2FieldsFound =
+          incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
+
+        if (!scd2FieldsFound) {
+          val incomingSchemaWithScd2 =
+            incomingSchema
+              .add(
+                StructField(
+                  startTs,
+                  TimestampType,
+                  nullable = true
+                )
+              )
+              .add(
+                StructField(
+                  endTs,
+                  TimestampType,
+                  nullable = true
+                )
+              )
+          incomingSchemaWithScd2
+        } else {
           incomingSchema
-            .add(
-              StructField(
-                strategy.start_ts
-                  .getOrElse(settings.appConfig.scd2StartTimestamp),
-                TimestampType,
-                nullable = true
-              )
-            )
-            .add(
-              StructField(
-                strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp),
-                TimestampType,
-                nullable = true
-              )
-            )
-        res
+        }
+
       } else {
         incomingSchema
       }

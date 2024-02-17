@@ -76,7 +76,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             sink = Some(
               BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            strategy = None
+            writeStrategy = None
           )
 
           case class Task(task: AutoTaskDesc)
@@ -118,7 +118,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             sink = Some(
               BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            strategy = None
+            writeStrategy = None
           )
           private val businessTaskAddPartDef = mapper
             .writer()

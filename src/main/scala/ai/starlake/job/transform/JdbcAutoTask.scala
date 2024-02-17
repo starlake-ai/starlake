@@ -88,7 +88,7 @@ class JdbcAutoTask(
   }
 
   def addSCD2Columns(connection: Connection): Unit = {
-    this.taskDesc.strategy match {
+    this.taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.`type` == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTsCol = strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)

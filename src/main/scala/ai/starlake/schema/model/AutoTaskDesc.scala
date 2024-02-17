@@ -46,7 +46,7 @@ case class AutoTaskDesc(
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
-  strategy: Option[WriteStrategy] = None,
+  writeStrategy: Option[WriteStrategy] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
   recursive: Boolean = false,
@@ -61,7 +61,7 @@ case class AutoTaskDesc(
   def getTableName(): String = this.table
 
   def getStrategy()(implicit settings: Settings): WriteStrategy = {
-    val st1 = strategy
+    val st1 = writeStrategy
       .getOrElse(WriteStrategy(WriteStrategyType.APPEND))
 
     val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
@@ -91,7 +91,7 @@ case class AutoTaskDesc(
       attributesDesc = child.attributesDesc,
       python = child.python,
       tags = tags ++ child.tags,
-      strategy = child.strategy.orElse(strategy),
+      writeStrategy = child.writeStrategy.orElse(writeStrategy),
       schedule = child.schedule.orElse(schedule),
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
@@ -106,7 +106,7 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
-    if (strategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
+    if (writeStrategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
       Left(List("Merge and write mode are not compatible"))
     } else {
       Right(true)
@@ -121,7 +121,7 @@ case class AutoTaskDesc(
     table = "",
     write = Some(WriteMode.OVERWRITE),
     python = None,
-    strategy = None,
+    writeStrategy = None,
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
