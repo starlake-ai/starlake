@@ -3,13 +3,12 @@ table:
   pattern: "sellers-.*.json"
   primaryKey:
     - id
-  writeStrategy:
-    type: "UPSERT_BY_KEY"
-    key: [id]
   metadata:
     array: true
     format: "SIMPLE_JSON"
-    write: "APPEND"
+    writeStrategy:
+      type: "UPSERT_BY_KEY"
+      key: [id]
   attributes:
     - name: "id"
       type: "string"
