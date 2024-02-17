@@ -34,8 +34,14 @@ get_from_url() {
     local server=$1
     local url=$2
     if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
-      openssl s_client -showcerts -servername $server -connect $server:443 </dev/null | openssl x509 -outform PEM </dev/null > ${server}.pem
-      local response=$(curl --cacert ${server}.pem -s -w "%{http_code}" -o "$target_file" "$url")
+      if [ -n "${https_proxy}" ]; then
+        local proxy=$https_proxy
+      else
+        local proxy=$http_proxy
+      fi
+      local pem_file="${server}.pem"
+      openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM </dev/null > "$pem_file"
+      local response=$(curl --cacert "$pem_file" -s -w "%{http_code}" -o "$target_file" "$url")
     else
       local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
     fi
@@ -93,7 +99,7 @@ install_starlake() {
     else
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
     fi
-    get_from_url $server $url > "$INSTALL_DIR/starlake"
+    get_from_url "$server" "$url" > "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
 
