@@ -28,9 +28,15 @@ then
 fi
 
 get_binary_from_url() {
-    local url=$1
-    local target_file=$2
-    local response=$(curl -k -s -w "%{http_code}" -o "$target_file" "$url")
+    local server=$1
+    local url=$2
+    local target_file=$3
+    if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
+      openssl s_client -showcerts -servername $server -connect $server:443 </dev/null | openssl x509 -outform PEM > ${server}.pem
+      local response=$(curl --cacert ${server}.pem -s -w "%{http_code}" -o "$target_file" "$url")
+    else
+      local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
+    fi
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
@@ -39,12 +45,30 @@ get_binary_from_url() {
     fi
 }
 
+add_server_cert_to_java_keystore() {
+  local server=$1
+  if [ -n "${JAVA_HOME}" ]; then
+    local pem_file="${server}.pem"
+    openssl s_client -showcerts -servername $server -connect $server:443 </dev/null | openssl x509 -outform PEM > $pem_file
+    local keytool="${JAVA_HOME}/bin/keytool"
+    local alias=$server
+    $keytool -delete -alias $alias -keystore $JAVA_HOME/lib/security/cacerts -storepass changeit
+    $keytool -import -trustcacerts -keystore $JAVA_HOME/lib/security/cacerts -storepass changeit -noprompt -alias $alias -file $pem_file
+  fi
+}
+
 launch_setup() {
+  local server="raw.githubusercontent.com"
   local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
-  get_binary_from_url $setup_url "$SCRIPT_DIR/setup.jar"
+  get_binary_from_url $server $setup_url "$SCRIPT_DIR/setup.jar"
 
   if [ -n "${JAVA_HOME}" ]; then
     RUNNER="${JAVA_HOME}/bin/java"
+    if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
+      add_server_cert_to_java_keystore "archive.apache.org"
+      add_server_cert_to_java_keystore "repo1.maven.org"
+      add_server_cert_to_java_keystore "s01.oss.sonatype.org"
+    fi
   else
     if [ "$(command -v java)" ]; then
       RUNNER="java"

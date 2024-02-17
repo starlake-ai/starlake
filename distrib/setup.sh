@@ -31,8 +31,14 @@ get_installation_directory() {
 }
 
 get_from_url() {
-    local url=$1
-    local response=$(curl -k -s -w "%{http_code}" "$url")
+    local server=$1
+    local url=$2
+    if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
+      openssl s_client -showcerts -servername $server -connect $server:443 </dev/null | openssl x509 -outform PEM </dev/null > ${server}.pem
+      local response=$(curl --cacert ${server}.pem -s -w "%{http_code}" -o "$target_file" "$url")
+    else
+      local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
+    fi
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
@@ -55,8 +61,8 @@ get_version_to_install() {
         fi
     done
 
-    ALL_SNAPSHOT_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
-    ALL_RELEASE_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    ALL_SNAPSHOT_VERSIONS=$(get_from_url s01.oss.sonatype.org https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
+    ALL_RELEASE_VERSIONS=$(get_from_url s01.oss.sonatype.org https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
 
     SNAPSHOT_VERSION=$(echo "$ALL_SNAPSHOT_VERSIONS" | head -n 1)
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
@@ -81,12 +87,13 @@ get_version_to_install() {
 
 install_starlake() {
     echo "installing $VERSION"
+    local server="raw.githubusercontent.com"
     if [[ $VERSION == *"SNAPSHOT"* ]]; then
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
     else
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
     fi
-    get_from_url $url > "$INSTALL_DIR/starlake"
+    get_from_url $server $url > "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
 
