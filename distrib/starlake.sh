@@ -39,7 +39,7 @@ get_binary_from_url() {
       fi
       local pem_file="${server}.pem"
       openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
-      local response=$(curl --cacert "$pem_file" -s -w "%{http_code}" -o "$target_file" "$url")
+      local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
     else
       local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
     fi
