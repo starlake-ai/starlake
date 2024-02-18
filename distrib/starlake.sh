@@ -38,6 +38,7 @@ get_binary_from_url() {
         local proxy=$http_proxy
       fi
       local pem_file="${server}.pem"
+      echo "$proxy"
       openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
       local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
     else
@@ -59,7 +60,7 @@ add_server_cert_to_java_keystore() {
     openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
     local keytool="${JAVA_HOME}/bin/keytool"
     local alias=$server
-    $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit
+    $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit </dev/null
     $keytool -import -trustcacerts -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit -noprompt -alias "$alias" -file "$pem_file"
   fi
 }
@@ -80,6 +81,8 @@ launch_setup() {
       add_server_cert_to_java_keystore "archive.apache.org" "$proxy"
       add_server_cert_to_java_keystore "repo1.maven.org" "$proxy"
       add_server_cert_to_java_keystore "s01.oss.sonatype.org" "$proxy"
+      IFS=':' read -r -a hp <<< "$proxy"
+      RUNNER="$RUNNER -Dhttps.proxyHost=${hp[0]} -Dhttps.proxyPort=${hp[1]} -Dhttp.proxyHost=${hp[0]} -Dhttp.proxyPort=${hp[1]}"
     fi
   else
     if [ "$(command -v java)" ]; then
@@ -89,7 +92,13 @@ launch_setup() {
       exit 1
     fi
   fi
+  local v_https_proxy="$https_proxy"
+  export https_proxy=""
+  local v_http_proxy="$http_proxy"
+  export http_proxy=""
   $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR"
+  export https_proxy="$v_https_proxy"
+  export http_proxy="$v_http_proxy"
 }
 
 launch_starlake() {
