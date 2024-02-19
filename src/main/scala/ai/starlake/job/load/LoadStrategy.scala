@@ -1,6 +1,6 @@
 package ai.starlake.job.load
 
-import ai.starlake.schema.handlers.StorageHandler
+import ai.starlake.schema.handlers.{FileInfo, StorageHandler}
 import org.apache.hadoop.fs.Path
 
 import java.time.LocalDateTime
@@ -24,11 +24,10 @@ trait LoadStrategy {
     *   List of Path
     */
   def list(
-    storageHandler: StorageHandler,
+    storageHanlder: StorageHandler,
     path: Path,
     extension: String = "",
     since: LocalDateTime = LocalDateTime.MIN,
     recursive: Boolean
-  ): List[Path]
-
+  ): List[FileInfo]
 }

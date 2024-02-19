@@ -384,7 +384,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           settings.appConfig,
           Left("ignore"),
           settings.appConfig.audit.getDomain() + ".discrete",
-          WriteStrategy(WriteStrategyType.APPEND),
+          WriteStrategy(Some(WriteStrategyType.APPEND)),
           createTableIfAbsent = true
         )
 

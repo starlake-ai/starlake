@@ -7,7 +7,7 @@ import org.apache.spark.sql.DataFrame
 case class JdbcConnectionLoadConfig(
   sourceFile: Either[String, DataFrame] = Left(""),
   outputDomainAndTableName: String = "",
-  strategy: WriteStrategy = WriteStrategy(WriteStrategyType.APPEND),
+  strategy: WriteStrategy = WriteStrategy(Some(WriteStrategyType.APPEND)),
   format: String = "jdbc",
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None,

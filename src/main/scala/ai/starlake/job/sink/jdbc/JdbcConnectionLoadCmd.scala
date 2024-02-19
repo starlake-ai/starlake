@@ -120,7 +120,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
         ),
       builder
         .opt[String]("write_strategy")
-        .action((x, c) => c.copy(strategy = WriteStrategy(WriteStrategyType(x))))
+        .action((x, c) => c.copy(strategy = WriteStrategy(Some(WriteStrategyType(x)))))
         .text(
           "One of the write strategies: APPEND, OVERWRITE (see strategy types)"
         )

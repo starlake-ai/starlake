@@ -131,6 +131,12 @@ class LocalStorageHandler(implicit
     file.list.filter(_.isDirectory).map(f => new Path(f.pathAsString)).toList
   }
 
+  def stat(path: Path): FileInfo = {
+    pathSecurityCheck(path)
+    val file = localFile(path)
+    FileInfo(path, file.size, file.lastModifiedTime)
+  }
+
   /** List all files in folder
     *
     * @param path
@@ -152,7 +158,7 @@ class LocalStorageHandler(implicit
     recursive: Boolean,
     exclude: Option[Pattern],
     sortByName: Boolean = false // sort by time by default
-  ): List[Path] = {
+  ): List[FileInfo] = {
     pathSecurityCheck(path)
     logger.info(s"list($path, $extension, $since)")
     Try {
@@ -178,9 +184,7 @@ class LocalStorageHandler(implicit
           else
             files.sortBy(f => (f.lastModifiedTime, f.name))
 
-        sorted.map(f => {
-          new Path(f.pathAsString)
-        })
+        sorted.map(f => FileInfo(new Path(f.pathAsString), f.size, f.lastModifiedTime))
       } else
         Nil
     } match {
