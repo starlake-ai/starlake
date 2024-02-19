@@ -57,7 +57,9 @@ trait TestHelper
     with StrictLogging
     with DatasetLogging {
 
-  override protected def afterAll(): Unit = {}
+  override protected def afterAll(): Unit = {
+    BetterFile(starlakeTestRoot).delete()
+  }
 
   override protected def beforeAll(): Unit = {
     Settings.invalidateCaches()
@@ -77,7 +79,8 @@ trait TestHelper
     } else {
       Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
         case Some(true) =>
-          BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
+          BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+            .replace("\\", "/")
         case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
       }
     }

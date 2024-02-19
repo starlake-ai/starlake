@@ -204,6 +204,65 @@ class SchemaHandlerSpec extends TestHelper {
         accepted should contain theSameElementsAs expected
       }
     }
+
+    "Ingesting data" should "adapt write based on file attributes" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/adaptiveWrite/simple-adaptive-write.sl.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        sparkSessionReset(settings)
+        cleanMetadata
+        cleanDatasets
+        loadPending
+
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
+
+        val acceptedFullDelta: Array[Row] = sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .select("PK", "firstName", "lastName", "DOB", "YEAR", "MONTH", "title")
+          .collect()
+
+        val expectedFullDelta: Array[Row] =
+          sparkSession.read
+            .option("encoding", "UTF-8")
+            .schema(
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` INT,`MONTH` INT,`title` STRING"
+            )
+            .csv(
+              getResPath("/expected/datasets/accepted/DOMAIN/Players-adaptive-write-FULL-DELTA.csv")
+            )
+            .collect()
+
+        acceptedFullDelta should contain theSameElementsAs expectedFullDelta
+
+        cleanDatasets
+        loadPending
+
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
+
+        val acceptedDeltaFull: Array[Row] = sparkSession.read
+          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .select("PK", "firstName", "lastName", "DOB", "YEAR", "MONTH", "title")
+          .collect()
+
+        val expectedDeltaFull: Array[Row] =
+          sparkSession.read
+            .option("encoding", "UTF-8")
+            .schema(
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` INT,`MONTH` INT,`title` STRING"
+            )
+            .csv(
+              getResPath("/expected/datasets/accepted/DOMAIN/Players-adaptive-write-DELTA-FULL.csv")
+            )
+            .collect()
+
+        acceptedDeltaFull should contain theSameElementsAs expectedDeltaFull
+      }
+    }
+
   }
   new WithSettings(esConfiguration) {
     // TODO Helper (to delete)
