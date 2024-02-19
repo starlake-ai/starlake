@@ -163,12 +163,17 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
           )
 
         case WriteStrategyType.SCD2 =>
-          val nullJoinCondition =
-            strategy.key.map(key => s"$fullTableName.$key IS NULL").mkString(" AND ")
-          val startTsCol =
-            strategy.start_ts.getOrElse(throw new Exception("start_ts is required"))
-          val endTsCol = strategy.end_ts.getOrElse(throw new Exception("end_ts is required"))
-          ""
+          buildSqlForSC2(
+            "SL_INCOMING",
+            fullTableName,
+            targetTableExists,
+            targetTableColumns,
+            strategy,
+            truncate,
+            materializedView,
+            engine,
+            sinkConfig
+          )
         case x => throw new Exception(s"Unsupported merge strategy $x")
       }
     preActions + sqls
