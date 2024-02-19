@@ -1543,6 +1543,7 @@ trait IngestionJob extends SparkJob {
     if (csvOutput() && area != StorageArea.rejected) {
       val outputList = storageHandler
         .list(targetPath, ".csv", LocalDateTime.MIN, recursive = false)
+        .map(_.path)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
       if (outputList.nonEmpty) {
         val finalCsvPath =
@@ -1572,6 +1573,7 @@ trait IngestionJob extends SparkJob {
     ) {
       val pathsOutput = storageHandler
         .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
+        .map(_.path)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
       if (pathsOutput.nonEmpty) {
         val txtPath = pathsOutput.head

@@ -23,8 +23,11 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
+import better.files.{File => BetterFile}
 
+import java.time.Instant
 import java.util.regex.Pattern
 
 class StorageHandlerSpec extends TestHelper {
@@ -36,7 +39,58 @@ class StorageHandlerSpec extends TestHelper {
   lazy val pathBusiness = new Path(starlakeTestRoot + "/business.sl.yml")
   lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.sl.yml")
 
+  val localStorageSettings: Config = ConfigFactory
+    .parseString("""
+      |useLocalFileSystem: true
+      |""".stripMargin)
+    .withFallback(super.testConfiguration)
+
+  def testStatFile(storageHandler: StorageHandler): Unit = {
+    val tmpFilePath = starlakeTestRoot + "/tmp.txt"
+    val tmpFile = BetterFile(tmpFilePath)
+    Thread.sleep(1000) // test may be too fast
+    tmpFile.write("This is a text")
+    val tmpHadoopFilePath = new Path(tmpFilePath)
+    storageHandler.stat(tmpHadoopFilePath) should matchPattern {
+      case FileInfo(`tmpHadoopFilePath`, size, _) if size > 0 =>
+    }
+  }
+
+  def testListFile(storageHandler: StorageHandler): Unit = {
+    val fileExtension = "test_file"
+    val startInstant = Instant.now()
+    (1 to 2).foreach { i =>
+      val tmpFilePath = starlakeTestRoot + s"/$i.$fileExtension"
+      val tmpFile = BetterFile(tmpFilePath)
+      tmpFile.write("This is a text")
+    }
+    val fileList =
+      storageHandler.list(new Path(starlakeTestRoot), extension = fileExtension, recursive = false)
+    fileList should have length 2
+    fileList.foreach(_ should matchPattern {
+      case FileInfo(file, size, _) if size > 0 && file.getName.endsWith(fileExtension) =>
+    })
+  }
+
+  new WithSettings(localStorageSettings) {
+    "LocalStorageHandler" should "stat file" in {
+      testStatFile(storageHandler)
+    }
+
+    it should "list file" in {
+      testListFile(storageHandler)
+    }
+  }
+
   new WithSettings() {
+    "StorageHandler" should "stat file" in {
+      testStatFile(storageHandler)
+    }
+
+    it should "list file" in {
+      testListFile(storageHandler)
+    }
+
     "Domain Case Class" should "be written as yaml and read correctly" in {
       val domain = Domain(
         name = "DOMAIN",
@@ -52,7 +106,7 @@ class StorageHandlerSpec extends TestHelper {
             quote = Some("\""),
             escape = Some("\\"),
             write = Some(WriteMode.APPEND),
-            directory = Some(s"${starlakeTestRoot}/incoming/DOMAIN")
+            directory = Some(s"$starlakeTestRoot/incoming/DOMAIN")
           )
         ),
         tables = List(
@@ -72,14 +126,14 @@ class StorageHandlerSpec extends TestHelper {
                 "string",
                 Some(false),
                 required = false,
-                PrivacyLevel("SHA1", false)
+                PrivacyLevel("SHA1", sql = false)
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
                 required = false,
-                PrivacyLevel("HIDE", false)
+                PrivacyLevel("HIDE", sql = false)
               )
             ),
             Some(Metadata(withHeader = Some(true))),
