@@ -38,7 +38,7 @@ get_binary_from_url() {
         local proxy=$http_proxy
       fi
       local pem_file="${server}.pem"
-      openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+      openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null 2>/dev/null | openssl x509 -outform PEM > "$pem_file" 2>/dev/null
       local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
     else
       local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
@@ -56,11 +56,11 @@ add_server_cert_to_java_keystore() {
   local proxy=$2
   if [ -n "${JAVA_HOME}" ]; then
     local pem_file="${server}.pem"
-    openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+    openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null 2>/dev/null | openssl x509 -outform PEM > "$pem_file" 2>/dev/null
     local keytool="${JAVA_HOME}/bin/keytool"
     local alias=$server
     $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit || (echo "No certificate found for $alias" >/dev/null 2>&1)
-    $keytool -import -trustcacerts -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit -noprompt -alias "$alias" -file "$pem_file"
+    $keytool -import -trustcacerts -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit -noprompt -alias "$alias" -file "$pem_file" >/dev/null 2>&1
   fi
 }
 
