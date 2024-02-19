@@ -67,6 +67,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
             targetTableExists,
             targetTableColumns,
             strategy,
+            sinkConfig,
             jdbcEngine
           )
 
@@ -362,14 +363,16 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
              |WHERE $mergeKeyJoinCondition AND SL_EXISTING.$endTsCol IS NULL AND SL_INCOMING.$mergeTimestampCol > SL_EXISTING.$mergeTimestampCol)
              |""".stripMargin
         s"""
+           |BEGIN TRANSACTION;
            |INSERT INTO $targetTableFullName
            |SELECT $targetColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM ($selectStatement)
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
-           |
            |MERGE INTO $targetTableFullName SL_EXISTING USING ($upodatedRecords) SL_INCOMING ON ($mergeKeyJoinCondition)
-           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
+           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL;
+           |COMMIT TRANSACTION;
+           |
            |""".stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
@@ -405,6 +408,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
           SQLUtils.setForUpdateSql("SL_UPDATED_RECORDS", targetTableColumns, quote)
 
         s"""
+           |BEGIN TRANSACTION;
            |INSERT INTO $targetTableFullName
            |SELECT $targetColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM ($selectStatement)
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
@@ -423,7 +427,8 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
            |  WHERE $mergeKeyJoinCondition2 AND $targetTableFullName.$endTsCol IS NULL AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol
            |)
            |MERGE INTO $targetTableFullName USING SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition3)
-           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
+           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL;
+           |COMMIT TRANSACTION;
            |""".stripMargin
 
       case (_, Some(_), MergeOn(_)) =>
@@ -435,27 +440,32 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
   }
 
   private def buildSqlForPartitionOverwrite(
-    sourceTable: String,
+    selectStatement: String,
     targetTableFullName: String,
     targetTableExists: Boolean,
     targetTableColumns: List[String],
     strategy: WriteStrategy,
+    sinkConfig: Sink,
     jdbcEngine: JdbcEngine
   )(implicit settings: Settings): String = {
-    val mergeTimestampCol = strategy.timestamp
+    val partitionColumn = sinkConfig
+      .toAllSinks()
+      .partition
+      .flatMap(_.headOption)
+      .getOrElse(throw new Exception("SCD2 requires a partition"))
+
+    val quote = jdbcEngine.quote
+
+    val targetColumns = SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
+    val sourceColumns =
+      SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
+    s"""($targetColumns) VALUES ($sourceColumns)"""
+
     s"""
-         |declare incoming_partitions array<date>;
-         |
-         |set (incoming_partitions) = (
-         |  select as struct array_agg(distinct date($mergeTimestampCol))
-         |  from $sourceTable
-         |);
-         |
-         |merge into $targetTableFullName dest
-         |using $sourceTable src
-         |on false
-         |when not matched by source and date($mergeTimestampCol) in unnest(incoming_partitions) then delete
-         |when not matched then insert $targetTableColumns values $targetTableColumns
-         |""".stripMargin
+       |BEGIN TRANSACTION;
+       |DELETE FROM $targetTableFullName WHERE $partitionColumn IN (SELECT DISTINCT $partitionColumn FROM ($selectStatement));
+       |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
+       |COMMIT TRANSACTION;
+       |""".stripMargin
   }
 }

@@ -126,18 +126,19 @@ case class AllSinks(
   // All sinks
   connectionRef: Option[String] = None,
   // depending on the connection.type coming from the connection ref, some of the options below may be required
+
   // BigQuery
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
   materializedView: Option[Boolean] = None,
-  enableRefresh: Option[Boolean] = None,
-  refreshIntervalMs: Option[Long] = None,
-  // partition: Option[List[String]] = None,
+  enableRefresh: Option[Boolean] = None, // only if materializedView is true
+  refreshIntervalMs: Option[Long] = None, // only if enable refresh is true
+  // partition: Option[List[String]] = None,  // only one column allowed
 
   // ES
   id: Option[String] = None,
-  // partition: Option[String] = None,
+  // partition: Option[List[String]] = None,
   // options: Option[Map[String, String]] = None,
 
   // FS
@@ -148,7 +149,7 @@ case class AllSinks(
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
-  // partition: Option[List[String]] = None,
+  // partition: Option[List[String]] = None, // Only one column allowed
 
 ) {
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
