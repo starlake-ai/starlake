@@ -57,6 +57,19 @@ if "%~1"=="install" (
 
 goto :eof
 
+:add_server_cert_to_java_keystore
+  if DEFINED JAVA_HOME (
+    openssl s_client -proxy %~2 -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    openssl x509 -in %~1.tmp -outform PEM -out %~1.pem 2>nul
+    del %~1.tmp
+    %JAVA_HOME%\bin\keytool -delete -alias %~1 -keystore %JAVA_HOME%\lib\security\cacerts -storepass changeit
+    %JAVA_HOME%\bin\keytool -import -trustcacerts -keystore %JAVA_HOME%\lib\security\cacerts -storepass changeit -noprompt -alias %~1 -file %~1.pem
+    del %~1.pem
+    EXIT /B
+  ) else (
+    EXIT /B 1
+  )
+
 :launch_setup
 for /f tokens^=2-5^ delims^=.-_+^" %%j in ('"%RUNNER%" -fullversion 2^>^&1') do set "javaVersion=%%j%%k%%l%%m"
 
@@ -74,7 +87,20 @@ if "%javaVersion%" LSS "11000" (
 )
 
 set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
-curl -s -o %SCRIPT_DIR%setup.jar %setup_url%
+IF DEFINED https_proxy (Set "proxy=%https_proxy%") else (IF DEFINED http_proxy (Set "proxy=%http_proxy%") else (echo no proxy))
+if NOT "%proxy%"=="" (
+    where /q openssl
+    IF ERRORLEVEL 1 (
+        echo openssl is missing. Ensure it is installed and placed in your PATH
+        EXIT /B
+    )
+    curl.exe -k -s -o %SCRIPT_DIR%setup.jar %setup_url%
+    call :add_server_cert_to_java_keystore archive.apache.org %proxy%
+    call :add_server_cert_to_java_keystore repo1.maven.org %proxy%
+    call :add_server_cert_to_java_keystore s01.oss.sonatype.org %proxy%
+) else (
+    curl.exe -s -o %SCRIPT_DIR%setup.jar %setup_url%
+)
 "%RUNNER%" -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
 goto :eof
 
