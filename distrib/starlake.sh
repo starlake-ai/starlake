@@ -38,7 +38,6 @@ get_binary_from_url() {
         local proxy=$http_proxy
       fi
       local pem_file="${server}.pem"
-      echo "$proxy"
       openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
       local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
     else
@@ -96,7 +95,7 @@ launch_setup() {
   export https_proxy=""
   local v_http_proxy="$http_proxy"
   export http_proxy=""
-  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR"
+  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR" unix
   export https_proxy="$v_https_proxy"
   export http_proxy="$v_http_proxy"
 }
