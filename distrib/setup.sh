@@ -42,6 +42,7 @@ get_from_url() {
       local pem_file="${server}.pem"
       openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM </dev/null 2>/dev/null > "$pem_file" 2>/dev/null
       local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
+      rm -f "$pem_file"
     else
       local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
     fi
