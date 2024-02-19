@@ -1,4 +1,4 @@
-package ai.starlake.job.ingest.strategies
+package ai.starlake.job.strategies
 
 class RedshiftStrategiesBuilder extends JdbcStrategiesBuilder {
   override protected def createTemporaryView(viewName: String): String =

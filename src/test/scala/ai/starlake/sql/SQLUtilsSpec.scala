@@ -2,7 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
-import ai.starlake.job.ingest.strategies.StrategiesBuilder
+import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.model.{AllSinks, Refs, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {

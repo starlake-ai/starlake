@@ -1,4 +1,4 @@
-package ai.starlake.job.ingest.strategies
+package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
@@ -254,7 +254,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
            |  FROM SL_INCOMING
            |  )
            |
-           |SELECT  $targetColumnsAsSelectString FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
+           |SELECT $targetColumnsAsSelectString FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1
             """.stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>

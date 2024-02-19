@@ -2,8 +2,8 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.strategies.StrategiesBuilder
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
+import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
