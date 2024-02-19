@@ -59,7 +59,7 @@ add_server_cert_to_java_keystore() {
     openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
     local keytool="${JAVA_HOME}/bin/keytool"
     local alias=$server
-    $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit </dev/null
+    $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit || (echo "No certificate found for $alias" >/dev/null 2>&1)
     $keytool -import -trustcacerts -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit -noprompt -alias "$alias" -file "$pem_file"
   fi
 }
