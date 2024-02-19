@@ -18,7 +18,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     sinkConfig: Sink
   )(implicit settings: Settings): String = {
     val result =
-      strategy.`type` match {
+      strategy.getStrategyType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =

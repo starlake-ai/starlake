@@ -302,7 +302,7 @@ case class Schema(
     }
 
     metadata.map(_.getStrategyOptions()).foreach { strategy =>
-      if (strategy.`type`.requireKey() && strategy.key.isEmpty) {
+      if (strategy.requireKey() && strategy.key.isEmpty) {
         errorList +=
           ValidationMessage(
             Error,
@@ -310,7 +310,7 @@ case class Schema(
             s"""key cannot be empty""".stripMargin
           )
       }
-      if (strategy.`type`.requireTimestamp() && strategy.timestamp.isEmpty) {
+      if (strategy.requireTimestamp() && strategy.timestamp.isEmpty) {
         errorList +=
           ValidationMessage(
             Error,

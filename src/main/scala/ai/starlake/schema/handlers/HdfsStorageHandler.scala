@@ -319,6 +319,13 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     currentFS.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
   }
 
+  def stat(path: Path): FileInfo = {
+    pathSecurityCheck(path)
+    val currentFS = fs(path)
+    val fileStatus = currentFS.getFileStatus(path)
+    FileInfo(path, fileStatus.getLen, Instant.ofEpochMilli(fileStatus.getModificationTime))
+  }
+
   /** List all files in folder
     *
     * @param path
@@ -340,7 +347,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     recursive: Boolean,
     exclude: Option[Pattern],
     sortByName: Boolean = false
-  ): List[Path] = {
+  ): List[FileInfo] = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
     logger.debug(s"list($path, $extension, $since)")
@@ -364,7 +371,13 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           else // sort by time by default
             files
               .sortBy(r => (r.getModificationTime, r.getPath.getName))
-        sorted.map((status: LocatedFileStatus) => status.getPath())
+        sorted.map((status: LocatedFileStatus) =>
+          FileInfo(
+            status.getPath(),
+            status.getLen,
+            Instant.ofEpochMilli(status.getModificationTime)
+          )
+        )
       } else
         Nil
     } match {

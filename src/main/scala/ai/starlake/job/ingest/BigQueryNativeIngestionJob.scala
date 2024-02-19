@@ -49,7 +49,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     Try {
       val effectiveSchema: Schema = computeEffectiveInputSchema()
       val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-        strategy.`type`.toWriteMode()
+        strategy.getWriteMode()
       )
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
       val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))

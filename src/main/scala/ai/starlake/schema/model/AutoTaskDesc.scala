@@ -62,7 +62,7 @@ case class AutoTaskDesc(
 
   def getStrategy()(implicit settings: Settings): WriteStrategy = {
     val st1 = writeStrategy
-      .getOrElse(WriteStrategy(WriteStrategyType.APPEND))
+      .getOrElse(WriteStrategy(Some(WriteStrategyType.APPEND)))
 
     val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
     val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)

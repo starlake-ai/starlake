@@ -116,7 +116,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
       s"""CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS $selectStatement;
          |""".stripMargin
     val sqls =
-      strategy.`type` match {
+      strategy.getStrategyType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           buildMainSql(
             s"""SELECT $selectAllAttributes FROM SL_INCOMING""",

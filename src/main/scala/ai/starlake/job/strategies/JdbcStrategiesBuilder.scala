@@ -25,7 +25,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
       )
 
     val result: String =
-      strategy.`type` match {
+      strategy.getStrategyType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =
@@ -124,7 +124,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     val insertPartitionSQL =
       buildMainSql(
         s"SELECT $targetColumnsAsSelectString FROM $sourceTable",
-        strategy.copy(`type` = WriteStrategyType.APPEND),
+        strategy.copy(`type` = Some(WriteStrategyType.APPEND)),
         materializedView,
         targetTableExists,
         truncate,

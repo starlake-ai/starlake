@@ -167,7 +167,7 @@ case class Metadata(
   @JsonIgnore
   def getStrategyOptions(): WriteStrategy = {
     val writeMode: WriteMode = this.getWrite()
-    writeStrategy.getOrElse(WriteStrategy(WriteStrategyType.fromString(writeMode.value)))
+    writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.fromString(writeMode.value))))
   }
 
   def getFormat(): Format = getFinalValue(format, DSV)
@@ -190,7 +190,7 @@ case class Metadata(
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite(): WriteMode = writeStrategy.map(_.`type`.toWriteMode()).getOrElse(APPEND)
+  def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
 
   @JsonIgnore
   // scalastyle:off null
@@ -387,7 +387,6 @@ case class Metadata(
         errorList ++= freshnessErrors
       case Right(_) =>
     }
-
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else

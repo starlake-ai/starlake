@@ -7,7 +7,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import java.util.regex.Pattern
 
 case class WriteStrategy(
-  `type`: WriteStrategyType,
+  `type`: Option[WriteStrategyType] = None,
+  types: Option[Map[String, String]] = None,
   key: List[String] = Nil,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
@@ -17,13 +18,23 @@ case class WriteStrategy(
 ) {
 
   @JsonIgnore
-  def isMerge() =
-    `type` != WriteStrategyType.APPEND && `type` != WriteStrategyType.OVERWRITE
+  def getStrategyType(): WriteStrategyType =
+    `type`.getOrElse(WriteStrategyType.APPEND)
+
+  @JsonIgnore
+  def isMerge(): Boolean =
+    !Set(WriteStrategyType.APPEND, WriteStrategyType.OVERWRITE).contains(
+      `type`.getOrElse(WriteStrategyType.APPEND)
+    )
 
   def validate() = {}
 
   @JsonIgnore
-  def getWriteMode() = `type`.toWriteMode()
+  def getWriteMode() = `type`.getOrElse(WriteStrategyType.APPEND).toWriteMode()
+
+  def requireKey(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireKey()
+
+  def requireTimestamp(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireTimestamp()
 
   @JsonIgnore
   private val lastPat =

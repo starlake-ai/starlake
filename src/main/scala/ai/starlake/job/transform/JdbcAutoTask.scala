@@ -149,7 +149,7 @@ class JdbcAutoTask(
               df match {
                 case Some(loadedDF) =>
                   logger.info(s"Writing dataframe to $fullTableName")
-                  val saveMode = strategy.`type`.toWriteMode().toSaveMode
+                  val saveMode = strategy.getWriteMode().toSaveMode
                   if (saveMode == SaveMode.Overwrite || truncate) {
                     val jdbcUrl = sinkConnection.options("url")
                     val dialect = SparkUtils.dialect(jdbcUrl)

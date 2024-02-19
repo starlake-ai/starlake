@@ -215,7 +215,7 @@ class SQLUtilsSpec extends TestHelper {
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
       val strategy =
         WriteStrategy(
-          `type` = WriteStrategyType.UPSERT_BY_KEY,
+          `type` = Some(WriteStrategyType.UPSERT_BY_KEY),
           key = List("transaction_id"),
           timestamp = None,
           queryFilter = None,

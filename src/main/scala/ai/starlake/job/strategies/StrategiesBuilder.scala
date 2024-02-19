@@ -163,10 +163,10 @@ trait StrategiesBuilder extends StrictLogging {
                                 |  FROM $sourceTable;
             """.stripMargin
 
-        val tempViewName = tempViewName("SL_VIEW_WITH_ROWNUM")
+        val tempViewWithRowNum = tempViewName("SL_VIEW_WITH_ROWNUM")
 
         val mainSql = buildMainSql(
-          s"""SELECT  $targetColumnsAsSelectString  FROM $tempViewName WHERE SL_SEQ = 1"""",
+          s"""SELECT  $targetColumnsAsSelectString  FROM $tempViewWithRowNum WHERE SL_SEQ = 1"""",
           strategy,
           materializedView,
           targetTableExists,

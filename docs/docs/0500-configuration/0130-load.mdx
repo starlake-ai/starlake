@@ -1,7 +1,7 @@
 # Load
 
 ## Load Strategy
-When many files that have the same pattern and thus belong to the same schema, it is possible to ingest them one after the other using an ingestion policy 
+When many files that have the same pattern and thus belong to the same schema, it is possible to ingest them one after the other using an ingestion policy
 or ingest all of them at once.
 
 When ingesting the files with the same schema one after the other, it is possible to use a custom ordering policy by settings the `SL_LOAD_STRATEGY` environment variable. Currently, the following ordering policies are defined:
@@ -44,7 +44,7 @@ To ingest all the files at once, set the `SL_GROUPED` variable to true.
 |YAML Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
 |grouped|SL_GROUPED|false|Should files with the same schema be ingested all at once ?
-|loadStrategyClass|SL_LOAD_STRATEGY|ai.starlake.job.load.IngestionTimeStrategy|When `grouped` is false, which ingestion order strategy to use 
+|loadStrategyClass|SL_LOAD_STRATEGY|ai.starlake.job.load.IngestionTimeStrategy|When `grouped` is false, which ingestion order strategy to use
 
 
 Below is an example of YAML file with the default values.
@@ -55,6 +55,85 @@ application:
   grouped: false # may be overriden by the ${?SL_GROUPED} env variable
 ```
 
+## Adaptive Load
+Have you ever needed to change the way you feed your table from time to time or periodically?
+Adaptive Write may be the solution to your need. This feature allows you to adjust the loading mode at runtime,
+according to various criteria listed in the table below.
+
+For example, you want to ingest in APPEND mode throughout the week,
+except on Sundays when the source sends you all of certain tables,
+as discrepancies may occur with the incremental mode.
+This can be done automatically by changing the domain or table configuration.
+
+The example below illustrates the change at domain level that will be propagated to all these tables.
+
+```yaml
+# _config.sl.yml
+load:
+   name: "DOMAIN
+   metadata:
+      ...
+      writeStrategy:
+         types:
+             APPEND: 'dayOfWeek != 7'
+             OVERWRITE: 'dayOfWeek == 7'
+```
+
+Another example is based on the file name:
+
+```yaml
+# _config.sl.yml
+load:
+   name: "DOMAIN"
+   metadata:
+      ...
+      writeStrategy:
+         types:
+             OVERWRITE: 'group("mode") == "FULL"'
+             APPEND: 'group("mode") == "APPEND"'
+
+# my_table.sl.yml
+table:
+  ...
+  pattern: ".*-(?<mode>FULL|APPEND).csv$"
+```
+
+You may want to combine criterias. If so, just use regular boolean operators with `!`, `&&`and `||` and wrap with parenthesis if necessary.
+
+:::note
+When using String in expression, makes sure to wrap them with double quotes `"`
+:::
+
+### List of valid write strategy
+
+Strategy| Description | Requirements
+:---|:---|:---
+APPEND|Turn your load into APPEND mode. Ignore `merge` and `dynamicPartitionOverwrite` settings.| None
+OVERWRITE|Turn your load into OVERWRITE mode. Ignore `merge` and `dynamicPartitionOverwrite` settings.| None
+UPSERT_BY_KEY|Merge incoming data and target data using key. Incoming data for same key have higher precedence. Ignore `timestamp` setting on `merge`.| `merge.key` is defined
+UPSERT_BY_KEY_AND_TIMESTAMP|Merge incoming data and target data using key. Select the data with higher timestamp for each key.| `merge.key` and `merge.timestamp` is defined
+OVERWRITE_BY_PARTITION|Overwrite target partitions with incoming partitions. Ignore `merge` setting.| `merge.key` and `merge.timestamp` is defined
+
+
+### List of criterias
+Criteria| Description | Example
+group(index|name) | File pattern must use (named) capture groups | pattern: `my-file-(F|D).csv$` => m.group(1) == "F"
+fileSize | Current file size in bytes | fileSize > 1000
+fileSizeB | Current file size in bytes. Alias of fileSize |
+fileSizeKo | Current file size in Ko |
+fileSizeMo | Current file size in Mo |
+fileSizeGo | Current file size in Go |
+fileSizeTo | Current file size in To |
+isFirstDayOfMonth | Current day is first day of month|
+isLastDayOfMonth | Current day is last day of month|
+dayOfWeek | Integer representing day of week. Monday = 1, ..., Sunday = 7|
+isFileFirstDayOfMonth | File modification date is first day of month|
+isFileLastDayOfMonth | File modification date is last day of month|
+fileDayOfWeek | Integer representing file modification day of week. Monday = 1, ..., Sunday = 7|
+
+:::note
+For criterias relying on datetime, you can change its timezone with `timezone` application setings in `application.sl.yml`
+:::
 
 ## Validation
 During ingestion, the input file is validated up to the attribute level. Three default row validators are defined:
@@ -71,8 +150,8 @@ rowValidatorClass|SL_ROW_VALIDATOR_CLASS|ai.starlake.job.validator.FlatRowValida
 treeValidatorClass|SL_TREE_VALIDATOR_CLASS|ai.starlake.job.validator.TreeRowValidator
 
 ## Privacy
-Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented). 
-Custom values may also be defined by adding a new privacy option in the application.conf. 
+Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented).
+Custom values may also be defined by adding a new privacy option in the application.conf.
 The default reference.conf file defines the following valid privacy strategies:
 ```hocon
 privacy {
@@ -107,7 +186,7 @@ The following startegies are also defined and may be declared in the custom conf
 
 Privacy class|Description
 :---|:---
-ai.starlake.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked  
+ai.starlake.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked
 ai.starlake.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
 ai.starlake.privacy.RandomDouble|Return a random double number
 ai.starlake.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
@@ -115,9 +194,9 @@ ai.starlake.privacy.RandomLong|Return a random long number
 ai.starlake.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
 ai.starlake.privacy.RandomInt|Return a random int number
 ai.starlake.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
-ai.starlake.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
+ai.starlake.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value
 ai.starlake.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
-ai.starlake.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
+ai.starlake.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side.
 
 
 Any new privacy strategy should implement the following trait:

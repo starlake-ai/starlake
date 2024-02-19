@@ -266,7 +266,7 @@ class InferSchemaJob(implicit settings: Settings) {
           )
 
           val strategy = WriteStrategy(
-            `type` = WriteStrategyType.fromWriteMode(writeMode)
+            `type` = Some(WriteStrategyType.fromWriteMode(writeMode))
           )
 
           InferSchemaHandler.createSchema(

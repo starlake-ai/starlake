@@ -47,7 +47,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import java.io.ObjectStreamException
 import java.net.URI
 import java.util.concurrent.TimeUnit
-import java.util.{Locale, Properties, UUID}
+import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
@@ -612,7 +612,8 @@ object Settings extends StrictLogging {
     longJobTimeoutMs: Long,
     shortJobTimeoutMs: Long,
     createSchemaIfNotExists: Boolean,
-    http: Http
+    http: Http,
+    timezone: TimeZone
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -881,6 +882,9 @@ object Settings extends StrictLogging {
 
   implicit val storageLevelReader: ConfigReader[StorageLevel] =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
+
+  implicit val timezoneReader: ConfigReader[TimeZone] =
+    ConfigReader.fromString[TimeZone](catchReadError(TimeZone.getTimeZone))
 
   def loadConf(conf: Option[Config] = None): AppConfig = {
     ConfigSource
