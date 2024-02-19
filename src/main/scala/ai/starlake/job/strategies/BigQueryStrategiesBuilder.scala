@@ -348,6 +348,8 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
                 SELECT $allAttributesSQL, $mergeTimestampCol AS $startTsCol, NULL AS $endTsCol FROM $sourceTable AS $SL_INTERNAL_TABLE
                 WHERE $key IN (SELECT DISTINCT $key FROM SL_UPDATED_RECORDS);
          */
+        val incomingColumnsAsSelectSting =
+          SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
         val mergeKeyJoinCondition =
           SQLUtils.mergeKeyJoinCondition("SL_INCOMING", "SL_EXISTING", strategy.key, quote)
 
@@ -359,7 +361,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
 
         val upodatedRecords =
           s"""
-             |SELECT $targetColumnsAsSelectString FROM ($selectStatement) SL_INCOMING, $targetTableFullName SL_EXISTING
+             |SELECT $incomingColumnsAsSelectSting FROM ($selectStatement) SL_INCOMING, $targetTableFullName SL_EXISTING
              |WHERE $mergeKeyJoinCondition AND SL_EXISTING.$endTsCol IS NULL AND SL_INCOMING.$mergeTimestampCol > SL_EXISTING.$mergeTimestampCol)
              |""".stripMargin
         s"""
