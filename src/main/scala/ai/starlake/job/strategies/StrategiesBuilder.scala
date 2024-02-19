@@ -1,4 +1,4 @@
-package ai.starlake.job.ingest.strategies
+package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
