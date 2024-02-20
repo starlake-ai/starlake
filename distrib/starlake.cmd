@@ -59,7 +59,20 @@ goto :eof
 
 :add_server_cert_to_java_keystore
   if defined JAVA_HOME (
-    openssl s_client -proxy %proxy% -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    if defined CA_PATH (
+        echo Verifying %~1 certificate using CApath %CA_PATH%...
+        openssl s_client -CApath %CA_PATH% -proxy %proxy% -verify_return_error -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    ) else if DEFINED CA_FILE (
+        echo Verifying %~1 certificate using CAfile %CA_FILE%...
+        openssl s_client -CAfile %CA_FILE% -proxy %proxy% -verify_return_error -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    ) else (
+        echo Retrieving %~1 certificate...
+        openssl s_client -proxy %proxy% -verify_return_error -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    )
+    if ERRORLEVEL 1 (
+        echo "Failed to verify certificate %~1. Check if whether CA_PATH (PEM format directory of CA's) or  CA_FILE (PEM format file of CA's) environment variable has been set."
+        exit /b
+    )
     openssl x509 -in %~1.tmp -outform PEM -out %~1.pem 2>nul
     del %~1.tmp
     %JAVA_HOME%\bin\keytool -delete -alias %~1 -keystore %JAVA_HOME%\lib\security\cacerts -storepass changeit
