@@ -99,17 +99,7 @@ if not "%proxy%"=="" (
         echo openssl is missing. Ensure it is installed and placed in your PATH
         exit /b
     ) else (
-        if defined INSECURE_URL (
-            curl.exe -k -s -o %SCRIPT_DIR%setup.jar %setup_url%
-        ) else (
-            openssl s_client -proxy %proxy% -showcerts -servername raw.githubusercontent.com -connect raw.githubusercontent.com:443 > raw.githubusercontent.com.tmp 2>nul
-            openssl x509 -in raw.githubusercontent.com.tmp -out raw.githubusercontent.com.pem -outform PEM
-            curl.exe --cacert %SCRIPT_DIR%raw.githubusercontent.com.pem --proxy %proxy% -s -o %SCRIPT_DIR%setup.jar %setup_url%
-        )
-        if ERRORLEVEL 1 (
-            echo Can not download setup.jar package through proxy. Try by setting INSECURE_URL environment variable.
-            exit /b
-        )
+        curl.exe --ssl-revoke-best-effort --proxy %proxy% -s -o %SCRIPT_DIR%setup.jar %setup_url%
     )
     call :add_server_cert_to_java_keystore archive.apache.org
     call :add_server_cert_to_java_keystore repo1.maven.org
