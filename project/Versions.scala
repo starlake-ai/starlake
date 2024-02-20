@@ -30,7 +30,7 @@ object Versions {
   val testContainers = "0.41.0"
   val gcpDataCatalog = "1.40.0"
   val gcpCloudLogging = "3.15.16"
-  val jinja = "2.7.1"
+  val jinja = "2.7.2"
   val snowflakeJDBC = "3.13.30"
   val snowflakeSpark: String = "2.11.3-spark_3.3"
   val jSqlParser = "4.8"
