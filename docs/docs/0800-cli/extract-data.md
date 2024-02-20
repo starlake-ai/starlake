@@ -37,6 +37,7 @@ Parameter|Cardinality|Description
 --limit:`<value>`|*Optional*|Limit number of records
 --numPartitions:`<value>`|*Optional*|parallelism level regarding partitionned tables
 --parallelism:`<value>`|*Optional*|parallelism level of the extraction process. By default equals to the available cores: 10
+--ignoreExtractionFailure:`<value>`|*Optional*|Don't fail extraction job when any extraction fails.
 --clean:`<value>`|*Optional*|Clean all files of table only when it is extracted.
 --outputDir:`<value>`|*Required*|Where to output csv files
 --incremental:`<value>`|*Optional*|Export only new data since last extraction.
