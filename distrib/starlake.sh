@@ -38,7 +38,13 @@ get_binary_from_url() {
         local proxy=$http_proxy
       fi
       local pem_file="${server}.pem"
-      openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null 2>/dev/null | openssl x509 -outform PEM > "$pem_file" 2>/dev/null
+      if [ -n "${CA_PATH}" ]; then
+        openssl s_client -CApath "${CA_PATH}" -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+      elif [ -n "${CA_FILE}" ]; then
+        openssl s_client -CAfile "${CA_FILE}" -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+      else
+        openssl s_client -CApath /dev/null -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+      fi
       local response=$(curl --cacert "$pem_file" --proxy "$proxy" -s -w "%{http_code}" -o "$target_file" "$url")
       rm -f "$pem_file"
     else
@@ -57,7 +63,13 @@ add_server_cert_to_java_keystore() {
   local proxy=$2
   if [ -n "${JAVA_HOME}" ]; then
     local pem_file="${server}.pem"
-    openssl s_client -proxy "$proxy" -showcerts -servername "$server" -connect "${server}:443" </dev/null 2>/dev/null | openssl x509 -outform PEM > "$pem_file" 2>/dev/null
+    if [ -n "${CA_PATH}" ]; then
+      openssl s_client -CApath "${CA_PATH}" -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+    elif [ -n "${CA_FILE}" ]; then
+      openssl s_client -CAfile "${CA_FILE}" -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+    else
+      openssl s_client -CApath /dev/null -proxy "$proxy" -verify_return_error -showcerts -servername "$server" -connect "${server}:443" </dev/null | openssl x509 -outform PEM > "$pem_file"
+    fi
     local keytool="${JAVA_HOME}/bin/keytool"
     local alias=$server
     $keytool -delete -alias "$alias" -keystore "${JAVA_HOME}/lib/security/cacerts" -storepass changeit || (echo "No certificate found for $alias" >/dev/null 2>&1)
