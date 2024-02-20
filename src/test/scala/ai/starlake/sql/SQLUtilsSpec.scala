@@ -225,7 +225,7 @@ class SQLUtilsSpec extends TestHelper {
         )
 
       val sqlMerge =
-        StrategiesBuilder("ai.starlake.job.ingest.strategies.JdbcStrategiesBuilder")
+        StrategiesBuilder("ai.starlake.job.strategies.JdbcStrategiesBuilder")
           .buildSQLForStrategy(
             strategy,
             selectWithCTEs,
