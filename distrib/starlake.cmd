@@ -59,7 +59,9 @@ goto :eof
 
 :add_server_cert_to_java_keystore
   if defined JAVA_HOME (
-    if defined CA_PATH (
+    if defined SL_INSECURE (
+        openssl s_client -proxy %proxy% -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
+    ) else if defined CA_PATH (
         echo Verifying %~1 certificate using CApath %CA_PATH%...
         openssl s_client -CApath %CA_PATH% -proxy %proxy% -verify_return_error -showcerts -servername %~1 -connect %~1:443 > %~1.tmp 2>nul
     ) else if DEFINED CA_FILE (
