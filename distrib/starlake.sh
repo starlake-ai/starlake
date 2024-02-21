@@ -30,7 +30,7 @@ fi
 get_binary_from_url() {
     local url=$1
     local target_file=$2
-    local response=$(curl -k -s -w "%{http_code}" -o "$target_file" "$url")
+    local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
