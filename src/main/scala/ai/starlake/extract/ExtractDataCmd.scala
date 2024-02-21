@@ -78,7 +78,7 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
         .text("Where to output csv files"),
       builder
         .opt[Unit]("incremental")
-        .action((_, c) => c.copy(fullExport = false))
+        .action((_, c) => c.copy(fullExport = Some(false)))
         .optional()
         .text("Export only new data since last extraction."),
       builder
