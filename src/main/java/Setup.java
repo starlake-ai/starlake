@@ -56,11 +56,15 @@ public class Setup {
             if(schemeWithHostAndPort.length > 1) {
                 final String[] hostAndPort = schemeWithHostAndPort[1].split(":");
                 host = hostAndPort[0];
-                port = Integer.parseInt(hostAndPort[1]);
+                if(hostAndPort.length > 1){
+                    port = Integer.parseInt(hostAndPort[1]);
+                }
             } else {
                 final String[] hostAndPort = schemeWithHostAndPort[0].split(":");
                 host = hostAndPort[0];
-                port = Integer.parseInt(hostAndPort[1]);
+                if(hostAndPort.length > 1){
+                    port = Integer.parseInt(hostAndPort[1]);
+                }
             }
         } else {
             host = proxy;
