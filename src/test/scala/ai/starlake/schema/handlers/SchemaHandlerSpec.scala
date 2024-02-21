@@ -29,7 +29,7 @@ import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import better.files.File
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.apache.hadoop.fs.Path
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.HttpClients
@@ -65,7 +65,7 @@ class SchemaHandlerSpec extends TestHelper {
     val port = esContainer.httpHostAddress.substring(
       esContainer.httpHostAddress.lastIndexOf(':') + 1
     )
-    println(s"--------------------$port-------------------")
+    println(s"--------------------Elasticsearch port: $port-------------------")
     ConfigFactory
       .parseString(s"""
            |connectionRef = "elasticsearch"
@@ -95,7 +95,7 @@ class SchemaHandlerSpec extends TestHelper {
       .withFallback(super.testConfiguration)
   }
 
-  new WithSettings() {
+  new WithSettings(testConfiguration.withValue("grouped", ConfigValueFactory.fromAnyRef("false"))) {
     "Ingest schema with merge" should "succeed" in {
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
@@ -231,19 +231,23 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         loadPending
 
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
+        // We are by  default in ingestion Time strategy
+        // Since full is loaded first, it will be the base for the delta
 
-        val acceptedFullDelta: Array[Row] = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .select("PK", "firstName", "lastName", "DOB", "YEAR", "MONTH", "title")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
+
+        val acceptedFullDelta: Array[Row] = sparkSession
+          .sql(
+            s"select PK, firstname, lastName, DOB, YEAR, MONTH, title from $datasetDomainName.Players"
+          )
           .collect()
 
         val expectedFullDelta: Array[Row] =
           sparkSession.read
             .option("encoding", "UTF-8")
             .schema(
-              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` INT,`MONTH` INT,`title` STRING"
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` STRING,`MONTH` STRING,`title` STRING"
             )
             .csv(
               getResPath("/expected/datasets/accepted/DOMAIN/Players-adaptive-write-FULL-DELTA.csv")
@@ -251,23 +255,21 @@ class SchemaHandlerSpec extends TestHelper {
             .collect()
 
         acceptedFullDelta should contain theSameElementsAs expectedFullDelta
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
 
-        cleanDatasets
-        loadPending
-
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
-
-        val acceptedDeltaFull: Array[Row] = sparkSession.read
-          .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
-          .select("PK", "firstName", "lastName", "DOB", "YEAR", "MONTH", "title")
+        val acceptedDeltaFull: Array[Row] = sparkSession
+          .sql(
+            s"select PK, firstname, lastName, DOB, YEAR, MONTH, title from $datasetDomainName.Players"
+          )
           .collect()
 
         val expectedDeltaFull: Array[Row] =
           sparkSession.read
             .option("encoding", "UTF-8")
             .schema(
-              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` INT,`MONTH` INT,`title` STRING"
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`YEAR` STRING,`MONTH` STRING,`title` STRING"
             )
             .csv(
               getResPath("/expected/datasets/accepted/DOMAIN/Players-adaptive-write-DELTA-FULL.csv")

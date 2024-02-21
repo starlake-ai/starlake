@@ -426,6 +426,9 @@ class SparkAutoTask(
       Try {
         sink match {
           case _: FsSink =>
+            if (taskDesc.domain.equalsIgnoreCase("domain")) {
+              println(s"Domain is not defined for task ${taskDesc.name}")
+            }
             val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
             if (!exists && taskDesc._auditTableName.isDefined) {
               createAuditTable()
@@ -467,7 +470,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.`type` == WriteStrategyType.SCD2) {
+      if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
         val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
 

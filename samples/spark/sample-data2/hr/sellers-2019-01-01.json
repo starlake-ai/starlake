@@ -1,4 +1,4 @@
 [
-  { "id":"AQZERD", "seller_email":"me@acme.com", "location_id": 1},
+  { "id":"AQZERD", "seller_email":"me@acme2.com", "location_id": 1},
   { "id":"NEWNEW", "seller_email":"you@acme.com","location_id": 2 }
 ]

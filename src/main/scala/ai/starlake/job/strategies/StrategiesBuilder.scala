@@ -56,7 +56,7 @@ trait StrategiesBuilder extends StrictLogging {
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
         else {
-          if (strategy.`type` == WriteStrategyType.SCD2) {
+          if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
             val startTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2StartTimestamp TIMESTAMP"
             val endTs =
@@ -75,7 +75,7 @@ trait StrategiesBuilder extends StrictLogging {
         val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
         val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
         val insertSqls =
-          if (strategy.`type` == WriteStrategyType.OVERWRITE) {
+          if (strategy.getStrategyType() == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
@@ -91,7 +91,7 @@ trait StrategiesBuilder extends StrictLogging {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.`type` == WriteStrategyType.SCD2) {}
+            if (strategy.getStrategyType() == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls

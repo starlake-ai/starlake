@@ -46,7 +46,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                |${sink.getClusterByClauseSQL()}
                |AS ($lastSql)
                |""".stripMargin
-          if (strategy.`type` == WriteStrategyType.SCD2) {
+          if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
             val startTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2StartTimestamp TIMESTAMP"
             val endTs =
@@ -64,7 +64,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
         val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
         val insertSqls =
-          if (strategy.`type` == WriteStrategyType.OVERWRITE) {
+          if (strategy.getStrategyType() == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
@@ -80,7 +80,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.`type` == WriteStrategyType.SCD2) {}
+            if (strategy.getStrategyType() == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls
