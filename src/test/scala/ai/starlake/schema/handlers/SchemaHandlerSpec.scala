@@ -227,6 +227,7 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
         sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
         loadPending
@@ -234,8 +235,8 @@ class SchemaHandlerSpec extends TestHelper {
         // We are by  default in ingestion Time strategy
         // Since full is loaded first, it will be the base for the delta
 
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
 
         val acceptedFullDelta: Array[Row] = sparkSession
           .sql(
@@ -256,8 +257,8 @@ class SchemaHandlerSpec extends TestHelper {
 
         acceptedFullDelta should contain theSameElementsAs expectedFullDelta
         sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
 
         val acceptedDeltaFull: Array[Row] = sparkSession
           .sql(
