@@ -32,7 +32,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         datasetDomainName = "jsonmultiline",
         sourceDatasetPathName = "/sample/jsonmultiline/complex-multiline.json"
       ) {
-
+        sparkSession.sql("DROP DATABASE IF EXISTS jsonmultiline CASCADE")
         cleanMetadata
         cleanDatasets
 
@@ -43,9 +43,11 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
         // Accepted should have the same data as input
+        val location = getTablePath(datasetDomainName, "sample_json")
         val resultDf = sparkSession.read
-          .parquet(
-            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
+          .format(settings.appConfig.defaultWriteFormat)
+          .load(
+            s"$location/${getTodayPartitionPath}"
           )
 
         logger.info(resultDf.showString(truncate = 0))

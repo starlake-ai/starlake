@@ -3,13 +3,15 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
+import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, Utils}
-import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.jdbc.JdbcDialect
+import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
@@ -31,9 +33,6 @@ class JdbcAutoTask(
       resultPageSize
     ) {
 
-  val jdbcEngineName = this.connection.getJdbcEngineName()
-  val jdbcEngine = settings.appConfig.jdbcEngines(jdbcEngineName.toString)
-
   def extractJdbcAcl(): List[String] = {
     taskDesc.acl.flatMap { ace =>
       /*
@@ -48,31 +47,38 @@ class JdbcAutoTask(
     AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
 
   override def run(): Try[JobResult] = {
-    runJDBC()
+    runJDBC(None)
   }
 
-  lazy val tableExists: Boolean = {
-    JdbcDbUtils.withJDBCConnection(connection) { conn =>
-      JdbcDbUtils.tableExists(conn, connection.jdbcUrl, fullTableName)
+  override def tableExists: Boolean = {
+    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      val url = sinkConnection.options("url")
+      val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
+      if (!exists && taskDesc._auditTableName.isDefined)
+        createAuditTable(
+          conn
+        ) // We are sinking to an audit table. We need to create it first in JDBC
+      else
+        exists
     }
   }
 
-  private def createAuditTable(conn: java.sql.Connection): Boolean = {
+  def createAuditTable(conn: java.sql.Connection): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
     val entry = taskDesc._auditTableName.getOrElse(
       throw new Exception(
-        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcEngineName"
+        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
       )
     )
-    val scriptTemplate = jdbcEngine.tables(entry).createSql
-    JdbcDbUtils.createSchema(fullDomainName, conn)
+    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+    JdbcDbUtils.createSchema(conn, fullDomainName)
 
     val script = scriptTemplate.richFormat(
       Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
       Map.empty
     )
-    JdbcDbUtils.execute(script, conn) match {
+    JdbcDbUtils.executeUpdate(script, conn) match {
       case Success(_) =>
         true
       case Failure(e) =>
@@ -81,74 +87,92 @@ class JdbcAutoTask(
     }
   }
 
-  @throws[Exception]
-  def runSqls(conn: Connection, sqls: List[String]): Unit = {
-    sqls.foreach { req =>
-      logger.info(s"running sql request $req")
-      JdbcDbUtils.execute(req, conn) match {
-        case Success(_) =>
-        case Failure(e) =>
-          logger.error(s"Error running sql $req", e)
-          throw e
-      }
+  def addSCD2Columns(connection: Connection): Unit = {
+    this.taskDesc.writeStrategy match {
+      case Some(strategyOptions) if strategyOptions.getStrategyType() == WriteStrategyType.SCD2 =>
+        val startTsCol = strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTsCol = strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val scd2Columns = List(startTsCol, endTsCol)
+        val alterTableSqls = scd2Columns.map { column =>
+          s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP"
+        }
+        runSqls(connection, alterTableSqls, "addSCE2Columns")
+      case _ =>
     }
   }
+  override def buildAllSQLQueries(sql: Option[String]): String = {
+    assert(taskDesc.parseSQL.getOrElse(true))
+    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
+    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
+      strategy,
+      sqlWithParameters,
+      fullTableName,
+      columnNames,
+      tableExists,
+      truncate = truncate,
+      materializedView = isMaterializedView(),
+      jdbcSinkEngine,
+      sinkConfig
+    )
+    mainSql
+  }
 
-  def runJDBC(): Try[JdbcJobResult] = {
+  def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
+
+    if (settings.appConfig.createSchemaIfNotExists) {
+      // Creating a schema requires its own connection if called before a Spark save
+      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+        JdbcDbUtils.createSchema(conn, fullDomainName)
+      }
+    }
+
     val res = Try {
-      JdbcDbUtils.withJDBCConnection(connection) { conn =>
-        val dynamicPartitionOverwrite = None // No partition in snowflake / redshift / postgresql
-        val (preSql, sqlWithParameters, postSql, asTable) =
-          buildAllSQLQueries(tableExists, dynamicPartitionOverwrite, None, Engine.JDBC, Nil)
-        logger.info(s"""$sqlWithParameters""")
-        logger.info(s"running sql request using JDBC driver")
+      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+        val mainSql =
+          if (df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+            buildAllSQLQueries(None)
+          } else {
+            taskDesc.getSql()
+          }
         interactive match {
           case Some(_) =>
-            val stmt = conn.createStatement()
-            try {
-              val rs = stmt.executeQuery(sqlWithParameters)
-              val result = new ListBuffer[List[String]]
-              var i = 1
-              val headerAsSeq = new ListBuffer[String]
-              while (i <= rs.getMetaData.getColumnCount) {
-                headerAsSeq.append(rs.getMetaData.getColumnName(i))
-                i += 1
-              }
-              while (rs.next) {
-                val rowAsSeq = new ListBuffer[String]
-                var i = 1
-                while (i <= rs.getMetaData.getColumnCount) {
-                  rowAsSeq.append(Option(rs.getObject(i)).map(_.toString).getOrElse(""))
-                  i += 1
-                }
-                result.append(rowAsSeq.toList)
-              }
-              JdbcJobResult(headerAsSeq.toList, result.toList)
-            } finally {
-              stmt.close()
-            }
+            runInteractive(conn, mainSql)
           case None =>
-            val jdbcDialect =
-              connection.options.get("url") match {
-                case Some(url) =>
-                  val jdbcDialect = connection.dialect
-                  logger.debug(s"JDBC dialect $jdbcDialect")
-                  jdbcDialect
-                case None =>
-                  logger.warn("No url found in jdbc options. Using default dialect")
-                  new JdbcDialect {
-                    override def canHandle(url: String): Boolean = true
-                  }
-              }
             conn.setAutoCommit(false)
             val parsedPreActions =
-              Utils.parseJinja(jdbcEngine.preactions, Map("schema" -> taskDesc.domain))
+              Utils.parseJinja(jdbcSinkEngine.preactions, Map("schema" -> taskDesc.domain))
             Try {
-              runPreActions(conn, parsedPreActions.split(";").toList)
-              runSqls(conn, preSql)
-              runMainSql(sqlWithParameters, conn, jdbcDialect)
-              runSqls(conn, postSql)
+              runPreActions(conn, parsedPreActions.splitSql(";"))
+              runSqls(conn, preSql, "Pre")
+              df match {
+                case Some(loadedDF) =>
+                  logger.info(s"Writing dataframe to $fullTableName")
+                  val saveMode = strategy.getWriteMode().toSaveMode
+                  if (saveMode == SaveMode.Overwrite || truncate) {
+                    val jdbcUrl = sinkConnection.options("url")
+                    val dialect = SparkUtils.dialect(jdbcUrl)
+                    // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
+                    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+                      SparkUtils.truncateTable(conn, fullTableName)
+                    }
+                  }
+                  loadedDF.write
+                    .format("jdbc")
+                    .option("dbtable", fullTableName)
+                    .mode(SaveMode.Append) // truncate done above if requested
+                    .options(sinkConnection.options)
+                    .save()
+                case None =>
+                  val finalSqls = mainSql.splitSql()
+                  runSqls(conn, finalSqls, "Main")
+              }
+
+              applyJdbcAcl(sinkConnection, forceApply = true)
+              runSqls(conn, postSql, "Post")
+              addSCD2Columns(conn)
+
             } match {
               case Success(_) =>
                 conn.commit()
@@ -166,7 +190,6 @@ class JdbcAutoTask(
                 taskDesc.expectations,
                 storageHandler,
                 schemaHandler,
-                None,
                 new JdbcExpectationAssertionHandler(conn)
               ).run()
             }
@@ -184,83 +207,135 @@ class JdbcAutoTask(
     res
   }
 
-  val fullDomainName = taskDesc.database match {
+  private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {
+    val stmt = conn.createStatement()
+    try {
+      val rs = stmt.executeQuery(mainSql)
+      val result = new ListBuffer[List[String]]
+      var i = 1
+      val headerAsSeq = new ListBuffer[String]
+      while (i <= rs.getMetaData.getColumnCount) {
+        headerAsSeq.append(rs.getMetaData.getColumnName(i))
+        i += 1
+      }
+      while (rs.next) {
+        val rowAsSeq = new ListBuffer[String]
+        var i = 1
+        while (i <= rs.getMetaData.getColumnCount) {
+          rowAsSeq.append(Option(rs.getObject(i)).map(_.toString).getOrElse(""))
+          i += 1
+        }
+        result.append(rowAsSeq.toList)
+      }
+      JdbcJobResult(headerAsSeq.toList, result.toList)
+    } finally {
+      stmt.close()
+    }
+  }
+
+  lazy val fullDomainName = taskDesc.database match {
     case Some(db) => s"$db.${taskDesc.domain}"
     case None     => taskDesc.domain
   }
 
-  val fullTableName = s"$fullDomainName.${taskDesc.table}"
-
-  private def isMerge(sql: String): Boolean = {
-    sql.toLowerCase().contains("merge into")
-  }
+  lazy val fullTableName = s"$fullDomainName.${taskDesc.table}"
 
   private def runPreActions(conn: java.sql.Connection, preactions: List[String]): Unit = {
-    runSqls(conn, preactions)
+    runSqls(conn, preactions, "Preactions")
   }
 
-  private def runMainSql(
-    sqlWithParameters: String,
-    conn: java.sql.Connection,
-    jdbcDialect: JdbcDialect
-  ): Unit = {
-
-    // TODO: Make optional DOMAIN creation
-    if (settings.appConfig.createSchemaIfNotExists)
-      JdbcDbUtils.createSchema(fullDomainName, conn)
-    val materializedView = taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
-    val tableCreated =
-      if (!tableExists && taskDesc._auditTableName.isDefined) createAuditTable(conn)
-      else tableExists
-    val allSqls = sqlWithParameters.split(";\n")
-    val preMainSqls = allSqls.dropRight(1).toList
-    val lastSql = allSqls.last
-    val finalSqls =
-      if (!tableCreated) { // Table may have been created yet
-        // If table does not exist we know for sure that the sql request is a SELECT
-        if (materializedView)
-          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
-        else
-          List(s"CREATE TABLE $fullTableName AS $lastSql")
-
-      } else {
-        val mainSql =
-          if (isMerge(sqlWithParameters)) {
-            lastSql // it's a merge request.
-          } else {
-            taskDesc._auditTableName match {
-              case Some(_) =>
-                s"INSERT INTO $fullTableName $lastSql"
-              case None =>
-                // We will be inserting the resulting data into the target table.
-                val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
-                s"INSERT INTO $fullTableName($columns) $lastSql"
-
-            }
-          }
-        val mainSqlList = mainSql.split(";\n").toList
-        val insertSqls =
-          if (taskDesc.getWrite().toSaveMode == SaveMode.Overwrite) {
-            // If we are in overwrite mode we need to drop the table/truncate before inserting
-            if (materializedView) {
-              List(
-                s"DROP MATERIALIZED VIEW $fullTableName",
-                s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql"
-              )
-            } else {
-              List(jdbcDialect.getTruncateQuery(fullTableName)) ++ mainSqlList
-            }
-          } else {
-            val dropSqls =
-              if (truncate)
-                List(jdbcDialect.getTruncateQuery(fullTableName))
-              else
-                Nil
-            dropSqls ++ mainSqlList
-          }
-        insertSqls
+  @throws[Exception]
+  private def runSqls(conn: Connection, sqls: List[String], typ: String): Unit = {
+    if (sqls.nonEmpty) {
+      logger.info(s"running $typ SQL")
+      sqls.foreach { req =>
+        JdbcDbUtils.executeUpdate(req, conn) match {
+          case Success(_) =>
+          case Failure(e) =>
+            logger.error(s"Error running sql $req as $typ SQL", e)
+            throw e
+        }
       }
-    runSqls(conn, preMainSqls ++ finalSqls)
-    applyJdbcAcl(connection, forceApply = true)
+      logger.info(s"end running $typ SQL")
+    }
+  }
+
+  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
+    // update target table schema if needed
+    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val incomingSchemaWithSCD2 =
+      if (isSCD2) {
+        incomingSchema
+          .add(
+            StructField(
+              strategy.start_ts
+                .getOrElse(settings.appConfig.scd2StartTimestamp),
+              TimestampType,
+              nullable = true
+            )
+          )
+          .add(
+            StructField(
+              strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp),
+              TimestampType,
+              nullable = true
+            )
+          )
+      } else
+        incomingSchema
+    val sinkConnectionRefOptions = sinkConnection.options
+    val jdbcUrl = sinkConnectionRefOptions("url")
+    JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
+      val targetTableExists: Boolean = tableExists
+      if (targetTableExists) {
+        val existingSchema =
+          SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
+        val addedSchema =
+          SparkUtils.added(
+            incomingSchemaWithSCD2,
+            existingSchema.getOrElse(incomingSchema)
+          )
+        val deletedSchema =
+          SparkUtils.dropped(
+            incomingSchema,
+            existingSchema.getOrElse(incomingSchema)
+          )
+        val alterTableDropColumns =
+          SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
+        if (alterTableDropColumns.nonEmpty) {
+          logger.info(
+            s"alter table $tableName with ${alterTableDropColumns.size} columns to drop"
+          )
+          logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
+        }
+
+        val alterTableAddColumns =
+          SparkUtils.alterTableAddColumnsString(addedSchema, tableName)
+        if (alterTableAddColumns.nonEmpty) {
+          logger.info(
+            s"alter table $tableName with ${alterTableAddColumns.size} columns to add"
+          )
+          logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
+        }
+
+        alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+        alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+        // At this point if the table exists, it has the same schema as the dataframe
+        // And if it's a SCD2, it has the 2 extra timestamp columns
+      } else {
+        val optionsWrite =
+          new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
+        logger.info(
+          s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
+        )
+        SparkUtils.createTable(
+          conn,
+          tableName,
+          incomingSchemaWithSCD2,
+          caseSensitive = false,
+          optionsWrite
+        )
+      }
+    }
   }
 }

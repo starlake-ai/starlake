@@ -62,7 +62,7 @@ class PositionIngestionJob(
     * @return
     *   Spark DataFrame where each row holds a single string
     */
-  override protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val dfIn = mergedMetadata.getEncoding().toUpperCase match {
         case "UTF-8" =>
@@ -123,7 +123,7 @@ class PositionIngestionJob(
         (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }

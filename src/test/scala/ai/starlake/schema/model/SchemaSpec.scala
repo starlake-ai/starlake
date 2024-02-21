@@ -123,38 +123,35 @@ class SchemaSpec extends TestHelper {
     }
     "Ignore attribute " should "be used only when file format is flat DSV, SIMPLE_JSON, POSITION" in {
       val meta = new Metadata(
-        Some(Mode.FILE),
-        Some(Format.JSON),
-        None,
-        Some(false),
-        Some(false),
-        Some(true),
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(".*")
+        mode = Some(Mode.FILE),
+        format = Some(Format.JSON),
+        encoding = None,
+        multiline = Some(false),
+        array = Some(false),
+        withHeader = Some(true),
+        separator = None,
+        quote = None,
+        escape = None,
+        sink = None,
+        ignore = Some(".*")
       )
-
       meta
         .checkValidity(schemaHandler)
         .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
     }
     "Ignore attribute " should "on DSV should be UDF" in {
       val meta = new Metadata(
-        Some(Mode.FILE),
-        Some(Format.DSV),
-        None,
-        Some(false),
-        Some(false),
-        Some(true),
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(".*")
+        mode = Some(Mode.FILE),
+        format = Some(Format.DSV),
+        encoding = None,
+        multiline = Some(false),
+        array = Some(false),
+        withHeader = Some(true),
+        separator = None,
+        quote = None,
+        escape = None,
+        sink = None,
+        ignore = Some(".*")
       )
       val res = meta.checkValidity(schemaHandler)
       meta

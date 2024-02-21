@@ -71,7 +71,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None,
+        writeStrategy = None,
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -101,8 +101,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      val result = sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      val result = sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -131,7 +131,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        merge = None
+        writeStrategy = None
       )
       val businessJobDef = mapper
         .writer()
@@ -175,7 +175,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        merge = None,
+        writeStrategy = None,
         sink = Some(FsSink().toAllSinks())
       )
       val businessJobDef = mapper
@@ -201,14 +201,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
       )
 
+      sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
       workflow.autoJob(
         TransformConfig("user.user")
       )
 
-      val result = sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      val result = sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -233,7 +234,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None,
+        writeStrategy = None,
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -262,8 +263,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      sparkSession
+        .table("user.user")
         .select("firstname", "lastname", "age")
         .take(6)
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
@@ -275,6 +276,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
+      sparkSession.sql("DROP DATABASE IF EXISTS user CASCADE")
 
       val userView = s"${settings.appConfig.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
@@ -287,7 +289,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None,
+        writeStrategy = None,
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -316,8 +318,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("user.user"))
 
-      sparkSession.read
-        .load(pathUserDatasetBusiness.toString)
+      sparkSession
+        .table("user.user")
         .select("fullName")
         .take(7)
         .map(r => r.getString(0))
@@ -348,7 +350,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |""".stripMargin
         ),
         python = None,
-        merge = None,
+        writeStrategy = None,
         sink = Some(FsSink().toAllSinks())
       )
       val configJob =
@@ -375,8 +377,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
 
-      val result = sparkSession.read
-        .load(pathGraduateDatasetProgramBusiness.toString)
+      val result = sparkSession
+        .table("graduateProgram.output")
         .select("*")
 
       result
@@ -416,7 +418,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        merge = None
+        writeStrategy = None
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
@@ -433,7 +435,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        outputPartition = sink.flatMap(_.timestamp),
+        outputPartition = sink.flatMap(_.getPartitionColumn()),
         outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
         days = sink.flatMap(_.days),
         requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),

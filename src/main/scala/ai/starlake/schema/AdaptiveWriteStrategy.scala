@@ -2,25 +2,15 @@ package ai.starlake.schema
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.FileInfo
-import ai.starlake.schema.model.WriteStrategyType.{
-  APPEND,
-  OVERWRITE,
-  OVERWRITE_BY_PARTITION,
-  SCD2,
-  UPSERT_BY_KEY,
-  UPSERT_BY_KEY_AND_TIMESTAMP
-}
-
-import ai.starlake.schema.model.{ConnectionType, Schema, WriteMode, WriteStrategyType}
+import ai.starlake.schema.model.WriteStrategyType._
+import ai.starlake.schema.model.{Schema, WriteStrategyType}
 import ai.starlake.utils.CompilerUtils
 import com.typesafe.scalalogging.LazyLogging
 
 import java.time.ZonedDateTime
 import java.time.temporal.{ChronoField, TemporalAdjusters}
 import java.util.regex.Matcher
-import scala.collection.Iterable
 import scala.util.{Failure, Success, Try}
-import scala.collection.immutable.Seq
 
 object AdaptiveWriteStrategy extends LazyLogging {
 
@@ -91,11 +81,9 @@ object AdaptiveWriteStrategy extends LazyLogging {
         strategy match {
           case APPEND.value =>
             schema.copy(
-              merge = None,
               metadata = schema.metadata.map(m =>
                 m.copy(
-                  write = Some(WriteMode.APPEND),
-                  sink = m.sink.map(_.copy(dynamicPartitionOverwrite = Some(false))),
+                  sink = m.sink,
                   writeStrategy = m.writeStrategy.map(
                     _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
                   )
@@ -104,11 +92,9 @@ object AdaptiveWriteStrategy extends LazyLogging {
             )
           case OVERWRITE.value =>
             schema.copy(
-              merge = None,
               metadata = schema.metadata.map(m =>
                 m.copy(
-                  write = Some(WriteMode.OVERWRITE),
-                  sink = m.sink.map(_.copy(dynamicPartitionOverwrite = Some(false))),
+                  sink = m.sink,
                   writeStrategy = m.writeStrategy.map(
                     _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
                   )
@@ -116,30 +102,33 @@ object AdaptiveWriteStrategy extends LazyLogging {
               )
             )
           case UPSERT_BY_KEY.value =>
+            val key = schema.metadata.flatMap(_.writeStrategy.map(_.key)).getOrElse(Nil)
             require(
-              schema.merge.exists(_.key.nonEmpty),
+              key.nonEmpty,
               s"Using UPSERT_BY_KEY for schema ${schema.name} requires to set merge.key on it"
             )
             schema.copy(
               metadata = schema.metadata.map(m =>
                 m.copy(
-                  sink = m.sink.map(_.copy(dynamicPartitionOverwrite = Some(false))),
+                  sink = m.sink,
                   writeStrategy = m.writeStrategy.map(
                     _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
                   )
                 )
-              ),
-              merge = schema.merge.map(_.copy(timestamp = None))
+              )
             )
           case UPSERT_BY_KEY_AND_TIMESTAMP.value =>
+            val key = schema.metadata.flatMap(_.writeStrategy.map(_.key)).getOrElse(Nil)
+            val timestamp = schema.metadata.flatMap(_.writeStrategy.flatMap(_.timestamp))
+
             require(
-              schema.merge.exists(_.key.nonEmpty) && schema.merge.exists(_.timestamp.nonEmpty),
+              key.nonEmpty && timestamp.nonEmpty,
               s"Using ${UPSERT_BY_KEY_AND_TIMESTAMP.value} for schema ${schema.name} requires to set merge.key and merge.timestamp on it"
             )
             schema.copy(
               metadata = schema.metadata.map(m =>
                 m.copy(
-                  sink = m.sink.map(_.copy(dynamicPartitionOverwrite = Some(false))),
+                  sink = m.sink,
                   writeStrategy = m.writeStrategy.map(
                     _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
                   )
@@ -148,20 +137,15 @@ object AdaptiveWriteStrategy extends LazyLogging {
             )
           case OVERWRITE_BY_PARTITION.value =>
             val connectionTypeOpt = sinksOpt.map(_.getSink().getConnectionType())
+            val partition = sinksOpt.flatMap(_.partition).getOrElse(Nil)
             require(
-              connectionTypeOpt.contains(ConnectionType.BQ) &&
-              sinksOpt.flatMap(_.timestamp).nonEmpty ||
-              !connectionTypeOpt.contains(ConnectionType.BQ) &&
-              sinksOpt
-                .flatMap(_.partition)
-                .exists(_.attributes.nonEmpty),
+              partition.nonEmpty,
               s"Using ${OVERWRITE_BY_PARTITION.value} for schema ${schema.name} requires to one of merge.key, metadata.sink.timestamp or metadata.sink.partition depending on connection type."
             )
             schema.copy(
-              merge = None,
               metadata = schema.metadata.map(m =>
                 m.copy(
-                  sink = m.sink.map(_.copy(dynamicPartitionOverwrite = Some(true))),
+                  sink = m.sink,
                   writeStrategy = m.writeStrategy.map(
                     _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
                   )
