@@ -1,13 +1,18 @@
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Setup {
+public class Setup implements X509TrustManager, HostnameVerifier {
 
     private static class JarDependency {
 
@@ -295,6 +300,45 @@ public class Setup {
         return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
     }
 
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+        return new X509Certificate[0];
+    }
+
+    @Override
+    public boolean verify(String hostname, SSLSession session) {
+        return true;
+    }
+
+    private static final Setup instance = new Setup();
+    private static final TrustManager alwaysTrustManager = instance;
+
+    private static final HostnameVerifier allHostsValid = instance;
+
+    public static void setTrustManager(boolean insecure) throws NoSuchAlgorithmException, KeyManagementException {
+        if(host != null && insecure) {
+            System.out.println("Enabling insecure mode for SSL connections");
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[] {alwaysTrustManager};
+
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Install the all-trusting host verifier
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -311,6 +355,7 @@ public class Setup {
 
             setProxy();
 
+            setTrustManager(getEnv("SL_INSECURE").orElse("false").equalsIgnoreCase("true"));
 
             if (!anyDependencyEnabled()) {
                 ENABLE_AZURE = true;
