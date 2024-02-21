@@ -17,6 +17,9 @@ __Bug Fix__:
 - Use default load format during native ingestion
 - Mysql extraction could fetch wrong table's information
 - Data extraction fresh enough was done on any success state, it now only consider successful extractions
+- Align infered schema primitive's type with the one declared `types.sl.yml`.
+- Fix dockerfile for latest Alpine by adding bash package
+- Fix precedence of data extraction mode
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
