@@ -32,7 +32,13 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
                 partition = Some(List("timestampCol"))
               )
             ),
-            writeStrategy = Some(WriteStrategy(types = Some(givenStrategies)))
+            writeStrategy = Some(
+              WriteStrategy(
+                types = Some(givenStrategies),
+                key = List("key1", "key2"),
+                timestamp = Some("timestampCol")
+              )
+            )
           )
         ),
         None
@@ -94,7 +100,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
 
         upsertByKeyAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
-          .map(_.timestamp) shouldBe Some("timestampCol")
+          .flatMap(_.timestamp) shouldBe Some("timestampCol")
 
         val overwriteByPartitionAdaptedSchema = AdaptiveWriteStrategy.adapt(
           testSchema,
@@ -133,7 +139,13 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
                 partition = Some(List("timestampCol"))
               )
             ),
-            writeStrategy = Some(WriteStrategy(types = Some(givenStrategies)))
+            writeStrategy = Some(
+              WriteStrategy(
+                types = Some(givenStrategies),
+                key = List("key1", "key2"),
+                timestamp = Some("timestampCol")
+              )
+            )
           )
         ),
         None

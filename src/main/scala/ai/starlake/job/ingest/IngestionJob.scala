@@ -398,7 +398,7 @@ trait IngestionJob extends SparkJob {
       this.schema.finalName
     )
     val tableExists = bigqueryJob.tableExists(tableId)
-    val isSCD2 = strategy.`type` == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
     def bqSchemaWithSCD2(incomingTableSchema: BQSchema) = {
       if (
         isSCD2 && !incomingTableSchema.getFields.asScala.exists(

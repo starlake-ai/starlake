@@ -14,12 +14,14 @@ load:
       types:
         APPEND: 'group(1) == "DELTA"'
         OVERWRITE: 'group(1) == "FULL"'
+      type: "UPSERT_BY_KEY"
+      key:
+        - "PK"
     sink:
       partition:
-        attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+        - sl_year
+        - sl_month
+        - sl_day
   tables:
     - name: "Players"
       pattern: "Players-(.*).csv"
@@ -75,9 +77,5 @@ load:
         write: "APPEND"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
-      merge:
-        key:
-          - "PK"
+            - "YEAR"
+            - "MONTH"
