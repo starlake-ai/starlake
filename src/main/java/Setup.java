@@ -52,9 +52,16 @@ public class Setup {
                 host = hostAndPort;
             }
         } else if (proxy.contains(":")) {
-            final String[] hostAndPort = proxy.split(":");
-            host = hostAndPort[0];
-            port = Integer.parseInt(hostAndPort[1]);
+            final String[] schemeWithHostAndPort = proxy.split("//");
+            if(schemeWithHostAndPort.length > 1) {
+                final String[] hostAndPort = schemeWithHostAndPort[1].split(":");
+                host = hostAndPort[0];
+                port = Integer.parseInt(hostAndPort[1]);
+            } else {
+                final String[] hostAndPort = schemeWithHostAndPort[0].split(":");
+                host = hostAndPort[0];
+                port = Integer.parseInt(hostAndPort[1]);
+            }
         } else {
             host = proxy;
         }
