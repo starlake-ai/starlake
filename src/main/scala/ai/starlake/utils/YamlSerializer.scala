@@ -244,18 +244,16 @@ object YamlSerializer extends LazyLogging {
         // merge nod and strategy node are both missing we will use metadata.write value
         if (!metadataNode.isMissingNode) {
           if (metadataNode.path("writeStrategy").isMissingNode()) {
-            val strategyNode =
-              metadataNode.asInstanceOf[ObjectNode].path("write") match {
-                case node if node.isMissingNode => // do nothing
+            val writeNode = metadataNode.asInstanceOf[ObjectNode].path("write")
+            if (!writeNode.isMissingNode()) {
+              val writeType = writeNode.asInstanceOf[TextNode].textValue().toUpperCase()
+              val strategyNode =
+                if (writeType == "OVERWRITE")
+                  mapper.readTree("{type: OVERWRITE}")
+                else
                   mapper.readTree("{type: APPEND}")
-                case node =>
-                  val writeType = node.asInstanceOf[TextNode].textValue().toUpperCase()
-                  if (writeType == "OVERWRITE")
-                    mapper.readTree("{type: OVERWRITE}")
-                  else
-                    mapper.readTree("{type: APPEND}")
-              }
-            metadataNode.asInstanceOf[ObjectNode].set("writeStrategy", strategyNode)
+              metadataNode.asInstanceOf[ObjectNode].set("writeStrategy", strategyNode)
+            }
           }
         }
     }
