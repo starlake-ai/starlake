@@ -53,7 +53,7 @@ launch_setup() {
       exit 1
     fi
   fi
-  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR"
+  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR" unix
 }
 
 launch_starlake() {

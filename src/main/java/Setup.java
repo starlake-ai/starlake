@@ -184,7 +184,7 @@ public class Setup {
     }
 
     private static void generateUnixVersions(File targetDir) throws IOException {
-        generateVersions(targetDir, "#!/bin/bash\nset -e\n\n",
+        generateVersions(targetDir, "versions.sh", "#!/bin/bash\nset -e\n\n",
                 (writer) -> (variableName, value) -> {
                     try {
                         writer.write(variableName + "=" + "${" + variableName + ":-" + value + "}\n");
@@ -195,7 +195,7 @@ public class Setup {
     }
 
     private static void generateWindowsVersions(File targetDir) throws IOException {
-        generateVersions(targetDir, "@ECHO OFF\n\n",
+        generateVersions(targetDir, "versions.cmd", "@ECHO OFF\n\n",
                 (writer) -> (variableName, value) -> {
                     try {
                         writer.write(
@@ -209,8 +209,7 @@ public class Setup {
     }
 
     // Used BiConsumer with Function because TriConsumer doesn't exist natively and avoid creating a new type
-    private static void generateVersions(File targetDir, String fileHeader, Function<BufferedWriter, BiConsumer<String, String>> variableWriter) throws IOException {
-        String versionsFileName = isWindowsOs() ? "versions.cmd" : "versions.sh";
+    private static void generateVersions(File targetDir, String versionsFileName, String fileHeader, Function<BufferedWriter, BiConsumer<String, String>> variableWriter) throws IOException {
         File versionFile = new File(targetDir, versionsFileName);
         deleteFile(versionFile);
         BufferedWriter writer = new BufferedWriter(new FileWriter(versionFile));
@@ -252,8 +251,8 @@ public class Setup {
         System.out.println(versionFile.getAbsolutePath() + " created");
     }
 
-    private static void generateVersions(File targetDir) throws IOException {
-        if (isWindowsOs()) {
+    private static void generateVersions(File targetDir, boolean unix) throws IOException {
+        if (isWindowsOs() && !unix) {
             generateWindowsVersions(targetDir);
         } else {
             generateUnixVersions(targetDir);
@@ -276,6 +275,8 @@ public class Setup {
                 targetDir.mkdirs();
                 System.out.println("Created target directory " + targetDir.getAbsolutePath());
             }
+
+            boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
 
             setProxy();
 
@@ -330,7 +331,7 @@ public class Setup {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
-            generateVersions(targetDir);
+            generateVersions(targetDir, unix);
         } catch (Exception e) {
             System.out.println("Failed to download dependencies from maven central" + e.getMessage());
             e.printStackTrace();
