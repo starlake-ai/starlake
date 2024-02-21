@@ -10,12 +10,6 @@ load:
     quote: "\""
     escape: "\\"
     write: "OVERWRITE"
-    sink:
-      partition:
-        attributes:
-          - sl_year
-          - sl_month
-          - sl_day
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
@@ -44,12 +38,12 @@ load:
           required: true
           privacy: "NONE"
         - name: "YEAR"
-          type: "string"
+          type: "int"
           array: false
           required: false
           privacy: "NONE"
         - name: "MONTH"
-          type: "string"
+          type: "int"
           array: false
           required: false
           privacy: "NONE"

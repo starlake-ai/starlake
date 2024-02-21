@@ -1,0 +1,32 @@
+table:
+    name: "flat_locations"
+    pattern: "flat_locations-.*.json"
+    primaryKey:
+      - id
+    writeStrategy:
+      type: "OVERWRITE"
+    metadata:
+      array: false
+      format: "JSON"
+      schedule: "0 0 * * *"
+    acl:
+      - role: viewer
+        grants:
+          - "user:me@me.com"
+          - "user:you@me.com"
+      - role: owner
+        grants:
+          - "user:me@you.com"
+          - "user:you@you.com"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: true
+      - name: "city"
+        type: "string"
+        required: true
+      - name: "country"
+        type: "string"
+        required: true
+    expectations:
+      - "is_col_value_not_unique('id') => count == 0"

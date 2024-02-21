@@ -10,18 +10,16 @@ application:
     postgresql:
       type: jdbc
       options:
-        url: "jdbc:postgresql:starlake"
+        url: "jdbc:postgresql:{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
-        supportTruncateOnInsert: false
-        user: "hruser"
-        password: "dbuser123"
+        user: "{{POSTGRES_USER}}"
+        password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
     redshift:
       type: jdbc
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
-        supportTruncateOnInsert: false
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
@@ -39,9 +37,9 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        writeMethod: "direct" # direct or indirect
+        writeMethod: "indirect" # direct or indirect
         location: "europe-west1" # EU or US
-        #gcsBucket: "starlake-app" # required in indirect mode only
+        gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE

@@ -10,9 +10,9 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
 
   override def sampleDataDir = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    "Native Snowflake Transform" should "succeed" in {
+    "Native Bigquery Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"                                        -> "BQ",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",

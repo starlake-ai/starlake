@@ -26,24 +26,27 @@ class Parquet2CSVSpec extends TestHelper {
       Some(new Path(outputDir.pathAsString)),
       Some(domainName),
       Some(schemaName),
-      Some(WriteMode.ERROR_IF_EXISTS),
+      Some(WriteMode.OVERWRITE),
 //      deleteSource = false,
       options = Map("sep" -> "|", "header" -> "true")
 //      partitions = 1
     )
 
-    def createParquet(): Unit = {
+    def createWithWriteDefaultFormat(): Unit = {
       val data = List(
         Schema("12345", "A009701", 123.65, "AQZERD"),
         Schema("56432", "A000000", 23.8, "AQZERD"),
         Schema("12345", "A009701", 123.6, "AQZERD")
       )
       val dataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data))
-      dataFrame.write.mode(SaveMode.ErrorIfExists).parquet(schemaPath.pathAsString)
+      dataFrame.write
+        .mode(SaveMode.Overwrite)
+        .format(settings.appConfig.defaultWriteFormat)
+        .save(schemaPath.pathAsString)
     }
 
     "Convert schema" should "succeed" in {
-      createParquet()
+      createWithWriteDefaultFormat()
       new Parquet2CSV(config, storageHandler).run()
       val csvFile = File(outputDir.pathAsString, domainName, schemaName + ".csv")
       val result = Utils.withResources(Source.fromFile(csvFile.uri)) { csvFileSource =>
@@ -60,7 +63,7 @@ class Parquet2CSVSpec extends TestHelper {
       expected should contain theSameElementsAs result
     }
     "Convert schema" should "succeed delete source after completion" in {
-      createParquet()
+      createWithWriteDefaultFormat()
       val inputPath = File(rootDir.pathAsString, domainName, schemaName)
       inputPath.exists shouldBe true
       new Parquet2CSV(config.copy(deleteSource = true), storageHandler).run()
@@ -68,7 +71,7 @@ class Parquet2CSVSpec extends TestHelper {
       rootDir.delete()
     }
     "Convert schema" should "convert all schemas in domain" in {
-      createParquet()
+      createWithWriteDefaultFormat()
       val inputPath = File(rootDir.pathAsString, domainName, schemaName)
       inputPath.exists shouldBe true
       val csvFile = File(outputDir.pathAsString, domainName, schemaName + ".csv")
@@ -78,7 +81,7 @@ class Parquet2CSVSpec extends TestHelper {
       rootDir.delete()
     }
     "Convert schema" should "convert all domains and schemas in path" in {
-      createParquet()
+      createWithWriteDefaultFormat()
       val inputPath = File(rootDir.pathAsString, domainName, schemaName)
       inputPath.exists shouldBe true
       val csvFile = File(outputDir.pathAsString, domainName, schemaName + ".csv")
@@ -118,7 +121,7 @@ class Parquet2CSVSpec extends TestHelper {
           |  --domain <value>         Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted
           |  --schema <value>         Schema name to convert. If not specified, all schemas are converted.
           |  --delete_source          Should we delete source parquet files after conversion ?
-          |  --write_mode <value>     One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+          |  --write_mode <value>     One of Set(OVERWRITE,APPEND)
           |  --options k1=v1,k2=v2...
           |                           Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |  --partitions <value>     How many output partitions
@@ -170,7 +173,7 @@ class Parquet2CSVSpec extends TestHelper {
           |--domain:`<value>`|*Optional*|Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted
           |--schema:`<value>`|*Optional*|Schema name to convert. If not specified, all schemas are converted.
           |--delete_source:`<value>`|*Optional*|Should we delete source parquet files after conversion ?
-          |--write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+          |--write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND)
           |--options:`k1=v1,k2=v2...`|*Optional*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |--partitions:`<value>`|*Optional*|How many output partitions
           |""".stripMargin

@@ -24,7 +24,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2"),
+        settings.appConfig.connections("test-pg"),
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -39,7 +39,7 @@ class ExtractSpec extends TestHelper {
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2"),
+        settings.appConfig.connections("test-pg"),
         None
       ) { case (domain, _, _) =>
         assert(domain.metadata.isEmpty)
@@ -53,7 +53,7 @@ class ExtractSpec extends TestHelper {
     domainTemplate: Option[Domain]
   )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
   (implicit settings: Settings) = {
-    val jdbcOptions = settings.appConfig.connections("test-h2")
+    val jdbcOptions = settings.appConfig.connections("test-pg")
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),
       jdbcOptions.options("user"),
@@ -61,7 +61,7 @@ class ExtractSpec extends TestHelper {
     )
     val sql: String =
       """
-        |drop table if exists test_table1;
+        |drop table if exists test_table1 cascade;
         |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
         |create view test_view1 AS SELECT NAME FROM test_table1;
         |insert into test_table1 values (1,'A');""".stripMargin
@@ -99,18 +99,18 @@ class ExtractSpec extends TestHelper {
         .tables
         .head
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
-      "ID"   -> "long",
-      "NAME" -> "string"
+      "id"   -> "long",
+      "name" -> "string"
     )
-    table.primaryKey should contain("ID")
-    table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\QTEST_TABLE1\\E.*"
+    table.primaryKey should contain("id")
+    table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
     val viewFile = publicOutputDir / "TEST_VIEW1.sl.yml"
     val view =
       YamlSerializer
         .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
         .tables
         .head
-    view.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\QTEST_VIEW1\\E.*"
+    view.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_view1\\E.*"
     assertOutput(domain, table, view)
   }
 
@@ -119,7 +119,7 @@ class ExtractSpec extends TestHelper {
       val input =
         """
           |extract:
-          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
           |    - catalog: "business" # Optional catalog name in the target database
           |      schema: "public" # Database schema where tables are located
@@ -148,7 +148,7 @@ class ExtractSpec extends TestHelper {
         YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
-        connectionRef = Some("test-h2"),
+        connectionRef = Some("test-pg"),
         jdbcSchemas = List(
           JDBCSchema(
             catalog = Some("business"),
@@ -189,7 +189,7 @@ class ExtractSpec extends TestHelper {
       val input =
         """
           |extract:
-          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  globalJdbcSchema:
           |    catalog: "business" # Optional catalog name in the target database
           |    schema: "public" # Database schema where tables are located
@@ -216,7 +216,7 @@ class ExtractSpec extends TestHelper {
         YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
-        connectionRef = Some("test-h2"),
+        connectionRef = Some("test-pg"),
         jdbcSchemas = List(
           JDBCSchema(
             catalog = Some("business"),
@@ -268,7 +268,7 @@ class ExtractSpec extends TestHelper {
       val input =
         """
           |extract:
-          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  globalJdbcSchema:
           |    catalog: "business" # Optional catalog name in the target database
           |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
@@ -289,7 +289,7 @@ class ExtractSpec extends TestHelper {
         YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
-        connectionRef = Some("test-h2"),
+        connectionRef = Some("test-pg"),
         jdbcSchemas = List(
           JDBCSchema(
             catalog = Some("business"),
@@ -336,7 +336,7 @@ class ExtractSpec extends TestHelper {
 
   "JDBC2Yml of some columns" should "should generate only the tables and columns requested" in {
     new WithSettings() {
-      val jdbcOptions = settings.appConfig.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -374,7 +374,7 @@ class ExtractSpec extends TestHelper {
             )
           )
         ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2"),
+        settings.appConfig.connections("test-pg"),
         tmpDir,
         None,
         None
@@ -396,15 +396,15 @@ class ExtractSpec extends TestHelper {
           .tables
           .head
       table.attributes
-        .map(_.name) should contain theSameElementsAs Set("ID")
+        .map(_.name) should contain theSameElementsAs Set("id")
       table.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
-      table.primaryKey should contain("ID")
+      table.primaryKey should contain("id")
     }
   }
 
   "JDBC2Yml with foreign keys" should "detect the foreign keys" in {
     new WithSettings() {
-      val jdbcOptions = settings.appConfig.connections("test-h2")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
@@ -436,7 +436,7 @@ class ExtractSpec extends TestHelper {
           None,
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-h2"),
+        settings.appConfig.connections("test-pg"),
         tmpDir,
         None,
         None
@@ -458,10 +458,10 @@ class ExtractSpec extends TestHelper {
           .tables
           .head
       table.attributes
-        .find(_.name == "TABLE1_ID")
+        .find(_.name == "table1_id")
         .get
         .foreignKey
-        .getOrElse("") should be("PUBLIC.TEST_TABLE1.ID")
+        .getOrElse("") should be("public.test_table1.id")
     }
   }
 

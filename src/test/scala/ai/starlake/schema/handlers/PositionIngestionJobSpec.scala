@@ -20,10 +20,11 @@
 
 package ai.starlake.schema.handlers
 
-import java.nio.charset.Charset
 import ai.starlake.TestHelper
 import better.files.File
+import org.apache.spark.sql.catalyst.TableIdentifier
 
+import java.nio.charset.Charset
 import scala.io.Codec
 
 class PositionIngestionJobSpec extends TestHelper {
@@ -39,14 +40,16 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS position CASCADE")
         cleanMetadata
         cleanDatasets
 
         logger.info(settings.appConfig.datasets)
         loadPending
+        val location = getTablePath("position", "account")
+        println(starlakeDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL")
 
         // Check archive
-
         readFileContent(
           starlakeDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL"
         ) shouldBe loadTextFile(
@@ -54,9 +57,11 @@ class PositionIngestionJobSpec extends TestHelper {
         )
 
         // Accepted should have the same data as input
+        println(s"$location/$getTodayPartitionPath")
         val acceptedDf = sparkSession.read
-          .parquet(
-            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
+          .format(settings.appConfig.defaultWriteFormat)
+          .load(
+            s"$location/$getTodayPartitionPath"
           )
         printDF(acceptedDf, "acceptedDf")
         acceptedDf.count() shouldBe
@@ -90,14 +95,21 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
       ) {
+        sparkSessionReset(settings)
         cleanMetadata
         cleanDatasets
         loadPending(new Codec(Charset forName "ISO-8859-1"))
+
+        val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
+          new TableIdentifier("DATA", Some("positionWithEncoding"))
+        )
+        val location = tblMetadata.location.getPath
+
         // Accepted should contain data formatted correctly
-        val path = starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
         val acceptedDf = sparkSession.read
-          .parquet(
-            path
+          .format(settings.appConfig.defaultWriteFormat)
+          .load(
+            location
           )
         acceptedDf.filter(acceptedDf("someData").contains("spécifié")).count() shouldBe 1
       }
@@ -114,10 +126,15 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanDatasets
         loadPending
         // Accepted should contain data formatted correctly
-        val acceptedDf = sparkSession.read
-          .parquet(
-            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATAREGEX"
-          )
+        val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
+          new TableIdentifier("DATAREGEX", Some(datasetDomainName))
+        )
+        val location = tblMetadata.location.getPath
+
+        val acceptedDf =
+          sparkSession.read
+            .format(settings.appConfig.defaultWriteFormat)
+            .load(location)
         acceptedDf.count() shouldBe 1
       }
     }
@@ -130,14 +147,12 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS positionWithIgnore CASCADE")
         cleanMetadata
         cleanDatasets
         loadPending
         // Accepted should contain data formatted correctly
-        val acceptedDf = sparkSession.read
-          .parquet(
-            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/DATAUDF"
-          )
+        val acceptedDf = sparkSession.table(s"${datasetDomainName}.DATAUDF")
         acceptedDf.count() shouldBe 1
       }
     }

@@ -9,7 +9,7 @@ metadata:
   escape: "\\"
   write: "OVERWRITE"
   encoding: "ISO-8859-1"
-schemas:
+tables:
   - name: "DATA"
     pattern: "data.*.dat"
     attributes:

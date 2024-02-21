@@ -72,7 +72,7 @@ class ParquetIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val format = mergedMetadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read
@@ -149,7 +149,7 @@ class ParquetIngestionJob(
         (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }

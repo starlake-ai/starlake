@@ -15,9 +15,9 @@ load:
     sink:
       partition:
         attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+          - year
+          - month
+          - day
   tables:
     - name: "locations"
       pattern: "locations.*"
@@ -44,6 +44,27 @@ load:
           required: true
           privacy: "NONE"
           metricType: "NONE"
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: false
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: false
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: false
+          privacy: "NONE"
+          metricType: "NONE"
     - name: "flat_locations"
       pattern: "flat-locations.*"
       metadata:
@@ -68,6 +89,27 @@ load:
         - name: "source_file_name"
           type: "string"
           script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
           array: false
           required: true
           privacy: "NONE"

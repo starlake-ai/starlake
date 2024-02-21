@@ -58,12 +58,9 @@ trait JdbcChecks {
   )(rowToEntity: ResultSet => T)(implicit settings: Settings): Assertion = {
 
     val jdbcOptions = settings.appConfig.connections(jdbcName)
-
-    val conn = DriverManager.getConnection(
-      jdbcOptions.options("url"),
-      jdbcOptions.options("user"),
-      jdbcOptions.options("password")
-    )
+    val user = jdbcOptions.options.getOrElse("user", "test")
+    val password = jdbcOptions.options.getOrElse("password", "test")
+    val conn = DriverManager.getConnection(jdbcOptions.options("url"), user, password)
     try {
       val lacksTheTable =
         /* lacks the table, and not https://www.ikea.com/us/en/p/lack-side-table-white-30449908/ */
@@ -73,7 +70,7 @@ trait JdbcChecks {
           None
         } catch {
           case ex: SQLException =>
-            ex.printStackTrace()
+            logger.warn(s"Table ${referenceDatasetName} does not exist")
             /* this is okay! we're almost certainly lacking a table, which is as good as empty for this purpose */
             Some(Vector.empty)
         }

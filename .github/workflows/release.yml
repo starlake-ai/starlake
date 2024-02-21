@@ -27,6 +27,6 @@ jobs:
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
-        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=starlake-app SL_GCP_TEST=true sbt coverage test coverageReport
+        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=starlake-app SL_REMOTE_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  SL_GCP_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
+        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'

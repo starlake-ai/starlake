@@ -25,16 +25,25 @@ object ExpectationItem {
     }
   }
 
-  def apply(call: String): ExpectationItem = {
-    call.indexOf("=>") match {
+  def apply(expr: String): ExpectationItem = {
+    expr.indexOf("=>") match {
       case -1 =>
-        call.indexOf(')') match {
-          case -1 => ExpectationItem(call, "")
+        expr.indexOf(')') match {
+          case -1 => ExpectationItem(expr, "")
           case i =>
-            ExpectationItem(call.substring(0, i + 1).trim, "count " + call.substring(i + 2).trim)
+            ExpectationItem(expr.substring(0, i + 1).trim, "count " + expr.substring(i + 2).trim)
         }
-        ExpectationItem(call, "")
-      case i => ExpectationItem(call.substring(0, i).trim, call.substring(i + 2).trim)
+        ExpectationItem(expr, "")
+      case i =>
+        val macroCall = expr.substring(0, i).trim
+        val expected = expr.substring(i + 2).trim
+        val parIndex = macroCall.indexOf("(")
+        val macroName =
+          if (parIndex > 0)
+            macroCall.substring(0, parIndex)
+          else
+            ""
+        ExpectationItem(macroCall, expected, Some(macroName))
     }
   }
 }
