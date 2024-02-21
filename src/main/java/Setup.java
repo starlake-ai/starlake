@@ -4,6 +4,8 @@ import java.net.URLConnection;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Setup {
 
@@ -23,8 +25,9 @@ public class Setup {
         }
     }
 
+    private static String protocol = null;
     private static String host = null;
-    private static int port = 80;
+    private static int port = 0;
     private static String username = null;
     private static String password = null;
 
@@ -41,59 +44,76 @@ public class Setup {
         if (proxy.isEmpty()) {
             return;
         }
-        if (proxy.contains("@")) {
-            username = proxy.split("@")[0].split(":")[1].substring(2);
-            password = proxy.split("@")[0].split(":")[2];
-            final String hostAndPort = proxy.split("@")[1];
-            if (hostAndPort.contains(":")) {
-                host = hostAndPort.split(":")[0];
-                port = Integer.parseInt(hostAndPort.split(":")[1]);
-            } else {
-                host = hostAndPort;
-            }
-        } else if (proxy.contains(":")) {
-            final String[] schemeWithHostAndPort = proxy.split("//");
-            if(schemeWithHostAndPort.length > 1) {
-                final String[] hostAndPort = schemeWithHostAndPort[1].split(":");
+        final Pattern pattern = Pattern.compile("(https?|socks5?):\\/\\/([^:].+)", Pattern.CASE_INSENSITIVE);
+        final Matcher m = pattern.matcher(proxy);
+        if(m.matches()) {
+            protocol = m.group(1).toLowerCase();
+            final String hostAndPortWithMaybeCredentials = m.group(2);
+            if (hostAndPortWithMaybeCredentials.contains("@")) {
+                final String[] hostAndPortWithCredentials = hostAndPortWithMaybeCredentials.split("@");
+                final String[] credentials = hostAndPortWithCredentials[0].split(":");
+                username = credentials[0];
+                password = credentials[1];
+                final String[] hostAndPort = hostAndPortWithCredentials[1].split(":");
                 host = hostAndPort[0];
-                if(hostAndPort.length > 1){
+                if(hostAndPort.length > 1) {
                     port = Integer.parseInt(hostAndPort[1]);
                 }
             } else {
-                final String[] hostAndPort = schemeWithHostAndPort[0].split(":");
+                final String[] hostAndPort = hostAndPortWithMaybeCredentials.split(":");
                 host = hostAndPort[0];
-                if(hostAndPort.length > 1){
+                if(hostAndPort.length > 1) {
                     port = Integer.parseInt(hostAndPort[1]);
                 }
             }
-        } else {
-            host = proxy;
+        }
+        else {
+            throw new IllegalArgumentException("Invalid proxy format: " + proxy);
         }
     }
 
 
-    private static void setJavaProxy(String protocol) {
+    private static void setJavaProxy() {
         if (host != null) {
-            System.setProperty(protocol + ".proxyHost", host);
-            System.setProperty(protocol + ".proxyPort", String.valueOf(port));
-        }
-        if (username != null) {
-            System.setProperty(protocol + ".proxyUser", username);
-        }
-        if (password != null) {
-            System.setProperty(protocol + ".proxyPassword", password);
+            if(protocol.startsWith("socks")){
+                if(port == 0) {
+                    port = 1080;
+                }
+                System.setProperty("socksProxyHost", host);
+                System.setProperty("socksProxyPort", String.valueOf(port));
+                if(username != null) {
+                    System.setProperty("java.net.socks.username", username);
+                }
+                if(password != null) {
+                    System.setProperty("java.net.socks.password", password);
+                }
+            } else {
+                if(port == 0) {
+                    if(protocol.equals("https")){
+                        port = 443;
+                    } else {
+                        port = 80;
+                    }
+                }
+                System.setProperty(protocol + ".proxyHost", host);
+                System.setProperty(protocol + ".proxyPort", String.valueOf(port));
+                if (username != null) {
+                    System.setProperty(protocol + ".proxyUser", username);
+                }
+                if (password != null) {
+                    System.setProperty(protocol + ".proxyPassword", password);
+                }
+            }
         }
     }
 
     private static void setProxy() {
         if (!httpsProxy.isEmpty()) {
-            port = 443;
             parseProxy(httpsProxy);
-            setJavaProxy("https");
+            setJavaProxy();
         } else if (!httpProxy.isEmpty()) {
-            port = 80;
             parseProxy(httpProxy);
-            setJavaProxy("http");
+            setJavaProxy();
         }
         if (!noProxy.isEmpty()) {
             System.setProperty("http.nonProxyHosts", noProxy);
