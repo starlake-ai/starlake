@@ -28,8 +28,8 @@ import java.sql.{
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-import scala.collection.{mutable, GenTraversable}
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -857,13 +857,15 @@ object JdbcDbUtils extends LazyLogging {
               val currentTableConnectionOptions =
                 currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
               // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-              val fullExport = extractConfig.fullExport ||
-                currentTableDefinition
-                  .flatMap(_.fullExport)
-                  .orElse(extractConfig.jdbcSchema.fullExport)
-                  .getOrElse(
-                    false
-                  ) // should not happen since fillWithDefaultValues should be called and have false as default one
+              val fullExport = extractConfig.fullExport
+                .orElse(
+                  currentTableDefinition
+                    .flatMap(_.fullExport)
+                )
+                .orElse(extractConfig.jdbcSchema.fullExport)
+                .getOrElse(
+                  true
+                )
 
               val fetchSize =
                 currentTableDefinition
