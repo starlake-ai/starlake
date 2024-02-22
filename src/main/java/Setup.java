@@ -77,7 +77,7 @@ public class Setup implements X509TrustManager, HostnameVerifier {
     }
 
 
-    private static void setJavaProxy() {
+    private static void setJavaProxy(boolean https) {
         if (host != null) {
             if(protocol.startsWith("socks")){
                 if(port == 0) {
@@ -92,6 +92,9 @@ public class Setup implements X509TrustManager, HostnameVerifier {
                     System.setProperty("java.net.socks.password", password);
                 }
             } else {
+                if(https){
+                    protocol = "https";
+                }
                 if(port == 0) {
                     if(protocol.equals("https")){
                         port = 443;
@@ -114,10 +117,10 @@ public class Setup implements X509TrustManager, HostnameVerifier {
     private static void setProxy() {
         if (!httpsProxy.isEmpty()) {
             parseProxy(httpsProxy);
-            setJavaProxy();
+            setJavaProxy(true);
         } else if (!httpProxy.isEmpty()) {
             parseProxy(httpProxy);
-            setJavaProxy();
+            setJavaProxy(false);
         }
         if (!noProxy.isEmpty()) {
             System.setProperty("http.nonProxyHosts", noProxy);
