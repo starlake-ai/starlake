@@ -69,7 +69,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     }
 
     logger.info("Spark Version -> " + session.version)
-    logger.info(session.conf.getAll.mkString("\n"))
+    logger.debug(session.conf.getAll.mkString("\n"))
     session
   }
 }

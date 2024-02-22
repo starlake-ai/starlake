@@ -123,6 +123,9 @@ trait StrategiesBuilder extends StrictLogging {
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
+    val incomingColumnsAsSelectString =
+      SQLUtils.incomingColumnsForSelectSql(sourceTable, targetTableColumns, quote)
+
     val paramsForInsertSql = {
       val targetColumns = SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
       val sourceColumns =
@@ -208,12 +211,12 @@ trait StrategiesBuilder extends StrictLogging {
 
         s"""
            |INSERT INTO $targetTableFullName
-           |SELECT $targetColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable
+           |SELECT $incomingColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
            |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
-           |SELECT $targetColumnsAsSelectString FROM $sourceTable, $targetTableFullName
+           |SELECT $incomingColumnsAsSelectString FROM $sourceTable, $targetTableFullName
            |WHERE $mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL AND $sourceTable.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
            |
            |MERGE INTO $targetTableFullName USING SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition2)
@@ -234,11 +237,16 @@ trait StrategiesBuilder extends StrictLogging {
           SQLUtils.mergeKeyJoinCondition(sourceTable, targetTableFullName, strategy.key, quote)
 
         val mergeKeyJoinCondition2 =
-          SQLUtils.mergeKeyJoinCondition("SL_DEDUP", targetTableFullName, strategy.key, quote)
+          SQLUtils.mergeKeyJoinCondition(
+            tempViewName("SL_DEDUP"),
+            targetTableFullName,
+            strategy.key,
+            quote
+          )
 
         val mergeKeyJoinCondition3 =
           SQLUtils.mergeKeyJoinCondition(
-            "SL_UPDATED_RECORDS",
+            tempViewName("SL_UPDATED_RECORDS"),
             targetTableFullName,
             strategy.key,
             quote
@@ -250,30 +258,45 @@ trait StrategiesBuilder extends StrictLogging {
             .mkString(" AND ")
 
         val paramsForUpdateSql =
-          SQLUtils.setForUpdateSql("SL_UPDATED_RECORDS", targetTableColumns, quote)
+          SQLUtils.setForUpdateSql(tempViewName("SL_UPDATED_RECORDS"), targetTableColumns, quote)
+
+        val viewWithRowNumColumnsAsSelectString =
+          SQLUtils.incomingColumnsForSelectSql(
+            tempViewName("SL_VIEW_WITH_ROWNUM"),
+            targetTableColumns,
+            quote
+          )
+
+        val dedupColumnsAsSelectString =
+          SQLUtils.incomingColumnsForSelectSql(tempViewName("SL_DEDUP"), targetTableColumns, quote)
 
         s"""
            |INSERT INTO $targetTableFullName
-           |SELECT $targetColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable
+           |SELECT $incomingColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM $sourceTable
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
            |${createTemporaryView("SL_VIEW_WITH_ROWNUM")}  AS
-           |  SELECT  $targetColumnsAsSelectString,
+           |  SELECT  $incomingColumnsAsSelectString,
            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
            |  FROM $sourceTable;
            |
            |${createTemporaryView("SL_DEDUP")}  AS
-           |SELECT  $targetTableColumns
+           |SELECT  $viewWithRowNumColumnsAsSelectString
            |  FROM ${tempViewName("SL_VIEW_WITH_ROWNUM")}
            |  WHERE SL_SEQ = 1;
            |
-           |CREATE TEMPORARY TABLE SL_UPDATED_RECORDS AS
-           |SELECT $targetColumnsAsSelectString FROM SL_DEDUP, $targetTableFullName
-           |WHERE $mergeKeyJoinCondition2 AND $targetTableFullName.$endTsCol IS NULL AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
+           |${createTemporaryView("SL_UPDATED_RECORDS")}  AS
+           |SELECT $dedupColumnsAsSelectString
+           |FROM ${tempViewName("SL_DEDUP")}, $targetTableFullName
+           |WHERE $mergeKeyJoinCondition2
+           |  AND $targetTableFullName.$endTsCol IS NULL
+           |  AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
            |
-           |MERGE INTO $targetTableFullName USING SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition3)
-           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
+           |MERGE INTO $targetTableFullName
+           |USING ${tempViewName("SL_UPDATED_RECORDS")}
+           |ON ($mergeKeyJoinCondition3)
+           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = SL_UPDATED_RECORDS.$quote$mergeTimestampCol$quote, $endTsCol = NULL
            |""".stripMargin
       case (_, Some(_), MergeOn(_)) =>
         throw new Exception("Should never happen !!!")

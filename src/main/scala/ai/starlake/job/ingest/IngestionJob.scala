@@ -441,8 +441,7 @@ trait IngestionJob extends SparkJob {
             existingSchema
           )
           logger.whenInfoEnabled {
-            logger.info("Final target table schema")
-            logger.info(finalSparkSchema.toString)
+            logger.info("Final target table schema ${finalSparkSchema.toString}")
           }
 
           val newBqSchema = bqSchemaWithSCD2(BigQueryUtils.bqSchema(finalSparkSchema))

@@ -211,8 +211,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   private val defaultFS: FileSystem = FileSystem.get(conf)
   logger.info("defaultFS=" + defaultFS)
-  logger.info("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
-  logger.info("defaultFS.getUri=" + defaultFS.getUri)
+  logger.debug("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
+  logger.debug("defaultFS.getUri=" + defaultFS.getUri)
 
   def fs(inputPath: Path): FileSystem = {
     val path =
