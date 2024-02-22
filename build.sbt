@@ -303,10 +303,11 @@ packageSetup := {
   }
   val scalaMajorVersion = scalaVersion.value.split('.').take(2).mkString(".")
   val setupClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val setupHostnameVerifier = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$1.class")
   val setupJarDependencyClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$JarDependency.class")
   val to = Paths.get("distrib/setup.jar")
   zipFile(
-    List(setupClass, setupJarDependencyClass),
+    List(setupClass, setupHostnameVerifier, setupJarDependencyClass),
     to
   )
 }
