@@ -336,23 +336,23 @@ public class Setup extends ProxySelector implements X509TrustManager, HostnameVe
 
     private static final ProxySelector proxySelector = instance;
 
-    public static void setTrustManager(boolean insecure) throws NoSuchAlgorithmException, KeyManagementException {
-        if (host != null && insecure) {
-            System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
-            // Create a trust manager that does not validate certificate chains
-            TrustManager[] trustAllCerts = new TrustManager[]{alwaysTrustManager};
+//    public static void setTrustManager(boolean insecure) throws NoSuchAlgorithmException, KeyManagementException {
+//        if (host != null && insecure) {
+//            System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
+//            // Create a trust manager that does not validate certificate chains
+//            TrustManager[] trustAllCerts = new TrustManager[]{alwaysTrustManager};
+//
+//            // Install the all-trusting trust manager
+//            SSLContext sc = SSLContext.getInstance("SSL");
+//            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+//            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+//
+//            // Install the all-trusting host verifier
+//            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+//        }
+//    }
 
-            // Install the all-trusting trust manager
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-
-            // Install the all-trusting host verifier
-            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-        }
-    }
-
-    private static void setClient() {
+    private static void setClient() throws NoSuchAlgorithmException, KeyManagementException {
         HttpClient.Builder clientBuilder = HttpClient.newBuilder();
         clientBuilder.proxy(proxySelector);
         if (username != null) {
@@ -366,6 +366,19 @@ public class Setup extends ProxySelector implements X509TrustManager, HostnameVe
                 }
             };
             clientBuilder.authenticator(authenticator);
+        }
+        if(host != null && getEnv("SL_INSECURE").orElse("false").equalsIgnoreCase("true")){
+            System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[]{alwaysTrustManager};
+
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            clientBuilder.sslContext(sc);
+
+            // Install the all-trusting host verifier
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
         }
         client = clientBuilder.build();
     }
@@ -386,7 +399,7 @@ public class Setup extends ProxySelector implements X509TrustManager, HostnameVe
 
             setProxy();
 
-            setTrustManager(getEnv("SL_INSECURE").orElse("false").equalsIgnoreCase("true"));
+//            setTrustManager(getEnv("SL_INSECURE").orElse("false").equalsIgnoreCase("true"));
 
             setClient();
 
