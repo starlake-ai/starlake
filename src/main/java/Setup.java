@@ -339,7 +339,7 @@ public class Setup implements X509TrustManager, HostnameVerifier {
             TrustManager[] trustAllCerts = new TrustManager[] {alwaysTrustManager};
 
             // Install the all-trusting trust manager
-            SSLContext sc = SSLContext.getInstance("TLS");
+            SSLContext sc = SSLContext.getInstance("SSL");
             sc.init(null, trustAllCerts, new java.security.SecureRandom());
             HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
 
