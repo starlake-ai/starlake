@@ -36,7 +36,7 @@ object BigQuerySparkWriter extends StrictLogging {
         case sink: BigQuerySink =>
           val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
           val (createDisposition, writeDisposition) = {
-            Utils.getDBDisposition(writeMode, hasMergeKeyDefined = false, isJDBC = false)
+            Utils.getDBDisposition(writeMode)
           }
           val bqLoadConfig =
             BigQueryLoadConfig(
@@ -53,7 +53,7 @@ object BigQuerySparkWriter extends StrictLogging {
               sourceFormat = settings.appConfig.defaultWriteFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              outputPartition = sink.timestamp,
+              outputPartition = sink.getPartitionColumn(),
               outputClustering = sink.clustering.getOrElse(Nil),
               days = sink.days,
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
@@ -63,7 +63,7 @@ object BigQuerySparkWriter extends StrictLogging {
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,
-            maybeSchema = maybeSchema,
+            maybeBqSchema = maybeSchema,
             maybeTableDescription = maybeTableDescription
           ).run()
           result match {

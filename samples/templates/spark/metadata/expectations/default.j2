@@ -2,7 +2,7 @@
     SELECT COALESCE(max(cnt),0)
     FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
     GROUP BY {{ col }}
-    HAVING cnt > 1)
+    HAVING cnt > 1) AS COL_COUNT
 {% endmacro %}
 
 {% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}

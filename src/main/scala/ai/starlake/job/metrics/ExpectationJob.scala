@@ -6,7 +6,6 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -91,7 +90,6 @@ object ExpectationReport {
       Attribute("success", "boolean")
     ),
     None,
-    None,
     None
   )
 }
@@ -115,7 +113,6 @@ class ExpectationJob(
   expectations: List[ExpectationItem],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  inputData: Option[Either[DataFrame, String]],
   sqlRunner: ExpectationAssertionHandler
 )(implicit val settings: Settings)
     extends SparkJob {
@@ -135,19 +132,11 @@ class ExpectationJob(
 
   override def run(): Try[JobResult] = {
     var bqSlThisCTE = ""
-    inputData match {
-      case Some(Left(df)) =>
-        df.createOrReplaceTempView("SL_THIS")
-      case Some(Right(tableName)) =>
-        bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
-      case None =>
-        val tableName = database match {
-          case Some(db) => s"$db.$domainName.$schemaName"
-          case None     => s"$domainName.$schemaName"
-        }
-        bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
-
+    val tableName = database match {
+      case Some(db) => s"$db.$domainName.$schemaName"
+      case None     => s"$domainName.$schemaName"
     }
+    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
 
     val macros = schemaHandler.jinjavaMacros
     val expectationReports = expectations.map { expectation =>
@@ -210,7 +199,7 @@ class ExpectationJob(
           throw new Exception(e)
         case Success(value) => value
       }
-    }.toList
+    }
     val result = if (expectationReports.nonEmpty) {
       expectationReports.foreach(r => logger.info(r.toString))
 
@@ -230,7 +219,7 @@ class ExpectationJob(
         presql = Nil,
         postsql = Nil,
         sink = Some(settings.appConfig.audit.sink),
-        parseSQL = Some(false),
+        parseSQL = Some(true),
         _auditTableName = Some("expectations")
       )
       val task = AutoTask
@@ -238,7 +227,8 @@ class ExpectationJob(
           taskDesc,
           Map.empty,
           None,
-          truncate = false
+          truncate = false,
+          engine = taskDesc.getSinkConnection().getEngine()
         )(settings, storageHandler, schemaHandler)
       val res = task.run()
       Utils.logFailure(res, logger)

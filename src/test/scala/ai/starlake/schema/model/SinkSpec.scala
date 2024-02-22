@@ -28,10 +28,10 @@ class SinkSpec extends TestHelper {
       mapper.readValue(
         """
           |connectionRef: "sink"
-          |timestamp: "timestamp"
+          |partition: ["timestamp"]
           |""".stripMargin,
         classOf[BigQuerySink]
-      ) shouldBe BigQuerySink(connectionRef = Some("sink"), timestamp = Some("timestamp"))
+      ) shouldBe BigQuerySink(connectionRef = Some("sink"), partition = Some(List("timestamp")))
 
     }
 

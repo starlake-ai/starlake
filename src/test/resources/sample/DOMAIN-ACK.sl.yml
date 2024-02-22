@@ -13,9 +13,9 @@ load:
     sink:
       partition:
         attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+          - year
+          - month
+          - day
     ack: "ack"
   tables:
     - name: "User"
@@ -86,6 +86,13 @@ load:
           array: false
           required: false
           privacy: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
       metadata:
         mode: "FILE"
         format: "DSV"

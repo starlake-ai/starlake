@@ -173,7 +173,7 @@ class GenericIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val options = mergedMetadata.getOptions()
       val timestampColumn = options.get("_timestamp")
@@ -319,7 +319,7 @@ class GenericIngestionJob(
         (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }

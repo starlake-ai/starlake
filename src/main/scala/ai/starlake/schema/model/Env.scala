@@ -33,7 +33,7 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
     Engine.BQ.toString    -> ("`", ".")
   )
 
-  def toSQLString(connection: Settings.Connection, isFilesystem: Boolean) = {
+  def toSQLString(connection: Settings.Connection) = {
     val engine =
       if (connection.getType() == ConnectionType.BQ)
         Engine.BQ
@@ -58,18 +58,14 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
           tableNamingQuotes.getOrElse(engine.toString, tableNamingQuotes(Engine.JDBC.toString))
       }
 
-    if (!isFilesystem) {
-      if (database.isEmpty) {
-        if (domain.isEmpty) {
-          table
-        } else {
-          s"$quote$domain.$table$quote"
-        }
+    if (database.isEmpty) {
+      if (domain.isEmpty) {
+        table
       } else {
-        s"$quote$database$separator$domain.$table$quote"
+        s"$quote$domain.$table$quote"
       }
     } else {
-      table
+      s"$quote$database$separator$domain.$table$quote"
     }
   }
 }

@@ -181,7 +181,6 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 .getSink()
                 .toAllSinks()
                 .partition
-                .map(_.getAttributes())
                 .getOrElse(Nil),
               "clustered"     -> mergedMetadata.getClustering().getOrElse(Nil),
               "primaryKeys"   -> schema.primaryKey,
@@ -296,7 +295,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connectionRef.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JdbcDbUtils.execute(sqlScript, settings.appConfig.connections(conn))
+          conn => JdbcDbUtils.execute(sqlScript, settings.appConfig.connections(conn).options)
         )
     }
 

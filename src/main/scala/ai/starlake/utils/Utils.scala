@@ -120,16 +120,17 @@ object Utils extends StrictLogging {
         failure
     }
 
+  def throwFailure[T](attempt: Try[T], logger: Logger): Boolean =
+    attempt match {
+      case Success(_) =>
+        true
+      case Failure(exception) =>
+        logException(logger, exception)
+        throw exception
+    }
+
   def logException(logger: Logger, exception: Throwable): Unit = {
     logger.error(exceptionAsString(exception))
-  }
-
-  def logIfFailure[T](logger: Logger, res: Try[T]): Try[T] = {
-    res match {
-      case Failure(e) => logException(logger, e)
-      case _          =>
-    }
-    res
   }
 
   def exceptionAsString(exception: Throwable): String = {
@@ -139,25 +140,14 @@ object Utils extends StrictLogging {
   }
 
   def getDBDisposition(
-    writeMode: WriteMode,
-    hasMergeKeyDefined: Boolean,
-    isJDBC: Boolean
+    writeMode: WriteMode
   ): (String, String) = {
     val (createDisposition, writeDisposition) =
-      (hasMergeKeyDefined, writeMode) match {
-        case (true, wm) if (wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND) && !isJDBC =>
-          // when merging BigQuery/Spark should truncate the final table
-          // For JDBC, we should not use this because teh table is truncated before the SQL request is executed.
-          // We keep the mode to avoid breaking existing jobs
+      writeMode match {
+        case WriteMode.OVERWRITE =>
           ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-        case (_, WriteMode.OVERWRITE) =>
-          ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-        case (_, WriteMode.APPEND) =>
+        case WriteMode.APPEND =>
           ("CREATE_IF_NEEDED", "WRITE_APPEND")
-        case (_, WriteMode.ERROR_IF_EXISTS) =>
-          ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-        case (_, WriteMode.IGNORE) =>
-          ("CREATE_NEVER", "WRITE_EMPTY")
         case _ =>
           ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
       }

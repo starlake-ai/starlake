@@ -9,7 +9,7 @@ load:
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    write: "SCD2"
     sink:
       partition:
         attributes:

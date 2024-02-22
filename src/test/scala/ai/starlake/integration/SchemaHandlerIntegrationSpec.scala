@@ -17,7 +17,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
   override def afterAll(): Unit = {
     super.afterAll()
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       clearDataDirectories()
     }
   }

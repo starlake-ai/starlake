@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.schema.model.WriteMode.{APPEND, ERROR_IF_EXISTS, IGNORE, MERGE, OVERWRITE}
+import ai.starlake.schema.model.WriteMode.{APPEND, OVERWRITE}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -40,11 +40,8 @@ sealed case class WriteMode(value: String) {
 
   def toSaveMode: SaveMode = {
     this match {
-      case OVERWRITE       => SaveMode.Overwrite
-      case APPEND          => SaveMode.Append
-      case MERGE           => SaveMode.Append
-      case ERROR_IF_EXISTS => SaveMode.ErrorIfExists
-      case IGNORE          => SaveMode.Ignore
+      case OVERWRITE => SaveMode.Overwrite
+      case APPEND    => SaveMode.Append
       case _ =>
         throw new Exception("Should never happen")
     }
@@ -55,10 +52,9 @@ object WriteMode {
 
   def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
-      case "OVERWRITE"        => WriteMode.OVERWRITE
-      case "APPEND" | "MERGE" => WriteMode.APPEND
-      case "ERROR_IF_EXISTS"  => WriteMode.ERROR_IF_EXISTS
-      case "IGNORE"           => WriteMode.IGNORE
+      case "OVERWRITE" => WriteMode.OVERWRITE
+      case "APPEND"    => WriteMode.APPEND
+      case "SCD2"      => WriteMode.APPEND // From XLSReader Only
       case _ =>
         throw new Exception(s"Invalid Write Mode try one of ${writes}")
     }
@@ -68,13 +64,7 @@ object WriteMode {
 
   object APPEND extends WriteMode("APPEND")
 
-  object MERGE extends WriteMode("MERGE")
-
-  object ERROR_IF_EXISTS extends WriteMode("ERROR_IF_EXISTS")
-
-  object IGNORE extends WriteMode("IGNORE")
-
-  val writes: Set[WriteMode] = Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+  val writes: Set[WriteMode] = Set(OVERWRITE, APPEND)
 }
 
 class WriteDeserializer extends JsonDeserializer[WriteMode] {

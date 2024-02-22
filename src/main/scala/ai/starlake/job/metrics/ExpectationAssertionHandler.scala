@@ -1,7 +1,7 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.job.sink.bigquery.BigQueryNativeJob
-import ai.starlake.utils.CompilerUtils
+import ai.starlake.utils.{CompilerUtils, SparkUtils}
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.SparkSession
@@ -29,7 +29,7 @@ trait ExpectationAssertionHandler extends StrictLogging {
 
 class SparkExpectationAssertionHandler(session: SparkSession) extends ExpectationAssertionHandler {
   def handle(sql: String, assertion: String): Map[String, Any] = {
-    val df = session.sql(sql)
+    val df = SparkUtils.sql(session, sql)
     val count = df.count()
     val result = if (df.count() == 1) {
       val row = df.collect().head

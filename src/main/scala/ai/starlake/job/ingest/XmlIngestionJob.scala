@@ -63,7 +63,7 @@ class XmlIngestionJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     val xmlOptions = mergedMetadata.getXmlOptions()
     Try {
       val rowTag = xmlOptions.get("rowTag")
@@ -122,7 +122,7 @@ class XmlIngestionJob(
             (rejectedDS, dataset, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success((_, _, rejectedRecordCount)) => (rejectedDS, dataset, rejectedRecordCount);
+          case Success(rejectedRecordCount) => (rejectedDS, dataset, rejectedRecordCount);
         }
       case None =>
         val withInputFileNameDS =
@@ -158,7 +158,7 @@ class XmlIngestionJob(
             (validationResult.errors, validationResult.accepted, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success((_, _, rejectedRecordCount)) =>
+          case Success(rejectedRecordCount) =>
             (validationResult.errors, validationResult.accepted, rejectedRecordCount);
         }
     }
