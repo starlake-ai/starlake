@@ -13,9 +13,9 @@ load:
     sink:
       partition:
         attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+          - year
+          - month
+          - day
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -41,6 +41,27 @@ load:
           required: false
           privacy: "NONE"
           default: true
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
       metadata:
         mode: "FILE"
         format: "DSV"
@@ -85,6 +106,13 @@ load:
           array: false
           required: false
           privacy: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
       metadata:
         mode: "FILE"
         format: "DSV"
@@ -119,6 +147,27 @@ load:
           script: "comet_input_file_name"
           privacy: None
           required: false
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
       postsql:
         - "Select name from COMET_TABLE"
       metadata:

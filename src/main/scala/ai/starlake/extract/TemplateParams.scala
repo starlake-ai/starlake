@@ -140,7 +140,8 @@ object TemplateParams {
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
-    val isFullExport = schema.metadata.flatMap(_.write).contains(OVERWRITE)
+    val isFullExport =
+      schema.metadata.flatMap(_.writeStrategy.map(_.getWriteMode())).contains(OVERWRITE)
     new TemplateParams(
       domainToExport = domainName,
       tableToExport = schema.name,

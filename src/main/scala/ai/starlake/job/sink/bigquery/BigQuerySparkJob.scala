@@ -1,33 +1,26 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.exceptions.NullValueFoundException
-import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
+import ai.starlake.schema.model.{AttributeDesc, ClusteringInfo, FieldPartitionInfo, TableInfo}
 import ai.starlake.utils._
-import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryOptions,
-  JobInfo,
-  Schema => BQSchema,
-  StandardTableDefinition,
-  Table
-}
+import com.google.cloud.bigquery.{JobInfo, Schema => BQSchema, StandardTableDefinition}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
-import org.apache.spark.sql.functions.{col, date_format, sum, when}
-import org.apache.spark.sql.{Row, SaveMode}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
-import scala.util.{Failure, Success, Try}
+import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.util.{Success, Try}
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
-  maybeSchema: Option[BQSchema] = None,
-  maybeTableDescription: Option[String] = None
+  maybeBqSchema: Option[BQSchema] = None,
+  maybeTableDescription: Option[String] = None,
+  attributesDesc: List[AttributeDesc] = Nil
 )(implicit val settings: Settings)
     extends SparkJob
     with BigQueryJobBase {
@@ -113,7 +106,7 @@ class BigQuerySparkJob(
     conf
   }
 
-  def runSparkConnector(): Try[SparkJobResult] = {
+  def runSparkWriter(): Try[SparkJobResult] = {
     prepareConf()
     Try {
       val cacheStorageLevel =
@@ -141,9 +134,10 @@ class BigQuerySparkJob(
         TableInfo(
           tableId,
           maybeTableDescription,
-          maybeSchema,
+          maybeBqSchema,
           partitionField,
-          clusteringFields
+          clusteringFields,
+          attributesDesc
         ),
         Some(sourceDF)
       )
@@ -163,10 +157,6 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} which contained ${stdTableDefinition.getNumRows} rows"
       )
 
-      cliConfig.starlakeSchema.map { schema =>
-        schema.attributes
-
-      }
       val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
       val intermediateFormatSettings = settings.appConfig.internal.map(_.intermediateBigqueryFormat)
       val defaultIntermediateFormat = intermediateFormatSettings.getOrElse("parquet")
@@ -177,150 +167,41 @@ class BigQuerySparkJob(
         else
           defaultIntermediateFormat
 
-      val partitionOverwriteMode =
-        if (bqTable.endsWith("SL_BQ_TEST_DS.SL_BQ_TEST_TABLE_DYNAMIC"))
-          "DYNAMIC" // Force during testing
-        else
-          cliConfig.dynamicPartitionOverwrite
-            .map {
-              case true  => "DYNAMIC"
-              case false => "STATIC"
-            }
-            .getOrElse(
-              session.conf.get("spark.sql.sources.partitionOverwriteMode", "STATIC").toUpperCase()
-            )
-
       val output: Try[Long] =
-        (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
-          case ("WRITE_TRUNCATE", Some(partitionField), "DYNAMIC") =>
-            // Partitioned table
-            logger.info(s"overwriting partition $partitionField in The BQ Table $bqTable")
-            // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
-            // in order to overwrite only one partition
-            val dateFormat = "yyyyMMdd"
-            val (partitions, nullCountValues) = sourceDF
-              .select(
-                date_format(col(partitionField), dateFormat).cast("string").as(partitionField)
-              )
-              .groupBy(partitionField)
-              .agg(
-                sum(
-                  when(col(partitionField).isNull, 1L)
-                    .otherwise(0L)
-                ).as("count_if_null")
-              )
-              .collect()
-              .toList
-              .foldLeft(List[String]() -> 0L) { case ((partitions, nullCount), row) =>
-                val updatedPartitions = scala
-                  .Option(row.getString(0)) match {
-                  case Some(value) => value +: partitions
-                  case None        => partitions
-                }
-                updatedPartitions -> (nullCount + row.getLong(1))
-              }
-            if (nullCountValues > 0 && settings.appConfig.rejectAllOnError) {
-              logger.error("Null value found in partition")
-              Failure(new NullValueFoundException(nullCountValues))
-            } else {
-              cliConfig.partitionsToUpdate match {
-                case Nil =>
-                  logger.info(
-                    s"No optimization applied -> the following ${partitions.length} partitions will be written: ${partitions
-                        .mkString(",")}"
-                  )
-                case partitionsToUpdate =>
-                  logger.info(
-                    s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
-                        .mkString(",")}"
-                  )
-              }
-
-              // Delete partitions becoming empty
-              cliConfig.partitionsToUpdate.foreach { partitionToUpdate =>
-                // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
-                // this case happen when there is no more than a single element in the partition
-                if (!partitions.contains(partitionToUpdate)) {
-                  logger.info(s"Deleting partition $partitionToUpdate")
-                  val emptyDF = session
-                    .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
-                  val finalEmptyDF = emptyDF.write
-                    .mode(SaveMode.Overwrite)
-                    .format("bigquery")
-                    .option("datePartition", partitionToUpdate)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-
-                  finalEmptyDF.options(connectorOptions).save()
-                }
-              }
-
-              partitions.foreach { partitionStr =>
-                logger.info(s"Saving into partition $bqTable$$$partitionStr")
-                val finalDF =
-                  sourceDF
-                    .where(
-                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+        cliConfig.writeDisposition match {
+          case writeDisposition =>
+            val (saveMode, withFieldRelaxationOptions) =
+              writeDisposition match {
+                case "WRITE_TRUNCATE" => (SaveMode.Overwrite, connectorOptions)
+                case _ if table.exists() =>
+                  (
+                    SaveMode.Append,
+                    connectorOptions ++ Map(
+                      "allowFieldAddition"   -> "true",
+                      "allowFieldRelaxation" -> "true"
                     )
-                    .write
-                    .mode(SaveMode.Overwrite)
-                    .format("bigquery")
-                    .option("datePartition", partitionStr)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-                    .options(connectorOptions)
-                cliConfig.partitionsToUpdate match {
-                  case Nil =>
-                    finalDF.save()
-                  case partitionsToUpdate =>
-                    // We only overwrite partitions containing updated or newly added elements
-                    if (partitionsToUpdate.contains(partitionStr)) {
-                      logger.info(
-                        s"Optimization -> Writing partition : $partitionStr"
-                      )
-                      finalDF.save()
-                    } else {
-                      logger.info(
-                        s"Optimization -> Not writing partition : $partitionStr"
-                      )
-                    }
-                }
-              }
-              Success(nullCountValues)
-            }
-          case (writeDisposition, _, partitionOverwriteMode) =>
-            assert(
-              partitionOverwriteMode == "STATIC" || partitionOverwriteMode == "DYNAMIC",
-              s"""Only dynamic or static are values values for property
-                   |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
-            )
-
-            val (saveMode, withFieldRelaxationOptions) = writeDisposition match {
-              case "WRITE_TRUNCATE" => (SaveMode.Overwrite, connectorOptions)
-              case _ if table.exists() =>
-                (
-                  SaveMode.Append,
-                  connectorOptions ++ Map(
-                    "allowFieldAddition"   -> "true",
-                    "allowFieldRelaxation" -> "true"
                   )
-                )
-              case _ =>
-                (
-                  SaveMode.Append,
-                  connectorOptions
-                )
-            }
+                case _ =>
+                  throw new Exception(
+                    s"Invalid write disposition $writeDisposition for table ${table.getTableId}"
+                  )
+              }
             logger.whenDebugEnabled {
               sourceDF.show()
             }
-            val finalDF = sourceDF.write
+
+            // bigquery does not support having the cols in the wrong order
+            val tableColNames = stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
+            val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
+            val orderedFields = tableColNames.flatMap { fieldsMap.get }
+            val orderedDF = sourceDF.select(orderedFields.map(col): _*)
+            orderedDF.write
               .mode(saveMode)
               .format("bigquery")
               .option("table", bqTable)
               .option("intermediateFormat", intermediateFormat)
               .options(withFieldRelaxationOptions)
-            finalDF.save()
+              .save()
             Success(0L)
         }
       val stdTableDefinitionAfter =
@@ -330,29 +211,22 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      applyRLSAndCLS().recover { case e =>
-        Utils.logException(logger, e)
-        throw e
-      }
-      (cliConfig.sqlSource, maybeSchema) match {
-        // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
-        case (None, Some(bqSchema)) => // case of Load (Ingestion)
-          val fieldsDescription = BigQuerySchemaConverters
-            .toSpark(bqSchema)
-            .fields
-            .map(f => f.name -> f.getComment().getOrElse(""))
-            .toMap[String, String]
-          updateColumnsDescription(BigQueryJobBase.dictToBQSchema(fieldsDescription))
-        case (Some(_), Some(_)) =>
-          throw new Exception(
-            "Should never happen, SqlSource or TableSchema should be set exclusively"
-          )
-        case (_, None) => // case of a transformation job
-        // Do nothing
-      }
+      val attributesDescMap = attributesDesc.map { case AttributeDesc(name, desc, _) =>
+        name -> desc
+      }.toMap
+
+      if (attributesDescMap.nonEmpty)
+        updateColumnsDescription(BigQueryJobBase.dictToBQSchema(attributesDescMap))
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
       updateTableDescription(table, maybeTableDescription.getOrElse(""))
       output.map(SparkJobResult(None, _))
+    }
+  }
+
+  def runSparkReader(sql: String): Try[DataFrame] = {
+    prepareConf()
+    Try {
+      session.read.format("bigquery").load(sql)
     }
   }
 
@@ -362,22 +236,13 @@ class BigQuerySparkJob(
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
-    val res = runSparkConnector()
+    val res = runSparkWriter()
     Utils.logFailure(res, logger)
   }
 
-}
-
-case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
-
-object BigQuerySparkJob {
-
-  def getTable(
-    resourceId: String
-  ): TableMetadata = {
-    val finalTableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
-    val bigquery = BigQueryOptions.getDefaultInstance().getService()
-    TableMetadata(Option(bigquery.getTable(finalTableId)), bigquery)
+  def query(sql: String): Try[DataFrame] = {
+    val res = runSparkReader(sql)
+    Utils.logFailure(res, logger)
   }
 
 }

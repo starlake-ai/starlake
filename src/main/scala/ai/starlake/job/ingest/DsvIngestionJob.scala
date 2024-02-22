@@ -92,7 +92,7 @@ class DsvIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val dfInReader = session.read
         .option("header", mergedMetadata.isWithHeader().toString)
@@ -222,7 +222,7 @@ class DsvIngestionJob(
         (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }

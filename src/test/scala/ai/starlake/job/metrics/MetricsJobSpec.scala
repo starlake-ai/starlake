@@ -83,20 +83,26 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   }
 
   new WithSettings(sparkConfiguration) {
-    "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
+    "Yelp Business Metrics" should "produce correct metrics in  file" in {
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/yelp/yelp.sl.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS yelp CASCADE")
         cleanMetadata
         cleanDatasets
         loadPending
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
-        val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
+        val discreteMetricsDf: DataFrame = sparkSession.table("audit.discrete")
         logger.info(discreteMetricsDf.showString(truncate = 0))
-        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
+        val discreteMetricsFields =
+          discreteMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedDiscreteMetricsFields =
+          expectedDiscreteMetricsSchema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+
+        discreteMetricsFields shouldBe expectedDiscreteMetricsFields
 
         val session: SparkSession = sparkSession
 
@@ -116,10 +122,17 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           ("yelp", "business", "is_open")
         )
 
-        val continuousPath: Path = DatasetArea.continuousMetrics("yelp", "business")
-        val continuousMetricsDf: DataFrame = sparkSession.read.parquet(continuousPath.toString)
+        val continuousMetricsDf: DataFrame = sparkSession.table("audit.continuous")
         logger.info(continuousMetricsDf.showString(truncate = 0))
-        continuousMetricsDf.schema shouldBe expectedContinuousMetricsSchema
+
+        val continuousMetricsFields =
+          continuousMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedContinuousMetricsFields =
+          expectedContinuousMetricsSchema.fields.map(f =>
+            (f.name.toLowerCase(), f.dataType.typeName)
+          )
+        continuousMetricsFields shouldBe expectedContinuousMetricsFields
+
         val continuousMetricsSelectedColumns: Array[(String, String, String)] =
           continuousMetricsDf
             .select("domain", "schema", "attribute")
@@ -132,10 +145,14 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           ("yelp", "business", "stars")
         )
 
-        val freqPath: Path = DatasetArea.frequenciesMetrics("yelp", "business")
-        val freqMetricsDf: DataFrame = sparkSession.read.parquet(freqPath.toString)
+        val freqMetricsDf: DataFrame = sparkSession.table("audit.frequencies")
         logger.info(freqMetricsDf.showString(truncate = 0))
-        freqMetricsDf.schema shouldBe expectedFreqMetricsSchema
+
+        val freqMetricsFields =
+          freqMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedFreqMetricsFields =
+          expectedFreqMetricsSchema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        freqMetricsFields shouldBe expectedFreqMetricsFields
 
         val freqMetricsSelectedColumns: Array[(String, String, String)] =
           freqMetricsDf

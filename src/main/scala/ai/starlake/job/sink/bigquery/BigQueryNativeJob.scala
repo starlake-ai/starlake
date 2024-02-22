@@ -1,7 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.job.ingest.NativeBqLoadInfo
+import ai.starlake.job.ingest.BqLoadInfo
 import ai.starlake.schema.model.{
   ClusteringInfo,
   FieldPartitionInfo,
@@ -38,7 +38,7 @@ class BigQueryNativeJob(
 
   logger.debug(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(tableInfo: SLTableInfo): Try[NativeBqLoadInfo] = {
+  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BqLoadInfo] = {
     getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
       Try {
         val bqSchema =
@@ -82,7 +82,7 @@ class BigQueryNativeJob(
                 logger.info(
                   s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
                 )
-                NativeBqLoadInfo(
+                BqLoadInfo(
                   stats.getOutputRows,
                   stats.getBadRecords,
                   BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
@@ -471,6 +471,11 @@ class BigQueryNativeJob(
     }
   }
 
+  def getTable(tableId: TableId): Try[Table] = {
+    Try {
+      bigquery().getTable(tableId)
+    }
+  }
   // run batch query use only (for auditing only)
   def runBatchQuery(
     thisSql: scala.Option[String] = None,

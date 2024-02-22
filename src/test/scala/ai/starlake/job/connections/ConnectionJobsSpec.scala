@@ -14,7 +14,7 @@ class ConnectionJobsSpec extends TestHelper {
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
       pending
-      val connection = "test-h2"
+      val connection = "test-pg"
       val session = sparkSession
       import session.implicits._
       val usersDF = Seq(
@@ -37,7 +37,7 @@ class ConnectionJobsSpec extends TestHelper {
         Some(WriteMode.OVERWRITE),
         sink = Some(JdbcSink(connectionRef = Some(connection)).toAllSinks()),
         python = None,
-        merge = None
+        writeStrategy = None
       )
       val businessJob =
         AutoJobDesc(

@@ -157,7 +157,6 @@ case class SchemaDiff(
   attributes: ListDiff[Named],
   pattern: ListDiff[String],
   metadata: ListDiff[Named],
-  merge: ListDiff[Named],
   comment: ListDiff[String],
   presql: ListDiff[String],
   postsql: ListDiff[String],
@@ -175,7 +174,6 @@ case class SchemaDiff(
     attributes.isEmpty() &&
     pattern.isEmpty() &&
     metadata.isEmpty() &&
-    merge.isEmpty() &&
     comment.isEmpty() &&
     presql.isEmpty() &&
     postsql.isEmpty() &&

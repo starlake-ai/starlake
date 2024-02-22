@@ -3,7 +3,7 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 
 class ExtractBQSchemaIntegrationSpec extends BigQueryIntegrationSpecBase {
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "External Load" should "succeed" in {
       withEnvs(
