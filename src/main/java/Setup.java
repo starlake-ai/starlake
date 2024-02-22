@@ -334,7 +334,7 @@ public class Setup implements X509TrustManager, HostnameVerifier {
 
     public static void setTrustManager(boolean insecure) throws NoSuchAlgorithmException, KeyManagementException {
         if(host != null && insecure) {
-            System.out.println("Enabling insecure mode for SSL connections");
+            System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
             // Create a trust manager that does not validate certificate chains
             TrustManager[] trustAllCerts = new TrustManager[] {alwaysTrustManager};
 
