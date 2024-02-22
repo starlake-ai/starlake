@@ -82,8 +82,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
 
-
-    private static void setJavaProxy() {
+    private static void setProxy() {
+        if (!httpsProxy.isEmpty()) {
+            parseProxy(httpsProxy);
+        } else if (!httpProxy.isEmpty()) {
+            parseProxy(httpProxy);
+        }
         if (host != null) {
             if (port == 0) {
                 if (protocol.equals("https")) {
@@ -95,20 +99,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 }
             }
             Proxy.Type proxyType = Proxy.Type.HTTP;
-            if(protocol.startsWith("socks")){
+            if (protocol.startsWith("socks")) {
                 proxyType = Proxy.Type.SOCKS;
             }
             proxy = new Proxy(proxyType, new InetSocketAddress(host, port));
-        }
-    }
-
-    private static void setProxy() {
-        if (!httpsProxy.isEmpty()) {
-            parseProxy(httpsProxy);
-            setJavaProxy();
-        } else if (!httpProxy.isEmpty()) {
-            parseProxy(httpProxy);
-            setJavaProxy();
         }
         if (!noProxy.isEmpty()) {
             System.setProperty("http.nonProxyHosts", noProxy);
@@ -330,6 +324,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ProxySelector proxySelector = instance;
 
     private static void setHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
+        setProxy();
         HttpClient.Builder clientBuilder = HttpClient.newBuilder();
         clientBuilder.proxy(proxySelector);
         if (username != null) {
@@ -344,7 +339,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             };
             clientBuilder.authenticator(authenticator);
         }
-        if(host != null && getEnv("SL_INSECURE").orElse("false").equalsIgnoreCase("true")){
+        if (host != null && envIsTrue("SL_INSECURE")) {
             System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
             // Create a trust manager that does not validate certificate chains
             TrustManager[] trustAllCerts = new TrustManager[]{alwaysTrustManager};
@@ -368,10 +363,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 targetDir.mkdirs();
                 System.out.println("Created target directory " + targetDir.getAbsolutePath());
             }
-
-            boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
-
-            setProxy();
 
             setHttpClient();
 
@@ -427,6 +418,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
+            boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
             System.out.println("Failed to download dependencies from maven central" + e.getMessage());
