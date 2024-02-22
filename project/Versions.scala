@@ -29,7 +29,7 @@ object Versions {
   val confluentVersion = "7.6.0"
   val testContainers = "0.41.3"
   val gcpDataCatalog = "1.41.0"
-  val gcpCloudLogging = "3.15.17"
+  val gcpCloudLogging = "3.16.0"
   val jinja = "2.7.2"
   val snowflakeJDBC = "3.13.30"
   val snowflakeSpark: String = "2.11.3-spark_3.3"
