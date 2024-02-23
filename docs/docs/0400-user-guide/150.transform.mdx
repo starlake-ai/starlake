@@ -41,24 +41,25 @@ By default, the existing table data is overriden. To append data, use the `write
 ```yaml
 transform:
   default:
-    write: APPEND
+    writeStrategy:
+      type: APPEND
 ```
 
 This instructs to run all transformations in `kpi` folder in append mode.
 To run only this transformation in append mode, update the __config_ file as follows:
 
-```yaml {5-6}
+```yaml {3-4}
 transform:
   default:
-    write: OVERWRITE
+    writeStrategy:
+      type: OVERWRITE
   tasks:
     - name: customers_kpi
-      write: APPEND
+      writeStrategy:
+        type: APPEND
 ```
 
 :::
-
-The transform job will run against the connectionRef defined in the application.sl.yml file.
 
 ## Jinja2 Transforms
 Starlake Transforms support Jinja2 templating inside SQL requests.
@@ -84,10 +85,12 @@ This file will instruct where the result of the SQL request will be stored.
 transform:
   tasks:
     - name: customers_kpi
-      write: APPEND
+      writeStrategy:
+        type: APPEND
     - name: bycountry # We define the name of the transform.
       table: cust_{{ p_country }} # We define the table name based on the country name.
-      write: OVERWRITE # We overwrite the table each time the job is executed.
+      writeStrategy:
+        type: OVERWRITE
 
 ```
 
@@ -149,7 +152,7 @@ if __name__ == "__main__":
     # put the result in a spark dataframe
     df = spark.createDataFrame([[result]])
     # register the dataframe as a temporary view named SL_THIS
-    df.registerTempTable("SL_THIS")
+    df.createOrReplaceTempView("SL_THIS")
 ```
 
 
@@ -158,11 +161,11 @@ if __name__ == "__main__":
 ## Incremental updates
 
 You may also be willing to upsert the data in a table during a transformation. 
-This works the same way as for the load time upserts, but the `merge` attribute is added to the table in the transformation configuration file file.
+This works the same way as for the load time upserts.
 
-Say we did not use the merge strategy at load time and that after appending the data to the `sales.customers` table,
+Say we did not use and upsert strategy at load time and that after appending the data to the `sales.customers` table,
 we want to create a table `silver.customers_last_signup` containing the most recent data for each customer. 
-We can do this using the `merge` attribute in the transformation configuration file.
+We can do this using the `writeStrategy` attribute in the transformation configuration file.
 
 
 <Tabs groupId="transform">
@@ -180,12 +183,10 @@ SELECT * FROM sales.customers
 
 ```yaml title="metadata/transform/silver/unique_customers.sl.yml"
 transform:
-  default:
-    write: OVERWRITE
   tasks:
     - name: customers_last_signup
-      write: APPEND
-      merge:
+      writeStrategy:
+        type: OVERWRITE_BY_KEY_AND_TIMESTAMP
         timestamp: signup
         key: [id]
 ```

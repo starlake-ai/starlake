@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # What is Starlake ?
 
-Starlake is a configuration only Extract, Load and Transform engine.
+Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
 
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
@@ -71,28 +71,30 @@ The major benefits the Starlake data loader bring to your warehouse are:
 * Support multiple data sources and sinks
 * Starlake is a very, very simple piece of software to administer
 
-The Load module supports 2 modes:
+Starlake loads the data using an embedded Spark engine. Please note that this mode does not require setting up a Spark cluster, it run out of the box in the starlake docker image.
 
-* The native mode, the fatest one will use the target database capabilities to load the data and apply all the required transformations. For example, on BigQuery, starlake use the Bigquery Load API
-* The Spark mode will use Spark to load the data. This mode is slower than the native mode but is the most powerful one and is compatible with all databases. Please note that this mode does not require setting up a Spark cluster, it run out of the box in the starlake docker image.
+:::note
+
+On BigQuery, Starlake can make use of the bq load API to load the data. This is the fastest way to load the data into BigQuery but comes at the expense of limited features as show below.
+
+:::
 
 The table below list the features supported by each mode, the one that meet your requirements depend on the quality of your source and on the audit level you wish to have:
 
-
-|File formats|Spark|Native|
-|---|---|---|
-|CSV|x|x|
-|CSV with multichar separator|x|
-|JSON Lines|x|x|
-|JSON Array|x||
-|XML|x||
-|POSITION|x|x|
-|Parquet|x|x|
-|Avro|x|x|
-|Kafka|x||
-|Any JDBC database|x||
-|Any Spark Source|x||
-|Any char encoding including chinese, arabic, celtic ...|x||
+|File formats| Spark Mode | BigQuery Native Mode |
+|---|------------|----------------------|
+|CSV| x          | x                    |
+|CSV with multichar separator| x          |
+|JSON Lines| x          | x                    |
+|JSON Array| x          |                      |
+|XML| x          |                      |
+|POSITION| x          | x                    |
+|Parquet| x          | x                    |
+|Avro| x          | x                    |
+|Kafka| x          |                      |
+|Any JDBC database| x          |                      |
+|Any Spark Source| x          |                      |
+|Any char encoding including chinese, arabic, celtic ...| x          |                      |
 
 |Error Handling Levels|Spark|Native|
 |---|---|---|
@@ -101,25 +103,25 @@ The table below list the features supported by each mode, the one that meet your
 |Produce replay file|x||
 |Handle unlimited number of errors|x||
 
-|Features|Spark|Native|
-|---|---|---|
-|rename domain|x|x|
-|rename table|x|x|
-|rename fields|x|x|
-|add new field (scripted fields)|x|x|
-|Apply privacy on field (transformation)|x|x|
-|Validate type|x|x|
-|Validate pattern (semantic types)|x||
-|Ignore fields|x|x|
-|remove fields after transformation|x|x|
-|date and time fields any format|x|-|
-|keep filename |x|x|
-|Partition table|x|x|
-|Append Mode|x|x|
-|Overwrite Mode|x|x|
-|Merge Mode|x|x|
-|Pre/Post SQL|x|x|
-|Apply assertions|x||
+|Features|Spark| Native |
+|---|---|--------|
+|rename domain|x| x      |
+|rename table|x| x      |
+|rename fields|x| x      |
+|add new field (scripted fields)|x| x      |
+|Apply privacy on field (transformation)|x| x      |
+|Validate type|x| x      |
+|Validate pattern (semantic types)|x|        |
+|Ignore fields|x| x      |
+|remove fields after transformation|x| x      |
+|date and time fields any format|x|        |
+|keep filename |x| x      |
+|Partition table|x| x      |
+|Append Mode|x| x      |
+|Overwrite Mode|x| x      |
+|Merge Mode|x| x      |
+|Pre/Post SQL|x| x      |
+|Apply assertions|x| x      |
 
 |Security|Spark|Native|
 |---|---|---|
@@ -142,8 +144,9 @@ The major benefits Starlake bring to your Data transformation jobs are:
 
 
 
-## Illustration
+## Combining all steps
 
+You may use the extract, load and transform features independently or in combination.
 The figure below illustrates how all the steps above are combined using the starlake CLI to provide a complete data lifecycle.
 
 ![Overview](/img/data-all-steps.png)

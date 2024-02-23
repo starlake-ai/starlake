@@ -10,7 +10,7 @@ Starlake Transform handles transparently:
 - the creation of the new table,
 - the execution of the query and all the underlying queries, including dependent transforms (DAG of transforms)
 - the storage of the result
-- the generation of the merge statement when needed
+- the generation of the insert / update / merge statement when needed
 - infer the documentation of the attributes of the target table
 
 using extra YAML syntax, you can also:
@@ -24,6 +24,6 @@ using extra YAML syntax, you can also:
 - run any python code and store its result in the target table
 - schedule the execution of the transform using a cron expression
 
-
-Starlake has been tested with BigQuery, Databricks, Snowflake and Postgres. It should work with any database that supports SQL.
+Starlake has been tested with BigQuery, Databricks, Snowflake, Postgres and Amazon Redshift.
+It should work out of the box with any JDBC compliant database.
 
