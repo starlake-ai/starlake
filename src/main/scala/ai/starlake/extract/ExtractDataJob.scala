@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
 
-class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
+class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractDataCmd.run(args, schemaHandler).map(_ => ())
