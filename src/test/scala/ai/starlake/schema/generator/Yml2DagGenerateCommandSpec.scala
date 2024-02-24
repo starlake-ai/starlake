@@ -80,7 +80,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
-        new DagGenerateCommand(schemaHandler).run(Array.empty)
+        new DagGenerateJob(schemaHandler).run(Array.empty)
         val dagPath = new Path(new Path(DatasetArea.dags, "generated/load"), "position.py")
         settings.storageHandler().exists(dagPath) shouldBe true
         val dagContent = settings.storageHandler().read(dagPath)
