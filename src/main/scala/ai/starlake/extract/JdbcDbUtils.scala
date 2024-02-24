@@ -1040,7 +1040,7 @@ object JdbcDbUtils extends LazyLogging {
     // This is applied when the table is exported for the first time
 
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val extraCondition = extractConfig.jdbcSchema.where.map(w => s"and $w").getOrElse("")
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
@@ -1278,12 +1278,12 @@ object JdbcDbUtils extends LazyLogging {
     auditColumns: Columns
   )(implicit settings: Settings): Try[Unit] = {
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val where = extractConfig.jdbcSchema.where.map(w => s"where $w").getOrElse("")
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"where $w").getOrElse("")
     // non partitioned tables are fully extracted there is no delta mode
     val sql =
       s"""select $dataColumnsProjection from ${extractConfig.data.quoteIdentifier(
           extractConfig.jdbcSchema.schema
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)} $where"""
+        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)} $extraCondition"""
     val tableStart = System.currentTimeMillis()
     val (count, success) = Try {
       withJDBCConnection(extractConfig.data.options) { connection =>

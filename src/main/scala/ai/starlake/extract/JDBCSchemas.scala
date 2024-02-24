@@ -97,7 +97,7 @@ case class JDBCSchema(
   stringPartitionFunc: Option[String] = None,
   fullExport: Option[Boolean] = None,
   sanitizeName: Option[Boolean] = None,
-  where: Option[String] = None
+  filter: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
