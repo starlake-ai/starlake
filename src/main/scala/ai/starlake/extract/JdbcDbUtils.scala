@@ -1804,6 +1804,7 @@ object LastExportUtils extends LazyLogging {
     tableExtractDataConfig: PartitionnedTableExtractDataConfig,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
     val quotedColumn = extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
     val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
@@ -1811,7 +1812,7 @@ object LastExportUtils extends LazyLogging {
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnToDistribute > ?""".stripMargin
+         |where $columnToDistribute > ? $extraCondition""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
     apply(preparedStatement)
   }
