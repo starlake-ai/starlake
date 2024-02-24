@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.1.1:
+__Improvement__:
+- add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
+
 # 1.1.0:
 **BREAKING CHANGE** 
 - Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
