@@ -67,7 +67,7 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
     settings: Settings
   ): Try[JobResult] =
     Try {
-      val cmd = new DagGenerateCommand(schemaHandler)
+      val cmd = new DagGenerateJob(schemaHandler)
       if (config.domains) {
         cmd.generateDomainDags(config)
       }
