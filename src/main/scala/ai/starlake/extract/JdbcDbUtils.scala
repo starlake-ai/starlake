@@ -1040,30 +1040,31 @@ object JdbcDbUtils extends LazyLogging {
     // This is applied when the table is exported for the first time
 
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
       */
-    def sqlFirst(columnExprToDistribute: String) =
+    def sqlFirst(columnExprToDistribute: String): String =
       s"""select $dataColumnsProjection
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ?""".stripMargin
+         |where $columnExprToDistribute <= ? $extraCondition""".stripMargin
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
       */
-    def sqlNext(columnExprToDistribute: String) =
+    def sqlNext(columnExprToDistribute: String): String =
       s"""select $dataColumnsProjection
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ? and $columnExprToDistribute > ?""".stripMargin
+         |where $columnExprToDistribute <= ? $columnExprToDistribute > ? $extraCondition""".stripMargin
 
     // Get the boundaries of each partition that will be handled by a specific thread.
     val boundaries = withJDBCConnection(extractConfig.data.options) { connection =>
-      def getBoundariesWith(auditConnection: SQLConnection) = {
+      def getBoundariesWith(auditConnection: SQLConnection): LastExportUtils.Bounds = {
         auditConnection.setAutoCommit(false)
         LastExportUtils.getBoundaries(
           connection,
@@ -1095,11 +1096,10 @@ object JdbcDbUtils extends LazyLogging {
           val quotedPartitionColumn =
             extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
 
-          def sql(
-            columnToDistribute: String = quotedPartitionColumn
-          ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
-          else
-            sqlNext(columnToDistribute)
+          def sql(columnToDistribute: String = quotedPartitionColumn): String =
+            if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
+            else
+              sqlNext(columnToDistribute)
 
           withJDBCConnection(extractConfig.data.options) { connection =>
             val (effectiveSql, statementFiller) = tableExtractDataConfig.partitionColumnType match {
@@ -1278,11 +1278,12 @@ object JdbcDbUtils extends LazyLogging {
     auditColumns: Columns
   )(implicit settings: Settings): Try[Unit] = {
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"where $w").getOrElse("")
     // non partitioned tables are fully extracted there is no delta mode
     val sql =
       s"""select $dataColumnsProjection from ${extractConfig.data.quoteIdentifier(
           extractConfig.jdbcSchema.schema
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}"""
+        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)} $extraCondition"""
     val tableStart = System.currentTimeMillis()
     val (count, success) = Try {
       withJDBCConnection(extractConfig.data.options) { connection =>
