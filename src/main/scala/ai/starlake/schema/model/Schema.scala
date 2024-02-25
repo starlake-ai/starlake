@@ -480,7 +480,9 @@ case class Schema(
     if (includeTable) {
       val tableLabel = s"${domainName}_$finalName"
       val header =
-        s"""<tr><td port="0" bgcolor="white"><B><FONT color="black"> $finalName </FONT></B></td></tr>\n"""
+        s"""<tr>
+           |<td port="0" bgcolor="#008B00"><B><FONT color="white"> $finalName </FONT></B></td>
+           |</tr>\n""".stripMargin
       val relations = attributes
         .flatMap { attr => relationAsDot(attr, domainName, tableNames) }
         .mkString("\n")
