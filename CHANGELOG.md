@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.1.1:
+__Improvement__:
+- add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
+
 # 1.1.0:
 **BREAKING CHANGE** 
 - Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
@@ -19,6 +23,7 @@ __Bug Fix__:
 - Data extraction fresh enough was done on any success state, it now only consider successful extractions
 - Align infered schema primitive's type with the one declared `types.sl.yml`.
 - Fix dockerfile for latest Alpine by adding bash package
+- Fix precedence of data extraction mode
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior

@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings.Connection
-import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.config.{DatasetArea, Settings}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -46,19 +46,27 @@ case class AutoTaskDesc(
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
-  merge: Option[MergeOptions] = None,
+  writeStrategy: Option[WriteStrategy] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
   recursive: Boolean = false,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None,
-  taskTimeoutMs: Option[Long] = None
+  taskTimeoutMs: Option[Long] = None,
+  _dbComment: Option[String] = None
 ) extends Named {
 
   @JsonIgnore
-  def getTablePartName(): String = {
-    this.name.split('.').last
+  def getTableName(): String = this.table
+
+  def getStrategy()(implicit settings: Settings): WriteStrategy = {
+    val st1 = writeStrategy
+      .getOrElse(WriteStrategy(Some(WriteStrategyType.APPEND)))
+
+    val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+    st1.copy(start_ts = Some(startTs), end_ts = Some(endTs))
   }
 
   def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
@@ -83,7 +91,7 @@ case class AutoTaskDesc(
       attributesDesc = child.attributesDesc,
       python = child.python,
       tags = tags ++ child.tags,
-      merge = child.merge.orElse(merge),
+      writeStrategy = child.writeStrategy.orElse(writeStrategy),
       schedule = child.schedule.orElse(schedule),
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
@@ -98,7 +106,7 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
-    if (merge.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
+    if (writeStrategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
       Left(List("Merge and write mode are not compatible"))
     } else {
       Right(true)
@@ -113,7 +121,7 @@ case class AutoTaskDesc(
     table = "",
     write = Some(WriteMode.OVERWRITE),
     python = None,
-    merge = None,
+    writeStrategy = None,
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
@@ -129,7 +137,7 @@ case class AutoTaskDesc(
       table match {
         case "continuous" | "discrete" | "frequencies" =>
           DatasetArea.metrics(domain, table)
-        case "audit" =>
+        case "audit" | "expectations" =>
           DatasetArea.audit(domain, table)
         case "rejected" =>
           new Path(DatasetArea.rejected(domain), table)
@@ -140,35 +148,37 @@ case class AutoTaskDesc(
       new Path(DatasetArea.business(domain), table)
   }
 
-  @JsonIgnore
-  def getHiveDB()(implicit settings: Settings): String = {
-    StorageArea.area(domain, None)
-  }
-
   def getDatabase()(implicit settings: Settings): Option[String] = {
     database
       .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
   def getEngine()(implicit settings: Settings): Engine = {
-    getConnection().getEngine()
+    getDefaultConnection().getEngine()
   }
 
-  def getConnection()(implicit settings: Settings): Connection = {
+  def getSinkConnection()(implicit settings: Settings): Connection = {
     val connectionRef =
       sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig
       .connection(connectionRef)
-      .getOrElse(throw new Exception("Connection not found"))
+      .getOrElse(throw new Exception(s"Connection not found: $connectionRef"))
     connection
   }
 
-  def getConnectionType()(implicit settings: Settings): ConnectionType = {
-    getConnection().getType()
+  def getDefaultConnection()(implicit settings: Settings): Connection = {
+    val connection = settings.appConfig
+      .connection(settings.appConfig.connectionRef)
+      .getOrElse(throw new Exception(s"Connection not found: ${settings.appConfig.connectionRef}"))
+    connection
   }
 
-  def getSinkConfig()(implicit settings: Settings): Option[Sink] =
-    this.sink.map(_.getSink()).orElse(Some(AllSinks().getSink()))
+  def getSinkConnectionType()(implicit settings: Settings): ConnectionType = {
+    getSinkConnection().getType()
+  }
+
+  def getSinkConfig()(implicit settings: Settings): Sink =
+    this.sink.map(_.getSink()).getOrElse(AllSinks().getSink())
 }
 
 object AutoTaskDesc {

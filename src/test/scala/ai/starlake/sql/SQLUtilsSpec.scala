@@ -2,7 +2,8 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.model.{MergeOptions, Refs}
+import ai.starlake.job.strategies.StrategiesBuilder
+import ai.starlake.schema.model.{AllSinks, Refs, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -142,7 +143,6 @@ class SQLUtilsSpec extends TestHelper {
           Refs(Nil),
           Nil,
           Nil,
-          Nil,
           SQLUtils.fromsRegex,
           "FROM",
           new Connection(Some("SPARK"), Some("parquet"), None, None, Map.empty)
@@ -213,82 +213,100 @@ class SQLUtilsSpec extends TestHelper {
     }
 
     "Build Merge request" should "produce the correct sql code with update & insert statements" in {
-      val sqlMerge =
-        SQLUtils.buildMergeSqlOnTransform(
-          selectWithCTEs,
-          MergeOptions(List("transaction_id")),
-          Some("starlake-project-id"),
-          "dataset3",
-          "transactions_v3",
-          new Connection(Some("BQ"), None, None, None, Map.empty),
-          false,
-          true
+      val strategy =
+        WriteStrategy(
+          `type` = Some(WriteStrategyType.UPSERT_BY_KEY),
+          key = List("transaction_id"),
+          timestamp = None,
+          queryFilter = None,
+          on = None,
+          start_ts = None,
+          end_ts = None
         )
+
+      val sqlMerge =
+        StrategiesBuilder("ai.starlake.job.strategies.JdbcStrategiesBuilder")
+          .buildSQLForStrategy(
+            strategy,
+            selectWithCTEs,
+            "starlake-project-id.dataset3.transactions_v3",
+            List("transaction_id", "transaction_date", "amount", "location_info", "seller_info"),
+            targetTableExists = true,
+            truncate = false,
+            materializedView = false,
+            settings.appConfig.jdbcEngines("bigquery"),
+            AllSinks().getSink()
+          )
       sqlMerge.replaceAll("\\s", "") should be("""
-          |CREATE TEMPORARY TABLE SL_SOURCE_TABLE AS (WITH
-          |    transactions AS (
-          |        SELECT
-          |            transaction_id,
-          |            transaction_date,
-          |            amount,
-          |            store_id,
-          |            seller_id
-          |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
-          |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
-          |    ),
-          |    locations AS (
-          |        SELECT
-          |            store_id,
-          |            location_name,
-          |            address,
-          |            city,
-          |            state,
-          |            country
-          |        FROM `starlake-325712`.`starlake_tbl`.`locations`
-          |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
-          |    ),
-          |    sellers AS (
-          |        SELECT
-          |            seller_id,
-          |            seller_name,
-          |            hire_date
-          |        FROM `starlake-325712`.`starlake_tbl`.`sellers`
-          |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
-          |    )
-          |
-          |SELECT
-          |    t.transaction_id,
-          |    t.transaction_date,
-          |    t.amount,
-          |    STRUCT(
-          |        l.location_name,
-          |        l.address,
-          |        l.city,
-          |        l.state,
-          |        l.country
-          |        ) AS location_info,
-          |    STRUCT(
-          |        s.seller_name,
-          |        s.hire_date
-          |        ) AS seller_info
-          |FROM
-          |    transactions t
-          |        LEFT JOIN
-          |    locations l ON t.store_id = l.store_id
-          |        LEFT JOIN
-          |    sellers s ON t.seller_id = s.seller_id
-          |
-          |);
-          |
-          |CREATE TEMPORARY TABLE SL_VIEW_WITH_ROWNUM AS
-          |  SELECT  transaction_id,transaction_date,amount,location_info,seller_info,
-          |          ROW_NUMBER() OVER (PARTITION BY `transaction_id`  ORDER BY (select 0)) AS SL_SEQ
-          |  FROM SL_SOURCE_TABLE;
-          |CREATE TEMPORARY TABLE SL_DEDUP AS SELECT  transaction_id,transaction_date,amount,location_info,seller_info  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
-          |MERGE INTO `starlake-project-id.dataset3.transactions_v3` USING SL_DEDUP AS SL_INTERNAL_TABLE ON (SL_INTERNAL_TABLE.transaction_id = `starlake-project-id.dataset3.transactions_v3`.transaction_id)
-          |WHEN MATCHED THEN UPDATE SET transaction_id = SL_INTERNAL_TABLE.transaction_id,transaction_date = SL_INTERNAL_TABLE.transaction_date,amount = SL_INTERNAL_TABLE.amount,location_info = SL_INTERNAL_TABLE.location_info,seller_info = SL_INTERNAL_TABLE.seller_info
-          |WHEN NOT MATCHED THEN INSERT (`transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`) VALUES (SL_INTERNAL_TABLE.`transaction_id`,SL_INTERNAL_TABLE.`transaction_date`,SL_INTERNAL_TABLE.`amount`,SL_INTERNAL_TABLE.`location_info`,SL_INTERNAL_TABLE.`seller_info`)
-          |""".stripMargin.replaceAll("\\s", ""))
+                                                 |CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS (WITH
+                                                 |    transactions AS (
+                                                 |        SELECT
+                                                 |            transaction_id,
+                                                 |            transaction_date,
+                                                 |            amount,
+                                                 |            store_id,
+                                                 |            seller_id
+                                                 |        FROM `starlake-325712`.`starlake_tbl`.`transactions`
+                                                 |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
+                                                 |    ),
+                                                 |    locations AS (
+                                                 |        SELECT
+                                                 |            store_id,
+                                                 |            location_name,
+                                                 |            address,
+                                                 |            city,
+                                                 |            state,
+                                                 |            country
+                                                 |        FROM `starlake-325712`.`starlake_tbl`.`locations`
+                                                 |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
+                                                 |    ),
+                                                 |    sellers AS (
+                                                 |        SELECT
+                                                 |            seller_id,
+                                                 |            seller_name,
+                                                 |            hire_date
+                                                 |        FROM `starlake-325712`.`starlake_tbl`.`sellers`
+                                                 |        WHERE DATE(ingestion_timestamp) = CURRENT_DATE()
+                                                 |    )
+                                                 |
+                                                 |SELECT
+                                                 |    t.transaction_id,
+                                                 |    t.transaction_date,
+                                                 |    t.amount,
+                                                 |    STRUCT(
+                                                 |        l.location_name,
+                                                 |        l.address,
+                                                 |        l.city,
+                                                 |        l.state,
+                                                 |        l.country
+                                                 |        ) AS location_info,
+                                                 |    STRUCT(
+                                                 |        s.seller_name,
+                                                 |        s.hire_date
+                                                 |        ) AS seller_info
+                                                 |FROM
+                                                 |    transactions t
+                                                 |        LEFT JOIN
+                                                 |    locations l ON t.store_id = l.store_id
+                                                 |        LEFT JOIN
+                                                 |    sellers s ON t.seller_id = s.seller_id
+                                                 |
+                                                 |);
+                                                 |
+                                                 |CREATE OR REPLACE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
+                                                 |  SELECT  `transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`,
+                                                 |          ROW_NUMBER() OVER (PARTITION BY `transaction_id`  ORDER BY (select 0)) AS SL_SEQ
+                                                 |  FROM SL_INCOMING;
+                                                 |
+                                                 |CREATE TEMPORARY TABLE SL_DEDUP AS
+                                                 |  SELECT  `transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`
+                                                 |  FROM SL_VIEW_WITH_ROWNUM
+                                                 |  WHERE SL_SEQ = 1;
+                                                 |
+                                                 |MERGE INTO starlake-project-id.dataset3.transactions_v3 USING SL_DEDUP ON (SL_DEDUP.`transaction_id` = starlake-project-id.dataset3.transactions_v3.`transaction_id`)
+                                                 |WHEN MATCHED THEN UPDATE SET `transaction_id` = SL_DEDUP.`transaction_id`,`transaction_date` = SL_DEDUP.`transaction_date`,`amount` = SL_DEDUP.`amount`,`location_info` = SL_DEDUP.`location_info`,`seller_info` = SL_DEDUP.`seller_info`
+                                                 |WHEN NOT MATCHED THEN INSERT (`transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`) VALUES (SL_DEDUP.`transaction_id`,SL_DEDUP.`transaction_date`,SL_DEDUP.`amount`,SL_DEDUP.`location_info`,SL_DEDUP.`seller_info`)
+                                                 |""".stripMargin.replaceAll("\\s", ""))
     }
     "Strip comments" should "succeed" in {
       SQLUtils

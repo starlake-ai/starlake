@@ -12,7 +12,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
+class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
     DagGenerateCmd.run(args, schemaHandler).map(_ => ())
@@ -402,7 +402,7 @@ class DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 }
 
-object DagGenerateCommand {
+object DagGenerateJob {
   val SCHEDULE = "schedule"
   val name = "generate"
 }

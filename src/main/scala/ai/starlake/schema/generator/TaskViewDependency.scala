@@ -215,15 +215,15 @@ case class TaskViewDependency(
   /** @return
     *   (bgColor, fontColor)
     */
-  private def dotColor(): (String, String) = {
+  private def dotColor(): (String, String, String) = {
     import TaskViewDependency._
     typ match {
-      case TASK_TYPE     => ("#00008B", "white") // darkblue
-      case TASKVIEW_TYPE => ("darkcyan", "white")
-      case VIEW_TYPE     => ("darkgrey", "white")
-      case TABLE_TYPE    => ("white", "black")
-      case CTE_TYPE      => ("darkorange", "white")
-      case UNKNOWN_TYPE  => ("black", "white")
+      case TASK_TYPE     => ("#00008B", "white", "Task") // darkblue
+      case TASKVIEW_TYPE => ("darkcyan", "white", "TaskView")
+      case VIEW_TYPE     => ("darkgrey", "white", "View")
+      case TABLE_TYPE    => ("#008B00", "white", "Table")
+      case CTE_TYPE      => ("darkorange", "white", "CTE")
+      case UNKNOWN_TYPE  => ("black", "white", "???")
       case _             => throw new Exception(s"Unknown type $typ")
     }
   }
@@ -241,11 +241,14 @@ case class TaskViewDependency(
 
   def entityAsDot(): String = {
     val depId = name.replaceAll("\\.", "_")
-    val (bgColor, fontColor) = dotColor()
+    val (bgColor, fontColor, text) = dotColor()
     s"""
        |$depId [label=<
        |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
-       |<tr><td port="0" bgcolor="$bgColor"><B><FONT face="Arial" color="$fontColor"> $name&nbsp;&nbsp;</FONT></B></td></tr>
+       |<tr>
+       |<td bgcolor="$bgColor" ><font color="$fontColor" face="Arial">$text</font></td>
+       |<td port="0" ><font face="Arial">$name&nbsp;&nbsp;</font>
+       |</td></tr>
        |</table>>];""".stripMargin
   }
 }
