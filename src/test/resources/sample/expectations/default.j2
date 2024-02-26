@@ -1,8 +1,7 @@
 {% macro is_col_value_not_unique(col, table='sl_this') %}
     SELECT max(cnt)
     FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
-    GROUP BY {{ col }}
-    HAVING cnt > 1)
+    GROUP BY {{ col }})
 {% endmacro %}
 
 {% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}

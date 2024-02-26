@@ -104,20 +104,22 @@ You may want to combine criterias. If so, just use regular boolean operators wit
 When using String in expression, makes sure to wrap them with double quotes `"`
 :::
 
-### List of valid write strategy
+### Available write strategies
 
 Strategy| Description | Requirements
 :---|:---|:---
-APPEND|Turn your load into APPEND mode. Ignore `merge` and `dynamicPartitionOverwrite` settings.| None
-OVERWRITE|Turn your load into OVERWRITE mode. Ignore `merge` and `dynamicPartitionOverwrite` settings.| None
-UPSERT_BY_KEY|Merge incoming data and target data using key. Incoming data for same key have higher precedence. Ignore `timestamp` setting on `merge`.| `merge.key` is defined
-UPSERT_BY_KEY_AND_TIMESTAMP|Merge incoming data and target data using key. Select the data with higher timestamp for each key.| `merge.key` and `merge.timestamp` is defined
-OVERWRITE_BY_PARTITION|Overwrite target partitions with incoming partitions. Ignore `merge` setting.| `merge.key` and `merge.timestamp` is defined
+APPEND|Turn your load into APPEND mode. Append new data| None
+OVERWRITE|Turn your load into OVERWRITE mode. Overwrite existing table | None
+UPSERT_BY_KEY|Merge incoming data and target data using key. Incoming data for same key have higher precedence. | `writeStrategy.key` is defined
+UPSERT_BY_KEY_AND_TIMESTAMP|Merge incoming data and target data using key. Select the data with higher timestamp for each key.| `writeStrategy.key` and `writeStrategy.timestamp` are defined
+OVERWRITE_BY_PARTITION|Overwrite target partitions with incoming partitions.| `writeStrategy.key` and `writeStrategy.timestamp` are defined
+SCD2|Merge incoming data and target data using key and timestamp. Incoming data for same key have higher precedence.`.| `writeStrategy.key` and `writeStrategy.timestamp` are defined
 
 
 ### List of criterias
 Criteria| Description | Example
-group(index|name) | File pattern must use (named) capture groups | pattern: `my-file-(F|D).csv$` => m.group(1) == "F"
+:---|:---|:---
+group(index or name) | File pattern must use (named) capture groups | pattern: `my-file-(F|D).csv$` => m.group(1) == "F"
 fileSize | Current file size in bytes | fileSize > 1000
 fileSizeB | Current file size in bytes. Alias of fileSize |
 fileSizeKo | Current file size in Ko |
@@ -132,7 +134,7 @@ isFileLastDayOfMonth | File modification date is last day of month|
 fileDayOfWeek | Integer representing file modification day of week. Monday = 1, ..., Sunday = 7|
 
 :::note
-For criterias relying on datetime, you can change its timezone with `timezone` application setings in `application.sl.yml`
+For a criteria relying on datetime, you can change its timezone with `timezone` application settings in `application.sl.yml`
 :::
 
 ## Validation
@@ -182,7 +184,7 @@ sha256|ai.starlake.privacy.Sha256|Return the sha256 of the input string
 sha512|ai.starlake.privacy.Sha512|Return the sha256 of the input string
 initials|ai.starlake.privacy.Initials|Return the first char of each word (usually applied to user names)
 
-The following startegies are also defined and may be declared in the custom configuration file.
+The following strategies are also defined and may be declared in the custom configuration file.
 
 Privacy class|Description
 :---|:---

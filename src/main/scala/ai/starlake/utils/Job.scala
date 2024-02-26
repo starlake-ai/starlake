@@ -1,17 +1,14 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
-import ai.starlake.schema.model.Metadata
 import better.files.File
 import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.IntegerType
 
 import scala.jdk.CollectionConverters.mapAsJavaMapConverter
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 trait JobResult {
   def prettyPrint(
@@ -113,6 +110,20 @@ trait SparkJob extends JobBase {
 
   private lazy val sparkEnv: SparkEnv = new SparkEnv(name, withExtraSparkConf)
 
+  def getTableLocation(domain: String, schema: String): String = {
+    getTableLocation(s"$domain.$schema")
+  }
+
+  def getTableLocation(fullTableName: String): String = {
+    import session.implicits._
+    session
+      .sql(s"desc formatted $fullTableName")
+      .toDF
+      .filter('col_name === "Location")
+      .collect()(0)(1)
+      .toString
+  }
+
   protected def registerUdf(udf: String): Unit = {
     val udfInstance: UdfRegistration =
       Class
@@ -129,131 +140,4 @@ trait SparkJob extends JobBase {
     sparkEnv.session
   }
 
-  // TODO Should we issue a warning if used with Overwrite mode ????
-  // TODO Check that the year / month / day / hour / minute do not already exist
-  private def buildPartitionedDF(dataset: DataFrame, cols: List[String]): DataFrame = {
-    var partitionedDF = dataset.withColumn("sl_date", current_timestamp())
-    val dataSetsCols = dataset.columns.toList
-    cols.foreach {
-      case "sl_date" if !dataSetsCols.contains("date") =>
-        partitionedDF = partitionedDF.withColumn(
-          "date",
-          date_format(col("sl_date"), "yyyyMMdd").cast(IntegerType)
-        )
-      case "sl_year" if !dataSetsCols.contains("year") =>
-        partitionedDF = partitionedDF.withColumn("year", year(col("sl_date")))
-      case "sl_month" if !dataSetsCols.contains("month") =>
-        partitionedDF = partitionedDF.withColumn("month", month(col("sl_date")))
-      case "sl_day" if !dataSetsCols.contains("day") =>
-        partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("sl_date")))
-      case "sl_hour" if !dataSetsCols.contains("hour") =>
-        partitionedDF = partitionedDF.withColumn("hour", hour(col("sl_date")))
-      case "sl_minute" if !dataSetsCols.contains("minute") =>
-        partitionedDF = partitionedDF.withColumn("minute", minute(col("sl_date")))
-      case _ =>
-        partitionedDF
-    }
-    partitionedDF.drop("sl_date")
-  }
-
-  /** Partition a dataset using dataset columns. To partition the dataset using the ingestion time,
-    * use the reserved column names :
-    *   - sl_date
-    *   - sl_year
-    *   - sl_month
-    *   - sl_day
-    *   - sl_hour
-    *   - sl_minute These columns are renamed to "date", "year", "month", "day", "hour", "minute" in
-    *     the dataset and their values is set to the current date/time.
-    *
-    * @param dataset
-    *   : Input dataset
-    * @param partition
-    *   : list of columns to use for partitioning.
-    * @return
-    *   The Spark session used to run this job
-    */
-  protected def partitionedDatasetWriter(
-    dataset: DataFrame,
-    partition: List[String]
-  ): DataFrameWriter[Row] = {
-    partition match {
-      case Nil => dataset.write
-      case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
-        val strippedCols = cols.map(_.substring("sl_".length))
-        val partitionedDF = buildPartitionedDF(dataset, cols)
-        // does not work on nested fields -> https://issues.apache.org/jira/browse/SPARK-18084
-        partitionedDF.write.partitionBy(strippedCols: _*)
-      case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
-        dataset.write.partitionBy(cols: _*)
-      case _ =>
-        // Should never happend
-        // TODO Test this at load time
-        throw new Exception("Cannot mix comet & non comet col names")
-
-    }
-  }
-
-  protected def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
-    logger.info(s"""Partitioning on ${partition.mkString(",")}""")
-    partition match {
-      case Nil => dataset
-      case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
-        buildPartitionedDF(dataset, cols)
-      case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
-        dataset
-      case _ =>
-        dataset
-
-    }
-  }
-
-  protected def analyze(fullTableName: String): Any = {
-    if (settings.appConfig.analyze) {
-      logger.info(s"computing statistics on table $fullTableName")
-      val allCols = session.table(fullTableName).columns.mkString(",")
-      session.table(fullTableName)
-      val partitionedCols =
-        Try {
-          val partitionedColsDF = session.sql(s"show partitions $fullTableName")
-          import session.implicits._
-          val partitionedCols = partitionedColsDF
-            .map(_.getAs[String](0))
-            .first
-            .split('/')
-            .map(_.split("=")(0))
-            .toList
-            .mkString(",")
-          Some(s"ANALYZE TABLE $fullTableName PARTITION ($partitionedCols) COMPUTE STATISTICS")
-        } match {
-          case Success(value) =>
-            value
-          case Failure(e) =>
-            // Ignore errors when trying to compute statistics non partitioned table
-            logger.info(Utils.exceptionAsString(e))
-            None
-        }
-
-      if (session.version.substring(0, 3).toDouble >= 2.4) {
-        val analyzeCommands =
-          List(
-            Some(s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS NOSCAN"),
-            partitionedCols,
-            Some(s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols")
-          ).flatten
-        analyzeCommands.foreach { command =>
-          Try {
-            session.sql(command)
-          } match {
-            case Success(df) => df
-            case Failure(e) =>
-              logger.warn(
-                s"Failed to compute statistics for table $fullTableName on columns $allCols"
-              )
-              e.printStackTrace()
-          }
-        }
-      }
-    }
-  }
 }

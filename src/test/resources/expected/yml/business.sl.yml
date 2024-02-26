@@ -8,8 +8,8 @@ transform:
       write: "OVERWRITE"
       sink:
         partition:
-          - "sl_year"
-          - "sl_month"
+          - year
+          - month
       presql: null
       postsql: null
       rls:

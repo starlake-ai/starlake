@@ -3,15 +3,14 @@ package ai.starlake.job.sink.jdbc
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.ConnectionType
+import ai.starlake.schema.model.{ConnectionType, WriteStrategy, WriteStrategyType}
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.JobResult
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 import java.sql.{DriverManager, SQLException}
 import scala.util.{Failure, Success, Try}
-import ai.starlake.utils.Formatter.RichFormatter
 
 object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
@@ -66,9 +65,8 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
     comet: Settings.AppConfig,
     sourceFile: Either[String, DataFrame],
     outputTable: String,
-    createDisposition: CreateDisposition, // = CreateDisposition.CREATE_IF_NEEDED,
-    writeDisposition: WriteDisposition, // = WriteDisposition.WRITE_APPEND,
-    createTableIfAbsent: Boolean = true
+    strategy: WriteStrategy,
+    createTableIfAbsent: Boolean
   )(implicit settings: Settings): JdbcConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but we need to get rid of the defaults in the ctor above
 
@@ -90,8 +88,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
     JdbcConnectionLoadConfig(
       sourceFile = dfWithUppercaseColumns,
       outputDomainAndTableName = outputTable.toUpperCase(),
-      createDisposition = createDisposition,
-      writeDisposition = writeDisposition,
+      strategy = strategy,
       starlakeConnection.sparkFormat.getOrElse("jdbc"),
       starlakeConnection.options
     )
@@ -122,16 +119,10 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
           "Connection options eq for jdbc : driver, user, password, url, partitions, batchSize"
         ),
       builder
-        .opt[String]("create_disposition")
-        .action((x, c) => c.copy(createDisposition = CreateDisposition.valueOf(x)))
+        .opt[String]("write_strategy")
+        .action((x, c) => c.copy(strategy = WriteStrategy(Some(WriteStrategyType(x)))))
         .text(
-          "Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition"
-        ),
-      builder
-        .opt[String]("write_disposition")
-        .action((x, c) => c.copy(writeDisposition = WriteDisposition.valueOf(x)))
-        .text(
-          "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
+          "One of the write strategies: APPEND, OVERWRITE (see strategy types)"
         )
     )
   }

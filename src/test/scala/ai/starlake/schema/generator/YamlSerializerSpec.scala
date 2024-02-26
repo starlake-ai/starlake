@@ -15,7 +15,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc("user", List(task))
@@ -30,10 +30,7 @@ class YamlSerializerSpec extends TestHelper {
             "write"     -> "OVERWRITE",
             "recursive" -> false
           )
-        ),
-        "format"   -> "parquet",
-        "coalesce" -> false,
-        "engine"   -> "SPARK"
+        )
       )
       assert((jobMap.toSet diff expected.toSet).toMap.isEmpty)
     }
@@ -46,7 +43,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc(
@@ -66,6 +63,8 @@ class YamlSerializerSpec extends TestHelper {
           )
         )
       )
+      println(jobMap.toSet)
+      println(expected.toSet)
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
     "Job with SPARK engine toMap" should "should produce the correct map" in {
@@ -77,7 +76,7 @@ class YamlSerializerSpec extends TestHelper {
         table = "user",
         write = Some(WriteMode.OVERWRITE),
         python = None,
-        merge = None
+        writeStrategy = None
       )
       val job =
         AutoJobDesc("user", List(task))

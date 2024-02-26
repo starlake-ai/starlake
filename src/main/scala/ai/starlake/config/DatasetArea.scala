@@ -108,8 +108,9 @@ object DatasetArea extends StrictLogging {
     * @return
     *   Absolute path to the ingesting folder of domain
     */
-  def accepted(domain: String)(implicit settings: Settings): Path =
+  def accepted(domain: String)(implicit settings: Settings): Path = {
     path(domain, settings.appConfig.area.accepted)
+  }
 
   /** Invalid records and the reason why they have been rejected for the datasets of the specified
     * domain are stored in this folder.

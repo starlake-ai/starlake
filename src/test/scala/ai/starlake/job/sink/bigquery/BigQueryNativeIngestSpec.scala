@@ -8,13 +8,13 @@ import org.scalatest.BeforeAndAfterAll
 class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
   val bigquery = BigQueryOptions.newBuilder().build().getService()
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("nativesales", "nativecustomers"))
     }
   }
   override def afterAll(): Unit = {
     super.afterAll()
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
     }
@@ -46,7 +46,7 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
     result
   }
   "Ingest to BigQuery" should "be ingested and stored in a BigQuery table using native mode" in {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)

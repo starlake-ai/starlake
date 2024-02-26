@@ -11,14 +11,14 @@
 Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
 # What is Starlake ?
 
-Starlake is a configuration only Extract, Load and Transform engine.
+Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
 * Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
 * Configure the loading process
 * Start watching your data being available as Tables in your warehouse.
 * Build aggregates using SQL and YAML configuration files.
-* Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator in teh right order.
+* Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ) in the right order.
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
@@ -100,7 +100,10 @@ table:
     encoding: "UTF-8"
     withHeader: yes     # (optional) auto-detected if not specified
     separator: "|"      # (optional) auto-detected if not specified
-    write: "MERGE"
+    writeStrategy:      
+      type: "UPSERT_BY_KEY_AND_TIMESTAMP"
+      timestamp: signup
+      key: [id]         
                         # Please replace it by the adequate file pattern eq. customers-.*.psv if required
   attributes:           # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
@@ -113,9 +116,6 @@ table:
     - name: "contact"
       type: "string"
       ...
-  merge:  # (optional) when specified, the merge will be based on this field and only records that have changed will be updated
-    timestamp: signup
-    key: [id]
 ```
 
 That's it, we have defined our loading pipeline.
@@ -129,11 +129,12 @@ Let's say we want to build aggregates from the previously loaded data
 
 transform:
   default:
-    write: OVERWRITE
+    writeStrategy: 
+      type: "OVERWRITE"
   tasks:
     - name: most_profitable_products
-      write: MERGE
-      merge:
+      writeStrategy:
+        type: "UPSERT_BY_KEY_AND_TIMESTAMP"
         timestamp: signup
         key: [id]
       sql: |              # based on the merge strategy and the current state,
@@ -145,14 +146,14 @@ transform:
             ORDER BY total_revenue DESC
 ```
 
-Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `merge` property and the input /output tables .
+Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `writeStrategy` property and the input /output tables .
 
 ### Orchestrate
 
 Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
 whenever  the tables referenced in the SQL query are updated.
 
-Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, Prefect, ...).
+Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, ...).
 Simply reference them in your YAML files  and optionally customize them to your needs.
 
 

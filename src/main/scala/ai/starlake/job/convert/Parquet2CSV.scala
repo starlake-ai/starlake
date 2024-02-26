@@ -2,11 +2,11 @@ package ai.starlake.job.convert
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.WriteMode.ERROR_IF_EXISTS
+import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** Convert parquet files to CSV. The folder hierarchy should be in the form
   * /input_folder/domain/schema/part*.parquet Once converted the csv files is put in the folder
@@ -54,9 +54,9 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
             .load(path.toString)
             .repartition(config.partitions)
             .write
-            .mode(config.writeMode.getOrElse(ERROR_IF_EXISTS).toSaveMode)
+            .mode(config.writeMode.getOrElse(APPEND).toSaveMode)
           writer
-            .options(config.options.toMap)
+            .options(config.options)
             .option("ignoreLeadingWhiteSpace", false)
             .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)
@@ -66,7 +66,14 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           if (config.deleteSource)
             storageHandler.delete(path)
           Some(csvPath)
-        }.getOrElse(None)
+        } match {
+          case Success(result) =>
+            Option(result)
+          case Failure(e) =>
+            e.printStackTrace()
+            None
+
+        }
       } else {
         None
       }

@@ -67,7 +67,7 @@ That's it, we have defined our extraction pipeline.
 
 ## Load
 
-Let's say we want to load the data extracted from the previous example into a datawarehouse
+Let's say we want to load the data coming from a file or extracted from the previous example into a datawarehouse
 
 ```yaml
 ---
@@ -80,7 +80,10 @@ table:
     encoding: "UTF-8"
     withHeader: yes     # (optional) auto-detected if not specified
     separator: "|"      # (optional) auto-detected if not specified
-    write: "MERGE"
+    writeStrategy:
+      type: "SCD2"      # Use the Slow CHanging Dimension Type 2 Strategy when writing to the destination table.
+      timestamp: signup
+      key: [id]
   attributes:           # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
@@ -92,9 +95,6 @@ table:
     - name: "contact"
       type: "string"
       ...
-  merge:  # (optional) when specified, the merge will be based on this field and only records that have changed will be updated
-    timestamp: signup
-    key: [id]
 ```
 
 That's it, we have defined our loading pipeline.
@@ -102,7 +102,7 @@ That's it, we have defined our loading pipeline.
 
 ## Transform
 
-Let's say we want to build aggregates from the previously loaded data
+Let's say we want to build aggregates from existing tables or from the previously loaded files
 
 ```yaml
 ---
@@ -111,10 +111,9 @@ transform:
     write: "OVERWRITE"
   tasks:
     - name: "most_profitable_products"
-      write: "MERGE"
-      merge:
-        timestamp: "signup"
-        key: [id]
+      writeStrategy:
+        type: "OVERWRITE_BY_PARTITION"
+        timestamp: "sale_date"
       sql: |              # based on the merge strategy,
           SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT, OVERWRITE statement
             productid,
@@ -128,7 +127,7 @@ Starlake will automatically apply the right merge strategy (INSERT, OVERWRITE or
 
 ## Orchestrate
 
-Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
+Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it on your requested orchestrator (Airflow, Dagster ...)
 whenever  the tables referenced in the SQL query are updated.
 
 Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, Prefect, ...).

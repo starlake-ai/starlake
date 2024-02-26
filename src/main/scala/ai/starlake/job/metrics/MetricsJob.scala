@@ -197,7 +197,7 @@ class MetricsJob(
               presql = Nil,
               postsql = Nil,
               sink = Some(settings.appConfig.audit.sink),
-              parseSQL = Some(false),
+              parseSQL = Some(true),
               _auditTableName = Some(table.toString)
             )
           val autoTask = new SparkAutoTask(
@@ -210,7 +210,7 @@ class MetricsJob(
             storageHandler,
             schemaHandler
           )
-          autoTask.sink(Some(df))
+          autoTask.sink(df)
         case None =>
           true
       }

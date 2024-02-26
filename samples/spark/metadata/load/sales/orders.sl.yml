@@ -1,9 +1,8 @@
   table:
     name: "orders"
     pattern: "orders-.*.csv"
-    merge:
-      key:
-        - "id"
+    writeStrategy:
+      type: APPEND
     metadata:
       separator: ","
     attributes:

@@ -19,7 +19,9 @@ lazy val scala212 = "2.12.18"
 
 lazy val scala213 = "2.13.12"
 
-// ThisBuild / crossScalaVersions := List(scala212, scala213)
+lazy val supportedScalaVersions = List(scala212) // , scala213
+
+ ThisBuild / crossScalaVersions := supportedScalaVersions
 
 organization := "ai.starlake"
 
@@ -45,7 +47,8 @@ libraryDependencies ++= {
 dependencyOverrides := Seq(
   "org.scala-lang"         % "scala-library"             % scalaVersion.value,
   "org.scala-lang"         % "scala-reflect"             % scalaVersion.value,
-  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value
+  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value,
+  "com.google.guava"       %  "guava"                    % "31.1-jre" // required by jinjava 2.7.2
 )
 
 name := {
@@ -303,10 +306,11 @@ packageSetup := {
   }
   val scalaMajorVersion = scalaVersion.value.split('.').take(2).mkString(".")
   val setupClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val setupAuthenticatorClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$1.class")
   val setupJarDependencyClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$JarDependency.class")
   val to = Paths.get("distrib/setup.jar")
   zipFile(
-    List(setupClass, setupJarDependencyClass),
+    List(setupClass, setupAuthenticatorClass, setupJarDependencyClass),
     to
   )
 }

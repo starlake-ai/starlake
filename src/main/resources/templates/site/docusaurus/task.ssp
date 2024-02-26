@@ -4,7 +4,7 @@
 <%@ val aclSVG: String %>
 
 
-# ${ task.getTablePartName() }
+# ${ task.getTableName() }
 
 ${ task.comment.getOrElse("No description provided") }
 

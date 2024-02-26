@@ -28,8 +28,8 @@ import java.sql.{
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-import scala.collection.{mutable, GenTraversable}
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -86,9 +86,8 @@ object JdbcDbUtils extends LazyLogging {
     * @return
     */
   def withJDBCConnection[T](
-    connectionSettings: Connection
+    connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    val connectionOptions = connectionSettings.options
     assert(
       connectionOptions.contains("driver"),
       "driver class not found in JDBC connection options"
@@ -127,8 +126,8 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def createSchema(domainName: String, conn: SQLConnection): Unit = {
-    execute(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+  def createSchema(conn: SQLConnection, domainName: String): Unit = {
+    executeUpdate(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $domainName", e)
@@ -138,7 +137,7 @@ object JdbcDbUtils extends LazyLogging {
 
   @throws[Exception]
   def dropTable(tableName: String, conn: SQLConnection): Unit = {
-    execute(s"DROP TABLE IF EXISTS $tableName", conn) match {
+    executeUpdate(s"DROP TABLE IF EXISTS $tableName", conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $tableName", e)
@@ -174,9 +173,9 @@ object JdbcDbUtils extends LazyLogging {
     }
     val statement = connection.createStatement()
     try {
-      val res = statement.execute(script)
+      val res = statement.executeUpdate(script)
       connection.commit()
-      res
+      true
     } finally {
       statement.close()
       connection.setAutoCommit(isAutoCommit)
@@ -198,6 +197,25 @@ object JdbcDbUtils extends LazyLogging {
     result
   }
 
+  def executeUpdate(script: String, connection: java.sql.Connection): Try[Boolean] = {
+    logger.info(s"Running $script")
+    val statement = connection.createStatement()
+    val result = Try {
+      val count = statement.executeUpdate(script)
+      logger.info(s"$count records affected")
+      true
+    }
+    result match {
+      case Failure(exception) =>
+        logger.error(s"Error running $script", exception)
+        throw exception
+      case Success(value) =>
+        logger.info(s"Executed $script with return value $value")
+    }
+    statement.close()
+    result
+  }
+
   /** RUn the sql statement in the context of a connection
     *
     * @param script
@@ -205,10 +223,10 @@ object JdbcDbUtils extends LazyLogging {
     * @param settings
     * @return
     */
-  def execute(script: String, connection: Connection)(implicit
+  def execute(script: String, connectionOptions: Map[String, String])(implicit
     settings: Settings
   ): Boolean = {
-    withJDBCConnection(connection) { conn =>
+    withJDBCConnection(connectionOptions) { conn =>
       conn.createStatement().execute(script)
     }
   }
@@ -260,7 +278,7 @@ object JdbcDbUtils extends LazyLogging {
     jdbcSchema.columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting column remarks using $sql")
-      withJDBCConnection(connectionSettings) { connection =>
+      withJDBCConnection(connectionSettings.options) { connection =>
         val statement = connection.createStatement()
         val rs = statement.executeQuery(sql)
         val res = mutable.Map.empty[String, String]
@@ -324,7 +342,7 @@ object JdbcDbUtils extends LazyLogging {
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
   ): Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
-    withJDBCConnection(connectionSettings) { connection =>
+    withJDBCConnection(connectionSettings.options) { connection =>
       val databaseMetaData = connection.getMetaData()
 
       val jdbcTableMap =
@@ -433,7 +451,7 @@ object JdbcDbUtils extends LazyLogging {
                 jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName)).map(_.columns)
               ExtractUtils.timeIt(s"Table extraction of $tableName") {
                 logger.info(s"Extracting table $tableName: $tableRemarks")
-                withJDBCConnection(connectionSettings) { tableExtractConnection =>
+                withJDBCConnection(connectionSettings.options) { tableExtractConnection =>
                   val databaseMetaData = tableExtractConnection.getMetaData
                   Using.Manager { use =>
                     // Find all foreign keys
@@ -691,7 +709,6 @@ object JdbcDbUtils extends LazyLogging {
             )
           ),
           metadata = None,
-          merge = None,
           comment = Option(tableRemarks),
           presql = Nil,
           postsql = Nil,
@@ -840,13 +857,15 @@ object JdbcDbUtils extends LazyLogging {
               val currentTableConnectionOptions =
                 currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
               // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-              val fullExport = extractConfig.fullExport ||
-                currentTableDefinition
-                  .flatMap(_.fullExport)
-                  .orElse(extractConfig.jdbcSchema.fullExport)
-                  .getOrElse(
-                    false
-                  ) // should not happen since fillWithDefaultValues should be called and have false as default one
+              val fullExport = extractConfig.fullExport
+                .orElse(
+                  currentTableDefinition
+                    .flatMap(_.fullExport)
+                )
+                .orElse(extractConfig.jdbcSchema.fullExport)
+                .getOrElse(
+                  true
+                )
 
               val fetchSize =
                 currentTableDefinition
@@ -977,7 +996,7 @@ object JdbcDbUtils extends LazyLogging {
   )(implicit settings: Settings) = {
     extractDataConfig.extractionPredicate
       .flatMap { predicate =>
-        withJDBCConnection(extractDataConfig.audit) { connection =>
+        withJDBCConnection(extractDataConfig.audit.options) { connection =>
           LastExportUtils.getLastSuccessfulAllExport(
             connection,
             extractDataConfig,
@@ -1021,30 +1040,31 @@ object JdbcDbUtils extends LazyLogging {
     // This is applied when the table is exported for the first time
 
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
       */
-    def sqlFirst(columnExprToDistribute: String) =
+    def sqlFirst(columnExprToDistribute: String): String =
       s"""select $dataColumnsProjection
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ?""".stripMargin
+         |where $columnExprToDistribute <= ? $extraCondition""".stripMargin
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
       */
-    def sqlNext(columnExprToDistribute: String) =
+    def sqlNext(columnExprToDistribute: String): String =
       s"""select $dataColumnsProjection
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ? and $columnExprToDistribute > ?""".stripMargin
+         |where $columnExprToDistribute <= ? $columnExprToDistribute > ? $extraCondition""".stripMargin
 
     // Get the boundaries of each partition that will be handled by a specific thread.
-    val boundaries = withJDBCConnection(extractConfig.data) { connection =>
-      def getBoundariesWith(auditConnection: SQLConnection) = {
+    val boundaries = withJDBCConnection(extractConfig.data.options) { connection =>
+      def getBoundariesWith(auditConnection: SQLConnection): LastExportUtils.Bounds = {
         auditConnection.setAutoCommit(false)
         LastExportUtils.getBoundaries(
           connection,
@@ -1058,7 +1078,7 @@ object JdbcDbUtils extends LazyLogging {
       if (extractConfig.data.options == extractConfig.audit.options) {
         getBoundariesWith(connection)
       } else {
-        withJDBCConnection(extractConfig.audit) { auditConnection =>
+        withJDBCConnection(extractConfig.audit.options) { auditConnection =>
           getBoundariesWith(auditConnection)
         }
       }
@@ -1076,13 +1096,12 @@ object JdbcDbUtils extends LazyLogging {
           val quotedPartitionColumn =
             extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
 
-          def sql(
-            columnToDistribute: String = quotedPartitionColumn
-          ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
-          else
-            sqlNext(columnToDistribute)
+          def sql(columnToDistribute: String = quotedPartitionColumn): String =
+            if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
+            else
+              sqlNext(columnToDistribute)
 
-          withJDBCConnection(extractConfig.data) { connection =>
+          withJDBCConnection(extractConfig.data.options) { connection =>
             val (effectiveSql, statementFiller) = tableExtractDataConfig.partitionColumnType match {
               case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
                 val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
@@ -1190,7 +1209,7 @@ object JdbcDbUtils extends LazyLogging {
               message = tableExtractDataConfig.partitionColumn,
               step = index.toString
             )
-            withJDBCConnection(extractConfig.audit) { connection =>
+            withJDBCConnection(extractConfig.audit.options) { connection =>
               LastExportUtils.insertNewLastExport(
                 connection,
                 deltaRow,
@@ -1237,7 +1256,7 @@ object JdbcDbUtils extends LazyLogging {
       message = tableExtractDataConfig.partitionColumn,
       step = "ALL"
     )
-    withJDBCConnection(extractConfig.audit) { connection =>
+    withJDBCConnection(extractConfig.audit.options) { connection =>
       LastExportUtils.insertNewLastExport(
         connection,
         deltaRow,
@@ -1259,14 +1278,15 @@ object JdbcDbUtils extends LazyLogging {
     auditColumns: Columns
   )(implicit settings: Settings): Try[Unit] = {
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"where $w").getOrElse("")
     // non partitioned tables are fully extracted there is no delta mode
     val sql =
       s"""select $dataColumnsProjection from ${extractConfig.data.quoteIdentifier(
           extractConfig.jdbcSchema.schema
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}"""
+        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)} $extraCondition"""
     val tableStart = System.currentTimeMillis()
     val (count, success) = Try {
-      withJDBCConnection(extractConfig.data) { connection =>
+      withJDBCConnection(extractConfig.data.options) { connection =>
         connection.setAutoCommit(false)
         val statement = connection.prepareStatement(sql)
         tableExtractDataConfig.fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
@@ -1304,7 +1324,7 @@ object JdbcDbUtils extends LazyLogging {
       message = "FULL",
       step = "ALL"
     )
-    withJDBCConnection(extractConfig.audit) { connection =>
+    withJDBCConnection(extractConfig.audit.options) { connection =>
       LastExportUtils.insertNewLastExport(
         connection,
         deltaRow,
@@ -1357,12 +1377,12 @@ object JdbcDbUtils extends LazyLogging {
   private def createExportAuditSchemaIfNotExists(
     connectionSettings: Connection
   )(implicit settings: Settings): Columns = {
-    withJDBCConnection(connectionSettings) { connection =>
+    withJDBCConnection(connectionSettings.options) { connection =>
       val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
       val existLastExportTable =
         tableExists(connection, connectionSettings.jdbcUrl, s"${auditSchema}.$lastExportTableName")
       if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
-        createSchema(auditSchema, connection)
+        createSchema(connection, auditSchema)
         val jdbcEngineName = connectionSettings.getJdbcEngineName()
         settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
           val createTableSql = jdbcEngine
@@ -1784,14 +1804,15 @@ object LastExportUtils extends LazyLogging {
     tableExtractDataConfig: PartitionnedTableExtractDataConfig,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
+    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
     val quotedColumn = extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
     val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
       s"""select count($quotedColumn) as count_value, min($columnToDistribute) as min_value, max($columnToDistribute) as max_value
-           |from ${extractConfig.data.quoteIdentifier(
+         |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-           |where $columnToDistribute > ?""".stripMargin
+         |where $columnToDistribute > ? $extraCondition""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
     apply(preparedStatement)
   }

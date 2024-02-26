@@ -78,7 +78,7 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
         .text("Where to output csv files"),
       builder
         .opt[Unit]("incremental")
-        .action((_, c) => c.copy(fullExport = false))
+        .action((_, c) => c.copy(fullExport = Some(false)))
         .optional()
         .text("Export only new data since last extraction."),
       builder
@@ -147,7 +147,7 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
   override def run(config: UserExtractDataConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    Try(new ExtractData(schemaHandler).run(config)).map(_ => JobResult.empty)
+    Try(new ExtractDataJob(schemaHandler).run(config)).map(_ => JobResult.empty)
 }
 
 object ExtractDataCmd extends ExtractDataCmd

@@ -211,8 +211,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   private val defaultFS: FileSystem = FileSystem.get(conf)
   logger.info("defaultFS=" + defaultFS)
-  logger.info("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
-  logger.info("defaultFS.getUri=" + defaultFS.getUri)
+  logger.debug("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
+  logger.debug("defaultFS.getUri=" + defaultFS.getUri)
 
   def fs(inputPath: Path): FileSystem = {
     val path =
@@ -540,33 +540,36 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
     // Source path is expected to be a directory:
     if (currentFS.getFileStatus(srcDir).isDirectory) {
-
       val parts = currentFS
         .listStatus(srcDir)
         .filter(status => status.isFile)
         .map(_.getPath)
-      val outputStream = currentFS.create(dstFile)
-      header.foreach { header =>
-        val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
-        val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
-        try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
-        finally { inputStream.close() }
-      }
-      try {
-        parts
-          .filter(part => part.getName().startsWith("part-"))
-          .sortBy(_.getName)
-          .collect { case part =>
-            val inputStream = currentFS.open(part)
-            try {
-              org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false)
-              if (deleteSource) delete(part)
-            } finally { inputStream.close() }
-          }
+      if (parts.nonEmpty) {
+        val outputStream = currentFS.create(dstFile)
+        header.foreach { header =>
+          val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
+          val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
+          try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
+          finally { inputStream.close() }
+        }
+        try {
+          parts
+            .filter(part => part.getName().startsWith("part-"))
+            .sortBy(_.getName)
+            .collect { case part =>
+              val inputStream = currentFS.open(part)
+              try {
+                org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false)
+                if (deleteSource) delete(part)
+              } finally { inputStream.close() }
+            }
 
-      } finally { outputStream.close() }
+        } finally { outputStream.close() }
+      }
       true
-    } else false
+    } else {
+      false
+    }
   }
 }
 

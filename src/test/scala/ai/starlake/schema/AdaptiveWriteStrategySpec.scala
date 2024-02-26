@@ -1,22 +1,12 @@
 package ai.starlake.schema
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.FileInfo
-import ai.starlake.schema.model.{
-  AllSinks,
-  MergeOptions,
-  Metadata,
-  Partition,
-  Schema,
-  WriteMode,
-  WriteStrategy,
-  WriteStrategyType
-}
+import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
 
 import java.time.Instant
 import java.util.regex.Pattern
-import scala.collection.immutable
 
 class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyChecks {
 
@@ -36,25 +26,24 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         Nil,
         Some(
           Metadata(
-            write = Some(WriteMode.APPEND),
             sink = Some(
               AllSinks(
                 connectionRef = None,
-                timestamp = Some("timestampCol"),
-                partition = Some(
-                  Partition(
-                    attributes = List("partitionCol1", "partitionCol2")
-                  )
-                )
+                partition = Some(List("timestampCol"))
               )
             ),
-            writeStrategy = Some(WriteStrategy(Some(givenStrategies)))
+            writeStrategy = Some(
+              WriteStrategy(
+                types = Some(givenStrategies),
+                key = List("key1", "key2"),
+                timestamp = Some("timestampCol")
+              )
+            )
           )
         ),
-        Some(MergeOptions(key = List("key1", "key2"), timestamp = Some("timestampCol"))),
         None
       )
-      val connectionRefs: TableFor1[String] = Table("connectionRef", "bigquery", "spark", "test-h2")
+      val connectionRefs: TableFor1[String] = Table("connectionRef", "bigquery", "spark", "test-pg")
       forAll(connectionRefs) { connectionRef =>
         val testSchema = givenSchema.copy(metadata = givenSchema.metadata.map { m =>
           m.copy(sink = m.sink.map(_.copy(connectionRef = Some(connectionRef))))
@@ -64,11 +53,6 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
           FileInfo(new Path("/tmp/my_file." + WriteStrategyType.APPEND), 10L, now),
           givenStrategies
         )
-        appendAdaptedSchema.metadata.flatMap(_.write) shouldBe Some(WriteMode.APPEND)
-        appendAdaptedSchema.merge shouldBe None
-        appendAdaptedSchema.metadata
-          .flatMap(_.sink)
-          .flatMap(_.dynamicPartitionOverwrite) shouldBe Some(false)
         appendAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
           .flatMap(_.`type`) shouldBe Some(WriteStrategyType.APPEND)
@@ -78,11 +62,6 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
           FileInfo(new Path("/tmp/my_file." + WriteStrategyType.OVERWRITE), 10L, now),
           givenStrategies
         )
-        overwriteAdaptedSchema.metadata.flatMap(_.write) shouldBe Some(WriteMode.OVERWRITE)
-        overwriteAdaptedSchema.merge shouldBe None
-        overwriteAdaptedSchema.metadata
-          .flatMap(_.sink)
-          .flatMap(_.dynamicPartitionOverwrite) shouldBe Some(false)
         overwriteAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
           .flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE)
@@ -92,14 +71,14 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
           FileInfo(new Path("/tmp/my_file." + WriteStrategyType.UPSERT_BY_KEY), 10L, now),
           givenStrategies
         )
-        upsertByKeyAdaptedSchema.metadata.flatMap(_.write) shouldBe Some(WriteMode.APPEND)
-        upsertByKeyAdaptedSchema.merge shouldBe Some(MergeOptions(key = List("key1", "key2")))
-        upsertByKeyAdaptedSchema.metadata
-          .flatMap(_.sink)
-          .flatMap(_.dynamicPartitionOverwrite) shouldBe Some(false)
+
         upsertByKeyAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
           .flatMap(_.`type`) shouldBe Some(WriteStrategyType.UPSERT_BY_KEY)
+
+        upsertByKeyAdaptedSchema.metadata
+          .flatMap(_.writeStrategy)
+          .map(_.key) shouldBe Some(List("key1", "key2"))
 
         val upsertByKeyAndTimestampAdaptedSchema = AdaptiveWriteStrategy.adapt(
           testSchema,
@@ -110,18 +89,18 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
           ),
           givenStrategies
         )
-        upsertByKeyAndTimestampAdaptedSchema.metadata.flatMap(_.write) shouldBe Some(
-          WriteMode.APPEND
-        )
-        upsertByKeyAndTimestampAdaptedSchema.merge shouldBe Some(
-          MergeOptions(key = List("key1", "key2"), timestamp = Some("timestampCol"))
-        )
-        upsertByKeyAndTimestampAdaptedSchema.metadata
-          .flatMap(_.sink)
-          .flatMap(_.dynamicPartitionOverwrite) shouldBe Some(false)
+
         upsertByKeyAndTimestampAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
           .flatMap(_.`type`) shouldBe Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP)
+
+        upsertByKeyAdaptedSchema.metadata
+          .flatMap(_.writeStrategy)
+          .map(_.key) shouldBe Some(List("key1", "key2"))
+
+        upsertByKeyAdaptedSchema.metadata
+          .flatMap(_.writeStrategy)
+          .flatMap(_.timestamp) shouldBe Some("timestampCol")
 
         val overwriteByPartitionAdaptedSchema = AdaptiveWriteStrategy.adapt(
           testSchema,
@@ -132,11 +111,6 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
           ),
           givenStrategies
         )
-        overwriteByPartitionAdaptedSchema.metadata.flatMap(_.write) shouldBe Some(WriteMode.APPEND)
-        overwriteByPartitionAdaptedSchema.merge shouldBe None
-        overwriteByPartitionAdaptedSchema.metadata
-          .flatMap(_.sink)
-          .flatMap(_.dynamicPartitionOverwrite) shouldBe Some(true)
         overwriteByPartitionAdaptedSchema.metadata
           .flatMap(_.writeStrategy)
           .flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE_BY_PARTITION)
@@ -159,25 +133,24 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         Nil,
         Some(
           Metadata(
-            write = Some(WriteMode.APPEND),
             sink = Some(
               AllSinks(
                 connectionRef = Some("bigquery"),
-                timestamp = Some("timestampCol"),
-                partition = Some(
-                  Partition(
-                    attributes = List("partitionCol1", "partitionCol2")
-                  )
-                )
+                partition = Some(List("timestampCol"))
               )
             ),
-            writeStrategy = Some(WriteStrategy(Some(givenStrategies)))
+            writeStrategy = Some(
+              WriteStrategy(
+                types = Some(givenStrategies),
+                key = List("key1", "key2"),
+                timestamp = Some("timestampCol")
+              )
+            )
           )
         ),
-        Some(MergeOptions(key = List("key1", "key2"), timestamp = Some("timestampCol"))),
         None
       )
-      val complexGroupedSchema: immutable.Seq[(Schema, Iterable[FileInfo])] =
+      val complexGroupedSchema: Seq[(Schema, Iterable[FileInfo])] =
         AdaptiveWriteStrategy.adaptThenGroup(
           givenSchema,
           List(
@@ -242,7 +215,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         )
       )
 
-      val simpleGroupedSchema: immutable.Seq[(Schema, Iterable[FileInfo])] =
+      val simpleGroupedSchema: Seq[(Schema, Iterable[FileInfo])] =
         AdaptiveWriteStrategy.adaptThenGroup(
           givenSchema,
           (1 to 8).map(i =>

@@ -78,19 +78,25 @@ c:\users\me\starlake> starlake load
 <TabItem value="docker" label="Docker">
 
 ```shell
-$ docker run                                                      \
+$ docker run                                                     \
     -e SL_ROOT=/app/userguide                                    \
+    -e SL_DEFAULT_WRITE_FORMAT=parquet                           \
     -v $HOME/myproject:/app/userguide -it starlake load
 ```
 
 </TabItem>
 </Tabs>
 
-This will load the data files and since we chose the localFilesystem connection, they will be stored them as parquet files into the following folders:
+This will load the data files and since we chose the localFilesystem connection, they will be stored them as delta/parquet files into the following folders:
 - `datasets/accepted` for valid records
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
 
+:::note
+
+When storing locally, Starlake uses the delta file format, to store the data in the parquet file format, set the environment variable `SL_DEFAULT_WRITE_FORMAT` to `parquet`
+
+:::
 
 :::caution
 
@@ -103,7 +109,7 @@ Make sure that there is no overlap.
 
 ### Check the result
 
-You can check the result by running the following python script to read the parquet file from the project directory:
+You can check the result by running the following python script to read the parquet files from the project directory:
 
 ```python
 import pandas as pd
@@ -112,10 +118,10 @@ df = pd.read_parquet(filepath)
 df.head
 ```
 
-## Incremental updates
-Sometimes, we want to alter existing data by adding new records or updating existing ones. This is called an incremental update or upsert.
+## Incremental load
+Sometimes, we want to alter existing data by adding new records or updating existing ones.
 
-This is useful when we have a large amount of data and we want to avoid reloading the entire data set every time we want to update our data warehouse.
+This is useful when we have a large amount of data and we want to avoid reloading the entire dataset every time we want to update our data warehouse.
 
 In this section, we will see how to do incremental updates.
 
@@ -123,23 +129,33 @@ In this section, we will see how to do incremental updates.
 We've seen that we may overwrite or append the data in a table when we load it, but what if for some existing records,
 we want to update the data in a table ?
 
-This is done using the `merge` attribute in the table configuration file. In this example, we will use the
-`merge` attribute to upsert records in the `sales.customers`.
+This is done using the `writeStrategy` attribute in the table configuration file. In this example, we will upsert records in the `sales.customers`.
 
-The `merge.timestamp` attribute is used to recognize the most recent record concerning a customer identified by the columns listed in `merge.key` . If not specified, new records (the records being loaded) are considered
-to be the most recent ones. In our case, the `signup` date will used as the merge timestamp for the records identified by their column `id`.
+The `writeStrategy.timestamp` attribute is used to recognize the most recent record concerning a customer identified by the columns listed in `writeStrategy.key` attribute.
+If the `writeStrategy.timestamp` attribute is not specified, new records (the records being loaded) are considered to be the most recent ones.
+In our case, the `signup` date will be used as the timestamp for the records identified by their column `id`.
 
 
-This is the content of the `metadata/load/customers.sl.yml` file once the `merge` attribute is added (highlighted lines):
+This is the content of the `metadata/load/customers.sl.yml` file once the `writeStrategy` attribute is added (highlighted lines):
 
-```yaml title="metadata/load/sales/customers.sl.yml" {3-5}
+```yaml title="metadata/load/sales/customers.sl.yml" {15-17}
 ---
 table:
-  merge:
-    timestamp: signup
-    key: [id]
   pattern: "customers.*.psv" # This property is a regular expression that will be used to match the file name.
                              # Please replace it by the adequate file pattern eq. customers-.*.psv if required
+  metadata:
+    mode: "FILE"
+    format: "DSV"         # detected format
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: "|"        # detected separator
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      timestamp: signup
+      key: [id]
   attributes:         # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
@@ -164,17 +180,6 @@ table:
     - name: "country"
       type: "string"
       # ...               # and so on ...
-  metadata:
-    mode: "FILE"
-    format: "DSV"         # detected format
-    encoding: "UTF-8"
-    multiline: false
-    array: false
-    withHeader: true
-    separator: "|"        # detected separator
-    quote: "\""
-    escape: "\\"
-    write: "APPEND"
 
 ```
 
@@ -233,7 +238,6 @@ application:
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
-        supportTruncateOnInsert: false
         user: "{{DATABASE_USER}}"
         password: "{{DATABASE_PASSWORD}}"
         quoteIdentifiers: false
@@ -371,7 +375,7 @@ application:
 </TabItem>
 </Tabs>
 
-Using Spark instead of the BigQuery Load API may slow down the ingestion process but it has among others the following advantages:
+Using Spark instead of the BigQuery Load API has among others the following advantages:
 - It allows to load data from any source supported by Spark including Fixed Width Files, XML files, JSON Arrays files ...
 - It allows to load data into any destination supported by Spark including Snowflake, Amazon Redshift ...
 - It allows to apply any transformation supported by Spark
@@ -385,6 +389,6 @@ to the sample-data/hr and sample-data/sales folders and run the _import_ and _lo
 
 Spark is not required to load data into any of the target datawarehouse, nor is it required to run transformations on the data.
 
-Even when using Spark, you do not need to instantiate a cluster.  Spark becomes useful for advanced data validation at load time.
+Even when using Spark, you do not need to instantiate a cluster. The Spark mode is useful for loading diverse file formats and advanced data validation at load time.
 
 :::
