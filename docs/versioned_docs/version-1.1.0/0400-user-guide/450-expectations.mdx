@@ -1,0 +1,54 @@
+# Expectations
+
+
+Expectations are available for your load and transform jobs. They are used to validate the data that is being loaded into your data warehouse. Expectations are defined in the `expectations` section of your job configuration file and
+are based on jinja macros libraries defined in the `metadata/expectations` directory.
+
+
+```yaml {7,8}
+
+table:
+  name: "locations"
+  pattern: "locations.*.json"
+  attributes:
+  ...
+  expectations:
+    - "col_value_count_greater_than('id', 1) => count == 0"
+    - "row_count_to_be_between(1000, 2000) => result(0) == 1"
+
+```
+
+In the example above:
+- `count` refers to the number of rows returned by the query. `count` is of type `Long`
+- `result` refers to the first row retruned by the query. Useful for count queries. 
+to access the first column of the second row, use `results(1)(0)`. 
+`result` is of type `Seq[Any]`. `results` is of type `Seq[Seq[Any]]`. Both can have their elements cast to the appropriate type
+
+You may write any scala code in the condition part of the expectation. 
+The code will be evaluated and the result will be used to determine if the expectation is met or not. 
+The result of the evaluation must be a boolean.
+
+The above example will validate that the number of rows loaded into the `locations` table is between 1000 and 2000. If the expectation is not met, the job will fail and the error will be reported in the audit tables.
+
+The `is_row_count_to_be_between` is a macro defined in the `metadata/expectations/my_lib1.j2` file.
+You can define your own macros in the `metadata/expectations` directory. 
+The macros are defined in jinja2:
+
+```sql title="metadata/expectations/my_lib1.j2"
+{% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}
+    select 
+        case 
+            when count(*) between {{min_value}} and {{max_value}} then 1 
+            else 0 
+        end
+    from {{table_name}}
+{%- endmacro %}
+
+{% macro col_value_count_greater_than(col, count, table_name='SL_THIS') %}
+    SELECT {{ col }}, count(*) FROM {{ table_name }}
+    GROUP BY {{ col }}
+    HAVING count(*) > {{ count }}
+{% endmacro %}
+
+
+```

@@ -1,0 +1,446 @@
+# Infer schemas
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+In this section you will learn how to describe the samples data created when [bootstrapping a new project](bootstrap).
+We will use the `infer-schema` command to infer the schema of the sample data.
+The resulting inferred schemas are the backbone of the data loading process and will prevent your datawarehouse from becoming a dataswamp.
+
+
+## Sample scenario
+
+This userguide comes with 4 different sample files:  CSV, JSON and JSONL files.
+
+The customers and orders are provided by the "sales" department as delimited separated values files
+and have to be loaded incrementally.
+
+The store locations and sellers are provided by the "hr" department as respectively JSONL and JSON files
+and have to be loaded in full load mode.
+
+#### Sample datasets
+
+
+<Tabs groupId="files">
+<TabItem value="sales/customers" label="customers">
+
+```File customers-2018-01-01.psv from "sales" department```
+
+|id|signup|contact|birthdate|firstname|lastname|country|
+|---|---|---|---|---|---|---|
+|A009701|2010-01-31 23:04:15|k@m.com|1980-04-15|Kylian|Mbappé|France|
+|B000001|2016-12-01 09:56:02|n@b.com|1980-04-15|Napoleon|Bonaparte|France|
+|B000001|2016-12-02 09:56:02|m@c.com|1980-04-15|Marie|Curie|France|
+|B000002|2016-12-02 09:56:02|z@z.com|1980-04-15|Zinedine|Zidane|France|
+|B000003|2016-12-03 09:56:02|e@g.com|1980-04-15|Eva|Green|France|
+|B000012|2016-12-03 09:56:02|k@b.com|1980-04-15|Karim|Benzema|France|
+|B000004|2016-12-04 09:56:02|m@c.com|1980-04-15|Marion|Cotillard|France|
+|B000005|2016-12-05 09:56:02|a@g.com|1980-04-15|Ariana|Grande|USA|
+|B000006|2016-12-06 09:56:02|m@j.com|1980-04-15|Michael|Jordan|USA|
+|B000007|2016-12-07 09:56:02|m@a.com|1980-04-15|Muhammad|Ali|USA|
+|B000008|2016-12-08 09:56:02|t@s.com|1980-04-15|Taylor|Swift|USA|
+|B000009|2016-12-09 09:56:02|e@p.com|1980-04-15|Elvis|Presley|USA|
+|B000010|2016-12-10 09:56:02|s@j.com|1980-04-15|Steve|Jobs|USA|
+|B000011|2016-12-11 09:56:02|a@l.com|1980-04-15|Abraham|Lincoln|USA|
+
+</TabItem>
+<TabItem value="sales/orders" label="orders">
+
+
+```File orders-2018-01-01.psv from "sales" department```
+
+
+|order_id|customer_id|amount|seller_id|
+|---|---|---|---|
+|12345|A009701|123.65|AQZERD|
+|56432|A009701|23.8|AQZERD|
+|10000|B308629|23.8|AQZERD|
+
+</TabItem>
+<TabItem value="hr/sellers" label="sellers">
+
+
+```File sellers-2018-01-01.psv from "hr" department```
+
+
+``` json
+[
+    { "id":"AQZERD", "seller_email":"me@acme.com", "location_id": 1},
+    { "id":"TYUEZG", "seller_email":"acme.com","location_id": 2 }
+]
+```
+
+</TabItem>
+<TabItem value="hr/locations" label="locations">
+
+```File locations-2018-01-01.psv from "hr" department```
+
+``` json
+{  "id":"1", "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France"} }
+{  "id":"2",  "address": {    "city":"Berlin",    "country":"Germany"  }}
+```
+
+</TabItem>
+
+</Tabs>
+
+## Infer the schemas
+
+In Starlake terms, after loading, we will end up with:
+- one domain: `sales` . A domain is equivalent to a database schema or a BigQuery dataset.
+- one table: the `customers` table in the `sales` domain
+
+We first need to write a YAML configuration file that describe the structure of the file to load into the warehouse.
+Instead of writing this file by hand, we may infer his YAML configuration file using the `infer-schema` command.
+
+
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ cd $HOME/userguide
+
+$ starlake infer-schema                                 \
+    --domain sales                                      \
+    --table customers                                   \
+    --input sample-data/sales/customers-2018-01-01.psv  \
+    --write APPEND                                      \
+    --with-header
+
+$ starlake infer-schema                                 \
+    --domain sales                                      \
+    --table orders                                      \
+    --input sample-data/sales/orders-2018-01-01.csv     \
+    --write APPEND                                      \
+    --with-header
+
+$ starlake infer-schema                                 \
+    --domain hr                                         \
+    --table locations                                   \
+    --input sample-data/hr/locations-2018-01-01.json    \
+    --write OVERWRITE                                   \
+    --with-header
+
+$ starlake infer-schema                                 \
+    --domain hr                                         \
+    --table sellers                                     \
+    --input sample-data/hr/sellers-2018-01-01.json      \
+    --write OVERWRITE                                   \
+    --with-header
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\users\me\userguide> starlake infer-schema                           ^
+    --domain sales                                                      ^
+    --table customers                                                   ^
+    --input sample-data/sales/customers-2018-01-01.psv                  ^
+    --write APPEND                                                     ^
+    --with-header
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```shell
+$ docker run                                                        \
+    -v $HOME/userguide:/app/userguide                             \
+    -e SL_ROOT=/app/userguide -it starlake infer-schema            \
+    --domain sales                                                  \
+    --table customers                                               \
+    --input /app/userguide/incoming/customers-2018-01-01.psv       \
+    --write APPEND                                                 \
+    --with-header
+```
+
+</TabItem>
+</Tabs>
+
+This inferred YAML file may be found in the `customers.sl.yml` file under the `metadata/load/sales` folder.
+Notice how the `customers.sl.yml` file is named after the _table_ name and stored in the folder named after the _domain_ name.
+The domain configuration file __config.sl.yml_ is also stored in the _domain_ folder.
+
+
+The contents of the files look like this:
+
+### Domain configuration
+The  __config.sl.yml_ file describes the properties shared by all tables in this domain.
+Here we assume that all tables in the `sales` domain are loaded from the _incoming_/sales folder and
+all tables in the `hr` domain are loaded from the _incoming_/hr folder.
+
+`{{incoming_path}}` is a variable path set in the env file (more on this later).
+
+<Tabs groupId="domain_schemas">
+<TabItem value="sales" label="sales">
+
+```yaml title="Sales Domain: _config.sl.yml"
+---
+load:
+    metadata:
+        directory: "{{incoming_path}}/sales"
+```
+
+</TabItem>
+<TabItem value="hr" label="hr">
+
+```yaml title="Sales Domain: _config.sl.yml"
+---
+load:
+    metadata:
+        directory: "{{incoming_path}}/hr"
+```
+
+</TabItem>
+</Tabs>
+
+You may change the path referenced by the _directory_ attribute to any other path.
+For example, you may want to load the data from a Google Cloud Storage bucket.
+the generated file contains the _incoming_path_ variable that will be replaced at runtime by the value defined in the [environment file](#environment-variables).
+
+
+### Table configuration
+
+Let's Looking at one of the inferred schemas, the customers schema for exempole. The _customers.sl.yml_ YAML file describes
+the structure of the file to load into the warehouse.
+The `pattern` property is a regular expression that will be used to match the file name.
+
+
+
+<Tabs groupId="table_schemas">
+<TabItem value="sales/customers" label="sales/customers">
+
+```yaml title="metadata/load/sales/customers.sl.yml"
+---
+table:
+  pattern: "customers.*.psv" # This property is a regular expression that will be used to match the file name.
+                             # Please replace it by the adequate file pattern eq. customers-.*.psv if required
+  attributes:         # Description of the fields to recognize
+    - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
+      type: "string"    # expected type
+      array: false      # is it an array (false by default, ignored in DSV files) ?
+      required: false   # Is this field required in the source (false by default, change it accordingly) ?
+      privacy: "NONE"   # Should we encrypt this field before loading to the warehouse (No encryption by default )?
+      ignore: false     # Should this field be excluded (false by default) ?
+    - name: "signup"    # second attribute
+      type: "timestamp" # recognized type by analyzing input.
+    - name: "contact"
+      type: "string"
+      # ...
+    - name: "birthdate"
+      type: "date"      # recognized as semantic type date.
+      # ...
+    - name: "firstname"
+      type: "string"
+      # ...
+    - name: "lastname"
+      type: "string"
+      # ...
+    - name: "country"
+      type: "string"
+      # ...               # and so on ...
+  metadata:
+    mode: "FILE"
+    format: "DSV"         # detected format
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: "|"        # detected separator
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+
+```
+
+
+</TabItem>
+  <TabItem value="sales/orders" label="sales/orders">
+
+```yaml title="metadata/load/sales/orders.sl.yml"
+---
+table:
+  name: "orders"
+  pattern: "orders.*.csv"
+  attributes:
+  - name: "order_id"
+    type: "integer"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "customer_id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "amount"
+    type: "double"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "seller_id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ","
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+
+```
+
+
+</TabItem>
+<TabItem value="hr/sellers" label="hr/sellers">
+
+```yaml title="metadata/load/hr/sellers.sl.yml"
+---
+table:
+  name: "sellers"
+  pattern: "sellers.*.json"
+  attributes:
+  - name: "id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "location_id"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "seller_email"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  metadata:
+    mode: "FILE"
+    format: "JSON"              # detected format:  JSON (array property set to true)
+    encoding: "UTF-8"
+    multiline: false
+    array: true
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+
+
+```
+
+
+</TabItem>
+<TabItem value="hr/locations" label="hr/locations">
+
+```yaml title="metadata/load/hr/locations.sl.yml"
+---
+table:
+  name: "locations"
+  pattern: "locations.*.json"
+  attributes:
+  - name: "address"
+    type: "struct"
+    array: false
+    required: false
+    privacy: "NONE"
+    attributes:
+    - name: "city"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "country"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "stores"
+      type: "string"
+      array: true
+      required: false
+      privacy: "NONE"
+      ignore: false
+    ignore: false
+  - name: "id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  metadata:
+    mode: "FILE"
+    format: "JSON"        # detected format:  JSONL (array property set to false)
+    encoding: "UTF-8"
+    multiline: false
+    array: false             
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+
+```
+
+
+</TabItem>
+</Tabs>
+
+The generated files are located in the `metadata/load` folder.
+
+``` text {4-12}
+metadata
+├── application.sl.yml
+├── env.sl.yml
+├── load
+│   ├── hr
+│   │   ├── _config.sl.yml
+│   │   ├── locations.sl.yml
+│   │   └── sellers.sl.yml
+│   └── sales
+│       ├── _config.sl.yml
+│       ├── customers.sl.yml
+│       └── orders.sl.yml
+└── types
+    ├── default.sl.yml
+    └── types.sl.yml
+```
+
+
+
+## Environment variables
+The environment file `metadata/env.sl.yml` define your project variables.
+
+In our example, the `incoming_path` must be defined to the location where the incoming directory containing the datasets to load will be located.
+Set it to your project sample-data sub-folder as follows in the default environment file:
+
+```
+env:
+  incoming_path: "{{SL_ROOT}}/sample-data"
+```
+
+
+`SL_ROOT` is a special variable that is set to the directory from where the `starlake` command is executed, usually the project directory.
+
+
+
+## Next steps

@@ -25,7 +25,11 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
 import sbtassembly.AssemblyKeys._
-import sbtbuildinfo.BuildInfoPlugin
+import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
+import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoKeys
+
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 object Common {
 
@@ -86,7 +90,20 @@ object Common {
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
       Test / parallelExecution := false,
-      scalafmtOnCompile := true
+      scalafmtOnCompile := true,
+      buildInfoKeys := Seq[BuildInfoKey](name, scalaVersion, sbtVersion),
+      buildInfoKeys ++= Seq[BuildInfoKey](
+        BuildInfoKey.action("version") {
+          val currentVersion = version.value
+          if (currentVersion.contains("-SNAPSHOT")) {
+            val suffix = git.gitHeadCommit.value
+              .map(_.take(8))
+              .getOrElse("T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+            // val suffix = "T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            currentVersion + " @ " + suffix
+          } else currentVersion
+        }
+      )
     ) ++ gitSettings ++ assemlySettings
 
 }

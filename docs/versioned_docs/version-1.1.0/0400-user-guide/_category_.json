@@ -1,0 +1,7 @@
+{
+  "label": "User guide",
+  "link": {
+    "type": "generated-index",
+    "description": "Step by step guide to Starlake features."
+  }
+}

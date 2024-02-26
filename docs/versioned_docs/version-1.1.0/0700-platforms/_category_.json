@@ -1,0 +1,7 @@
+{
+  "label": "Platforms",
+  "link": {
+    "type": "generated-index",
+    "description": "How to setup Starlake on your platform of choice."
+  }
+}

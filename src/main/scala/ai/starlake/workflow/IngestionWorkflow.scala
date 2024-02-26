@@ -543,8 +543,8 @@ class IngestionWorkflow(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
     )
     val metadata = schema.mergedMetadata(domain.metadata)
-    logger.info(
-      s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
+    logger.debug(
+      s"Ingesting domain: ${domain.name} with schema: ${schema.name}"
     )
 
     val ingestionResult = Try {

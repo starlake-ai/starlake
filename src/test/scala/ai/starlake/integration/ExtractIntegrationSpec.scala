@@ -1,7 +1,7 @@
 package ai.starlake.integration
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.{ExtractData, ExtractJDBCSchema}
+import ai.starlake.extract.{ExtractDataJob, ExtractJDBCSchema}
 import ai.starlake.schema.handlers.SchemaHandler
 import better.files.File
 
@@ -75,7 +75,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpDir = File.newTemporaryDirectory("extract")
       tmpYmlFile.write(config)
       val schemaHandler = new SchemaHandler(storageHandler)
-      new ExtractData(schemaHandler).run(
+      new ExtractDataJob(schemaHandler).run(
         Array(
           "--clean",
           "--config",

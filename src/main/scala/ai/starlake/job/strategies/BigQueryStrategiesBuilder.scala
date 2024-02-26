@@ -306,6 +306,9 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
+    val incomingColumnsAsSelectString =
+      SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
+
     val startTsCol = strategy.start_ts.getOrElse(throw new Exception("SCD2 requires start_ts"))
     val endTsCol = strategy.end_ts.getOrElse(throw new Exception("SCD2 requires end_ts"))
 
@@ -409,27 +412,37 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
         val paramsForUpdateSql =
           SQLUtils.setForUpdateSql("SL_UPDATED_RECORDS", targetTableColumns, quote)
 
+        val viewWithRowNumColumnsAsSelectString =
+          SQLUtils.incomingColumnsForSelectSql("SL_VIEW_WITH_ROWNUM", targetTableColumns, quote)
+
+        val dedupColumnsAsSelectString =
+          SQLUtils.incomingColumnsForSelectSql("SL_DEDUP", targetTableColumns, quote)
+
+        val incomingView = selectStatement
+        val viewWithRowNum =
+          s"""SELECT  $incomingColumnsAsSelectString,
+            |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
+            |  FROM ($incomingView) AS SL_INCOMING
+            |""".stripMargin
+
+        val dedupView =
+          s"""SELECT  $viewWithRowNumColumnsAsSelectString  FROM ($viewWithRowNum) AS SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1"""
+
+        val updatedRecordsView =
+          s"""
+               |SELECT $dedupColumnsAsSelectString FROM ($dedupView) as SL_DEDUP, $targetTableFullName
+               |WHERE $mergeKeyJoinCondition2 AND $targetTableFullName.$endTsCol IS NULL AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol
+               |""".stripMargin
+
         s"""
            |BEGIN TRANSACTION;
            |INSERT INTO $targetTableFullName
-           |SELECT $targetColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM ($selectStatement)
+           |SELECT $incomingColumnsAsSelectString, NULL AS $startTsCol, NULL AS $endTsCol FROM ($selectStatement) AS SL_INCOMING
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
-           |WITH SL_INCOMING AS ($selectStatement),
-           |SL_VIEW_WITH_ROWNUM AS (
-           |  SELECT  $targetColumnsAsSelectString,
-           |          ROW_NUMBER() OVER (PARTITION BY $mergeKeys ORDER BY $quote$mergeTimestampCol$quote DESC) AS SL_SEQ
-           |  FROM SL_INCOMING),
-           |SL_DEDUP AS (
-           |SELECT  $targetTableColumns  FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1),
-           |
-           |SL_UPDATED_RECORDS AS (
-           |  SELECT $targetColumnsAsSelectString FROM SL_DEDUP, $targetTableFullName
-           |  WHERE $mergeKeyJoinCondition2 AND $targetTableFullName.$endTsCol IS NULL AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol
-           |)
-           |MERGE INTO $targetTableFullName USING SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition3)
-           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL;
+           |MERGE INTO $targetTableFullName USING ($updatedRecordsView) AS SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition3)
+           |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = SL_UPDATED_RECORDS.$mergeTimestampCol, $endTsCol = NULL;
            |COMMIT TRANSACTION;
            |""".stripMargin
 

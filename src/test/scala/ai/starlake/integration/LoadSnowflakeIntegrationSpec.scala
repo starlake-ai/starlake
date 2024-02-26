@@ -11,7 +11,7 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     if (sys.env.contains("SNOWFLAKE_ACCOUNT")) {
-      "Import / Load / Transform Redshift" should "succeed" in {
+      "Import / Load / Transform Snowflake" should "succeed" in {
         withEnvs(
           "SL_ROOT" -> localDir.pathAsString,
           "SL_ENV"  -> "SNOWFLAKE"
@@ -27,7 +27,7 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
           )
         }
       }
-      "Import / Load / Transform Redshift 2" should "succeed" in {
+      "Import / Load / Transform Snowflake 2" should "succeed" in {
         withEnvs(
           "SL_ROOT" -> localDir.pathAsString,
           "SL_ENV"  -> "SNOWFLAKE"

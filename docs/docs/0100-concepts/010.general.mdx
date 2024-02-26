@@ -20,19 +20,19 @@ These are usually jobs that compute KPIs by aggregating values from different fa
 - __metadata/types__: this is a companion directory to the metadata/load directory.
 It contains all the custom types validation you wish to apply on the records loaded from a file.
 We may require a record column to have a specific length or to verify a specific pattern like an email for example.
-This allows to go much further than simply checking the input against standard python or java types.
+This allows to go much further than simply checking the input against standard SQL types.
 
 - __metadata/expectations__: This directory contains a library of expectations we may want to use in our project.
 Expectations are used to validate the data we load into our datawarehouse.
-For example, we may want to check that the number of records loaded in a table is greater than 0.
+For example, we may want to check that the number of records loaded in a table is greater than a certain threshold.
 
 - __metadata/connections.sl.yml__: This file contains all the connections to our datawarehouse, although usually we just have one connection.
 
 - __metadata/refs.sl.yml__: In your SQL transforms, we may be joining tables coming from different domains or databases.
 In that case, we normally need to reference our tables by their full names such as: `project-id.domain.my-table`.
-The refs file allows us to make our query more readable by allowing to map the name `my-table` to its full name.
+The refs file allows us to make our query more readable by allowing to map the name `my-table`.
 
-- __metadata/env.{{SL_ENV}}.sl.yml__: we may use any of the variables defined in the env files in your extract, load and transforms jobs.
+- __metadata/env.{{SL_ENV}}.sl.yml__: we may use any of the variables defined in the env files in our extract, load and transforms jobs.
 The SL_ENV env var activates a specific env file making it possible to assign to variables, values based on the active environment.
 
 
@@ -47,7 +47,7 @@ A domain is a synonym to:
 
 Since tables are necessarily hosted in a domain, Starlake need to create a domain if it does not exist before it stores the data into the table.
 The domain name is specified by the folder name where the table is defined.
-For example, if we have a table defined in the following path: `metadata/transform/my-domain/my-table.sl.yml`, then the domain name will be `my-domain`.
+For example, if we have a table defined in the following path: `metadata/transform/my_domain/my_table.sl.yml`, then the domain name will be `my_domain`.
 
 :::note
 
@@ -58,12 +58,12 @@ We may still overload the domain name in the file `metadata/transform/my-domain/
 
 ## Tables
 
-Any load or transform job that will end up writing to a table `my-table` in the domain `my-domain`
-is defined in the file `metadata/load/my-domain/my-table.sl.yml` for load jobs and in the file `metadata/transform/my-domain/my-table.sl.yml` for transform jobs.
+Any load or transform job that will end up writing to a table `my_table` in the domain `my_domain`
+is defined in the file `metadata/load/my_domain/my_table.sl.yml` for load jobs and in the file `metadata/transform/my_domain/my_table.sl.yml` for transform jobs.
 
 :::note
 
-We may still overload the table name in the file `my-table.sl.yml` by specifying a different table name in the `name` property.
+We may still overload the table name in the file `my_table.sl.yml` by specifying a different table name in the `name` property.
 
 :::
 
@@ -91,6 +91,6 @@ and values defined in this file will override the values defined in the file `me
 
 Refs are used essentially in SQL transform jobs. They allow to reference a table by its name instead of its full name.
 
-For example, if we have a table `my-table` in the domain `my-domain`, we may reference it in our SQL query by using the syntax `my-table` instead of `my-domain.my-table` or `my-database.my-domain.my-table`.
+For example, if we have a table `my_table` in the domain `my_domain`, we may reference it in our SQL query by using the syntax `my_table` instead of `my_domain.my_table` or `my_database.my_domain.my_table`.
 
 Refs are also useful to implicitly reference a table in a different domain or database based on the environment our job is running in: DEV or PROD for example.
