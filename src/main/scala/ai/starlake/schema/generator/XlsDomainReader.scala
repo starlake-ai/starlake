@@ -49,6 +49,10 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val comment =
         Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
+      val tags =
+        Option(
+          row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
       nameOpt match {
         case Some(name) =>
           Some(
@@ -56,6 +60,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
               name,
               metadata = Some(Metadata(directory = directoryOpt, ack = ack)),
               comment = comment,
+              tags = tags,
               rename = renameOpt
             )
           )

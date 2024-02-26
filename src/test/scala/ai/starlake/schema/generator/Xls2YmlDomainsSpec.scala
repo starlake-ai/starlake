@@ -36,6 +36,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputPath.exists shouldBe true
       result.name shouldBe "someDomain"
+      result.tags shouldBe Set("aTag")
     }
 
     it should "take into account the index col of a schema" in {
