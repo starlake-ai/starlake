@@ -63,6 +63,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (hostAndPortWithMaybeCredentials.contains("@")) {
                 final String[] hostAndPortWithCredentials = hostAndPortWithMaybeCredentials.split("@");
                 final String[] credentials = hostAndPortWithCredentials[0].split(":");
+                assert(credentials.length == 2): "Invalid credentials format, expecting 'username:password'";
                 username = credentials[0];
                 password = credentials[1];
                 final String[] hostAndPort = hostAndPortWithCredentials[1].split(":");
@@ -327,10 +328,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         setProxy();
         HttpClient.Builder clientBuilder = HttpClient.newBuilder();
         clientBuilder.proxy(proxySelector);
-        if (username != null) {
-            if (password == null) {
-                password = "";
-            }
+        if (username != null && password != null) {
             Authenticator authenticator = new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
