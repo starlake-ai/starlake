@@ -506,7 +506,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 StringBuilder sb = new StringBuilder("Progress: " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
                 if (lengthOfFile > 0) {
                     sb.append(" (");
-                    sb.append((total * 100 / lengthOfFile));
+                    sb.append(total * 100 / lengthOfFile);
                     sb.append("%)");
                 }
                 long currentTime = System.currentTimeMillis();
