@@ -1,11 +1,22 @@
+import javax.net.ssl.*;
 import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class Setup {
+public class Setup extends ProxySelector implements X509TrustManager {
     private static class JarDependency {
 
         private final String url;
@@ -22,14 +33,18 @@ public class Setup {
         }
     }
 
+    private static String protocol = null;
     private static String host = null;
-    private static int port = 80;
+    private static int port = 0;
     private static String username = null;
     private static String password = null;
 
     private static String httpsProxy = getEnv("https_proxy").orElse("");
     private static String httpProxy = getEnv("http_proxy").orElse("");
     private static String noProxy = getEnv("no_proxy").orElse("").replaceAll(",", "|");
+
+    private static Proxy proxy = Proxy.NO_PROXY;
+    private static HttpClient client = null;
 
     private static boolean isWindowsOs() {
         String os = System.getProperty("os.name").toLowerCase();
@@ -40,59 +55,55 @@ public class Setup {
         if (proxy.isEmpty()) {
             return;
         }
-        if (proxy.contains("@")) {
-            username = proxy.split("@")[0].split(":")[1].substring(2);
-            password = proxy.split("@")[0].split(":")[2];
-            final String hostAndPort = proxy.split("@")[1];
-            if (hostAndPort.contains(":")) {
-                host = hostAndPort.split(":")[0];
-                port = Integer.parseInt(hostAndPort.split(":")[1]);
-            } else {
-                host = hostAndPort;
-            }
-        } else if (proxy.contains(":")) {
-            final String[] schemeWithHostAndPort = proxy.split("//");
-            if(schemeWithHostAndPort.length > 1) {
-                final String[] hostAndPort = schemeWithHostAndPort[1].split(":");
+        final Pattern pattern = Pattern.compile("(https?|socks5?):\\/\\/([^:].+)", Pattern.CASE_INSENSITIVE);
+        final Matcher m = pattern.matcher(proxy);
+        if (m.matches()) {
+            protocol = m.group(1).toLowerCase();
+            final String hostAndPortWithMaybeCredentials = m.group(2);
+            if (hostAndPortWithMaybeCredentials.contains("@")) {
+                final String[] hostAndPortWithCredentials = hostAndPortWithMaybeCredentials.split("@");
+                final String[] credentials = hostAndPortWithCredentials[0].split(":");
+                assert(credentials.length == 2): "Invalid credentials format, expecting 'username:password'";
+                username = credentials[0];
+                password = credentials[1];
+                final String[] hostAndPort = hostAndPortWithCredentials[1].split(":");
                 host = hostAndPort[0];
-                if(hostAndPort.length > 1){
+                if (hostAndPort.length > 1) {
                     port = Integer.parseInt(hostAndPort[1]);
                 }
             } else {
-                final String[] hostAndPort = schemeWithHostAndPort[0].split(":");
+                final String[] hostAndPort = hostAndPortWithMaybeCredentials.split(":");
                 host = hostAndPort[0];
-                if(hostAndPort.length > 1){
+                if (hostAndPort.length > 1) {
                     port = Integer.parseInt(hostAndPort[1]);
                 }
             }
         } else {
-            host = proxy;
-        }
-    }
-
-
-    private static void setJavaProxy(String protocol) {
-        if (host != null) {
-            System.setProperty(protocol + ".proxyHost", host);
-            System.setProperty(protocol + ".proxyPort", String.valueOf(port));
-        }
-        if (username != null) {
-            System.setProperty(protocol + ".proxyUser", username);
-        }
-        if (password != null) {
-            System.setProperty(protocol + ".proxyPassword", password);
+            throw new IllegalArgumentException("Invalid proxy format: " + proxy);
         }
     }
 
     private static void setProxy() {
         if (!httpsProxy.isEmpty()) {
-            port = 443;
             parseProxy(httpsProxy);
-            setJavaProxy("https");
         } else if (!httpProxy.isEmpty()) {
-            port = 80;
             parseProxy(httpProxy);
-            setJavaProxy("http");
+        }
+        if (host != null) {
+            if (port == 0) {
+                if (protocol.equals("https")) {
+                    port = 443;
+                } else if (protocol.startsWith("socks")) {
+                    port = 1080;
+                } else {
+                    port = 80;
+                }
+            }
+            Proxy.Type proxyType = Proxy.Type.HTTP;
+            if (protocol.startsWith("socks")) {
+                proxyType = Proxy.Type.SOCKS;
+            }
+            proxy = new Proxy(proxyType, new InetSocketAddress(host, port));
         }
         if (!noProxy.isEmpty()) {
             System.setProperty("http.nonProxyHosts", noProxy);
@@ -144,7 +155,7 @@ public class Setup {
                     SPARK_BQ_VERSION + "/" +
                     "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
     private static final JarDependency DELTA_SPARK_JAR = new JarDependency("delta-spark",
-            "https://repo1.maven.org/maven2/io/delta/delta-spark_"+SCALA_VERSION+"/"+DELTA_SPARK+"/delta-spark_"+SCALA_VERSION+"-"+DELTA_SPARK+".jar");
+            "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
     private static final JarDependency HADOOP_AZURE_JAR = new JarDependency("hadoop-azure", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar");
     private static final JarDependency AZURE_STORAGE_JAR = new JarDependency("azure-storage", "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar");
     private static final JarDependency JETTY_SERVER_JAR = new JarDependency("jetty-server", "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar");
@@ -284,6 +295,61 @@ public class Setup {
         return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
     }
 
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+        return new X509Certificate[0];
+    }
+
+    @Override
+    public List<Proxy> select(URI uri) {
+        return Collections.singletonList(proxy);
+    }
+
+    @Override
+    public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+        throw new RuntimeException("Failed to connect to " + uri + " using proxy " + sa);
+    }
+
+    private static final Setup instance = new Setup();
+
+    private static final TrustManager alwaysTrustManager = instance;
+
+    private static final ProxySelector proxySelector = instance;
+
+    private static void setHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
+        setProxy();
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder();
+        clientBuilder.proxy(proxySelector);
+        if (username != null && password != null) {
+            Authenticator authenticator = new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(username, password.toCharArray());
+                }
+            };
+            clientBuilder.authenticator(authenticator);
+        }
+        if (host != null && envIsTrue("SL_INSECURE")) {
+            System.out.println("Enabling insecure mode for SSL connections using proxy " + protocol + "://" + host + ":" + port);
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[]{alwaysTrustManager};
+
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            clientBuilder.sslContext(sc);
+        }
+        client = clientBuilder.build();
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -296,10 +362,7 @@ public class Setup {
                 System.out.println("Created target directory " + targetDir.getAbsolutePath());
             }
 
-            boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
-
-            setProxy();
-
+            setHttpClient();
 
             if (!anyDependencyEnabled()) {
                 ENABLE_AZURE = true;
@@ -353,6 +416,7 @@ public class Setup {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
+            boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
             System.out.println("Failed to download dependencies from maven central" + e.getMessage());
@@ -361,7 +425,7 @@ public class Setup {
         }
     }
 
-    public static void downloadSpark(File binDir) throws IOException {
+    public static void downloadSpark(File binDir) throws IOException, InterruptedException {
         downloadAndDisplayProgress(new JarDependency[]{SPARK_JAR}, binDir, false);
         String tgzName = SPARK_JAR.getUrlName();
         final File sparkFile = new File(binDir, tgzName);
@@ -381,7 +445,7 @@ public class Setup {
         log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
     }
 
-    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException {
+    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, InterruptedException {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
@@ -415,17 +479,18 @@ public class Setup {
         }
     }
 
-    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException {
+    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException, InterruptedException {
         final int CHUNK_SIZE = 1024;
         int filePartIndex = urlStr.lastIndexOf("/") + 1;
         String name = urlStr.substring(filePartIndex);
         String urlFolder = urlStr.substring(0, filePartIndex);
         System.out.println("Downloading to " + file + " from " + urlFolder + " ...");
-        URL url = new URL(urlStr);
-        URLConnection conexion = url.openConnection();
-        conexion.connect();
-        int lengthOfFile = conexion.getContentLength();
-        InputStream input = new BufferedInputStream(url.openStream());
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(urlStr))
+                .build();
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
+        InputStream input = new BufferedInputStream(response.body());
         OutputStream output = new FileOutputStream(file);
         byte data[] = new byte[CHUNK_SIZE];
         long total = 0;
@@ -441,7 +506,7 @@ public class Setup {
                 StringBuilder sb = new StringBuilder("Progress: " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
                 if (lengthOfFile > 0) {
                     sb.append(" (");
-                    sb.append((int) (total * 100 / lengthOfFile));
+                    sb.append(total * 100 / lengthOfFile);
                     sb.append("%)");
                 }
                 long currentTime = System.currentTimeMillis();

@@ -74,7 +74,16 @@ if "%javaVersion%" LSS "11000" (
 )
 
 set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
-curl -s -o %SCRIPT_DIR%setup.jar %setup_url%
+if defined https_proxy (
+    set "PROXY=%https_proxy%"
+) else if defined http_proxy (
+    set "PROXY=%http_proxy%"
+)
+if not "%PROXY%"=="" if defined SL_INSECURE (
+    curl --insecure --proxy %PROXY% -s -o %SCRIPT_DIR%setup.jar %setup_url%
+) else (
+    curl -s -o %SCRIPT_DIR%setup.jar %setup_url%
+)
 "%RUNNER%" -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
 goto :eof
 
