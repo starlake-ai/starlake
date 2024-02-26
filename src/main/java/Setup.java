@@ -17,6 +17,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Setup extends ProxySelector implements X509TrustManager {
+
+    private static class  UserPwdAuth extends  Authenticator {
+        @Override
+        protected PasswordAuthentication getPasswordAuthentication() {
+            return new PasswordAuthentication(username, password.toCharArray());
+        }
+    };
+
     private static class JarDependency {
 
         private final String url;
@@ -329,12 +337,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         HttpClient.Builder clientBuilder = HttpClient.newBuilder();
         clientBuilder.proxy(proxySelector);
         if (username != null && password != null) {
-            Authenticator authenticator = new Authenticator() {
-                @Override
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(username, password.toCharArray());
-                }
-            };
+            Authenticator authenticator = new UserPwdAuth();
             clientBuilder.authenticator(authenticator);
         }
         if (host != null && envIsTrue("SL_INSECURE")) {
