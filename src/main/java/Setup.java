@@ -119,13 +119,13 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // SPARK & STARLAKE
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.0.1-SNAPSHOT");
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.1.1-SNAPSHOT");
     private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.0");
     private static final String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
     // BIGQUERY
-    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.35.1");
+    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.36.1");
 
     // deltalake
     private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.1.0");

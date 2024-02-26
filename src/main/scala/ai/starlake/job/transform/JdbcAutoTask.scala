@@ -297,7 +297,7 @@ class JdbcAutoTask(
           )
         val deletedSchema =
           SparkUtils.dropped(
-            incomingSchema,
+            incomingSchemaWithSCD2,
             existingSchema.getOrElse(incomingSchema)
           )
         val alterTableDropColumns =

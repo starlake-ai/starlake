@@ -92,7 +92,7 @@ class ExtractSpec extends TestHelper {
       }
     assert(domain.name == "PUBLIC")
 
-    val tableFile = publicOutputDir / "TEST_TABLE1.sl.yml"
+    val tableFile = publicOutputDir / "test_table1.sl.yml"
     val table =
       YamlSerializer
         .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
@@ -104,7 +104,7 @@ class ExtractSpec extends TestHelper {
     )
     table.primaryKey should contain("id")
     table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
-    val viewFile = publicOutputDir / "TEST_VIEW1.sl.yml"
+    val viewFile = publicOutputDir / "test_view1.sl.yml"
     val view =
       YamlSerializer
         .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
@@ -389,7 +389,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = tmpDir / "PUBLIC" / "TEST_TABLE1.sl.yml"
+      val tableFile = tmpDir / "PUBLIC" / "test_table1.sl.yml"
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
@@ -451,7 +451,7 @@ class ExtractSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      val tableFile = File(tmpDir / "PUBLIC", "TEST_TABLE2.sl.yml")
+      val tableFile = File(tmpDir / "PUBLIC", "test_table2.sl.yml")
       val table =
         YamlSerializer
           .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
