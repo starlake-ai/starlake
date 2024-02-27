@@ -1,0 +1,41 @@
+---
+table:
+  name: "MostProfitableProducts"
+  pattern: "ignore"
+  attributes:
+  - name: "product_id"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "product_name"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "total_cost"
+    type: "double"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "total_revenue"
+    type: "double"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "total_profit"
+    type: "double"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "profit_per_unit"
+    type: "double"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false

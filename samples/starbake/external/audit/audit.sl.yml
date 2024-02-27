@@ -1,0 +1,89 @@
+---
+table:
+  name: "audit"
+  pattern: "ignore"
+  attributes:
+  - name: "JOBID"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "PATHS"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "DOMAIN"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "SCHEMA"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "SUCCESS"
+    type: "boolean"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "COUNT"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "COUNTACCEPTED"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "COUNTREJECTED"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "TIMESTAMP"
+    type: "timestamp"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "DURATION"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "MESSAGE"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "STEP"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "DATABASE"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "TENANT"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false

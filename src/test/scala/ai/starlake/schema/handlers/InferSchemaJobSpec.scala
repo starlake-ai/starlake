@@ -19,7 +19,9 @@ class InferSchemaJobSpec extends TestHelper {
 
     lazy val psvLines =
       Utils.withResources(
-        Source.fromFile("src/test/resources/quickstart/incoming/sales/customers-2018-01-01.psv")
+        Source.fromFile(
+          "src/test/resources/sample/simple-csv-customers/customers-2018-01-01.psv"
+        )
       )(
         _.getLines().toList
       )
@@ -31,7 +33,7 @@ class InferSchemaJobSpec extends TestHelper {
 
     lazy val jsonArrayLines =
       Utils.withResources(
-        Source.fromFile("src/test/resources/quickstart/incoming/hr/sellers-2018-01-01.json")
+        Source.fromFile("src/test/resources/sample/simple-json-sellers/sellers-2018-01-01.json")
       )(
         _.getLines().toList
       )

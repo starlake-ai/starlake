@@ -15,7 +15,7 @@ load:
     options:
       rowTag: element
       inferSchema: false
-      rowValidationXSDPath: __SL_TEST_ROOT__/metadata/sample/xsd/locations.xsd
+      rowValidationXSDPath: __SL_TEST_ROOT__/sample/xsd/locations.xsd
     sink:
       partition:
         attributes:

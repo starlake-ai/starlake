@@ -91,7 +91,7 @@ trait TestHelper
       }
     }
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
-  lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
+  lazy val starlakeMetadataPath: String = starlakeTestRoot // + "/metadata"
   lazy val starlakeLoadPath: String = starlakeMetadataPath + "/load"
 
   def baseConfigString =

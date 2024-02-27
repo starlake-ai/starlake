@@ -1,0 +1,23 @@
+---
+table:
+  name: "byseller_kpi"
+  pattern: "ignore"
+  attributes:
+  - name: "id"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "sum"
+    type: "decimal"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "timestamp"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
