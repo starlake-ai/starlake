@@ -148,7 +148,6 @@ case class Metadata(
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${getWrite()}
        |sink:${sink}
        |directory:${directory}
        |extensions:${extensions}
@@ -190,6 +189,7 @@ case class Metadata(
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
+  @JsonIgnore
   def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
 
   @JsonIgnore

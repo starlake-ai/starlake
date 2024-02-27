@@ -233,7 +233,7 @@ case class TaskViewDependency(
     val dotParent: String = if (parent.isEmpty) parentRef else parent
     val dotParentId = dotParent.replaceAll("\\.", "_")
     if (dotParent.nonEmpty)
-      Some(s"$depId -> $dotParentId")
+      Some(s"$dotParentId -> $depId")
     else
       None
 
