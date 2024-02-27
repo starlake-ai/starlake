@@ -127,7 +127,7 @@ class AutoTaskDependencies(
       |digraph {
       |graph [pad="0.5", nodesep="0.5", ranksep="2"];
       |node [shape=plain]
-      |rankdir=LR;
+      |rankdir=RL;
       |
       |
       |""".stripMargin
