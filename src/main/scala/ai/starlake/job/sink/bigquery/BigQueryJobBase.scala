@@ -724,7 +724,8 @@ trait BigQueryJobBase extends StrictLogging {
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
       recoverBigqueryException {
-        val tableTagPairs = Utils.extractTags(schema.tags)
+        val tags = Utils.extractTags(schema.tags)
+        val tableTagPairs = tags map { case (k, v) => (k.toLowerCase, v.toLowerCase) }
         if (table.getLabels.asScala.toSet != tableTagPairs) {
           logger.info("Table's tag has changed")
           table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
