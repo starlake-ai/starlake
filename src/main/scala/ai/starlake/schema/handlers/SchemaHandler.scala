@@ -1001,7 +1001,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             }
             result
           } else {
-            logger.info(s"Job $directory does not have a _config.yml file")
+            logger.info(s"Job $directory does not have a _config.sl.yml file")
             val job = AutoJobDesc(directory.getName(), Nil)
             val result = loadJobTasks(job, directory)
             result match {
