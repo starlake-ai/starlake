@@ -54,6 +54,16 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         )
           .flatMap(formatter.formatCellValue)
 
+      val clustering =
+        Option(
+          row.getCell(headerMapSchema("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSeq)
+
+      val tags =
+        Option(
+          row.getCell(headerMapSchema("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
+
       val tablePolicies = policiesOpt
         .map { tablePolicies =>
           policies.filter(p => tablePolicies.contains(p.name))
@@ -85,6 +95,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                 case Some(partition) =>
                   BigQuerySink(
                     partition = Some(List(partition)),
+                    clustering = clustering,
                     requirePartitionFilter = Some(true)
                   ).toAllSinks()
                 case _ => BigQuerySink().toAllSinks()
@@ -130,6 +141,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                   })
               }.getOrElse(Nil),
               python = None,
+              tags = tags,
               writeStrategy = None,
               taskTimeoutMs = None
             )

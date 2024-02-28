@@ -12,7 +12,8 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_rename"      -> "Rename"
+    "_rename"      -> "Rename",
+    "_tags"        -> "Tags"
   )
   val allPolicyHeaders = List(
     "_name"        -> "Name",
@@ -92,7 +93,9 @@ trait XlsModel {
     "_partition"   -> "Partition column",
     "_description" -> "Description",
     "_policy"      -> "Access Policy",
-    "_database"    -> "Database"
+    "_database"    -> "Database",
+    "_clustering"  -> "Clustering columns",
+    "_tags"        -> "Tags"
   )
 
   val allAttributeJobHeaders = List(
