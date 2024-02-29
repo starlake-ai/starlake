@@ -4,23 +4,71 @@ Load and validate, in one shot or incrementally, JSON, XML and CSV files into yo
 
 ## Prerequisites
 This step assumes we loaded we have the data located in the incoming folder as described in the [Extract](../extract/README.md) step.
-If you skipped the extract step, you can download the data from [here]()
 
+If you skipped the extract step above, you can download the data from [here](https://github.com/starlake-ai/starlake/tree/master/samples/starbake/incoming/starbake).
+and copy them to the incoming/starbake folder.
+The folder conatins now three files:
+- products.xml
+- orders_20240228.json
+- order_lines_20240228.csv
 
 ## Infer schema
 The only step is to infer the schema of the incoming files. This is done by running the following command:
 
 ```bash
+starlake infer-schema --input-path incoming/starbake --clean
+```
 
-starlake infer-schema --input-path /path/to/incoming/folder --clean
+Your metadata `load` folder should now contain the folder `starbake` with following files:
+- products.sl.yml
+- orders.sl.yml
+- order_lines.yml
+
+The ìnfer-schema` command has created a schema file for each of the files in the incoming folder trying to detect the schema of the files.
+These schema files are used to load the data into the datawarehouse.
+
+## Load data into your datawarehouse
+
+To load the data, we need to infer the schema of each of the file.
+
+Run the following command to infer the schema of the files in the incoming folder.
+
+```bash
+
+starlake load
 
 ```
 
-## Load files into your datawarehouse
+This will create a schema file for each of the files in the incoming folder.
 
-### Apply on the fly transformations
+
+## Load files into your datawarehouse
+Now that we have a schema for each of the file in the incoming folder, we can load them into our datawarehouse.
+
+The datawarehouse can be a local file, a database or a cloud storage. By default, your files will be loaded into a local file in delta format.
+
+to load it to a different datawarehouse, you can specify a different connectionRef in the application.sl.yml file.
+
+```yaml
+load:
+  connectionRef: "your-connection-ref"
+```
+
+To load the data, run the following command.
+
+```bash
+
+starlake load --input-path incoming/starbake --schema-path incoming/starbake-schema --output-path incoming/starbake-tables
+
+```
+
+
+## Going further
+
+### Apply transformations on the fly
 
 ### Customize write strategies
 
 ### Partition your tables
+
 
