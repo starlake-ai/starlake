@@ -11,7 +11,7 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
 
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
 
-    "Native Snowflake Transform" should "succeed" in {
+    "Native Postgres Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"  -> "PG",
         "SL_ROOT" -> localDir.pathAsString
