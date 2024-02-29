@@ -53,31 +53,31 @@ class InferSchemaJobSpec extends TestHelper {
     lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
 
     "GetSeparatorSemiColon" should "succeed" in {
-      inferSchemaJob.getSeparator(csvLines, false) shouldBe ";"
+      inferSchemaJob.getSeparator(csvLines) shouldBe ";"
     }
 
     "GetSeparatorPipe" should "succeed" in {
-      inferSchemaJob.getSeparator(psvLines, true) shouldBe "|"
+      inferSchemaJob.getSeparator(psvLines) shouldBe "|"
     }
 
     "GetFormatCSV" should "succeed" in {
-      inferSchemaJob.getFormatFile(csvLines) shouldBe "DSV"
+      inferSchemaJob.getFormatFile("ignore", csvLines) shouldBe "DSV"
     }
 
     "GetFormatJson" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonLines) shouldBe "JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonLines) shouldBe "JSON"
     }
 
     "GetFormatXML" should "succeed" in {
-      inferSchemaJob.getFormatFile(xmlLines) shouldBe "XML"
+      inferSchemaJob.getFormatFile("ignore", xmlLines) shouldBe "XML"
     }
 
     "GetFormatArrayJson" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonArrayLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "ARRAY_JSON"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
@@ -95,14 +95,15 @@ class InferSchemaJobSpec extends TestHelper {
           sourceFile.overwrite(inputData)
           inferSchemaJob.infer(
             domainName = "locations",
-            schemaName = "flat_locations",
+            tableName = "flat_locations",
             pattern = None,
             comment = None,
-            dataPath = sourceFile.pathAsString,
+            inputPath = sourceFile.pathAsString,
             saveDir = targetDir.pathAsString,
-            withHeader = true,
             forceFormat = None,
-            writeMode = WriteMode.OVERWRITE
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
           )
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.sl.yml")
