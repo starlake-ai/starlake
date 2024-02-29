@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<products>
+  <product>
+    <product_id>1</product_id>
+    <name>Chocolate Cake</name>
+    <price>21.86</price>
+    <description>Description for Chocolate Cake</description>
+    <category>Cakes</category>
+  </product>
+  <product>
+    <product_id>2</product_id>
+    <name>Vanilla Cake</name>
+    <price>6.72</price>
+    <description>Description for Vanilla Cake</description>
+    <category>Cakes</category>
+  </product>
+  <product>
+    <product_id>3</product_id>
+    <name>Carrot Cake</name>
+    <price>7.82</price>
+    <description>Description for Carrot Cake</description>
+    <category>Cakes</category>
+  </product>
+  <product>
+    <product_id>4</product_id>
+    <name>Chocolate Chip Cookies</name>
+    <price>22.63</price>
+    <description>Description for Chocolate Chip Cookies</description>
+    <category>Cookies</category>
+  </product>
+  <product>
+    <product_id>5</product_id>
+    <name>Gingerbread Cookies</name>
+    <price>7.65</price>
+    <description>Description for Gingerbread Cookies</description>
+    <category>Cookies</category>
+  </product>
+  <product>
+    <product_id>6</product_id>
+    <name>Sugar Cookies</name>
+    <price>7.03</price>
+    <description>Description for Sugar Cookies</description>
+    <category>Cookies</category>
+  </product>
+  <product>
+    <product_id>7</product_id>
+    <name>Baguette</name>
+    <price>10.56</price>
+    <description>Description for Baguette</description>
+    <category>Breads</category>
+  </product>
+  <product>
+    <product_id>8</product_id>
+    <name>Whole Wheat Bread</name>
+    <price>26.52</price>
+    <description>Description for Whole Wheat Bread</description>
+    <category>Breads</category>
+  </product>
+  <product>
+    <product_id>9</product_id>
+    <name>Croissant</name>
+    <price>8.76</price>
+    <description>Description for Croissant</description>
+    <category>Breads</category>
+  </product>
+  <product>
+    <product_id>10</product_id>
+    <name>Apple Pie</name>
+    <price>11.05</price>
+    <description>Description for Apple Pie</description>
+    <category>Pies</category>
+  </product>
+  <product>
+    <product_id>11</product_id>
+    <name>Blueberry Pie</name>
+    <price>5.32</price>
+    <description>Description for Blueberry Pie</description>
+    <category>Pies</category>
+  </product>
+  <product>
+    <product_id>12</product_id>
+    <name>Pecan Pie</name>
+    <price>15.8</price>
+    <description>Description for Pecan Pie</description>
+    <category>Pies</category>
+  </product>
+</products>
