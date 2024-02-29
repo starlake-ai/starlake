@@ -26,11 +26,22 @@ import ai.starlake.utils.YamlSerializer
 import better.files.File
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import scala.util.Try
 
 object InferSchemaHandler {
   val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
+
+  def parseIsoInstant(str: String): Boolean = {
+    try {
+      ZonedDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME)
+      true
+    } catch {
+      case e: Exception => false
+    }
+  }
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -84,7 +95,15 @@ object InferSchemaHandler {
           // if the datatype is a simple Attribute
           case _ =>
             val cellType =
-              if (
+              if (row.dataType.typeName == "string") {
+                val timestampCandidates = lines.map(row => row(index)).flatMap(Option(_))
+                if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                  "timestamp"
+                else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
+                  "date"
+                else
+                  "string"
+              } else if (
                 row.dataType.typeName == "timestamp" && Set(
                   Format.DSV,
                   Format.POSITION,
@@ -189,7 +208,7 @@ object InferSchemaHandler {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, saveDir: String)(implicit
+  def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
     settings: Settings
   ): Try[File] = Try {
 
@@ -210,9 +229,11 @@ object InferSchemaHandler {
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")
     if (tablePath.exists) {
-      throw new Exception(
-        s"Table ${domain.tables.head.name} already defined in file $tablePath"
-      )
+      if (!clean) {
+        throw new Exception(
+          s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
+        )
+      }
     } else {
       YamlSerializer.serializeToFile(tablePath, table)
     }
