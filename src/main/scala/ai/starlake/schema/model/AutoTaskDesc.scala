@@ -69,7 +69,7 @@ case class AutoTaskDesc(
   }
 
   @JsonIgnore
-  def getWrite(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
+  def getWriteMode(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
 
   def merge(child: AutoTaskDesc): AutoTaskDesc = {
     AutoTaskDesc(
