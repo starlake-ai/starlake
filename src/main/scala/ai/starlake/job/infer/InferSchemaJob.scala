@@ -22,27 +22,21 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{
-  Attribute,
-  Domain,
-  Format,
-  Metadata,
-  Position,
-  WriteMode,
-  WriteStrategy,
-  WriteStrategyType
-}
+import ai.starlake.schema.model._
 import better.files.File
+import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import java.util.regex.Pattern
+import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
   */
-class InferSchemaJob(implicit settings: Settings) {
+class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
   def name: String = "InferSchema"
 
@@ -69,24 +63,34 @@ class InferSchemaJob(implicit settings: Settings) {
     *   : list of lines read from file
     * @return
     */
-  def getFormatFile(lines: List[String]): String = {
+  def getFormatFile(inputPath: String, lines: List[String]): String = {
+    val file = File(inputPath)
     val firstLine = lines.head
     val lastLine = lines.last
 
-    val jsonRegexStart = """\{.*""".r
-    val jsonArrayRegexStart = """\[.*""".r
+    file.extension(includeDot = false).getOrElse("").toLowerCase() match {
+      case "xml" => "XML"
+      case "json" if firstLine.startsWith("[") =>
+        "ARRAY_JSON"
+      case "json" if firstLine.startsWith("{") =>
+        "JSON"
+      case "csv" | "tsv" | "psv" => "DSV"
+      case _ =>
+        val jsonRegexStart = """\{.*""".r
+        val jsonArrayRegexStart = """\[.*""".r
 
-    val jsonRegexEnd = """.*\}""".r
-    val jsonArrayRegexEnd = """.*\]""".r
+        val jsonRegexEnd = """.*\}""".r
+        val jsonArrayRegexEnd = """.*\]""".r
 
-    val xmlRegexStart = """<.*""".r
-    val xmlRegexEnd = """.*>""".r
+        val xmlRegexStart = """<.*""".r
+        val xmlRegexEnd = """.*>""".r
 
-    (firstLine, lastLine) match {
-      case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
-      case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
-      case (xmlRegexStart(), xmlRegexEnd())             => "XML"
-      case _                                            => "DSV"
+        (firstLine, lastLine) match {
+          case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
+          case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
+          case (xmlRegexStart(), xmlRegexEnd())             => "XML"
+          case _                                            => "DSV"
+        }
     }
   }
 
@@ -97,8 +101,8 @@ class InferSchemaJob(implicit settings: Settings) {
     * @return
     *   the file separator
     */
-  def getSeparator(lines: List[String], withHeader: Boolean): String = {
-    val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+  def getSeparator(lines: List[String]): String = {
+    val linesWithoutHeader = lines.drop(1)
     val firstLine = linesWithoutHeader.head
     val (separator, count) =
       firstLine
@@ -138,9 +142,15 @@ class InferSchemaJob(implicit settings: Settings) {
     else {
       val extension = parts.last
       val prefix = filename.replace(s".$extension", "")
-      val indexOfNonAlpha = prefix.indexWhere(!_.isLetterOrDigit)
+      val indexOfNonAlpha = prefix.lastIndexWhere(!_.isLetterOrDigit)
       val prefixWithoutNonAlpha =
-        if (indexOfNonAlpha != -1) prefix.substring(0, indexOfNonAlpha) else prefix
+        if (
+          indexOfNonAlpha != -1 &&
+          indexOfNonAlpha < prefix.length &&
+          prefix(indexOfNonAlpha + 1).isDigit
+        )
+          prefix.substring(0, indexOfNonAlpha)
+        else prefix
       if (prefixWithoutNonAlpha.isEmpty)
         filename
       else
@@ -159,19 +169,28 @@ class InferSchemaJob(implicit settings: Settings) {
   private def createDataFrameWithFormat(
     lines: List[String],
     dataPath: String,
-    withHeader: Boolean
+    content: String,
+    tableName: String,
+    rowTag: Option[String]
   ): DataFrame = {
-    val formatFile = getFormatFile(lines)
+    val formatFile = getFormatFile(dataPath, lines)
     formatFile match {
       case "ARRAY_JSON" =>
-        val jsonRDD =
-          session.sparkContext.wholeTextFiles(dataPath).map { case (_, content) =>
-            content
-          }
-        session.read
-          .option("inferSchema", value = true)
-          .json(session.createDataset(jsonRDD)(Encoders.STRING))
+        val content = lines.mkString("\n")
+        val jsons = ListBuffer[String]()
+        val jsonarray = new JSONArray(content)
+        for (i <- 0 until jsonarray.length) {
+          val jsonobject = jsonarray.getJSONObject(i)
+          jsons.append(jsonobject.toString)
+        }
 
+        val tmpFile = File.newTemporaryFile()
+        tmpFile.write(jsons.mkString("\n"))
+        tmpFile.deleteOnExit()
+        session.read
+          .format("json")
+          .option("inferSchema", value = true)
+          .load(tmpFile.pathAsString)
       case "JSON" =>
         session.read
           .format("json")
@@ -179,17 +198,37 @@ class InferSchemaJob(implicit settings: Settings) {
           .load(dataPath)
 
       case "XML" =>
+        // find second occurrence of xml tag starting with letter in content
+        val tag = {
+          rowTag.getOrElse {
+            try {
+              val contentWithoutXmlHeaderTag = content.replace("<?", "")
+              val secondXmlTagStart = contentWithoutXmlHeaderTag
+                .indexOf("<", contentWithoutXmlHeaderTag.indexOf("<") + 1) + 1
+              val closingTag = contentWithoutXmlHeaderTag.indexOf(">", secondXmlTagStart)
+              val rowTag = contentWithoutXmlHeaderTag.substring(secondXmlTagStart, closingTag)
+              logger.info(s"Using rowTag: $rowTag")
+              rowTag
+            } catch {
+              case e: Exception =>
+                logger.info(s"Using table name as default rowTag: $tableName")
+                tableName
+            }
+          }
+        }
+
         session.read
           .format("com.databricks.spark.xml")
+          .option("rowTag", tag)
           .option("inferSchema", value = true)
           .load(dataPath)
 
       case "DSV" =>
         session.read
           .format("com.databricks.spark.csv")
-          .option("header", withHeader)
+          .option("header", value = true)
           .option("inferSchema", value = true)
-          .option("delimiter", getSeparator(lines, withHeader))
+          .option("delimiter", getSeparator(lines))
           .option("parserLib", "UNIVOCITY")
           .load(dataPath)
     }
@@ -202,19 +241,20 @@ class InferSchemaJob(implicit settings: Settings) {
     */
   def infer(
     domainName: String,
-    schemaName: String,
+    tableName: String,
     pattern: Option[String],
     comment: Option[String],
-    dataPath: String,
+    inputPath: String,
     saveDir: String,
-    withHeader: Boolean,
     forceFormat: Option[Format],
-    writeMode: WriteMode
+    writeMode: WriteMode,
+    rowTag: Option[String],
+    clean: Boolean
   ): Try[File] = {
     Try {
-      val path = new Path(dataPath)
-
-      val lines = Source.fromFile(path.toString).getLines().toList.map(_.trim).filter(_.nonEmpty)
+      val path = new Path(inputPath)
+      val content = Source.fromFile(path.toString).getLines().toList
+      val lines = content.toList.map(_.trim).filter(_.nonEmpty)
 
       val schema = forceFormat match {
         case Some(Format.POSITION) =>
@@ -230,29 +270,34 @@ class InferSchemaJob(implicit settings: Settings) {
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
-            schemaName,
+            tableName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
             comment,
             attributes,
             Some(metadata)
           )
         case forceFormat =>
-          val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, withHeader)
+          val dataframeWithFormat =
+            createDataFrameWithFormat(lines, inputPath, content.mkString("\n"), tableName, rowTag)
 
           val (format, array) = forceFormat match {
             case None =>
-              val formatAsStr = getFormatFile(lines)
-              (Format.fromString(getFormatFile(lines)), formatAsStr == "ARRAY_JSON")
+              val formatAsStr = getFormatFile(inputPath, lines)
+              (Format.fromString(formatAsStr), formatAsStr == "ARRAY_JSON")
             case Some(f) => (f, false)
           }
 
           val (dataLines, separator) =
             format match {
               case Format.DSV =>
-                val separator = getSeparator(lines, withHeader)
-                val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+                val separator = getSeparator(lines)
+                val linesWithoutHeader = lines.drop(1)
                 (linesWithoutHeader.map(_.split(Pattern.quote(separator))), Some(separator))
-              case _ => (Nil, None)
+              case _ =>
+                val linesWithoutHeader = dataframeWithFormat.collect
+                  .map(_.toSeq.map(_.toString).toArray)
+                  .toList
+                (linesWithoutHeader, None)
             }
 
           val attributes: List[Attribute] =
@@ -261,7 +306,7 @@ class InferSchemaJob(implicit settings: Settings) {
           val metadata = InferSchemaHandler.createMetaData(
             format,
             Option(array),
-            Option(withHeader),
+            Some(true),
             separator
           )
 
@@ -270,7 +315,7 @@ class InferSchemaJob(implicit settings: Settings) {
           )
 
           InferSchemaHandler.createSchema(
-            schemaName,
+            tableName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
             comment,
             attributes,
@@ -289,7 +334,7 @@ class InferSchemaJob(implicit settings: Settings) {
           schemas = List(schema)
         )
 
-      InferSchemaHandler.generateYaml(domain, saveDir)
+      InferSchemaHandler.generateYaml(domain, saveDir, clean)
     }.flatten
   }
 }
