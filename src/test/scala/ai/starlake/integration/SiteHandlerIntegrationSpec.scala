@@ -34,10 +34,7 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
   "Generate Docusaurus site" should "succeed" in {
     // select quickstart or starbake here
-    val root = "/Users/hayssams/git/starlake-internal/customers/bpceps/gni/output"
-//    withEnvs("SL_ROOT" -> projectDir.pathAsString) {
-    withEnvs("SL_ROOT" -> root) {
-      // withEnvs("SL_ROOT" -> projectDir.pathAsString, "SL_METADATA" -> projectDir.pathAsString) {
+    withEnvs("SL_ROOT" -> projectDir.pathAsString) {
       clearDataDirectories()
       implicit val settings: Settings = Settings(Settings.referenceConfig)
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)

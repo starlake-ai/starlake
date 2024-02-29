@@ -155,7 +155,7 @@ class SparkAutoTask(
 
     val source = Right(Utils.setNullableStateOfColumn(dataframe, nullable = true))
     val (createDisposition, writeDisposition) = {
-      Utils.getDBDisposition(this.taskDesc.getWrite())
+      Utils.getDBDisposition(this.taskDesc.getWriteMode())
     }
     val bqLoadConfig =
       BigQueryLoadConfig(
