@@ -164,7 +164,7 @@ abstract class AutoTask(
 
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(
-      taskDesc.getWrite()
+      taskDesc.getWriteMode()
     )
 
   def isMaterializedView(): Boolean = {
