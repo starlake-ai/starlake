@@ -1,0 +1,105 @@
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val newAttributes: List[Map[String, Any]] %>
+<%@ val alterAttributes: List[Map[String, Any]] %>
+<%@ val alterCommentAttributes: List[Map[String, Any]] %>
+<%@ val alterRequiredAttributes: List[Map[String, Any]] %>
+<%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
+<%@ val droppedAttributes: List[Map[String, Any]] %>
+<%@ val domain: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val schema: String %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val primaryKeys: List[String] %>
+<%@ val domainLabels: Map[String, String] %>
+<%@ val schemaLabels: Map[String, String] %>
+<%@ val sink: Option[ai.starlake.schema.model.BigQuerySink] %>
+
+<%
+    val bqSink = sink.getOrElse(throw new Exception(s"$domain.$schema has no sink defined. Cannot generate DDL"))
+    val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty
+    val isPartitionDefined: Boolean = bqSink.timestamp.isDefined
+    val partitionColumn = bqSink.timestamp match {
+        case None      => ""
+        case Some(col) => col
+    }
+
+    val isClusterDefined: Boolean = bqSink.clustering.isDefined
+    val clusterCols = bqSink.clustering match {
+        case None       => ""
+        case Some(cols) => cols.mkString(",")
+    }
+
+    val requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false)
+    val expiryInDaysDefined = bqSink.days.isDefined
+    val expiryInDays = bqSink.days match {
+        case None        => 0
+        case Some(value) => value
+    }
+
+    val domainLocation = bqSink.location.getOrElse("")
+
+    val domainLabelsIsDefined = domainLabels.nonEmpty
+    val domainLabelsString = domainLabels.map { case (k, v) => s"""("$k","$v")"""}.toList.mkString("[", ",", "]")
+    val schemaLabelsIsDefined = domainLabels.nonEmpty
+    val schemaLabelsString = schemaLabels.map { case (k, v) => s"""("$k","$v")"""}.toList.mkString("[", ",", "]")
+
+    def attributeDDL(attr: Map[String, Any]): String = {
+        val required = if (attr("required").toString.toBoolean) "NOT NULL" else ""
+        val attrName = attr("name")
+        val attrType = attr("type")
+        attr("nodeType") match {
+            case "leaf" =>
+                s"""$attrName $attrType $required"""
+            case "node" =>
+                val fields = attr("fields").asInstanceOf[List[Map[String, Any]]]
+                val ddlFields = fields.map(field => attributeDDL(field)).mkString(",")
+                s"""$attrName $attrType<$ddlFields> $required"""
+            case _ => throw new Exception("Should never happen")
+        }
+    }
+%>
+CREATE SCHEMA IF NOT EXISTS ${domain}
+OPTIONS(
+description="${domainComment}"
+#if (domainLocation == "")
+#else
+    ,location= "${domainLocation}"
+#end
+#if (domainLabelsIsDefined == "")
+    ,labels= ${domainLabelsString}
+#end
+);
+
+CREATE TABLE ${domain}.${schema} (
+#{
+    val attributesCount = attributes.length
+    var attributesIndex = 1
+}#
+#for (attribute <- attributes)
+    #{
+        val attrLabelsIsDefined = attribute("labels").asInstanceOf[Map[String, String]].nonEmpty
+        val attrLabels = attribute("labels").asInstanceOf[Map[String, String]].map { case (k, v) => s"""("$k","$v")"""}.toList.mkString("[", ",", "]")
+        val attributeComment = attribute("comment")
+        val attributeSuffix = if (attributesIndex == attributesCount) "" else ","
+        attributesIndex = attributesIndex + 1
+    }#
+    ${attributeDDL(attribute)} options(description="${attributeComment}" #if(attrLabelsIsDefined),labels=${attrLabels}#end)${attributeSuffix}
+#end
+)
+#if (isPartitionDefined)
+PARTITION BY ${partitionColumn}
+#end
+#if (isClusterDefined)
+CLUSTER BY ${clusterCols}
+#end
+OPTIONS(
+    description="${schemaComment}"
+    ,require_partition_filter=${requirePartitionFilter}
+#if (expiryInDaysDefined)
+    ,partition_expiration_days=${expiryInDays}
+#end
+#if (schemaLabelsIsDefined == "")
+    ,labels= ${schemaLabelsString}
+#end
+);

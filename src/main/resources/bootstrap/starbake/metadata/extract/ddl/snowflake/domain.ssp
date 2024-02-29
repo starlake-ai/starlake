@@ -1,0 +1,36 @@
+<%@ val domain: ai.starlake.schema.model.Domain %>
+<%@ val domainName: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val domainLabels: Map[String, String] %>
+
+
+<%
+    def labels(labels: Map[String, String]) = labels.map { case (k, v) => s"""$k = '$v'"""}.toList.mkString("(",",", ")")
+    val domainLabelsIsDefined = domainLabels.nonEmpty
+    val domainLabelsString = labels(domainLabels)
+%>
+
+
+alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';
+CREATE SCHEMA IF NOT EXISTS ${domainName}
+#if (domainLabelsIsDefined)
+WITH TAG ${domainLabelsString}
+#end
+COMMENT = '${domainComment}';
+
+
+CREATE SCHEMA IF NOT EXISTS AUDIT;
+CREATE TABLE IF NOT EXISTS AUDIT.AUDIT (
+    jobid VARCHAR,
+    paths VARCHAR,
+    domain VARCHAR,
+    schema VARCHAR,
+    success BOOLEAN,
+    count INTEGER,
+    countAccepted INTEGER,
+    countRejected INTEGER,
+    timestamp TIMESTAMP,
+    duration INTEGER,
+    message VARCHAR,
+    step VARCHAR
+ );

@@ -4,10 +4,17 @@ Load and validate, in one shot or incrementally, JSON, XML and CSV files into yo
 
 ## Prerequisites
 This step assumes we loaded we have the data located in the incoming folder as described in the [Extract](../extract/README.md) step.
-If you skipped the extract step, you can download the data from [here](
+If you skipped the extract step, you can download the data from [here]()
 
 
 ## Infer schema
+The only step is to infer the schema of the incoming files. This is done by running the following command:
+
+```bash
+
+starlake infer-schema --input-path /path/to/incoming/folder --clean
+
+```
 
 ## Load files into your datawarehouse
 
