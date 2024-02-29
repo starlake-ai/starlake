@@ -39,7 +39,7 @@ object InferSchemaHandler {
       ZonedDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME)
       true
     } catch {
-      case e: Exception => false
+      case e: java.time.format.DateTimeParseException => false
     }
   }
 
