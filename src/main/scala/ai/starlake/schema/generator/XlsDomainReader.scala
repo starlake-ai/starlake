@@ -221,6 +221,8 @@ class XlsDomainReader(input: Input) extends XlsModel {
               case ts :: Nil =>
                 bqSink
                   .copy(partition = Some(List(ts))) // only one column allowed for BigQuery
+              case Nil =>
+                bqSink
               case _ =>
                 throw new Exception("Only one partitioning column allowed for BigQuery")
             }
