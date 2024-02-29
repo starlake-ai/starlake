@@ -97,7 +97,9 @@ object InferSchemaHandler {
             val cellType =
               if (row.dataType.typeName == "string") {
                 val timestampCandidates = lines.map(row => row(index)).flatMap(Option(_))
-                if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                if (timestampCandidates.isEmpty)
+                  "string"
+                else if (timestampCandidates.forall(v => parseIsoInstant(v)))
                   "timestamp"
                 else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
                   "date"

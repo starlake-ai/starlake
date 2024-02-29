@@ -201,19 +201,19 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         // find second occurrence of xml tag starting with letter in content
         val tag = {
           rowTag.getOrElse {
-            try {
-              val contentWithoutXmlHeaderTag = content.replace("<?", "")
-              val secondXmlTagStart = contentWithoutXmlHeaderTag
-                .indexOf("<", contentWithoutXmlHeaderTag.indexOf("<") + 1) + 1
-              val closingTag = contentWithoutXmlHeaderTag.indexOf(">", secondXmlTagStart)
-              val rowTag = contentWithoutXmlHeaderTag.substring(secondXmlTagStart, closingTag)
-              logger.info(s"Using rowTag: $rowTag")
-              rowTag
-            } catch {
-              case e: Exception =>
-                logger.info(s"Using table name as default rowTag: $tableName")
+            val contentWithoutXmlHeaderTag = content.replace("<?", "")
+            val secondXmlTagStart = contentWithoutXmlHeaderTag
+              .indexOf("<", contentWithoutXmlHeaderTag.indexOf("<") + 1) + 1
+            val closingTag = contentWithoutXmlHeaderTag.indexOf(">", secondXmlTagStart)
+            val result =
+              if (secondXmlTagStart == -1 || closingTag == -1)
                 tableName
-            }
+              else {
+                val rowTag = contentWithoutXmlHeaderTag.substring(secondXmlTagStart, closingTag)
+                rowTag
+              }
+            logger.info(s"Using rowTag: $result")
+            result
           }
         }
 
