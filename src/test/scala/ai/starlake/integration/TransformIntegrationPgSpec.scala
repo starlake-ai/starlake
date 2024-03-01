@@ -1,5 +1,6 @@
 package ai.starlake.integration
 
+import ai.starlake.TestHelper
 import ai.starlake.job.Main
 
 class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
@@ -9,9 +10,24 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
 
   override def sampleDataDir = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
-
-    "Native Snowflake Transform" should "succeed" in {
+  val jdbcUrl = TestHelper.pgContainer.jdbcUrl
+  val jdbcHost = TestHelper.pgContainer.host
+  val jdbcPort = TestHelper.pgContainer.mappedPort(5432)
+  val envContent =
+    s"""
+        |env:
+        |  myConnectionRef: "postgresql"
+        |  loader: "native"
+        |  POSTGRES_HOST: "$jdbcHost"
+        |  POSTGRES_PORT: "$jdbcPort"
+        |  POSTGRES_USER: "test"
+        |  POSTGRES_PASSWORD: "test"
+        |  POSTGRES_DATABASE: "starlake"
+        |""".stripMargin
+  val envFile = localDir / "metadata" / "env.PG.sl.yml"
+  envFile.write(envContent)
+  "Native Postgres Transform" should "succeed" in {
+    if (false) {
       withEnvs(
         "SL_ENV"  -> "PG",
         "SL_ROOT" -> localDir.pathAsString

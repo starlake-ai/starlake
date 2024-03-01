@@ -18,37 +18,6 @@ load:
         attributes:
           - date
   tables:
-    - name: "TEST_EMTPY"
-      pattern: "empty_position"
-      attributes:
-        - name: "code0"
-          type: "byte"
-          required: true
-          privacy: "NONE"
-          comment:  "simple description"
-          position:
-            first: 0
-            last: 0
-        - name: "code1"
-          type: "byte"
-          required: true
-          privacy: "NONE"
-          position:
-            first: 1
-            last: 1
-        - name: "date"
-          type: "date"
-          script: "current_date()"
-          privacy: None
-          required: true
-          position:
-            first: 0
-            last: 0
-      metadata:
-        sink:
-          partition:
-            sampling: 0
-            attributes: []
     - name: "account"
       metadata:
         write: "APPEND"
@@ -56,17 +25,16 @@ load:
           warn: "1 ms"
           error: "2 ms"
       tags: ["tablekey=value", "tablekeynovalue"]
-      rls:
-        - name: "bqrls"
-          predicate: "TRUE"
-          grants:
-            - "user:hayssam.saleh@starlake.ai"
+#      rls:
+#        - name: "bqrls"
+#          predicate: "TRUE"
+#          grants:
+#            - "user:me@starlake.ai"
       pattern: ".*TBL"
-      acl:
-        - role: "roles/bigquery.dataViewer"
-          grants:
-            - "user:hayssam.saleh@starlake.ai"
-            - "user:hayssam@saleh.fr"
+#      acl:
+#        - role: "roles/bigquery.dataViewer"
+#          grants:
+#            - "user:me@starlake.ai"
       merge:
         key:
           - code1
