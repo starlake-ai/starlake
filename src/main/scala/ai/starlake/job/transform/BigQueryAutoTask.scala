@@ -129,26 +129,6 @@ class BigQueryAutoTask(
     new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
   }
 
-  private def addSCD2Columns(config: BigQueryLoadConfig): Unit = {
-    taskDesc.writeStrategy match {
-      case Some(strategyOptions) if strategyOptions.getStrategyType() == WriteStrategyType.SCD2 =>
-        config.outputTableId.foreach { tableId =>
-          val scd2Cols = List(
-            strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp),
-            strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-          )
-          val table = BigQueryJobBase.getBqTableForNative(tableId)
-          val sql = scd2Cols
-            .map { col =>
-              s"ALTER TABLE $table ADD COLUMN IF NOT EXISTS $col TIMESTAMP OPTIONS(description='StarLake $col timestamp')"
-            }
-            .mkString(";\n")
-          bqNativeJob(config, sql).runInteractiveQuery()
-        }
-      case None =>
-    }
-  }
-
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {
     sqls.map { req =>
       logger.info(s"running sql request $req")
@@ -167,7 +147,7 @@ class BigQueryAutoTask(
       // nothing to do, config is created with write_truncate in that case
     }
     val mainSql =
-      if (loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+      if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
         buildAllSQLQueries(None)
       } else {
         taskDesc.getSql()
@@ -316,7 +296,6 @@ class BigQueryAutoTask(
             config,
             mainSql
           ).runInteractiveQuery()
-          addSCD2Columns(config)
           res
       }
 
