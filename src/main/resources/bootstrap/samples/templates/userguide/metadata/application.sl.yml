@@ -1,10 +1,10 @@
 ---
 application:
-  connectionRef: "{{connectionRef}}"
+  connectionRef: "{{activeConnection}}"
 
   audit:
     sink:
-      connectionRef: "{{connectionRef}}"
+      connectionRef: "{{activeConnection}}"
 
   connections:
     localFileSystem:

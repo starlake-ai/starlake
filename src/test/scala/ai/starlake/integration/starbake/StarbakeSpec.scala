@@ -53,4 +53,18 @@ class StarbakeSpec extends IntegrationTestBase {
     }
   }
 
+  "Transform lineage" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+      Main.main(
+        Array("lineage", "--svg", "--tasks", "kpi.order_summary", "--output", "lineage.svg")
+      )
+    }
+  }
+
+  "Transform recursive" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+      Main.main(Array("transform", "--recursive", "--name", "kpi.order_summary"))
+    }
+  }
+
 }
