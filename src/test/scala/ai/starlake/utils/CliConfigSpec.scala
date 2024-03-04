@@ -13,7 +13,7 @@ import ai.starlake.job.Cmd
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest.{IamPoliciesCmd, ImportCmd, IngestCmd, LoadCmd, SecureCmd}
+import ai.starlake.job.ingest.{IamPoliciesCmd, IngestCmd, LoadCmd, SecureCmd, StageCmd}
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
@@ -32,7 +32,7 @@ class CliConfigSpec extends TestHelper {
       val commands: List[Cmd[_]] = List(
         BootstrapCmd,
         TransformCmd,
-        ImportCmd,
+        StageCmd,
         ValidateCmd,
         LoadCmd,
         IngestCmd,

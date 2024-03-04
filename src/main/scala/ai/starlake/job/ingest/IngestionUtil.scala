@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.privacy.PrivacyEngine
@@ -42,15 +42,15 @@ object IngestionUtil {
     rejectedDS: Dataset[String],
     domainName: String,
     schemaName: String,
-    now: Timestamp
+    now: Timestamp,
+    paths: List[Path]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[(Dataset[Row], Path)] = {
     import session.implicits._
-    val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
-    val rejectedPathName = rejectedPath.toString
+    val rejectedPathName = paths.map(_.toString).mkString(",")
     // We need to save first the application ID
     // referencing it inside the worker (rdd.map) below would fail.
     val applicationId = session.sparkContext.applicationId
@@ -90,7 +90,7 @@ object IngestionUtil {
     )
     val res = autoTask.sink(rejectedDF)
     if (res) {
-      Success(rejectedDF, rejectedPath)
+      Success(rejectedDF, paths.head)
     } else {
       Failure(new Exception("Failed to save rejected"))
     }

@@ -14,6 +14,9 @@ class IntegrationTestBase
     with Matchers
     with BeforeAndAfterAll
     with StrictLogging {
+  val p = System.getProperties
+
+  p.put("derby.system.home", "/Users/hayssams/git/public/starlake/samples/starbake2/datasets")
 
   implicit val copyOptions = File.CopyOptions(overwrite = true)
 

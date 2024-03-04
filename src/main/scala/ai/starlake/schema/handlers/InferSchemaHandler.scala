@@ -142,7 +142,8 @@ object InferSchemaHandler {
     format: Format,
     array: Option[Boolean] = None,
     withHeader: Option[Boolean] = None,
-    separator: Option[String] = None
+    separator: Option[String] = None,
+    options: Option[Map[String, String]] = None
   ): Metadata =
     Metadata(
       mode = Some(Mode.fromString("FILE")),
@@ -151,7 +152,8 @@ object InferSchemaHandler {
       multiline = None,
       array = array,
       withHeader = withHeader,
-      separator = separator
+      separator = separator,
+      options = options
     )
 
   /** * builds the Schema case class
@@ -236,9 +238,8 @@ object InferSchemaHandler {
           s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
         )
       }
-    } else {
-      YamlSerializer.serializeToFile(tablePath, table)
     }
+    YamlSerializer.serializeToFile(tablePath, table)
     tablePath
   }
 }

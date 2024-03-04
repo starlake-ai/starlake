@@ -2,6 +2,13 @@ application:
   connectionRef: "{{ connection }}"
   loader: spark
   connections:
+    localFileSystem:
+      type: "fs" # Connection to local file system (Spark delta files)
+    duckdb:
+      type: "jdbc"
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
     bigquery:
       type: "bigquery"
       options:
@@ -55,8 +62,6 @@ application:
         keep_column_case: "off"
         autopushdown: on
         preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
-    localFilesystem:
-      type: "fs"
   spark:
     datasource:
       bigquery:

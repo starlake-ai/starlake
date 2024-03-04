@@ -24,7 +24,7 @@ class IngestionWorkflowSpec extends TestHelper {
         storageHandler.touchz(new Path(landingPath, "_SUCCESS"))
 
         loadLanding(Codec.default, createAckFile = false)
-        val destFolder: Path = DatasetArea.pending(datasetDomainName)
+        val destFolder: Path = DatasetArea.stage(datasetDomainName)
         assert(
           storageHandler.exists(new Path(destFolder, "SCHEMA-VALID.dsv")),
           "Landing file directly imported"
@@ -47,7 +47,7 @@ class IngestionWorkflowSpec extends TestHelper {
         storageHandler.delete(new Path(landingPath))
 
         loadLanding
-        val destFolder: Path = DatasetArea.pending(datasetDomainName)
+        val destFolder: Path = DatasetArea.stage(datasetDomainName)
         assert(
           storageHandler.exists(new Path(destFolder, "SCHEMA-VALID.dsv")),
           "Landing file based on extension imported"

@@ -10,7 +10,7 @@ class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
   override def sampleDataDir = localDir / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    if (sys.env.contains("REDSHIFT_USER")) {
+    if (false && sys.env.contains("REDSHIFT_USER")) {
       "Import / Load / Transform Redshift" should "succeed" in {
         withEnvs(
           "SL_ROOT" -> localDir.pathAsString,

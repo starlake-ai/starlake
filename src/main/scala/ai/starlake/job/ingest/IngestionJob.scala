@@ -830,7 +830,8 @@ trait IngestionJob extends SparkJob {
       errMessagesDS,
       domainName,
       schemaName,
-      now
+      now,
+      path
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
         Success(rejectedPath)

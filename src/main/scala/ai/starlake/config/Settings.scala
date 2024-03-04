@@ -65,7 +65,7 @@ object Settings extends StrictLogging {
   /** datasets in the data pipeline go through several stages and are stored on disk at each of
     * these stages. This setting allow to customize the folder names of each of these stages.
     *
-    * @param pending
+    * @param stage
     *   : Name of the pending area
     * @param unresolved
     *   : Named of the unresolved area
@@ -73,27 +73,15 @@ object Settings extends StrictLogging {
     *   : Name of the archive area
     * @param ingesting
     *   : Name of the ingesting area
-    * @param accepted
-    *   : Name of the accepted area
-    * @param rejected
-    *   : Name of the rejected area
-    * @param business
-    *   : Name of the business area
     */
   final case class Area(
-    pending: String,
+    stage: String,
     unresolved: String,
     archive: String,
     ingesting: String,
-    accepted: String,
-    rejected: String,
     replay: String,
-    business: String,
     hiveDatabase: String
   ) {
-    val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
-    val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
-    val businessFinal: String = business.toLowerCase(Locale.ROOT)
     val replayFinal: String = replay.toLowerCase(Locale.ROOT)
   }
 
@@ -566,7 +554,6 @@ object Settings extends StrictLogging {
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,
-    hive: Boolean,
     grouped: Boolean,
     groupedMax: Int,
     scd2StartTimestamp: String,
@@ -666,7 +653,7 @@ object Settings extends StrictLogging {
         .exists { conn =>
           conn.`type`.getOrElse("").toLowerCase() == "hive"
         }
-      connectionTypeIsHive || hive || Utils.isRunningInDatabricks()
+      connectionTypeIsHive || Utils.isRunningInDatabricks()
     }
 
     @JsonIgnore

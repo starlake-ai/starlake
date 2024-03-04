@@ -90,12 +90,12 @@ object JdbcDbUtils extends LazyLogging {
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     assert(
       connectionOptions.contains("driver"),
-      "driver class not found in JDBC connection options"
+      s"driver class not found in JDBC connection options $connectionOptions"
     )
     Class.forName(connectionOptions("driver"))
     val url = connectionOptions("url")
     val properties = new Properties()
-    (connectionOptions - "url").foreach { case (key, value) =>
+    (connectionOptions - "url" - "driver").foreach { case (key, value) =>
       properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
