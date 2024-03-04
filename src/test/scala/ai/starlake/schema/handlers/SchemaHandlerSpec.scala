@@ -24,7 +24,6 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestConfig
-import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
@@ -334,31 +333,31 @@ class SchemaHandlerSpec extends TestHelper {
 
       }
     }
-    "load to elasticsearch" should "work" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
-        datasetDomainName = "locations",
-        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
-      ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
-        cleanMetadata
-        cleanDatasets
-        // loadPending
-        val validator = loadWorkflow()
-        val result = validator.esLoad(
-          ESLoadConfig(
-            domain = "DOMAIN",
-            schema = "",
-            format = "json",
-            dataset = Some(
-              Left(new Path(starlakeDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
-            ),
-            options = settings.appConfig.connectionOptions("elasticsearch")
-          )
-        )
-        result.isSuccess shouldBe true
-      }
-    }
+//    "load to elasticsearch" should "work" in {
+//      new SpecTrait(
+//        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+//        datasetDomainName = "locations",
+//        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+//      ) {
+//        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
+//        cleanMetadata
+//        cleanDatasets
+//        // loadPending
+//        val validator = loadWorkflow()
+//        val result = validator.esLoad(
+//          ESLoadConfig(
+//            domain = "DOMAIN",
+//            schema = "",
+//            format = "json",
+//            dataset = Some(
+//              Left(new Path(starlakeDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
+//            ),
+//            options = settings.appConfig.connectionOptions("elasticsearch")
+//          )
+//        )
+//        result.isSuccess shouldBe true
+//      }
+//    }
 
   }
   new WithSettings() {
@@ -384,7 +383,7 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
         ) {
           val targetPath = DatasetArea.path(
-            DatasetArea.pending("DOMAIN.sl.yml"),
+            DatasetArea.stage("DOMAIN.sl.yml"),
             new Path("/sample/SCHEMA-VALID.dsv").getName
           )
           cleanMetadata

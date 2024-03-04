@@ -131,7 +131,7 @@ class IngestionWorkflow(
     * the domain YML file.
     */
 
-  def loadLanding(config: ImportConfig): Try[Unit] = Try {
+  def loadLanding(config: StageConfig): Try[Unit] = Try {
     val filteredDomains = config.includes match {
       case Nil => domains(Nil, Nil) // Load all domains & tables
       case _   => domains(config.includes.toList, Nil)
@@ -259,7 +259,7 @@ class IngestionWorkflow(
             }
           }
 
-          val destFolder = DatasetArea.pending(domain.name)
+          val destFolder = DatasetArea.stage(domain.name)
           filesToLoad.foreach { file =>
             logger.info(s"Importing $file")
             val destFile = new Path(destFolder, file.path.getName)
@@ -324,6 +324,7 @@ class IngestionWorkflow(
               schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
             }
           // files for schemas without any privacy attributes are moved directly to accepted area
+          /*
           noPrivacy.foreach {
             case (Some(schema), fileInfo) =>
               storageHandler.move(
@@ -335,20 +336,7 @@ class IngestionWorkflow(
               )
             case (None, _) => throw new Exception("Should never happen")
           }
-
-          // files for schemas without any privacy attributes are moved directly to accepted area
-          noPrivacy.foreach {
-            case (Some(schema), fileInfo) =>
-              storageHandler.move(
-                fileInfo.path,
-                new Path(
-                  new Path(DatasetArea.accepted(domain.name), schema.name),
-                  fileInfo.path.getName
-                )
-              )
-            case (None, _) => throw new Exception("Should never happen")
-          }
-
+           */
           withPrivacy
         } else {
           resolved
@@ -440,7 +428,7 @@ class IngestionWorkflow(
     domainName: String,
     schemasName: List[String]
   ): (Iterable[(Option[Schema], FileInfo)], Iterable[(Option[Schema], FileInfo)]) = {
-    val pendingArea = DatasetArea.pending(domainName)
+    val pendingArea = DatasetArea.stage(domainName)
     logger.info(s"List files in $pendingArea")
     val loadStrategy =
       Utils

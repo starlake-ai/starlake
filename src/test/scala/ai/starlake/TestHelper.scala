@@ -21,7 +21,7 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
+import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
@@ -437,7 +437,7 @@ trait TestHelper
       codec: Codec
     ): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
-        DatasetArea.pending(datasetDomainName),
+        DatasetArea.stage(datasetDomainName),
         new Path(sourceDatasetPathName).getName
       )
 
@@ -509,7 +509,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler)
-      validator.loadLanding(ImportConfig())
+      validator.loadLanding(StageConfig())
     }
   }
 

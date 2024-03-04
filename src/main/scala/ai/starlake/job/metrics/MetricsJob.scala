@@ -2,12 +2,10 @@ package ai.starlake.job.metrics
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema}
-import ai.starlake.utils._
 import ai.starlake.job.transform.SparkAutoTask
-import ai.starlake.schema.model.AutoTaskDesc
-import ai.starlake.schema.model.WriteMode
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.{AutoTaskDesc, Domain, Schema, WriteMode}
+import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
@@ -150,10 +148,9 @@ class MetricsJob(
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
-    val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    val dataUse: DataFrame =
-      session.read.format(settings.appConfig.defaultWriteFormat).load(datasetPath.toString)
-    run(dataUse, storageHandler.lastModified(datasetPath))
+    val dataUse: DataFrame = session.sql(s"SELECT * FROM ${domain.name}.${schema.name}")
+    val now = System.currentTimeMillis()
+    run(dataUse, now)
   }
 
   def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkJobResult] = {

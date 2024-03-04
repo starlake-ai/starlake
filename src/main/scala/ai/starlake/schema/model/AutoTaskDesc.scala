@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
-import ai.starlake.config.{DatasetArea, Settings}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -126,27 +126,6 @@ case class AutoTaskDesc(
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
-
-  /** Return a Path only if a storage area s defined
-    * @return
-    */
-  @JsonIgnore
-  def getTargetPath()(implicit settings: Settings): Path = {
-    val auditDomain = settings.appConfig.audit.getDomain()
-    if (domain == auditDomain) {
-      table match {
-        case "continuous" | "discrete" | "frequencies" =>
-          DatasetArea.metrics(domain, table)
-        case "audit" | "expectations" =>
-          DatasetArea.audit(domain, table)
-        case "rejected" =>
-          new Path(DatasetArea.rejected(domain), table)
-        case _ =>
-          throw new Exception(s"$table: Audit table name not supported")
-      }
-    } else
-      new Path(DatasetArea.business(domain), table)
-  }
 
   def getDatabase()(implicit settings: Settings): Option[String] = {
     database

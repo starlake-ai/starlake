@@ -7,7 +7,7 @@ types:
     comment: "Any set of chars"
     ddlMapping:
       bigquery: STRING
-      snowflake: STRING
+      snowflake: VARCHAR
       postgres: varchar(8000)
       synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
   - name: "int"
@@ -17,7 +17,7 @@ types:
     comment: "Int number"
     ddlMapping:
       bigquery: INT64
-      snowflake: INT
+      snowflake: INTEGER
       synapse: int
       postgres: INT
   - name: "integer"
@@ -26,9 +26,10 @@ types:
     sample: "1234"
     comment: "Int number"
     ddlMapping:
-      sql:
       bigquery: INT64
-      snowflake: INT
+      snowflake: INTEGER
+      synapse: int
+      postgres: INT
   - name: "byte"
     primitiveType: "byte"
     pattern: "."
@@ -36,14 +37,14 @@ types:
     comment: "Any set of chars"
     ddlMapping:
       bigquery: INT64
-      snowflake: INT
+      snowflake: INTEGER
       synapse: smallint
       postgres: INT
   - name: "double"
     primitiveType: "double"
     pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
     sample: "-45.78"
-    comment: "Any flating value"
+    comment: "Any floating value"
     ddlMapping:
       bigquery: FLOAT64
       snowflake: DOUBLE
@@ -51,7 +52,7 @@ types:
       postgres: DOUBLE PRECISION
   - name: "long"
     primitiveType: "long"
-    pattern: "-?\\d+"
+    pattern: "[-|\\+|0-9][0-9]*"
     sample: "-64564"
     comment: "any positive or negative number"
     ddlMapping:
@@ -71,7 +72,7 @@ types:
       postgres: smallint
   - name: "boolean"
     primitiveType: "boolean"
-    pattern: "(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f"
+    pattern: "(?i)true|yes|[y1]<-TF->(?i)false|no|[n0]"
     sample: "TruE"
     ddlMapping:
       bigquery: BOOL
@@ -80,7 +81,7 @@ types:
       postgres: BOOLEAN
   - name: "timestamp"
     primitiveType: "timestamp"
-    pattern: "yyyy-MM-dd HH:mm:ss"
+    pattern: "ISO_DATE_TIME"
     sample: "2019-12-31 23:59:02"
     comment: "date/time in epoch millis"
     ddlMapping:
@@ -90,7 +91,7 @@ types:
       postgres: TIMESTAMP
   - name: "decimal"
     primitiveType: "decimal"
-    pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
+    pattern: "-?\\d*\\.{0,1}\\d+"
     sample: "-45.787686786876"
     comment: "Any floating value"
     ddlMapping:
