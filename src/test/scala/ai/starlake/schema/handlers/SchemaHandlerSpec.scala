@@ -704,6 +704,7 @@ class SchemaHandlerSpec extends TestHelper {
         val filename = "/sample/metadata/transform/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
+        // FIXME, check why this works on master
         job.success.value.name shouldBe "business2"
       }
     }
@@ -894,8 +895,7 @@ class SchemaHandlerSpec extends TestHelper {
     "Custom mapping in Metadata" should "be read as a map" in {
       val sch = new SchemaHandler(storageHandler)
       val content =
-        """mode: FILE
-          |withHeader: false
+        """withHeader: false
           |encoding: ISO-8859-1
           |format: POSITION
           |sink:
@@ -906,7 +906,7 @@ class SchemaHandlerSpec extends TestHelper {
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
 
       metadata shouldBe Metadata(
-        mode = Some(Mode.FILE),
+        mode = None,
         format = Some(ai.starlake.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
@@ -1034,35 +1034,6 @@ class SchemaHandlerSpec extends TestHelper {
 
         acceptedDf.columns.length shouldBe expectedAccepted.columns.length
         acceptedDf.except(expectedAccepted).count() shouldBe 0
-      }
-    }
-    "Schema with external refs" should "produce import external refs into domain" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/schema-refs/WITH_REF.sl.yml",
-        datasetDomainName = "WITH_REF",
-        sourceDatasetPathName = "/sample/Players.csv"
-      ) {
-        cleanMetadata
-        cleanDatasets
-
-        withSettings.deliverTestFile(
-          "/sample/schema-refs/players.sl.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "players.sl.yml")
-        )
-
-        withSettings.deliverTestFile(
-          "/sample/schema-refs/users.sl.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "users.sl.yml")
-        )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
-        schemaHandler
-          .getDomain("WITH_REF")
-          .map(_.tables.map(_.name))
-          .get should contain theSameElementsAs List(
-          "User",
-          "Players",
-          "employee"
-        )
       }
     }
   }

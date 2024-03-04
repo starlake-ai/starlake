@@ -1,3 +1,4 @@
+version: 1
 load:
   metadata:
     directory: "{{root_path}}/incoming/huge"

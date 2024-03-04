@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.schema.model.Trim
 
-case class ExtractDesc(extract: JDBCSchemas)
+case class ExtractDesc(version: Int, extract: JDBCSchemas)
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],

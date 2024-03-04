@@ -1,7 +1,7 @@
 package ai.starlake.sql
 
 import ai.starlake.TestHelper
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.model.{AllSinks, RefDesc, WriteStrategy, WriteStrategyType}
 
@@ -140,7 +140,7 @@ class SQLUtilsSpec extends TestHelper {
       val resultSQL =
         SQLUtils.buildSingleSQLQueryForRegex(
           selectWithCTE,
-          RefDesc(Nil),
+          RefDesc(latestSchemaVersion, Nil),
           Nil,
           Nil,
           SQLUtils.fromsRegex,

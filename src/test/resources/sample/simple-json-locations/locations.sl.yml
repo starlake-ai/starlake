@@ -1,9 +1,9 @@
 ---
+version: 1
 load:
   name: "locations"
-  directory: "__SL_TEST_ROOT__"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__"
     format: "SIMPLE_JSON"
     multiline: true
     array: true
@@ -11,7 +11,8 @@ load:
     separator: ""
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     sink:
       partition:
         - year

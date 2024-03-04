@@ -20,6 +20,7 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.model.PrimitiveType.{boolean, date, timestamp}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -37,8 +38,9 @@ import ai.starlake.schema.model.Severity._
   * @param types
   *   : Type list
   */
-case class TypesDesc(types: List[Type]) {
-  def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
+case class TypesDesc(version: Int, types: List[Type]) {
+  def this() =
+    this(latestSchemaVersion, Nil) // Should never be called. Here for Jackson deserialization only
 
   def checkValidity(): Either[List[ValidationMessage], Boolean] = {
     val typeNames = types.map(_.name)

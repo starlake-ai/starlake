@@ -1,6 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.model.Ref.anyRefPattern
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonCreator
@@ -27,7 +28,7 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
 
   def asTuple(): (String, String, String) = (database, domain, table)
 
-  val tableNamingQuotes = Map(
+  private val tableNamingQuotes = Map(
     Engine.JDBC.toString  -> ("", "."),
     Engine.SPARK.toString -> ("`", ":"),
     Engine.BQ.toString    -> ("`", ".")
@@ -79,9 +80,10 @@ case class Ref(
     this(InputRef(), OutputRef()) // Should never be called. Here for Jackson deserialization only
 }
 
-case class RefDesc(refs: List[Ref]) {
+case class RefDesc(version: Int, refs: List[Ref]) {
   @JsonCreator
-  def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
+  def this() =
+    this(latestSchemaVersion, Nil) // Should never be called. Here for Jackson deserialization only
 
   private def replace(
     ref: OutputRef,
@@ -157,10 +159,14 @@ case class RefDesc(refs: List[Ref]) {
 }
 
 case class EnvDesc(
+  version: Int,
   env: Map[String, String]
 ) {
   @JsonCreator
-  def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
+  def this() = this(
+    latestSchemaVersion,
+    Map.empty
+  ) // Should never be called. Here for Jackson deserialization only
 
   override def toString: String = {
     val redactEnv = Utils.redact(env)

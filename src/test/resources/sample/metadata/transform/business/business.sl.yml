@@ -1,11 +1,13 @@
 ---
+version: 1
 transform:
   name: "business2"
   tasks:
     - sql: "select * from dream_working.client"
       domain: "dream2"
-      dataset: "client2"
-      write: "OVERWRITE"
+      table: "client2"
+      writeStrategy:
+        type: "OVERWRITE"
       partition:
         - "year"
         - "month"

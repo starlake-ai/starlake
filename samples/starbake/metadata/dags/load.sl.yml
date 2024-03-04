@@ -1,3 +1,4 @@
+version: 1
 dag:
     comment: "sample dag configuration"
     template: "load/airflow_airflow_scheduled_table_bash.py.j2"

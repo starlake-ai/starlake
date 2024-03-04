@@ -1,9 +1,11 @@
+version: 1
 transform:
   default:
-    write: OVERWRITE
+    writeStrategy:
+      type: OVERWRITE_BY_PARTITION
     sink:
-      timestamp:  due
-      dynamicPartitionOverwrite: true
+      partition:
+        - due
 
 
 

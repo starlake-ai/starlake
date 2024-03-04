@@ -1,13 +1,14 @@
 ---
+version: 1
 load:
   name: "jsonmultiline"
   metadata:
     directory: "__SL_TEST_ROOT__/json"
-    mode: "FILE"
     format: "JSON"
     array: true
     separator: "|"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     sink:
       partition:
         - year

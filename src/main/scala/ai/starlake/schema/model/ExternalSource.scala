@@ -1,12 +1,14 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings.latestSchemaVersion
 import com.fasterxml.jackson.annotation.JsonCreator
 
 case class ExternalDesc(
+  version: Int,
   external: ExternalSource
 ) {
   @JsonCreator
-  def this() = this(ExternalSource(None))
+  def this() = this(latestSchemaVersion, ExternalSource(None))
 }
 
 case class ExternalSource(

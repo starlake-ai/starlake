@@ -28,7 +28,7 @@ import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
 import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, Utils, YamlSerde}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
@@ -53,6 +53,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
+  val latestSchemaVersion: Int = 1
   implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
@@ -80,6 +81,9 @@ object Settings extends StrictLogging {
     * @param business
     *   : Name of the business area
     */
+  @JsonIgnoreProperties(
+    Array("acceptedFinal", "rejectedFinal", "businessFinal", "replayFinal")
+  )
   final case class Area(
     pending: String,
     unresolved: String,
@@ -290,6 +294,7 @@ object Settings extends StrictLogging {
       * @return
       *   the engine Spark or Bigquery only
       */
+    @JsonIgnore
     def getEngine(): Engine = {
       if (sparkFormat.isDefined) Engine.SPARK
       else {
@@ -310,6 +315,7 @@ object Settings extends StrictLogging {
     def authOptions(): Map[String, String] =
       options.filterKeys(Connection.allstorageOptions.contains(_))
 
+    @JsonIgnore
     def getJdbcEngineName(): Engine = {
       val engineName = sparkFormat match {
         case None | Some("jdbc") =>
@@ -338,9 +344,13 @@ object Settings extends StrictLogging {
       Engine.fromString(engineName)
     }
 
+    @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+
+    @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
 
+    @JsonIgnore
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
 
     @JsonIgnore
@@ -468,6 +478,7 @@ object Settings extends StrictLogging {
     }
   }
 
+  @JsonIgnoreProperties(Array("sparkServerOptions"))
   final case class KafkaConfig(
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
@@ -534,6 +545,7 @@ object Settings extends StrictLogging {
     * @param area
     *   : see Area above
     */
+  @JsonIgnoreProperties(Array("cacheStorageLevel"))
   final case class AppConfig(
     env: String,
     datasets: String,
@@ -607,7 +619,8 @@ object Settings extends StrictLogging {
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
-    def getUdfs(): Seq[String] =
+    @JsonIgnore
+    def getEffectiveUdfs(): Seq[String] =
       udfs
         .map { udfs =>
           udfs.split(',').toList
@@ -1046,7 +1059,7 @@ object CometColumns {
   val slErrorMessageColumn: String = "sl_error_message"
 }
 
-final case class ApplicationDesc(application: Settings)
+final case class ApplicationDesc(version: Int, application: Settings.AppConfig)
 
 /** This class holds the current Comet settings and an assembly of reference instances for core,
   * shared services

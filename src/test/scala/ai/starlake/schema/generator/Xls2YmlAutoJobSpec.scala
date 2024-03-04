@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategyType}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
@@ -36,7 +36,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification sqlEngine BQ" in {
       result.domain shouldBe "someDomain"
       result.table shouldBe "dataset"
-      result.write shouldBe Some(WriteMode.OVERWRITE)
+      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE)
       result.sink.map { sink =>
         sink.partition shouldBe Some(List("partitionCol"))
         sink.requirePartitionFilter shouldBe Some(true)
@@ -77,7 +77,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification engine bq" in {
       resultBQ.domain shouldBe "someDomain"
       resultBQ.table shouldBe "dataset"
-      resultBQ.write shouldBe Some(WriteMode.OVERWRITE)
+      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE)
       resultBQ.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
       resultBQ.comment shouldBe Some("jointure source1 et source2")
       resultBQ.rls.size shouldBe 0

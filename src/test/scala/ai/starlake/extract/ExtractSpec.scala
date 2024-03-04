@@ -5,7 +5,7 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Metadata, Mode, Schema}
+import ai.starlake.schema.model.{Domain, Metadata, Schema}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 
@@ -17,7 +17,6 @@ class ExtractSpec extends TestHelper {
   "JDBC2Yml of all tables" should "should generated all the table schemas in a YML file" in {
     new WithSettings() {
       val metadata = Metadata(
-        mode = Some(Mode.STREAM),
         quote = Some("::"),
         directory = Some("/{{domain}}/{{schema}}")
       )
@@ -29,7 +28,6 @@ class ExtractSpec extends TestHelper {
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
-        assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
         assert(domain.metadata.flatMap(_.directory).isDefined)
       }
     }
@@ -119,6 +117,7 @@ class ExtractSpec extends TestHelper {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
@@ -188,13 +187,14 @@ class ExtractSpec extends TestHelper {
     }
   }
 
-  "JDBCSchemas" should "deserialize with global jdbc schema override" in {
+  "JDBCSchemas" should "deserialize with default schema override" in {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
-          |  globalJdbcSchema:
+          |  default:
           |    catalog: "business" # Optional catalog name in the target database
           |    schema: "public" # Database schema where tables are located
           |    tableTypes: # One or many of the types below
@@ -212,7 +212,6 @@ class ExtractSpec extends TestHelper {
           |            - email
           |        - name: product # All columns should be exported
           |        - name: "*" # Ignore any other table spec. Just export all tables
-          |  azezae: azeqsd
           |""".stripMargin
       val jdbcMapping = File.newTemporaryFile()
       jdbcMapping.overwrite(input)
@@ -275,9 +274,10 @@ class ExtractSpec extends TestHelper {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
-          |  globalJdbcSchema:
+          |  default:
           |    catalog: "business" # Optional catalog name in the target database
           |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
           |    pattern: "{{schema}}-{{table}}.*"
@@ -545,6 +545,7 @@ class ExtractSpec extends TestHelper {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: true # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
@@ -568,8 +569,9 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.pathAsString
         )
       }
-      error.message should fullyMatch regex """(?s)Invalid content for .*?:
+      error.message should fullyMatch regex """Invalid content for .*?:
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tableTypes: string found, array expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]\.k: must not have unevaluated properties
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: should be valid to one and only one schema, but 0 are valid
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, string expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, boolean expected
@@ -577,7 +579,8 @@ class ExtractSpec extends TestHelper {
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, integer expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, null expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: required property 'name' not found
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[1]: string found, object expected""".stripMargin
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[1]: string found, object expected
+                                               |     - \$\.extract: must not have unevaluated properties""".stripMargin
     }
   }
 }

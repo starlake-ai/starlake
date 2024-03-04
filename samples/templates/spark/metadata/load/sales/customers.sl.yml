@@ -1,3 +1,4 @@
+version: 1
 table:
     name: "customers"
     pattern: "customers-.*.psv"
@@ -6,12 +7,11 @@ table:
       sink:
         partition:
           - signup
-    merge:
-      # for BQ only
-      #queryFilter: date(signup) in last(4)
-      timestamp: signup
-      key:
-        - id
+      writeStrategy:
+        type: UPSERT_BY_KEY_AND_TIMESTAMP
+        key:
+          - id
+        timestamp: signup
     primaryKey:
       - id
     attributes:

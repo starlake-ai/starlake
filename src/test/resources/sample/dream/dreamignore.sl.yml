@@ -1,15 +1,16 @@
 ---
+version: 1
 load:
   name: "dreamignore"
-  directory: "__SL_TEST_ROOT__/dream"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/dream"
     format: "DSV"
     withHeader: false
     separator: "|"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     sink:
       partition:
         - year

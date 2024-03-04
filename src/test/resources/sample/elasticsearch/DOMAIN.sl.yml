@@ -1,15 +1,16 @@
 ---
+version: 1
 load:
   name: "DOMAIN"
-  directory: "__SL_TEST_ROOT__/DOMAIN"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/DOMAIN"
     format: "DSV"
     withHeader: false
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     sink:
       id: "firstname"
   tables:
@@ -29,7 +30,7 @@ load:
         - name: "age"
           rename: "age"
           type: "int"
-          metricType: "discrete"
+          metricType: "DISCRETE"
           required: false
           privacy: "NONE"
         - name: "ok"
@@ -38,13 +39,13 @@ load:
           privacy: "NONE"
           default: true
       metadata:
-        mode: "FILE"
         format: "DSV"
         withHeader: true
         separator: ";"
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "APPEND"
     - name: "Players"
       pattern: "Players.*.csv"
       attributes:
@@ -82,7 +83,6 @@ load:
           required: false
           privacy: "NONE"
       metadata:
-        mode: "FILE"
         format: "DSV"
         encoding: "UTF-8"
         multiline: false
@@ -90,14 +90,14 @@ load:
         separator: ","
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "APPEND"
+          key:
+            - "PK"
         sink:
           partition:
             - "YEAR"
             - "MONTH"
-      merge:
-        key:
-          - "PK"
     - name: "employee"
       pattern: "employee.*.csv"
       attributes:
@@ -117,7 +117,6 @@ load:
       postsql:
         - "Select name from COMET_TABLE"
       metadata:
-        mode: "FILE"
         format: "DSV"
         withHeader: false
         separator: ","
@@ -139,7 +138,7 @@ load:
         - name: "age"
           rename: "age"
           type: "int"
-          metricType: "discrete"
+          metricType: "DISCRETE"
           required: false
           privacy: "NONE"
           comment: "age comment"
