@@ -1,6 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.extract.JDBCSchemas
 import ai.starlake.schema.handlers.StorageHandler
@@ -52,10 +53,10 @@ object YamlSerde extends LazyLogging {
     */
   private def wrapEntityToDesc[T](entity: T) = {
     entity match {
-      case e: AutoJobDesc  => TransformDesc(e)
-      case e: AutoTaskDesc => TaskDesc(e)
-      case e: Domain       => LoadDesc(e)
-      case e: ModelSchema  => TableDesc(e)
+      case e: AutoJobDesc  => TransformDesc(latestSchemaVersion, e)
+      case e: AutoTaskDesc => TaskDesc(latestSchemaVersion, e)
+      case e: Domain       => LoadDesc(latestSchemaVersion, e)
+      case e: ModelSchema  => TableDesc(latestSchemaVersion, e)
       case _               => entity
     }
   }
@@ -106,7 +107,7 @@ object YamlSerde extends LazyLogging {
     }
     val validationResult =
       forceLocaleIn(Locale.ROOT) { // Use root instead of ENGLISH otherwise it fallbacks to local language if it exists. ROOT messages are in ENGLISH.
-        val factory = JsonSchemaFactory.getInstance(VersionFlag.V7)
+        val factory = JsonSchemaFactory.getInstance(VersionFlag.V201909)
         val config = new SchemaValidatorsConfig()
         config.setPathType(PathType.JSON_PATH)
         config.setFormatAssertionsEnabled(true)
@@ -240,7 +241,7 @@ object YamlSerde extends LazyLogging {
         val tableNode = validateConfigFile(tableSubPath, content, path)
         mergeToStrategy(tableNode.path(tableSubPath).asInstanceOf[ObjectNode])
         val ref = mapper.treeToValue(tableNode, classOf[TableDesc])
-        TablesDesc(List(ref.table))
+        TablesDesc(ref.version, List(ref.table))
       }
     } match {
       case Success(value) => value

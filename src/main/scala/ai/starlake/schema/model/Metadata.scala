@@ -136,6 +136,7 @@ case class Metadata(
     sink.map(_.getSink()).getOrElse(AllSinks().getSink())
   }
 
+  @JsonIgnore
   def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
 
   override def toString: String =
@@ -162,6 +163,7 @@ case class Metadata(
        |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
 
+  @JsonIgnore
   def getMode(): Mode = getFinalValue(mode, FILE)
 
   @JsonIgnore

@@ -9,7 +9,7 @@ import java.util
 import java.util.Calendar
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
-case class DagDesc(dag: DagGenerationConfig)
+case class DagDesc(version: Int, dag: DagGenerationConfig)
 
 case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
   def getSchedule(): String = schedule

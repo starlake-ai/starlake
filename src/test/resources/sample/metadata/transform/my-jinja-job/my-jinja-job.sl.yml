@@ -1,10 +1,12 @@
 ---
+version: 1
 transform:
   tasks:
     - domain: "dream2"
       name: "my-jinja-job"
       table: "client2"
-      write: "OVERWRITE"
+      writeStrategy:
+        type: "OVERWRITE"
       partition:
         - "year"
         - "month"

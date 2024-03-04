@@ -3,6 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.config.Settings.{
+  latestSchemaVersion,
   AccessPolicies,
   AppConfig,
   Area,
@@ -29,6 +30,7 @@ import ai.starlake.extract.{
   JDBCTable,
   TableColumn
 }
+import ai.starlake.job.load.{IngestionNameStrategy, IngestionTimeStrategy}
 import ai.starlake.schema.model.{
   AccessControlEntry,
   AllSinks,
@@ -73,7 +75,6 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.databind.node.{IntNode, ObjectNode}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
@@ -109,11 +110,9 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"       -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "domain"    -> "user",
-            "table"     -> "user",
-            "recursive" -> false,
-            "write"     -> "OVERWRITE"
+            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user"
           )
         )
       )
@@ -140,11 +139,9 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"       -> "select firstname, lastname, age from dataset.table where age=${age}",
-            "domain"    -> "user",
-            "table"     -> "user",
-            "recursive" -> false,
-            "write"     -> "OVERWRITE"
+            "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user"
           )
         )
       )
@@ -168,11 +165,9 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"       -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "table"     -> "user",
-            "domain"    -> "user",
-            "recursive" -> false,
-            "write"     -> "OVERWRITE"
+            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "table"  -> "user",
+            "domain" -> "user"
           )
         )
       )
@@ -284,8 +279,6 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
       val config = mapperWithEmptyString.writeValueAsString(yamlApplicationConfig)
       try {
         val deserializedConfig = YamlSerde.deserializeYamlApplication(config, "input")
-        deserializedConfig.path("version") should equal(IntNode.valueOf(1))
-        deserializedConfig.asInstanceOf[ObjectNode].remove("version")
         mapperWithEmptyString.writeValueAsString(deserializedConfig) should equal(config)
       } catch {
         case e: Exception =>
@@ -572,7 +565,7 @@ object YamlConfigGenerators {
   implicit val extractDesc: Arbitrary[ExtractDesc] = Arbitrary {
     for {
       jdbcSchemas <- arbitrary[JDBCSchemas]
-    } yield ExtractDesc(extract = jdbcSchemas)
+    } yield ExtractDesc(latestSchemaVersion, extract = jdbcSchemas)
   }
 
   implicit val dagGenerationConfig: Arbitrary[DagGenerationConfig] = Arbitrary {
@@ -592,7 +585,7 @@ object YamlConfigGenerators {
   implicit val dagDesc: Arbitrary[DagDesc] = Arbitrary {
     for {
       dagGenerationConfig <- arbitrary[DagGenerationConfig]
-    } yield DagDesc(dagGenerationConfig)
+    } yield DagDesc(latestSchemaVersion, dagGenerationConfig)
   }
 
   implicit val format: Arbitrary[Format] = Arbitrary {
@@ -726,7 +719,6 @@ object YamlConfigGenerators {
       // Instantiate with serialized default value otherwise comparison in round-trip would fail
       metadataInstance
         .copy(
-          mode = Some(metadataInstance.getMode()),
           format = Some(metadataInstance.getFormat()),
           encoding = Some(metadataInstance.getEncoding()),
           multiline = Some(metadataInstance.getMultiline()),
@@ -897,7 +889,7 @@ object YamlConfigGenerators {
   implicit val loadDesc: Arbitrary[LoadDesc] = Arbitrary {
     for {
       domain <- arbitrary[Domain]
-    } yield LoadDesc(load = domain)
+    } yield LoadDesc(latestSchemaVersion, load = domain)
   }
 
   implicit val inputRef: Arbitrary[InputRef] = Arbitrary {
@@ -926,7 +918,7 @@ object YamlConfigGenerators {
   implicit val refDesc: Arbitrary[RefDesc] = Arbitrary {
     for {
       refs <- arbitrary[List[Ref]]
-    } yield RefDesc(refs = refs)
+    } yield RefDesc(latestSchemaVersion, refs = refs)
   }
 
   implicit val audit: Arbitrary[Audit] = Arbitrary {
@@ -1189,55 +1181,58 @@ object YamlConfigGenerators {
       loader                     <- arbitrary[String]
       rowValidatorClass          <- arbitrary[String]
       treeValidatorClass         <- arbitrary[String]
-      loadStrategyClass          <- arbitrary[String]
-      hive                       <- arbitrary[Boolean]
-      grouped                    <- arbitrary[Boolean]
-      groupedMax                 <- arbitrary[Int]
-      scd2StartTimestamp         <- arbitrary[String]
-      scd2EndTimestamp           <- arbitrary[String]
-      area                       <- arbitrary[Area]
-      hadoop                     <- arbitrary[Map[String, String]]
-      connections                <- arbitrary[Map[String, Connection]]
-      jdbcEngines                <- arbitrary[Map[String, JdbcEngine]]
-      privacy                    <- arbitrary[Privacy]
-      root                       <- arbitrary[String]
-      internal                   <- Gen.option(arbitrary[Internal])
-      accessPolicies             <- arbitrary[AccessPolicies]
-      sparkScheduling            <- arbitrary[SparkScheduling]
-      udfs                       <- Gen.option(arbitrary[String])
-      expectations               <- arbitrary[ExpectationsConfig]
-      sqlParameterPattern        <- arbitrary[String]
-      rejectAllOnError           <- arbitrary[Boolean]
-      rejectMaxRecords           <- arbitrary[Int]
-      maxParCopy                 <- arbitrary[Int]
-      kafka                      <- arbitrary[KafkaConfig]
-      dsvOptions                 <- arbitrary[Map[String, String]]
-      rootServe                  <- Gen.option(arbitrary[String])
-      forceViewPattern           <- arbitrary[String]
-      forceDomainPattern         <- arbitrary[String]
-      forceTablePattern          <- arbitrary[String]
-      forceJobPattern            <- arbitrary[String]
-      forceTaskPattern           <- arbitrary[String]
-      useLocalFileSystem         <- arbitrary[Boolean]
-      sessionDurationServe       <- arbitrary[Long]
-      database                   <- arbitrary[String]
-      tenant                     <- arbitrary[String]
-      connectionRef              <- arbitrary[String]
-      schedulePresets            <- arbitrary[Map[String, String]]
-      maxParTask                 <- arbitrary[Int]
-      refs                       <- arbitrary[List[Ref]]
-      dagRef                     <- Gen.option(arbitrary[DagRef])
-      forceHalt                  <- arbitrary[Boolean]
-      jobIdEnvName               <- Gen.option(arbitrary[String])
-      archiveTablePattern        <- arbitrary[String]
-      archiveTable               <- arbitrary[Boolean]
-      version                    <- arbitrary[String]
-      autoExportSchema           <- arbitrary[Boolean]
-      longJobTimeoutMs           <- arbitrary[Long]
-      shortJobTimeoutMs          <- arbitrary[Long]
-      createSchemaIfNotExists    <- arbitrary[Boolean]
-      http                       <- arbitrary[Http]
-      timezone                   <- arbitrary[TimeZone]
+      loadStrategyClass <- Gen.oneOf(
+        IngestionNameStrategy.getClass.getName.replace("$", ""),
+        IngestionTimeStrategy.getClass.getName.replace("$", "")
+      )
+      hive                    <- arbitrary[Boolean]
+      grouped                 <- arbitrary[Boolean]
+      groupedMax              <- arbitrary[Int]
+      scd2StartTimestamp      <- arbitrary[String]
+      scd2EndTimestamp        <- arbitrary[String]
+      area                    <- arbitrary[Area]
+      hadoop                  <- arbitrary[Map[String, String]]
+      connections             <- arbitrary[Map[String, Connection]]
+      jdbcEngines             <- arbitrary[Map[String, JdbcEngine]]
+      privacy                 <- arbitrary[Privacy]
+      root                    <- arbitrary[String]
+      internal                <- Gen.option(arbitrary[Internal])
+      accessPolicies          <- arbitrary[AccessPolicies]
+      sparkScheduling         <- arbitrary[SparkScheduling]
+      udfs                    <- Gen.option(arbitrary[String])
+      expectations            <- arbitrary[ExpectationsConfig]
+      sqlParameterPattern     <- arbitrary[String]
+      rejectAllOnError        <- arbitrary[Boolean]
+      rejectMaxRecords        <- arbitrary[Int]
+      maxParCopy              <- arbitrary[Int]
+      kafka                   <- arbitrary[KafkaConfig]
+      dsvOptions              <- arbitrary[Map[String, String]]
+      rootServe               <- Gen.option(arbitrary[String])
+      forceViewPattern        <- arbitrary[String]
+      forceDomainPattern      <- arbitrary[String]
+      forceTablePattern       <- arbitrary[String]
+      forceJobPattern         <- arbitrary[String]
+      forceTaskPattern        <- arbitrary[String]
+      useLocalFileSystem      <- arbitrary[Boolean]
+      sessionDurationServe    <- arbitrary[Long]
+      database                <- arbitrary[String]
+      tenant                  <- arbitrary[String]
+      connectionRef           <- arbitrary[String]
+      schedulePresets         <- arbitrary[Map[String, String]]
+      maxParTask              <- arbitrary[Int]
+      refs                    <- arbitrary[List[Ref]]
+      dagRef                  <- Gen.option(arbitrary[DagRef])
+      forceHalt               <- arbitrary[Boolean]
+      jobIdEnvName            <- Gen.option(arbitrary[String])
+      archiveTablePattern     <- arbitrary[String]
+      archiveTable            <- arbitrary[Boolean]
+      version                 <- arbitrary[String]
+      autoExportSchema        <- arbitrary[Boolean]
+      longJobTimeoutMs        <- arbitrary[Long]
+      shortJobTimeoutMs       <- arbitrary[Long]
+      createSchemaIfNotExists <- arbitrary[Boolean]
+      http                    <- arbitrary[Http]
+      timezone                <- arbitrary[TimeZone]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1343,8 +1338,8 @@ object YamlConfigGenerators {
 
   implicit val applicationDesc: Arbitrary[ApplicationDesc] = Arbitrary {
     for {
-      settings <- arbitrary[Settings]
-    } yield ApplicationDesc(application = settings)
+      appConfig <- arbitrary[AppConfig]
+    } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
   }
 
   implicit val externalDomain: Arbitrary[ExternalDomain] = Arbitrary {
@@ -1370,7 +1365,7 @@ object YamlConfigGenerators {
   implicit val externalDesc: Arbitrary[ExternalDesc] = Arbitrary {
     for {
       external <- arbitrary[ExternalSource]
-    } yield ExternalDesc(external = external)
+    } yield ExternalDesc(latestSchemaVersion, external = external)
   }
 
   implicit val attributeDesc: Arbitrary[AttributeDesc] = Arbitrary {
@@ -1387,30 +1382,27 @@ object YamlConfigGenerators {
 
   implicit val autoTaskDesc: Arbitrary[AutoTaskDesc] = Arbitrary {
     for {
-      name            <- arbitrary[String]
-      sql             <- Gen.option(arbitrary[String])
-      database        <- Gen.option(arbitrary[String])
-      domain          <- arbitrary[String]
-      table           <- arbitrary[String]
-      partition       <- arbitrary[List[String]]
-      presql          <- arbitrary[List[String]]
-      postsql         <- arbitrary[List[String]]
-      sink            <- Gen.option(arbitrary[AllSinks])
-      rls             <- arbitrary[List[RowLevelSecurity]]
-      expectations    <- arbitrary[List[ExpectationItem]]
-      acl             <- arbitrary[List[AccessControlEntry]]
-      comment         <- Gen.option(arbitrary[String])
-      freshness       <- Gen.option(arbitrary[Freshness])
-      attributesDesc  <- arbitrary[List[AttributeDesc]]
-      python          <- Gen.option(arbitrary[Path])
-      tags            <- arbitrary[List[String]].map(_.toSet)
-      schedule        <- Gen.option(arbitrary[String])
-      dagRef          <- Gen.option(arbitrary[String])
-      recursive       <- arbitrary[Boolean]
-      _filenamePrefix <- arbitrary[String]
-      parseSQL        <- Gen.option(arbitrary[Boolean])
-      _auditTableName <- Gen.option(arbitrary[String])
-      taskTimeoutMs   <- Gen.option(arbitrary[Long])
+      name           <- arbitrary[String]
+      sql            <- Gen.option(arbitrary[String])
+      database       <- Gen.option(arbitrary[String])
+      domain         <- arbitrary[String]
+      table          <- arbitrary[String]
+      partition      <- arbitrary[List[String]]
+      presql         <- arbitrary[List[String]]
+      postsql        <- arbitrary[List[String]]
+      sink           <- Gen.option(arbitrary[AllSinks])
+      rls            <- arbitrary[List[RowLevelSecurity]]
+      expectations   <- arbitrary[List[ExpectationItem]]
+      acl            <- arbitrary[List[AccessControlEntry]]
+      comment        <- Gen.option(arbitrary[String])
+      freshness      <- Gen.option(arbitrary[Freshness])
+      attributesDesc <- arbitrary[List[AttributeDesc]]
+      python         <- Gen.option(arbitrary[Path])
+      tags           <- arbitrary[List[String]].map(_.toSet)
+      schedule       <- Gen.option(arbitrary[String])
+      dagRef         <- Gen.option(arbitrary[String])
+      taskTimeoutMs  <- Gen.option(arbitrary[Long])
+      parseSQL       <- Gen.option(arbitrary[Boolean])
     } yield {
       val autoTask = AutoTaskDesc(
         name = name,
@@ -1433,11 +1425,8 @@ object YamlConfigGenerators {
         tags = tags,
         schedule = schedule,
         dagRef = dagRef,
-        recursive = recursive,
-        _filenamePrefix = _filenamePrefix,
-        parseSQL = parseSQL,
-        _auditTableName = _auditTableName,
-        taskTimeoutMs = taskTimeoutMs
+        taskTimeoutMs = taskTimeoutMs,
+        parseSQL = parseSQL
       )
       autoTask.copy(
         // fill with default value in order to match with deserialization
@@ -1452,7 +1441,7 @@ object YamlConfigGenerators {
   implicit val taskDesc: Arbitrary[TaskDesc] = Arbitrary {
     for {
       task <- arbitrary[AutoTaskDesc]
-    } yield TaskDesc(task)
+    } yield TaskDesc(latestSchemaVersion, task)
   }
 
   implicit val autoJobDesc: Arbitrary[AutoJobDesc] = Arbitrary {
@@ -1467,19 +1456,19 @@ object YamlConfigGenerators {
   implicit val transformDesc: Arbitrary[TransformDesc] = Arbitrary {
     for {
       transform <- arbitrary[AutoJobDesc]
-    } yield TransformDesc(transform = transform)
+    } yield TransformDesc(latestSchemaVersion, transform = transform)
   }
 
   implicit val tableDesc: Arbitrary[TableDesc] = Arbitrary {
     for {
       table <- arbitrary[Schema]
-    } yield TableDesc(table)
+    } yield TableDesc(latestSchemaVersion, table)
   }
 
   implicit val tablesDesc: Arbitrary[TablesDesc] = Arbitrary {
     for {
       tables <- arbitrary[List[Schema]].map(_.take(maxElementInCollections))
-    } yield TablesDesc(tables)
+    } yield TablesDesc(latestSchemaVersion, tables)
   }
 
   implicit val primitiveType: Arbitrary[PrimitiveType] = Arbitrary {
@@ -1513,12 +1502,12 @@ object YamlConfigGenerators {
   implicit val typeDesc: Arbitrary[TypesDesc] = Arbitrary {
     for {
       types <- arbitrary[List[Type]].map(_.take(maxElementInCollections))
-    } yield TypesDesc(types = types)
+    } yield TypesDesc(latestSchemaVersion, types = types)
   }
 
   implicit val envDesc: Arbitrary[EnvDesc] = Arbitrary {
     for {
       envMap <- arbitrary[Map[String, String]]
-    } yield EnvDesc(env = envMap)
+    } yield EnvDesc(latestSchemaVersion, env = envMap)
   }
 }

@@ -2,6 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.TaskViewDependency
@@ -78,7 +79,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -90,7 +91,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler =
@@ -136,7 +137,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -148,7 +149,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -181,7 +182,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -193,7 +194,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(
@@ -241,7 +242,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -255,7 +256,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val workflow =
@@ -296,7 +297,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -308,7 +309,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -362,13 +363,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TransformDesc(configJob))
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val businessTaskDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(TaskDesc(businessTask1))
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessTaskDef, pathGraduateProgramBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))

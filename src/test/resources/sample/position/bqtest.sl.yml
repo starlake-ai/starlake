@@ -1,17 +1,17 @@
 ---
+version: 1
 load:
   name: "bqtest"
-  directory: "__SL_TEST_ROOT__/position"
-  ack: ""
   tags: ["datasetkey=value", "datasetkeynovalue"]
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/position"
     format: "POSITION"
     withHeader: false
     separator: "|"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     sink:
       connectionRef: bqtest
       partition:
@@ -19,7 +19,10 @@ load:
   tables:
     - name: "account"
       metadata:
-        write: "APPEND"
+        writeStrategy:
+          type: "UPSERT_BY_KEY"
+          key:
+            - code1
         freshness:
           warn: "1 ms"
           error: "2 ms"
@@ -34,9 +37,6 @@ load:
 #        - role: "roles/bigquery.dataViewer"
 #          grants:
 #            - "user:me@starlake.ai"
-      merge:
-        key:
-          - code1
       primaryKey:
         - "code0000"
       attributes:

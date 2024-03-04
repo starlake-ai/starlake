@@ -220,13 +220,7 @@ object InferSchemaHandler {
     domainFolder.createDirectories()
     val configPath = File(domainFolder, "_config.sl.yml")
     if (!configPath.exists) {
-      // minimal config file
-      val configData = s"""
-         |load:
-         |  metadata:
-         |    directory: "{{incoming_path}}/${domain.name}"
-         |""".stripMargin
-      configPath.overwrite(configData)
+      YamlSerde.serializeToFile(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")
@@ -237,7 +231,7 @@ object InferSchemaHandler {
         )
       }
     } else {
-      YamlSerde.serializeToFile(tablePath, TableDesc(table))
+      YamlSerde.serializeToFile(tablePath, table)
     }
     tablePath
   }

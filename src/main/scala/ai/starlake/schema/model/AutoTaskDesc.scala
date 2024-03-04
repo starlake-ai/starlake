@@ -2,10 +2,10 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings.Connection
 import ai.starlake.config.{DatasetArea, Settings}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 
-case class TaskDesc(task: AutoTaskDesc)
+case class TaskDesc(version: Int, task: AutoTaskDesc)
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -29,13 +29,16 @@ case class TaskDesc(task: AutoTaskDesc)
   * @param rls
   *   Row level security policy to apply too the output data.
   */
+@JsonIgnoreProperties(
+  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
+)
 case class AutoTaskDesc(
   name: String,
   sql: Option[String],
   database: Option[String],
   domain: String,
   table: String,
-  write: Option[WriteMode], // Deprecated, replaced by write strategy
+  write: Option[WriteMode], // TODO: remove this attribute
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -51,7 +54,6 @@ case class AutoTaskDesc(
   writeStrategy: Option[WriteStrategy] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
-  recursive: Boolean = false,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None,

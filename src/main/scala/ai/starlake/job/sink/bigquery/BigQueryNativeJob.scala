@@ -298,7 +298,7 @@ class BigQueryNativeJob(
     queryConfig: QueryJobConfiguration.Builder
   ): QueryJobConfiguration.Builder = {
     settings.appConfig
-      .getUdfs()
+      .getEffectiveUdfs()
       .foreach { udf =>
         if (udf.contains("://")) // make sure it's a URI
           queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)

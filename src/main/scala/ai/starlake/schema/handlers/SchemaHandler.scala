@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.AppConfig
+import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
@@ -370,7 +370,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val content = Utils.parseJinja(rawContent, activeEnvVars())
       YamlSerde.deserializeYamlRefs(content, refsPath.toString)
     } else
-      RefDesc(settings.appConfig.refs)
+      RefDesc(latestSchemaVersion, settings.appConfig.refs)
     this._refs = refs
     this._refs
   }
@@ -824,7 +824,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
       case Failure(exception) =>
         throw exception
-      case Success(autoJobDesc) => autoJobDesc
+      case Success(autoJobDesc) =>
+        autoJobDesc
     }
   }
 
@@ -870,7 +871,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
               taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
             } match {
-              case Failure(_) =>
+              case Failure(e) =>
+                logger.error(e.getMessage, e)
                 // TODO: could not deserialise. Since we support legacy we may encounter sl.yml files that doesn't define task nor _config.sl.yml. We should add breaking change to remove this behavior and have a strict definition of config files.
                 None
               case Success(value) => Some(value)

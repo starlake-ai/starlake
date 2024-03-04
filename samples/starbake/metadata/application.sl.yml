@@ -1,7 +1,7 @@
 ---
+version: 1
 application:
   loader: "native" # "spark" (default) or "native"
-  engine: "SPARK"
   connectionRef: "{{connectionRef}}"
 
   audit:

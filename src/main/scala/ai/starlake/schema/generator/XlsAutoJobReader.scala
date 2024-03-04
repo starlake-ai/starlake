@@ -29,10 +29,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val schemaOpt =
         Option(row.getCell(headerMapSchema("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val writeOpt =
+      val writeStrategyOpt =
         Option(row.getCell(headerMapSchema("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(WriteMode.fromString)
+          .map(WriteStrategyType.fromString)
       val partitionOpt =
         Option(
           row.getCell(headerMapSchema("_partition"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -90,7 +90,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               database = databaseOpt,
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
-              write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
+              write = None,
               sink = Some(partitionOpt match {
                 case Some(partition) =>
                   BigQuerySink(
@@ -142,7 +142,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               }.getOrElse(Nil),
               python = None,
               tags = tags,
-              writeStrategy = None,
+              // FIXME: compute correct write strategy
+              writeStrategy = Some(
+                WriteStrategy(`type` = writeStrategyOpt.orElse(Some(WriteStrategyType.OVERWRITE)))
+              ),
               taskTimeoutMs = None
             )
           )

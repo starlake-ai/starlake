@@ -1,4 +1,5 @@
 ---
+version: 1
 table:
   name: "Ingredients"
   pattern: "ingredients_.*.tsv"
@@ -28,7 +29,6 @@ table:
       privacy: "NONE"
       ignore: false
   metadata:
-    mode: "FILE"
     format: "DSV"
     encoding: "UTF-8"
     multiline: false
@@ -37,7 +37,8 @@ table:
     separator: "\t"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     sink:
       connectionRef: "{{connectionRef}}"
   primaryKey:

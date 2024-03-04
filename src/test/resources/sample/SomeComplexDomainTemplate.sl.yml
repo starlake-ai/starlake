@@ -1,8 +1,8 @@
 ---
+version: 1
 load:
   name: "someComplexDomain"
   metadata:
-    mode: "FILE"
     format: "DSV"
     encoding: "UTF-8"
     multiline: false
@@ -11,7 +11,8 @@ load:
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     directory: "/tmp/incoming/someComplexDomain"
   tables:
     - name: "SCHEMA1"
@@ -180,7 +181,6 @@ load:
           metricType: "NONE"
           ignore: false
       metadata:
-        mode: "FILE"
         format: "XML"
         encoding: "UTF-8"
         multiline: false
@@ -189,18 +189,18 @@ load:
         separator: "position"
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "UPSERT_BY_KEY_AND_TIMESTAMP"
+          key:
+            - "ID1"
+            - "ID2"
+          timestamp: "ATTRIBUTE_1"
         sink:
           partition:
             - "sl_year"
             - "sl_month"
             - "sl_day"
             - "sl_hour"
-      merge:
-        key:
-          - "ID1"
-          - "ID2"
-        timestamp: "ATTRIBUTE_1"
       rls:
         - name: "test writer"
           predicate: "X = 10"

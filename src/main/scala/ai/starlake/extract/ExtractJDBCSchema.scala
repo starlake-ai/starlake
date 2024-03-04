@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -138,7 +138,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
           restoredTable.copy(pattern = pat)
       }
 
-      val content = YamlSerde.serialize(TablesDesc(List(tableWithPatternAndWrite)))
+      val content =
+        YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
       val file = File(baseOutputDir, domainName, table.name + ".sl.yml")
       file.overwrite(content)
     }
