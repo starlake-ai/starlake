@@ -392,9 +392,8 @@ object Utils extends StrictLogging {
       dotFile.delete(swallowIOExceptions = false)
       outputFile match {
         case None =>
-          svgFile.delete(swallowIOExceptions = false)
           println(svgFile.contentAsString)
-
+          svgFile.delete(swallowIOExceptions = false)
         case Some(_) =>
       }
     }
