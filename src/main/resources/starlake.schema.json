@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://json.schemastore.org/starlake.json",
   "title": "Starlake Data Pipeline",
   "description": "JSON Schema for Starlake Data Pipeline",
@@ -18,13 +18,12 @@
         }
       },
       "then": {
-        "$ref": "#/$defs/StarlakeV1"
+        "$ref": "#/definitions/StarlakeV1Base"
       }
     }
   ],
   "required": ["version"],
-  "unevaluatedProperties": false,
-  "$defs": {
+  "definitions": {
     "ConvertibleToString": {
       "anyOf": [
         {"type": "string"},
@@ -48,7 +47,7 @@
     },
     "PrimitiveTypeV1": {
       "description": "Define the value type",
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "oneOf": [
         {
           "const": "string",
@@ -98,7 +97,7 @@
     },
     "TrimV1": {
       "description": "How to trim the input string",
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "oneOf": [
         {
           "const": "LEFT",
@@ -123,23 +122,22 @@
       "type": "object",
       "properties": {
         "createSql": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "SQL CREATE DDL statement"
         },
         "pingSql": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "How to test if the table exist.\nUse the following statement by default: 'select count(*) from tableName where 1=0'"
         },
         "selectSql": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Override the default select defined by Starlake"
         }
       },
-      "required": ["createSql"],
-      "unevaluatedProperties": false
+      "required": ["createSql"]
     },
     "TableTypeBase": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "Table types supported by the Extract module",
       "oneOf": [
         {
@@ -177,17 +175,17 @@
       ]
     },
     "TableTypeV1": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "Table types supported by the Extract module",
       "oneOf": [
         {
-          "$ref": "#/$defs/TableTypeBase"
+          "$ref": "#/definitions/TableTypeBase"
         },
         {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Any valid table types",
           "not": {
-            "$ref": "#/$defs/TableTypeBase"
+            "$ref": "#/definitions/TableTypeBase"
           }
         }
       ]
@@ -197,36 +195,35 @@
       "description": "Custom type definition. Custom types are defined in the types/types.sl.yml file",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "unique id for this type"
         },
         "pattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Regex used to validate the input field"
         },
         "primitiveType": {
-          "$ref": "#/$defs/PrimitiveTypeV1",
+          "$ref": "#/definitions/PrimitiveTypeV1",
           "description": "To what primitive type should this type be mapped.\n This is the memory representation of the type, When saving, this primitive type is mapped to the database specific type. Default: string"
         },
         "zone": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "useful when parsing specific string:\n - double: To parse a french decimal (comma as decimal separator) set it to fr_FR locale.\n- decimal: to set the precision and scale of this number, '38,9' by default.\n- "
         },
         "sample": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "This field makes sure that the pattern matches the value you want to match. This will be checked on startup"
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Describes this type"
         },
         "ddlMapping": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Configure here the type mapping for each datawarehouse.\\nWill be used when inferring DDL from schema."
         }
       },
-      "required": ["name", "pattern"],
-      "unevaluatedProperties": false
+      "required": ["name", "pattern"]
     },
     "PositionV1": {
       "description": "First and last char positions of an attribute in a fixed length record",
@@ -241,31 +238,30 @@
           "description": "Zero based position of the last character to include in this attribute"
         }
       },
-      "required": ["first", "last"],
-      "unevaluatedProperties": false
+      "required": ["first", "last"]
     },
     "ConnectionV1": {
       "description": "Connection properties to a datawarehouse.",
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "aka jdbc, bigquery, snowflake, redshift ..."
         },
         "sparkFormat": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Set only if you want to use the Spark engine"
         },
         "quote": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Set only if you want to use the Spark engine"
         },
         "separator": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Set only if you want to use the Spark engine"
         },
         "options": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Connection options"
         }
       },
@@ -277,19 +273,19 @@
       "type": "object",
       "properties": {
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Dag config description"
         },
         "template": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Dag template to use for this config. Usually a .py.j2 file"
         },
         "filename": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "{schedule}, {domain}, {table} in the file name are used for DAG generation purposes"
         },
         "options": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "DAG generation options"
         }
       },
@@ -301,22 +297,22 @@
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "This Row Level Security unique name"
         },
         "predicate": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "The condition that goes to the WHERE clause and limit the visible rows."
         },
         "grants": {
           "description": "user / groups / service accounts to which this security level is applied.\nex : user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "description": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Description for this access policy"
         }
       },
@@ -328,19 +324,19 @@
       "type": "object",
       "properties": {
         "role": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "This role to give to the granted users"
         },
         "grants": {
           "description": "user / groups / service accounts to which this security level is applied.\nex : user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "name": {
           "description": "TODO",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
       },
       "required": ["role", "grants"],
@@ -348,7 +344,7 @@
     },
     "FormatV1": {
       "description": "DSV by default. Supported file formats are :\\n- DSV : Delimiter-separated values file. Delimiter value is specified in the \"separator\" field.\\n- POSITION : FIXED format file where values are located at an exact position in each line.\\n- SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from JSON\\n  with deep level fields. SIMPLE_JSON are JSON files with top level fields only.\\n- JSON :  Deep JSON file. Use only when your json documents contain sub-documents, otherwise prefer to\\n  use SIMPLE_JSON since it is much faster.\\n- XML : XML files",
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "oneOf": [
         {
           "const": "DSV",
@@ -400,28 +396,28 @@
       "type": "object",
       "description": "Map of string",
       "additionalProperties": {
-        "$ref": "#/$defs/ConvertibleToString"
+        "$ref": "#/definitions/ConvertibleToString"
       }
     },
     "MapConnectionV1": {
       "type": "object",
       "description": "Map of jdbc engines",
       "additionalProperties": {
-        "$ref": "#/$defs/ConnectionV1"
+        "$ref": "#/definitions/ConnectionV1"
       }
     },
     "MapJdbcEngineV1": {
       "type": "object",
       "description": "Map of jdbc engines",
       "additionalProperties": {
-        "$ref": "#/$defs/JdbcEngineV1"
+        "$ref": "#/definitions/JdbcEngineV1"
       }
     },
     "MapTableDdlV1": {
       "type": "object",
       "description": "Map of table ddl",
       "additionalProperties": {
-        "$ref": "#/$defs/TableDdlV1"
+        "$ref": "#/definitions/TableDdlV1"
       }
     },
     "JdbcEngineV1": {
@@ -429,7 +425,7 @@
       "description": "Jdbc engine",
       "properties": {
         "tables": {
-          "$ref": "#/$defs/MapTableDdlV1",
+          "$ref": "#/definitions/MapTableDdlV1",
           "description": "List of all SQL create statements used to create audit tables for this JDBC engine.\nTables are created only if the execution of the pingSQL statement fails"
         },
         "canMerge": {
@@ -460,7 +456,7 @@
       "type": "object",
       "properties": {
         "options": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Privacy strategies. The following default strategies are defined by default:\n- none: Leave the data as is\n- hide: replace the data with an empty string\n- hideX(\"s\", n): replace the string with n occurrences of the string 's'\n- md5: Redact the data using the MD5 algorithm\n- sha1: Redact the data using the SHA1 algorithm\n- sha256: Redact the data using the SHA256 algorithm\n - sha512: Redact the data using the SHA512 algorithm\n- initials: keep only the first char of each word in the data"
         }
       },
@@ -472,15 +468,15 @@
       "properties": {
         "cacheStorageLevel": {
           "description": "How the RDD are cached. Default is MEMORY_AND_DISK_SER.\nAvailable options are (https://spark.apache.org/docs/latest/api/java/index.html?org/apache/spark/storage/StorageLevel.html):\n- MEMORY_ONLY\n- MEMORY_AND_DISK\n- MEMORY_ONLY_SER\n- MEMORY_AND_DISK_SER\n- DISK_ONLY\n- OFF_HEAP",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "intermediateBigqueryFormat": {
           "description": "May be parquet or ORC. Default is parquet. Used for BigQuery intermediate storage. Use ORC for for JSON files to keep the original data structure.\nhttps://stackoverflow.com/questions/53674838/spark-writing-parquet-arraystring-converts-to-a-different-datatype-when-loadin",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "temporaryGcsBucket": {
           "description": "The GCS bucket that temporarily holds the data before it is loaded to BigQuery.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "substituteVars": {
           "description": "Internal use. Do not modify.",
@@ -502,15 +498,15 @@
         },
         "location": {
           "description": "GCP project location. Required if apply is true.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "database": {
           "description": "GCP Project id. Required if apply is true.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "taxonomy": {
           "description": "Taxonomy name. Required if apply is true.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
       },
       "unevaluatedProperties" : false
@@ -524,15 +520,15 @@
         },
         "poolName": {
           "description": "Pool name to use for Spark jobs, default is 'default'",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "mode": {
           "description": "This can be FIFO or FAIR, to control whether jobs within the pool queue up behind each other (the default) or share the pool’s resources fairly.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "file": {
           "description": "Scheduler filename in the metadata folder. If not set, defaults to fairscheduler.xml.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
       },
       "unevaluatedProperties" : false
@@ -542,7 +538,7 @@
       "properties": {
         "path": {
           "description": "When using filesystem storage, the path to the expectations file",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "active": {
           "description": "should expectations be executed ?",
@@ -560,7 +556,7 @@
       "properties": {
         "path": {
           "description": "When using filesystem storage, the path to the metrics file",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "discreteMaxCardinality": {
           "description": "Max number of unique values accepted for a discrete column. Default is 10",
@@ -577,14 +573,14 @@
       "type": "object",
       "properties": {
         "connectionRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "JDBC: Connection String"
         },
         "clustering": {
           "description": "FS or BQ: List of attributes to use for clustering",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "days": {
@@ -608,15 +604,15 @@
           "description": "BQ: Refresh interval in milliseconds. Default to BigQuery default value"
         },
         "id": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "ES: Attribute to use as id of the document. Generated by Elasticsearch if not specified."
         },
         "format": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "FS: File format"
         },
         "extension": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "FS: File extension"
         },
         "partition": {
@@ -631,14 +627,14 @@
           "description": "When outputting files, should we coalesce it to a single file. Useful when CSV is the output format."
         },
         "options": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "spark  options to use"
         }
       },
       "unevaluatedProperties" : false
     },
     "WriteStrategyTypeBase": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "TODO",
       "oneOf": [
         {
@@ -668,26 +664,26 @@
       ]
     },
     "WriteStrategyTypeV1": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "Table types supported by the Extract module",
       "oneOf": [
         {
-          "$ref": "#/$defs/WriteStrategyTypeBase"
+          "$ref": "#/definitions/WriteStrategyTypeBase"
         }
       ]
     },
     "OpenWriteStrategyTypeV1": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "Table types supported by the Extract module",
       "oneOf": [
         {
-          "$ref": "#/$defs/WriteStrategyTypeBase"
+          "$ref": "#/definitions/WriteStrategyTypeBase"
         },
         {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Any valid table types",
           "not": {
-            "$ref": "#/$defs/WriteStrategyTypeBase"
+            "$ref": "#/definitions/WriteStrategyTypeBase"
           }
         }
       ]
@@ -696,41 +692,41 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/WriteStrategyTypeV1",
+          "$ref": "#/definitions/WriteStrategyTypeV1",
           "description": "TODO"
         },
         "types": {
           "type": "object",
           "description": "TODO",
           "additionalProperties": {
-            "$ref": "#/$defs/OpenWriteStrategyTypeV1"
+            "$ref": "#/definitions/OpenWriteStrategyTypeV1"
           }
         },
         "key": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "TODO"
         },
         "timestamp": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "queryFilter": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "on": {
-          "$ref": "#/$defs/MergeOnV1",
+          "$ref": "#/definitions/MergeOnV1",
           "description": "TODO"
         },
         "startTs": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "endTs": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         }
       },
@@ -740,10 +736,10 @@
       "type": "object",
       "properties": {
         "format": {
-          "$ref": "#/$defs/FormatV1"
+          "$ref": "#/definitions/FormatV1"
         },
         "encoding": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "UTF-8 if not specified."
         },
         "multiline": {
@@ -759,69 +755,69 @@
           "description": "does the dataset has a header ? true by default"
         },
         "separator": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "the values delimiter,  ';' by default value may be a multichar string starting from Spark3"
         },
         "quote": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "The String quote char, '\"' by default"
         },
         "escape": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "escaping char '\\' by default"
         },
         "sink": {
-          "$ref": "#/$defs/AllSinksV1"
+          "$ref": "#/definitions/AllSinksV1"
         },
         "ignore": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Pattern to ignore or UDF to apply to ignore some lines"
         },
         "directory": {
           "description": "Folder on the local filesystem where incoming files are stored.\n Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.\n                     Files located in this folder are moved to the pending folder for ingestion by the \"import\" command.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "extensions": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "recognized filename extensions. json, csv, dsv, psv are recognized by default.\nOnly files with these extensions will be moved to the pending folder."
         },
         "ack": {
           "description": "Ack extension used for each file. \".ack\" if not specified.\nFiles are moved to the pending folder only once a file with the same name as the source file and with this extension is present.\nTo move a file without requiring an ack file to be present, set explicitly this property to the empty string value \"\".",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "options": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Options to add to the spark reader"
         },
         "loader": {
           "description": "Loader to use, 'spark' or 'native'. Default to 'spark' of SL_LOADER env variable is set to 'native'",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "emptyIsNull": {
           "description": "Treat empty columns as null in DSV files. Default to false",
           "type": "boolean"
         },
         "dagRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Cron expression to use for this domain/table"
         },
         "freshness": {
-          "$ref": "#/$defs/FreshnessV1",
+          "$ref": "#/definitions/FreshnessV1",
           "description": "Configure freshness checks on this dataset"
         },
         "nullValue": {
           "description": "Treat a specific input string as a null value indicator",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "schedule": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Cron expression to use for this domain/table"
         },
         "writeStrategy": {
-          "$ref": "#/$defs/WriteStrategyV1",
+          "$ref": "#/definitions/WriteStrategyV1",
           "description": "TODO"
         }
       },
@@ -831,13 +827,13 @@
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Schema in JDBC Database / Snowflake / Redshift or Dataset in BigQuery"
         },
         "tables": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "Tables to scan in this domain"
         }
@@ -849,14 +845,14 @@
       "type": "object",
       "properties": {
         "project": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Database name of Project id in BigQuery"
         },
         "domains": {
           "description": "List of domains to scan",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ExternalDomainV1"
+            "$ref": "#/definitions/ExternalDomainV1"
           }
         }
       },
@@ -870,7 +866,7 @@
           "type": "array",
           "description": "Database name of Project id in BigQuery",
           "items": {
-            "$ref": "#/$defs/ExternalDatabaseV1"
+            "$ref": "#/definitions/ExternalDatabaseV1"
           }
         }
       },
@@ -880,155 +876,152 @@
       "type": "object",
       "properties": {
         "pending": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Files recognized by the extensions property are moved to this folder for ingestion by the \"import\" command."
         },
         "unresolved": {
           "description": "Files that cannot be ingested (do not match by any table pattern) are moved to this folder.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "archive": {
           "description": "Files that have been ingested are moved to this folder if SL_ARCHIVE is set to true.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "ingesting": {
           "description": "Files that are being ingested are moved to this folder.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "accepted": {
           "description": "When filesystem storage is used, successfully ingested stored in this this folder in parquet format or any format set by the SL_DEFAULT_WRITE_FORMAT env property.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "rejected": {
           "description": "When filesystem storage is used, rejected records are stored in this folder in parquet format or any format set by the SL_DEFAULT_WRITE_FORMAT env property.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "replay": {
           "description": "Invalid records are stored in this folder in source format when SL_SINK_REPLAY_TO_FILE is set to true.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "business": {
           "description": "",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "hiveDatabase": {
           "description": "",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "FreshnessV1": {
       "type": "object",
       "properties": {
         "warn": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "How old may be the data before a warning is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
         },
         "error": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "How old may be the data before an error is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "TableV1": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Schema name, must be unique among all the schemas belonging to the same domain.\n  *                     Will become the hive table name On Premise or BigQuery Table name on GCP."
         },
         "pattern": {
           "description": "filename pattern to which this schema must be applied.\n  *                     This instructs the framework to use this schema to parse any file with a filename that match this pattern.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "attributes": {
           "description": "Attributes parsing rules.",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AttributeV1"
+            "$ref": "#/definitions/AttributeV1"
           }
         },
         "metadata": {
-          "$ref": "#/$defs/MetadataV1",
+          "$ref": "#/definitions/MetadataV1",
           "description": "Dataset metadata"
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "free text"
         },
         "presql": {
           "type": "array",
           "description": "Reserved for future use.",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "postsql": {
           "type": "array",
           "description": "Reserved for future use.",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "tags": {
           "description": "Set of string to attach to this Schema",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "rls": {
           "description": " Row level security on this schema.",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/RowLevelSecurityV1"
+            "$ref": "#/definitions/RowLevelSecurityV1"
           }
         },
         "expectations": {
           "description": "Expectations to check after Load / Transform has succeeded",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "primaryKey": {
           "description": "List of columns that make up the primary key",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "acl": {
           "description": "Map of rolename -> List[Users].",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AccessControlEntryV1"
+            "$ref": "#/definitions/AccessControlEntryV1"
           }
         },
         "rename": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "If present, the table is renamed with this name. Useful when use in conjunction with the 'extract' module"
         },
         "sample": {
           "description": "Store here a couple of records illustrating the table data.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "filter": {
           "description": "remove all records that do not match this condition",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "patternSample": {
           "description": "Sample of filename matching this schema",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
       },
-      "required": ["name", "pattern", "attributes"],
-      "unevaluatedProperties": false
+      "required": ["name", "pattern", "attributes"]
     },
     "MetricTypeV1": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "description": "TODO",
       "oneOf": [
         {
@@ -1053,11 +1046,11 @@
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Attribute name as defined in the source dataset and as received in the file"
         },
         "type": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "semantic type of the attribute. Default to string"
         },
         "array": {
@@ -1069,51 +1062,51 @@
           "description": "Should this attribute always be present in the source. Default to true."
         },
         "privacy": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Should this attribute be applied a privacy transformation at ingestion time"
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "free text for attribute description"
         },
         "rename": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "If present, the attribute is renamed with this name"
         },
         "metricType": {
-          "$ref": "#/$defs/MetricTypeV1",
+          "$ref": "#/definitions/MetricTypeV1",
           "description": "If present, what kind of stat should be computed for this field"
         },
         "attributes": {
           "type": "array",
           "description": "List of sub-attributes (valid for JSON and XML files only)",
           "items": {
-            "$ref": "#/$defs/AttributeV1"
+            "$ref": "#/definitions/AttributeV1"
           }
         },
         "position": {
-          "$ref": "#/$defs/PositionV1"
+          "$ref": "#/definitions/PositionV1"
         },
         "default": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default value for this attribute when it is not present."
         },
         "tags": {
           "type": "array",
           "description": "Tags associated with this attribute",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "trim": {
-          "$ref": "#/$defs/TrimV1"
+          "$ref": "#/definitions/TrimV1"
         },
         "script": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Scripted field : SQL request on renamed column"
         },
         "foreignKey": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "If this attribute is a foreign key, reference to [domain.]table[.attribute]"
         },
         "ignore": {
@@ -1121,116 +1114,115 @@
           "description": "Should this attribute be ignored on ingestion. Default to false"
         },
         "accessPolicy": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Policy tag to assign to this attribute. Used for column level security"
         }
       },
-      "required": ["name"],
-      "unevaluatedProperties": false
+      "required": ["name"]
     },
     "AutoTaskDescV1": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Main SQL request to execute (do not forget to prefix table names with the database name to avoid conflicts)"
         },
         "sql": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Main SQL request to execute (do not forget to prefix table names with the database name to avoid conflicts)"
         },
         "database": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set."
         },
         "domain": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)"
         },
         "table": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Dataset Name in output Area (Will be the Table name in Hive & BigQuery)"
         },
         "partition": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "List of columns used for partitioning the output."
         },
         "presql": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "List of SQL requests to executed before the main SQL request is run"
         },
         "postsql": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "List of SQL requests to executed after the main SQL request is run"
         },
         "sink": {
-          "$ref": "#/$defs/AllSinksV1"
+          "$ref": "#/definitions/AllSinksV1"
         },
         "rls": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/RowLevelSecurityV1"
+            "$ref": "#/definitions/RowLevelSecurityV1"
           }
         },
         "expectations": {
           "description": "Expectations to check after Load / Transform has succeeded",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "acl": {
           "description": "Map of rolename -> List[Users].",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AccessControlEntryV1"
+            "$ref": "#/definitions/AccessControlEntryV1"
           }
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Output table description"
         },
         "freshness": {
-          "$ref": "#/$defs/FreshnessV1",
+          "$ref": "#/definitions/FreshnessV1",
           "description": "Configure freshness checks on the output table"
         },
         "attributesDesc": {
           "description": "Attributes comments and access policies",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AttributeDescV1"
+            "$ref": "#/definitions/AttributeDescV1"
           }
         },
         "python": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Python script URI to execute instead of the SQL request"
         },
         "tags": {
           "description": "Set of string to attach to the output table",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "writeStrategy": {
-          "$ref": "#/$defs/WriteStrategyV1",
+          "$ref": "#/definitions/WriteStrategyV1",
           "description": "TODO"
         },
         "schedule": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Cron expression to use for this task"
         },
         "dagRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Cron expression to use for this domain/table"
         },
         "taskTimeoutMs": {
@@ -1242,11 +1234,10 @@
           "description": "TODO"
         }
       },
-      "required": [],
-      "unevaluatedProperties": false
+      "required": []
     },
     "DurationUnit": {
-      "$ref": "#/$defs/ConvertibleToString",
+      "$ref": "#/definitions/ConvertibleToString",
       "oneOf": [
         {
           "const": "NANOSECONDS"
@@ -1278,20 +1269,19 @@
           "type": "integer"
         },
         "unit": {
-          "$ref": "#/$defs/DurationUnit"
+          "$ref": "#/definitions/DurationUnit"
         },
         "finite": {
           "type": "boolean",
           "default": true
-        },
-        "unevaluatedProperties": false
+        }
       }
     },
     "LockV1": {
       "type": "object",
       "properties": {
         "path": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Name of the lock"
         },
         "timeout": {
@@ -1299,139 +1289,134 @@
           "description": "TODO"
         },
         "pollTime": {
-          "$ref": "#/$defs/Duration",
+          "$ref": "#/definitions/Duration",
           "description": "TODO. Default 5 seconds"
         },
         "refreshTime": {
-          "$ref": "#/$defs/Duration",
+          "$ref": "#/definitions/Duration",
           "description": "TODO. Default 5 seconds"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "AuditV1": {
       "type": "object",
       "properties": {
         "path": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Main SQL request to execute (do not forget to prefix table names with the database name to avoid conflicts)"
         },
         "sink": {
-          "$ref": "#/$defs/AllSinksV1",
+          "$ref": "#/definitions/AllSinksV1",
           "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set."
         },
         "maxErrors": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)"
         },
         "database": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Dataset Name in output Area (Will be the Table name in Hive & BigQuery)"
         },
         "domain": {
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "active": {
           "type": "boolean",
           "description": "Output table description"
         },
         "sql": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         }
       },
-      "required": [],
-      "unevaluatedProperties": false
+      "required": []
     },
     "AttributeDescV1": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Column name"
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Column description"
         },
         "accessPolicy": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Access policy to apply to this column"
         }
       },
-      "required": ["name"],
-      "unevaluatedProperties": false
+      "required": ["name"]
     },
     "DomainV1": {
       "type": "object",
       "description": "A schema in JDBC database or a folder in HDFS or a dataset in BigQuery.",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Domain name. Make sure you use a name that may be used as a folder name on the target storage.\n                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.\n                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name."
         },
         "metadata": {
-          "$ref": "#/$defs/MetadataV1"
+          "$ref": "#/definitions/MetadataV1"
         },
         "tables": {
           "type": "array",
           "description": "List of schemas for each dataset in this domain.\nA domain usually contains multiple schemas. Each schema defining how the contents of the input file should be parsed.\nSee Schema for more details.",
           "items": {
-            "$ref": "#/$defs/TableV1"
+            "$ref": "#/definitions/TableV1"
           }
         },
         "comment": {
           "description": "Domain Description (free text)",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "tags": {
           "description": "Set of string to attach to this domain",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           }
         },
         "rename": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "If present, the attribute is renamed with this name"
         },
         "database": {
           "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set.",
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "AutoJobDescV1": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Optional name. If not specified, the name of the file without the extension is used."
         },
         "tasks": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AutoTaskDescV1",
+            "$ref": "#/definitions/AutoTaskDescV1",
             "description": "List of transform tasks to execute"
           }
         },
         "comment": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Optional description."
         },
         "default": {
-          "$ref": "#/$defs/AutoTaskDescV1",
+          "$ref": "#/definitions/AutoTaskDescV1",
           "description": "Default task properties to apply to all tasks defined in tasks section and in included files"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "JDBCTableV1": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Table name. Set to '*' to extract all tables. Scope: Schema and Data extraction."
         },
         "columns": {
@@ -1441,37 +1426,36 @@
           "items": {
             "oneOf": [
               {
-                "$ref": "#/$defs/ConvertibleToString",
+                "$ref": "#/definitions/ConvertibleToString",
                 "description": "Column name to extract. Scope: Schema and Data extraction."
               },
               {
                 "type": "object",
                 "properties": {
                   "name": {
-                    "$ref": "#/$defs/ConvertibleToString",
+                    "$ref": "#/definitions/ConvertibleToString",
                     "description": "Column name to extract. Scope: Schema and Data extraction."
                   },
                   "rename": {
-                    "$ref": "#/$defs/ConvertibleToString",
+                    "$ref": "#/definitions/ConvertibleToString",
                     "description": "Rename database column name. Scope: Schema and Data extraction."
                   }
                 },
                 "required": [
                   "name"
-                ],
-                "unevaluatedProperties": false
+                ]
               }
             ]
           }
         },
         "partitionColumn": {
-          "$ref": "#/$defs/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString"
         },
         "numPartitions": {
           "type": "integer"
         },
         "connectionOptions": {
-          "$ref": "#/$defs/MapString"
+          "$ref": "#/definitions/MapString"
         },
         "fetchSize": {
           "type": "integer"
@@ -1479,14 +1463,13 @@
         "fullExport": {
           "type": "boolean"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "OutputV1": {
       "type": "object",
       "properties": {
         "encoding": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Specifies encoding (charset) of saved CSV files."
         },
         "withHeader": {
@@ -1494,72 +1477,71 @@
           "description": "If true, writes the names of columns as the first line."
         },
         "separator": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Character used as a separator for each field and value. TODO: check if we are expecting character."
         },
         "quote": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Character used for escaping quoted values where the separator can be part of the value. TODO: check if we are expecting character."
         },
         "escape": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Character used for escaping quotes inside an already quoted value. TODO: check if we are expecting character."
         },
         "nullValue": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "String representation of a null value."
         },
         "datePattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Java date pattern to apply on date object. Have a look at https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html"
         },
         "timestampPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Java timestamp pattern to apply on timestamp object. Have a look at https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "JDBCSchemaBase": {
       "type": "object",
       "properties": {
         "catalog": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Optional catalog name in the source database. Scope: Schema and Data extraction."
         },
         "schema": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Database schema where source tables are located. For mysql use this instead of catalog. Scope: Schema and Data extraction."
         },
         "tableRemarks": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Query template used to retrieve table remark. Available variables: catalog, schema, table. Scope: Schema extraction."
         },
         "columnRemarks": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Query template used to retrieve all columns' remark of a table. Available variables: catalog, schema, table. Scope: Schema extraction."
         },
         "tableTypes": {
           "description": "One or many of the predefined table types. Scope: Schema and Data extraction.",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/TableTypeV1"
+            "$ref": "#/definitions/TableTypeV1"
           }
         },
         "template": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Template used during schema extraction in order to generate load files (domain and tables). Scope: Schema extraction."
         },
         "pattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Pattern template used to define load tables' file pattern. Available variables: catalog, schema, table. Scope: Schema extraction."
         },
         "numericTrim": {
-          "$ref": "#/$defs/TrimV1",
+          "$ref": "#/definitions/TrimV1",
           "description": "Trim strategies applied to numeric fields set on load table's definition. Scope: Schema extraction."
         },
         "partitionColumn": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Column to use in order to parallelize data extraction. Scope: Data extraction."
         },
         "numPartitions": {
@@ -1567,7 +1549,7 @@
           "description": "Number of data partitions to create. Scope: Data extraction."
         },
         "connectionOptions": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Options to set on data connection. Scope: Data extraction."
         },
         "fetchSize": {
@@ -1575,7 +1557,7 @@
           "description": "Number of rows to be fetched from the database when additional rows are needed. By default, most JDBC drivers use a fetch size of 10, so if you are reading 1000 objects, increasing the fetch size to 256 can significantly reduce the time required to fetch the query's results. The optimal fetch size is not always obvious. Scope: Data extraction."
         },
         "stringPartitionFunc": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "SQL template used on partition column's of type String. Some implementations are already defined, see ai.starlake.extract.JdbcDbUtils.getStringPartitionFunc. Mandatory variables: col, nb_partitions. Scope: Data extraction."
         },
         "fullExport": {
@@ -1589,14 +1571,13 @@
       }
     },
     "DefaultJDBCSchemaV1": {
-      "$ref": "#/$defs/JDBCSchemaBase",
-      "unevaluatedProperties": false
+      "$ref": "#/definitions/JDBCSchemaBase"
     },
     "JDBCSchemaV1": {
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/JDBCSchemaBase"
+          "$ref": "#/definitions/JDBCSchemaBase"
         },
         {
           "properties": {
@@ -1604,24 +1585,23 @@
               "type": "array",
               "description": "List of tables to extract. Scope: Schema and Data extraction.",
               "items": {
-                "$ref": "#/$defs/JDBCTableV1"
+                "$ref": "#/definitions/JDBCTableV1"
               }
             },
             "exclude": {
               "type": "array",
               "description": "List of tables to exclude. Applied on tables list. Scope: Schema and Data extraction.",
               "items": {
-                "$ref": "#/$defs/ConvertibleToString"
+                "$ref": "#/definitions/ConvertibleToString"
               }
             },
             "filter": {
-              "$ref": "#/$defs/ConvertibleToString",
+              "$ref": "#/definitions/ConvertibleToString",
               "description": "Filter applied along data extraction. Scope: Data extraction"
             }
           }
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "JDBCSchemasV1": {
       "type": "object",
@@ -1630,88 +1610,84 @@
           "description": "Describe what to fetch from data connection. Scope: Schema and Data extraction.",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/JDBCSchemaV1"
+            "$ref": "#/definitions/JDBCSchemaV1"
           }
         },
         "connectionRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Connection used to retrieve at least data from it. If not defined, fallback to application settings. Expected connection name as defined in the connections section of the application.conf file. Scope: Schema and data extraction."
         },
         "auditConnectionRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Connection used to read/store audit from it. If not defined, fallbacks to connectionRef. Expected connection name as defined in the connections section of the application.conf file. Scope: Data extraction."
         },
         "output": {
-          "$ref": "#/$defs/OutputV1",
+          "$ref": "#/definitions/OutputV1",
           "description": "Override the output format of data extraction. Scope: Data extraction."
         },
         "default": {
-          "$ref": "#/$defs/JDBCSchemaV1",
+          "$ref": "#/definitions/JDBCSchemaV1",
           "description": "Configuration merged into each jdbcSchemas. Scope: Schema and Data extraction."
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "InputRefV1": {
       "description": "Input for ref object",
       "type": "object",
       "properties": {
         "database": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Database pattern to match, none if any database"
         },
         "domain": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Domain pattern to match, none if any domain match"
         },
         "table": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Table pattern to match"
         }
       },
-      "required": ["table"],
-      "unevaluatedProperties": false
+      "required": ["table"]
     },
     "OutputRefV1": {
       "description": "Output for ref object",
       "type": "object",
       "properties": {
         "database": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         },
         "domain": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         },
         "table": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         }
       },
-      "required": ["table", "domain", "database"],
-      "unevaluatedProperties": false
+      "required": ["table", "domain", "database"]
     },
     "RefV1": {
       "description": "Describe how to resolve a reference in a transform task",
       "type": "object",
       "properties": {
         "input": {
-          "$ref": "#/$defs/InputRefV1",
+          "$ref": "#/definitions/InputRefV1",
           "description": "The input table to resolve"
         },
         "output": {
-          "$ref": "#/$defs/OutputRefV1",
+          "$ref": "#/definitions/OutputRefV1",
           "description": "The output table resolved with the domain and database"
         }
       },
-      "required": ["input", "output"],
-      "unevaluatedProperties": false
+      "required": ["input", "output"]
     },
     "KafkaTopicConfigV1": {
       "properties": {
         "topicName": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "maxRead": {
@@ -1721,7 +1697,7 @@
         "fields": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ConvertibleToString"
+            "$ref": "#/definitions/ConvertibleToString"
           },
           "description": "TODO"
         },
@@ -1734,104 +1710,100 @@
           "description": "TODO"
         },
         "createOptions": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "TODO"
         },
         "accessOptions": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "TODO"
         },
         "headers": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/$defs/MapString"
+            "$ref": "#/definitions/MapString"
           },
           "description": "TODO"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "KafkaConfigV1": {
       "type": "object",
       "properties": {
         "serverOptions": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "TODO"
         },
         "topics": {
           "type": "object",
           "description": "Map of topic configs",
           "additionalProperties": {
-            "$ref": "#/$defs/KafkaTopicConfigV1"
+            "$ref": "#/definitions/KafkaTopicConfigV1"
           }
         },
         "cometOffsetsMode": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "customDeserializers": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "TODO"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "DagRefV1": {
       "type": "object",
       "properties": {
         "load": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "transform": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "HttpV1": {
       "type": "object",
       "properties": {
         "interface": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "port": {
           "type": "integer",
           "description": "TODO"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "AppConfigV1": {
       "type": "object",
       "properties": {
         "env": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default environment to use. May be also set using the SL_ENV environment variable"
         },
         "datasets": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "When using filesystem storage, default path to store the datasets"
         },
         "dags": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "DAG generation config folder. metadata/dags by default"
         },
         "metadata": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "default metadata folder name. May be also set using the SL_METADATA environment variable"
         },
         "metrics": {
-          "$ref": "#/$defs/MetricsV1"
+          "$ref": "#/definitions/MetricsV1"
         },
         "validateOnLoad": {
           "type": "boolean",
           "description": "Validate the YAML file when loading it. If set to true fails on any error"
         },
         "audit": {
-          "$ref": "#/$defs/AuditV1"
+          "$ref": "#/definitions/AuditV1"
         },
         "archive": {
           "type": "boolean",
@@ -1842,18 +1814,18 @@
           "description": "Should invalid records be stored in a replay file ?"
         },
         "lock": {
-          "$ref": "#/$defs/LockV1"
+          "$ref": "#/definitions/LockV1"
         },
         "defaultWriteFormat": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default write format in Spark. parquet is the default"
         },
         "defaultRejectedWriteFormat": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default write format in Spark for rejected records. parquet is the default"
         },
         "defaultAuditWriteFormat": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default write format in Spark for audit records. parquet is the default"
         },
         "csvOutput": {
@@ -1861,7 +1833,7 @@
           "description": "output files in CSV format ? Default is false"
         },
         "csvOutputExt": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "CSV file extension when csvOutput is true. Default is .csv"
         },
         "privacyOnly": {
@@ -1873,19 +1845,19 @@
           "description": "Should empty strings be considered as null values ?"
         },
         "loader": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default loader to use when none is specified in the schema. Valid values are 'spark' or 'native'. Default is 'spark'"
         },
         "rowValidatorClass": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         },
         "treeValidatorClass": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         },
         "loadStrategyClass": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "In what order should the files for a same table be loaded ? By time (default) or by or name ?\n",
           "enum": [
             "ai.starlake.job.load.IngestionNameStrategy",
@@ -1905,63 +1877,63 @@
           "description": "Maximum number of files to be stored in the same table in a single task"
         },
         "scd2StartTimestamp": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "scd2EndTimestamp": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "area": {
-          "$ref": "#/$defs/AreaV1",
+          "$ref": "#/definitions/AreaV1",
           "description": "pending, accepted ... areas configuration"
         },
         "hadoop": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Hadoop configuration if applicable"
         },
         "connections": {
-          "$ref": "#/$defs/MapConnectionV1",
+          "$ref": "#/definitions/MapConnectionV1",
           "description": "Connections configurations"
         },
         "jdbcEngines": {
-          "$ref": "#/$defs/MapJdbcEngineV1",
+          "$ref": "#/definitions/MapJdbcEngineV1",
           "description": "JDBC engine configurations"
         },
         "privacy": {
-          "$ref": "#/$defs/PrivacyV1",
+          "$ref": "#/definitions/PrivacyV1",
           "description": "Privacy algorithms"
         },
         "root": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Root folder for the application. May be also set using the SL_ROOT environment variable"
         },
         "internal": {
-          "$ref": "#/$defs/InternalV1",
+          "$ref": "#/definitions/InternalV1",
           "description": "Internal configuration"
         },
         "accessPolicies": {
-          "$ref": "#/$defs/AccessPoliciesV1",
+          "$ref": "#/definitions/AccessPoliciesV1",
           "description": "Access policies configuration"
         },
         "sparkScheduling": {
-          "$ref": "#/$defs/SparkSchedulingV1",
+          "$ref": "#/definitions/SparkSchedulingV1",
           "description": "Spark Job scheduling configuration"
         },
         "udfs": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Coma separated list of UDF to register in Spark jobs. May be also set using the SL_UDFS environment variable"
         },
         "expectations": {
-          "$ref": "#/$defs/ExpectationsConfigV1",
+          "$ref": "#/definitions/ExpectationsConfigV1",
           "description": "Expectations configuration"
         },
         "sqlParameterPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Pattern to use to replace parameters in SQL queries in addition to the jinja syntax {{param}}. Default is ${param}"
         },
         "rejectAllOnError": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Should we reject all records when an error occurs ? Default is false"
         },
         "rejectMaxRecords": {
@@ -1973,59 +1945,59 @@
           "description": ""
         },
         "kafka": {
-          "$ref": "#/$defs/KafkaConfigV1",
+          "$ref": "#/definitions/KafkaConfigV1",
           "description": "TODO"
         },
         "dsvOptions": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "DSV ingestion extra options"
         },
         "rootServe": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "forceViewPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "forceDomainPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "forceTablePattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "forceJobPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "forceTaskPattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "useLocalFileSystem": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "sessionDurationServe": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "database": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default target database (projectId in GCP). May be also set using the SL_DATABASE environment variable"
         },
         "tenant": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
         },
         "connectionRef": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "Default connection to use when loading / transforming data"
         },
         "schedulePresets": {
-          "$ref": "#/$defs/MapString",
+          "$ref": "#/definitions/MapString",
           "description": "Default connection to use when loading / transforming data"
         },
         "maxParTask": {
@@ -2036,11 +2008,11 @@
           "type": "array",
           "description": "TODO",
           "items": {
-            "$ref": "#/$defs/RefV1"
+            "$ref": "#/definitions/RefV1"
           }
         },
         "dagRef": {
-          "$ref": "#/$defs/DagRefV1",
+          "$ref": "#/definitions/DagRefV1",
           "description": "Default connection to use when loading / transforming data"
         },
         "forceHalt": {
@@ -2048,11 +2020,11 @@
           "description": "Force application to stop even when there is some pending thread."
         },
         "jobIdEnvName": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "archiveTablePattern": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "archiveTable": {
@@ -2060,7 +2032,7 @@
           "description": "TODO"
         },
         "version": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "autoExportSchema": {
@@ -2080,11 +2052,11 @@
           "description": "TODO"
         },
         "http": {
-          "$ref": "#/$defs/HttpV1",
+          "$ref": "#/definitions/HttpV1",
           "description": "TODO"
         },
         "timezone": {
-          "$ref": "#/$defs/ConvertibleToString",
+          "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
         "spark": {
@@ -2097,56 +2069,55 @@
           "description": "Map of string",
           "additionalProperties": true
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
-    "StarlakeV1": {
+    "StarlakeV1Base": {
       "type": "object",
       "properties": {
         "types": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/TypeV1"
+            "$ref": "#/definitions/TypeV1"
           }
         },
         "dag": {
-          "$ref": "#/$defs/DagGenerationConfigV1"
+          "$ref": "#/definitions/DagGenerationConfigV1"
         },
         "extract": {
-          "$ref": "#/$defs/JDBCSchemasV1"
+          "$ref": "#/definitions/JDBCSchemasV1"
         },
         "load": {
-          "$ref": "#/$defs/DomainV1"
+          "$ref": "#/definitions/DomainV1"
         },
         "transform": {
-          "$ref": "#/$defs/AutoJobDescV1"
+          "$ref": "#/definitions/AutoJobDescV1"
         },
         "task": {
-          "$ref": "#/$defs/AutoTaskDescV1"
+          "$ref": "#/definitions/AutoTaskDescV1"
         },
         "env": {
-          "$ref": "#/$defs/MapString"
+          "$ref": "#/definitions/MapString"
         },
         "table": {
-          "$ref": "#/$defs/TableV1"
+          "$ref": "#/definitions/TableV1"
         },
         "tables": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/TableV1"
+            "$ref": "#/definitions/TableV1"
           }
         },
         "external": {
-          "$ref": "#/$defs/ExternalSourceV1"
+          "$ref": "#/definitions/ExternalSourceV1"
         },
         "refs": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/RefV1"
+            "$ref": "#/definitions/RefV1"
           }
         },
         "application": {
-          "$ref": "#/$defs/AppConfigV1"
+          "$ref": "#/definitions/AppConfigV1"
         }
       },
       "oneOf": [
