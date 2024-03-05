@@ -78,7 +78,8 @@ object Dependencies {
   )
 
   val snowflake = Seq(
-    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test
+    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test,
+    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test
   )
 
   val scalaTest = Seq(
