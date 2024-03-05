@@ -79,6 +79,14 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       )
       val rls = withPredicate
 
+      val presqlOpt = Option(
+        row.getCell(headerMapSchema("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+
+      val postsqlOpt = Option(
+        row.getCell(headerMapSchema("_postsql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+
       val sinkTypeOpt = Option(
         row.getCell(headerMapSchema("_sink"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
@@ -145,6 +153,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
               write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
+              presql = presqlOpt.getOrElse(Nil),
+              postsql = postsqlOpt.getOrElse(Nil),
               sink = Some(
                 connectionTypeOpt match {
                   case Some(BQ)     => BigQuerySink.fromAllSinks(allSinks).toAllSinks()
