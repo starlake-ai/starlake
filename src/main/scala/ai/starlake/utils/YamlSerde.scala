@@ -27,7 +27,13 @@ import ai.starlake.schema.model.{
   WriteStrategyType
 }
 import better.files.File
-import com.fasterxml.jackson.databind.node.{ArrayNode, MissingNode, ObjectNode, TextNode}
+import com.fasterxml.jackson.databind.node.{
+  ArrayNode,
+  BooleanNode,
+  MissingNode,
+  ObjectNode,
+  TextNode
+}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.networknt.schema.{
   ApplyDefaultsStrategy,
@@ -93,6 +99,55 @@ object YamlSerde extends LazyLogging {
     }
   }
 
+  private def adaptSchemaV7ToStrictV201909(node: JsonNode): JsonNode = {
+    def adaptIt(currentNodeName: String, node: JsonNode): (String, JsonNode) = {
+      node match {
+        case on: ObjectNode =>
+          val newObjectNode = mapper.createObjectNode()
+          val objectType = Option(on.get("type"))
+            .flatMap {
+              case t: TextNode => Some(t.asText())
+              case _           => None
+            }
+            .getOrElse("")
+          if (
+            "object".equalsIgnoreCase(objectType) && !on.has(
+              "additionalProperties"
+            ) && !currentNodeName.endsWith("Base")
+          ) {
+            newObjectNode.set[JsonNode]("unevaluatedProperties", BooleanNode.FALSE)
+          }
+          node.fields().asScala.foreach { kv =>
+            val (newKey, newValue) = adaptIt(kv.getKey, kv.getValue)
+            newObjectNode.set[JsonNode](newKey, newValue)
+          }
+          val newNodeName = if (currentNodeName == "definitions") "$defs" else currentNodeName
+          newNodeName -> newObjectNode
+        case an: ArrayNode =>
+          val newArrayNode = mapper
+            .createArrayNode()
+          newArrayNode
+            .addAll(
+              an.asScala
+                .map { currentNode =>
+                  val (_, newValue) = adaptIt(currentNodeName, currentNode)
+                  newValue
+                }
+                .toList
+                .asJava
+            )
+          currentNodeName -> newArrayNode
+        case _: TextNode if currentNodeName == "$schema" =>
+          currentNodeName -> new TextNode(VersionFlag.V201909.getId)
+        case tn: TextNode if currentNodeName == "$ref" =>
+          currentNodeName -> new TextNode(tn.asText().replaceFirst("^#/definitions/", "#/\\$defs/"))
+        case _ => currentNodeName -> node
+      }
+    }
+    val (_, newSchema) = adaptIt("", node)
+    newSchema
+  }
+
   /** Validate and enrich given config with default values defined in schema.
     * @throws SchemaValidationException
     *   If not valid
@@ -113,7 +168,9 @@ object YamlSerde extends LazyLogging {
         config.setFormatAssertionsEnabled(true)
         config.setJavaSemantics(true)
         config.setApplyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
-        val starlakeSchema = mapper.readTree(getClass.getResourceAsStream("/starlake.schema.json"))
+        val starlakeSchema = adaptSchemaV7ToStrictV201909(
+          mapper.readTree(getClass.getResourceAsStream("/starlake.schema.json"))
+        )
         val schema = factory.getSchema(starlakeSchema, config)
         schema.walk(
           rootNode,
