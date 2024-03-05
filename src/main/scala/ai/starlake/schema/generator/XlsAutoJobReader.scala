@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.schema.model._
+import ConnectionType._
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
@@ -139,8 +140,6 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         }),
         options = sinkOptionsOpt
       )
-
-      import ConnectionType._
 
       val task =
         if (domainOpt.isEmpty) None
