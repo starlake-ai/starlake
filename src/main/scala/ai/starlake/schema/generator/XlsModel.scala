@@ -84,18 +84,24 @@ trait XlsModel {
   )
 
   val allSchemaJobHeaders = List(
-    "_job"         -> "Job Name",
-    "_domain"      -> "Domain",
-    "_name"        -> "Name",
-    "_source"      -> "Tables sources for job",
-    "_write"       -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
-    "_frequency"   -> "Job frenquency",
-    "_partition"   -> "Partition column",
-    "_description" -> "Description",
-    "_policy"      -> "Access Policy",
-    "_database"    -> "Database",
-    "_clustering"  -> "Clustering columns",
-    "_tags"        -> "Tags"
+    "_job"           -> "Job Name",
+    "_domain"        -> "Domain",
+    "_name"          -> "Name",
+    "_source"        -> "Tables sources for job",
+    "_write"         -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
+    "_frequency"     -> "Job frenquency",
+    "_partition"     -> "Partition column",
+    "_description"   -> "Description",
+    "_policy"        -> "Access Policy",
+    "_database"      -> "Database",
+    "_clustering"    -> "Clustering columns",
+    "_tags"          -> "Tags",
+    "_sink"          -> "Sink Type",
+    "_connectionRef" -> "Sink Connection Reference",
+    "_options"       -> "Sink Options",
+    "_format"        -> "FS Sink Format",
+    "_extension"     -> "FS Sink Extension",
+    "_coalesce"      -> "FS Sink Coalesce"
   )
 
   val allAttributeJobHeaders = List(
