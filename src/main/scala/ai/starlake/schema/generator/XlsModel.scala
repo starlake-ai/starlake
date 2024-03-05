@@ -96,6 +96,8 @@ trait XlsModel {
     "_database"      -> "Database",
     "_clustering"    -> "Clustering columns",
     "_tags"          -> "Tags",
+    "_presql"        -> "Pre SQLs - ###",
+    "_postsql"       -> "Post SQLs - ###",
     "_sink"          -> "Sink Type",
     "_connectionRef" -> "Sink Connection Reference",
     "_options"       -> "Sink Options",
