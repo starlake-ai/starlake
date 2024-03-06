@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, WriteMode, WriteStrategyType}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, WriteStrategyType}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
@@ -75,7 +75,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification engine FS" in {
       result3.domain shouldBe "someDomain"
       result3.table shouldBe "dataset3"
-      result3.write shouldBe Some(WriteMode.OVERWRITE)
+      result3.writeStrategy.map(_.getEffectiveType()) shouldBe Some(WriteStrategyType.OVERWRITE)
       result3.sink.map(_.getSink()) shouldBe Some(
         FsSink(
           connectionRef = Some("spark"),
