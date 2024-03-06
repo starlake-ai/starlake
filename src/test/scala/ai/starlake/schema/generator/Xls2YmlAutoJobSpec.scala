@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, WriteStrategyType}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, WriteMode, WriteStrategyType}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
@@ -64,7 +64,8 @@ class Xls2YmlAutoJobSpec extends TestHelper {
 
     val outputFile3: File = File(DatasetArea.transform.toString + "/someDomain/someJob3.sl.yml")
 
-    val result3: AutoTaskDesc = YamlSerializer.deserializeTask(outputFile3.contentAsString)
+    val result3: AutoTaskDesc =
+      YamlSerde.deserializeYamlTask(outputFile3.contentAsString, outputFile3.toString())
 
     "Parsing a sample xlsx file" should "generate a yml file sqlEngine FS" in {
       outputFile3.exists() shouldBe true
