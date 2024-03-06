@@ -3,11 +3,11 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
+import ai.starlake.utils.TransformEngine
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{StringType, TimestampType}
@@ -101,7 +101,7 @@ object IngestionUtil {
     colAttribute: Attribute,
     tpe: Type,
     colMap: => Map[String, Option[String]],
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
     emptyIsNull: Boolean
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
@@ -147,7 +147,7 @@ object IngestionUtil {
 
     val privacyLevel = colAttribute.getPrivacy()
     val colValueWithPrivacyApplied =
-      if (privacyLevel == PrivacyLevel.None || privacyLevel.sql) {
+      if (privacyLevel == TransformInput.None || privacyLevel.sql) {
         colValue
       } else {
         val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)

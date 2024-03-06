@@ -1,0 +1,30 @@
+# The load directory
+
+Datawarehouses are organized around schemas where tables are grouped.
+Depending on the database, a database `schema` can be called `schema` or `catalog` or `dataset`.
+In starlake, we use the term `domain` to designate  a `schema`, `catalog` or `dataset`.
+
+Below is a typical structure of the `load` section of a starlake project.
+
+It allows to load files to the `product` and `order` tables in the `sales` domain
+and the `seller` and `location` tables in the `hr` domain.
+
+<br/>
+
+```plaintext
+metadata/load
+├── sales
+│   ├── _config.sl.yml
+│   ├── product.sl.yml
+│   └── order.sl.yml
+└── hr
+    ├── seller.sl.yml
+    └── location.sl.yml
+```
+<br/>
+
+- The `_config.sl.yml` file is a configuration file that contains the domain configuration and describe how the domain will be created in the target database.
+
+- The `<table-name>.sl.yml` file contain the table configuration and describe how files are parsed, validated and loaded into the target database.
+
+

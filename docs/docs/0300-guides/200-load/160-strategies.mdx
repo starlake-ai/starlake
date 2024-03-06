@@ -1,1 +1,152 @@
 # Write strategies
+
+When loading a file to a database table you can specify how to data is written to the table.
+That's what the `metadata.writeStrategy' property is for.
+
+The following strategies are available:
+
+- `APPEND` (default): Insert all rows into the table. If the table already contains data, the new rows will be appended.
+- `OVERWRITE`: Replace all rows in the table with the new rows. This will delete all existing rows and insert the new ones.
+- `OVERWRITE_BY_KEY`: Merge the new rows with the existing rows. If a row with the same key already exists in the table,
+the new row will overwrite the old one otherwise it will be appended.
+- `OVERWRITE_BY_KEY_AND_TIMESTAMP`: Merge the new rows with the existing rows. If a row with the same key and an older timestamp already exists in the table, the new row will overwrite the old one otherwise it will be appended.
+- `OVERWRITE_BY_PARTITION`: Merge the new rows with the existing rows. All existing partitions present in the new data will be overwritten. All other partitions will be left untouched and new partitions will be appended.
+- `SCD2`: Merge the new rows with the existing rows using the [Slowly Changing Dimension Type 2](https://en.wikipedia.org/wiki/Slowly_changing_dimension) strategy. This will keep track of the history of the rows in the table.
+
+## APPEND strategy
+If the table does not exist, it will be created. If the table already contains data, the new rows will be appended.
+<br/>
+
+```yaml title="Append to the table."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+  attributes:
+    - ...
+```
+
+## OVERWRITE strategy
+If the table does not exist, it will be created.
+Replace all rows in the table with the new rows. This will delete all existing rows and insert the new ones.
+<br/>
+
+
+```yaml title="Overwrite the table."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "OVERWRITE"
+  attributes:
+    - ...
+```
+
+## OVERWRITE_BY_KEY strategy
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows.
+If a row with the same key already exists in the table,
+the new row will overwrite the old one otherwise it will be appended.
+<br/>
+
+
+```yaml title="Overwrite by key. The column 'id' is used as key."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "OVERWRITE_BY_KEY"
+      key: ["id"]
+      on: TARGET
+  attributes:
+    - ...
+```
+## OVERWRITE_BY_KEY_AND_TIMESTAMP strategy
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows. If a row with the same key and an older timestamp already exists in the table, the new row will overwrite the old one otherwise it will be appended.
+<br/>
+
+```yaml title="Overwrite by key and timestamp. The column 'id' is used as key."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "OVERWRITE_BY_KEY_AND_TIMESTAMP"
+      key: ["id"]
+      timestamp: "valid_from"
+      on: TARGET
+  attributes:
+    - ...
+```
+
+
+## OVERWRITE_BY_PARTITION strategy
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows. All existing partitions present in the new data will be overwritten. All other partitions will be left untouched and new partitions will be appended.
+<br/>
+
+```yaml title="Overwrite by partition. Require the partition property to be set in the metadata.sink section."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "OVERWRITE_BY_PARTITION"
+      on: TARGET
+  attributes:
+    - ...
+```
+
+## SCD2 strategy
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows using the [Slowly Changing Dimension Type 2](https://en.wikipedia.org/wiki/Slowly_changing_dimension) strategy. This will keep track of the history of the rows in the table.
+
+<br/>
+
+```yaml title="Slow changing dimension Type 2. The column 'id' is used as key and the column 'date' is used as timestamp."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "SCD2"
+      key: ["id"]
+      timestamp: "date"
+      start_ts: "valid_from"
+      end_ts: "valid_to"
+      on: BOTH
+  attributes:
+    - ...
+```
+
+<br/>
+the `start_ts` and `end_ts` properties are used to specify the names of the columns that will be used to store the start and end timestamps of the rows.
+
+They may be omitted. In that case, the default values `sl_start_ts` and `sl_end_ts` will be used.
+
+These default values may be changed in the `metadata/application.sl.yml` file by setting the following global variables .
+<br/>
+
+```yaml
+application:
+  ...
+  scd2StartTimestamp: "sl_start_ts"
+  scd2EndTimestamp: "sl_end_ts"
+```

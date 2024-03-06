@@ -2,9 +2,8 @@ package ai.starlake.job.validator
 
 import ai.starlake.config.{CometColumns, PrivacyLevels}
 import ai.starlake.job.ingest.IngestionUtil
-import ai.starlake.privacy.PrivacyEngine
-import ai.starlake.schema.model.{Attribute, Format, PrivacyLevel, Type}
-import ai.starlake.utils.Utils
+import ai.starlake.schema.model.{Attribute, Format, TransformInput, Type}
+import ai.starlake.utils.{TransformEngine, Utils}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
@@ -117,7 +116,7 @@ object TreeRowValidator extends GenericRowValidator {
     schemaSparkType: StructType,
     types: Map[String, Type],
     schemaSparkTypeWithSuccessErrorMessage: StructType,
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
     topLevel: Boolean,
     emptyIsNull: Boolean
   ): (GenericRowWithSchema, mutable.MutableList[String]) = {

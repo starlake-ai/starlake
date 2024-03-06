@@ -146,11 +146,10 @@ object InferSchemaHandler {
     options: Option[Map[String, String]] = None
   ): Metadata =
     Metadata(
-      mode = Some(Mode.fromString("FILE")),
       format = Some(format),
       encoding = None,
       multiline = None,
-      array = array,
+      array = if (array.contains(true)) array else None,
       withHeader = withHeader,
       separator = separator,
       options = options

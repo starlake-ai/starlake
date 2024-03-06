@@ -1,4 +1,3 @@
-
 load:
   metadata:
     directory: "{{incoming_path}}/starbake"

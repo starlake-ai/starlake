@@ -1,8 +1,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{PrivacyLevels, Settings}
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.model._
+import ai.starlake.utils.TransformEngine
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
@@ -460,11 +460,11 @@ class XlsDomainReader(input: Input) extends XlsModel {
         .map { value =>
           val allPrivacyLevels =
             PrivacyLevels.allPrivacyLevels(settings.appConfig.privacy.options)
-          val ignore: Option[((PrivacyEngine, List[String]), PrivacyLevel)] =
+          val ignore: Option[((TransformEngine, List[String]), TransformInput)] =
             allPrivacyLevels.get(value.toUpperCase)
           ignore.map { case (_, level) => level }.getOrElse {
             if (value.toUpperCase().startsWith("SQL:"))
-              PrivacyLevel(value.substring("SQL:".length), true)
+              TransformInput(value.substring("SQL:".length), true)
             else
               throw new Exception(s"key not found: $value")
           }
@@ -545,7 +545,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
             `type` = semanticType,
             array = isArray,
             required = required,
-            privacy.getOrElse(PrivacyLevel.None),
+            privacy.getOrElse(TransformInput.None),
             comment = commentOpt,
             rename = renameOpt,
             metricType = metricType,

@@ -1,10 +1,10 @@
-package ai.starlake.privacy
+package ai.starlake.utils
 
 import java.security.SecureRandom
 
 /** Several encryption methods used in privacy management
   */
-object PrivacyEngine {
+object TransformEngine {
 
   def algo(alg: String, data: String): String = {
     val m = java.security.MessageDigest.getInstance(alg)
@@ -40,7 +40,7 @@ object PrivacyEngine {
   }
 }
 
-trait PrivacyEngine {
+trait TransformEngine {
 
   /** @param s:
     *   String => Input string to encrypt
@@ -57,31 +57,31 @@ trait PrivacyEngine {
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String
 }
 
-object Md5 extends PrivacyEngine {
+object Md5 extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
-    PrivacyEngine.algo("MD5", s)
+    TransformEngine.algo("MD5", s)
 }
 
-object Sha1 extends PrivacyEngine {
+object Sha1 extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
-    PrivacyEngine.algo("SHA-1", s)
+    TransformEngine.algo("SHA-1", s)
 }
 
-object Sha256 extends PrivacyEngine {
+object Sha256 extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
-    PrivacyEngine.algo("SHA-256", s)
+    TransformEngine.algo("SHA-256", s)
 }
 
-object Sha512 extends PrivacyEngine {
+object Sha512 extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
-    PrivacyEngine.algo("SHA-512", s)
+    TransformEngine.algo("SHA-512", s)
 }
 
-object Hide extends PrivacyEngine {
+object Hide extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     if (params.isEmpty)
@@ -95,27 +95,27 @@ object Hide extends PrivacyEngine {
   }
 }
 
-object No extends PrivacyEngine {
+object No extends TransformEngine {
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = s
 }
 
-object Initials extends PrivacyEngine {
+object Initials extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     s.split("\\s+").map(_.substring(0, 1)).mkString("", ".", ".")
   }
 }
 
-object Email extends PrivacyEngine {
+object Email extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 1)
     val split = s.split('@')
-    PrivacyEngine.algo(params.head.toString, split(0)) + "@" + split(1)
+    TransformEngine.algo(params.head.toString, split(0)) + "@" + split(1)
   }
 }
 
-trait IP extends PrivacyEngine {
+trait IP extends TransformEngine {
   def separator: Char
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
@@ -137,7 +137,7 @@ object IPv6 extends IP {
   override val separator: Char = ':'
 }
 
-trait NumericRandomPrivacy extends PrivacyEngine {
+trait NumericRandomTransform extends TransformEngine {
   val rnd: SecureRandom
 
   final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
@@ -158,7 +158,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
   }
 }
 
-object RandomDouble extends NumericRandomPrivacy {
+object RandomDouble extends NumericRandomTransform {
   val rnd = new SecureRandom()
 
   def genUnbounded(): Double = rnd.nextDouble()
@@ -172,7 +172,7 @@ object RandomDouble extends NumericRandomPrivacy {
   }
 }
 
-object RandomLong extends NumericRandomPrivacy {
+object RandomLong extends NumericRandomTransform {
   val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextLong().toDouble
@@ -185,7 +185,7 @@ object RandomLong extends NumericRandomPrivacy {
     (crypt(params) % Long.MaxValue).toLong.toString
 }
 
-object RandomInt extends NumericRandomPrivacy {
+object RandomInt extends NumericRandomTransform {
   val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextInt().toDouble
@@ -198,7 +198,7 @@ object RandomInt extends NumericRandomPrivacy {
     (crypt(params) % Int.MaxValue).toInt.toString
 }
 
-class ApproxDouble extends PrivacyEngine {
+class ApproxDouble extends TransformEngine {
   val rnd = new SecureRandom()
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
@@ -231,7 +231,7 @@ object ApproxLong extends ApproxDouble {
 
 }
 
-object Mask extends PrivacyEngine {
+object Mask extends TransformEngine {
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 4)

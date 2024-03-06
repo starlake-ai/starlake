@@ -1,18 +1,33 @@
 package ai.starlake.privacy
 
 import ai.starlake.TestHelper
+import ai.starlake.utils.{
+  ApproxDouble,
+  ApproxLong,
+  Email,
+  Hide,
+  IPv4,
+  IPv6,
+  Initials,
+  Mask,
+  RandomDouble,
+  RandomInt,
+  RandomLong,
+  TransformEngine
+}
 
 class PrivacyEngineSpec extends TestHelper {
 
   new WithSettings() {
     "Parsing a single arg encryption algo" should "succeed" in {
-      val (algo, params) = PrivacyEngine.parse("ai.starlake.privacy.Approx(10)")
+      val (algo, params) = TransformEngine.parse("ai.starlake.privacy.Approx(10)")
       algo should equal("ai.starlake.privacy.Approx")
       params.head.toInt shouldBe a[Int]
       params should equal(List("10"))
     }
     "Parsing a multiple arg encryption algo" should "succeed" in {
-      val (algo, params) = PrivacyEngine.parse("package.SomeAlgo('X', \"Hello\", 12, false, 12.34)")
+      val (algo, params) =
+        TransformEngine.parse("package.SomeAlgo('X', \"Hello\", 12, false, 12.34)")
       algo should equal("package.SomeAlgo")
       params should have length 5
       params(0) should have length 1
@@ -102,7 +117,7 @@ class PrivacyEngineSpec extends TestHelper {
 
     }
     "Context based crypting" should "succeed" in {
-      object ConditionalHide extends PrivacyEngine {
+      object ConditionalHide extends TransformEngine {
         override def crypt(
           s: String,
           colMap: => Map[String, Option[String]],
@@ -130,9 +145,9 @@ class PrivacyEngineSpec extends TestHelper {
       // SHA256
       val testStr1SHA256 = "9QGXpjDcIt"
       val testStr2SHA256 = "w3D6vpfT02"
-      val hashSHA256 = PrivacyEngine.algo("SHA-256", testStr1SHA256)
-      val hash2SHA256 = PrivacyEngine.algo("SHA-256", testStr2SHA256)
-      val hashTestSHA256 = PrivacyEngine.algo("SHA-256", randomString)
+      val hashSHA256 = TransformEngine.algo("SHA-256", testStr1SHA256)
+      val hash2SHA256 = TransformEngine.algo("SHA-256", testStr2SHA256)
+      val hashTestSHA256 = TransformEngine.algo("SHA-256", randomString)
       hashSHA256.startsWith("0") shouldBe true
       hash2SHA256.startsWith("0") shouldBe true
       println(hash2SHA256)
@@ -144,8 +159,8 @@ class PrivacyEngineSpec extends TestHelper {
 
       // MD 5
       val testStrMD5 = "dzRycgvXb9"
-      val hashMD5 = PrivacyEngine.algo("MD5", testStrMD5)
-      val hashTestMD5 = PrivacyEngine.algo("MD5", randomString)
+      val hashMD5 = TransformEngine.algo("MD5", testStrMD5)
+      val hashTestMD5 = TransformEngine.algo("MD5", randomString)
       hashMD5.startsWith("0") shouldBe true
       hashMD5.length shouldBe 32
 
@@ -153,8 +168,8 @@ class PrivacyEngineSpec extends TestHelper {
       hashTestMD5.length shouldBe 32
       // SHA-1
       val testStrSHA1 = "bHXgtt2xvO"
-      val hashSHA1 = PrivacyEngine.algo("SHA-1", testStrSHA1)
-      val hashTestSHA1 = PrivacyEngine.algo("SHA-1", randomString)
+      val hashSHA1 = TransformEngine.algo("SHA-1", testStrSHA1)
+      val hashTestSHA1 = TransformEngine.algo("SHA-1", randomString)
       hashSHA1.startsWith("0") shouldBe true
       hashSHA1.length shouldBe 40
 
@@ -163,8 +178,8 @@ class PrivacyEngineSpec extends TestHelper {
 
       // SHA-512
       val testStrSHA512 = "q9z2ZT5T5w"
-      val hashSHA512 = PrivacyEngine.algo("SHA-512", testStrSHA512)
-      val hashTestSHA512 = PrivacyEngine.algo("SHA-512", randomString)
+      val hashSHA512 = TransformEngine.algo("SHA-512", testStrSHA512)
+      val hashTestSHA512 = TransformEngine.algo("SHA-512", randomString)
       hashSHA512.startsWith("0") shouldBe true
       hashSHA512.length shouldBe 128
 
