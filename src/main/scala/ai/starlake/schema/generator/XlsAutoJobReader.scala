@@ -1,9 +1,11 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.schema.model.ConnectionType._
 import ai.starlake.schema.model._
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
+import scala.util.Try
 
 class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsModel {
 
@@ -29,10 +31,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val schemaOpt =
         Option(row.getCell(headerMapSchema("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val writeOpt =
+      val writeStrategyOpt =
         Option(row.getCell(headerMapSchema("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(WriteMode.fromString)
+          .map(WriteStrategyType.fromString)
       val partitionOpt =
         Option(
           row.getCell(headerMapSchema("_partition"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -57,7 +59,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val clustering =
         Option(
           row.getCell(headerMapSchema("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toSeq)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
 
       val tags =
         Option(
@@ -78,7 +80,66 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       )
       val rls = withPredicate
 
-      val isPartition = partitionOpt.nonEmpty
+      val presqlOpt = Option(
+        row.getCell(headerMapSchema("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+
+      val postsqlOpt = Option(
+        row.getCell(headerMapSchema("_postsql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+
+      val sinkTypeOpt = Option(
+        row.getCell(headerMapSchema("_sink"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val connectionTypeOpt = Try(sinkTypeOpt.map(ConnectionType.fromString)).toOption.flatten
+
+      val connectionRefOpt = Option(
+        row.getCell(headerMapSchema("_connectionRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val sinkOptionsOpt = Option(
+        row.getCell(headerMapSchema("_options"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+        .map(
+          _.split(",")
+            .flatMap(kv =>
+              kv.trim.split("=").toList match {
+                case k :: v :: Nil => Some(k -> v)
+                case _             => None
+              }
+            )
+            .toMap
+        )
+
+      val formatOpt = Option(
+        row.getCell(headerMapSchema("_format"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val extensionOpt = Option(
+        row.getCell(headerMapSchema("_extension"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val coalesceOpt = Option(
+        row.getCell(headerMapSchema("_coalesce"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val allSinks = AllSinks(
+        connectionRef = connectionRefOpt,
+        partition = partitionOpt.map(List(_)),
+        clustering = clustering,
+        requirePartitionFilter = partitionOpt match {
+          case Some(_) => Some(true)
+          case _       => None
+        },
+        format = formatOpt,
+        extension = extensionOpt,
+        coalesce = coalesceOpt.map(_.trim.toLowerCase match {
+          case "true" => true
+          case _      => false
+        }),
+        options = sinkOptionsOpt
+      )
 
       val task =
         if (domainOpt.isEmpty) None
@@ -90,16 +151,20 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               database = databaseOpt,
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
-              write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
-              sink = Some(partitionOpt match {
-                case Some(partition) =>
-                  BigQuerySink(
-                    partition = Some(List(partition)),
-                    clustering = clustering,
-                    requirePartitionFilter = Some(true)
-                  ).toAllSinks()
-                case _ => BigQuerySink().toAllSinks()
-              }),
+              sink = Some(
+                connectionTypeOpt match {
+                  case Some(BQ)     => BigQuerySink.fromAllSinks(allSinks).toAllSinks()
+                  case Some(FS)     => FsSink.fromAllSinks(allSinks).toAllSinks()
+                  case Some(JDBC)   => JdbcSink.fromAllSinks(allSinks).toAllSinks()
+                  case Some(ES)     => EsSink.fromAllSinks(allSinks).toAllSinks()
+                  case Some(KAFKA)  => KafkaSink.fromAllSinks(allSinks).toAllSinks()
+                  case Some(GCPLOG) => GcpLogSink.fromAllSinks(allSinks).toAllSinks()
+                  case _            => allSinks
+                }
+              ),
+              write = writeStrategyOpt.map(_.toWriteMode()),
+              presql = presqlOpt.getOrElse(Nil),
+              postsql = postsqlOpt.getOrElse(Nil),
               rls = rls,
               acl = acl,
               comment = commentOpt,
@@ -142,7 +207,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               }.getOrElse(Nil),
               python = None,
               tags = tags,
-              writeStrategy = None,
+              // FIXME: compute correct write strategy
+              writeStrategy = Some(
+                WriteStrategy(`type` = writeStrategyOpt.orElse(Some(WriteStrategyType.OVERWRITE)))
+              ),
               taskTimeoutMs = None
             )
           )

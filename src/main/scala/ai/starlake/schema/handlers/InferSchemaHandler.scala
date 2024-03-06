@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
@@ -221,24 +221,16 @@ object InferSchemaHandler {
     domainFolder.createDirectories()
     val configPath = File(domainFolder, "_config.sl.yml")
     if (!configPath.exists) {
-      // minimal config file
-      val configData = s"""
-         |load:
-         |  metadata:
-         |    directory: "{{incoming_path}}/${domain.name}"
-         |""".stripMargin
-      configPath.overwrite(configData)
+      YamlSerde.serializeToFile(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")
-    if (tablePath.exists) {
-      if (!clean) {
-        throw new Exception(
-          s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
-        )
-      }
+    if (tablePath.exists && !clean) {
+      throw new Exception(
+        s"Could not write table ${domain.tables.head.name} already defined in file $tablePath"
+      )
     }
-    YamlSerializer.serializeToFile(tablePath, table)
+    YamlSerde.serializeToFile(tablePath, table)
     tablePath
   }
 }

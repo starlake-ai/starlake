@@ -3,6 +3,7 @@ object Versions {
   val spark3d0 = "3.5.0"
   val deltaSpark3d0 = "3.1.0"
   val scalatest = "3.2.18"
+  val scalacheckForScalatest = "3.2.18.0"
   val sparkXML2d0 = "0.13.0"
   val sparkXML = "0.17.0"
   val springBoot = "2.0.6.RELEASE"
@@ -16,6 +17,7 @@ object Versions {
   val jackson212ForSpark3 = "2.15.2"
   val pureConfig212ForSpark3 = "0.14.0"
   val esSpark212 = "8.10.3"
+  val jsonSchemaValidator = "1.3.1"
   val scopt = "4.1.0"
   val gcsConnector = "hadoop3-2.2.19"
   val bigquery = "2.37.2"
@@ -34,6 +36,6 @@ object Versions {
   val snowflakeJDBC = "3.13.30"
   val snowflakeSpark: String = "2.11.3-spark_3.3"
   val jSqlParser = "4.8"
-  val bigQueue = "0.7.0"
   val duckdb = "0.10.0"
+  val redshiftJDBC = "2.1.0.26"
 }

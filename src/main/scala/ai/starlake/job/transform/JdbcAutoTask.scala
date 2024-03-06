@@ -90,8 +90,8 @@ class JdbcAutoTask(
   def addSCD2Columns(connection: Connection): Unit = {
     this.taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.getStrategyType() == WriteStrategyType.SCD2 =>
-        val startTsCol = strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTsCol = strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
         val scd2Columns = List(startTsCol, endTsCol)
         val alterTableSqls = scd2Columns.map { column =>
           s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP"
@@ -142,7 +142,7 @@ class JdbcAutoTask(
           case None =>
             conn.setAutoCommit(false)
             val parsedPreActions =
-              Utils.parseJinja(jdbcSinkEngine.preactions, Map("schema" -> taskDesc.domain))
+              Utils.parseJinja(jdbcSinkEngine.preActions, Map("schema" -> taskDesc.domain))
             Try {
               runPreActions(conn, parsedPreActions.splitSql(";"))
               runSqls(conn, preSql, "Pre")
@@ -240,8 +240,8 @@ class JdbcAutoTask(
 
   lazy val fullTableName = s"$fullDomainName.${taskDesc.table}"
 
-  private def runPreActions(conn: java.sql.Connection, preactions: List[String]): Unit = {
-    runSqls(conn, preactions, "Preactions")
+  private def runPreActions(conn: java.sql.Connection, preActions: List[String]): Unit = {
+    runSqls(conn, preActions, "PreActions")
   }
 
   @throws[Exception]
@@ -268,7 +268,7 @@ class JdbcAutoTask(
         incomingSchema
           .add(
             StructField(
-              strategy.start_ts
+              strategy.startTs
                 .getOrElse(settings.appConfig.scd2StartTimestamp),
               TimestampType,
               nullable = true
@@ -276,7 +276,7 @@ class JdbcAutoTask(
           )
           .add(
             StructField(
-              strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp),
+              strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp),
               TimestampType,
               nullable = true
             )

@@ -1203,7 +1203,6 @@ object JdbcDbUtils extends LazyLogging {
               start = new Timestamp(partitionStart),
               end = new Timestamp(partitionEnd),
               duration = (partitionEnd - partitionStart).toInt,
-              mode = extractConfig.jdbcSchema.writeMode().toString,
               count = count,
               success = true,
               message = tableExtractDataConfig.partitionColumn,
@@ -1250,7 +1249,6 @@ object JdbcDbUtils extends LazyLogging {
       start = new Timestamp(tableStart),
       end = new Timestamp(tableEnd),
       duration = duration,
-      mode = extractConfig.jdbcSchema.writeMode().toString,
       count = boundaries.count,
       success = success,
       message = tableExtractDataConfig.partitionColumn,
@@ -1318,7 +1316,6 @@ object JdbcDbUtils extends LazyLogging {
       start = new Timestamp(tableStart),
       end = new Timestamp(tableEnd),
       duration = (tableEnd - tableStart).toInt,
-      mode = extractConfig.jdbcSchema.writeMode().toString,
       count = count,
       success = count >= 0,
       message = "FULL",
@@ -1907,7 +1904,7 @@ object LastExportUtils extends LazyLogging {
     preparedStatement.setTimestamp(3, row.start)
     preparedStatement.setTimestamp(4, row.end)
     preparedStatement.setInt(5, row.duration)
-    preparedStatement.setString(6, row.mode)
+    preparedStatement.setString(6, WriteMode.OVERWRITE.toString)
     preparedStatement.setLong(7, row.count)
     preparedStatement.setBoolean(8, row.success)
     preparedStatement.setString(9, row.message)
@@ -1968,7 +1965,6 @@ case class DeltaRow(
   start: java.sql.Timestamp,
   end: java.sql.Timestamp,
   duration: Int,
-  mode: String,
   count: Long,
   success: Boolean,
   message: String,

@@ -1,15 +1,16 @@
 ---
+version: 1
 load:
   name: "DOMAIN"
   metadata:
     directory: "__SL_TEST_ROOT__/DOMAIN"
-    mode: "FILE"
     format: "DSV"
     withHeader: false
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -27,7 +28,7 @@ load:
         - name: "age"
           rename: "age"
           type: "int"
-          metricType: "discrete"
+          metricType: "DISCRETE"
           required: false
           privacy: "NONE"
         - name: "ok"
@@ -36,19 +37,18 @@ load:
           privacy: "NONE"
           default: true
       metadata:
-        mode: "FILE"
         format: "DSV"
         withHeader: true
         separator: ";"
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "APPEND"
         sink:
           partition:
-            attributes:
-              - year
-              - month
-              - day
+            - year
+            - month
+            - day
     - name: "Players"
       pattern: "Players.*.csv"
       attributes:
@@ -86,7 +86,6 @@ load:
           required: false
           privacy: "NONE"
       metadata:
-        mode: "FILE"
         format: "DSV"
         encoding: "UTF-8"
         multiline: false
@@ -94,15 +93,14 @@ load:
         separator: ","
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "APPEND"
+          key:
+            - "PK"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
-      merge:
-        key:
-          - "PK"
+            - "YEAR"
+            - "MONTH"
     - name: "employee"
       pattern: "employee.*.csv"
       attributes:
@@ -122,7 +120,6 @@ load:
       postsql:
         - "UPDATE DOMAIN.employee SET name = 'John'"
       metadata:
-        mode: "FILE"
         format: "DSV"
         withHeader: false
         separator: ","
@@ -144,7 +141,7 @@ load:
         - name: "age"
           rename: "age"
           type: "int"
-          metricType: "discrete"
+          metricType: "DISCRETE"
           required: false
           privacy: "NONE"
           comment: "age comment"

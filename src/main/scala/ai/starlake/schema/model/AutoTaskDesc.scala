@@ -2,8 +2,10 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
+
+case class TaskDesc(version: Int, task: AutoTaskDesc)
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -27,13 +29,16 @@ import org.apache.hadoop.fs.Path
   * @param rls
   *   Row level security policy to apply too the output data.
   */
+@JsonIgnoreProperties(
+  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
+)
 case class AutoTaskDesc(
   name: String,
   sql: Option[String],
   database: Option[String],
   domain: String,
   table: String,
-  write: Option[WriteMode],
+  write: Option[WriteMode], // TODO: remove this attribute
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -62,9 +67,9 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getStrategy()(implicit settings: Settings): WriteStrategy = {
     val st1 = writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.APPEND)))
-    val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-    val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-    st1.copy(start_ts = Some(startTs), end_ts = Some(endTs))
+    val startTs = st1.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = st1.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+    st1.copy(startTs = Some(startTs), endTs = Some(endTs))
   }
 
   @JsonIgnore

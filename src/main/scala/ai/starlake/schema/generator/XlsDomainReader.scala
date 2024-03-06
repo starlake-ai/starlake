@@ -207,7 +207,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
         .map {
           case fsSink: FsSink =>
             val clusteredFsSink = clusteringOpt match {
-              case Some(cluster) => fsSink.copy(clustering = Some(cluster))
+              case Some(cluster) => fsSink.copy(clustering = Some(cluster.toList))
               case None          => fsSink
             }
             val partition = partitionColumns match {
@@ -228,7 +228,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
             }
             val clusteredBqSink = clusteringOpt match {
               case Some(cluster) =>
-                partitionBqSink.copy(clustering = Some(cluster))
+                partitionBqSink.copy(clustering = Some(cluster.toList))
               case _ => partitionBqSink
             }
             clusteredBqSink.toAllSinks()

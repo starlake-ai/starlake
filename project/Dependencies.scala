@@ -77,8 +77,18 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
+  val snowflake = Seq(
+    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test,
+    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test
+  )
+
+  val redshift = Seq(
+    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test
+  )
+
   val scalaTest = Seq(
-    "org.scalatest" %% "scalatest" % Versions.scalatest % Test
+    "org.scalatest" %% "scalatest" % Versions.scalatest % Test,
+    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test
   )
 
   val h2 = Seq(
@@ -141,8 +151,6 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
-  val bigQueue = Seq("com.leansoft" % "bigqueue" % Versions.bigQueue)
-
   val jna_apple_arm_testcontainers = Seq(
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
@@ -161,7 +169,12 @@ object Dependencies {
 
   val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
 
+  val jsonSchemaValidator = Seq(
+    "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
+  )
+
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ duckdb ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
+    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++
+    pgGcp ++ jsonSchemaValidator
 }

@@ -3,9 +3,10 @@ package ai.starlake.extract
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Metadata, Mode, Schema}
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.schema.model.{Domain, Metadata, Schema}
+import ai.starlake.utils.YamlSerde
 import better.files.File
 
 import java.sql.DriverManager
@@ -16,7 +17,6 @@ class ExtractSpec extends TestHelper {
   "JDBC2Yml of all tables" should "should generated all the table schemas in a YML file" in {
     new WithSettings() {
       val metadata = Metadata(
-        mode = Some(Mode.STREAM),
         quote = Some("::"),
         directory = Some("/{{domain}}/{{schema}}")
       )
@@ -28,7 +28,6 @@ class ExtractSpec extends TestHelper {
         Some(domainTemplate)
       ) { case (domain, _, _) =>
         assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
-        assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
         assert(domain.metadata.flatMap(_.directory).isDefined)
       }
     }
@@ -83,7 +82,7 @@ class ExtractSpec extends TestHelper {
     val publicOutputDir = outputDir / "PUBLIC"
     val publicPath = publicOutputDir / "_config.sl.yml"
     val domain =
-      YamlSerializer.deserializeDomain(
+      YamlSerde.deserializeYamlLoadConfig(
         publicPath.contentAsString,
         publicPath.pathAsString
       ) match {
@@ -94,8 +93,8 @@ class ExtractSpec extends TestHelper {
 
     val tableFile = publicOutputDir / "test_table1.sl.yml"
     val table =
-      YamlSerializer
-        .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
+      YamlSerde
+        .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
         .tables
         .head
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
@@ -106,8 +105,8 @@ class ExtractSpec extends TestHelper {
     table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
     val viewFile = publicOutputDir / "test_view1.sl.yml"
     val view =
-      YamlSerializer
-        .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
+      YamlSerde
+        .deserializeYamlTables(viewFile.contentAsString, viewFile.pathAsString)
         .tables
         .head
     view.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_view1\\E.*"
@@ -118,6 +117,7 @@ class ExtractSpec extends TestHelper {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
@@ -145,7 +145,10 @@ class ExtractSpec extends TestHelper {
       jdbcMapping.overwrite(input)
 
       val jdbcSchemas =
-        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
+        YamlSerde.deserializeYamlExtractConfig(
+          jdbcMapping.contentAsString,
+          jdbcMapping.pathAsString
+        )
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
         connectionRef = Some("test-pg"),
@@ -184,13 +187,14 @@ class ExtractSpec extends TestHelper {
     }
   }
 
-  "JDBCSchemas" should "deserialize with global jdbc schema override" in {
+  "JDBCSchemas" should "deserialize with default schema override" in {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
-          |  globalJdbcSchema:
+          |  default:
           |    catalog: "business" # Optional catalog name in the target database
           |    schema: "public" # Database schema where tables are located
           |    tableTypes: # One or many of the types below
@@ -213,7 +217,10 @@ class ExtractSpec extends TestHelper {
       jdbcMapping.overwrite(input)
 
       val jdbcSchemas =
-        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
+        YamlSerde.deserializeYamlExtractConfig(
+          jdbcMapping.contentAsString,
+          jdbcMapping.pathAsString
+        )
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
         connectionRef = Some("test-pg"),
@@ -267,9 +274,10 @@ class ExtractSpec extends TestHelper {
     new WithSettings() {
       val input =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
-          |  globalJdbcSchema:
+          |  default:
           |    catalog: "business" # Optional catalog name in the target database
           |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
           |    pattern: "{{schema}}-{{table}}.*"
@@ -286,7 +294,10 @@ class ExtractSpec extends TestHelper {
       jdbcMapping.overwrite(input)
 
       val jdbcSchemas =
-        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
+        YamlSerde.deserializeYamlExtractConfig(
+          jdbcMapping.contentAsString,
+          jdbcMapping.pathAsString
+        )
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
       jdbcSchemas shouldBe JDBCSchemas(
         connectionRef = Some("test-pg"),
@@ -381,7 +392,7 @@ class ExtractSpec extends TestHelper {
       )
       val publicPath = tmpDir / "PUBLIC/_config.sl.yml"
       val domain =
-        YamlSerializer.deserializeDomain(
+        YamlSerde.deserializeYamlLoadConfig(
           publicPath.contentAsString,
           publicPath.pathAsString
         ) match {
@@ -391,8 +402,8 @@ class ExtractSpec extends TestHelper {
       assert(domain.name == "PUBLIC")
       val tableFile = tmpDir / "PUBLIC" / "test_table1.sl.yml"
       val table =
-        YamlSerializer
-          .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
+        YamlSerde
+          .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
           .tables
           .head
       table.attributes
@@ -443,7 +454,7 @@ class ExtractSpec extends TestHelper {
       )
       val publicPath = tmpDir / "PUBLIC" / "_config.sl.yml"
       val domain =
-        YamlSerializer.deserializeDomain(
+        YamlSerde.deserializeYamlLoadConfig(
           publicPath.contentAsString,
           publicPath.pathAsString
         ) match {
@@ -453,8 +464,8 @@ class ExtractSpec extends TestHelper {
       assert(domain.name == "PUBLIC")
       val tableFile = File(tmpDir / "PUBLIC", "test_table2.sl.yml")
       val table =
-        YamlSerializer
-          .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
+        YamlSerde
+          .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
           .tables
           .head
       table.attributes
@@ -528,5 +539,48 @@ class ExtractSpec extends TestHelper {
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
+  }
+
+  "JDBCSchemas" should "fail on invalid config type" in {
+    new WithSettings() {
+      val input =
+        """
+          |version: 1
+          |extract:
+          |  connectionRef: true # Connection name as defined in the connections section of the application.conf file
+          |  jdbcSchemas:
+          |    - catalog: 1 # Optional catalog name in the target database
+          |      schema: 2 # Database schema where tables are located
+          |      tables:
+          |        - name: 3
+          |          columns: # optional list of columns, if not present all columns should be exported.
+          |            - k: true
+          |            - 4
+          |        - aString
+          |      tableTypes: "oneType"
+          |      template: 5 # Metadata to use for the generated YML file.
+          |      pattern: 6
+          |""".stripMargin
+      val jdbcMapping = File.newTemporaryFile()
+      jdbcMapping.overwrite(input)
+      val error = intercept[SchemaValidationException] {
+        YamlSerde.deserializeYamlExtractConfig(
+          jdbcMapping.contentAsString,
+          jdbcMapping.pathAsString
+        )
+      }
+      error.message should fullyMatch regex """Invalid content for .*?:
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tableTypes: string found, array expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]\.k: must not have unevaluated properties
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: should be valid to one and only one schema, but 0 are valid
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, string expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, boolean expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, number expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, integer expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, null expected
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: required property 'name' not found
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[1]: string found, object expected
+                                               |     - \$\.extract: must not have unevaluated properties""".stripMargin
+    }
   }
 }

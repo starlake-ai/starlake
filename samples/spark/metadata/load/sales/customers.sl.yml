@@ -1,4 +1,5 @@
 ---
+version: 1
 table:
   name: "customers"
   pattern: "customers.*.psv"
@@ -43,7 +44,6 @@ table:
     type: "string"
     script: "substring(id, 1, 1)"
   metadata:
-    mode: "FILE"
     format: "DSV"
     encoding: "UTF-8"
     multiline: false

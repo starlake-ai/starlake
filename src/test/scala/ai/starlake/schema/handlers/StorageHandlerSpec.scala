@@ -22,6 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.model._
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
@@ -161,7 +162,8 @@ class StorageHandlerSpec extends TestHelper {
     }
 
     "Types Case Class" should "be written as yaml and read correctly" in {
-      val types = Types(
+      val types = TypesDesc(
+        latestSchemaVersion,
         List(
           Type("string", ".+", PrimitiveType.string),
           Type("time", "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"),
@@ -186,7 +188,7 @@ class StorageHandlerSpec extends TestHelper {
       val fileContent = readFileContent(pathType)
       val expectedFileContent = loadTextFile(s"/expected/yml/types.sl.yml")
       fileContent shouldBe expectedFileContent
-      val resultType: Types = mapper.readValue[Types](storageHandler.read(pathType))
+      val resultType: TypesDesc = mapper.readValue[TypesDesc](storageHandler.read(pathType))
       resultType shouldBe types
 
     }

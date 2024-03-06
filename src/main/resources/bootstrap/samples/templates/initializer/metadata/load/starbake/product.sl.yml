@@ -1,4 +1,4 @@
----
+version: 1
 table:
   name: "product"
   pattern: "product.*.xml"
