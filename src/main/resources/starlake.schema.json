@@ -774,7 +774,7 @@
           "description": "Pattern to ignore or UDF to apply to ignore some lines"
         },
         "directory": {
-          "description": "Folder on the local filesystem where incoming files are stored.\n Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.\n                     Files located in this folder are moved to the pending folder for ingestion by the \"import\" command.",
+          "description": "Folder on the local filesystem where incoming files are stored.\n Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.\n                     Files located in this folder are moved to the stage folder for ingestion by the \"import\" command.",
           "$ref": "#/definitions/ConvertibleToString"
         },
         "extensions": {
@@ -782,10 +782,10 @@
           "items": {
             "$ref": "#/definitions/ConvertibleToString"
           },
-          "description": "recognized filename extensions. json, csv, dsv, psv are recognized by default.\nOnly files with these extensions will be moved to the pending folder."
+          "description": "recognized filename extensions. json, csv, dsv, psv are recognized by default.\nOnly files with these extensions will be moved to the stage folder."
         },
         "ack": {
-          "description": "Ack extension used for each file. \".ack\" if not specified.\nFiles are moved to the pending folder only once a file with the same name as the source file and with this extension is present.\nTo move a file without requiring an ack file to be present, set explicitly this property to the empty string value \"\".",
+          "description": "Ack extension used for each file. \".ack\" if not specified.\nFiles are moved to the stage folder only once a file with the same name as the source file and with this extension is present.\nTo move a file without requiring an ack file to be present, set explicitly this property to the empty string value \"\".",
           "$ref": "#/definitions/ConvertibleToString"
         },
         "options": {
@@ -875,7 +875,7 @@
     "AreaV1": {
       "type": "object",
       "properties": {
-        "pending": {
+        "stage": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Files recognized by the extensions property are moved to this folder for ingestion by the \"import\" command."
         },
@@ -891,20 +891,8 @@
           "description": "Files that are being ingested are moved to this folder.",
           "$ref": "#/definitions/ConvertibleToString"
         },
-        "accepted": {
-          "description": "When filesystem storage is used, successfully ingested stored in this this folder in parquet format or any format set by the SL_DEFAULT_WRITE_FORMAT env property.",
-          "$ref": "#/definitions/ConvertibleToString"
-        },
-        "rejected": {
-          "description": "When filesystem storage is used, rejected records are stored in this folder in parquet format or any format set by the SL_DEFAULT_WRITE_FORMAT env property.",
-          "$ref": "#/definitions/ConvertibleToString"
-        },
         "replay": {
           "description": "Invalid records are stored in this folder in source format when SL_SINK_REPLAY_TO_FILE is set to true.",
-          "$ref": "#/definitions/ConvertibleToString"
-        },
-        "business": {
-          "description": "",
           "$ref": "#/definitions/ConvertibleToString"
         },
         "hiveDatabase": {
@@ -1864,10 +1852,6 @@
             "ai.starlake.job.load.IngestionTimeStrategy"
           ]
         },
-        "hive": {
-          "type": "boolean",
-          "description": "Should we create the table in Hive ? (useful for Spark / Databricks) "
-        },
         "grouped": {
           "type": "boolean",
           "description": "Should we load of the files to be stored in the same table in a single task or one by one ?"
@@ -1886,7 +1870,7 @@
         },
         "area": {
           "$ref": "#/definitions/AreaV1",
-          "description": "pending, accepted ... areas configuration"
+          "description": "stage, ingesting ... areas configuration"
         },
         "hadoop": {
           "$ref": "#/definitions/MapString",

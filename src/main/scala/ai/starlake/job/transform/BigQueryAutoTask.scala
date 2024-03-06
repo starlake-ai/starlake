@@ -329,7 +329,7 @@ class BigQueryAutoTask(
   }
 
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
-    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     if (
       isSCD2 && !incomingTableSchema.getFields.asScala.exists(
         _.getName().toLowerCase() == settings.appConfig.scd2StartTimestamp.toLowerCase()

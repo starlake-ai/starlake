@@ -470,7 +470,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
+      if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
         val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 

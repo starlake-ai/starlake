@@ -905,7 +905,6 @@ class SchemaHandlerSpec extends TestHelper {
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
 
       metadata shouldBe Metadata(
-        mode = None,
         format = Some(ai.starlake.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),

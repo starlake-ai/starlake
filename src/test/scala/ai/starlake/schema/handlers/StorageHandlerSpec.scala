@@ -97,7 +97,6 @@ class StorageHandlerSpec extends TestHelper {
         name = "DOMAIN",
         metadata = Some(
           Metadata(
-            mode = Some(Mode.FILE),
             format = Some(Format.DSV),
             encoding = None,
             multiline = Some(false),
