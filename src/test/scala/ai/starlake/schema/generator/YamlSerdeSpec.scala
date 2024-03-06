@@ -312,7 +312,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlTaskConfig)
       try {
-        val deserializedConfig = YamlSerde.deserializeYamlTaskAsJson(config, "input")
+        val deserializedConfig = YamlSerde.deserializeYamlTask(config, "input")
         mapperWithEmptyString.writeValueAsString(deserializedConfig) should equal(
           mapperWithEmptyString.writeValueAsString(yamlTaskConfig.task)
         )
