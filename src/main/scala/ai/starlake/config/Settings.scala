@@ -26,8 +26,8 @@ import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, TransformEngine, Utils, YamlSerializer}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, TransformEngine, Utils, YamlSerde}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
@@ -52,6 +52,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object Settings extends StrictLogging {
+  val latestSchemaVersion: Int = 1
   implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
@@ -73,6 +74,9 @@ object Settings extends StrictLogging {
     * @param ingesting
     *   : Name of the ingesting area
     */
+  @JsonIgnoreProperties(
+    Array("acceptedFinal", "rejectedFinal", "businessFinal", "replayFinal")
+  )
   final case class Area(
     stage: String,
     unresolved: String,
@@ -100,7 +104,7 @@ object Settings extends StrictLogging {
     active: Boolean
   ) // sinked to audit
 
-  final case class Expectations(
+  final case class ExpectationsConfig(
     path: String,
     active: Boolean,
     failOnError: Boolean
@@ -144,7 +148,7 @@ object Settings extends StrictLogging {
     *   password to use in order to connect to the database engine
     */
   final case class Connection(
-    `type`: Option[String],
+    `type`: String,
     sparkFormat: Option[String] = None,
     quote: Option[String] = None,
     separator: Option[String] = None,
@@ -161,7 +165,7 @@ object Settings extends StrictLogging {
          |)""".stripMargin
     }
 
-    def this() = this(Some(ConnectionType.JDBC.value), None, None, None, Map.empty)
+    def this() = this(ConnectionType.JDBC.value, None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
@@ -277,6 +281,7 @@ object Settings extends StrictLogging {
       * @return
       *   the engine Spark or Bigquery only
       */
+    @JsonIgnore
     def getEngine(): Engine = {
       if (sparkFormat.isDefined) Engine.SPARK
       else {
@@ -289,17 +294,7 @@ object Settings extends StrictLogging {
       }
     }
 
-    def getType(): ConnectionType = {
-      val tpe = `type`
-        .orElse {
-          val isJDBC = options.get("url").exists(_.startsWith("jdbc:"))
-          if (isJDBC) Some("jdbc") else None
-        }
-        .getOrElse {
-          throw new Exception(s"Connection type not found for options $options")
-        }
-      ConnectionType.fromString(tpe)
-    }
+    def getType(): ConnectionType = ConnectionType.fromString(`type`)
 
     def datawareOptions(): Map[String, String] =
       options.filterKeys(!Connection.allstorageOptions.contains(_))
@@ -307,10 +302,11 @@ object Settings extends StrictLogging {
     def authOptions(): Map[String, String] =
       options.filterKeys(Connection.allstorageOptions.contains(_))
 
+    @JsonIgnore
     def getJdbcEngineName(): Engine = {
       val engineName = sparkFormat match {
         case None | Some("jdbc") =>
-          this.`type`.getOrElse(throw new Exception("Should never happen")) match {
+          this.`type` match {
             case "jdbc" =>
               val engineName = options("url").split(':')(1).toLowerCase()
               if (engineName == "databricks")
@@ -335,9 +331,13 @@ object Settings extends StrictLogging {
       Engine.fromString(engineName)
     }
 
+    @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+
+    @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
 
+    @JsonIgnore
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
 
     @JsonIgnore
@@ -400,7 +400,7 @@ object Settings extends StrictLogging {
     canMerge: Boolean,
     quote: String,
     viewPrefix: String,
-    preactions: String,
+    preActions: String,
     strategyBuilder: String
   )
 
@@ -465,6 +465,7 @@ object Settings extends StrictLogging {
     }
   }
 
+  @JsonIgnoreProperties(Array("sparkServerOptions"))
   final case class KafkaConfig(
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
@@ -531,6 +532,7 @@ object Settings extends StrictLogging {
     * @param area
     *   : see Area above
     */
+  @JsonIgnoreProperties(Array("cacheStorageLevel"))
   final case class AppConfig(
     env: String,
     datasets: String,
@@ -567,12 +569,12 @@ object Settings extends StrictLogging {
     accessPolicies: AccessPolicies,
     sparkScheduling: SparkScheduling,
     udfs: Option[String],
-    expectations: Expectations,
+    expectations: ExpectationsConfig,
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
     rejectMaxRecords: Int,
     maxParCopy: Int,
-    kafka: KafkaConfig, // not in schemastore yet
+    kafka: KafkaConfig,
     dsvOptions: Map[String, String],
     rootServe: Option[String],
     forceViewPattern: String,
@@ -603,7 +605,8 @@ object Settings extends StrictLogging {
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
-    def getUdfs(): Seq[String] =
+    @JsonIgnore
+    def getEffectiveUdfs(): Seq[String] =
       udfs
         .map { udfs =>
           udfs.split(',').toList
@@ -650,7 +653,7 @@ object Settings extends StrictLogging {
       val connectionTypeIsHive = this.connections
         .get(this.connectionRef)
         .exists { conn =>
-          conn.`type`.getOrElse("").toLowerCase() == "hive"
+          conn.`type`.toLowerCase() == "hive"
         }
       connectionTypeIsHive || Utils.isRunningInDatabricks()
     }
@@ -894,7 +897,7 @@ object Settings extends StrictLogging {
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )
-    logger.debug(YamlSerializer.serializeObject(loaded))
+    logger.debug(YamlSerde.serialize(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
@@ -958,32 +961,23 @@ object Settings extends StrictLogging {
     * @return
     */
   private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
-    val applicationYml = Option("application.sl.yml").find { filename =>
-      val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
-      settings.storageHandler().exists(applicationYmlPath)
-    }
-    val applicationYmlConfig = applicationYml match {
-      case Some(filename) =>
+    val applicationYmlPath = new Path(DatasetArea.metadata(settings), "application.sl.yml")
+    val applicationYmlConfig =
+      if (settings.storageHandler().exists(applicationYmlPath)) {
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
-        val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
           Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
-        val jsonNode: JsonNode = YamlSerializer.mapper.readTree(content)
-        // application: root node is optional
-        val appNode = jsonNode.path("application")
-        val finalNode =
-          if (appNode.isNull() || appNode.isMissingNode) {
-            jsonNode
-          } else
-            appNode
-
+        val finalNode: JsonNode =
+          YamlSerde
+            .deserializeYamlApplication(content, applicationYmlPath.toString)
+            .path("application")
         val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
         val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
         Some(applicationConfig)
-      case None =>
+      } else {
         None
-    }
+      }
 
     val applicationSettings = applicationYmlConfig match {
       case Some(applicationConfig) =>
@@ -1051,6 +1045,8 @@ object CometColumns {
   val slErrorMessageColumn: String = "sl_error_message"
 }
 
+final case class ApplicationDesc(version: Int, application: Settings.AppConfig)
+
 /** This class holds the current Comet settings and an assembly of reference instances for core,
   * shared services
   *
@@ -1116,7 +1112,7 @@ object PrivacyLevels {
   }
 
   def traverse(config: AppConfig): Unit = {
-    val jsonNode = YamlSerializer.mapper.valueToTree(config).asInstanceOf[JsonNode]
+    val jsonNode = YamlSerde.mapper.valueToTree(config).asInstanceOf[JsonNode]
     traverse(jsonNode, jsonNode, "")
   }
 

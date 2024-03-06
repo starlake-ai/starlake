@@ -7,7 +7,7 @@ load:
     sink:
       type: {{sink_type}}
       connectionRef: {{sink_connection}}
-  schemas:
+  tables:
     - name: "sellers"
       pattern: "sellers-.*.json"
       primaryKey:

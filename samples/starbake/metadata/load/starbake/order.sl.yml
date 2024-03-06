@@ -1,0 +1,43 @@
+---
+version: 1
+table:
+  name: "order"
+  pattern: "order.*.json"
+  attributes:
+  - name: "customer_id"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "order_id"
+    type: "long"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "status"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "timestamp"
+    type: "timestamp"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  metadata:
+    mode: FILE
+    format: "JSON"
+    encoding: "UTF-8"
+    multiline: false
+    array: true
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    emptyIsNull: true
+    writeStrategy:
+      type: "APPEND"

@@ -21,8 +21,7 @@ load:
         separator: "|"
         sink:
           partition:
-            attributes:
-              - signup
+            - signup
       primaryKey:
         - id
       attributes:

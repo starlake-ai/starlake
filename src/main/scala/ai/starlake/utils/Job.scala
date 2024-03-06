@@ -135,7 +135,7 @@ trait SparkJob extends JobBase {
   }
 
   lazy val session: SparkSession = {
-    val udfs = settings.appConfig.getUdfs()
+    val udfs = settings.appConfig.getEffectiveUdfs()
     udfs.foreach(registerUdf)
     sparkEnv.session
   }

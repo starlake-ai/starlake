@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer._
+import ai.starlake.utils.YamlSerde._
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 

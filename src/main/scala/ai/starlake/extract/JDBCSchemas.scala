@@ -1,16 +1,15 @@
 package ai.starlake.extract
 
-import ai.starlake.schema.model.{Trim, WriteMode}
+import ai.starlake.schema.model.Trim
 
-case class ExtractDesc(extract: JDBCSchemas)
+case class ExtractDesc(version: Int, extract: JDBCSchemas)
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
   default: Option[JDBCSchema] = None,
   output: Option[FileFormat] = None,
   connectionRef: Option[String] = None,
-  auditConnectionRef: Option[String] = None,
-  fetchSize: Option[Int] = None
+  auditConnectionRef: Option[String] = None
 ) {
 
   /** @return
@@ -43,7 +42,6 @@ case class JDBCSchemas(
                   .getOrElse(schema.tableTypes)
               else schema.tableTypes,
             template = schema.template.orElse(default.flatMap(_.template)),
-            write = schema.write.orElse(default.flatMap(_.write)),
             pattern = schema.pattern.orElse(default.flatMap(_.pattern)),
             numericTrim = schema.numericTrim.orElse(default.flatMap(_.numericTrim)),
             partitionColumn = schema.partitionColumn.orElse(default.flatMap(_.partitionColumn)),
@@ -66,9 +64,7 @@ case class JDBCSchemas(
   }
 }
 
-/** @param connectionRef
-  *   : JDBC Configuration to use as defined in the connection section in the application.conf
-  * @param catalog
+/** @param catalog
   *   : Database catalog name, optional.
   * @param schema
   *   : Database schema to use, required.
@@ -87,7 +83,6 @@ case class JDBCSchema(
   exclude: List[String] = Nil,
   tableTypes: List[String] = Nil,
   template: Option[String] = None,
-  write: Option[WriteMode] = None,
   pattern: Option[String] = None,
   numericTrim: Option[Trim] = None,
   partitionColumn: Option[String] = None,
@@ -100,8 +95,6 @@ case class JDBCSchema(
   filter: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
-
-  def writeMode(): WriteMode = this.write.getOrElse(WriteMode.OVERWRITE)
 
   def fillWithDefaultValues(): JDBCSchema = {
     copy(

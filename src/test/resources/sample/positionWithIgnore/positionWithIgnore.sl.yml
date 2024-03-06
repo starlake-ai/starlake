@@ -1,17 +1,17 @@
+version: 1
 load:
   name: "positionWithIgnore"
-  directory: "__SL_TEST_ROOT__/position"
-  ack: ""
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/position"
     format: "POSITION"
     withHeader: false
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     encoding: "ISO-8859-1"
     ignore: "IGNORE.*"
-  schemas:
+  tables:
     - name: "DATAREGEX"
       pattern: "dataregex.*.dat"
       attributes:

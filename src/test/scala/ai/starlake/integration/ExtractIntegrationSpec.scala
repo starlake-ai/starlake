@@ -50,11 +50,11 @@ class ExtractIntegrationSpec extends TestHelper {
       val st = conn.createStatement()
       val rs = st.executeQuery("select current_database()")
       rs.next()
-      println(rs.getString(1))
       st.close()
       conn.close()
       val config =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
@@ -75,7 +75,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpDir = File.newTemporaryDirectory("extract")
       tmpYmlFile.write(config)
       val schemaHandler = new SchemaHandler(storageHandler)
-      new ExtractDataJob(schemaHandler).run(
+      val result = new ExtractDataJob(schemaHandler).run(
         Array(
           "--clean",
           "--config",
@@ -84,6 +84,7 @@ class ExtractIntegrationSpec extends TestHelper {
           tmpDir.pathAsString
         )
       )
+      result should be a 'success
       val files = tmpDir.listRecursively.filter(_.name.endsWith(".csv")).toList
       assert(files.size == 2)
     }
@@ -125,6 +126,7 @@ class ExtractIntegrationSpec extends TestHelper {
 
       val config =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:

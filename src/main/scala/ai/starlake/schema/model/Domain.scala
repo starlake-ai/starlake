@@ -27,7 +27,7 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
-import ai.starlake.utils.YamlSerializer.{serializeToFile, serializeToPath}
+import ai.starlake.utils.YamlSerde.{serializeToFile, serializeToPath}
 import better.files.File
 
 import scala.annotation.nowarn
@@ -39,7 +39,7 @@ import scala.util.Try
   * @param load:
   *   Domain to load
   */
-case class LoadDesc(load: Domain)
+case class LoadDesc(version: Int, load: Domain)
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
   * therefore the domain and customers & orders are your datasets. In a DBMS, A Domain would be
@@ -166,6 +166,7 @@ case class LoadDesc(load: Domain)
     * @return
     *   the ack attribute or ".ack" by default
     */
+  @JsonIgnore
   def getAck(): String = resolveAck().map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
 
   /** Is this Domain valid ? A domain is valid if :

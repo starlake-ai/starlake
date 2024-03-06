@@ -11,7 +11,7 @@ connections:
             db: ${SNOWFLAKE_DB}
             keep_column_case: "off"
             sftimezone: "TIMESTAMP_LTZ"
-            preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+            preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
 
     snowflake:
     format: "jdbc"
@@ -24,4 +24,4 @@ connections:
         db: ${SNOWFLAKE_DB}
         keep_column_case: "off"
         sftimezone: "TIMESTAMP_LTZ"
-        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"

@@ -309,8 +309,8 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     val incomingColumnsAsSelectString =
       SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
 
-    val startTsCol = strategy.start_ts.getOrElse(throw new Exception("SCD2 requires start_ts"))
-    val endTsCol = strategy.end_ts.getOrElse(throw new Exception("SCD2 requires end_ts"))
+    val startTsCol = strategy.startTs.getOrElse(throw new Exception("SCD2 requires startTs"))
+    val endTsCol = strategy.endTs.getOrElse(throw new Exception("SCD2 requires endTs"))
 
     val mergeKeys =
       strategy.key

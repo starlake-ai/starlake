@@ -27,14 +27,34 @@ import ai.starlake.utils.Formatter._
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel.{
+  DISK_ONLY,
+  DISK_ONLY_2,
+  DISK_ONLY_3,
+  MEMORY_AND_DISK,
+  MEMORY_AND_DISK_2,
+  MEMORY_AND_DISK_SER,
+  MEMORY_AND_DISK_SER_2,
+  MEMORY_ONLY,
+  MEMORY_ONLY_2,
+  MEMORY_ONLY_SER,
+  MEMORY_ONLY_SER_2,
+  NONE,
+  OFF_HEAP
+}
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
@@ -315,8 +335,10 @@ object Utils extends StrictLogging {
   }
 
   def setMapperProperties(mapper: ObjectMapper): ObjectMapper = {
-    mapper.registerModule(DefaultScalaModule)
     mapper
+      .registerModule(DefaultScalaModule)
+      .registerModule(new HadoopModule())
+      .registerModule(new StorageLevelModule())
       .setSerializationInclusion(Include.NON_EMPTY)
       .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -412,4 +434,51 @@ object Utils extends StrictLogging {
       }
     }
   }
+}
+
+class HadoopModule extends SimpleModule {
+  class HadoopPathSerializer(pathClass: Class[Path]) extends StdSerializer[Path](pathClass) {
+    def this() = {
+      this(classOf[Path])
+    }
+
+    override def serialize(value: Path, jGen: JsonGenerator, provider: SerializerProvider): Unit = {
+      jGen.writeString(value.toString)
+    }
+  }
+  this.addSerializer(new HadoopPathSerializer())
+}
+
+class StorageLevelModule extends SimpleModule {
+  class StorageLevelSerializer(storageLevelClass: Class[StorageLevel])
+      extends StdSerializer[StorageLevel](storageLevelClass) {
+    def this() = {
+      this(classOf[StorageLevel])
+    }
+
+    override def serialize(
+      value: StorageLevel,
+      jGen: JsonGenerator,
+      provider: SerializerProvider
+    ): Unit = {
+      def toString(s: StorageLevel): String = s match {
+        case NONE                  => "NONE"
+        case DISK_ONLY             => "DISK_ONLY"
+        case DISK_ONLY_2           => "DISK_ONLY_2"
+        case DISK_ONLY_3           => "DISK_ONLY_3"
+        case MEMORY_ONLY           => "MEMORY_ONLY"
+        case MEMORY_ONLY_2         => "MEMORY_ONLY_2"
+        case MEMORY_ONLY_SER       => "MEMORY_ONLY_SER"
+        case MEMORY_ONLY_SER_2     => "MEMORY_ONLY_SER_2"
+        case MEMORY_AND_DISK       => "MEMORY_AND_DISK"
+        case MEMORY_AND_DISK_2     => "MEMORY_AND_DISK_2"
+        case MEMORY_AND_DISK_SER   => "MEMORY_AND_DISK_SER"
+        case MEMORY_AND_DISK_SER_2 => "MEMORY_AND_DISK_SER_2"
+        case OFF_HEAP              => "OFF_HEAP"
+        case _ => throw new IllegalArgumentException(s"Invalid StorageLevel: $s")
+      }
+      jGen.writeString(toString(value))
+    }
+  }
+  this.addSerializer(new StorageLevelSerializer())
 }

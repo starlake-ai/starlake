@@ -1,4 +1,4 @@
----
+version: 1
 table:
   name: "order"
   pattern: "order.*.json"

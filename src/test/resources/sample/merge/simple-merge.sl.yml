@@ -1,15 +1,16 @@
 ---
+version: 1
 load:
   name: "DOMAIN"
-  directory: "__SL_TEST_ROOT__/DOMAIN"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/DOMAIN"
     format: "DSV"
     withHeader: false
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
   tables:
     - name: "Players"
       pattern: "Players.*.csv"
@@ -48,7 +49,6 @@ load:
           required: false
           privacy: "NONE"
       metadata:
-        mode: "FILE"
         format: "DSV"
         encoding: "UTF-8"
         multiline: false
@@ -56,12 +56,11 @@ load:
         separator: ","
         quote: "\""
         escape: "\\"
-        write: "APPEND"
+        writeStrategy:
+          type: "UPSERT_BY_KEY"
+          key:
+            - "PK"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
-      merge:
-        key:
-          - "PK"
+            - "YEAR"
+            - "MONTH"

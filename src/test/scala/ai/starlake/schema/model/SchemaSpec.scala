@@ -36,7 +36,7 @@ class SchemaSpec extends TestHelper {
         getClass.getResourceAsStream("/sample/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       val attr = Attribute(
         "attr",
         "invalid-type", // should raise error non existent type

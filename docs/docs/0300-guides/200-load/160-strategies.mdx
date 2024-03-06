@@ -129,15 +129,15 @@ table:
       type: "SCD2"
       key: ["id"]
       timestamp: "date"
-      start_ts: "valid_from"
-      end_ts: "valid_to"
+      startTs: "valid_from"
+      endTs: "valid_to"
       on: BOTH
   attributes:
     - ...
 ```
 
 <br/>
-the `start_ts` and `end_ts` properties are used to specify the names of the columns that will be used to store the start and end timestamps of the rows.
+the `startTs` and `endTs` properties are used to specify the names of the columns that will be used to store the start and end timestamps of the rows.
 
 They may be omitted. In that case, the default values `sl_start_ts` and `sl_end_ts` will be used.
 

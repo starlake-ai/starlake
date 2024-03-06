@@ -148,7 +148,7 @@ class ExpectationJob(
         )
       val assertion = Utils.parseJinja(expectation.expect, schemaHandler.activeEnvVars())
       logger.info(
-        s"Applying expectation ${expectation.name}: ${expectation.query} with request $sql"
+        s"Applying expectation: ${expectation.query} with request $sql"
       )
       Try {
         val expectationResult = sqlRunner.handle(sql, assertion)
@@ -158,7 +158,7 @@ class ExpectationJob(
           domainName,
           schemaName,
           Timestamp.from(Instant.now()),
-          expectation.name.getOrElse(""),
+          "",
           expectation.query,
           Some(sql),
           Some(expectationResult("count").asInstanceOf[Long]),
@@ -174,7 +174,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name.getOrElse(""),
+            "",
             expectation.query,
             None,
             None,
@@ -189,7 +189,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name.getOrElse(""),
+            "",
             expectation.query,
             Some(sql),
             None,

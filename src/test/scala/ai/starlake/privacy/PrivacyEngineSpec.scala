@@ -20,8 +20,8 @@ class PrivacyEngineSpec extends TestHelper {
 
   new WithSettings() {
     "Parsing a single arg encryption algo" should "succeed" in {
-      val (algo, params) = TransformEngine.parse("ai.starlake.privacy.Approx(10)")
-      algo should equal("ai.starlake.privacy.Approx")
+      val (algo, params) = TransformEngine.parse("ai.starlake.utils.Approx(10)")
+      algo should equal("ai.starlake.utils.Approx")
       params.head.toInt shouldBe a[Int]
       params should equal(List("10"))
     }
