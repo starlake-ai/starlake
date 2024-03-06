@@ -82,6 +82,10 @@ object Dependencies {
     "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test
   )
 
+  val redshift = Seq(
+    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test
+  )
+
   val scalaTest = Seq(
     "org.scalatest" %% "scalatest" % Versions.scalatest % Test
   )
@@ -165,6 +169,6 @@ object Dependencies {
   val jSqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser)
 
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ scalaTest ++ scopt ++ hadoop ++
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++ scopt ++ hadoop ++
     gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
 }
