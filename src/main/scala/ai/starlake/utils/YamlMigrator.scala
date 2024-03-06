@@ -225,12 +225,30 @@ object YamlMigrator extends LazyLogging {
           case n => n
         }
     }
+    trait ModeMigrator extends YamlMigratorInterface {
+      protected val migrateModeMetadataNode: List[JsonNode => JsonNode] = {
+        val x = List[JsonNode => JsonNode] {
+          case modeContainerNode: ObjectNode =>
+            if (!modeContainerNode.path("mode").isMissingNode) {
+              modeContainerNode.remove("mode")
+              modeContainerNode
+            } else modeContainerNode
+          case n => n
+        }
+        x
+      }
+    }
 
-    trait MetadataMigrator extends YamlMigratorInterface with SinkMigrator with WriteMigrator {
+    trait MetadataMigrator
+        extends YamlMigratorInterface
+        with SinkMigrator
+        with WriteMigrator
+        with ModeMigrator {
 
       protected val migrateMetadata: List[JsonNode => JsonNode] = {
         applyMigrationOnP1(_.path("sink"), identity, migrateSink) ++
-        applyMigrationOn(identity, migrateWriteMetadataNode)
+        applyMigrationOn(identity, migrateWriteMetadataNode) ++
+        applyMigrationOn(identity, migrateModeMetadataNode)
       }
     }
 
