@@ -2,8 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategyType}
-import ai.starlake.utils.YamlSerde
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, , WriteStrategyType}
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -24,7 +23,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       Some(getClass.getResource("/sample/SomePolicies.xls").getPath)
     )
 
-    val outputFile = File(DatasetArea.transform.toString + s"/someDomain/someJob.sl.yml")
+    val outputFile: File = File(DatasetArea.transform.toString + s"/someDomain/someJob.sl.yml")
     println(outputFile.contentAsString)
     val result: AutoTaskDesc =
       YamlSerde.deserializeYamlTask(outputFile.contentAsString, outputFile.toString())
@@ -53,7 +52,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       )
     }
 
-    val outputFile2 = File(DatasetArea.transform.toString + "/someDomain/someJob2.sl.yml")
+    val outputFile2: File = File(DatasetArea.transform.toString + "/someDomain/someJob2.sl.yml")
 
     val result2 = YamlSerde.deserializeYamlTask(outputFile2.contentAsString, outputFile2.toString())
 
@@ -62,11 +61,36 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       result2.name shouldBe "someJob2"
     }
 
+    val outputFile3: File = File(DatasetArea.transform.toString + "/someDomain/someJob3.sl.yml")
+
+    val result3: AutoTaskDesc = YamlSerializer.deserializeTask(outputFile3.contentAsString)
+
+    "Parsing a sample xlsx file" should "generate a yml file sqlEngine FS" in {
+      outputFile3.exists() shouldBe true
+      result3.name shouldBe "someJob3"
+    }
+
+    it should "have table specification engine FS" in {
+      result3.domain shouldBe "someDomain"
+      result3.table shouldBe "dataset3"
+      result3.write shouldBe Some(WriteMode.OVERWRITE)
+      result3.sink.map(_.getSink()) shouldBe Some(
+        FsSink(
+          connectionRef = Some("spark"),
+          partition = Some(List("partitionCol")),
+          format = Some("csv"),
+          extension = Some(".csv"),
+          coalesce = Some(true),
+          options = Some(Map("opt1" -> "val1", "opt2" -> "val2"))
+        )
+      )
+    }
+
     Xls2YmlAutoJob.generateSchema(
       getClass.getResource("/sample/SomeJobTemplateBQ.xls").getPath,
       Some(getClass.getResource("/sample/SomePolicies.xls").getPath)
     )
-    val outputFileBQ = File(DatasetArea.transform.toString + "/someDomain/someJobBQ.sl.yml")
+    val outputFileBQ: File = File(DatasetArea.transform.toString + "/someDomain/someJobBQ.sl.yml")
 
     val resultBQ =
       YamlSerde.deserializeYamlTask(outputFileBQ.contentAsString, outputFileBQ.toString())
