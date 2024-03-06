@@ -35,4 +35,5 @@ object Versions {
   val snowflakeSpark: String = "2.11.3-spark_3.3"
   val jSqlParser = "4.8"
   val bigQueue = "0.7.0"
+  val redshiftJDBC = "2.1.0.26"
 }
