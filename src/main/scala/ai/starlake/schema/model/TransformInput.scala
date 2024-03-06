@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.privacy.PrivacyEngine
+import ai.starlake.utils.TransformEngine
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -32,35 +32,45 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   *   algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[PrivacyLevelDeserializer])
-sealed case class PrivacyLevel(value: String, sql: Boolean) {
+@JsonDeserialize(using = classOf[TransformInputDeserializer])
+sealed case class TransformInput(value: String, sql: Boolean) {
   override def toString: String = if (sql) s"SQL:$value" else value
 
   def crypt(
     s: String,
     colMap: Map[String, Option[String]],
-    privacyAlgo: PrivacyEngine,
-    privacyParams: List[String]
+    transformAlgo: TransformEngine,
+    transformParams: List[String]
   ): String = {
     // val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(value)
-    privacyAlgo.crypt(s, colMap, privacyParams)
+    transformAlgo.crypt(s, colMap, transformParams)
   }
 }
 
-object PrivacyLevel {
+object TransformInput {
 
-  val None: PrivacyLevel = PrivacyLevel("NONE", false)
+  val None: TransformInput = TransformInput("NONE", false)
 }
 
-class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
+class TransformInputDeserializer extends JsonDeserializer[TransformInput] {
 
-  override def getNullValue(ctxt: DeserializationContext): PrivacyLevel = PrivacyLevel.None
+  override def getNullValue(ctxt: DeserializationContext): TransformInput = TransformInput.None
 
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrivacyLevel = {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): TransformInput = {
     val value = jp.readValueAs[String](classOf[String]).toUpperCase()
-    val isSQL = value.startsWith("SQL:")
+    val isSQL =
+      if (value.startsWith("SQL:")) {
+        true
+      } else {
+        // the value contains space before the '(' and is not a function
+        val parIndex = value.indexOf('(')
+        if (parIndex > 0)
+          value.substring(0, parIndex).trim.contains(' ')
+        else
+          value.trim.contains(' ')
+      }
     val finalValue = if (isSQL) value.substring("SQL:".length) else value
-    PrivacyLevel(
+    TransformInput(
       finalValue,
       isSQL
     )

@@ -24,10 +24,9 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, Utils, YamlSerializer}
+import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, TransformEngine, Utils, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -1091,26 +1090,26 @@ final case class Settings(
 }
 
 object PrivacyLevels {
-  private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[String]) = {
-    val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
-    val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
+  private def make(schemeName: String, encryptionAlgo: String): (TransformEngine, List[String]) = {
+    val (privacyObject, typedParams) = TransformEngine.parse(encryptionAlgo)
+    val encryption = Utils.loadInstance[TransformEngine](privacyObject)
     (encryption, typedParams)
   }
 
-  private var allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+  private var allPrivacy = Map.empty[String, ((TransformEngine, List[String]), TransformInput)]
 
   def resetAllPrivacy(): Unit =
-    allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+    allPrivacy = Map.empty[String, ((TransformEngine, List[String]), TransformInput)]
 
   @transient
   def allPrivacyLevels(
     options: Map[String, String]
-  ): Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)] = {
+  ): Map[String, ((TransformEngine, List[String]), TransformInput)] = {
     if (allPrivacy.isEmpty) {
       allPrivacy = options.map { case (k, objName) =>
         val encryption = make(k, objName)
         val key = k.toUpperCase(Locale.ROOT)
-        (key, (encryption, new PrivacyLevel(key, false)))
+        (key, (encryption, new TransformInput(key, false)))
       }
     }
     allPrivacy

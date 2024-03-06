@@ -321,7 +321,7 @@ class IngestionWorkflow(
         if (settings.appConfig.privacyOnly) {
           val (withPrivacy, noPrivacy) =
             resolved.partition { case (schema, _) =>
-              schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
+              schema.exists(_.attributes.map(_.getPrivacy()).exists(!TransformInput.None.equals(_)))
             }
           // files for schemas without any privacy attributes are moved directly to accepted area
           /*
@@ -715,7 +715,6 @@ class IngestionWorkflow(
         }
       } else {
         val name = fileNameWithoutExt
-        val deltaPart = ""
         val write = WriteMode.OVERWRITE
         (name, write)
       }

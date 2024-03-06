@@ -68,8 +68,8 @@ case class Attribute(
   name: String,
   `type`: String = "string",
   array: Option[Boolean] = None,
-  required: Boolean = true,
-  privacy: PrivacyLevel = PrivacyLevel.None,
+  required: Boolean = false,
+  privacy: TransformInput = TransformInput.None,
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
@@ -348,7 +348,7 @@ case class Attribute(
 
   def isIgnore(): Boolean = ignore.getOrElse(false)
 
-  def getPrivacy(): PrivacyLevel = Option(privacy).getOrElse(PrivacyLevel.None)
+  def getPrivacy(): TransformInput = Option(privacy).getOrElse(TransformInput.None)
 
   def isArray(): Boolean = array.getOrElse(false)
 
@@ -493,7 +493,7 @@ object Attribute {
       }
     refAttr.copy(
       privacy =
-        if (referenceSource.privacy != PrivacyLevel.None) referenceSource.privacy
+        if (referenceSource.privacy != TransformInput.None) referenceSource.privacy
         else fallbackSource.privacy, // We currently have no way to
       comment = referenceSource.comment.orElse(fallbackSource.comment),
       rename = referenceSource.rename.orElse(fallbackSource.rename),

@@ -42,7 +42,7 @@ class SchemaSpec extends TestHelper {
         "invalid-type", // should raise error non existent type
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "MD5",
           false
         ) // Should raise an error. Privacy cannot be applied on types other than string
@@ -61,7 +61,7 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "ApproxLong(20)",
           false
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
@@ -75,7 +75,7 @@ class SchemaSpec extends TestHelper {
         "struct",
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "ApproxLong(20)",
           false
         ), // Should raise an error. Privacy cannot be applied on types other than string

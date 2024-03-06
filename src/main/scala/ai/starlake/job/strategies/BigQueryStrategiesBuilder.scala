@@ -362,7 +362,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
         val paramsForUpdateSql =
           SQLUtils.setForUpdateSql("SL_INCOMING", targetTableColumns, quote)
 
-        val upodatedRecords =
+        val upToDatedRecords =
           s"""
              |SELECT $incomingColumnsAsSelectSting FROM ($selectStatement) SL_INCOMING, $targetTableFullName SL_EXISTING
              |WHERE $mergeKeyJoinCondition AND SL_EXISTING.$endTsCol IS NULL AND SL_INCOMING.$mergeTimestampCol > SL_EXISTING.$mergeTimestampCol)
@@ -374,7 +374,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
            |LEFT JOIN $targetTableFullName ON ($mergeKeyJoinCondition AND $targetTableFullName.$endTsCol IS NULL)
            |WHERE $nullJoinCondition;
            |
-           |MERGE INTO $targetTableFullName SL_EXISTING USING ($upodatedRecords) SL_INCOMING ON ($mergeKeyJoinCondition)
+           |MERGE INTO $targetTableFullName SL_EXISTING USING ($upToDatedRecords) SL_INCOMING ON ($mergeKeyJoinCondition)
            |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL;
            |COMMIT TRANSACTION;
            |

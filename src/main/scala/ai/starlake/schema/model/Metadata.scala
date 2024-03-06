@@ -73,7 +73,6 @@ import scala.collection.mutable
   *   Folder on the local filesystem where incoming files are stored. Typically, this folder will be
   *   scanned periodically to move the datasets to the cluster for ingestion. Files located in this
   *   folder are moved to the pending folder for ingestion by the "import" command.
-  * @param extensions:
   * @param ack:
   *   Ack extension used for each file. If specified, files are moved to the pending folder only
   *   once a file with the same name as the source file and with this extension is present. To move
@@ -116,7 +115,6 @@ case class Metadata(
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
   directory: Option[String] = None,
-  extensions: List[String] = Nil,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   loader: Option[String] = None,
@@ -150,7 +148,6 @@ case class Metadata(
        |escape:${getEscape()}
        |sink:${sink}
        |directory:${directory}
-       |extensions:${extensions}
        |ack:${ack}
        |options:${getOptions()}
        |loader:${loader}
@@ -294,7 +291,6 @@ case class Metadata(
       sink = merge(this.sink, child.sink),
       ignore = merge(this.ignore, child.ignore),
       directory = merge(this.directory, child.directory),
-      extensions = merge(this.extensions, child.extensions),
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       loader = merge(this.loader, child.loader),
