@@ -25,7 +25,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
       )
 
     val result: String =
-      strategy.getStrategyType() match {
+      strategy.getEffectiveType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =

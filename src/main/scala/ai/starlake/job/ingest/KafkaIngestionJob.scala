@@ -66,7 +66,7 @@ class KafkaIngestionJob(
     *   Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
-    val dfIn = mergedMetadata.getMode() match {
+    val dfIn = mode match {
       case Mode.FILE =>
         Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           val (dfIn, offsets) =

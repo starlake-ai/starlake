@@ -89,7 +89,7 @@ class JdbcAutoTask(
 
   def addSCD2Columns(connection: Connection): Unit = {
     this.taskDesc.writeStrategy match {
-      case Some(strategyOptions) if strategyOptions.getStrategyType() == WriteStrategyType.SCD2 =>
+      case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
         val scd2Columns = List(startTsCol, endTsCol)
@@ -262,7 +262,7 @@ class JdbcAutoTask(
 
   def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
     // update target table schema if needed
-    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
       if (isSCD2) {
         incomingSchema

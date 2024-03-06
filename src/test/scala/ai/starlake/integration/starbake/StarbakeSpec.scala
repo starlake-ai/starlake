@@ -7,6 +7,10 @@ class StarbakeSpec extends IntegrationTestBase {
 
   logger.info(starlakeDir.pathAsString)
 
+  override protected def cleanup(): Unit = {
+    // do not cleanup between tests
+  }
+
   override def localDir = starlakeDir / "samples" / "starbake"
   override def sampleDataDir = localDir / "sample-data"
   logger.info(localDir.pathAsString)

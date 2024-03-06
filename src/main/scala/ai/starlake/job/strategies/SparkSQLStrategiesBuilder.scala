@@ -46,7 +46,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                |${sink.getClusterByClauseSQL()}
                |AS ($lastSql)
                |""".stripMargin
-          if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
+          if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
             val startTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2StartTimestamp TIMESTAMP"
             val endTs =
@@ -64,7 +64,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
         val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
         val insertSqls =
-          if (strategy.getStrategyType() == WriteStrategyType.OVERWRITE) {
+          if (strategy.getEffectiveType() == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
@@ -80,7 +80,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.getStrategyType() == WriteStrategyType.SCD2) {}
+            if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls
@@ -116,7 +116,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
       s"""CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS $selectStatement;
          |""".stripMargin
     val sqls =
-      strategy.getStrategyType() match {
+      strategy.getEffectiveType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           buildMainSql(
             s"""SELECT $selectAllAttributes FROM SL_INCOMING""",

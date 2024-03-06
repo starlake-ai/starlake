@@ -23,13 +23,11 @@ package ai.starlake.schema.model
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
-import ai.starlake.schema.model.Mode.FILE
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
-import scala.collection.immutable.Seq
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
@@ -104,7 +102,6 @@ import scala.collection.immutable.Seq
   *   if true, then it getters return default value, otherwise return currently defined value only
   */
 case class Metadata(
-  mode: Option[Mode] = None, // deprecated("Unused but reserved", "0.6.4")
   format: Option[Format] = None,
   encoding: Option[String] = None,
   multiline: Option[Boolean] = None,
@@ -139,7 +136,6 @@ case class Metadata(
 
   override def toString: String =
     s"""
-       |mode:${getMode()}
        |format:${getFormat()}
        |encoding:${getEncoding()}
        |multiline:${getMultiline()}
@@ -159,9 +155,6 @@ case class Metadata(
        |emptyIsNull:${emptyIsNull}
        |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
-
-  @JsonIgnore
-  def getMode(): Mode = getFinalValue(mode, FILE)
 
   @JsonIgnore
   def getStrategyOptions(): WriteStrategy = {
@@ -280,7 +273,6 @@ case class Metadata(
     val mergedSchedule = merge(this.schedule, child.schedule)
 
     Metadata(
-      mode = merge(this.mode, child.mode),
       format = merge(this.format, child.format),
       encoding = merge(this.encoding, child.encoding),
       multiline = merge(this.multiline, child.multiline),
@@ -314,7 +306,6 @@ case class Metadata(
     */
   def `keepIfDifferent`(parent: Metadata): Metadata = {
     Metadata(
-      mode = if (parent.mode != this.mode) this.mode else None,
       format = if (parent.format != this.format) this.format else None,
       encoding = if (parent.encoding != this.encoding) this.encoding else None,
       multiline = if (parent.multiline != this.multiline) this.multiline else None,
@@ -343,7 +334,7 @@ case class Metadata(
     */
   def asOption(): Option[Metadata] = {
     if (
-      mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
+      format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || writeStrategy.nonEmpty ||
       sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||

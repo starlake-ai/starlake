@@ -18,7 +18,7 @@ case class WriteStrategy(
 ) {
 
   @JsonIgnore
-  def getStrategyType(): WriteStrategyType =
+  def getEffectiveType(): WriteStrategyType =
     `type`.getOrElse(WriteStrategyType.APPEND)
 
   @JsonIgnore
