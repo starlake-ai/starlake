@@ -861,13 +861,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case "sl.yml" =>
             Try {
               val taskPath = new Path(folder, taskFilename)
-              val taskNode = YamlSerde.deserializeYamlTaskAsJson(
-                Utils
-                  .parseJinja(storage.read(taskPath), activeEnvVars()),
-                taskPath.toString
-              )
-              YamlSerde.upgradeTaskNode(taskNode)
-              val taskDesc = YamlSerde.deserializeTaskNode(taskNode).copy(name = taskFilePrefix)
+              val taskDesc = YamlSerde
+                .deserializeYamlTask(
+                  Utils
+                    .parseJinja(storage.read(taskPath), activeEnvVars()),
+                  taskPath.toString
+                )
+                .copy(name = taskFilePrefix)
               val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
               taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
             } match {
