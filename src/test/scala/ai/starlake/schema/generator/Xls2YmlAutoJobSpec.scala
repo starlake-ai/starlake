@@ -2,7 +2,8 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, , WriteStrategyType}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, FsSink, WriteStrategyType}
+import ai.starlake.utils.YamlSerde
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 

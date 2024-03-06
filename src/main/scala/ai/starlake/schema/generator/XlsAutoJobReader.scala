@@ -1,7 +1,7 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.schema.model.ConnectionType._
 import ai.starlake.schema.model._
-import ConnectionType._
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
@@ -162,6 +162,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                   case _            => allSinks
                 }
               ),
+              write = writeStrategyOpt.map(_.toWriteMode()),
               presql = presqlOpt.getOrElse(Nil),
               postsql = postsqlOpt.getOrElse(Nil),
               rls = rls,
