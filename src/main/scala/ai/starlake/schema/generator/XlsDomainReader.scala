@@ -196,6 +196,17 @@ class XlsDomainReader(input: Input) extends XlsModel {
             key = identityKeys.split(",").toList.map(_.trim),
             queryFilter = filter
           )
+        case (None, None, filter, Some(WriteMode.OVERWRITE)) =>
+          if (partitionColumns.nonEmpty)
+            WriteStrategy(
+              `type` = Some(WriteStrategyType.OVERWRITE_BY_PARTITION),
+              queryFilter = filter
+            )
+          else
+            WriteStrategy(
+              `type` = Some(WriteStrategyType.OVERWRITE),
+              queryFilter = filter
+            )
         case (_, _, _, Some(write)) =>
           WriteStrategy(`type` = Some(WriteStrategyType.fromWriteMode(write)))
         case (_, _, _, _) =>
