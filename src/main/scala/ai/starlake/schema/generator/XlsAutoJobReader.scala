@@ -126,7 +126,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
       val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
       val writeStrategy =
-        if (partitionColumns.nonEmpty && writeOpt.map(_.toString).contains("OVERWRITE"))
+        if (partitionColumns.nonEmpty && writeOpt.contains(WriteMode.OVERWRITE))
           WriteStrategy(`type` = Some(WriteStrategyType.OVERWRITE_BY_PARTITION))
         else
           WriteStrategy(
