@@ -131,6 +131,7 @@ case class AutoTaskDesc(
   }
 
   def getEngine()(implicit settings: Settings): Engine = {
+
     getDefaultConnection().getEngine()
   }
 

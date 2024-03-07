@@ -284,6 +284,8 @@ class SchemaHandlerSpec extends TestHelper {
   new WithSettings(esConfiguration) {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
+      // ES Load in standby
+      pending
 
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.sl.yml",
