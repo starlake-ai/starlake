@@ -885,7 +885,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 database = None,
                 domain = "",
                 table = "",
-                write = None,
                 _filenamePrefix = taskFilePrefix,
                 taskTimeoutMs = None
               )

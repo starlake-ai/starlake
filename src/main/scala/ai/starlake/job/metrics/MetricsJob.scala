@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AutoTaskDesc, Domain, Schema, WriteMode}
+import ai.starlake.schema.model.{AutoTaskDesc, Domain, Schema}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -189,7 +189,6 @@ class MetricsJob(
               database = settings.appConfig.audit.getDatabase(),
               domain = settings.appConfig.audit.getDomain(),
               table = table.toString,
-              write = Some(WriteMode.APPEND),
               partition = Nil,
               presql = Nil,
               postsql = Nil,

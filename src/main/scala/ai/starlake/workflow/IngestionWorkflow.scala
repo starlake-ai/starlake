@@ -753,7 +753,7 @@ class IngestionWorkflow(
       schemaHandler
         .task(config.name)
         .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
-    logger.info(taskDesc.toString)
+    logger.debug(taskDesc.toString)
     AutoTask.task(
       taskDesc,
       config.options,

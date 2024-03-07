@@ -17,7 +17,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         // FIXME: if there is failure during domain load, it is a success. How should we fix it ? To reproduce, just remove version from load/starbake/_config.sl.yml
         // FIXME: it is a success even if there is exception during transform
         Main.main(
-          Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
+          Array("transform", "--recursive", "--name", "kpi.order_summary")
         )
       }
     }
@@ -70,7 +70,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
             "--print",
             "--viz",
             "--tasks",
-            "Products.TopSellingProfitableProducts"
+            "kpi.order_summary"
           )
         )
       }

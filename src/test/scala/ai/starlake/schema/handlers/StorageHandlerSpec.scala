@@ -199,14 +199,13 @@ class StorageHandlerSpec extends TestHelper {
         database = None,
         domain = "DOMAIN",
         table = "ANALYSE",
-        write = Some(WriteMode.OVERWRITE),
         partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         sink = None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJobDef = mapper
         .writer()

@@ -330,7 +330,11 @@ object YamlMigrator extends LazyLogging {
               Option(sinkNode.get("partition")).foreach {
                 case partition: ObjectNode if partition.has("attributes") =>
                   sinkNode.set("partition", partition.path("attributes"))
+                case _: ArrayNode =>
+                // do nothing
                 case _ =>
+                  // Invalid partition node
+                  logger.warn("Invalid partition node")
                   sinkNode.remove("partition")
               }
               Option(sinkNode.get("timestamp")).foreach {

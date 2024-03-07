@@ -37,7 +37,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification sqlEngine BQ" in {
       result.domain shouldBe "someDomain"
       result.table shouldBe "dataset"
-      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE)
+      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE_BY_PARTITION)
       result.sink.map { sink =>
         sink.partition shouldBe Some(List("partitionCol"))
         sink.requirePartitionFilter shouldBe Some(true)
@@ -75,7 +75,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification engine FS" in {
       result3.domain shouldBe "someDomain"
       result3.table shouldBe "dataset3"
-      result3.writeStrategy.map(_.getEffectiveType()) shouldBe Some(WriteStrategyType.OVERWRITE)
+      result3.writeStrategy.map(_.getEffectiveType()) shouldBe Some(WriteStrategyType.APPEND)
       result3.sink.map(_.getSink()) shouldBe Some(
         FsSink(
           connectionRef = Some("spark"),
@@ -105,7 +105,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
     it should "have table specification engine bq" in {
       resultBQ.domain shouldBe "someDomain"
       resultBQ.table shouldBe "dataset"
-      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE)
+      result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE_BY_PARTITION)
       resultBQ.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
       resultBQ.comment shouldBe Some("jointure source1 et source2")
       resultBQ.rls.size shouldBe 0
