@@ -70,9 +70,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -129,10 +128,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJobDef = mapper
         .writer()
@@ -173,10 +171,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
       val businessJobDef = mapper
@@ -233,9 +230,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -288,9 +284,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
@@ -340,7 +335,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "graduateProgram",
         table = "output",
-        write = Some(WriteMode.OVERWRITE),
         presql = List(
           s"""
             |create or replace temporary view graduate_agg_view as
@@ -351,7 +345,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |""".stripMargin
         ),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
       val configJob =
@@ -412,14 +406,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "DOMAIN",
         table = "TABLE",
-        write = Some(WriteMode.OVERWRITE),
         partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

@@ -49,7 +49,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     Try {
       val effectiveSchema: Schema = computeEffectiveInputSchema()
       val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-        strategy.getWriteMode()
+        strategy.toWriteMode()
       )
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
       val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
@@ -174,7 +174,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
         database = archiveDatabaseName,
         archiveDomainName,
         archiveTableName,
-        Some(WriteMode.APPEND),
         sink = Some(mergedMetadata.getSink().toAllSinks())
       )
 
@@ -334,7 +333,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       database = schemaHandler.getDatabase(domain),
       domain = domain.finalName,
       table = schema.finalName,
-      write = Some(mergedMetadata.getWrite()),
       presql = schema.presql,
       postsql = schema.postsql,
       sink = mergedMetadata.sink,

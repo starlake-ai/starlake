@@ -75,7 +75,6 @@ object IngestionUtil {
         database = settings.appConfig.audit.getDatabase(),
         domain = settings.appConfig.audit.getDomain(),
         table = "rejected",
-        write = Some(WriteMode.APPEND),
         partition = Nil,
         presql = Nil,
         postsql = Nil,

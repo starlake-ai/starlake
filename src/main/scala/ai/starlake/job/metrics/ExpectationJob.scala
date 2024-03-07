@@ -214,7 +214,6 @@ class ExpectationJob(
         database = settings.appConfig.audit.getDatabase(),
         domain = settings.appConfig.audit.getDomain(),
         table = "expectations",
-        write = Some(WriteMode.APPEND),
         partition = Nil,
         presql = Nil,
         postsql = Nil,

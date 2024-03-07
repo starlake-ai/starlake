@@ -736,7 +736,6 @@ trait IngestionJob extends SparkJob {
         database = schemaHandler.getDatabase(domain),
         domain = domain.finalName,
         table = schema.finalName,
-        write = Some(mergedMetadata.getWrite()),
         sink = mergedMetadata.sink,
         acl = schema.acl,
         comment = schema.comment,

@@ -183,7 +183,7 @@ case class Metadata(
   def getEscape(): String = getFinalValue(escape, "\\")
 
   @JsonIgnore
-  def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
+  def getWrite(): WriteMode = writeStrategy.map(_.toWriteMode()).getOrElse(APPEND)
 
   // scalastyle:off null
   def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)

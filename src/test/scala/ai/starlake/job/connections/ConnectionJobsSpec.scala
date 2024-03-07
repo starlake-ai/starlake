@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteMode}
+import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
@@ -34,10 +34,9 @@ class ConnectionJobsSpec extends TestHelper {
         None,
         "users",
         "userout",
-        Some(WriteMode.OVERWRITE),
         sink = Some(JdbcSink(connectionRef = Some(connection)).toAllSinks()),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJob =
         AutoJobDesc(

@@ -27,10 +27,9 @@ case class WriteStrategy(
       `type`.getOrElse(WriteStrategyType.APPEND)
     )
 
-  def validate() = {}
+  def validate(): Unit = {}
 
-  @JsonIgnore
-  def getWriteMode() = `type`.getOrElse(WriteStrategyType.APPEND).toWriteMode()
+  def toWriteMode(): WriteMode = `type`.getOrElse(WriteStrategyType.APPEND).toWriteMode()
 
   def requireKey(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireKey()
 
@@ -136,4 +135,9 @@ case class WriteStrategy(
 
   def compare(other: WriteStrategy): ListDiff[Named] =
     AnyRefDiff.diffAnyRef("", this, other)
+}
+
+object WriteStrategy {
+  val Overwrite = WriteStrategy(Some(WriteStrategyType.OVERWRITE))
+  val Append = WriteStrategy(Some(WriteStrategyType.APPEND))
 }

@@ -51,9 +51,8 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
         AutoJobDesc("user", List(task))
@@ -62,9 +61,10 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "domain" -> "user",
-            "table"  -> "user"
+            "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "domain"        -> "user",
+            "table"         -> "user",
+            "writeStrategy" -> Map("type" -> "OVERWRITE")
           )
         )
       )
@@ -77,9 +77,8 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
         AutoJobDesc(
@@ -93,7 +92,8 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
           Map(
             "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
             "domain" -> "user",
-            "table"  -> "user"
+            "table"  -> "user",
+            "writeStrategy" -> Map("type" -> "OVERWRITE")
           )
         )
       )
@@ -106,9 +106,8 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
         AutoJobDesc("user", List(task))
@@ -117,9 +116,10 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "table"  -> "user",
-            "domain" -> "user"
+            "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "table"         -> "user",
+            "domain"        -> "user",
+            "writeStrategy" -> Map("type" -> "OVERWRITE")
           )
         )
       )
@@ -1352,7 +1352,6 @@ object YamlConfigGenerators {
         database = database,
         domain = domain,
         table = table,
-        write = None,
         partition = partition,
         presql = presql,
         postsql = postsql,

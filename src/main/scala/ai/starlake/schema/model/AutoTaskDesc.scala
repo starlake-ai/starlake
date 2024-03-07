@@ -38,7 +38,6 @@ case class AutoTaskDesc(
   database: Option[String],
   domain: String,
   table: String,
-  write: Option[WriteMode], // TODO: remove this attribute
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
@@ -73,7 +72,8 @@ case class AutoTaskDesc(
   }
 
   @JsonIgnore
-  def getWriteMode(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
+  def getWriteMode(): WriteMode =
+    writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
   def merge(child: AutoTaskDesc): AutoTaskDesc = {
     AutoTaskDesc(
@@ -82,7 +82,6 @@ case class AutoTaskDesc(
       database = child.database.orElse(database),
       domain = if (child.domain.isEmpty) domain else child.domain,
       table = if (child.table.isEmpty) table else child.table,
-      write = child.write.orElse(write),
       partition = if (child.partition.isEmpty) partition else child.partition,
       presql = presql ++ child.presql,
       postsql = postsql ++ child.postsql,
@@ -110,11 +109,7 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
-    if (writeStrategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
-      Left(List("Merge and write mode are not compatible"))
-    } else {
-      Right(true)
-    }
+    Right(true)
   }
 
   def this() = this(
@@ -123,7 +118,6 @@ case class AutoTaskDesc(
     database = None,
     domain = "",
     table = "",
-    write = Some(WriteMode.OVERWRITE),
     python = None,
     writeStrategy = None,
     taskTimeoutMs = None

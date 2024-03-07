@@ -169,7 +169,6 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                   case _            => allSinks
                 }
               ),
-              write = writeStrategyOpt.map(_.toWriteMode()),
               presql = presqlOpt.getOrElse(Nil),
               postsql = postsqlOpt.getOrElse(Nil),
               rls = rls,
