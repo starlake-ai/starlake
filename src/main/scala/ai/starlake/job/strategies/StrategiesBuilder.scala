@@ -221,6 +221,7 @@ trait StrategiesBuilder extends StrictLogging {
            |
            |MERGE INTO $targetTableFullName USING SL_UPDATED_RECORDS ON ($mergeKeyJoinCondition2)
            |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = $mergeTimestampCol, $endTsCol = NULL
+           |WHEN NOT MATCHED THEN INSERT $paramsForInsertSql -- here just to make the SQL valid. Only the WHEN MATCHED is used
            |""".stripMargin
 
       case (true, Some(mergeTimestampCol), MergeOn.SOURCE_AND_TARGET) =>
@@ -291,12 +292,15 @@ trait StrategiesBuilder extends StrictLogging {
            |FROM ${tempViewName("SL_DEDUP")}, $targetTableFullName
            |WHERE $mergeKeyJoinCondition2
            |  AND $targetTableFullName.$endTsCol IS NULL
-           |  AND SL_DEDUP.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
+           |  AND ${tempViewName(
+            "SL_DEDUP"
+          )}.$mergeTimestampCol > $targetTableFullName.$mergeTimestampCol;
            |
            |MERGE INTO $targetTableFullName
            |USING ${tempViewName("SL_UPDATED_RECORDS")}
            |ON ($mergeKeyJoinCondition3)
            |WHEN MATCHED THEN UPDATE $paramsForUpdateSql, $startTsCol = SL_UPDATED_RECORDS.$quote$mergeTimestampCol$quote, $endTsCol = NULL
+           |WHEN NOT MATCHED THEN INSERT $paramsForInsertSql -- here just to make the SQL valid. Only the WHEN MATCHED is used
            |""".stripMargin
       case (_, Some(_), MergeOn(_)) =>
         throw new Exception("Should never happen !!!")
