@@ -124,6 +124,13 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         row.getCell(headerMapSchema("_coalesce"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
 
+      val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
+      val writeStrategy =
+        if (partitionColumns.nonEmpty && writeStrategyOpt.contains(WriteStrategyType.OVERWRITE))
+          WriteStrategy(`type` = Some(WriteStrategyType.OVERWRITE_BY_PARTITION))
+        else
+          WriteStrategy(`type` = writeStrategyOpt)
+
       val allSinks = AllSinks(
         connectionRef = connectionRefOpt,
         partition = partitionOpt.map(List(_)),
@@ -207,10 +214,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               }.getOrElse(Nil),
               python = None,
               tags = tags,
-              // FIXME: compute correct write strategy
-              writeStrategy = Some(
-                WriteStrategy(`type` = writeStrategyOpt.orElse(Some(WriteStrategyType.OVERWRITE)))
-              ),
+              writeStrategy = Option(writeStrategy),
               taskTimeoutMs = None
             )
           )
