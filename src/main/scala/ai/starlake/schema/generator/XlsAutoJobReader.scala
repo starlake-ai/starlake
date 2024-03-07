@@ -216,7 +216,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               }.getOrElse(Nil),
               python = None,
               tags = tags,
-              writeStrategy = writeStrategy,
+              writeStrategy = Option(writeStrategy),
               taskTimeoutMs = None
             )
           )
