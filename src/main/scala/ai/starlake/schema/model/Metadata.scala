@@ -179,7 +179,7 @@ case class Metadata(
   def getSeparator(): String = getFinalValue(separator, ";")
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  def getQuote(): String = getFinalValue(quote, "")
+  def getQuote(): String = getFinalValue(quote, "\"")
 
   def getEscape(): String = getFinalValue(escape, "\\")
 

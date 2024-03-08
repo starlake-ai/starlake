@@ -9,7 +9,7 @@ class TransformIntegrationRedshiftSpec extends BigQueryIntegrationSpecBase {
 
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    "Native Snowflake Transform" should "succeed" in {
+    "Native REDSHIFT Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"  -> "REDSHIFT",
         "SL_ROOT" -> localDir.pathAsString

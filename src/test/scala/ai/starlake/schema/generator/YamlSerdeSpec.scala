@@ -1107,6 +1107,7 @@ object YamlConfigGenerators {
     for {
       env                        <- arbitrary[String]
       datasets                   <- arbitrary[String]
+      incoming                   <- arbitrary[String]
       dags                       <- arbitrary[String]
       metadata                   <- arbitrary[String]
       metrics                    <- arbitrary[Metrics]
@@ -1179,6 +1180,7 @@ object YamlConfigGenerators {
     } yield AppConfig(
       env = env,
       datasets = datasets,
+      incoming = incoming,
       dags = dags,
       metadata = metadata,
       metrics = metrics,

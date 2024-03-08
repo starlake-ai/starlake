@@ -1775,6 +1775,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "When using filesystem storage, default path to store the datasets"
         },
+        "incoming": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Incoming folder to use during autoload"
+        },
         "dags": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "DAG generation config folder. metadata/dags by default"
