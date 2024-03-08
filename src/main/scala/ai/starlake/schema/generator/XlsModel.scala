@@ -61,7 +61,8 @@ trait XlsModel {
     "_xml"        -> "XML Options",
     "_extensions" -> "Accepted extensions",
     "_options"    -> "Spark ingestion options",
-    "_validator"  -> "Class validator"
+    "_validator"  -> "Class validator",
+    "_null"       -> "Null value"
   )
 
   val allAttributeHeaders = List(
