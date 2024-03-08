@@ -174,7 +174,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
 
       val quoteOpt =
         Option(row.getCell(headerMap("_quote"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .flatMap(formatter.formatCellValue)
+          .flatMap(formatter.formatCellWithBlankValue)
 
       val nullValueOpt =
         Option(row.getCell(headerMap("_null"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
