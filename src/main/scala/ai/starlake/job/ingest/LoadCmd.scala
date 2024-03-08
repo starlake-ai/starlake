@@ -57,7 +57,7 @@ trait LoadCmd extends Cmd[LoadConfig] {
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    workflow(schemaHandler).loadPending(config).map(_ => JobResult.empty)
+    workflow(schemaHandler).load(config).map(_ => JobResult.empty)
 }
 
 object LoadCmd extends LoadCmd

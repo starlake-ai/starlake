@@ -114,13 +114,13 @@ class SchemaHandlerSpec extends TestHelper {
         }
 
         private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
-        validator.loadPending()
+        validator.load()
 
         sparkSessionReset(settings)
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator2.loadPending()
+        validator2.load()
 
         sparkSessionReset(settings)
 
@@ -152,7 +152,7 @@ class SchemaHandlerSpec extends TestHelper {
         deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
         sparkSessionReset(settings)
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator3.loadPending()
+        validator3.load()
 
         sparkSessionReset(settings)
 
@@ -192,7 +192,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
-        validator.loadPending()
+        validator.load()
 
         val accepted: Array[Row] = sparkSession
           .sql(s"select PK, firstName, lastName, DOB, YEAR, MONTH from $datasetDomainName.Players")
@@ -235,7 +235,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Since full is loaded first, it will be the base for the delta
 
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").load()
 
         val acceptedFullDelta: Array[Row] = sparkSession
           .sql(
@@ -257,7 +257,7 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedFullDelta should contain theSameElementsAs expectedFullDelta
         sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").load()
 
         val acceptedDeltaFull: Array[Row] = sparkSession
           .sql(

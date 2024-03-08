@@ -74,7 +74,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         "ARRAY_JSON"
       case "json" if firstLine.startsWith("{") =>
         "JSON"
-      case "csv" | "tsv" | "psv" => "DSV"
+      case "csv" | "dsv" | "tsv" | "psv" => "DSV"
       case _ =>
         val jsonRegexStart = """\{.*""".r
         val jsonArrayRegexStart = """\[.*""".r
