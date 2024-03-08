@@ -131,10 +131,10 @@ class IngestionWorkflow(
     * the domain YML file.
     */
 
-  def loadLanding(config: StageConfig): Try[Unit] = Try {
-    val filteredDomains = config.includes match {
+  def stage(config: StageConfig): Try[Unit] = Try {
+    val filteredDomains = config.domains match {
       case Nil => domains(Nil, Nil) // Load all domains & tables
-      case _   => domains(config.includes.toList, Nil)
+      case _   => domains(config.domains.toList, Nil)
     }
     logger.info(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
@@ -304,7 +304,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def loadPending(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
+  def load(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
     val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
@@ -490,7 +490,7 @@ class IngestionWorkflow(
     if (config.domain.isEmpty || config.schema.isEmpty) {
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
-      loadPending(
+      load(
         LoadConfig(
           domains = domainToWatch,
           tables = schemasToWatch,
@@ -699,26 +699,7 @@ class IngestionWorkflow(
     val saveDir = config.outputDir.getOrElse(DatasetArea.load.toString)
 
     // table name if not specified will be the file name without extension and delta part if any product-delta.csv
-    val fileNameWithoutExt = File(config.inputPath).nameWithoutExtension(includeAll = true)
-    val pattern = Pattern.compile("[._-]")
-    val matcher = pattern.matcher(fileNameWithoutExt)
-    val (name, write) = {
-      if (matcher.find()) {
-        val matchedChar = fileNameWithoutExt.charAt(matcher.start())
-        val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
-        val name = fileNameWithoutExt.substring(0, lastIndex)
-        val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
-        if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
-          (name, WriteMode.APPEND)
-        } else {
-          (fileNameWithoutExt, WriteMode.OVERWRITE)
-        }
-      } else {
-        val name = fileNameWithoutExt
-        val write = WriteMode.OVERWRITE
-        (name, write)
-      }
-    }
+    val (name, write) = config.extractTableNameAndWriteMode()
     val tableName =
       if (config.schemaName.isEmpty)
         name

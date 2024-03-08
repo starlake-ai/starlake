@@ -1,5 +1,6 @@
 # The load directory
 
+## Directory structure
 Datawarehouses are organized around schemas where tables are grouped.
 Depending on the database, a database `schema` can be called `schema` or `catalog` or `dataset`.
 In starlake, we use the term `domain` to designate  a `schema`, `catalog` or `dataset`.
@@ -27,4 +28,25 @@ metadata/load
 
 - The `<table-name>.sl.yml` file contain the table configuration and describe how files are parsed, validated and loaded into the target database.
 
+
+## Domain configuration
+
+We first need to define where the CSV files will be loaded from.
+This is done by creating a domain configuration file that describe where the `load` command should look for the files to load
+
+<br/>
+
+In this case the load command will look in the directory `{{incoming_path}}/starbake` where `{{incoming_path}}` is an environment variable
+defined in the `metadata/env.sl.yml` file and that may be redefined for each environment (dev, test, prod) in the `metadata/env.dev.yml` file for example.
+
+<br/>
+
+```yaml title="metadata/load/<domain>/_config.sl.yml"
+load:
+  metadata:
+    directory: "{{incoming_path}}/starbake"
+```
+<br/>
+
+Since the directory is set at the domain level, this means that all files loaded for this domain, will be loaded from this directory.
 

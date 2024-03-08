@@ -21,9 +21,7 @@ If the table does not exist, it will be created. If the table already contains d
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "APPEND"
   attributes:
@@ -40,9 +38,7 @@ Replace all rows in the table with the new rows. This will delete all existing r
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "OVERWRITE"
   attributes:
@@ -61,9 +57,7 @@ the new row will overwrite the old one otherwise it will be appended.
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "OVERWRITE_BY_KEY"
       key: ["id"]
@@ -80,9 +74,7 @@ Merge the new rows with the existing rows. If a row with the same key and an old
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "OVERWRITE_BY_KEY_AND_TIMESTAMP"
       key: ["id"]
@@ -102,9 +94,7 @@ Merge the new rows with the existing rows. All existing partitions present in th
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "OVERWRITE_BY_PARTITION"
       on: TARGET
@@ -122,9 +112,7 @@ Merge the new rows with the existing rows using the [Slowly Changing Dimension T
 table:
   pattern: "<table>.*.csv"
   metadata:
-    format: "DSV"
-    withHeader: true
-    separator: ";"
+    ...
     writeStrategy:
       type: "SCD2"
       key: ["id"]

@@ -35,11 +35,11 @@ object StageCmd extends Cmd[StageConfig] {
              |example: comet import
              |""".stripMargin),
       builder
-        .opt[Seq[String]]("include")
-        .action((x, c) => c.copy(includes = x))
+        .opt[Seq[String]]("domains")
+        .action((x, c) => c.copy(domains = x))
         .valueName("domain1,domain2...")
         .optional()
-        .text("Domains to import")
+        .text("Domains to stage")
     )
   }
 
@@ -49,7 +49,7 @@ object StageCmd extends Cmd[StageConfig] {
   override def run(config: StageConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    workflow(schemaHandler).loadLanding(config).map(_ => JobResult.empty)
+    workflow(schemaHandler).stage(config).map(_ => JobResult.empty)
 }
 
 object ImportCmd extends Cmd[StageConfig] {

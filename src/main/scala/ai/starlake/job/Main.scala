@@ -5,7 +5,15 @@ import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest.{IamPoliciesCmd, ImportCmd, IngestCmd, LoadCmd, SecureCmd, StageCmd}
+import ai.starlake.job.ingest.{
+  AutoLoadCmd,
+  IamPoliciesCmd,
+  ImportCmd,
+  IngestCmd,
+  LoadCmd,
+  SecureCmd,
+  StageCmd
+}
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
@@ -74,6 +82,7 @@ class Main() extends StrictLogging {
     StageCmd,
     ValidateCmd,
     LoadCmd,
+    AutoLoadCmd,
     IngestCmd,
     ESLoadCmd,
     KafkaJobCmd,

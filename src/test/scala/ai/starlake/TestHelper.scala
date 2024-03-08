@@ -455,7 +455,7 @@ trait TestHelper
 
     def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
-      validator.loadPending()
+      validator.load()
     }
 
     def secure(config: LoadConfig): Try[Boolean] = {
@@ -509,7 +509,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler)
-      validator.loadLanding(StageConfig())
+      validator.stage(StageConfig())
     }
   }
 

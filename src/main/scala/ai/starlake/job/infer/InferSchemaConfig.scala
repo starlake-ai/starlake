@@ -20,6 +20,9 @@
 package ai.starlake.job.infer
 
 import ai.starlake.schema.model.{Format, WriteMode}
+import better.files.File
+
+import java.util.regex.Pattern
 
 case class InferSchemaConfig(
   domainName: String = "",
@@ -30,4 +33,27 @@ case class InferSchemaConfig(
   write: Option[WriteMode] = None,
   rowTag: Option[String] = None,
   clean: Boolean = false
-)
+) {
+  def extractTableNameAndWriteMode(): (String, WriteMode) = {
+    val file: File = File(inputPath)
+    val fileNameWithoutExt = file.nameWithoutExtension(includeAll = true)
+    val pattern = Pattern.compile("[._-]")
+    val matcher = pattern.matcher(fileNameWithoutExt)
+    if (matcher.find()) {
+      val matchedChar = fileNameWithoutExt.charAt(matcher.start())
+      val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
+      val name = fileNameWithoutExt.substring(0, lastIndex)
+      val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
+      if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
+        (name, WriteMode.APPEND)
+      } else {
+        (fileNameWithoutExt, WriteMode.OVERWRITE)
+      }
+    } else {
+      val name = fileNameWithoutExt
+      val write = WriteMode.OVERWRITE
+      (name, write)
+    }
+  }
+
+}

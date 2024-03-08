@@ -536,6 +536,7 @@ object Settings extends StrictLogging {
   final case class AppConfig(
     env: String,
     datasets: String,
+    incoming: String,
     dags: String,
     metadata: String,
     metrics: Metrics,
