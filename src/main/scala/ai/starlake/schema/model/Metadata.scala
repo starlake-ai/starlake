@@ -25,7 +25,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude}
 
 import scala.collection.mutable
 
@@ -178,7 +178,8 @@ case class Metadata(
 
   def getSeparator(): String = getFinalValue(separator, ";")
 
-  def getQuote(): String = getFinalValue(quote, "\"")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  def getQuote(): String = getFinalValue(quote, "")
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
