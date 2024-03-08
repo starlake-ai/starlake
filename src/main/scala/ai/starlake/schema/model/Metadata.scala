@@ -192,7 +192,6 @@ case class Metadata(
   @JsonIgnore
   def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
 
-  @JsonIgnore
   // scalastyle:off null
   def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
   // scalastyle:on null

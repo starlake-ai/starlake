@@ -172,6 +172,14 @@ class XlsDomainReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_escape"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
 
+      val quoteOpt =
+        Option(row.getCell(headerMap("_quote"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
+      val nullValueOpt =
+        Option(row.getCell(headerMap("_null"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
       val writeStrategy = (deltaColOpt, identityKeysOpt, mergeQueryFilter, write) match {
         case (Some(deltaCol), Some(identityKeys), filter, _) =>
           val strategyType =
@@ -258,7 +266,9 @@ class XlsDomainReader(input: Input) extends XlsModel {
             separator = separator,
             escape = escape,
             sink = sinkRes,
-            writeStrategy = Some(writeStrategy)
+            writeStrategy = Some(writeStrategy),
+            quote = quoteOpt,
+            nullValue = nullValueOpt
           )
 
           val tablePolicies = policiesOpt
