@@ -154,6 +154,13 @@ trait XlsModel {
         case v              => Some(v)
       }
     }
+
+    def formatCellWithBlankValue(cell: Cell): Option[String] = {
+      formatCellValue(cell) match {
+        case Some(v) if v.toLowerCase == "blank" => Some("")
+        case v                                   => v
+      }
+    }
   }
 
   def fillHeaders(workbook: Workbook, headers: List[(String, String)], sheet: XSSFSheet): Unit = {
