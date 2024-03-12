@@ -41,10 +41,10 @@ import scala.collection.mutable
   *   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator"
   *     field.
   *   - POSITION : FIXED format file where values are located at an exact position in each line.
-  *   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from
-  *     JSON with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
+  *   - JSON_FLAT : For optimisation purpose, we differentiate JSON with top level values from JSON
+  *     with deep level fields. JSON_FLAT are JSON files with top level fields only.
   *   - JSON : Deep JSON file. Use only when your json documents contain subdocuments, otherwise
-  *     prefer to use SIMPLE_JSON since it is much faster.
+  *     prefer to use JSON_FLAT since it is much faster.
   *   - XML : XML files
   * @param encoding
   *   : UTF-8 if not specified.
@@ -362,7 +362,7 @@ case class Metadata(
     import Format._
     if (
       ignore.isDefined &&
-      !List(DSV, SIMPLE_JSON, POSITION).contains(getFormat())
+      !List(DSV, JSON_FLAT, POSITION).contains(getFormat())
     )
       errorList += ValidationMessage(
         Error,

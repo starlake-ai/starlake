@@ -1354,7 +1354,6 @@ object YamlConfigGenerators {
         database = database,
         domain = domain,
         table = table,
-        partition = partition,
         presql = presql,
         postsql = postsql,
         sink = sink,

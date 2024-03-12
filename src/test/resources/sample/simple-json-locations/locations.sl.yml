@@ -4,7 +4,7 @@ load:
   name: "locations"
   metadata:
     directory: "__SL_TEST_ROOT__"
-    format: "SIMPLE_JSON"
+    format: "JSON_FLAT"
     multiline: true
     array: true
     withHeader: true

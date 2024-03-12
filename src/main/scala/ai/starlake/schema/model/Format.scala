@@ -28,8 +28,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 /** Recognized file type format. This will select the correct parser
   *
   * @param value
-  *   : SIMPLE_JSON, JSON of DSV Simple Json is made of a single level attributes of simple types
-  *   (no arrray or map or sub objects)
+  *   : JSON_FLAT, JSON of DSV Simple Json is made of a single level attributes of simple types (no
+  *   arrray or map or sub objects)
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[FormatDeserializer])
@@ -42,9 +42,9 @@ object Format {
   def fromString(value: String): Format = {
     value.toUpperCase match {
       case "DSV"                 => Format.DSV
-      case "POSITION"            => Format.POSITION
-      case "JSON" | "ARRAY_JSON" => Format.JSON
-      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
+      case "POSITION" | "FIXED"  => Format.POSITION
+      case "JSON" | "JSON_ARRAY" => Format.JSON
+      case "JSON_FLAT"           => Format.JSON_FLAT
       case "XML"                 => Format.XML
       case "TEXT_XML"            => Format.TEXT_XML
       case "KAFKA"               => Format.KAFKA
@@ -62,7 +62,7 @@ object Format {
 
   object KAFKASTREAM extends Format("KAFKASTREAM")
 
-  object SIMPLE_JSON extends Format("SIMPLE_JSON")
+  object JSON_FLAT extends Format("JSON_FLAT")
 
   object JSON extends Format("JSON")
 
@@ -75,7 +75,7 @@ object Format {
   object TEXT_XML extends Format("TEXT_XML")
 
   val formats: Set[Format] =
-    Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, TEXT_XML, KAFKA, KAFKASTREAM, GENERIC, PARQUET)
+    Set(DSV, POSITION, JSON_FLAT, JSON, XML, TEXT_XML, KAFKA, KAFKASTREAM, GENERIC, PARQUET)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {

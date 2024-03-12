@@ -22,7 +22,7 @@ object FlatRowValidator extends GenericRowValidator {
       case Format.DSV =>
         // dropRight removes CometInputFileName Column
         row.toSeq.dropRight(1).map(Option(_).getOrElse("").toString).mkString(separator)
-      case Format.SIMPLE_JSON =>
+      case Format.JSON_FLAT =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
         new Gson().toJson(rowAsMap - CometColumns.cometInputFileNameColumn)
       case Format.POSITION =>

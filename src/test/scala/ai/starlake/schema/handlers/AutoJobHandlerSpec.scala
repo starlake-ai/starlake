@@ -406,7 +406,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "DOMAIN",
         table = "TABLE",
-        partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         None,

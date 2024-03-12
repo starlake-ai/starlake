@@ -568,7 +568,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case Format.SIMPLE_JSON =>
+        case Format.JSON_FLAT =>
           new SimpleJsonIngestionJob(
             domain,
             schema,

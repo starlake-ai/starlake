@@ -189,7 +189,6 @@ class MetricsJob(
               database = settings.appConfig.audit.getDatabase(),
               domain = settings.appConfig.audit.getDomain(),
               table = table.toString,
-              partition = Nil,
               presql = Nil,
               postsql = Nil,
               sink = Some(settings.appConfig.audit.sink),

@@ -226,7 +226,7 @@ trait IngestionJob extends SparkJob {
 
   private def isNativeCandidate(): Boolean = {
     val csvOrJsonLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON, Format.SIMPLE_JSON).contains(
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT).contains(
         mergedMetadata.getFormat()
       )
 

@@ -6,7 +6,7 @@ table:
     - id
   metadata:
     array: true
-    format: "SIMPLE_JSON"
+    format: "JSON_FLAT"
     writeStrategy:
       type: "UPSERT_BY_KEY"
       key: [id]
