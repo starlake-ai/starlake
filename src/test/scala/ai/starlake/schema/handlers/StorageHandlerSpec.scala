@@ -199,7 +199,6 @@ class StorageHandlerSpec extends TestHelper {
         database = None,
         domain = "DOMAIN",
         table = "ANALYSE",
-        partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         sink = None,

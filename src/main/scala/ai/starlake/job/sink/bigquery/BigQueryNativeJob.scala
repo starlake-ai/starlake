@@ -229,7 +229,7 @@ class BigQueryNativeJob(
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
-          case Format.JSON | Format.SIMPLE_JSON =>
+          case Format.JSON | Format.JSON_FLAT =>
             FormatOptions.json()
           case _ =>
             throw new Exception(s"Should never happen: ${metadata.getFormat()}")

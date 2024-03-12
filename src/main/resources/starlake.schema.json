@@ -343,7 +343,7 @@
       "unevaluatedProperties" : false
     },
     "FormatV1": {
-      "description": "DSV by default. Supported file formats are :\\n- DSV : Delimiter-separated values file. Delimiter value is specified in the \"separator\" field.\\n- POSITION : FIXED format file where values are located at an exact position in each line.\\n- SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from JSON\\n  with deep level fields. SIMPLE_JSON are JSON files with top level fields only.\\n- JSON :  Deep JSON file. Use only when your json documents contain sub-documents, otherwise prefer to\\n  use SIMPLE_JSON since it is much faster.\\n- XML : XML files",
+      "description": "DSV by default. Supported file formats are :\\n- DSV : Delimiter-separated values file. Delimiter value is specified in the \"separator\" field.\\n- POSITION : FIXED format file where values are located at an exact position in each line.\\n- JSON_FLAT : For optimisation purpose, we differentiate JSON with top level values from JSON\\n  with deep level fields. JSON_FLAT are JSON files with top level fields only.\\n- JSON :  Deep JSON file. Use only when your json documents contain sub-documents, otherwise prefer to\\n  use JSON_FLAT since it is much faster.\\n- XML : XML files",
       "$ref": "#/definitions/ConvertibleToString",
       "oneOf": [
         {
@@ -356,14 +356,14 @@
         },
         {
           "const": "JSON",
-          "description": "any deep json file.\nTo improve performance, prefer the SIMPLE_JSON format if your json documents are flat"
+          "description": "any deep json file.\nTo improve performance, prefer the JSON_FLAT format if your json documents are flat"
         },
         {
-          "const": "ARRAY_JSON",
+          "const": "JSON_ARRAY",
           "description": "any json file containing an array of json objects."
         },
         {
-          "const": "SIMPLE_JSON",
+          "const": "JSON_FLAT",
           "description": "any flat json file.\nTo improve performance, prefer this format if your json documents are flat"
         },
         {

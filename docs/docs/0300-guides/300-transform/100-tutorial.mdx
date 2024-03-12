@@ -21,6 +21,8 @@ This requires us to build the insights in the following order:
 
 We will store these insights in the `kpi` schema. We need to write one SQL query per insight as shown below:
 
+<br/>
+
 ```sql title="metadata/transform/kpi/revenue_summary.sql"
 SELECT
     o.order_id,
@@ -31,8 +33,9 @@ FROM
     JOIN starbake.order_line ol ON o.order_id = ol.order_id
 GROUP BY
     o.order_id, o.timestamp
-
 ```
+
+<br/>
 
 ```sql title="metadata/transform/kpi/product_summary.sql"
 SELECT
@@ -51,6 +54,8 @@ GROUP BY
     o.order_id, p.name, o.timestamp
 
 ```
+
+<br/>
 
 ```sql title="metadata/transform/kpi/order_summary.sql"
 SELECT

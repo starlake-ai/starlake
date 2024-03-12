@@ -34,7 +34,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import scala.util.{Failure, Success, Try}
 
 /** Main class to XML file If your json contains only one level simple attribute aka. kind of dsv
-  * but in json format please use SIMPLE_JSON instead. It's way faster
+  * but in json format please use JSON_FLAT instead. It's way faster
   *
   * @param domain
   *   : Input Dataset Domain

@@ -109,7 +109,7 @@ object InferSchemaHandler {
                 row.dataType.typeName == "timestamp" && Set(
                   Format.DSV,
                   Format.POSITION,
-                  Format.SIMPLE_JSON
+                  Format.JSON_FLAT
                 ).contains(format)
               ) {
                 // We handle here the case when it is a date and not a timestamp

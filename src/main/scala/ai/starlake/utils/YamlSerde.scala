@@ -263,8 +263,19 @@ object YamlSerde extends LazyLogging {
         // fallback to table since this is how we should define tables in starlake
         val tableNode =
           validateConfigFile(tableSubPath, content, path, List(YamlMigrator.V1.TableConfig))
+        val metadata = tableNode.path("metadata")
+        val isJsonArray = if (!metadata.isMissingNode) {
+          metadata.path("format").asText().toLowerCase() == "array_json"
+        } else
+          false
         val ref = mapper.treeToValue(tableNode, classOf[TableDesc])
-        TablesDesc(ref.version, List(ref.table))
+        val table =
+          if (isJsonArray)
+            ref.table
+              .copy(metadata = ref.table.metadata.map(m => m.copy(array = Some(true))))
+          else
+            ref.table
+        TablesDesc(ref.version, List(table))
       }
     } match {
       case Success(value) => value

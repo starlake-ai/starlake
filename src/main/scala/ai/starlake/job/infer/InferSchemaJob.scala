@@ -71,7 +71,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     file.extension(includeDot = false).getOrElse("").toLowerCase() match {
       case "xml" => "XML"
       case "json" if firstLine.startsWith("[") =>
-        "ARRAY_JSON"
+        "JSON_ARRAY"
       case "json" if firstLine.startsWith("{") =>
         "JSON"
       case "csv" | "dsv" | "tsv" | "psv" => "DSV"
@@ -87,7 +87,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
         (firstLine, lastLine) match {
           case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
-          case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
+          case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "JSON_ARRAY"
           case (xmlRegexStart(), xmlRegexEnd())             => "XML"
           case _                                            => "DSV"
         }
@@ -176,7 +176,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     val formatFile = getFormatFile(dataPath, lines)
 
     formatFile match {
-      case "ARRAY_JSON" =>
+      case "JSON_ARRAY" =>
         val content = lines.mkString("\n")
         val jsons = ListBuffer[String]()
         val jsonarray = new JSONArray(content)
@@ -263,13 +263,22 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         case Some(Format.POSITION) =>
           var lastIndex = -1
           val attributes = lines.zipWithIndex.map { case (line, index) =>
+            val fieldIndex = line.indexOf(":")
+            if (fieldIndex == -1)
+              throw new IllegalArgumentException(
+                s"""Positional format schem inference requires a colon (:) to separate the field name from in line $index.
+                   |Example
+                   |-------
+                   |order_id:00001
+                   |customer_id:010203
+                   |""".stripMargin
+              )
+            val fieldName = line.substring(0, fieldIndex).trim
+            val field = line.substring(fieldIndex + 1).trim
             val startPosition = lastIndex + 1
-            val endPosition = startPosition + line.length
+            val endPosition = startPosition + field.length
             lastIndex = endPosition
-            Attribute(
-              name = s"_c$index",
-              position = Some(Position(startPosition, endPosition))
-            )
+            Attribute(name = fieldName, position = Some(Position(startPosition, endPosition)))
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
@@ -286,7 +295,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val (format, array) = forceFormat match {
             case None =>
               val formatAsStr = getFormatFile(inputPath, lines)
-              (Format.fromString(formatAsStr), formatAsStr == "ARRAY_JSON")
+              (Format.fromString(formatAsStr), formatAsStr == "JSON_ARRAY")
             case Some(f) => (f, false)
           }
 

@@ -73,11 +73,11 @@ class InferSchemaJobSpec extends TestHelper {
     }
 
     "GetFormatArrayJson" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "JSON_ARRAY"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "JSON_ARRAY"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(

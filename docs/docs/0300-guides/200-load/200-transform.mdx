@@ -10,11 +10,14 @@ The new column will be added to the table with the name you provide in the `name
 
 In addition to the [Spark SQL](https://spark.apache.org/docs/latest/api/sql/index.html#hex) functions you can reference any of the properties available in the `_metadata` hidden column.
 
-[Available metadata properties are :
-- `file_name` (string): the name of the file being loaded)
-- `file_path` (string): the path of the file being loaded
-- `file_size` (long): the size of the file being loaded
-- `file_modification_time` (timestamp): the last modified date of the file being loaded
+Available metadata properties are :
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `file_name` | string | the name of the file being loaded |
+| `file_path` | string | the path of the file being loaded |
+| `file_size` | long | the size of the file being loaded |
+| `file_modification_time` | timestamp | the last modified date of the file being loaded |
 
 
 <br/>
@@ -77,12 +80,16 @@ table:
     foreignKey: "product.id"
 
 ```
+<br/>
 
 The `foreignKey` property is defined using one of the following syntax:
-- `foreign_key: "<table>"` : This will create a foreign key on the primary key of the specified table in the same domain.
-- `foreign_key: "<domain>.<table>"` : This will create a foreign key on the column to primary key of the specified table of the specified domain.
-- `foreign_key: "<domain>.<table>.<column>"` : This will create a foreign key on the column to the specified column in the specified table of the specified domain.
-- `foreign_key: "<table>.<column>"` : This will create a foreign key on the column to the specified column in the specified table in the same domain
+
+| Syntax | Description |
+| --- | --- |
+| `foreign_key: "<table>"` | This will create a foreign key on the primary key of the specified table in the same domain. |
+| `foreign_key: "<domain>.<table>"` | This will create a foreign key on the column to primary key of the specified table of the specified domain. |
+| `foreign_key: "<domain>.<table>.<column>"` | This will create a foreign key on the column to the specified column in the specified table of the specified domain. |
+| `foreign_key: "<table>.<column>"` | This will create a foreign key on the column to the specified column in the specified table in the same domain |
 
 
 

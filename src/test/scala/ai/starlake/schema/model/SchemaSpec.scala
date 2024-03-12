@@ -121,7 +121,7 @@ class SchemaSpec extends TestHelper {
         Attribute("optionalAttribute", "long", required = false, default = Some("10"))
       optionalAttribute.checkValidity(schemaHandler) shouldBe Right(true)
     }
-    "Ignore attribute " should "be used only when file format is flat DSV, SIMPLE_JSON, POSITION" in {
+    "Ignore attribute " should "be used only when file format is flat DSV, JSON_FLAT, POSITION" in {
       val meta = new Metadata(
         format = Some(Format.JSON),
         encoding = None,
