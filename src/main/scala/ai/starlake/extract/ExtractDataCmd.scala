@@ -147,7 +147,7 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
   override def run(config: UserExtractDataConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    Try(new ExtractData(schemaHandler).run(config)).map(_ => JobResult.empty)
+    Try(new ExtractDataJob(schemaHandler).run(config)).map(_ => JobResult.empty)
 }
 
 object ExtractDataCmd extends ExtractDataCmd

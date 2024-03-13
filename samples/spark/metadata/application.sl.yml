@@ -10,7 +10,7 @@ application:
     postgresql:
       type: jdbc
       options:
-        url: "jdbc:postgresql:{{POSTGRES_DATABASE}}"
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
         user: "{{POSTGRES_USER}}"
         password: "{{POSTGRES_PASSWORD}}"

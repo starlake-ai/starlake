@@ -417,6 +417,21 @@ object YamlSerializer extends LazyLogging {
               parent.replace("type", new TextNode("SNOWFLAKE"))
         }
     }
+    val strategyNode = taskNode.path("writeStrategy")
+    if (strategyNode.isMissingNode()) {
+      val writeNode = taskNode.path("write")
+      if (!writeNode.isMissingNode()) {
+        val writeType = writeNode.asInstanceOf[TextNode].textValue().toUpperCase()
+        val strategyNode =
+          if (writeType == "OVERWRITE")
+            mapper.readTree("{type: OVERWRITE}")
+          else
+            mapper.readTree("{type: APPEND}")
+        taskNode.set("writeStrategy", strategyNode)
+      }
+
+    }
+
   }
 
   def deserializeJob(content: String, path: String): Try[AutoJobDesc] = {

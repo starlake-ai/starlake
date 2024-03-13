@@ -934,11 +934,13 @@ class SchemaHandlerSpec extends TestHelper {
         fileContent.trim should equal(expectedFileContent.trim)
         val domains = schemaHandler.domains()
         val result = domains.head.asDot(false, Set("dream.segment", "dream.client"))
+        println(result)
         result.trim shouldBe """
-                               |
                                |dream_segment [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
-                               |<tr><td port="0" bgcolor="white"><B><FONT color="black"> segment </FONT></B></td></tr>
+                               |<tr>
+                               |<td port="0" bgcolor="#008B00"><B><FONT color="white"> segment </FONT></B></td>
+                               |</tr>
                                |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
                                |</table>>];
                                |
@@ -946,7 +948,9 @@ class SchemaHandlerSpec extends TestHelper {
                                |
                                |dream_client [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
-                               |<tr><td port="0" bgcolor="white"><B><FONT color="black"> client </FONT></B></td></tr>
+                               |<tr>
+                               |<td port="0" bgcolor="#008B00"><B><FONT color="white"> client </FONT></B></td>
+                               |</tr>
                                |<tr><td port="dream_id"><I> dream_id:long </I></td></tr>
                                |</table>>];
                                |

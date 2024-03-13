@@ -79,7 +79,7 @@ object Bootstrap extends StrictLogging {
     val metadataFolder = File(DatasetArea.metadata.toString)
     metadataFolder.createDirectories()
     if (metadataFolder.collectChildren(!_.isDirectory).nonEmpty) {
-      println(s"Folder ${metadataFolder.pathAsString} already exists and not empty. Aborting.")
+      println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
     askTemplate(template)
@@ -114,11 +114,17 @@ object Bootstrap extends StrictLogging {
                 connectionsNode.remove(key)
             }
             if (connectionName == "bigquery") {
-              val loaders = List("native", "spark")
+              val loaders = List(
+                "spark (full features)",
+                "native (limited to validation features provided by the datawarehouse)"
+              )
               println("Select loader:")
+              loaders.zipWithIndex.foreach { case (template, index) =>
+                println(s"  $index. $template")
+              }
               requestAnswer(loaders).foreach { loader =>
-                appNode.put("loader", loader)
-                if (loader == "native" || connectionName != "bigquery") {
+                appNode.put("loader", loader.split(' ').head)
+                if (loader.startsWith("native") || connectionName != "bigquery") {
                   appNode.remove("spark")
                 }
               }
