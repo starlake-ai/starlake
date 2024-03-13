@@ -26,7 +26,8 @@ case class InferSchemaConfig(
   schemaName: String = "",
   inputPath: String = "",
   outputDir: Option[String] = None,
-  withHeader: Boolean = false,
   format: Option[Format] = None,
-  write: Option[WriteMode] = None
+  write: Option[WriteMode] = None,
+  rowTag: Option[String] = None,
+  clean: Boolean = false
 )

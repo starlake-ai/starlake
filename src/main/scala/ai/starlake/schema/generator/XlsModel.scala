@@ -12,7 +12,8 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_rename"      -> "Rename"
+    "_rename"      -> "Rename",
+    "_tags"        -> "Tags"
   )
   val allPolicyHeaders = List(
     "_name"        -> "Name",
@@ -60,7 +61,8 @@ trait XlsModel {
     "_xml"        -> "XML Options",
     "_extensions" -> "Accepted extensions",
     "_options"    -> "Spark ingestion options",
-    "_validator"  -> "Class validator"
+    "_validator"  -> "Class validator",
+    "_null"       -> "Null value"
   )
 
   val allAttributeHeaders = List(
@@ -83,16 +85,26 @@ trait XlsModel {
   )
 
   val allSchemaJobHeaders = List(
-    "_job"         -> "Job Name",
-    "_domain"      -> "Domain",
-    "_name"        -> "Name",
-    "_source"      -> "Tables sources for job",
-    "_write"       -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
-    "_frequency"   -> "Job frenquency",
-    "_partition"   -> "Partition column",
-    "_description" -> "Description",
-    "_policy"      -> "Access Policy",
-    "_database"    -> "Database"
+    "_job"           -> "Job Name",
+    "_domain"        -> "Domain",
+    "_name"          -> "Name",
+    "_source"        -> "Tables sources for job",
+    "_write"         -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
+    "_frequency"     -> "Job frenquency",
+    "_partition"     -> "Partition column",
+    "_description"   -> "Description",
+    "_policy"        -> "Access Policy",
+    "_database"      -> "Database",
+    "_clustering"    -> "Clustering columns",
+    "_tags"          -> "Tags",
+    "_presql"        -> "Pre SQLs - ###",
+    "_postsql"       -> "Post SQLs - ###",
+    "_sink"          -> "Sink Type",
+    "_connectionRef" -> "Sink Connection Reference",
+    "_options"       -> "Sink Options",
+    "_format"        -> "FS Sink Format",
+    "_extension"     -> "FS Sink Extension",
+    "_coalesce"      -> "FS Sink Coalesce"
   )
 
   val allAttributeJobHeaders = List(
@@ -140,6 +152,13 @@ trait XlsModel {
       f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
         case v if v.isEmpty => None
         case v              => Some(v)
+      }
+    }
+
+    def formatCellWithBlankValue(cell: Cell): Option[String] = {
+      formatCellValue(cell) match {
+        case Some(v) if v.toLowerCase == "blank" => Some("")
+        case v                                   => v
       }
     }
   }

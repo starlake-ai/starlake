@@ -5,9 +5,10 @@ import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Format, WriteMode}
 import ai.starlake.utils.JobResult
+import better.files.File
 import scopt.OParser
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object InferSchemaCmd extends Cmd[InferSchemaConfig] {
 
@@ -22,12 +23,10 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] {
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))
-        .required()
         .text("Domain Name"),
       builder
         .opt[String]("table")
         .action((x, c) => c.copy(schemaName = x))
-        .required()
         .text("Table Name"),
       builder
         .opt[String]("input")
@@ -50,10 +49,15 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] {
         .optional()
         .text("Force input file format"),
       builder
-        .opt[Unit]("with-header")
-        .action((_, c) => c.copy(withHeader = true))
+        .opt[String]("rowTag")
+        .action((x, c) => c.copy(rowTag = Some(x)))
         .optional()
-        .text("Does the file contain a header (For CSV files only)")
+        .text("row tag to use if detected format is XML"),
+      builder
+        .opt[Unit]("clean")
+        .action((_, c) => c.copy(clean = true))
+        .optional()
+        .text("Delete previous YML before writing")
     )
   }
 
@@ -67,6 +71,31 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] {
 
   override def run(config: InferSchemaConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] =
-    workflow(schemaHandler).inferSchema(config).map(_ => JobResult.empty)
+  ): Try[JobResult] = {
+    val inputFile = File(config.inputPath)
+    val inputPaths =
+      if (inputFile.isDirectory()) {
+        inputFile.list.map(_.pathAsString).toList.filter(!_.startsWith(".")) // filter hidden files
+      } else {
+        List(config.inputPath)
+      }
+
+    val results = inputPaths.map { inputPath =>
+      workflow(schemaHandler)
+        .inferSchema(
+          config.copy(inputPath = inputPath)
+        )
+    }
+
+    val failures = results.filter(_.isFailure).map {
+      case Failure(exception) => exception.getMessage()
+      case _                  => throw new IllegalStateException("This should never happen")
+    }
+
+    if (failures.isEmpty) {
+      Success(JobResult.empty)
+    } else {
+      Failure(new Exception(failures.mkString("\n")))
+    }
+  }
 }

@@ -699,18 +699,56 @@ class IngestionWorkflow(
   }
 
   def inferSchema(config: InferSchemaConfig): Try[File] = {
+    // domain name if not specified will be the containing folder name
+    val domainName =
+      if (config.domainName.isEmpty) {
+        val file = File(config.inputPath)
+        file.parent.name
+      } else {
+        config.domainName
+      }
+
     val saveDir = config.outputDir.getOrElse(DatasetArea.load.toString)
 
+    // table name if not specified will be the file name without extension and delta part if any product-delta.csv
+    val fileNameWithoutExt = File(config.inputPath).nameWithoutExtension(includeAll = true)
+    val pattern = Pattern.compile("[._-]")
+    val matcher = pattern.matcher(fileNameWithoutExt)
+    val (name, write) = {
+      if (matcher.find()) {
+        val matchedChar = fileNameWithoutExt.charAt(matcher.start())
+        val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
+        val name = fileNameWithoutExt.substring(0, lastIndex)
+        val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
+        if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
+          (name, WriteMode.APPEND)
+        } else {
+          (fileNameWithoutExt, WriteMode.OVERWRITE)
+        }
+      } else {
+        val name = fileNameWithoutExt
+        val deltaPart = ""
+        val write = WriteMode.OVERWRITE
+        (name, write)
+      }
+    }
+    val tableName =
+      if (config.schemaName.isEmpty)
+        name
+      else
+        config.schemaName
+
     val result = (new InferSchemaJob).infer(
-      domainName = config.domainName,
-      schemaName = config.schemaName,
+      domainName = domainName,
+      tableName = tableName,
       pattern = None,
       comment = None,
-      dataPath = config.inputPath,
+      inputPath = config.inputPath,
       saveDir = if (saveDir.isEmpty) DatasetArea.load.toString else saveDir,
-      withHeader = config.withHeader,
       forceFormat = config.format,
-      writeMode = config.write.getOrElse(WriteMode.OVERWRITE)
+      writeMode = config.write.getOrElse(write),
+      rowTag = config.rowTag,
+      clean = config.clean
     )
     Utils.logFailure(result, logger)
     result
