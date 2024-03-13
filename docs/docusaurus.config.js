@@ -65,6 +65,7 @@ const config = {
     },
     prism: {
       additionalLanguages: ['java', 'scala', 'sql', 'powershell', 'python'],
+      theme: lightCodeTheme,
     },
     // Replace with your project's social card
     colorMode: {
