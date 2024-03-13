@@ -10,20 +10,24 @@ import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import StartSvg from '@site/static/img/start.svg';
 
 function HomepageHeader() {
-  const {siteConfig} = useDocusaurusContext();
+  const { siteConfig } = useDocusaurusContext();
   return (
     <header className={clsx(styles.heroBanner)}>
-      <div className="container">
-          <h1 className="hero__title title_gradient">Declarative Data Pipelines<br/>One YAML Rules Them All</h1>
-          <p className="hero__subtitle" style={{'font-size': '3rem'}}>{siteConfig.tagline}</p>
+      <div className='container'>
+        <h1 className='hero__title title_gradient'>
+          Declarative Data Pipelines
+          <br />
+          One YAML Rules Them All
+        </h1>
+        <p className='hero__subtitle' style={{ fontSize: '3rem' }}>
+          {siteConfig.tagline}
+        </p>
         <div className={styles.buttons}>
-          <Link
-            className="violet_btn"
-            to="/docs/intro">
+          <Link className='violet_btn' to='/docs/intro'>
             <span>Tutorial - 10min</span>
             <i>
-                <StartSvg title="Start Tutorial" className="start_icon" />
-                </i>
+              <StartSvg title='Start Tutorial' className='start_icon' />
+            </i>
           </Link>
         </div>
       </div>
@@ -32,14 +36,18 @@ function HomepageHeader() {
 }
 
 export default function Home() {
-  const {siteConfig} = useDocusaurusContext();
+  const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
       title={`${siteConfig.title}`}
-      description="Big & Fast Data Integration">
+      description='Big & Fast Data Integration'>
       <HomepageHeader />
       <HomepageFeatures />
-      <a aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button" type="button" href="#__docusaurus"></a>
+      <a
+        aria-label='Scroll back to top'
+        className='clean-btn theme-back-to-top-button'
+        type='button'
+        href='#__docusaurus'></a>
     </Layout>
   );
 }
