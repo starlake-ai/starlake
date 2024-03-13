@@ -1,10 +1,8 @@
 package ai.starlake.utils
 
-import ai.starlake.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, DatasetLogging}
 
 object MergeUtils extends StrictLogging with DatasetLogging {
@@ -13,40 +11,43 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     * incoming schema to retain the latest attributes, but without the columns that does not exist
     * yet. Ensures that the incomingSchema contains all the columns from the existingSchema.
     */
-  def computeCompatibleSchema(actualSchema: StructType, expectedSchema: StructType): StructType = {
-    val actualColumns = actualSchema.map(field => field.name.toLowerCase() -> field).toMap
-    computeNewColumns(actualSchema, expectedSchema)
+  def computeCompatibleSchema(
+    existingSchema: StructType,
+    incomingSchema: StructType
+  ): StructType = {
+    val actualColumns = existingSchema.map(field => field.name.toLowerCase() -> field).toMap
+    // computeNewColumns(actualSchema, expectedSchema)
 
-    StructType(
-      expectedSchema
-        .flatMap(expectedField =>
+    val result = StructType(
+      incomingSchema
+        .flatMap(incomingField =>
           actualColumns
-            .get(expectedField.name.toLowerCase())
+            .get(incomingField.name.toLowerCase())
             .map(existingField =>
-              (existingField.dataType, expectedField.dataType) match {
+              (existingField.dataType, incomingField.dataType) match {
                 case (existingType: StructType, incomingType: StructType) =>
-                  expectedField.copy(dataType = computeCompatibleSchema(existingType, incomingType))
+                  incomingField.copy(dataType = computeCompatibleSchema(existingType, incomingType))
                 case (
                       ArrayType(existingType: StructType, _),
                       ArrayType(incomingType: StructType, nullable)
                     ) =>
-                  expectedField
+                  incomingField
                     .copy(dataType =
                       ArrayType(computeCompatibleSchema(existingType, incomingType), nullable)
                     )
-                case (_, _) => expectedField
+                case (_, _) => incomingField
               }
             )
         )
     )
+    result
   }
-
   def computeNewColumns(
-    actualSchema: StructType,
-    expectedSchema: StructType
+    existingSchema: StructType,
+    incomingSchema: StructType
   ): List[StructField] = {
-    val actualColumns = actualSchema.map(field => field.name.toLowerCase() -> field).toMap
-    val expectedColumns = expectedSchema.map(field => field.name.toLowerCase() -> field).toMap
+    val actualColumns = existingSchema.map(field => field.name.toLowerCase() -> field).toMap
+    val expectedColumns = incomingSchema.map(field => field.name.toLowerCase() -> field).toMap
 
     val missingColumns = actualColumns.keySet.diff(expectedColumns.keySet)
     if (missingColumns.nonEmpty) {
@@ -68,107 +69,6 @@ object MergeUtils extends StrictLogging with DatasetLogging {
           .mkString(", ")
       )
     expectedColumns.filter { case (key, value) => newColumns.contains(key) }.values.toList
-  }
-
-  /** @param existingDF
-    * @param incomingDF
-    * @param mergeOptions
-    * @return
-    *   a tuple containing incomingDF without de records to delete as specified in the merge.delete
-    *   option, the merge Dataframe containing all the data and deleted DF containing all the rows
-    *   to delete
-    */
-  def computeToMergeAndToDeleteDF(
-    existingDF: DataFrame,
-    incomingDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): (DataFrame, DataFrame, DataFrame) = {
-    logger.whenInfoEnabled {
-      logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
-      logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
-      logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-      logger.info(s"existingDF field list=${existingDF.schema.fieldNames.mkString(",")}")
-      logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
-      logger.info(s"incomingDF field list=${incomingDF.schema.fieldNames.mkString(",")}")
-    }
-
-    val (mergedDF, toDeleteDF) = mergeOptions.timestamp match {
-      case Some(timestamp) =>
-        // We only keep the first occurrence of each record, from both datasets
-        val orderingWindow = Window
-          .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
-          .orderBy(col(timestamp).desc)
-
-        val allRowsDF = computeDataframeUnion(existingDF, incomingDF)
-
-        val allRowsWithRownum = updateFieldComment(
-          allRowsDF,
-          existingDF.schema.fields ++ incomingDF.schema.fields
-        ).withColumn("rownum", row_number.over(orderingWindow))
-
-        // Deduplicate
-        val mergedDF = allRowsWithRownum
-          .where(col("rownum") === 1)
-          .drop("rownum")
-        // Compute rows that will be deleted
-        val toDeleteDF = allRowsWithRownum
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-        (mergedDF, toDeleteDF)
-      case None =>
-        // We directly remove from the existing dataset the rows that are present in the incoming dataset
-        val patchedExistingDF = addMissingAttributes(existingDF, incomingDF)
-        val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
-        val commonDF = patchedExistingDF
-          .join(patchedIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
-          .select(patchedIncomingDF.columns.map(col): _*)
-        val mergeDF = updateFieldComment(
-          patchedExistingDF.except(commonDF).union(patchedIncomingDF),
-          existingDF.schema.fields ++ incomingDF.schema.fields
-        )
-        (mergeDF, commonDF)
-    }
-
-    logger.whenDebugEnabled {
-      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${mergedDF.count() - incomingDF.count()} items to insert")
-      logger.debug(mergedDF.showString(truncate = 0))
-    }
-
-    (incomingDF, mergedDF, toDeleteDF)
-  }
-
-  // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
-  private def findMissingColumnsType(
-    schema: StructType,
-    reference: StructType,
-    stack: List[String] = List()
-  ): Option[Map[List[String], DataType]] = {
-    val fields = schema.fields.map(field => field.name -> field).toMap
-    reference.fields
-      .flatMap { referenceField =>
-        fields
-          .get(referenceField.name)
-          .fold(
-            // Without match, we have found a missing column
-            Option(Map((stack :+ referenceField.name) -> referenceField.dataType))
-          ) { field =>
-            (field.dataType, referenceField.dataType) match {
-              // In here, we known the reference column is matched in the original schema
-              // If the innerType is a StructType, we must do some recursion
-              // Otherwise, we can end the search, there is no missing column here.
-              case (fieldType: StructType, referenceType: StructType) =>
-                findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
-              case (
-                    ArrayType(fieldType: StructType, _),
-                    ArrayType(referenceType: StructType, _)
-                  ) =>
-                findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
-              case (_, _) => None
-            }
-          }
-      }
-      .reduceOption(_ ++ _)
   }
 
   def buildMissingType(
@@ -204,40 +104,4 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     }
   }
 
-  /** Perform an union between two dataframe. Fixes any missing column from the originalDF by adding
-    * null values where needed and also fixes any missing column in the incoming DF (see {@link
-    * computeCompatibleSchema})
-    */
-  private def computeDataframeUnion(existingDF: DataFrame, incomingDF: DataFrame): DataFrame = {
-    val patchedExistingDF = addMissingAttributes(existingDF, incomingDF)
-    val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
-
-    patchedIncomingDF.unionByName(patchedExistingDF)
-  }
-
-  private def updateFieldComment(df: DataFrame, allfields: Array[StructField]): DataFrame = {
-    val columns: Seq[Column] = df.schema.map {
-      case structField: StructField if structField.metadata == Metadata.empty =>
-        val newMt: Metadata = allfields
-          .collectFirst {
-            case st if st.name == structField.name && st.metadata != Metadata.empty => st.metadata
-          }
-          .getOrElse(Metadata.empty)
-        df(structField.name).as(structField.name, newMt)
-      case structField => df(structField.name)
-    }
-    df.select(columns: _*)
-  }
-
-  private def addMissingAttributes(existingDF: DataFrame, incomingDF: DataFrame) = {
-    val missingTypesInExisting = findMissingColumnsType(existingDF.schema, incomingDF.schema)
-    val patchedExistingDF = missingTypesInExisting
-      .fold(existingDF) { missingTypes =>
-        missingTypes.foldLeft(existingDF) {
-          buildMissingType
-        }
-      }
-    logger.info(patchedExistingDF.schemaString())
-    patchedExistingDF
-  }
 }

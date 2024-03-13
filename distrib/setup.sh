@@ -30,9 +30,18 @@ get_installation_directory() {
     mkdir -p "$INSTALL_DIR"
 }
 
+if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
+  PROXY=${https_proxy:-$http_proxy}
+fi
+
 get_from_url() {
     local url=$1
-    local response=$(curl -s -w "%{http_code}" "$url")
+    if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
+        echo "Downloading data from $url using proxy $PROXY"
+        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
+    else
+        local response=$(curl -s -w "%{http_code}" "$url")
+    fi
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then

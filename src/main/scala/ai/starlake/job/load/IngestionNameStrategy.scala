@@ -1,6 +1,6 @@
 package ai.starlake.job.load
 
-import ai.starlake.schema.handlers.StorageHandler
+import ai.starlake.schema.handlers.{FileInfo, StorageHandler}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
@@ -14,6 +14,6 @@ object IngestionNameStrategy extends LoadStrategy with StrictLogging {
     extension: String = "",
     since: LocalDateTime = LocalDateTime.MIN,
     recursive: Boolean
-  ): List[Path] =
+  ): List[FileInfo] =
     storageHandler.list(path, extension, since, recursive, None, sortByName = true)
 }

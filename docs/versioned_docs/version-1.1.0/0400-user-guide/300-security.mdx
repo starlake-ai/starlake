@@ -1,0 +1,42 @@
+
+
+# Access Control
+
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+Once loaded in the data warehouse, the data is accessible to all users. You may want to restrict access to some tables or rows to some users or groups of users.
+This is done using the access control attributes. 
+
+
+### Table Level Access Control
+
+To restrict access at the table level, you can use the `acl` attribute in the table configuration file (load or transform).
+
+```yaml 
+    acl:
+      - role: viewer
+        grants:
+          - "user:me@me.com"
+          - "user:you@me.com"
+      - role: owner
+        grants:
+          - "user:me@you.com"
+          - "user:you@you.com"
+```
+
+
+### Row level security
+
+Row level security (RLS) allows you to restrict access to some rows in a table. This is done using the `rls` attribute in the table configuration file (load or transform).
+
+```yaml
+    rls:
+      - name: "USA only"
+        predicate: "country = 'USA'"
+        grants:
+          - "group:mygroup"
+```

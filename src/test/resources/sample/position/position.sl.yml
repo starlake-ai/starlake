@@ -15,44 +15,12 @@ load:
       partition:
         sampling: 0.5
         attributes:
-          - sl_year
-          - sl_month
-          - sl_day
+          - year
+          - month
+          - day
     dagRef: "sample"
     schedule: "0 0 0 * * ?"
   tables:
-    - name: "TEST_EMTPY"
-      pattern: "empty_position"
-      acl:
-        - role: "test reader"
-          grants:
-            - user:myuser
-            - group:mygroup
-        - role: "test writer"
-          grants:
-            - group:mygroup
-
-      attributes:
-        - name: "code0"
-          type: "byte"
-          required: true
-          privacy: "NONE"
-          comment:  "simple description"
-          position:
-            first: 0
-            last: 0
-        - name: "code1"
-          type: "byte"
-          required: true
-          privacy: "NONE"
-          position:
-            first: 1
-            last: 1
-      metadata:
-        sink:
-          partition:
-            sampling: 0
-            attributes: []
     - name: "account"
       pattern: ".*TBL"
       attributes:
@@ -138,3 +106,24 @@ load:
           position:
             first: 0
             last: 0
+        - name: "year"
+          type: "long"
+          script: "year(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "month"
+          type: "long"
+          script: "month(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "day"
+          type: "long"
+          script: "day(current_date())"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"

@@ -65,7 +65,7 @@ trait StorageHandler extends StrictLogging {
   def moveFromLocal(source: Path, dest: Path): Unit
 
   def moveSparkPartFile(sparkFolder: Path, extension: String): Option[Path] = {
-    val files = list(sparkFolder, extension = extension, recursive = false).headOption
+    val files = list(sparkFolder, extension = extension, recursive = false).headOption.map(_.path)
     files.map { f =>
       val tmpFile = new Path(sparkFolder.getParent, sparkFolder.getName + ".tmp")
       move(f, tmpFile)
@@ -94,7 +94,11 @@ trait StorageHandler extends StrictLogging {
     recursive: Boolean,
     exclude: Option[Pattern] = None,
     sortByName: Boolean = false // sort by time by default
-  ): List[Path]
+  ): List[FileInfo]
+
+  def stat(
+    path: Path
+  ): FileInfo
 
   def blockSize(path: Path): Long
 

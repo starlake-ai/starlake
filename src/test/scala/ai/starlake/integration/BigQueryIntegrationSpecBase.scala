@@ -11,7 +11,7 @@ class BigQueryIntegrationSpecBase extends IntegrationTestBase {
     * the table after the test.
     */
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("sales", "customers"))
       bigquery.delete(TableId.of("sales", "orders"))
       bigquery.delete(TableId.of("hr", "sellers"))

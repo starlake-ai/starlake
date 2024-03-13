@@ -46,9 +46,12 @@ object BigQueryUtils {
     schema.copy(fields = fields)
   }
 
-  def normalizeCompatibleSchema(schema: StructType, existingSchema: StructType): StructType = {
+  def normalizeCompatibleSchema(
+    incomingSchema: StructType,
+    existingSchema: StructType
+  ): StructType = {
     val existingFields = existingSchema.fields.map { field => field.name -> field }.toMap
-    val fields = schema.fields.map { field =>
+    val incomingFields = incomingSchema.fields.map { field =>
       val typedField = field.dataType match {
         case dataType: StructType =>
           field.copy(dataType = normalizeSchema(dataType))
@@ -69,7 +72,7 @@ object BigQueryUtils {
           typedField
       }
     }
-    schema.copy(fields = fields)
+    incomingSchema.copy(fields = incomingFields)
   }
 
   def computePartitionsToUpdateAfterMerge(
@@ -127,7 +130,8 @@ object BigQueryUtils {
       }
     }
   }
-  def tableIdToString(tableId: TableId) = {
+
+  def tableIdToTableName(tableId: TableId): String = {
     (tableId.getProject, tableId.getDataset, tableId.getTable) match {
       case (null, null, null)        => ""
       case (null, null, table)       => table

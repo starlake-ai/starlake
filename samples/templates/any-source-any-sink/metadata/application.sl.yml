@@ -19,7 +19,6 @@ application:
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
-        supportTruncateOnInsert: false
         user: "{{DATABASE_USER}}"
         password: "{{DATABASE_PASSWORD}}"
         quoteIdentifiers: false
@@ -29,7 +28,6 @@ application:
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
-        supportTruncateOnInsert: false
         user: "{{DATABASE_USER}}"
         password: "{{DATABASE_PASSWORD}}"
         quoteIdentifiers: false

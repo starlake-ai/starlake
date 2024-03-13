@@ -1,8 +1,5 @@
 ---
 table:
-  merge:
-    timestamp: signup
-    key: [id]
   name: "customers"
   pattern: "customers.*.psv"
   attributes:
@@ -42,6 +39,9 @@ table:
     required: false
     privacy: "NONE"
     ignore: false
+  - name: "id1"
+    type: "string"
+    script: "substring(id, 1, 1)"
   metadata:
     mode: "FILE"
     format: "DSV"
@@ -52,4 +52,8 @@ table:
     separator: "|"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "UPSERT_BY_KEY_AND_TIMESTAMP"
+      timestamp: signup
+      on: SOURCE_AND_TARGET
+      key: [id]

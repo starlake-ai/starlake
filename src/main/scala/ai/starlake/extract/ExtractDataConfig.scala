@@ -63,7 +63,7 @@ case class UserExtractDataConfig(
   limit: Int = 0,
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
-  fullExport: Boolean = true,
+  fullExport: Option[Boolean] = None,
   ifExtractedBefore: Option[Long] = None,
   ignoreExtractionFailure: Boolean = false,
   cleanOnExtract: Boolean = false,
@@ -81,7 +81,7 @@ case class ExtractDataConfig(
   limit: Int,
   numPartitions: Int,
   parallelism: Option[Int],
-  fullExport: Boolean,
+  fullExport: Option[Boolean],
   extractionPredicate: Option[Long => Boolean],
   ignoreExtractionFailure: Boolean,
   cleanOnExtract: Boolean,
@@ -101,6 +101,8 @@ sealed trait TableExtractDataConfig {
   def columnsProjection: List[Attribute]
   def fullExport: Boolean
   def fetchSize: Option[Int]
+
+  def tableOutputDir: File
 
   val extractionDateTime: String = {
     val formatter = DateTimeFormatter
@@ -126,7 +128,8 @@ case class UnpartitionnedTableExtractDataConfig(
   table: String,
   columnsProjection: List[Attribute],
   fullExport: Boolean,
-  fetchSize: Option[Int]
+  fetchSize: Option[Int],
+  tableOutputDir: File
 ) extends TableExtractDataConfig
 
 case class PartitionnedTableExtractDataConfig(
@@ -138,5 +141,6 @@ case class PartitionnedTableExtractDataConfig(
   partitionColumn: String,
   partitionColumnType: PrimitiveType,
   hashFunc: Option[String],
-  nbPartitions: Int
+  nbPartitions: Int,
+  tableOutputDir: File
 ) extends TableExtractDataConfig

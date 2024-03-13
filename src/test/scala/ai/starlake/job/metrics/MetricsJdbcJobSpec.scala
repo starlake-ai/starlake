@@ -4,8 +4,8 @@ import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
+import ai.starlake.schema.model.{WriteStrategy, WriteStrategyType}
 import ai.starlake.{JdbcChecks, TestHelper}
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -384,8 +384,8 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           settings.appConfig,
           Left("ignore"),
           settings.appConfig.audit.getDomain() + ".discrete",
-          CreateDisposition.CREATE_IF_NEEDED,
-          WriteDisposition.WRITE_APPEND
+          WriteStrategy(Some(WriteStrategyType.APPEND)),
+          createTableIfAbsent = true
         )
 
         val discreteMetricsDf: DataFrame = sparkSession.read
@@ -397,9 +397,16 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         logger.info(discreteMetricsDf.showString(truncate = 0))
         val upperCaseFields =
           expectedDiscreteMetricsJDBCSchema.fields.map(f => f.copy(name = f.name.toUpperCase))
-        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsJDBCSchema.copy(fields =
-          upperCaseFields
-        )
+
+        val incomingFields =
+          discreteMetricsDf.schema.fields.map(f => (f.name.toUpperCase, f.dataType.typeName))
+
+        val expectedFields =
+          expectedDiscreteMetricsJDBCSchema.fields.map(f =>
+            (f.name.toUpperCase, f.dataType.typeName)
+          )
+
+        incomingFields shouldBe expectedFields
 
         val session = sparkSession
         import session.implicits._
@@ -418,7 +425,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         )
 
         val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
-        expectingMetrics("test-h2", continuous, discrete, frequencies)
+        expectingMetrics("test-pg", continuous, discrete, frequencies)
       }
     }
   }

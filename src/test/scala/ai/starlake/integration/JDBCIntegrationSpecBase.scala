@@ -12,7 +12,7 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase {
   override protected def copyFilesToIncomingDir(dir: File): Unit = {
     super.copyFilesToIncomingDir(dir)
     val hrDir = incomingDir / "hr"
-    hrDir.list(_.name.startsWith("locations")).foreach(_.delete())
+//    hrDir.list(_.name.startsWith("locations")).foreach(_.delete())
   }
 
   /** We delete the table before running the test to ensure that the test is run in a clean
@@ -27,7 +27,7 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase {
       val connection = settings.appConfig.connections(connectionRef)
       val jdbcOptions =
         JdbcDbUtils.jdbcOptions(connection.options, connection.sparkFormat.getOrElse("jdbc"))
-      JdbcDbUtils.withJDBCConnection(connection.copy(options = jdbcOptions)) { conn =>
+      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
         // drop table using jdbc statement connection conn in the lines below
         val allTables = List("sales.customers", "sales.orders", "hr.locations", "hr.sellers")
         allTables.foreach { table =>

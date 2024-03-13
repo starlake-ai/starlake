@@ -1,11 +1,12 @@
 ---
 application:
   loader: "native" # "spark" (default) or "native"
-  connectionRef: starbake-bigquery
+  engine: "SPARK"
+  connectionRef: "{{connectionRef}}"
 
   audit:
     sink:
-      connectionRef: starbake-bigquery
+      connectionRef: "{{connectionRef}}"
 
   connections:
     starbake-bigquery:
@@ -15,7 +16,11 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+    localFileSystem:
+      type: "fs" # Connection to local file system (parquet files)
+
+  defaultWriteFormat: "parquet" # "parquet" (default) or "delta"
 
   dagRef:
-    load: "load"
-    transform: "transform"
+    load: "dagster_load_shell"
+    transform: "dagster_transform_shell"

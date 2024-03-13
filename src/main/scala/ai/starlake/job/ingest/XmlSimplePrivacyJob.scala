@@ -44,7 +44,7 @@ class XmlSimplePrivacyJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  override protected def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       require(
         settings.appConfig.defaultWriteFormat == "text",
@@ -75,7 +75,7 @@ class XmlSimplePrivacyJob(
       case Failure(exception: NullValueFoundException) =>
         (session.emptyDataset[String], acceptedPrivacyDF, exception.nbRecord)
       case Failure(exception) => throw exception
-      case Success((_, _, rejectedRecordCount)) =>
+      case Success(rejectedRecordCount) =>
         (session.emptyDataset[String], acceptedPrivacyDF, rejectedRecordCount);
     }
   }

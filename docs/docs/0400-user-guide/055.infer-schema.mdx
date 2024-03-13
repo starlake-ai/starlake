@@ -166,12 +166,12 @@ The domain configuration file __config.sl.yml_ is also stored in the _domain_ fo
 
 The contents of the files look like this:
 
-### Domain configuration
-The  __config.sl.yml_ file describes the properties shared by all tables in this domain.
+
+- The  __config.sl.yml_ file describes the properties shared by all tables in this domain.
 Here we assume that all tables in the `sales` domain are loaded from the _incoming_/sales folder and
 all tables in the `hr` domain are loaded from the _incoming_/hr folder.
 
-`{{incoming_path}}` is a variable path set in the env file (more on this later).
+- `{{incoming_path}}` is a variable path set in the env file (more on this later).
 
 <Tabs groupId="domain_schemas">
 <TabItem value="sales" label="sales">

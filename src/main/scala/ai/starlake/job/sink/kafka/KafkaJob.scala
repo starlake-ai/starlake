@@ -203,6 +203,7 @@ class KafkaJob(
             targetPath,
             recursive = false
           )
+          .map(_.path)
           .filter(_.getName.startsWith("part-"))
           .head
         val tmpPath = new Path(targetPath.toString + ".tmp")

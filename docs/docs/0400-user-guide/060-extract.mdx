@@ -3,7 +3,12 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+
+:::note
+
 This step is optional. If you are not interested in extracting data from a relational database, you can skip this step.
+
+:::
 
 For the sake of the example, we will use the following database schema:
 
@@ -52,12 +57,12 @@ define the following connection in the metadata.sl.yml file depending on the dat
 ```yaml
 
 application:
-  connectionRef: "pg-adventure-works-db"
+  connectionRef: "pg-db"
   connections:
-    pg-adventure-works-db:
+    pg-db:
       type: "jdbc"
       options:
-        url: "jdbc:postgresql://127.0.0.1/Adventureworks"
+        url: "jdbc:postgresql://127.0.0.1:5432/mydb"
         driver: "org.postgresql.Driver"
         user: "dbuser"
         password: "dbuser123"
@@ -70,12 +75,12 @@ application:
 ```yaml
 
 application:
-  connectionRef: "mssql-adventure-works-db"
+  connectionRef: "mssql-db"
   connections:
-    mssql-adventure-works-db:
+    mssql-db:
       type: "jdbc"
       options:
-        url: "jdbc:sqlserver://localhost;databaseName=AdventureWorks2019;encrypt=true;trustServerCertificate=true;"
+        url: "jdbc:sqlserver://localhost:1433;databaseName=mydb;encrypt=true;trustServerCertificate=true;"
         driver: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
         user: "sa"
         password: "password"
@@ -89,7 +94,7 @@ You can now define the tables you wish to extract data from in the metadata/extr
 
 ```yaml
 extract:
-  connectionRef: "pg-adventure-works-db" # or mssql-adventure-works-db i extracting from SQL Server
+  connectionRef: "pg-db" # or mssql-db i extracting from SQL Server
   jdbcSchemas:
     - schema: "sales"
       tables:
@@ -117,34 +122,34 @@ starlake.sh extract-schema  \
 
 ```
 
-```bash title="Extract the data"
+:::tip
 
-starlake.sh extract-data  \
-        --config myextract.sl.yml \ # the configuration file
-        --outputDir $SL_ROOT/extracted \ # (optional)  the directory where the data will be extracted
-        --limit 0 \ # (optional)  max  number of rows to extract, usefull for testing. 0 means no limit
-        --numPartitions 4 \ # (optional)  the number of partitions to use to parallelize the extraction
-        --clean
-
-```
-
-```bash title="Extract the data (incremental)"
-
-$ starlake.sh extract           \
-        --config config.sl.yml  \
-        --outputDir $SL_ROOT
-
-```
-
-:::note
-
-The next time you try to export the data, you may notice that nothing will be exported. 
-By default the `extract-data` command will not re-extract data that has already been extracted.
-The last exported record id is stored in the `audit.sl_last_export` table.
-You may limit the extraction record not yet exported by using the `--incremental` option.
+To extract the data incrementally, you may set the `fullExport` to the value `false` attribute to the table definition in the configuration file.
 
 :::
 
-You may now use the extracted data in the next step or simply use the `customers` data already present in the sample-data folder.
+```yaml {7}
+extract:
+  connectionRef: "pg-db" # or mssql-db i extracting from SQL Server
+  jdbcSchemas:
+    - schema: "sales"
+      tables:
+        - name: "salesorderdetail"  # table name or simple "*" to extract all tables
+          fullExport: false                     # set to false to extract the data incrementally
+          ...
+      tableTypes:
+        - "TABLE"
+        #- "VIEW"
+        #- "SYSTEM TABLE"
+        #- "GLOBAL TEMPORARY"
+        #- "LOCAL TEMPORARY"
+        #- "ALIAS"
+        #- "SYNONYM"
+```
+
+The next time you try to export the data, you may notice that nothing will be exported, unless new data has arrived into the table.
+By default the `extract-data` command will not re-extract data that has already been extracted.
+The last exported record `id` is stored in the `audit.sl_last_export` table.
+
 
 
