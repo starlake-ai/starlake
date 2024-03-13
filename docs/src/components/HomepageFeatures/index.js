@@ -57,7 +57,7 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/starlake_schema-mobile.svg').default,
       alignImg: 'right',
       description: (
-       <p>
+       <p className='split-description'>
             Extract, Load and Transform your data
            with advanced  validation, anonymization and transformation capabilities.
 
@@ -80,7 +80,7 @@ const SplitSectionList = [
     alignImg: 'full',
     BeforeTitle: require('@site/static/img/scriptfree_icon.svg').default,
     description:(
-      <p>
+      <p className='split-description'>
         Automated full and incremental replication of your data from any relational database to your favorite datawarehouse without writing a single line of code.
       </p>
     ),
@@ -100,7 +100,7 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/lakehouse_mobile.svg').default,
       alignImg: 'full',
       description:(
-        <p>
+        <p className='split-description'>
           Load almost any file with thorough validation and free yourself of any database scripting.
         </p>
       ),
@@ -120,7 +120,7 @@ const SplitSectionList = [
     ImgMobile: require('@site/static/img/relationshipeditor_new.svg').default,
     alignImg: 'left',
     description:(
-      <p>
+      <p className='split-description'>
           Use out-of-the DAG templates to run you transformations instantly on your favorite orchestration engine.
       </p>
     ),
@@ -140,7 +140,7 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/devfriendly.svg').default,
       alignImg: 'left',
       description:(
-        <p>
+        <p className='split-description'>
             Using an Excel like interface, your business users are able to browse,
             update and validate [extract], [load] or [transform] metadata such as primary/ foreign keys, table/column descriptions and access rules
         </p>
@@ -162,7 +162,7 @@ const SplitSectionList = [
       alignImg: 'full',
       BeforeTitle: require('@site/static/img/security_icon.svg').default,
       description:(
-        <p>
+        <p className='split-description'>
           Apply security at build time before any unauthorized access to your data.
           Visualize your access policies before applying them to your data.
         </p>
@@ -183,7 +183,7 @@ const SplitSectionList = [
       ImgMobile: require('@site/static/img/observability.svg').default,
       alignImg: 'full',
       description:(
-        <p>
+        <p className='split-description'>
           Keep an eye on your workloads and data quality with starlake built-in metrics and auditing capabilities.
         </p>
       ),
@@ -202,7 +202,7 @@ const SplitSectionList = [
       video:'https://youtu.be/8EL9-UiW6zs',
       alignImg: 'left',
       description:(
-        <p>
+        <p className='split-description'>
           Auto-complete, syntax highlighting, linting, lineage and more. All the features you expect from a modern SQL IDE.
           <br/>Work securely without the need to share your credentials with any remote party.
         </p>
@@ -220,8 +220,8 @@ function Feature({Svg, title, description}) {
         <Svg className={styles.featureSvg} role="img" />
       </div>
       <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
-        <p>{description}</p>
+        <h3 className='feature-title'>{title}</h3>
+        <p className='feature-description'>{description}</p>
       </div>
     </div>
   );
