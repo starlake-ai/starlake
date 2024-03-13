@@ -62,7 +62,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
           extractSchema(
             jdbcSchema,
             connectionSettings,
-            outputDir(config.outputDir),
+            schemaOutputDir(config.outputDir),
             domainTemplate,
             currentDomain
           )

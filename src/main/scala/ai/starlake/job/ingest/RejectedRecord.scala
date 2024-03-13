@@ -27,7 +27,6 @@ object RejectedRecord {
       Attribute("path", "string")
     ),
     None,
-    None,
     None
   )
 }

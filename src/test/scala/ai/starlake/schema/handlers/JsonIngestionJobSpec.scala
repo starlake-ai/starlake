@@ -49,6 +49,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/" + jsonData
       ) {
+        sparkSession.sql("DROP DATABASE IF EXISTS json CASCADE")
 
         cleanMetadata
         cleanDatasets
@@ -66,11 +67,14 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
         val schema = schemaHandler.getSchema("json", "sample_json").get
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
+        val location = getTablePath("json", "sample_json")
         // Accepted should have the same data as input
-        val resultDf = sparkSession.read
-          .parquet(
-            starlakeDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
-          )
+        val resultDf =
+          sparkSession.read
+            .format(settings.appConfig.defaultWriteFormat)
+            .load(
+              s"$location/${getTodayPartitionPath}"
+            )
 
         val expectedDf = sparkSession.read
           .schema(sparkSchema)
@@ -83,7 +87,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
         logger.info(resultDf.showString())
         logger.info(expectedDf.showString())
         resultDf
-          .drop(col("millis"))
+          .drop(col("millis"), col("year"), col("month"), col("day"))
           .except(
             expectedDf.drop(col("millis"))
           )
@@ -95,10 +99,10 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
           resultDf.select(col("seconds"), col("millis")).as[(String, String)].head()
         seconds shouldBe millis
       }
-      expectingAudit("test-h2", expectedAuditLogs(settings): _*)
-      expectingRejections("test-h2", expectedRejectRecords(settings): _*)
+      expectingAudit("test-pg", expectedAuditLogs(settings): _*)
+      expectingRejections("test-pg", expectedRejectRecords(settings): _*)
       val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
-      expectingMetrics("test-h2", continuous, discrete, frequencies)
+      expectingMetrics("test-pg", continuous, discrete, frequencies)
     }
   }
 
@@ -114,7 +118,8 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         cleanMetadata
         cleanDatasets
-        loadPending.getOrElse(false) shouldBe false
+        val res = loadPending
+        res.getOrElse(false) shouldBe false
       }
     }
   }
@@ -130,7 +135,7 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
     ConfigFactory
       .parseString("""
                      |audit.index.type = "None"
-                     |audit.index.connectionRef = "test-h2"
+                     |audit.index.connectionRef = "test-pg"
                      |""".stripMargin)
       .withFallback(super.testConfiguration)
 
@@ -162,7 +167,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
                      |audit {
                      |  active = true
                      |  sink {
-                     |    connectionRef = "test-h2"
+                     |    connectionRef = "test-pg"
                      |  }
                      |}
                      |""".stripMargin)
@@ -220,7 +225,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
                      |
                      |audit {
                      |  sink {
-                     |    connectionRef = "test-h2"
+                     |    connectionRef = "test-pg"
                      |  }
                      |}
                      |""".stripMargin)

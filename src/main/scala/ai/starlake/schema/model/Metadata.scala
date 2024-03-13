@@ -26,7 +26,7 @@ import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Mode.FILE
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude}
 
 import scala.collection.mutable
 
@@ -63,7 +63,7 @@ import scala.collection.mutable
   *   : The String quote char, '"' by default
   * @param escape
   *   : escaping char '\' by default
-  * @param write
+  * @param writeStrategy
   *   : Write mode, APPEND by default
   * @param sink
   *   : should the dataset be indexed in elasticsearch after ingestion ?
@@ -113,7 +113,6 @@ case class Metadata(
   separator: Option[String] = None,
   quote: Option[String] = None,
   escape: Option[String] = None,
-  write: Option[WriteMode] = None,
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
   directory: Option[String] = None,
@@ -126,7 +125,8 @@ case class Metadata(
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true,
-  schedule: Option[String] = None
+  schedule: Option[String] = None,
+  writeStrategy: Option[WriteStrategy] = None
 ) {
 
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
@@ -148,7 +148,6 @@ case class Metadata(
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${getWrite()}
        |sink:${sink}
        |directory:${directory}
        |extensions:${extensions}
@@ -163,6 +162,12 @@ case class Metadata(
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
 
   def getMode(): Mode = getFinalValue(mode, FILE)
+
+  @JsonIgnore
+  def getStrategyOptions(): WriteStrategy = {
+    val writeMode: WriteMode = this.getWrite()
+    writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.fromString(writeMode.value))))
+  }
 
   def getFormat(): Format = getFinalValue(format, DSV)
 
@@ -180,21 +185,21 @@ case class Metadata(
 
   def getSeparator(): String = getFinalValue(separator, ";")
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   def getQuote(): String = getFinalValue(quote, "\"")
 
   def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite(): WriteMode =
-    getFinalValue(write, APPEND)
-
   @JsonIgnore
+  def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
+
   // scalastyle:off null
   def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
   // scalastyle:on null
 
   @JsonIgnore
   def getPartitionAttributes()(implicit settings: Settings): List[String] = {
-    this.getSink().toAllSinks().partition.map(_.getAttributes()).getOrElse(Nil)
+    this.getSink().toAllSinks().partition.getOrElse(Nil)
   }
 
   @JsonIgnore
@@ -217,17 +222,16 @@ case class Metadata(
   }
 
   @JsonIgnore
-  def getConnectionRef()(implicit settings: Settings): String =
+  def getSinkConnectionRef()(implicit settings: Settings): String =
     getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
-  def getConnection()(implicit settings: Settings): Settings.Connection = {
-    settings.appConfig.getConnection(this.getConnectionRef())
-  }
+  def getSinkConnectionRefOptions()(implicit settings: Settings): Map[String, String] =
+    settings.appConfig.connections(this.getSinkConnectionRef()).options
 
   @JsonIgnore
   def getEngine()(implicit settings: Settings): Engine = {
-    val connection = settings.appConfig.connections(getConnectionRef)
+    val connection = settings.appConfig.connections(getSinkConnectionRef)
     connection.getEngine()
   }
 
@@ -287,7 +291,6 @@ case class Metadata(
       separator = merge(this.separator, child.separator),
       quote = merge(this.quote, child.quote),
       escape = merge(this.escape, child.escape),
-      write = merge(this.write, child.write),
       sink = merge(this.sink, child.sink),
       ignore = merge(this.ignore, child.ignore),
       directory = merge(this.directory, child.directory),
@@ -299,7 +302,8 @@ case class Metadata(
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull),
-      schedule = mergedSchedule
+      schedule = mergedSchedule,
+      writeStrategy = merge(this.writeStrategy, child.writeStrategy)
       // fillWithDefaultValue = merge(this.fillWithDefaultValue, child.fillWithDefaultValue)
     )
   }
@@ -322,7 +326,6 @@ case class Metadata(
       separator = if (parent.separator != this.separator) this.separator else None,
       quote = if (parent.quote != this.quote) this.quote else None,
       escape = if (parent.escape != this.escape) this.escape else None,
-      write = if (parent.write != this.write) this.write else None,
       sink = if (parent.sink != this.sink) this.sink else None,
       ignore = if (parent.ignore != this.ignore) this.ignore else None,
       directory = if (parent.directory != this.directory) this.directory else None,
@@ -332,7 +335,8 @@ case class Metadata(
       dagRef = if (parent.dagRef != this.dagRef) this.dagRef else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
-      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
+      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None,
+      writeStrategy = if (parent.writeStrategy != this.writeStrategy) this.writeStrategy else None
       // fillWithDefaultValue = if (parent.fillWithDefaultValue != this.fillWithDefaultValue) this.fillWithDefaultValue else None
     )
   }
@@ -343,7 +347,7 @@ case class Metadata(
   def asOption(): Option[Metadata] = {
     if (
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
-      withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
+      withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || writeStrategy.nonEmpty ||
       sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty

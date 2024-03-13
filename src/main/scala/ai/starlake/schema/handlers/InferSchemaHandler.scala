@@ -26,11 +26,22 @@ import ai.starlake.utils.YamlSerializer
 import better.files.File
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import scala.util.Try
 
 object InferSchemaHandler {
   val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
+
+  def parseIsoInstant(str: String): Boolean = {
+    try {
+      ZonedDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME)
+      true
+    } catch {
+      case e: java.time.format.DateTimeParseException => false
+    }
+  }
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -48,38 +59,53 @@ object InferSchemaHandler {
 
     schemaWithIndex
       .map { case (row, index) =>
-        row.dataType.typeName match {
-
+        row.dataType match {
           // if the datatype is a struct {...} containing one or more other field
-          case "struct" =>
+          case st: StructType =>
             Attribute(
               row.name,
               row.dataType.typeName,
               Some(false),
               !row.nullable,
-              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType], format)
+              attributes = createAttributes(lines, st, format)
             )
 
-          case "array" =>
-            val elemType = row.dataType.asInstanceOf[ArrayType].elementType
-            if (elemType.typeName.equals("struct"))
-              // if the array contains elements of type struct.
-              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-              Attribute(
-                row.name,
-                elemType.typeName,
-                Some(true),
-                !row.nullable,
-                attributes = createAttributes(lines, elemType.asInstanceOf[StructType], format)
-              )
-            else
-              // if it is a regular array. {ages: [21, 25]}
-              Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
+          case dt: ArrayType =>
+            dt.elementType match {
+              case st: StructType =>
+                // if the array contains elements of type struct.
+                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
+                Attribute(
+                  row.name,
+                  st.typeName,
+                  Some(true),
+                  !row.nullable,
+                  attributes = createAttributes(lines, st, format)
+                )
+              case _ =>
+                // if it is a regular array. {ages: [21, 25]}
+                Attribute(
+                  row.name,
+                  PrimitiveType.from(dt.elementType).value,
+                  Some(true),
+                  !row.nullable
+                )
+            }
 
           // if the datatype is a simple Attribute
           case _ =>
             val cellType =
-              if (
+              if (row.dataType.typeName == "string") {
+                val timestampCandidates = lines.map(row => row(index)).flatMap(Option(_))
+                if (timestampCandidates.isEmpty)
+                  "string"
+                else if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                  "timestamp"
+                else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
+                  "date"
+                else
+                  "string"
+              } else if (
                 row.dataType.typeName == "timestamp" && Set(
                   Format.DSV,
                   Format.POSITION,
@@ -93,7 +119,7 @@ object InferSchemaHandler {
                 else
                   "timestamp"
               } else
-                row.dataType.typeName
+                PrimitiveType.from(row.dataType).value
             Attribute(row.name, cellType, Some(false), !row.nullable)
         }
       }
@@ -153,8 +179,7 @@ object InferSchemaHandler {
       pattern = pattern,
       attributes = attributes,
       metadata = metadata,
-      comment = comment,
-      merge = None
+      comment = comment
     )
 
   /** * Builds the Domain case class
@@ -185,7 +210,7 @@ object InferSchemaHandler {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, saveDir: String)(implicit
+  def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
     settings: Settings
   ): Try[File] = Try {
 
@@ -206,9 +231,11 @@ object InferSchemaHandler {
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")
     if (tablePath.exists) {
-      throw new Exception(
-        s"Table ${domain.tables.head.name} already defined in file $tablePath"
-      )
+      if (!clean) {
+        throw new Exception(
+          s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
+        )
+      }
     } else {
       YamlSerializer.serializeToFile(tablePath, table)
     }

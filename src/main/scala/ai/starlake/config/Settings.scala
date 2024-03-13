@@ -47,7 +47,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import java.io.ObjectStreamException
 import java.net.URI
 import java.util.concurrent.TimeUnit
-import java.util.{Locale, Properties, UUID}
+import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
@@ -412,7 +412,9 @@ object Settings extends StrictLogging {
     tables: Map[String, TableDdl],
     canMerge: Boolean,
     quote: String,
-    preactions: String
+    viewPrefix: String,
+    preactions: String,
+    strategyBuilder: String
   )
 
   object JdbcEngine {
@@ -537,8 +539,6 @@ object Settings extends StrictLogging {
     *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
     * @param defaultAuditWriteFormat
     *   : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
-    * @param analyze
-    *   : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive
     *   : Should we create a Hive Table ? true by default
     * @param area
@@ -566,12 +566,11 @@ object Settings extends StrictLogging {
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,
-    analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
     groupedMax: Int,
-    mergeForceDistinct: Boolean,
-    mergeOptimizePartitionWrite: Boolean,
+    scd2StartTimestamp: String,
+    scd2EndTimestamp: String,
     area: Area,
     hadoop: Map[String, String],
     connections: Map[String, Connection],
@@ -613,7 +612,8 @@ object Settings extends StrictLogging {
     longJobTimeoutMs: Long,
     shortJobTimeoutMs: Long,
     createSchemaIfNotExists: Boolean,
-    http: Http
+    http: Http,
+    timezone: TimeZone
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -883,6 +883,9 @@ object Settings extends StrictLogging {
   implicit val storageLevelReader: ConfigReader[StorageLevel] =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
+  implicit val timezoneReader: ConfigReader[TimeZone] =
+    ConfigReader.fromString[TimeZone](catchReadError(TimeZone.getTimeZone))
+
   def loadConf(conf: Option[Config] = None): AppConfig = {
     ConfigSource
       .fromConfig(conf.getOrElse(referenceConfig))
@@ -918,7 +921,7 @@ object Settings extends StrictLogging {
     applicationConfSettings.storageHandler(true) // Reload with the authentication settings
 
     // Load fairscheduler.xml
-    val jobConf = initSparkSchedulingConfig(applicationConfSettings)
+    val jobConf = initSparkConfig(applicationConfSettings)
     val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
     val withDefaultSchdules = addDefaultSchedules(withSparkConfig)
     withDefaultSchdules
@@ -1017,7 +1020,7 @@ object Settings extends StrictLogging {
     applicationSettings
   }
 
-  private def initSparkSchedulingConfig(settings: Settings): SparkConf = {
+  private def initSparkConfig(settings: Settings): SparkConf = {
     val schedulingConfig = schedulingPath(settings)
 
     // When using local Spark with remote BigQuery (useful for testing)
@@ -1076,6 +1079,11 @@ final case class Settings(
 ) {
 
   var _storageHandler: Option[StorageHandler] = None
+
+  @transient
+  def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))
+    Some(this.sparkConfig.getString("sql.warehouse.dir"))
+  else None
 
   @transient
   def storageHandler(reload: Boolean = false): StorageHandler = {

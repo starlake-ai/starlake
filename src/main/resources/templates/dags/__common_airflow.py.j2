@@ -1,0 +1,24 @@
+import sys
+
+from ai.starlake.job import StarlakeSparkConfig
+from ai.starlake.airflow import StarlakeAirflowOptions
+
+description="""{{ context.config.comment }}"""
+
+template="{{ context.config.template }}"
+
+options={
+    {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
+    {% endfor %}
+}
+
+def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
+    return StarlakeSparkConfig(
+        memory=sys.modules[__name__].__dict__.get('spark_executor_memory', None),
+        cores=sys.modules[__name__].__dict__.get('spark_executor_cores', None),
+        instances=sys.modules[__name__].__dict__.get('spark_executor_instances', None),
+        cls_options=StarlakeAirflowOptions(),
+        options=options,
+        **kwargs
+    )
+spark_config = getattr(sys.modules[__name__], "get_spark_config", default_spark_config)

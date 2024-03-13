@@ -69,5 +69,5 @@ RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/star
 
 FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app /app
-RUN apk add --no-cache procps gcompat
+RUN apk add --no-cache procps gcompat bash
 ENTRYPOINT ["/app/starlake.sh"]

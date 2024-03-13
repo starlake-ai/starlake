@@ -29,13 +29,12 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
   override def afterAll(): Unit = {
     super.afterAll()
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {}
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {}
   }
 
   "Generate Docusaurus site" should "succeed" in {
     // select quickstart or starbake here
     withEnvs("SL_ROOT" -> projectDir.pathAsString) {
-      // withEnvs("SL_ROOT" -> projectDir.pathAsString, "SL_METADATA" -> projectDir.pathAsString) {
       clearDataDirectories()
       implicit val settings: Settings = Settings(Settings.referenceConfig)
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
