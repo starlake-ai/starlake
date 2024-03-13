@@ -61,7 +61,8 @@ trait XlsModel {
     "_xml"        -> "XML Options",
     "_extensions" -> "Accepted extensions",
     "_options"    -> "Spark ingestion options",
-    "_validator"  -> "Class validator"
+    "_validator"  -> "Class validator",
+    "_null"       -> "Null value"
   )
 
   val allAttributeHeaders = List(
@@ -151,6 +152,13 @@ trait XlsModel {
       f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
         case v if v.isEmpty => None
         case v              => Some(v)
+      }
+    }
+
+    def formatCellWithBlankValue(cell: Cell): Option[String] = {
+      formatCellValue(cell) match {
+        case Some(v) if v.toLowerCase == "blank" => Some("")
+        case v                                   => v
       }
     }
   }
