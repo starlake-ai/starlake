@@ -42,15 +42,23 @@ class SparkAutoTask(
 
   override def run(): Try[JobResult] = {
     val result =
-      if (
-        sinkConnection.getType() != ConnectionType.FS ||
-        taskDesc.getDefaultConnection().getType() != ConnectionType.FS
-      ) {
-        runSparkOnAny()
-      } else {
-        runSparkOnSpark(taskDesc.getSql())
-      }
+      (taskDesc.getRunConnection().getType(), sinkConnection.getType()) match {
+        case (
+              ConnectionType.FS,
+              ConnectionType.FS
+            ) => // databricks to databricks including fs (text, csv ...)
+          runSparkOnSpark(taskDesc.getSql())
 
+        case (ConnectionType.FS, _) => // databricks to any other DWH
+          runSparkOnAny()
+
+        case (_, ConnectionType.FS) => // any other DWH to databricks including fs (text, csv ...)
+          runSparkOnAny()
+        case _ =>
+          throw new Exception(
+            s"Unsupported run engine ${taskDesc.getRunEngine()} and sink ${sinkConnection.getType()}"
+          )
+      }
     result
   }
 
@@ -207,7 +215,7 @@ class SparkAutoTask(
 
   def runSparkQueryOnBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
-      connectionRef = Some(settings.appConfig.connectionRef)
+      connectionRef = Some(this.taskDesc.getRunConnectionRef())
     )
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val result = new BigQuerySparkJob(config).query(sqlWithParameters)
@@ -220,7 +228,7 @@ class SparkAutoTask(
   }
 
   def runSparkQueryOnJdbc(): Option[DataFrame] = {
-    val runConnection = taskDesc.getDefaultConnection()
+    val runConnection = taskDesc.getRunConnection()
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
       .format(
@@ -248,16 +256,25 @@ class SparkAutoTask(
   }
 
   private def buildDataFrameToSink(): Option[DataFrame] = {
-    val dataframe = runEngine match {
-      case Engine.SPARK =>
-        runSparkQueryOnFS()
-      case Engine.BQ =>
-        runSparkQueryOnBigQuery()
-      case Engine.JDBC =>
-        runSparkQueryOnJdbc()
-      case _ =>
-        throw new Exception(s"Unsupported engine ${runEngine}")
-    }
+    val runConnectionType = taskDesc.getRunConnectionType()
+    val dataframe =
+      (runEngine, runConnectionType) match {
+        case (Engine.SPARK, ConnectionType.FS) =>
+          runSparkQueryOnFS()
+        case (Engine.SPARK, ConnectionType.BQ) =>
+          runSparkQueryOnBigQuery()
+        case (Engine.SPARK, ConnectionType.JDBC) =>
+          runSparkQueryOnJdbc()
+        case (Engine.BQ, ConnectionType.BQ) =>
+          runSparkQueryOnBigQuery()
+        case (Engine.JDBC, ConnectionType.JDBC) =>
+          runSparkQueryOnJdbc()
+        case _ =>
+          throw new Exception(
+            s"Unsupported engine ${runEngine} and connection type ${runConnectionType}"
+          )
+      }
+
     dataframe
   }
 
