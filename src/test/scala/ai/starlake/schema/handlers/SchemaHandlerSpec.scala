@@ -286,7 +286,6 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest CSV" should "produce file in accepted" in {
       // ES Load in standby
       pending
-
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
