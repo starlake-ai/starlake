@@ -157,7 +157,7 @@ object Dependencies {
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.15.2" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.17.0" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.postgresql" % "postgresql" % "42.7.2" % Test
   )
