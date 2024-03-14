@@ -772,7 +772,7 @@ class IngestionWorkflow(
       config.options,
       config.interactive,
       config.truncate,
-      taskDesc.getEngine(),
+      taskDesc.getRunEngine(),
       resultPageSize = 1000
     )(
       settings,
@@ -834,8 +834,8 @@ class IngestionWorkflow(
     val result: Boolean = {
       val action = buildTask(transformConfig)
       logger.info(s"Transforming with config $transformConfig")
-      logger.info(s"Entering ${action.taskDesc.getEngine()} engine")
-      action.taskDesc.getEngine() match {
+      logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
+      action.taskDesc.getRunEngine() match {
         case BQ =>
           val result = action.run()
           transformConfig.interactive match {
@@ -878,8 +878,6 @@ class IngestionWorkflow(
               false
           }
         case custom =>
-          logger.info(s"Entering $custom engine")
-
           (action.run(), transformConfig.interactive) match {
             case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
               // For interactive display. Used by the VSCode plugin
