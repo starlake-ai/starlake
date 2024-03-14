@@ -92,10 +92,13 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         row.getCell(headerMapSchema("_sink"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
 
-      val connectionTypeOpt = Try(sinkTypeOpt.map(ConnectionType.fromString)).toOption.flatten
+      val sinkConnectionTypeOpt = Try(sinkTypeOpt.map(ConnectionType.fromString)).toOption.flatten
 
-      val connectionRefOpt = Option(
-        row.getCell(headerMapSchema("_connectionRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      val sinkConnectionRefOpt = Option(
+        row.getCell(
+          headerMapSchema("_sinkConnectionRef"),
+          Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+        )
       ).flatMap(formatter.formatCellValue)
 
       val sinkOptionsOpt = Option(
@@ -124,6 +127,13 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         row.getCell(headerMapSchema("_coalesce"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
 
+      val runConnectionRefOpt = Option(
+        row.getCell(
+          headerMapSchema("_connectionRef"),
+          Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+        )
+      ).flatMap(formatter.formatCellValue)
+
       val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
       val writeStrategy =
         if (partitionColumns.nonEmpty && writeOpt.contains(WriteMode.OVERWRITE))
@@ -134,7 +144,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
           )
 
       val allSinks = AllSinks(
-        connectionRef = connectionRefOpt,
+        connectionRef = sinkConnectionRefOpt,
         partition = partitionOpt.map(List(_)),
         clustering = clustering,
         requirePartitionFilter = partitionOpt match {
@@ -164,7 +174,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               presql = presqlOpt.getOrElse(Nil),
               postsql = postsqlOpt.getOrElse(Nil),
               sink = Some(
-                connectionTypeOpt match {
+                sinkConnectionTypeOpt match {
                   case Some(BQ)     => BigQuerySink.fromAllSinks(allSinks).toAllSinks()
                   case Some(FS)     => FsSink.fromAllSinks(allSinks).toAllSinks()
                   case Some(JDBC)   => JdbcSink.fromAllSinks(allSinks).toAllSinks()
@@ -217,7 +227,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               python = None,
               tags = tags,
               writeStrategy = Option(writeStrategy),
-              taskTimeoutMs = None
+              taskTimeoutMs = None,
+              connectionRef = runConnectionRefOpt
             )
           )
       task

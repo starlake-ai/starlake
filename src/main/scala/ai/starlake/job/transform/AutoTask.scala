@@ -69,7 +69,7 @@ abstract class AutoTask(
   protected val sinkConnection: Settings.Connection =
     settings.appConfig.connections(sinkConnectionRef)
 
-  protected val runEngine: Engine = taskDesc.getEngine()
+  protected val runEngine: Engine = taskDesc.getRunEngine()
 
   protected def strategy: WriteStrategy = taskDesc.getStrategy()
 

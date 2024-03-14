@@ -54,7 +54,7 @@ object ConnectionType {
     }
   }
 
-  object FS extends ConnectionType("FS")
+  object FS extends ConnectionType("FS") // Means databricks or spark
   object BQ extends ConnectionType("BQ")
   object ES extends ConnectionType("ES")
   object KAFKA extends ConnectionType("KAFKA")
@@ -154,13 +154,30 @@ case class AllSinks(
 ) {
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
-    if (connectionRef.nonEmpty && !settings.appConfig.connections.contains(connectionRef.get)) {
-      errors = errors :+ ValidationMessage(
-        Severity.Error,
-        "connectionRef",
-        "No connectionRef provided for sink. Please provide a connectionRef in the sink or in the application.conf file"
-      )
+    connectionRef match {
+      case None =>
+      case Some(ref) =>
+        if (!settings.appConfig.connections.contains(ref)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "connectionRef",
+            s"ConnectionRef $ref not found in the application.conf file"
+          )
+        } else {
+          val connection = settings.appConfig.connections(ref)
+          if (connection.getType() == ConnectionType.FS) {
+            val defaultConnection = settings.appConfig.connections(settings.appConfig.connectionRef)
+            if (defaultConnection.sparkFormat.isEmpty) {
+              errors = errors :+ ValidationMessage(
+                Severity.Warning,
+                "connectionRef",
+                s"Even though  the default connection ${settings.appConfig.connectionRef} does not have a sparkFormat defined, spark will be used to execute the request"
+              )
+            }
+          }
+        }
     }
+
     errors
   }
 
