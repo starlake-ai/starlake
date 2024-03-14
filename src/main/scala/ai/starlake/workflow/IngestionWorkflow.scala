@@ -878,8 +878,6 @@ class IngestionWorkflow(
               false
           }
         case custom =>
-          logger.info(s"Entering $custom engine")
-
           (action.run(), transformConfig.interactive) match {
             case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
               // For interactive display. Used by the VSCode plugin
