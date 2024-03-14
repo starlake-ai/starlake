@@ -1,5 +1,6 @@
 #  SQL Transforms
 
+## SELECT statements
 SQL transform are SELECT statements materialized using a user defined strategy.
 The result of the SELECT statement is then used to populate the target table by applying the write strategy defined in the corresponding YAML configuration file.
 The SELECT statement can be as simple or as complex as needed.
@@ -13,6 +14,24 @@ The `*` character is not allowed in the SELECT statement.
 
 :::
 
+## Column description
+
+Most of the time you won't need to document the columns in the SELECT statement as starlake will infer the schema from the result of the SELECT statement
+and the column documentation from the source table column description.
+
+You may need to document the calculated columns in the SELECT statement as they don't exist in the source tables.
+You can do that by adding setting the `attributesDesc` key in the YAML configuration file.
+
+```yaml title="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+  ...
+  attributesDesc:
+    name: <column_name>
+    comment: <column_description>
+  ...
+
+```
 
 ## Custom write strategy
 
