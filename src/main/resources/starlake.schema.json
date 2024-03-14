@@ -1219,7 +1219,11 @@
         },
         "parseSQL": {
           "type": "boolean",
-          "description": "TODO"
+          "description": "Should we parse this SQL make it update the table according to write strategy or just execute it ?"
+        },
+        "connectionRef": {
+          "type": "string",
+          "description": "Used when the default connection ref present in the application.sl.yml file is not the one to use to run the SQL request for this task."
         }
       },
       "required": []
