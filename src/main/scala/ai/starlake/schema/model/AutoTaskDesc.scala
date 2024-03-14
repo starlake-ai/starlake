@@ -56,7 +56,8 @@ case class AutoTaskDesc(
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None,
   taskTimeoutMs: Option[Long] = None,
-  _dbComment: Option[String] = None
+  _dbComment: Option[String] = None,
+  connectionRef: Option[String] = None
 ) extends Named {
 
   @JsonIgnore
@@ -128,9 +129,8 @@ case class AutoTaskDesc(
       .orElse(settings.appConfig.getDefaultDatabase()) // database passed in env vars
   }
 
-  def getEngine()(implicit settings: Settings): Engine = {
-
-    getDefaultConnection().getEngine()
+  def getRunEngine()(implicit settings: Settings): Engine = {
+    getRunConnection().getEngine()
   }
 
   def getSinkConnection()(implicit settings: Settings): Connection = {
@@ -141,16 +141,23 @@ case class AutoTaskDesc(
       .getOrElse(throw new Exception(s"Connection not found: $connectionRef"))
     connection
   }
+  def getRunConnectionRef()(implicit settings: Settings): String = {
+    this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+  }
 
-  def getDefaultConnection()(implicit settings: Settings): Connection = {
+  def getRunConnection()(implicit settings: Settings): Connection = {
     val connection = settings.appConfig
-      .connection(settings.appConfig.connectionRef)
+      .connection(getRunConnectionRef())
       .getOrElse(throw new Exception(s"Connection not found: ${settings.appConfig.connectionRef}"))
     connection
   }
 
   def getSinkConnectionType()(implicit settings: Settings): ConnectionType = {
     getSinkConnection().getType()
+  }
+
+  def getRunConnectionType()(implicit settings: Settings): ConnectionType = {
+    getRunConnection().getType()
   }
 
   def getSinkConfig()(implicit settings: Settings): Sink =
