@@ -316,7 +316,8 @@ case class FsSink(
   clustering: Option[Seq[String]] = None,
   partition: Option[Seq[String]] = None,
   coalesce: Option[Boolean] = None,
-  options: Option[Map[String, String]] = None
+  options: Option[Map[String, String]] = None,
+  path: Option[String] = None
 ) extends Sink {
 
   def getFormat()(implicit settings: Settings) = {

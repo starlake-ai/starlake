@@ -380,7 +380,7 @@ class SparkAutoTask(
     // We first download locally all files because PythonRunner only support local filesystem
     val pyFiles =
       pythonFile +: settings.sparkConfig
-        .getString("py-files")
+        .getString("pyFiles")
         .split(",")
         .filter(_.nonEmpty)
         .map(x => new Path(x.trim))
@@ -794,7 +794,9 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-    val finalCsvPath = new Path(location, tableName + extension)
+    val csvPath = new Path(location, tableName + extension)
+    val finalCsvPath =
+      this.sinkConfig.asInstanceOf[FsSink].path.map(p => new Path(p)).getOrElse(csvPath)
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =

@@ -626,6 +626,10 @@
           "type": "boolean",
           "description": "When outputting files, should we coalesce it to a single file. Useful when CSV is the output format."
         },
+        "path": {
+          "type": "string",
+          "description": "Optional path attribute if you want to save the file outside of the default location (datasets folder)"
+        },
         "options": {
           "$ref": "#/definitions/MapString",
           "description": "spark  options to use"
