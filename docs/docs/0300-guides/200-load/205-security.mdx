@@ -1,4 +1,4 @@
-# Secure access to your tables
+# Access control
 
 
 
@@ -17,24 +17,32 @@ import TabItem from '@theme/TabItem';
 <TabItem value="bigquery" label="BigQuery">
 
 BigQuery Example
-````yaml
-acl:
-  role: role/bigQueryViewer
-  grants:
-    - user:user@starlake.ai
-    - group:goup@starlake.ai
-    - serviceAccount:service@gserviceaccount.google.com
-````
+
+```yaml{3-8}
+table:
+    ...
+    acl:
+        - role: role/bigQueryViewer
+          grants:
+            - user:user@starlake.ai
+            - group:goup@starlake.ai
+            - serviceAccount:service@gserviceaccount.google.com
+```
+
 </TabItem>
+
 <TabItem value="spark" label="Spark">
 
-````yaml
-acl:
-role: SELECT
-grants:
-- user@starlake.ai
-- group
-````
+```yaml{3-8}
+table:
+    ...
+    acl:
+        - role: SELECT
+          grants:
+            - user@starlake.ai
+            - group
+```
+
 </TabItem>
 
 </Tabs>
@@ -50,6 +58,13 @@ If the expression evaluates to true, the row is returned. If the expression eval
 Below is an example of a row level security policy.
 
 ```yaml
+table:
+    ...
+    acl:
+        - role: SELECT
+          grants:
+            - user@starlake.ai
+            - group
     rls:
       - name: "USA only"
         predicate: "country = 'USA'"
@@ -59,3 +74,32 @@ Below is an example of a row level security policy.
 
 
 ## Column Level Security
+
+You may also want to restrict access to specific columns in a table.
+
+This is done by defining a column level security policy.
+
+This feature is supported on BigQuery only and makes use of access policies to restrict access to specific columns in a table.
+
+Below is an example of a column level security policy.
+
+```yaml
+table:
+    ...
+    acl:
+        - role: SELECT
+          grants:
+            - user@starlake.ai
+            - group
+    rls:
+      - name: "USA only"
+        predicate: "country = 'USA'"
+        grants:
+          - "group:mygroup"
+    attributes:
+        - name: "code0"
+          accessPolicy: PII
+          type: "string"
+    ...
+```
+

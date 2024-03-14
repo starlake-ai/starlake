@@ -617,19 +617,19 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     lazy val fileSystem: String = {
-      val protocolSeperator = "://"
+      val protocolSeparator = "://"
       if (root.matches("^\\w+?:\\/\\/.*")) { // check if it follows URI pattern
         val uri = new URI(root)
         uri.getScheme match {
-          case "file" => uri.getScheme + protocolSeperator
+          case "file" => uri.getScheme + protocolSeparator
           case scheme =>
             // get bucket name
             val bucketName =
-              root.substring(scheme.length + protocolSeperator.length).takeWhile(_ != '/')
-            s"$scheme$protocolSeperator$bucketName"
+              root.substring(scheme.length + protocolSeparator.length).takeWhile(_ != '/')
+            s"$scheme$protocolSeparator$bucketName"
         }
       } else {
-        s"file$protocolSeperator"
+        s"file$protocolSeparator"
       }
     }
 

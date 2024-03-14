@@ -1,6 +1,6 @@
 # Tutorial
 
-
+Use SELECT statements to create insights from the data in the database.
 
 ## Prerequisites
 Make sure you run the [Load step](../load/tutorial) first to get the data in the database.
@@ -116,7 +116,7 @@ starlake lineage --name kpi.order_summary --recursive --svg --output lineage.svg
 To build our top level insight, we can run the following command using the `recursive` flag, this instructs starlake to run the insights in the correct order:
 
 ```bash
-starlake transform --recusrive --name kpi.order_summary
+starlake transform --recursive --name kpi.order_summary
 ```
 
 Our database should now contain the following tables and data (amounts and dates may differ here):
@@ -152,6 +152,6 @@ D select * from kpi.order_summary limit 5;
 └──────────┴─────────────────────────┴────────────────────┴─────────────────────┴──────────────────┘
 D .quit
 ```
-
+<br/>
 Our insight is now built and stored in the `kpi` schema. We can now run them from inside our orchestrator to schedule them to run at regular intervals.
 

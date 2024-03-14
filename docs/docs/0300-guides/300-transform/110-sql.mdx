@@ -1,3 +1,33 @@
-# Transform using SQL
+#  SQL Transforms
+
+SQL transform are SELECT statements materialized using a user defined strategy.
+The result of the SELECT statement is then used to populate the target table by applying the write strategy defined in the corresponding YAML configuration file.
+The SELECT statement can be as simple or as complex as needed.
+
+The only requirement is that the result of the SELECT statement must match the schema of the target table if ti exists, otherwise starlake will infer the schema.
+
+
+:::warning
+
+The `*` character is not allowed in the SELECT statement.
+
+:::
+
+
+## Custom write strategy
+
+If none of the [predefined write strategies](../load/write-strategies) fits your need, you can write your own update/insert/merge statements directly in the SQL file
+instead of letting starlake convert your select statements into update/insert/merge statements.
+
+But in that case, you will need to set the `parseSQL` (`true` by default) to `false` in the YAML configuration file.
+
+```yaml title="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+  ...
+  parseSQL: false
+  ...
+
+```
 
 

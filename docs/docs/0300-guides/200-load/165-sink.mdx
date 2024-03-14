@@ -9,39 +9,50 @@ Clustering involves storing similar rows of data together, while partitioning in
 
 To specify clustering and partitioning in BigQuery, you define the following properties in the `sink` section of the table configuration file.
 
-## BigQuery
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 
+<Tabs>
 
-```yaml title="metadata/load/<domain>/<table>.sl.yml"
-sink:
-  clustering:
-    - <field1>
-    - <field2>
-  partition:
-    field: <field> # only one field is allowed
-  requirePartitionFilter: <true|false> # default is false
-  days: <days> # expiration in days. default is "never expire"
-  materializedView: <true|false> # Sink data as a materialized view. default is false
-  enableRefresh: <true|false> # only if materializedView is true. Default is false
-  refreshIntervalMs: <refreshIntervalMs> # only if enable refresh is true.
-```
-
-
-## Databricks
+<TabItem value="bigquery" label="BigQuery">
 
 ```yaml title="metadata/load/<domain>/<table>.sl.yml"
-sink:
-    format: <format> # For example, "delta" or "parquet".
-    clustering:
+table
+    ...
+    sink:
+      clustering:
         - <field1>
         - <field2>
-    partition:
-        - <field1>
-        - <field2>
-    coalesce: <true|false> # default is false
-    options:
-        <key>: <value> # Options to pass to the Spark writer. For example, "compression" -> "snappy"
-    ```
+      partition:
+        field: <field> # only one field is allowed
+      requirePartitionFilter: <true|false> # default is false
+      days: <Ta> # expiration in days. default is "never expire"
+      materializedView: <true|false> # Sink data as a materialized view. default is false
+      enableRefresh: <true|false> # only if materializedView is true. Default is false
+      refreshIntervalMs: <TabItem> # only if enable refresh is true.
 ```
 
+</TabItem>
+
+<TabItem value="spark" label="Spark">
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml"
+table:
+    ...
+    sink:
+        format: <format> # For example, "delta" or "parquet".
+        clustering:
+            - <field1>
+            - <field2>
+        partition:
+            - <field1>
+            - <field2>
+        coalesce: <true|false> # default is false
+        options:
+            <key>: <value> # Options to pass to the Spark writer. For example, "compression" -> "snappy"
+```
+
+</TabItem>
+</Tabs>
