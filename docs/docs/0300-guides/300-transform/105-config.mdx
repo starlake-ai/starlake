@@ -1,4 +1,6 @@
-# Configuration
+# Customize the Transform
+
+Add write strategies, partitioning, access control, and more to your transform tasks.
 
 :::note
 Datawarehouses are organized around schemas where tables are grouped.
@@ -135,3 +137,17 @@ task:
     ...
 
 ```
+
+## Expectations
+
+You can specify the expectations of the table in the transform configuration file.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+task:
+  ...
+  expectations:
+    - "is_col_value_not_unique('id') => result(0) == 1"
+```
+
+
+Detailed explanation of the expectations can be found [here](../load/expectations).

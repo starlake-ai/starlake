@@ -764,9 +764,7 @@ object YamlConfigGenerators {
       expect <- arbitrary[String]
     } yield {
       val ei = ExpectationItem(query = query, expect = expect)
-      ei.copy(
-        name = ExpectationItem(ei.toString).name
-      )
+      ei
     }
   }
 

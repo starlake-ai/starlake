@@ -54,6 +54,7 @@ class SparkAutoTask(
 
         case (_, ConnectionType.FS) => // any other DWH to databricks including fs (text, csv ...)
           runSparkOnAny()
+
         case _ =>
           throw new Exception(
             s"Unsupported run engine ${taskDesc.getRunEngine()} and sink ${sinkConnection.getType()}"

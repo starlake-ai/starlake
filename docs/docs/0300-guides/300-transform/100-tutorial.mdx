@@ -5,7 +5,7 @@ Use SELECT statements to create insights from the data in the database.
 ## Prerequisites
 Make sure you run the [Load step](../load/tutorial) first to get the data in the database.
 
-## Create SQL scripts
+## The insights
 
 In this tutorial, we will create 3 insights:
 - revenue_summary: to get the total revenue per order
@@ -19,6 +19,7 @@ This requires us to build the insights in the following order:
 
 ![](/img/starbake-transform.png)
 
+## The SELECT statements
 We will store these insights in the `kpi` schema. We need to write one SQL query per insight as shown below:
 
 <br/>
@@ -82,7 +83,7 @@ metadata/transform
     └── revenue_summary.sql
 ```
 
-## Run the transform step
+## Run the transform
 
 before running our transform, let's see in what order we should run them by running the following command:
 
