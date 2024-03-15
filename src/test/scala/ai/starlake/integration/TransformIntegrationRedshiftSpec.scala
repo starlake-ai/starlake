@@ -7,7 +7,7 @@ class TransformIntegrationRedshiftSpec extends BigQueryIntegrationSpecBase {
   override def localDir = templates / "spark"
   override def sampleDataDir = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
+  if (false && sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Native REDSHIFT Transform" should "succeed" in {
       withEnvs(

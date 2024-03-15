@@ -28,7 +28,11 @@ class BigQuerySparkJob(
   lazy val connectorOptions =
     connectionOptions -- List("allowFieldAddition", "allowFieldRelaxation")
 
-  override def name: String = s"bqload-${bqTable}"
+  override def name: String =
+    cliConfig.outputTableId match {
+      case Some(tableId) => s"bqload-${bqTable}"
+      case None          => s"bqload-query"
+    }
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.debug(s"BigQuery Config $cliConfig")
@@ -224,9 +228,19 @@ class BigQuerySparkJob(
   }
 
   def runSparkReader(sql: String): Try[DataFrame] = {
-    prepareConf()
-    Try {
-      session.read.format("bigquery").load(sql)
+    val hasMaterializationDataset =
+      settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")
+    val hasViewsEnabled =
+      settings.sparkConfig.hasPath("datasource.bigquery.viewsEnabled")
+    if (hasMaterializationDataset && hasViewsEnabled) {
+      prepareConf()
+      Try {
+        session.read.format("bigquery").load(sql)
+      }
+    } else {
+      throw new Exception(
+        "Make sure the keys spark.datasource.bigquery.materializationDataset and spark.datasource.bigquery.viewsEnabled are set in the application.sl.yml file."
+      )
     }
   }
 
