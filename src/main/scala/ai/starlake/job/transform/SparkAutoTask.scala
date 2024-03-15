@@ -49,16 +49,8 @@ class SparkAutoTask(
             ) => // databricks to databricks including fs (text, csv ...)
           runSparkOnSpark(taskDesc.getSql())
 
-        case (ConnectionType.FS, _) => // databricks to any other DWH
-          runSparkOnAny()
-
-        case (_, ConnectionType.FS) => // any other DWH to databricks including fs (text, csv ...)
-          runSparkOnAny()
-
         case _ =>
-          throw new Exception(
-            s"Unsupported run engine ${taskDesc.getRunEngine()} and sink ${sinkConnection.getType()}"
-          )
+          runSparkOnAny()
       }
     result
   }
@@ -272,7 +264,7 @@ class SparkAutoTask(
           runSparkQueryOnJdbc()
         case _ =>
           throw new Exception(
-            s"Unsupported engine ${runEngine} and connection type ${runConnectionType}"
+            s"Unsupported engine $runEngine and connection type $runConnectionType"
           )
       }
 
@@ -381,7 +373,7 @@ class SparkAutoTask(
     // We first download locally all files because PythonRunner only support local filesystem
     val pyFiles =
       pythonFile +: settings.sparkConfig
-        .getString("pyFiles")
+        .getString("py-files")
         .split(",")
         .filter(_.nonEmpty)
         .map(x => new Path(x.trim))
@@ -488,9 +480,9 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
-        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+      if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
+        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
           incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
@@ -725,7 +717,7 @@ class SparkAutoTask(
           .save()
 
         logger.info(
-          s"JDBC save done to table ${firstStepTempTable}"
+          s"JDBC save done to table $firstStepTempTable"
         )
 
         // We now have a table in the database.
@@ -795,9 +787,7 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-    val csvPath = new Path(location, tableName + extension)
-    val finalCsvPath =
-      this.sinkConfig.asInstanceOf[FsSink].path.map(p => new Path(p)).getOrElse(csvPath)
+    val finalCsvPath = new Path(location, tableName + extension)
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
