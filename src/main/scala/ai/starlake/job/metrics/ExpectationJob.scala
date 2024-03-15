@@ -132,11 +132,11 @@ class ExpectationJob(
 
   override def run(): Try[JobResult] = {
     var bqSlThisCTE = ""
-    val tableName = database match {
+    val fullTableName = database match {
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
     }
-    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
+    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
     val macros = schemaHandler.jinjavaMacros
     val expectationReports = expectations.map { expectation =>
