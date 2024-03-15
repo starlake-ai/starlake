@@ -34,7 +34,7 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
     Engine.BQ.toString    -> ("`", ".")
   )
 
-  def toSQLString(connection: Settings.Connection) = {
+  def toSQLString(connection: Settings.Connection): String = {
     val engine =
       if (connection.getType() == ConnectionType.BQ)
         Engine.BQ

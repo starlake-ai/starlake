@@ -95,7 +95,7 @@ abstract class AutoTask(
         schemaHandler.refs(),
         schemaHandler.domains(),
         schemaHandler.tasks(),
-        taskDesc.getSinkConnection()
+        taskDesc.getRunConnection()
       )
     select
   }

@@ -91,7 +91,6 @@ trait StrategiesBuilder extends StrictLogging {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls
