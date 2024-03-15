@@ -373,7 +373,7 @@ class SparkAutoTask(
     // We first download locally all files because PythonRunner only support local filesystem
     val pyFiles =
       pythonFile +: settings.sparkConfig
-        .getString("py-files")
+        .getString("pyFiles")
         .split(",")
         .filter(_.nonEmpty)
         .map(x => new Path(x.trim))
@@ -480,9 +480,9 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
-        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+      if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
+        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
           incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
@@ -787,7 +787,9 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-    val finalCsvPath = new Path(location, tableName + extension)
+    val csvPath = new Path(location, tableName + extension)
+    val finalCsvPath =
+      this.sinkConfig.asInstanceOf[FsSink].path.map(p => new Path(p)).getOrElse(csvPath)
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
