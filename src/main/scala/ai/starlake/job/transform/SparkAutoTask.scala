@@ -49,15 +49,8 @@ class SparkAutoTask(
             ) => // databricks to databricks including fs (text, csv ...)
           runSparkOnSpark(taskDesc.getSql())
 
-        case (ConnectionType.FS, _) => // databricks to any other DWH
-          runSparkOnAny()
-
-        case (_, ConnectionType.FS) => // any other DWH to databricks including fs (text, csv ...)
-          runSparkOnAny()
         case _ =>
-          throw new Exception(
-            s"Unsupported run engine ${taskDesc.getRunEngine()} and sink ${sinkConnection.getType()}"
-          )
+          runSparkOnAny()
       }
     result
   }
@@ -271,7 +264,7 @@ class SparkAutoTask(
           runSparkQueryOnJdbc()
         case _ =>
           throw new Exception(
-            s"Unsupported engine ${runEngine} and connection type ${runConnectionType}"
+            s"Unsupported engine $runEngine and connection type $runConnectionType"
           )
       }
 
@@ -724,7 +717,7 @@ class SparkAutoTask(
           .save()
 
         logger.info(
-          s"JDBC save done to table ${firstStepTempTable}"
+          s"JDBC save done to table $firstStepTempTable"
         )
 
         // We now have a table in the database.
