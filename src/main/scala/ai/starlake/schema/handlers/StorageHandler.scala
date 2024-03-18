@@ -27,7 +27,7 @@ import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.InputStreamReader
+import java.io.{InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.Charset.defaultCharset
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.LocalDateTime
@@ -121,6 +121,9 @@ trait StorageHandler extends StrictLogging {
 
   def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
 
+  def open(path: Path): InputStream
+
+  def output(path: Path): OutputStream
 }
 
 object StorageHandler {
