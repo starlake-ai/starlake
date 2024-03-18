@@ -55,14 +55,14 @@ WHEN NOT MATCHED THEN {{ tableInsert }}
 
 MERGE INTO {{ tableFullName  }} SL_EXISTING 
 USING 
-  (SELECT  {{ tableColumnCsv }}
+  (SELECT  {{ tableColumnsCsv }}
    FROM (
-    SELECT {{ tableColumnCsv }}, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
+    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyJoinCondition }}  ORDER BY (select 0)) AS SL_SEQ
     FROM ({{ selectStatement }})
   )
-  WHERE SL_SEQ = 1') SL_INCOMING 
+  WHERE SL_SEQ = 1) SL_INCOMING
 ON ( {{strategyKeyJoinCondition}} )
-WHEN MATCHED THEN tableUpdate
-WHEN NOT MATCHED THEN tableInsert
+WHEN MATCHED THEN {{ tableUpdate }}
+WHEN NOT MATCHED THEN {{ tableInsert }}
 
 {%  endif %}

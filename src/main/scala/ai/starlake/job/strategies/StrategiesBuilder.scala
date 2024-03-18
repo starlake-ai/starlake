@@ -403,8 +403,8 @@ object StrategiesBuilder {
         "strategyKeyCsv"      -> writeStrategy.keyCsv(jdbcEngine.quote),
         "strategyKeyJoinCondition" -> writeStrategy.keyJoinCondition(
           jdbcEngine.quote,
-          "INCOMING",
-          "EXISTING"
+          "SL_INCOMING",
+          "SL_EXISTING"
         )
       )
     }
@@ -476,7 +476,7 @@ object StrategiesBuilder {
   ) {
 
     def asMap(): Map[String, Any] = {
-      strategy.asMap(JdbcEngine) ++ tableComponents.asMap() ++ Map(
+      strategy.asMap(jdbcEngine) ++ tableComponents.asMap(jdbcEngine) ++ Map(
         "selectStatement"  -> selectStatement,
         "tableExists"      -> targetTableExists,
         "tableTruncate"    -> truncate,

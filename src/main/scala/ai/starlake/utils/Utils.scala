@@ -316,6 +316,7 @@ object Utils extends StrictLogging {
   ): String = {
     val config = JinjavaConfig
       .newBuilder()
+      .withFailOnUnknownTokens(true)
       .withNestedInterpretationEnabled(false)
       .build()
     val context = jinjava.getGlobalContextCopy
