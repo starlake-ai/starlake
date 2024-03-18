@@ -15,6 +15,8 @@ import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import better.files.File
 import org.apache.hadoop.fs.Path
+import org.apache.poi.ss.usermodel.{Workbook, WorkbookFactory}
+import org.apache.poi.ss.util.CellReference
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -23,6 +25,7 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
 import java.time.Instant
+import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
 class SparkAutoTask(
@@ -51,6 +54,7 @@ class SparkAutoTask(
 
         case _ =>
           runSparkOnAny()
+
       }
     result
   }
@@ -90,7 +94,7 @@ class SparkAutoTask(
     }
   }
 
-  val fullTableName = s"${taskDesc.domain}.${taskDesc.table}"
+  val fullTableName = s"${taskDesc.domain}.${taskDesc.table.replace(".", "_")}"
 
   private def sinkToES(dataframe: DataFrame): Try[JobResult] = {
     val sink: EsSink = this.taskDesc.sink
@@ -264,7 +268,7 @@ class SparkAutoTask(
           runSparkQueryOnJdbc()
         case _ =>
           throw new Exception(
-            s"Unsupported engine $runEngine and connection type $runConnectionType"
+            s"Unsupported engine ${runEngine} and connection type ${runConnectionType}"
           )
       }
 
@@ -309,6 +313,8 @@ class SparkAutoTask(
                 val result = runSqls(sqlToRun.splitSql(), "Main")
                 if (isCSV()) {
                   exportToCSV(taskDesc.domain, taskDesc.table, None, None)
+                } else if (isXls()) {
+                  exportToXls(taskDesc.domain, taskDesc.table, result)
                 }
                 result
 
@@ -366,6 +372,17 @@ class SparkAutoTask(
       .getOrElse(
         ""
       ) == "csv") && !strategy
+      .isMerge()
+  }
+
+  private def isXls(): Boolean = {
+    sinkConfig
+      .asInstanceOf[FsSink]
+      .format
+      .getOrElse(
+        ""
+      )
+      .toLowerCase == "xls" && !strategy
       .isMerge()
   }
 
@@ -717,7 +734,7 @@ class SparkAutoTask(
           .save()
 
         logger.info(
-          s"JDBC save done to table $firstStepTempTable"
+          s"JDBC save done to table ${firstStepTempTable}"
         )
 
         // We now have a table in the database.
@@ -796,5 +813,145 @@ class SparkAutoTask(
       else
         None
     storageHandler.copyMerge(headerString, location, finalCsvPath, deleteSource = true)
+  }
+
+  private def outputExtension(): Option[String] = sinkConfig.asInstanceOf[FsSink].extension
+
+  private val startCellRegex: Regex = """([a-zA-Z]+)(\d+)""".r
+
+  def exportToXls(
+    domainName: String,
+    tableName: String,
+    result: Option[DataFrame]
+  ): Boolean = {
+    result match {
+      case Some(df) =>
+        /** retrieve the table metadata
+          */
+        val tblMetadata = session.sessionState.catalog.getTableMetadata(
+          new TableIdentifier(tableName.replace(".", "_"), Some(domainName))
+        )
+
+        /** retrieve the xls file root path
+          */
+        val location = new Path(tblMetadata.location)
+
+        /** retrieve the xls file extension
+          */
+        val extension = {
+          outputExtension() match {
+            case Some(ext) if ext.nonEmpty =>
+              if (ext.startsWith("."))
+                ext
+              else
+                s".$ext"
+            case _ => ".xlsx"
+          }
+        }
+
+        /** define the full path to the xls file
+          */
+        val finalXlsPath = new Path(location, tableName.split(".").head + extension)
+
+        /** retrieve the schema of the dataset
+          */
+        val schema = df.schema
+
+        /** create an iterator that will contain all the dataframe rows to sink to the xls file
+          */
+        val rows = df.toLocalIterator()
+
+        // TODO load template
+
+        /** create an input stream to the workbook
+          */
+        val inputStream = storageHandler.open(finalXlsPath)
+
+        /** create the workbook
+          */
+        val workbook: Workbook = WorkbookFactory.create(inputStream)
+
+        /** retrieve the workbook sheet name to which all the dataframe rows will be added - table
+          * name by default
+          */
+        val sheetName = if (tableName.contains(".")) tableName.split(".").toSeq.last else tableName
+
+        /** retrieve the workbook sheet and the last row added to the latter
+          */
+        val (sheet, lastRow) =
+          Option(workbook.getSheet(sheetName)) match {
+            case Some(sheet) =>
+              strategy.`type`.getOrElse(WriteStrategyType.APPEND) match {
+                case WriteStrategyType.OVERWRITE =>
+                  workbook.removeSheetAt(workbook.getSheetIndex(sheet))
+                  (workbook.createSheet(sheetName), -1)
+                case _ => (sheet, sheet.getLastRowNum) // APPEND
+              }
+            case _ => (workbook.createSheet(sheetName), -1)
+          }
+
+        var rowNum = lastRow
+
+        /** if startCell sink option has been defined, start to write at the specified row number
+          * and column index
+          */
+        var colIndex = sinkConfig.toAllSinks().options.getOrElse(Map.empty).get("startCell") match {
+          case Some(cell) =>
+            val matcher = startCellRegex.pattern.matcher(cell)
+            if (matcher.matches()) {
+              val tempRowNum = matcher.group(2).toInt - 1
+              if (tempRowNum > rowNum)
+                // if the write strategy type has been defined to APPEND,
+                // then we may have to start writing to the row bellow the last row previously added
+                rowNum = tempRowNum
+              CellReference.convertColStringToIndex(matcher.group(1))
+            } else {
+              0
+            }
+          case _ => 0
+        }
+
+        /** add each dataframe row to the workbook sheet, starting at the computed row number and
+          * column index
+          */
+        while (rows.hasNext) {
+          val row = rows.next()
+          rowNum += 1
+          val sheetRow = sheet.createRow(rowNum)
+          for (field <- schema.fields.toSeq) {
+            val cellValue: String =
+              row.getAs(field.name) // TODO take into account field schema data type
+            val cell = sheetRow.createCell(colIndex)
+            cell.setCellValue(cellValue)
+            colIndex += 1
+          }
+        }
+
+        /** close the input stream
+          */
+        inputStream.close()
+
+        /** create an output stream to the workbook
+          */
+        val outputStream = storageHandler.output(finalXlsPath)
+
+        /** write the workbook
+          */
+        workbook.write(outputStream)
+
+        /** close the workbook
+          */
+        workbook.close()
+
+        /** close the output stream
+          */
+        outputStream.close()
+
+        true
+
+      case _ =>
+        logger.warn(s"No dataframe has been provided for $domainName.$fullTableName xls sink")
+        false
+    }
   }
 }
