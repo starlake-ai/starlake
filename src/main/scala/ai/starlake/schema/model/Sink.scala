@@ -325,7 +325,7 @@ case class FsSink(
       format.getOrElse(settings.appConfig.defaultWriteFormat)
   }
 
-  private def isExport() = {
+  def isExport() = {
     val format = this.format.getOrElse("")
     val exportFormats = Set("csv", "xls")
     exportFormats.contains(format)

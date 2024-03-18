@@ -454,9 +454,6 @@ class SparkAutoTask(
       Try {
         sink match {
           case _: FsSink =>
-            if (taskDesc.domain.equalsIgnoreCase("domain")) {
-              println(s"Domain is not defined for task ${taskDesc.name}")
-            }
             val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
             if (!exists && taskDesc._auditTableName.isDefined) {
               createAuditTable()
@@ -590,7 +587,8 @@ class SparkAutoTask(
     // This is called by sinkRejected and sinkAccepted
     // We check if the table exists before updating the table schema below
     val incomingSchema = dataset.schema
-    if (taskDesc._auditTableName.isEmpty) {
+    val fsSink = sinkConfig.asInstanceOf[FsSink]
+    if (taskDesc._auditTableName.isEmpty && !fsSink.isExport()) {
       // We are not writing to an audit table. We are writing to the final table
       // Update the table schema and create it if required
       updateSparkTableSchema(incomingSchema)
@@ -598,13 +596,22 @@ class SparkAutoTask(
 
     dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
     val allAttributes = incomingSchema.fieldNames.mkString(",")
-    val result =
-      if (dataset.columns.length > 0) {
+    val result = {
+      if (fsSink.isExport()) {
+        val location = getExportFilePath(taskDesc.domain, taskDesc.table)
+        dataset.write
+          .format(fsSink.getStorageFormat())
+          .mode(this.taskDesc.getWriteMode().toSaveMode)
+          .options(fsSink.getOptions())
+          .save(location.toString)
+        Success(SparkJobResult(Some(dataset)))
+      } else if (dataset.columns.length > 0) {
         runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
 
       } else {
         Success(SparkJobResult(None))
       }
+    }
     result
   }
 
@@ -790,10 +797,6 @@ class SparkAutoTask(
     header: Option[List[String]],
     separator: Option[String]
   ): Boolean = {
-    val tblMetadata = session.sessionState.catalog.getTableMetadata(
-      new TableIdentifier(tableName, Some(domainName))
-    )
-    val location = new Path(tblMetadata.location)
 
     val extension =
       if (csvOutputExtension().nonEmpty) {
@@ -805,7 +808,10 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-    val finalCsvPath = new Path(location, tableName + extension)
+
+    val finalCsvPath: Path = getExportFilePath(domainName, tableName + extension)
+    val location = getExportFilePath(domainName, tableName)
+
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
@@ -814,6 +820,15 @@ class SparkAutoTask(
       else
         None
     storageHandler.copyMerge(headerString, location, finalCsvPath, deleteSource = true)
+  }
+
+  private def getExportFilePath(domainName: String, tableNameWithExtension: String) = {
+    val exportDir = new Path(settings.appConfig.datasets, "export")
+    storageHandler.mkdirs(exportDir)
+
+    val domainDir = new Path(exportDir, domainName)
+    storageHandler.mkdirs(domainDir)
+    new Path(domainDir, tableNameWithExtension)
   }
 
   private def outputExtension(): Option[String] = sinkConfig.asInstanceOf[FsSink].extension
