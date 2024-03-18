@@ -50,5 +50,5 @@ DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
 CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
 {%- else -%}
 TRUNCATE TABLE {{ tableFullName }};
-INSERT INTO {{fullTableName}} {{ selectStatement }}
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
 {%- endif -%}

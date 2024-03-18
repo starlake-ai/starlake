@@ -54,9 +54,9 @@ WHEN NOT MATCHED THEN {{ tableInsert }}
 
 MERGE INTO  {{ tableFullName }} SL_EXISTING 
 USING (
-SELECT  * EXCEPT(SL_SEQ)
+SELECT  {{ tableColumnsCsv }}
 FROM (
-SELECT  *, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
+SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
 FROM ({{ selectStatement }})
 ) WHERE SL_SEQ = 1
     

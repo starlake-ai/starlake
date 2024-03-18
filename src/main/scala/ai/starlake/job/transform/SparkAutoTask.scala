@@ -315,6 +315,7 @@ class SparkAutoTask(
                 val result = runSqls(sqlToRun.splitSql(), "Main")
                 if (isCSV()) {
                   exportToCSV(taskDesc.domain, taskDesc.table, None, None)
+                  session.sql(s"DROP TABLE $fullTableName")
                 }
                 result
 
@@ -442,9 +443,6 @@ class SparkAutoTask(
       Try {
         sink match {
           case _: FsSink =>
-            if (taskDesc.domain.equalsIgnoreCase("domain")) {
-              println(s"Domain is not defined for task ${taskDesc.name}")
-            }
             val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
             if (!exists && taskDesc._auditTableName.isDefined) {
               createAuditTable()
@@ -783,7 +781,7 @@ class SparkAutoTask(
     )
     val location = new Path(tblMetadata.location)
 
-    val extension =
+    val extension = {
       if (csvOutputExtension().nonEmpty) {
         val ext = csvOutputExtension()
         if (ext.startsWith("."))
@@ -793,7 +791,15 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-    val csvPath = new Path(location, tableName + extension)
+    }
+
+    val exportDir = new Path(settings.appConfig.datasets, "export")
+    storageHandler.mkdirs(exportDir)
+    val domainDir = new Path(exportDir, domainName)
+    storageHandler.mkdirs(domainDir)
+
+    val csvPath = new Path(domainDir, tableName + extension)
+
     val finalCsvPath =
       this.sinkConfig.asInstanceOf[FsSink].path.map(p => new Path(p)).getOrElse(csvPath)
     val withHeader = header.isDefined
