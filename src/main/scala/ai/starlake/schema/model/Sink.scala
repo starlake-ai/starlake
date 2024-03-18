@@ -318,8 +318,17 @@ case class FsSink(
   options: Option[Map[String, String]] = None
 ) extends Sink {
 
-  def getFormat()(implicit settings: Settings) = {
-    format.getOrElse(settings.appConfig.defaultWriteFormat)
+  def getStorageFormat()(implicit settings: Settings) = {
+    if (isExport())
+      "csv"
+    else
+      format.getOrElse(settings.appConfig.defaultWriteFormat)
+  }
+
+  private def isExport() = {
+    val format = this.format.getOrElse("")
+    val exportFormats = Set("csv", "xls")
+    exportFormats.contains(format)
   }
 
   def getPartitionByClauseSQL(): String =

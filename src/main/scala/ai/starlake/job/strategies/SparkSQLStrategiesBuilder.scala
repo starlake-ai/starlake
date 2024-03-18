@@ -12,12 +12,6 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     s"CREATE TABLE $fullTableName USING $sparkSinkFormat"
   }
 
-  private def isExport(sink: FsSink) = {
-    val format = sink.format.getOrElse("")
-    val exportFormats = Set("csv", "xls")
-    exportFormats.contains(format)
-  }
-
   override protected def buildMainSql(
     sqlWithParameters: String,
     strategy: WriteStrategy,
@@ -38,8 +32,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     val scd2EndTimestamp =
       strategy.end_ts.getOrElse(throw new IllegalArgumentException("strategy requires end_ts"))
     val finalSqls = {
-      if (isExport(sink)) { List(lastSql) }
-      else if (!tableExists) {
+      if (!tableExists) {
         // Table may have been created yet. Happen only for AutoTask, At ingestion, the table is always created upfront
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
@@ -47,7 +40,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         else {
           val mainSql =
             s"""CREATE TABLE $fullTableName
-               |USING ${sink.getFormat()}
+               |USING ${sink.getStorageFormat()}
                |${sink.getTableOptionsClause()}
                |${sink.getPartitionByClauseSQL()}
                |${sink.getClusterByClauseSQL()}

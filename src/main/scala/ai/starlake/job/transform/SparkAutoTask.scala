@@ -304,7 +304,7 @@ class SparkAutoTask(
               case (_, None) =>
                 val sqlToRun =
                   if (taskDesc.parseSQL.getOrElse(true)) {
-                    // we need to generate the insert / merge / create table
+                    // we need to generate the insert / merge / create table except when exporting to csv & xls
                     buildAllSQLQueries(Some(sqlNoRefs))
                   } else {
                     // we just run the sql since ethe user has provided the sql to run
@@ -314,7 +314,8 @@ class SparkAutoTask(
                 if (isCSV()) {
                   exportToCSV(taskDesc.domain, taskDesc.table, None, None)
                 } else if (isXls()) {
-                  exportToXls(taskDesc.domain, taskDesc.table, result)
+                  val df = session.sql(s"SELECT * FROM $fullTableName")
+                  exportToXls(taskDesc.domain, taskDesc.table, Some(df))
                 }
                 result
 
@@ -570,7 +571,7 @@ class SparkAutoTask(
 
       val ddlTable =
         s"""CREATE TABLE $fullTableName($fields)
-           |USING ${sink.getFormat()}
+           |USING ${sink.getStorageFormat()}
            |${sink.getTableOptionsClause()}
            |${sink.getPartitionByClauseSQL()}
            |${sink.getClusterByClauseSQL()}
