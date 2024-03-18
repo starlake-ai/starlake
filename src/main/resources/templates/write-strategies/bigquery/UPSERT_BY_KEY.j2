@@ -1,0 +1,68 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+
+
+#}
+
+{%- if strategyOn == 'TARGET' -%}
+
+MERGE INTO  {{ tableFullName }} SL_EXISTING USING ({{ selectStatement }}) SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN  {{ tableUpdate }}
+WHEN NOT MATCHED THEN {{ tableInsert }}
+
+{%- else -%} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+MERGE INTO {{ tableFullName  }} SL_EXISTING 
+USING 
+  (SELECT  {{ tableColumnCsv }}
+   FROM (
+    SELECT {{ tableColumnCsv }}, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
+    FROM ({{ selectStatement }})
+  )
+  WHERE SL_SEQ = 1') SL_INCOMING 
+ON ( {{strategyKeyJoinCondition}} )
+WHEN MATCHED THEN tableUpdate
+WHEN NOT MATCHED THEN tableInsert
+
+{%  endif %}

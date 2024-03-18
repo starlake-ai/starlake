@@ -27,7 +27,9 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+
 import scala.collection.immutable.Seq
+import scala.jdk.CollectionConverters.{mapAsJavaMapConverter, seqAsJavaListConverter}
 
 /** Recognized file type format. This will select the correct parser
   *
@@ -153,6 +155,23 @@ case class AllSinks(
   // partition: Option[List[String]] = None, // Only one column allowed
 
 ) {
+  def asMap(): Map[String, Any] = {
+    val map = scala.collection.mutable.Map.empty[String, Any]
+    connectionRef.foreach(map += "sinkConnectionRef" -> _)
+    clustering.foreach(map += "sinkClustering" -> _.asJava)
+    days.foreach(map += "sinkDays" -> _)
+    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
+    materializedView.foreach(map += "sinkMaterializedView" -> _)
+    enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
+    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
+    id.foreach(map += "sinkId" -> _)
+    format.foreach(map += "sinkFormat" -> _)
+    extension.foreach(map += "sinkExtension" -> _)
+    partition.foreach(map += "sinkPartition" -> _.asJava)
+    coalesce.foreach(map += "sinkCoalesce" -> _)
+    options.foreach(map += "sinkOptions" -> _.asJava)
+    map.toMap
+  }
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {

@@ -1,0 +1,54 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+
+
+#}
+
+{%- if materializedView -%}
+DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
+CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
+{%- else -%}
+TRUNCATE TABLE {{ tableFullName }};
+INSERT INTO {{fullTableName}} {{ selectStatement }}
+{%- endif -%}

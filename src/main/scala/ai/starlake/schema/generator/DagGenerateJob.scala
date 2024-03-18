@@ -140,7 +140,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val headConfig = taskConfigs.head match { case (_, config) => config }
         val dagConfig = headConfig.dagConfig
         val dagTemplateName = dagConfig.template
-        val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+        val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
         val cron = settings.appConfig.schedulePresets.getOrElse(
           headConfig.schedule.getOrElse("None"),
           headConfig.schedule.getOrElse("None")
@@ -182,7 +182,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
       val dagConfig = dagConfigs(dagConfigName)
       val dagTemplateName = dagConfig.template
-      val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+      val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
       if (filenameVars.exists(List("table", "finalTable").contains)) {
         if (!filenameVars.exists(List("domain", "finalDomain").contains))
@@ -301,7 +301,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           var scheduleIndex = 1
           val dagConfig = dagConfigs(dagConfigName)
           val dagTemplateName = dagConfig.template
-          val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+          val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
           val dagSchedules = groupedBySchedule
             .map { case (schedule, groupedByDomain) =>
               val (scheduleValue, nextScheduleIndex) =

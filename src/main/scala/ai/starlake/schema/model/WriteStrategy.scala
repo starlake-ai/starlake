@@ -35,6 +35,13 @@ case class WriteStrategy(
 
   def requireTimestamp(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireTimestamp()
 
+  def keyCsv(quote: String) = this.key.map(key => s"$quote$key$quote").mkString(",")
+
+  def keyJoinCondition(quote: String, incoming: String, existing: String): String =
+    this.key
+      .map(key => s"$incoming.$quote$key$quote = $existing.$quote$key$quote")
+      .mkString(" AND ")
+
   @JsonIgnore
   private val lastPat =
     Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)

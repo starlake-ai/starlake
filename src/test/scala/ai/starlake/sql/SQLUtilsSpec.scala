@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.job.strategies.StrategiesBuilder
-import ai.starlake.schema.model.{AllSinks, RefDesc, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model.{AllSinks, Engine, RefDesc, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -226,16 +226,21 @@ class SQLUtilsSpec extends TestHelper {
 
       val sqlMerge =
         StrategiesBuilder("ai.starlake.job.strategies.JdbcStrategiesBuilder")
-          .buildSQLForStrategy(
+          .run(
             strategy,
             selectWithCTEs,
-            "starlake-project-id.dataset3.transactions_v3",
-            List("transaction_id", "transaction_date", "amount", "location_info", "seller_info"),
+            StrategiesBuilder.TableComponents(
+              "starlake-project-id",
+              "dataset3",
+              "transactions_v3",
+              List("transaction_id", "transaction_date", "amount", "location_info", "seller_info")
+            ),
             targetTableExists = true,
             truncate = false,
             materializedView = false,
             settings.appConfig.jdbcEngines("bigquery"),
-            AllSinks().getSink()
+            AllSinks().getSink(),
+            Engine.fromString("jdbc")
           )
       sqlMerge.replaceAll("\\s", "") should be("""
                                                  |CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS (WITH

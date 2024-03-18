@@ -103,17 +103,22 @@ class JdbcAutoTask(
   override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
+    val tableComponents = StrategiesBuilder.TableComponents(
+      taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
+      taskDesc.domain,
+      taskDesc.table,
+      SQLUtils.extractColumnNames(sqlWithParameters)
+    )
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
       strategy,
       sqlWithParameters,
-      fullTableName,
-      columnNames,
+      tableComponents,
       tableExists,
       truncate = truncate,
       materializedView = isMaterializedView(),
       jdbcSinkEngine,
-      sinkConfig
+      sinkConfig,
+      jdbcRunEngineName
     )
     mainSql
   }

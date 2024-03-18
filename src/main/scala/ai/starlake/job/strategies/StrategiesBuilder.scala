@@ -2,25 +2,92 @@ package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, Sink, WriteStrategy, WriteStrategyType}
+import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
+import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.Formatter.RichFormatter
+import ai.starlake.utils.Utils
+import better.files.Resource
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.reflect.runtime.{universe => ru}
 
 trait StrategiesBuilder extends StrictLogging {
-  def buildSQLForStrategy(
+
+  def buildSqlWithJ2(
     strategy: WriteStrategy,
     selectStatement: String,
-    fullTableName: String,
-    targetTableColumns: List[String],
+    tableComponents: TableComponents,
     targetTableExists: Boolean,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
-    sinkConfig: Sink
-  )(implicit settings: Settings): String
+    sinkConfig: Sink,
+    runEngine: Engine,
+    action: String
+  )(implicit settings: Settings): String = {
+    val context = StrategiesBuilder.StrategiesGenerationContext(
+      strategy,
+      selectStatement,
+      tableComponents,
+      targetTableExists,
+      truncate,
+      materializedView,
+      jdbcEngine,
+      sinkConfig
+    )
+    val paramMap = context.asMap().asInstanceOf[Map[String, Object]]
+    Resource.asString(
+      s"templates/write-strategies/${runEngine.toString.toLowerCase()}/${action.toUpperCase()}.j2"
+    ) match {
+      case Some(content) =>
+        val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
+        logger.info(jinjaOutput)
+        jinjaOutput
+      case None =>
+        throw new RuntimeException(s"SQL Template not found in for $runEngine/$action.j2")
+    }
+
+  }
+
+  def run(
+    strategy: WriteStrategy,
+    selectStatement: String,
+    tableComponents: StrategiesBuilder.TableComponents,
+    targetTableExists: Boolean,
+    truncate: Boolean,
+    materializedView: Boolean,
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink,
+    runEngine: Engine
+  )(implicit settings: Settings): String = {
+    if (targetTableExists) {
+      buildSqlWithJ2(
+        strategy,
+        selectStatement,
+        tableComponents,
+        targetTableExists,
+        truncate,
+        materializedView,
+        jdbcEngine,
+        sinkConfig,
+        runEngine,
+        "CREATE"
+      ).mkString(";\n")
+    } else {
+      buildSqlWithJ2(
+        strategy,
+        selectStatement,
+        tableComponents,
+        targetTableExists,
+        truncate,
+        materializedView,
+        jdbcEngine,
+        sinkConfig,
+        runEngine,
+        strategy.getEffectiveType().toString
+      ).mkString(";\n")
+    }
+  }
 
   protected def createTemporaryView(viewName: String): String = {
     s"CREATE OR REPLACE TEMPORARY VIEW $viewName"
@@ -41,20 +108,18 @@ trait StrategiesBuilder extends StrictLogging {
     fullTableName: String,
     sinkConfig: Sink
   )(implicit settings: Settings): List[String] = {
-    val allSqls = sqlWithParameters.splitSql()
-    val preMainSqls = allSqls.dropRight(1)
-    // The last SQL may be a select. This what wea re going to
+    // The last SQL may be a select. This what we are going to
     // transform into a create table as or merge into or update from / insert as
-    val lastSql = allSqls.last
     val scd2StartTimestamp =
       strategy.startTs.getOrElse(throw new IllegalArgumentException("strategy requires startTs"))
     val scd2EndTimestamp =
       strategy.endTs.getOrElse(throw new IllegalArgumentException("strategy requires endTs"))
     val finalSqls =
-      if (!tableExists) { // Table may have been created yet
+      if (!tableExists) {
+        // Table may not have been created yet
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
-          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
+          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else {
           if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
             val startTs =
@@ -62,25 +127,24 @@ trait StrategiesBuilder extends StrictLogging {
             val endTs =
               s"ALTER TABLE $fullTableName ADD COLUMN $scd2EndTimestamp TIMESTAMP"
             List(
-              s"CREATE TABLE $fullTableName AS ($lastSql)",
+              s"CREATE TABLE $fullTableName AS ($sqlWithParameters)",
               startTs,
               endTs
             )
           } else
             List(
-              s"CREATE TABLE $fullTableName AS ($lastSql)"
+              s"CREATE TABLE $fullTableName AS ($sqlWithParameters)"
             )
         }
       } else {
-        val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
-        val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
+        val mainSql = s"INSERT INTO $fullTableName $sqlWithParameters"
         val insertSqls =
           if (strategy.getEffectiveType() == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
                 s"DROP MATERIALIZED VIEW $fullTableName",
-                s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql"
+                s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters"
               )
             } else {
               List(s"DELETE FROM $fullTableName WHERE TRUE", mainSql)
@@ -95,7 +159,7 @@ trait StrategiesBuilder extends StrictLogging {
           }
         insertSqls
       }
-    preMainSqls ++ finalSqls
+    finalSqls
   }
 
   protected def buildSqlForSC2(
@@ -316,10 +380,109 @@ object StrategiesBuilder {
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
     val classSymbol: ru.ClassSymbol =
       mirror.staticClass(className)
-    val consMethodSymbol = classSymbol.primaryConstructor.asMethod
     val classMirror = mirror.reflectClass(classSymbol)
+
+    val consMethodSymbol = classSymbol.primaryConstructor.asMethod
     val consMethodMirror = classMirror.reflectConstructor(consMethodSymbol)
+
     val strategyBuilder = consMethodMirror.apply().asInstanceOf[StrategiesBuilder]
     strategyBuilder
+  }
+
+  implicit class JavaWriteStrategy(writeStrategy: WriteStrategy) {
+    def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
+      Map(
+        "strategyType"        -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
+        "strategyTypes"       -> writeStrategy.types.getOrElse(Map.empty[String, String]),
+        "strategyKey"         -> writeStrategy.key,
+        "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
+        "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),
+        "strategyOn"          -> writeStrategy.on.getOrElse(MergeOn.TARGET).toString,
+        "strategyStartTs"     -> writeStrategy.startTs.getOrElse(""),
+        "strategyEndTs"       -> writeStrategy.endTs.getOrElse(""),
+        "strategyKeyCsv"      -> writeStrategy.keyCsv(jdbcEngine.quote),
+        "strategyKeyJoinCondition" -> writeStrategy.keyJoinCondition(
+          jdbcEngine.quote,
+          "INCOMING",
+          "EXISTING"
+        )
+      )
+    }
+  }
+
+  implicit class JavaJdbcEngine(jdbcEngine: JdbcEngine) {
+    def asMap(): Map[String, Any] = {
+      Map(
+        "engineQuote"           -> jdbcEngine.quote,
+        "engineCanMerge"        -> jdbcEngine.canMerge,
+        "engineViewPrefix"      -> jdbcEngine.viewPrefix,
+        "enginePreActions"      -> jdbcEngine.preActions,
+        "engineStrategyBuilder" -> jdbcEngine.strategyBuilder
+      )
+    }
+  }
+  case class TableComponents(
+    database: String,
+    domain: String,
+    name: String,
+    columnNames: List[String]
+  ) {
+    def getFullTableName(): String = {
+      (database, domain, name) match {
+        case ("", "", _) => name
+        case ("", _, _)  => s"$domain.$name"
+        case (_, _, _)   => s"$database.$domain.$name"
+      }
+    }
+    def paramsForInsertSql(quote: String): String = {
+      val targetColumns = SQLUtils.targetColumnsForSelectSql(columnNames, quote)
+      val sourceColumns =
+        SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", columnNames, quote)
+      s"""($targetColumns) VALUES ($sourceColumns)"""
+    }
+
+    def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
+      val tableInsert = "INSERT " + paramsForInsertSql(jdbcEngine.quote)
+      val tableUpdate =
+        "UPDATE " + SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
+
+      Map(
+        "tableDatabase"           -> database,
+        "tableDomain"             -> domain,
+        "tableName"               -> name,
+        "tableColumnNames"        -> columnNames,
+        "tableFullName"           -> getFullTableName(),
+        "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
+        "tableParamsForUpdateSql" -> SQLUtils
+          .setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote),
+        "tableInsert" -> tableInsert,
+        "tableUpdate" -> tableUpdate,
+        "tableColumnsCsv" -> columnNames
+          .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+          .mkString(",")
+      )
+    }
+  }
+
+  case class StrategiesGenerationContext(
+    strategy: WriteStrategy,
+    selectStatement: String,
+    tableComponents: StrategiesBuilder.TableComponents,
+    targetTableExists: Boolean,
+    truncate: Boolean,
+    materializedView: Boolean,
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink
+  ) {
+
+    def asMap(): Map[String, Any] = {
+      strategy.asMap(JdbcEngine) ++ tableComponents.asMap() ++ Map(
+        "selectStatement"  -> selectStatement,
+        "tableExists"      -> targetTableExists,
+        "tableTruncate"    -> truncate,
+        "materializedView" -> materializedView
+      ) ++ jdbcEngine.asMap() ++ sinkConfig.toAllSinks().asMap()
+
+    }
   }
 }

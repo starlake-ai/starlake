@@ -1,0 +1,55 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+
+#}
+
+
+BEGIN TRANSACTION;
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM ({{ selectStatement }}));
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) {{ selectStatement }};
+
+COMMIT TRANSACTION;

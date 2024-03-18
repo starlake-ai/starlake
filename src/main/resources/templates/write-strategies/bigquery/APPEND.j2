@@ -1,0 +1,76 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+
+val mainSql = s"INSERT INTO $fullTableName $sqlWithParameters"
+val insertSqls =
+  if (strategy.getEffectiveType() == WriteStrategyType.OVERWRITE) {
+    // If we are in overwrite mode we need to drop the table/truncate before inserting
+    if (materializedView) {
+      List(
+        s"DROP MATERIALIZED VIEW $fullTableName",
+        s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters"
+      )
+    } else {
+      List(s"DELETE FROM $fullTableName WHERE TRUE", mainSql)
+    }
+  } else {
+    val dropSqls =
+      if (truncate)
+        List(s"DELETE FROM $fullTableName WHERE TRUE")
+      else
+        Nil
+    dropSqls :+ mainSql
+  }
+insertSqls
+#}
+
+
+
+
+
+{%- if tableTruncate -%}
+TRUNCATE TABLE {{ tableFullName }};
+{%- endif -%}
+
+INSERT INTO {{fullTableName}} {{ selectStatement }}
