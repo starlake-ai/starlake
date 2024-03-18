@@ -28,7 +28,7 @@ import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{IOException, InputStreamReader, OutputStream}
+import java.io.{IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -364,5 +364,15 @@ class LocalStorageHandler(implicit
       true
     } else
       false
+  }
+
+  override def open(path: Path): InputStream = {
+    pathSecurityCheck(path)
+    localFile(path).fileInputStream.get()
+  }
+
+  override def output(path: Path): OutputStream = {
+    pathSecurityCheck(path)
+    localFile(path).newOutputStream
   }
 }
