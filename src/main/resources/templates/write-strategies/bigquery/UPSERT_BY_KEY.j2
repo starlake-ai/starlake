@@ -21,10 +21,15 @@
 {{ tableName }}
 {{ tableColumnNames }}
 {{ tableFullName }}
-
 {{ selectStatement }}
 {{ tableExists }}
 {{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
 {{ materializedView }}
 
 {{ engineQuote }}
@@ -41,7 +46,8 @@
 {{ strategyOn }}
 {{ strategyStartTs }}
 {{ strategyEndTs }}
-
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
 
 #}
 
@@ -57,7 +63,7 @@ MERGE INTO {{ tableFullName  }} SL_EXISTING
 USING 
   (SELECT  {{ tableColumnsCsv }}
    FROM (
-    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyJoinCondition }}  ORDER BY (select 0)) AS SL_SEQ
+    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
     FROM ({{ selectStatement }})
   )
   WHERE SL_SEQ = 1) SL_INCOMING

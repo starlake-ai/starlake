@@ -436,12 +436,14 @@ object StrategiesBuilder {
     }
     def paramsForInsertSql(quote: String): String = {
       val targetColumns = SQLUtils.targetColumnsForSelectSql(columnNames, quote)
-      val sourceColumns =
+      val tableIncomingColumnsCsv =
         SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", columnNames, quote)
-      s"""($targetColumns) VALUES ($sourceColumns)"""
+      s"""($targetColumns) VALUES ($tableIncomingColumnsCsv)"""
     }
 
     def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
+      val tableIncomingColumnsCsv =
+        SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", columnNames, jdbcEngine.quote)
       val tableInsert = "INSERT " + paramsForInsertSql(jdbcEngine.quote)
       val tableUpdate =
         "UPDATE " + SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
@@ -459,7 +461,8 @@ object StrategiesBuilder {
         "tableUpdate" -> tableUpdate,
         "tableColumnsCsv" -> columnNames
           .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
-          .mkString(",")
+          .mkString(","),
+        "tableIncomingColumnsCsv" -> tableIncomingColumnsCsv
       )
     }
   }
