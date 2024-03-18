@@ -19,10 +19,11 @@ class AutoTaskSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
+        println(starlakeDatasetsPath)
+
         workflow.autoJob(TransformConfig(name = "result.file"))
 
         val location = getTablePath("result", "file")
-        println(starlakeDatasetsPath)
         val content = readFileContent(
           new Path(s"$location/file.csv")
         )
