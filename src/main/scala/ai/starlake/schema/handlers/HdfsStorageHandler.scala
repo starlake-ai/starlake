@@ -27,7 +27,7 @@ import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{ByteArrayInputStream, IOException, InputStreamReader, OutputStream}
+import java.io.{ByteArrayInputStream, IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -571,6 +571,13 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       false
     }
   }
+
+  override def open(path: Path): InputStream = {
+    pathSecurityCheck(path)
+    fs(path).open(path)
+  }
+
+  override def output(path: Path): OutputStream = getOutputStream(path)
 }
 
 object HdfsStorageHandler
