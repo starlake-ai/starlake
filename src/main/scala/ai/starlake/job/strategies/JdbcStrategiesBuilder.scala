@@ -2,20 +2,31 @@ package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{JdbcSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
+import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
+import ai.starlake.schema.model.{Engine, JdbcSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
 import ai.starlake.sql.SQLUtils
 
 class JdbcStrategiesBuilder extends StrategiesBuilder {
   def buildSQLForStrategy(
     strategy: WriteStrategy,
     selectStatement: String,
-    fullTableName: String,
-    targetTableColumns: List[String],
+    tableComponents: TableComponents,
     targetTableExists: Boolean,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink
+  ): Unit = {}
+  override def run(
+    strategy: WriteStrategy,
+    selectStatement: String,
+    tableComponents: TableComponents,
+    targetTableExists: Boolean,
+    truncate: Boolean,
+    materializedView: Boolean,
+    jdbcEngine: JdbcEngine,
+    sinkConfig: Sink,
+    runEngine: Engine
   )(implicit settings: Settings): String = {
 
     val (sourceTable, tempTable) =
@@ -29,7 +40,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
           val quote = jdbcEngine.quote
           val targetColumnsAsSelectString =
-            SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
+            SQLUtils.targetColumnsForSelectSql(tableComponents.columnNames, quote)
 
           buildMainSql(
             s"SELECT $targetColumnsAsSelectString FROM $sourceTable",
@@ -37,16 +48,16 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
             materializedView,
             targetTableExists,
             truncate,
-            fullTableName,
+            tableComponents.getFullTableName(),
             sinkConfig
           ).mkString(";\n")
 
         case WriteStrategyType.UPSERT_BY_KEY =>
           buildSqlForMergeByKey(
             sourceTable,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             truncate,
             materializedView,
@@ -56,9 +67,9 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
             sourceTable,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             truncate,
             materializedView,
@@ -68,9 +79,9 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         case WriteStrategyType.SCD2 =>
           buildSqlForSC2(
             sourceTable,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             truncate,
             materializedView,
@@ -80,9 +91,9 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         case WriteStrategyType.OVERWRITE_BY_PARTITION =>
           buildSqlForOverwriteByPartition(
             sourceTable,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             truncate,
             materializedView,
@@ -168,12 +179,8 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
         /*
             The table does not exist, we can just insert the data
          */
-        val mainSql = s"""SELECT  $targetColumnsAsSelectString
-           |FROM $sourceTable
-            """.stripMargin
-
         buildMainSql(
-          mainSql,
+          s"""SELECT  $targetColumnsAsSelectString FROM $sourceTable""",
           strategy,
           materializedView,
           targetTableExists,

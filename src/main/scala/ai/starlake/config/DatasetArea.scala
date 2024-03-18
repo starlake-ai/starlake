@@ -146,6 +146,9 @@ object DatasetArea extends StrictLogging {
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
 
+  def writeStrategies(implicit settings: Settings): Path =
+    new Path(settings.appConfig.writeStrategies)
+
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
 

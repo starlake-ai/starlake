@@ -2,14 +2,101 @@ package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{FsSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
+import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
+import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.Formatter.RichFormatter
 
 class SparkSQLStrategiesBuilder extends StrategiesBuilder {
+  override def run(
+    strategy: WriteStrategy,
+    selectStatement: String,
+    tableComponents: TableComponents,
+    targetTableExists: Boolean,
+    truncate: Boolean,
+    materializedView: Boolean,
+    engine: JdbcEngine,
+    sinkConfig: Sink,
+    runEngine: Engine
+  )(implicit settings: Settings): String = {
+    val updateAllAttributes =
+      tableComponents.columnNames.map(attr => s"$attr = SL_INCOMING.$attr").mkString(",")
+    val selectAllAttributes = SQLUtils.targetColumnsForSelectSql(tableComponents.columnNames, "")
+    val insertAllAttributes = selectAllAttributes
+    val preActions =
+      s"""CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS $selectStatement;
+         |""".stripMargin
+    val sqls =
+      strategy.getEffectiveType() match {
+        case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
+          buildMainSql(
+            s"""SELECT $selectAllAttributes FROM SL_INCOMING""",
+            strategy,
+            materializedView,
+            targetTableExists,
+            truncate,
+            tableComponents.getFullTableName(),
+            sinkConfig
+          ).mkString(";\n")
+
+        case WriteStrategyType.UPSERT_BY_KEY =>
+          this.buildSqlForMergeByKey(
+            "SL_INCOMING",
+            tableComponents.getFullTableName(),
+            targetTableExists,
+            tableComponents.columnNames,
+            strategy,
+            materializedView,
+            engine,
+            sinkConfig
+          )
+        case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+          buildSqlForMergeByKeyAndTimestamp(
+            "SL_INCOMING",
+            tableComponents.getFullTableName(),
+            targetTableExists,
+            tableComponents.columnNames,
+            strategy,
+            materializedView,
+            engine,
+            sinkConfig
+          )
+        case WriteStrategyType.OVERWRITE_BY_PARTITION =>
+          buildSqlForOverwriteByPartition(
+            "SL_INCOMING",
+            tableComponents.getFullTableName(),
+            targetTableExists,
+            tableComponents.columnNames,
+            strategy,
+            materializedView,
+            engine,
+            sinkConfig
+          )
+
+        case WriteStrategyType.SCD2 =>
+          buildSqlForSC2(
+            "SL_INCOMING",
+            tableComponents.getFullTableName(),
+            targetTableExists,
+            tableComponents.columnNames,
+            strategy,
+            truncate,
+            materializedView,
+            engine,
+            sinkConfig
+          )
+        case x => throw new Exception(s"Unsupported merge strategy $x")
+      }
+    preActions + sqls
+  }
 
   override protected def createTable(fullTableName: String, sparkSinkFormat: String): String = {
     s"CREATE TABLE $fullTableName USING $sparkSinkFormat"
+  }
+
+  private def isExport(sink: FsSink) = {
+    val format = sink.format.getOrElse("")
+    val exportFormats = Set("csv", "xls")
+    exportFormats.contains(format)
   }
 
   override protected def buildMainSql(
@@ -22,21 +109,18 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     sinkConfig: Sink
   )(implicit settings: Settings): List[String] = {
     def sink = sinkConfig.asInstanceOf[FsSink]
-    val allSqls = sqlWithParameters.splitSql()
-    val preMainSqls = allSqls.dropRight(1)
-    // The last SQL may be a select. This what wea re going to
-    // transform into a create table as or merge into or update from / insert as
-    val lastSql = allSqls.last
     val scd2StartTimestamp =
       strategy.startTs.getOrElse(throw new IllegalArgumentException("strategy requires startTs"))
     val scd2EndTimestamp =
       strategy.endTs.getOrElse(throw new IllegalArgumentException("strategy requires endTs"))
-    val finalSqls =
-      if (!tableExists) {
+    val finalSqls = {
+      if (isExport(sink)) {
+        List(sqlWithParameters)
+      } else if (!tableExists) {
         // Table may have been created yet. Happen only for AutoTask, At ingestion, the table is always created upfront
         // If table does not exist we know for sure that the sql request is a SELECT
         if (materializedView)
-          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql")
+          List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else {
           val mainSql =
             s"""CREATE TABLE $fullTableName
@@ -44,7 +128,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                |${sink.getTableOptionsClause()}
                |${sink.getPartitionByClauseSQL()}
                |${sink.getClusterByClauseSQL()}
-               |AS ($lastSql)
+               |AS ($sqlWithParameters)
                |""".stripMargin
           if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
             val startTs =
@@ -61,15 +145,14 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
             List(mainSql)
         }
       } else {
-        val columns = SQLUtils.extractColumnNames(lastSql).mkString(",")
-        val mainSql = s"INSERT INTO $fullTableName($columns) $lastSql"
+        val mainSql = s"INSERT INTO $fullTableName $sqlWithParameters"
         val insertSqls =
           if (strategy.getEffectiveType() == WriteStrategyType.OVERWRITE) {
             // If we are in overwrite mode we need to drop the table/truncate before inserting
             if (materializedView) {
               List(
                 s"DROP MATERIALIZED VIEW $fullTableName",
-                s"CREATE MATERIALIZED VIEW $fullTableName AS $lastSql"
+                s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters"
               )
             } else {
               List(s"DELETE FROM $fullTableName WHERE TRUE", mainSql)
@@ -80,12 +163,12 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
                 List(s"DELETE FROM $fullTableName WHERE TRUE")
               else
                 Nil
-            if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {}
             dropSqls :+ mainSql
           }
         insertSqls
       }
-    preMainSqls ++ finalSqls
+    }
+    finalSqls
   }
 
   /** Assume incoming table is named SL_INCOMINH
@@ -96,88 +179,6 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     * @param defaultScd2EndTsCol
     * @return
     */
-
-  def buildSQLForStrategy(
-    strategy: WriteStrategy,
-    selectStatement: String,
-    fullTableName: String,
-    targetTableColumns: List[String],
-    targetTableExists: Boolean,
-    truncate: Boolean,
-    materializedView: Boolean,
-    engine: JdbcEngine,
-    sinkConfig: Sink
-  )(implicit settings: Settings): String = {
-    val updateAllAttributes =
-      targetTableColumns.map(attr => s"$attr = SL_INCOMING.$attr").mkString(",")
-    val selectAllAttributes = SQLUtils.targetColumnsForSelectSql(targetTableColumns, "")
-    val insertAllAttributes = selectAllAttributes
-    val preActions =
-      s"""CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS $selectStatement;
-         |""".stripMargin
-    val sqls =
-      strategy.getEffectiveType() match {
-        case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
-          buildMainSql(
-            s"""SELECT $selectAllAttributes FROM SL_INCOMING""",
-            strategy,
-            materializedView,
-            targetTableExists,
-            truncate,
-            fullTableName,
-            sinkConfig
-          ).mkString(";\n")
-
-        case WriteStrategyType.UPSERT_BY_KEY =>
-          this.buildSqlForMergeByKey(
-            "SL_INCOMING",
-            fullTableName,
-            targetTableExists,
-            targetTableColumns,
-            strategy,
-            materializedView,
-            engine,
-            sinkConfig
-          )
-        case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
-          buildSqlForMergeByKeyAndTimestamp(
-            "SL_INCOMING",
-            fullTableName,
-            targetTableExists,
-            targetTableColumns,
-            strategy,
-            materializedView,
-            engine,
-            sinkConfig
-          )
-        case WriteStrategyType.OVERWRITE_BY_PARTITION =>
-          buildSqlForOverwriteByPartition(
-            "SL_INCOMING",
-            fullTableName,
-            targetTableExists,
-            targetTableColumns,
-            strategy,
-            materializedView,
-            engine,
-            sinkConfig
-          )
-
-        case WriteStrategyType.SCD2 =>
-          buildSqlForSC2(
-            "SL_INCOMING",
-            fullTableName,
-            targetTableExists,
-            targetTableColumns,
-            strategy,
-            truncate,
-            materializedView,
-            engine,
-            sinkConfig
-          )
-        case x => throw new Exception(s"Unsupported merge strategy $x")
-      }
-    preActions + sqls
-  }
 
   private def buildSqlForOverwriteByPartition(
     sourceTable: String,
@@ -235,13 +236,8 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         /*
             The table does not exist, we can just insert the data
          */
-        val sql =
-          s"""SELECT  $targetColumnsAsSelectString
-             |FROM $sourceTable
-            """.stripMargin
-
         buildMainSql(
-          sql,
+          s"""SELECT  $targetColumnsAsSelectString FROM $sourceTable""".stripMargin,
           strategy,
           materializedView = false,
           targetTableExists,

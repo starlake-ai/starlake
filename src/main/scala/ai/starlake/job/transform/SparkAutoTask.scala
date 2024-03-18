@@ -189,19 +189,25 @@ class SparkAutoTask(
 
   override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
-    val columnNames = SQLUtils.extractColumnNames(sql.getOrElse(taskDesc.getSql()))
+    val tableComponents = StrategiesBuilder.TableComponents(
+      "",
+      taskDesc.domain,
+      taskDesc.table,
+      SQLUtils.extractColumnNames(sql.getOrElse(taskDesc.getSql()))
+    )
+
     val mainSql =
       StrategiesBuilder(jdbcSinkEngine.strategyBuilder)
-        .buildSQLForStrategy(
+        .run(
           strategy,
           sql.getOrElse(taskDesc.getSql()),
-          fullTableName,
-          columnNames,
+          tableComponents,
           tableExists,
           truncate,
           isMaterializedView(),
           jdbcSinkEngine,
-          sinkConfig
+          sinkConfig,
+          jdbcRunEngineName
         )
     mainSql
   }

@@ -2,34 +2,33 @@ package ai.starlake.job.strategies
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
-import ai.starlake.schema.model.{MergeOn, Sink, WriteStrategy, WriteStrategyType}
+import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
+import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 
 class BigQueryStrategiesBuilder extends StrategiesBuilder {
-  def buildSQLForStrategy(
+
+  override def run(
     strategy: WriteStrategy,
     selectStatement: String,
-    fullTableName: String,
-    targetTableColumns: List[String],
+    tableComponents: TableComponents,
     targetTableExists: Boolean,
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
-    sinkConfig: Sink
+    sinkConfig: Sink,
+    runEngine: Engine
   )(implicit settings: Settings): String = {
     val result =
       strategy.getEffectiveType() match {
         case WriteStrategyType.APPEND | WriteStrategyType.OVERWRITE =>
-          val quote = jdbcEngine.quote
-          val targetColumnsAsSelectString =
-            SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
           buildMainSql(
             selectStatement,
             strategy,
             materializedView,
             targetTableExists,
             truncate,
-            fullTableName,
+            tableComponents.getFullTableName(),
             sinkConfig
           ).mkString(";\n")
 
@@ -37,35 +36,35 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
           buildSqlForMergeByKey(
             strategy,
             selectStatement,
-            fullTableName,
-            targetTableColumns,
+            tableComponents.getFullTableName(),
             targetTableExists,
+            tableComponents.columnNames,
             jdbcEngine
           )
         case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
           buildSqlForMergeByKeyAndTimestamp(
             selectStatement,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             jdbcEngine
           )
         case WriteStrategyType.SCD2 =>
           buildSqlForSC2(
             selectStatement,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             jdbcEngine
           )
         case WriteStrategyType.OVERWRITE_BY_PARTITION =>
           buildSqlForPartitionOverwrite(
             selectStatement,
-            fullTableName,
+            tableComponents.getFullTableName(),
             targetTableExists,
-            targetTableColumns,
+            tableComponents.columnNames,
             strategy,
             sinkConfig,
             jdbcEngine
@@ -82,13 +81,12 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     strategy: WriteStrategy,
     selectStatement: String,
     targetTableFullName: String,
-    targetTableColumns: List[String],
     targetTableExists: Boolean,
+    targetTableColumns: List[String],
     jdbcEngine: JdbcEngine
   )(implicit settings: Settings): String = {
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
-    val viewPrefix = jdbcEngine.viewPrefix
 
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
@@ -126,17 +124,17 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
         /*
             The table exists, we can merge the data
          */
+        val mergeKeyJoinCondition =
+          strategy.key
+            .map(key => s"SL_INCOMING.$quote$key$quote = SL_EXISTING.$quote$key$quote")
+            .mkString(" AND ")
+
         val paramsForInsertSql = {
           val targetColumns = SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
           val sourceColumns =
             SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
           s"""($targetColumns) VALUES ($sourceColumns)"""
         }
-        val mergeKeyJoinCondition =
-          strategy.key
-            .map(key => s"SL_INCOMING.$quote$key$quote = SL_EXISTING.$quote$key$quote")
-            .mkString(" AND ")
-
         val paramsForUpdateSql = SQLUtils.setForUpdateSql("SL_INCOMING", targetTableColumns, quote)
 
         s"""

@@ -312,18 +312,24 @@ class BigQueryAutoTask(
   override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
 
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
+    val tableComponents = StrategiesBuilder.TableComponents(
+      taskDesc.getDatabase().getOrElse(""), // because we will need it for jinjava
+      taskDesc.domain,
+      taskDesc.table,
+      columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
+    )
+
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
       strategy,
       sqlWithParameters,
-      fullTableName,
-      columnNames,
+      tableComponents,
       tableExists,
       truncate,
       isMaterializedView(),
       jdbcSinkEngine,
-      sinkConfig
+      sinkConfig,
+      jdbcRunEngineName
     )
     mainSql
   }

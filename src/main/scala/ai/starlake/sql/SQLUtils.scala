@@ -140,12 +140,6 @@ object SQLUtils extends StrictLogging {
     CCJSqlParserUtil.parse(parseable, features)
   }
 
-  def getColumnNames(sql: String): String = {
-    val columnNames = SQLUtils.extractColumnNames(sql)
-    val columnNamesString = columnNames.mkString("(", ",", ")")
-    columnNamesString
-  }
-
   def substituteRefInSQLSelect(
     sql: String,
     refs: RefDesc,

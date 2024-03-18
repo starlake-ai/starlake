@@ -84,6 +84,7 @@ abstract class AutoTask(
   protected lazy val preSql = parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
   protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 
+  val jdbcRunEngineName: Engine = this.taskDesc.getRunConnection().getJdbcEngineName()
   val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
