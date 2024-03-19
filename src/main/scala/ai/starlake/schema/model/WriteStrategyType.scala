@@ -17,8 +17,7 @@ sealed case class WriteStrategyType(value: String) {
       case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => WriteMode.APPEND
       case WriteStrategyType.SCD2                        => WriteMode.APPEND
       case WriteStrategyType.OVERWRITE_BY_PARTITION      => WriteMode.APPEND
-      case _ =>
-        throw new Exception("Should never happen")
+      case _                                             => WriteMode.APPEND
     }
 
   }

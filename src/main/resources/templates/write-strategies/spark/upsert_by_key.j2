@@ -1,0 +1,79 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
+
+#}
+
+CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
+
+{%- if strategyOn == 'TARGET' -%}
+
+
+MERGE INTO  {{ tableFullName }} SL_EXISTING USING SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN  {{ tableUpdate }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+{%- else -%} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+CREATE OR REPLACE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
+SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
+FROM SL_INCOMING;
+
+
+CREATE OR REPLACE TEMPORARY VIEW SL_DEDUP AS SELECT  {{ tableColumnsCsv }} 
+FROM SL_VIEW_WITH_ROWNUM
+WHERE SL_SEQ = 1;
+
+MERGE INTO {{ tableFullName }}  SL_EXISTING USING SL_DEDUP  SL_INCOMING ON ({{strategyKeyJoinCondition}})
+WHEN MATCHED THEN {{ tableUpdate }}
+WHEN NOT MATCHED THEN {{ tableInsert }}
+
+
+{%  endif %}

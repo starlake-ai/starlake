@@ -87,6 +87,7 @@ abstract class AutoTask(
   val jdbcRunEngineName: Engine = this.taskDesc.getRunConnection().getJdbcEngineName()
   val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
+  val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
   def substituteRefTaskMainSQL(sql: String) = {
     val selectStatement = Utils.parseJinja(sql, allVars)

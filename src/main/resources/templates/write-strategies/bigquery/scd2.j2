@@ -21,10 +21,15 @@
 {{ tableName }}
 {{ tableColumnNames }}
 {{ tableFullName }}
-
 {{ selectStatement }}
 {{ tableExists }}
 {{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
 {{ materializedView }}
 
 {{ engineQuote }}
@@ -41,6 +46,8 @@
 {{ strategyOn }}
 {{ strategyStartTs }}
 {{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
 
 #}
 

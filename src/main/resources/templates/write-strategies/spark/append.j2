@@ -21,10 +21,15 @@
 {{ tableName }}
 {{ tableColumnNames }}
 {{ tableFullName }}
-
 {{ selectStatement }}
 {{ tableExists }}
 {{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
 {{ materializedView }}
 
 {{ engineQuote }}
@@ -41,14 +46,17 @@
 {{ strategyOn }}
 {{ strategyStartTs }}
 {{ strategyEndTs }}
-
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
 
 #}
 
-{%- if materializedView -%}
-DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
-CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
-{%- else -%}
+
+
+{%- if tableTruncate and sinkFormat == 'delta' -%}
+DELETE FROM {{ tableFullName }};
+{%- elif tableTruncate -%}
 TRUNCATE TABLE {{ tableFullName }};
-INSERT INTO {{ tableFullName }} {{ selectStatement }}
 {%- endif -%}
+
+INSERT INTO {{ tableFullName }} {{ selectStatement }}

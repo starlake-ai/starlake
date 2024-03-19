@@ -116,9 +116,8 @@ class JdbcAutoTask(
       tableExists,
       truncate = truncate,
       materializedView = isMaterializedView(),
-      jdbcSinkEngine,
-      sinkConfig,
-      jdbcRunEngineName
+      jdbcRunEngine,
+      sinkConfig
     )
     mainSql
   }

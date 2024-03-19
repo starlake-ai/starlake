@@ -16,8 +16,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
-    sinkConfig: Sink,
-    runEngine: Engine
+    sinkConfig: Sink
   )(implicit settings: Settings): String = {
     val result =
       strategy.getEffectiveType() match {

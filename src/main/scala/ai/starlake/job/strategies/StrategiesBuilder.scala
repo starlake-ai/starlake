@@ -11,7 +11,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.reflect.runtime.{universe => ru}
 
-trait StrategiesBuilder extends StrictLogging {
+class StrategiesBuilder extends StrictLogging {
 
   def buildSqlWithJ2(
     strategy: WriteStrategy,
@@ -22,7 +22,6 @@ trait StrategiesBuilder extends StrictLogging {
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
     sinkConfig: Sink,
-    runEngine: Engine,
     action: String
   )(implicit settings: Settings): String = {
     val context = StrategiesBuilder.StrategiesGenerationContext(
@@ -37,14 +36,16 @@ trait StrategiesBuilder extends StrictLogging {
     )
     val paramMap = context.asMap().asInstanceOf[Map[String, Object]]
     Resource.asString(
-      s"templates/write-strategies/${runEngine.toString.toLowerCase()}/${action.toUpperCase()}.j2"
+      s"templates/write-strategies/${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
     ) match {
       case Some(content) =>
         val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
         logger.info(jinjaOutput)
         jinjaOutput
       case None =>
-        throw new RuntimeException(s"SQL Template not found in for $runEngine/$action.j2")
+        throw new RuntimeException(
+          s"SQL Template not found in for ${jdbcEngine.strategyBuilder}/$action.j2"
+        )
     }
 
   }
@@ -57,8 +58,7 @@ trait StrategiesBuilder extends StrictLogging {
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
-    sinkConfig: Sink,
-    runEngine: Engine
+    sinkConfig: Sink
   )(implicit settings: Settings): String = {
     if (targetTableExists) {
       buildSqlWithJ2(
@@ -70,7 +70,6 @@ trait StrategiesBuilder extends StrictLogging {
         materializedView,
         jdbcEngine,
         sinkConfig,
-        runEngine,
         "CREATE"
       ).mkString(";\n")
     } else {
@@ -83,7 +82,6 @@ trait StrategiesBuilder extends StrictLogging {
         materializedView,
         jdbcEngine,
         sinkConfig,
-        runEngine,
         strategy.getEffectiveType().toString
       ).mkString(";\n")
     }

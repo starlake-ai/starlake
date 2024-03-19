@@ -21,10 +21,15 @@
 {{ tableName }}
 {{ tableColumnNames }}
 {{ tableFullName }}
-
 {{ selectStatement }}
 {{ tableExists }}
 {{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
 {{ materializedView }}
 
 {{ engineQuote }}
@@ -41,36 +46,15 @@
 {{ strategyOn }}
 {{ strategyStartTs }}
 {{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
 
-val mainSql = s"INSERT INTO $fullTableName $sqlWithParameters"
-val insertSqls =
-  if (strategy.getEffectiveType() == WriteStrategyType.OVERWRITE) {
-    // If we are in overwrite mode we need to drop the table/truncate before inserting
-    if (materializedView) {
-      List(
-        s"DROP MATERIALIZED VIEW $fullTableName",
-        s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters"
-      )
-    } else {
-      List(s"DELETE FROM $fullTableName WHERE TRUE", mainSql)
-    }
-  } else {
-    val dropSqls =
-      if (truncate)
-        List(s"DELETE FROM $fullTableName WHERE TRUE")
-      else
-        Nil
-    dropSqls :+ mainSql
-  }
-insertSqls
 #}
 
-
-
-
-
-{%- if tableTruncate -%}
+{%- if materializedView -%}
+DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
+CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
+{%- else -%}
 TRUNCATE TABLE {{ tableFullName }};
-{%- endif -%}
-
 INSERT INTO {{ tableFullName }} {{ selectStatement }}
+{%- endif -%}
