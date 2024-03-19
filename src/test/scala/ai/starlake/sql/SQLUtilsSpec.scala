@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.job.strategies.StrategiesBuilder
-import ai.starlake.schema.model.{AllSinks, Engine, RefDesc, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model.{AllSinks, RefDesc, WriteStrategy, WriteStrategyType}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -239,8 +239,7 @@ class SQLUtilsSpec extends TestHelper {
             truncate = false,
             materializedView = false,
             settings.appConfig.jdbcEngines("bigquery"),
-            AllSinks().getSink(),
-            Engine.fromString("jdbc")
+            AllSinks().getSink()
           )
       sqlMerge.replaceAll("\\s", "") should be("""
                                                  |CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS (WITH

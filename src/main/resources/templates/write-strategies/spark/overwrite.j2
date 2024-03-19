@@ -1,0 +1,63 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ tableFullName }}
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
+
+#}
+
+{%- if materializedView -%}
+DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
+CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
+{%- elif sinkFormat == 'delta' -%}
+DELETE FROM {{ tableFullName }};
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
+{% else %}
+TRUNCATE TABLE {{ tableFullName }};
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
+{%- endif -%}

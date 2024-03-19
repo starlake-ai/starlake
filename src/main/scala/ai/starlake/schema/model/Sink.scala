@@ -165,13 +165,40 @@ case class AllSinks(
     enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
     refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
     id.foreach(map += "sinkId" -> _)
-    format.foreach(map += "sinkFormat" -> _)
+    map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
     extension.foreach(map += "sinkExtension" -> _)
     partition.foreach(map += "sinkPartition" -> _.asJava)
     coalesce.foreach(map += "sinkCoalesce" -> _)
     options.foreach(map += "sinkOptions" -> _.asJava)
+
+    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause()
+    map += "sinkTablePartitionClause"  -> this.getTableOptionsClause()
+    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL()
+
     map.toMap
   }
+
+  def getFormat()(implicit settings: Settings): String = {
+    format.getOrElse(settings.appConfig.defaultWriteFormat)
+  }
+
+  def getPartitionByClauseSQL(): String =
+    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+
+  def getClusterByClauseSQL(): String =
+    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
+
+  def getTableOptionsClause(): String = {
+    val opts = options.getOrElse(Map.empty)
+    if (opts.isEmpty) {
+      ""
+    } else {
+      opts.map { case (k, v) => s"'$k'='$v'" }.mkString("OPTIONS(", ",", ")")
+    }
+  }
+
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {
@@ -338,27 +365,6 @@ case class FsSink(
   options: Option[Map[String, String]] = None,
   path: Option[String] = None
 ) extends Sink {
-
-  def getFormat()(implicit settings: Settings) = {
-    format.getOrElse(settings.appConfig.defaultWriteFormat)
-  }
-
-  def getPartitionByClauseSQL(): String =
-    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
-
-  def getClusterByClauseSQL(): String =
-    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
-
-  def getTableOptionsClause(): String = {
-    val opts = options.getOrElse(Map.empty)
-    if (opts.isEmpty) {
-      ""
-    } else {
-      opts.map { case (k, v) => s"'$k'='$v'" }.mkString("OPTIONS(", ",", ")")
-    }
-  }
-
-  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
   def toAllSinks(): AllSinks = {
     AllSinks(

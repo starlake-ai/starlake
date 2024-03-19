@@ -205,9 +205,8 @@ class SparkAutoTask(
           tableExists,
           truncate,
           isMaterializedView(),
-          jdbcSinkEngine,
-          sinkConfig,
-          jdbcRunEngineName
+          jdbcRunEngine,
+          sinkConfig
         )
     mainSql
   }
@@ -555,12 +554,13 @@ class SparkAutoTask(
 
       SparkUtils.createSchema(session, taskDesc.domain)
 
+      val allSinks = sink.toAllSinks()
       val ddlTable =
         s"""CREATE TABLE $fullTableName($fields)
-           |USING ${sink.getFormat()}
-           |${sink.getTableOptionsClause()}
-           |${sink.getPartitionByClauseSQL()}
-           |${sink.getClusterByClauseSQL()}
+           |USING ${allSinks.getFormat()}
+           |${allSinks.getTableOptionsClause()}
+           |${allSinks.getPartitionByClauseSQL()}
+           |${allSinks.getClusterByClauseSQL()}
            |$comment
            |$tblProperties
            |""".stripMargin
@@ -801,7 +801,16 @@ class SparkAutoTask(
     val csvPath = new Path(domainDir, tableName + extension)
 
     val finalCsvPath =
-      this.sinkConfig.asInstanceOf[FsSink].path.map(p => new Path(p)).getOrElse(csvPath)
+      this.sinkConfig
+        .asInstanceOf[FsSink]
+        .path
+        .map { p =>
+          if (p.contains("://"))
+            new Path(p)
+          else
+            new Path(settings.appConfig.datasets, p)
+        }
+        .getOrElse(csvPath)
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =

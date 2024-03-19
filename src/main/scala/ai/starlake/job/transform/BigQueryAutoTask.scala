@@ -327,9 +327,8 @@ class BigQueryAutoTask(
       tableExists,
       truncate,
       isMaterializedView(),
-      jdbcSinkEngine,
-      sinkConfig,
-      jdbcRunEngineName
+      jdbcRunEngine,
+      sinkConfig
     )
     mainSql
   }

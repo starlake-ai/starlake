@@ -21,10 +21,15 @@
 {{ tableName }}
 {{ tableColumnNames }}
 {{ tableFullName }}
-
 {{ selectStatement }}
 {{ tableExists }}
 {{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+{{ tableUpdate }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
 {{ materializedView }}
 
 {{ engineQuote }}
@@ -41,15 +46,12 @@
 {{ strategyOn }}
 {{ strategyStartTs }}
 {{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
 
 #}
 
+INSERT OVERWRITE TABLE {{ tableFullName }} 
+PARTITION ({% for paritionColumn in sinkPartition %}{{ paritionColumn }} {% if not loop.last %}, {% endif %}{%endfor%}) 
+{{ selectStatement }};
 
-BEGIN TRANSACTION;
-
-DELETE FROM {{ tableFullName }} 
-WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM ({{ selectStatement }}));
-
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) {{ selectStatement }};
-
-COMMIT TRANSACTION;

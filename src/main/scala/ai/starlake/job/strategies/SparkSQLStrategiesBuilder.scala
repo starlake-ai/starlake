@@ -15,8 +15,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
     truncate: Boolean,
     materializedView: Boolean,
     engine: JdbcEngine,
-    sinkConfig: Sink,
-    runEngine: Engine
+    sinkConfig: Sink
   )(implicit settings: Settings): String = {
     val updateAllAttributes =
       tableComponents.columnNames.map(attr => s"$attr = SL_INCOMING.$attr").mkString(",")
@@ -122,12 +121,13 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         if (materializedView)
           List(s"CREATE MATERIALIZED VIEW $fullTableName AS $sqlWithParameters")
         else {
+          val allSinks = sink.toAllSinks()
           val mainSql =
             s"""CREATE TABLE $fullTableName
-               |USING ${sink.getFormat()}
-               |${sink.getTableOptionsClause()}
-               |${sink.getPartitionByClauseSQL()}
-               |${sink.getClusterByClauseSQL()}
+               |USING ${allSinks.getFormat()}
+               |${allSinks.getTableOptionsClause()}
+               |${allSinks.getPartitionByClauseSQL()}
+               |${allSinks.getClusterByClauseSQL()}
                |AS ($sqlWithParameters)
                |""".stripMargin
           if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {

@@ -3,7 +3,7 @@ package ai.starlake.job.strategies
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
 import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
-import ai.starlake.schema.model.{Engine, JdbcSink, MergeOn, Sink, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 
 class JdbcStrategiesBuilder extends StrategiesBuilder {
@@ -25,8 +25,7 @@ class JdbcStrategiesBuilder extends StrategiesBuilder {
     truncate: Boolean,
     materializedView: Boolean,
     jdbcEngine: JdbcEngine,
-    sinkConfig: Sink,
-    runEngine: Engine
+    sinkConfig: Sink
   )(implicit settings: Settings): String = {
 
     val (sourceTable, tempTable) =
