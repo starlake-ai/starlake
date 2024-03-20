@@ -318,21 +318,19 @@ case class FsSink(
   options: Option[Map[String, String]] = None
 ) extends Sink {
 
-  private lazy val xlsOptions: Map[String, String] = {
-    val map = options.getOrElse(Map.empty)
-    val filteredMap = map.filter(kv => kv._1.startsWith("xls:"))
-    filteredMap.map(kv => kv._1.split(":").last -> kv._2)
-  }
+  private lazy val xlsOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter(kv => kv._1.startsWith("xls:"))
+    .map(kv => kv._1.split(":").last -> kv._2)
 
   lazy val startCell: Option[String] = xlsOptions.get("startCell")
 
   lazy val template: Option[String] = xlsOptions.get("template")
 
-  private lazy val csvOptions: Map[String, String] = {
-    val map = options.getOrElse(Map.empty)
-    val filteredMap = map.filter(kv => kv._1.startsWith("csv:"))
-    filteredMap.map(kv => kv._1.split(":").last -> kv._2)
-  }
+  private lazy val csvOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter(kv => kv._1.startsWith("csv:"))
+    .map(kv => kv._1.split(":").last -> kv._2)
 
   lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
 
@@ -372,10 +370,8 @@ case class FsSink(
     }
   }
 
-  def getOptions(): Map[String, String] = {
-    val map = options.getOrElse(Map.empty)
-    map.filterNot(kv => kv._1.contains(":"))
-  }
+  def getOptions(): Map[String, String] =
+    options.getOrElse(Map.empty).filterNot(kv => kv._1.contains(":"))
 
   def toAllSinks(): AllSinks = {
     AllSinks(
