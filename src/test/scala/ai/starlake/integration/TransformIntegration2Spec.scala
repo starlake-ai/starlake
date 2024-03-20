@@ -16,7 +16,7 @@ class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
+        Main.run(
           Array("transform", "--name", "bqtest.table1")
         )
       }

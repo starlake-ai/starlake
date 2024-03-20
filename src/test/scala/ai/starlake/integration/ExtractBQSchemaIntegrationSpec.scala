@@ -15,7 +15,7 @@ class ExtractBQSchemaIntegrationSpec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
+        Main.run(
           Array("extract-bq-schema", "--external")
         )
       }
