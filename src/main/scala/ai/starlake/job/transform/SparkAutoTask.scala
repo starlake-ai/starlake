@@ -159,7 +159,7 @@ class SparkAutoTask(
     mergedDF
   }
 
-  def runSparkQueryOnBigQuery(): Option[DataFrame] = {
+  def buildDataframeFromBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
       connectionRef = Some(this.taskDesc.getRunConnectionRef())
     )
@@ -173,7 +173,7 @@ class SparkAutoTask(
     }
   }
 
-  def runSparkQueryOnJdbc(): Option[DataFrame] = {
+  def buildDataframeFromJdbc(): Option[DataFrame] = {
     val runConnection = taskDesc.getRunConnection()
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
@@ -196,7 +196,7 @@ class SparkAutoTask(
     SparkJobResult(dataFrameToSink)
   }
 
-  def runSparkQueryOnFS(): Option[DataFrame] = {
+  def buildDataframeFromFS(): Option[DataFrame] = {
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     runSqls(List(sqlWithParameters), "Main")
   }
@@ -206,21 +206,20 @@ class SparkAutoTask(
     val dataframe =
       (runEngine, runConnectionType) match {
         case (Engine.SPARK, ConnectionType.FS) =>
-          runSparkQueryOnFS()
+          buildDataframeFromFS()
         case (Engine.SPARK, ConnectionType.BQ) =>
-          runSparkQueryOnBigQuery()
+          buildDataframeFromBigQuery()
         case (Engine.SPARK, ConnectionType.JDBC) =>
-          runSparkQueryOnJdbc()
+          buildDataframeFromJdbc()
         case (Engine.BQ, ConnectionType.BQ) =>
-          runSparkQueryOnBigQuery()
+          buildDataframeFromBigQuery()
         case (Engine.JDBC, ConnectionType.JDBC) =>
-          runSparkQueryOnJdbc()
+          buildDataframeFromJdbc()
         case _ =>
           throw new Exception(
             s"Unsupported engine $runEngine and connection type $runConnectionType"
           )
       }
-
     dataframe
   }
 
