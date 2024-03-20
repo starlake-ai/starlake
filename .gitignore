@@ -154,3 +154,4 @@ distrib/deps
 project/project
 metals.sbt
 samples/starbake/site
+samples/starbake/datasets

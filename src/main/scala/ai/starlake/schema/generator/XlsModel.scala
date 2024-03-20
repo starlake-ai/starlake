@@ -62,7 +62,8 @@ trait XlsModel {
     "_extensions" -> "Accepted extensions",
     "_options"    -> "Spark ingestion options",
     "_validator"  -> "Class validator",
-    "_null"       -> "Null value"
+    "_null"       -> "Null value",
+    "_dagRef"     -> "Dag reference"
   )
 
   val allAttributeHeaders = List(
@@ -106,7 +107,8 @@ trait XlsModel {
     "_extension"         -> "FS Sink Extension",
     "_coalesce"          -> "FS Sink Coalesce",
     "_connection"        -> "Run connection type",
-    "_connectionRef"     -> "Run connection name"
+    "_connectionRef"     -> "Run connection name",
+    "_dagRef"            -> "Dag reference"
   )
 
   val allAttributeJobHeaders = List(

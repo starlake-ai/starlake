@@ -27,7 +27,7 @@ import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{ByteArrayInputStream, IOException, InputStreamReader, OutputStream}
+import java.io.{ByteArrayInputStream, IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -544,7 +544,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         .listStatus(srcDir)
         .filter(status => status.isFile)
         .map(_.getPath)
-      if (parts.nonEmpty) {
+      if (parts.nonEmpty || header.nonEmpty) {
         val outputStream = currentFS.create(dstFile)
         header.foreach { header =>
           val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
@@ -571,6 +571,18 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       false
     }
   }
+
+  override def open(path: Path): Option[InputStream] = {
+    pathSecurityCheck(path)
+    Try(fs(path).open(path)) match {
+      case Success(is) => Some(is)
+      case Failure(f) =>
+        logger.error(f.getMessage)
+        None
+    }
+  }
+
+  override def output(path: Path): OutputStream = getOutputStream(path)
 }
 
 object HdfsStorageHandler
