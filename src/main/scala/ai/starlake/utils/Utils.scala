@@ -33,28 +33,13 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.storage.StorageLevel.{
-  DISK_ONLY,
-  DISK_ONLY_2,
-  DISK_ONLY_3,
-  MEMORY_AND_DISK,
-  MEMORY_AND_DISK_2,
-  MEMORY_AND_DISK_SER,
-  MEMORY_AND_DISK_SER_2,
-  MEMORY_ONLY,
-  MEMORY_ONLY_2,
-  MEMORY_ONLY_SER,
-  MEMORY_ONLY_SER_2,
-  NONE,
-  OFF_HEAP
-}
+import org.apache.spark.storage.StorageLevel._
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
@@ -279,7 +264,13 @@ object Utils extends StrictLogging {
       val res =
         try {
           Thread.currentThread.setContextClassLoader(this.getClass.getClassLoader)
-          new Jinjava()
+          val config = JinjavaConfig
+            .newBuilder()
+            .withFailOnUnknownTokens(false)
+            .withNestedInterpretationEnabled(false)
+            .build()
+
+          new Jinjava(config)
         } finally Thread.currentThread.setContextClassLoader(curClassLoader)
       res.setResourceLocator(new JinjaResourceHandler())
       _jinjava = res
@@ -293,7 +284,9 @@ object Utils extends StrictLogging {
     _jinjava = null
   }
 
-  def parseJinja(str: String, params: Map[String, Any])(implicit settings: Settings): String =
+  def parseJinja(str: String, params: Map[String, Any])(implicit
+    settings: Settings
+  ): String =
     parseJinja(
       List(str),
       params
@@ -311,18 +304,13 @@ object Utils extends StrictLogging {
     result
   }
 
-  def parseJinjaTpl(templateContent: String, params: Map[String, Object])(implicit
+  def parseJinjaTpl(
+    templateContent: String,
+    params: Map[String, Object]
+  )(implicit
     settings: Settings
   ): String = {
-    val config = JinjavaConfig
-      .newBuilder()
-      .withFailOnUnknownTokens(true)
-      .withNestedInterpretationEnabled(false)
-      .build()
-    val context = jinjava.getGlobalContextCopy
-    context.putAll(params.asJava)
-    val interpreter = new JinjavaInterpreter(jinjava, context, config)
-    interpreter.render(templateContent)
+    parseJinja(templateContent, params)
   }
 
   def newYamlMapper(): ObjectMapper = {
