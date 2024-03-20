@@ -1,58 +1,3 @@
-
-{#
-
-{{ sinkConnectionRef }}
-{{ sinkClustering }}
-{{ sinkDays }}
-{{ sinkRequirePartitionFilter }}
-{{ sinkMaterializedView }}
-{{ sinkEnableRefresh }}
-{{ sinkRefreshIntervalMs }}
-{{ sinkId }}
-{{ sinkFormat }}
-{{ sinkExtension }}
-{{ sinkPartition }}
-{{ sinkCoalesce }}
-{{ sinkOptions }}
-{{ sinkTableOptionsClause }}
-{{ sinkTablePartitionClause }}
-{{ sinkTableClusteringClause }}
-
-{{ tableDatabase }}
-{{ tableDomain }}
-{{ tableName }}
-{{ tableColumnNames }}
-{{ tableFullName }}
-{{ selectStatement }}
-{{ tableExists }}
-{{ tableTruncate }}
-{{ tableParamsForInsertSql }}
-{{ tableParamsForUpdateSql }}
-{{ tableInsert }}
-{{ tableUpdate }}
-{{ tableColumnsCsv }}
-{{ tableIncomingColumnsCsv }}
-{{ materializedView }}
-
-{{ engineQuote }}
-{{ engineCanMerge }}
-{{ engineViewPrefix }}
-{{ enginePreActions }}
-{{ engineStrategyBuilder }}
-
-{{ strategyType }}
-{{ strategyTypes }}
-{{ strategyKey }}
-{{ strategyTimestamp }}
-{{ strategyQueryFilter }}
-{{ strategyOn }}
-{{ strategyStartTs }}
-{{ strategyEndTs }}
-{{ strategyKeyCsv }}
-{{ strategyKeyJoinCondition }}
-
-#}
-
 {% if materializedView %}
 {% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
 {% else %}
@@ -66,29 +11,16 @@
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
 {{ createPrefix }} {{ tableFullName }} AS
-SELECT  {{ tableColumnsCsv }} 
-FROM 
-(SELECT {{ tableColumnsCsv }}, 
-        ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) AS SL_SEQ 
- FROM ({{selectStatement }})
-)
-WHERE SL_SEQ = 1;
+SELECT {{ tableColumnsCsv }}
+FROM ({{selectStatement }})
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) = 1;
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 {{ createPrefix }} {{ tableFullName }} AS
-SL_VIEW_WITH_ROWNUM AS (
-  
-)
-SELECT {{ tableColumnsCsv }} 
-FROM 
-(SELECT  {{ tableColumnsCsv }},
-          ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
-  FROM ({{ selectStatement }})
-) 
-WHERE SL_SEQ = 1;
-""".stripMargin
-
+SELECT  {{ tableColumnsCsv }}
+FROM ({{ selectStatement }})
+QUALIFY ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
 {%  endif %}
 
 
