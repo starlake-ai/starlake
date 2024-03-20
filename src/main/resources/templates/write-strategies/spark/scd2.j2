@@ -6,7 +6,7 @@ BEGIN TRANSACTION;
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT SL_INCOMING.* FROM {{ selectStatement }} SL_INCOMING, {{ tableFullName }} SL_EXISTING
@@ -35,12 +35,10 @@ COMMIT TRANSACTION;
 
 
 
-BEGIN TRANSACTION;
-
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
@@ -57,8 +55,6 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
 ON ({{ strategyKeyJoinCondition }})
 WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
-COMMIT TRANSACTION;
-   
 
 
 {%  endif %}

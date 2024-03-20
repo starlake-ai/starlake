@@ -8,13 +8,11 @@ WHEN NOT MATCHED THEN {{ tableInsert }}
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
 MERGE INTO {{ tableFullName  }} SL_EXISTING 
-USING 
-  (SELECT  {{ tableColumnsCsv }}
-   FROM (
-    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
-    FROM ({{ selectStatement }})
-  )
-  WHERE SL_SEQ = 1) SL_INCOMING
+USING ( 
+  SELECT {{ tableColumnsCsv }}
+  FROM ({{ selectStatement }})
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) = 1
+) SL_INCOMING
 ON ( {{strategyKeyJoinCondition}} )
 WHEN MATCHED THEN {{ tableUpdate }}
 WHEN NOT MATCHED THEN {{ tableInsert }}

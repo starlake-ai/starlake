@@ -44,7 +44,7 @@ WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
-        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKey }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
             FROM ({{ selectStatement }}) AS SL_INCOMING
             WHERE SL_SEQ = 1 
 

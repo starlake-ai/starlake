@@ -1,58 +1,42 @@
-
-{% if strategyOn == 'TARGET' %}
+{% macro renderIncominTableColumns(columnNames) %}
+{% for columnName in columnNames %}SL_INCOMING.`{{ columnName }}`{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
 
 BEGIN TRANSACTION;
 
-INSERT INTO {{ tableFullName }}
-SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, `{{ strategyStartTs }}`, `{{ strategyEndTs }}`)
+SELECT {{renderIncominTableColumns(tableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+
+{% if strategyOn == 'TARGET' %}
+
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT SL_INCOMING.* FROM {{ selectStatement }} SL_INCOMING, {{ tableFullName }} SL_EXISTING
+    SELECT SL_INCOMING.* FROM ({{ selectStatement }}) SL_INCOMING, {{ tableFullName }} SL_EXISTING
     WHERE   {{strategyKeyJoinCondition}} AND 
             SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
             SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
-) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+) SL_INCOMING 
+ON ({{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
 COMMIT TRANSACTION;
    
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
-    MERGE INTO  {{ tableFullName }} SL_EXISTING
-    USING (
-    SELECT  {{ tableColumnsCsv }}
-    FROM (
-    SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
-    FROM ({{ selectStatement }})
-    ) WHERE SL_SEQ = 1
-
-    ) SL_INCOMING
-    ON ( {{ strategyKeyJoinCondition }})
-    WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  {{ tableUpdate }}
-    WHEN NOT MATCHED THEN {{ tableInsert }}
-
-
-
-BEGIN TRANSACTION;
-
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
-SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
-        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKey }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+    SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} 
+    FROM
+        (   SELECT {{ tableColumnsCsv }}
             FROM ({{ selectStatement }}) AS SL_INCOMING
-            WHERE SL_SEQ = 1 
-
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1
         ) AS SL_INCOMING, 
         {{ tableFullName }} SL_EXISTING
-        WHERE   {{strategyKeyJoinCondition}} AND 
-            SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
-            SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
+    WHERE   {{strategyKeyJoinCondition}} AND 
+        SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
+        SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING 
 ON ({{ strategyKeyJoinCondition }})
 WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
