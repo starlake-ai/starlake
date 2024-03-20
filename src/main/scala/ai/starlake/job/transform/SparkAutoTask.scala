@@ -1,6 +1,6 @@
 package ai.starlake.job.transform
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
@@ -49,7 +49,11 @@ class SparkAutoTask(
               ConnectionType.FS,
               ConnectionType.FS
             ) => // databricks to databricks including fs (text, csv ...)
-          runSparkOnSpark(taskDesc.getSql())
+          if (sinkConfig.asInstanceOf[FsSink].isExport()) {
+            runSparkOnAny() // We exporting from Spark to the filesystem
+          } else {
+            runSparkOnSpark(taskDesc.getSql())
+          }
 
         case _ =>
           runSparkOnAny()
@@ -832,13 +836,10 @@ class SparkAutoTask(
     storageHandler.copyMerge(headerString, location, finalCsvPath, deleteSource = true)
   }
 
-  private def getExportFilePath(domainName: String, tableNameWithExtension: String) = {
-    val exportDir = new Path(settings.appConfig.datasets, "export")
-    storageHandler.mkdirs(exportDir)
-
-    val domainDir = new Path(exportDir, domainName)
-    storageHandler.mkdirs(domainDir)
-    new Path(domainDir, tableNameWithExtension)
+  private def getExportFilePath(domainName: String, tableName: String) = {
+    val file = DatasetArea.export(domainName, tableName)
+    storageHandler.mkdirs(file.getParent)
+    file
   }
 
   private def outputExtension(): Option[String] = sinkConfig.asInstanceOf[FsSink].extension
