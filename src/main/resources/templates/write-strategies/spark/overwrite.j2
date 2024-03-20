@@ -6,6 +6,6 @@ CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
 DELETE FROM {{ tableFullName }};
 INSERT INTO {{ tableFullName }} {{ selectStatement }}
 {% else %}
-TRUNCATE TABLE {{ tableFullName }};
+DELETE FROM {{ tableFullName }};
 INSERT INTO {{ tableFullName }} {{ selectStatement }}
 {% endif %}

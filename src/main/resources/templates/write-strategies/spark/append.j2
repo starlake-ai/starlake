@@ -1,8 +1,8 @@
 
 {% if tableTruncate and sinkFormat == 'delta' %}
-DELETE FROM {{ tableFullName }};
+DELETE FROM {{ tableFullName }}; 
 {% elif tableTruncate %}
-TRUNCATE TABLE {{ tableFullName }};
+DELETE FROM {{ tableFullName }};
 {% endif %}
 
 INSERT INTO {{ tableFullName }} {{ selectStatement }};

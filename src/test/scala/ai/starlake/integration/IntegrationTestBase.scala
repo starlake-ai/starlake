@@ -7,6 +7,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.reflect.io.Directory
 import scala.util.Try
 
 class IntegrationTestBase
@@ -15,6 +16,7 @@ class IntegrationTestBase
     with BeforeAndAfterAll
     with BeforeAndAfterEach
     with StrictLogging {
+  implicit val settings: Settings = Settings(Settings.referenceConfig)
 
   implicit val copyOptions = File.CopyOptions(overwrite = true)
 
@@ -24,6 +26,10 @@ class IntegrationTestBase
   def localDir = templates / "spark"
   def incomingDir = localDir / "incoming"
   def sampleDataDir = templates / "sample-data"
+
+  override protected def beforeAll() = {
+    new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()
+  }
 
   override def beforeEach(): Unit = {
     cleanup()

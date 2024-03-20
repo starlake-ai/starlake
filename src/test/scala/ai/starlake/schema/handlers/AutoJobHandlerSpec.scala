@@ -56,6 +56,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .mode("overwrite")
         .parquet(pathGraduateProgramAccepted.toString)
     }
+    super.beforeAll()
   }
 
   new WithSettings() {

@@ -15,7 +15,6 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
 ) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
 WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
-COMMIT TRANSACTION;
    
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 

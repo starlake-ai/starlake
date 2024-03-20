@@ -1,7 +1,6 @@
 package ai.starlake.integration
 
 import ai.starlake.TestHelper
-import ai.starlake.config.Settings
 import ai.starlake.job.Main
 
 class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
@@ -20,7 +19,6 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
   }
 
   private def dropTables = {
-    sparkSession.sql("drop table if exists sales.orders")
     sparkSession.sql("drop table if exists sales.customers")
     sparkSession.sql("drop table if exists sales.categories")
     sparkSession.sql("drop table if exists sales.products")
@@ -28,7 +26,6 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     sparkSession.sql("drop table if exists hr.flat_locations")
   }
 
-  implicit val settings: Settings = Settings(Settings.referenceConfig)
   "Import / Load / Transform Local" should "succeed" in {
     withEnvs(
       "SL_ROOT"                     -> localDir.pathAsString,
