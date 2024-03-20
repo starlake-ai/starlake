@@ -320,8 +320,8 @@ case class FsSink(
 
   private lazy val xlsOptions: Map[String, String] = options
     .getOrElse(Map.empty)
-    .filter(kv => kv._1.startsWith("xls:"))
-    .map(kv => kv._1.split(":").last -> kv._2)
+    .filter { case (k, _) => k.startsWith("xls:") }
+    .map { case (k, v) => k.split(":").last -> v }
 
   lazy val startCell: Option[String] = xlsOptions.get("startCell")
 
@@ -370,8 +370,11 @@ case class FsSink(
     }
   }
 
+  /** Get the options for the sink that are not specific to the format (e.g. csv:, xls:)
+    * @return
+    */
   def getOptions(): Map[String, String] =
-    options.getOrElse(Map.empty).filterNot(kv => kv._1.contains(":"))
+    options.getOrElse(Map.empty).filterNot { case (k, _) => k.contains(":") }
 
   def toAllSinks(): AllSinks = {
     AllSinks(
