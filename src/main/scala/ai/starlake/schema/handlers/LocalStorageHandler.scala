@@ -366,9 +366,15 @@ class LocalStorageHandler(implicit
       false
   }
 
-  override def open(path: Path): InputStream = {
+  override def open(path: Path): Option[InputStream] = {
     pathSecurityCheck(path)
-    localFile(path).fileInputStream.get()
+    val file = localFile(path)
+    Try(file.fileInputStream.get()) match {
+      case Success(is) => Some(is)
+      case Failure(f) =>
+        logger.error(f.getMessage)
+        None
+    }
   }
 
   override def output(path: Path): OutputStream = {
