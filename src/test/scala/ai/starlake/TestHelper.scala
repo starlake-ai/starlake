@@ -149,8 +149,8 @@ trait TestHelper
           "lock.poll-time",
           ConfigValueFactory.fromAnyRef("5 ms")
         ) // in local mode we don't need to wait quite as much as we do on a real cluster
-
     testConfig
+
   }
 
   val allTypes: List[FileToImport] = List(

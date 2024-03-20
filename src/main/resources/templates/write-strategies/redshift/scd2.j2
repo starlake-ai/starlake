@@ -1,7 +1,6 @@
 
 {% if strategyOn == 'TARGET' %}
 
-BEGIN TRANSACTION;
 
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
@@ -16,7 +15,6 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
 ) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
 WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
-COMMIT TRANSACTION;
    
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
@@ -35,7 +33,6 @@ COMMIT TRANSACTION;
 
 
 
-BEGIN TRANSACTION;
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
@@ -57,7 +54,6 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
 ON ({{ strategyKeyJoinCondition }})
 WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
-COMMIT TRANSACTION;
    
 
 
