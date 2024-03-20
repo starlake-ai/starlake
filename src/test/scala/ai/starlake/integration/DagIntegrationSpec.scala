@@ -13,7 +13,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate", "--clean")
       )
     }
@@ -29,7 +29,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate")
       )
     }
@@ -45,7 +45,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate")
       )
     }
@@ -61,7 +61,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate")
       )
     }
@@ -77,7 +77,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate")
       )
     }
@@ -92,7 +92,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate")
       )
     }

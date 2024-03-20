@@ -5,24 +5,16 @@ import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest.{
-  AutoLoadCmd,
-  IamPoliciesCmd,
-  ImportCmd,
-  IngestCmd,
-  LoadCmd,
-  SecureCmd,
-  StageCmd
-}
+import ai.starlake.job.ingest._
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
 import ai.starlake.job.transform.TransformCmd
+import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
-import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.serve.MainServerCmd
 import ai.starlake.utils._
 import buildinfo.BuildInfo
@@ -65,15 +57,12 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    ProxySettings.setProxy()
-    val settings: Settings = Settings(Settings.referenceConfig)
-    logger.debug(settings.toString)
-    new Main().run(args)(settings)
+    new Main().run(args)
   }
 
 }
 
-class Main() extends StrictLogging {
+class Main extends StrictLogging {
 
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
@@ -154,7 +143,10 @@ class Main() extends StrictLogging {
 
   }
 
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String]): Boolean = {
+    ProxySettings.setProxy()
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")
     val argList = args.toList
     checkPrerequisites(argList)
@@ -204,6 +196,7 @@ class Main() extends StrictLogging {
             Runtime.getRuntime.halt(0)
           }
       }
+      result.isSuccess
     }
 
   }

@@ -16,7 +16,7 @@ class DagGenerateStarbakeSpec extends BigQueryIntegrationSpecBase {
     ) {
       copyFilesToIncomingDir(sampleDataDir)
 
-      Main.main(
+      Main.run(
         Array("dag-generate", "--clean", "--tags", "cust")
       )
     }

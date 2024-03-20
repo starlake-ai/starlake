@@ -17,7 +17,7 @@ class StarbakeSpec extends IntegrationTestBase {
   "Infer Schema" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
       copyFilesToIncomingDir(sampleDataDir)
-      Main.main(
+      Main.run(
         Array(
           "infer-schema",
           "--input",
@@ -30,36 +30,36 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Import files" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("import"))
+      Main.run(Array("import"))
     }
   }
 
   "Load files" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("load"))
+      Main.run(Array("load"))
     }
   }
   "Transform revenue" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("transform", "--name", "kpi.revenue_summary"))
+      Main.run(Array("transform", "--name", "kpi.revenue_summary"))
     }
   }
 
   "Transform product" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("transform", "--name", "kpi.product_summary"))
+      Main.run(Array("transform", "--name", "kpi.product_summary"))
     }
   }
 
   "Transform order" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("transform", "--name", "kpi.order_summary"))
+      Main.run(Array("transform", "--name", "kpi.order_summary"))
     }
   }
 
   "Transform lineage" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(
+      Main.run(
         Array("lineage", "--svg", "--tasks", "kpi.order_summary", "--output", "lineage.svg")
       )
     }
@@ -67,7 +67,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Transform recursive" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.main(Array("transform", "--recursive", "--name", "kpi.order_summary"))
+      Main.run(Array("transform", "--recursive", "--name", "kpi.order_summary"))
     }
   }
 

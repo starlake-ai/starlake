@@ -14,10 +14,10 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
+        Main.run(
           Array("import")
         )
-        Main.main(
+        Main.run(
           Array("load")
         )
       }
@@ -30,10 +30,10 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
         val sampleDataDir2 = localDir / "sample-data2"
         sampleDataDir2.copyTo(incomingDir)
 
-        Main.main(
+        Main.run(
           Array("import")
         )
-        Main.main(
+        Main.run(
           Array("load")
         )
       }
