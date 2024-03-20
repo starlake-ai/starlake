@@ -121,7 +121,7 @@ trait StorageHandler extends StrictLogging {
 
   def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
 
-  def open(path: Path): InputStream
+  def open(path: Path): Option[InputStream]
 
   def output(path: Path): OutputStream
 }
