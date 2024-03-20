@@ -796,6 +796,10 @@ class SparkAutoTask(
     result
   }
 
+  ///////////////////////////////////////////////////////////////////////
+  // TODO Everything below this line should be moved to an export package
+  ///////////////////////////////////////////////////////////////////////
+
   /** This function is called only if csvOutput is true This means we are sure that sink is an
     * FsSink
     *
