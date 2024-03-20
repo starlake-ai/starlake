@@ -370,6 +370,9 @@ case class FsSink(
     }
   }
 
+  /** Get the options for the sink that are not specific to the format (e.g. csv:, xls:)
+    * @return
+    */
   def getOptions(): Map[String, String] =
     options.getOrElse(Map.empty).filterNot { case (k, _) => k.contains(":") }
 
