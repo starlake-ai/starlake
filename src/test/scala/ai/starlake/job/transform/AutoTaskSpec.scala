@@ -1,6 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.TestHelper
+import ai.starlake.config.DatasetArea
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
@@ -23,9 +24,11 @@ class AutoTaskSpec extends TestHelper {
 
         workflow.autoJob(TransformConfig(name = "result.file"))
 
-        val location = getTablePath("result", "file")
+        // val location = getTablePath("result", "file")
+        val csvLocation = DatasetArea.export("result", "file" + "csv")
+
         val content = readFileContent(
-          new Path(s"$location/file.csv")
+          new Path(s"$csvLocation")
         )
         content shouldBe "  Name|Last Name   |"
       }
