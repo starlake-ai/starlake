@@ -98,6 +98,14 @@ object DatasetArea extends StrictLogging {
   def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.appConfig.area.ingesting)
 
+  def export(domain: String)(implicit settings: Settings): Path = {
+    path(domain, "export")
+  }
+
+  def export(domain: String, table: String)(implicit settings: Settings): Path = {
+    new Path(export(domain), table)
+  }
+
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
 

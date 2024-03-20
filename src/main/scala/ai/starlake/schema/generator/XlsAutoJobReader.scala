@@ -134,6 +134,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         )
       ).flatMap(formatter.formatCellValue)
 
+      val dagRefOpt = Option(
+        row.getCell(headerMapSchema("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
       val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
       val writeStrategy =
         if (partitionColumns.nonEmpty && writeStrategyOpt.contains(WriteStrategyType.OVERWRITE))
@@ -225,7 +229,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               tags = tags,
               writeStrategy = Option(writeStrategy),
               taskTimeoutMs = None,
-              connectionRef = runConnectionRefOpt
+              connectionRef = runConnectionRefOpt,
+              dagRef = dagRefOpt
             )
           )
       task

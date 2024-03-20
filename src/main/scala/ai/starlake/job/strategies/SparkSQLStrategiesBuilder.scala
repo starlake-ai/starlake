@@ -124,10 +124,10 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
           val allSinks = sink.toAllSinks()
           val mainSql =
             s"""CREATE TABLE $fullTableName
-               |USING ${allSinks.getFormat()}
-               |${allSinks.getTableOptionsClause()}
-               |${allSinks.getPartitionByClauseSQL()}
-               |${allSinks.getClusterByClauseSQL()}
+               |USING ${sink.getStorageFormat()}
+               |${sink.getTableOptionsClause()}
+               |${sink.getPartitionByClauseSQL()}
+               |${sink.getClusterByClauseSQL()}
                |AS ($sqlWithParameters)
                |""".stripMargin
           if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
