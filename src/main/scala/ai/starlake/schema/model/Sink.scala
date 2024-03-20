@@ -318,14 +318,38 @@ case class FsSink(
   options: Option[Map[String, String]] = None
 ) extends Sink {
 
-  def getStorageFormat()(implicit settings: Settings) = {
+  private lazy val xlsOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter(kv => kv._1.startsWith("xls:"))
+    .map(kv => kv._1.split(":").last -> kv._2)
+
+  lazy val startCell: Option[String] = xlsOptions.get("startCell")
+
+  lazy val template: Option[String] = xlsOptions.get("template")
+
+  private lazy val csvOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter(kv => kv._1.startsWith("csv:"))
+    .map(kv => kv._1.split(":").last -> kv._2)
+
+  lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
+
+  lazy val separator: Option[String] = csvOptions.get("separator")
+
+  lazy val path: Option[String] = xlsOptions.get("path").orElse(csvOptions.get("path"))
+
+  def getStorageFormat()(implicit settings: Settings): String = {
     if (isExport())
       "csv"
     else
       format.getOrElse(settings.appConfig.defaultWriteFormat)
   }
 
-  def isExport() = {
+  def getStorageOptions(): Map[String, String] = {
+    getOptions() + ("separator" -> separator.getOrElse("µ")) + ("withHeader" -> "false")
+  }
+
+  def isExport(): Boolean = {
     val format = this.format.getOrElse("")
     val exportFormats = Set("csv", "xls")
     exportFormats.contains(format)
@@ -338,7 +362,7 @@ case class FsSink(
     clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
 
   def getTableOptionsClause(): String = {
-    val opts = options.getOrElse(Map.empty)
+    val opts = getOptions()
     if (opts.isEmpty) {
       ""
     } else {
@@ -346,7 +370,8 @@ case class FsSink(
     }
   }
 
-  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+  def getOptions(): Map[String, String] =
+    options.getOrElse(Map.empty).filterNot(kv => kv._1.contains(":"))
 
   def toAllSinks(): AllSinks = {
     AllSinks(
