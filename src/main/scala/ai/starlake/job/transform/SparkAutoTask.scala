@@ -15,10 +15,9 @@ import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import better.files.File
 import org.apache.hadoop.fs.Path
-import org.apache.poi.ss.usermodel.{Workbook, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{Row, Workbook, WorkbookFactory}
 import org.apache.poi.ss.util.CellReference
 import org.apache.spark.deploy.PythonRunner
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -155,7 +154,7 @@ class SparkAutoTask(
     mergedDF
   }
 
-  private def sinkToBQ2(dataframe: DataFrame): Try[JobResult] = {
+  private def sinkToBQ2(dataframe: DataFrame): Try[JobResult] = { // TODO declaration is never used
     val bqSink = this.sinkConfig.asInstanceOf[BigQuerySink]
 
     val source = Right(Utils.setNullableStateOfColumn(dataframe, nullable = true))
@@ -268,7 +267,7 @@ class SparkAutoTask(
           runSparkQueryOnJdbc()
         case _ =>
           throw new Exception(
-            s"Unsupported engine ${runEngine} and connection type ${runConnectionType}"
+            s"Unsupported engine $runEngine and connection type $runConnectionType"
           )
       }
 
@@ -311,12 +310,6 @@ class SparkAutoTask(
                     sqlNoRefs
                   }
                 val result = runSqls(sqlToRun.splitSql(), "Main")
-                if (isCSV()) {
-                  exportToCSV(taskDesc.domain, taskDesc.table, None, None)
-                } else if (isXls()) {
-                  val df = session.sql(s"SELECT * FROM $fullTableName")
-                  exportToXls(taskDesc.domain, taskDesc.table, Some(df))
-                }
                 result
 
               case ("", Some(pythonFile)) =>
@@ -366,7 +359,7 @@ class SparkAutoTask(
     }
   }
 
-  private def isCSV() = {
+  private def isCSV = {
     (settings.appConfig.csvOutput || sinkConfig
       .asInstanceOf[FsSink]
       .format
@@ -376,7 +369,7 @@ class SparkAutoTask(
       .isMerge()
   }
 
-  private def isXls(): Boolean = {
+  private def isXls: Boolean = {
     sinkConfig
       .asInstanceOf[FsSink]
       .format
@@ -398,7 +391,7 @@ class SparkAutoTask(
     val directory = new Path(File.newTemporaryDirectory().pathAsString)
     logger.info(s"Python local directory is $directory")
     pyFiles.foreach { pyFile =>
-      val pyName = pyFile.getName()
+      val pyName = pyFile.getName
       storageHandler.copyToLocal(pyFile, new Path(directory, pyName))
     }
     val pythonParams = commandParameters.flatMap { case (name, value) =>
@@ -407,7 +400,7 @@ class SparkAutoTask(
 
     PythonRunner.main(
       Array(
-        new Path(directory, pythonFile.getName()).toString,
+        new Path(directory, pythonFile.getName).toString,
         pyFiles.mkString(",")
       ) ++ pythonParams
     )
@@ -594,24 +587,33 @@ class SparkAutoTask(
       updateSparkTableSchema(incomingSchema)
     }
 
-    dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
     val allAttributes = incomingSchema.fieldNames.mkString(",")
-    val result = {
-      if (fsSink.isExport()) {
+    val result =
+      if (fsSink.isExport() && dataset.columns.length > 0) {
         val location = getExportFilePath(taskDesc.domain, taskDesc.table)
-        dataset.write
-          .format(fsSink.getStorageFormat())
-          .mode(this.taskDesc.getWriteMode().toSaveMode)
-          .options(fsSink.getOptions())
-          .save(location.toString)
+        if (isCSV) {
+          dataset.write
+            .format(fsSink.getStorageFormat())
+            .mode(this.taskDesc.getWriteMode().toSaveMode)
+            .options(fsSink.getStorageOptions())
+            .save(location.toString)
+          exportToCSV(
+            taskDesc.domain,
+            taskDesc.table,
+            if (fsSink.withHeader.getOrElse(false)) Some(dataset.columns.toList) else None,
+            fsSink.separator
+          )
+        } else if (isXls) {
+          exportToXls(taskDesc.domain, taskDesc.table, Some(dataset))
+        }
         Success(SparkJobResult(Some(dataset)))
       } else if (dataset.columns.length > 0) {
+        dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
         runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
 
       } else {
         Success(SparkJobResult(None))
       }
-    }
     result
   }
 
@@ -706,7 +708,7 @@ class SparkAutoTask(
     val allAttributeNames = loadedDF.schema.fields.map(_.name)
     val attributesSelectAsString = allAttributeNames.mkString(",")
 
-    val targetTableExists: Boolean = {
+    val targetTableExists: Boolean = { // TODO declaration is never used
       JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
         val url = sinkConnection.options("url")
         JdbcDbUtils.tableExists(conn, url, targetTableName)
@@ -742,7 +744,7 @@ class SparkAutoTask(
           .save()
 
         logger.info(
-          s"JDBC save done to table ${firstStepTempTable}"
+          s"JDBC save done to table $firstStepTempTable"
         )
 
         // We now have a table in the database.
@@ -797,6 +799,7 @@ class SparkAutoTask(
     header: Option[List[String]],
     separator: Option[String]
   ): Boolean = {
+    val location = getExportFilePath(domainName, tableName)
 
     val extension =
       if (csvOutputExtension().nonEmpty) {
@@ -808,10 +811,17 @@ class SparkAutoTask(
       } else {
         ".csv"
       }
-
-    val finalCsvPath: Path = getExportFilePath(domainName, tableName + extension)
-    val location = getExportFilePath(domainName, tableName)
-
+    val fsSink = sinkConfig.asInstanceOf[FsSink]
+    val finalCsvPath: Path = fsSink.path
+      .map { p =>
+        val parsed = parseJinja(List(p), allVars).head
+        if (parsed.contains("://"))
+          new Path(parsed)
+        else
+          new Path(settings.appConfig.datasets, parsed)
+      }
+      .getOrElse(getExportFilePath(domainName, tableName + extension))
+    storageHandler.delete(finalCsvPath)
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
@@ -842,15 +852,15 @@ class SparkAutoTask(
   ): Boolean = {
     result match {
       case Some(df) =>
-        /** retrieve the table metadata
+        /** retrieve the export root path
           */
-        val tblMetadata = session.sessionState.catalog.getTableMetadata(
-          new TableIdentifier(tableName.replace(".", "_"), Some(domainName))
-        )
+        val exportDir = new Path(settings.appConfig.datasets + "/export")
+        storageHandler.mkdirs(exportDir)
 
-        /** retrieve the xls file root path
+        /** retrieve the domain export root path
           */
-        val location = new Path(tblMetadata.location)
+        val domainDir = new Path(exportDir, domainName)
+        storageHandler.mkdirs(domainDir)
 
         /** retrieve the xls file extension
           */
@@ -865,32 +875,64 @@ class SparkAutoTask(
           }
         }
 
+        /** retrieve the FS Sink configuration
+          */
+        val fsSink = sinkConfig.asInstanceOf[FsSink]
+
         /** define the full path to the xls file
           */
-        val finalXlsPath = new Path(location, tableName.split(".").head + extension)
+        val finalXlsPath = {
+          fsSink.path
+            .map { p =>
+              val parsed = parseJinja(List(p), allVars).head
+              if (parsed.contains("://"))
+                new Path(parsed)
+              else
+                new Path(settings.appConfig.datasets, parsed)
+            }
+            .getOrElse(
+              new Path(
+                domainDir,
+                tableName.split("\\.").headOption.getOrElse(tableName) + extension
+              )
+            )
+        }
 
         /** retrieve the schema of the dataset
           */
-        val schema = df.schema
+//        val schema = df.schema
+
+        df.show(truncate = false)
 
         /** create an iterator that will contain all the dataframe rows to sink to the xls file
           */
         val rows = df.toLocalIterator()
 
-        // TODO load template
-
-        /** create an input stream to the workbook
+        /** create an input stream to the targeted workbook or the optional template
           */
-        val inputStream = storageHandler.open(finalXlsPath)
+        val inputStream = storageHandler.open(finalXlsPath).orElse {
+          fsSink.template.map { p =>
+            if (p.contains("://"))
+              new Path(p)
+            else
+              new Path(settings.appConfig.datasets, p)
+          } match {
+            case Some(value) => storageHandler.open(value)
+            case _           => None
+          }
+        }
 
-        /** create the workbook
+        /** create the targeted workbook
           */
-        val workbook: Workbook = WorkbookFactory.create(inputStream)
+        val workbook: Workbook = inputStream match {
+          case Some(is) => WorkbookFactory.create(is)
+          case _        => WorkbookFactory.create(true)
+        }
 
         /** retrieve the workbook sheet name to which all the dataframe rows will be added - table
           * name by default
           */
-        val sheetName = if (tableName.contains(".")) tableName.split(".").toSeq.last else tableName
+        val sheetName = if (tableName.contains(".")) tableName.split("\\.").last else tableName
 
         /** retrieve the workbook sheet and the last row added to the latter
           */
@@ -899,28 +941,38 @@ class SparkAutoTask(
             case Some(sheet) =>
               strategy.`type`.getOrElse(WriteStrategyType.APPEND) match {
                 case WriteStrategyType.OVERWRITE =>
+                  // TODO if a template has been defined, we don't want to simply create a new sheet
                   workbook.removeSheetAt(workbook.getSheetIndex(sheet))
-                  (workbook.createSheet(sheetName), -1)
-                case _ => (sheet, sheet.getLastRowNum) // APPEND
+                  (workbook.createSheet(sheetName), 0) // OVERWRITE
+                case _ => (sheet, sheet.getLastRowNum + 1) // APPEND
               }
-            case _ => (workbook.createSheet(sheetName), -1)
+            case _ => (workbook.createSheet(sheetName), 0)
           }
 
         var rowNum = lastRow
 
-        /** if startCell sink option has been defined, start to write at the specified row number
-          * and column index
+        /** if xls:startCell sink option has been defined, start to write at the specified row
+          * number and column index
           */
-        var colIndex = sinkConfig.toAllSinks().options.getOrElse(Map.empty).get("startCell") match {
+        val colIndex = fsSink.startCell match {
           case Some(cell) =>
             val matcher = startCellRegex.pattern.matcher(cell)
             if (matcher.matches()) {
               val tempRowNum = matcher.group(2).toInt - 1
-              if (tempRowNum > rowNum)
-                // if the write strategy type has been defined to APPEND,
-                // then we may have to start writing to the row bellow the last row previously added
+              val cellNum = CellReference.convertColStringToIndex(matcher.group(1))
+              // if the write strategy type has been defined to APPEND,
+              // then we will start writing to the row specified if the later is larger than the last row previously added
+              // or if the start cell is empty
+              if (
+                tempRowNum > rowNum || Option(
+                  sheet
+                    .getRow(tempRowNum)
+                ).flatMap(r =>
+                  Option(r.getCell(cellNum, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                ).isEmpty
+              )
                 rowNum = tempRowNum
-              CellReference.convertColStringToIndex(matcher.group(1))
+              cellNum
             } else {
               0
             }
@@ -932,20 +984,21 @@ class SparkAutoTask(
           */
         while (rows.hasNext) {
           val row = rows.next()
-          rowNum += 1
-          val sheetRow = sheet.createRow(rowNum)
-          for (field <- schema.fields.toSeq) {
-            val cellValue: String =
-              row.getAs(field.name) // TODO take into account field schema data type
-            val cell = sheetRow.createCell(colIndex)
-            cell.setCellValue(cellValue)
-            colIndex += 1
+          var currentColIndex = colIndex
+          val sheetRow = Option(sheet.getRow(rowNum)).getOrElse(sheet.createRow(rowNum))
+          val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse(""))
+          for (field <- fields) {
+            // TODO take into account field schema data type
+            val cell = sheetRow.createCell(currentColIndex)
+            cell.setCellValue(field)
+            currentColIndex += 1
           }
+          rowNum += 1
         }
 
         /** close the input stream
           */
-        inputStream.close()
+        inputStream.foreach(_.close())
 
         /** create an output stream to the workbook
           */
