@@ -16,7 +16,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       ) {
         // FIXME: if there is failure during domain load, it is a success. How should we fix it ? To reproduce, just remove version from load/starbake/_config.sl.yml
         // FIXME: it is a success even if there is exception during transform
-        Main.main(
+        Main.run(
           Array("transform", "--recursive", "--name", "kpi.order_summary")
         )
       }
@@ -29,7 +29,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         "SL_ROOT"     -> localDir.pathAsString,
         "SL_METADATA" -> localDir.pathAsString
       ) {
-        Main.main(
+        Main.run(
           Array("acl-dependencies", "--all")
         )
       }
@@ -40,7 +40,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       withEnvs(
         "SL_ROOT" -> localDir.pathAsString
       ) {
-        Main.main(
+        Main.run(
           Array("lineage", "--viz", "--all")
         )
       }
@@ -52,7 +52,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       withEnvs(
         "SL_ROOT" -> localDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
-        Main.main(
+        Main.run(
           Array("table-dependencies")
         )
       }
@@ -64,7 +64,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       withEnvs(
         "SL_ROOT" -> localDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
-        Main.main(
+        Main.run(
           Array(
             "lineage",
             "--print",

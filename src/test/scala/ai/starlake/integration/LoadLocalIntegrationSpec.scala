@@ -36,10 +36,10 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       "SL_ENV"                      -> "LOCAL"
     ) {
       copyFilesToIncomingDir(sampleDataDir)
-      Main.main(
+      Main.run(
         Array("import")
       )
-      Main.main(
+      Main.run(
         Array("load")
       )
       val ordersCount = sparkSession.sql("select * from sales.orders").count
@@ -63,10 +63,10 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     ) {
       List(localDir / "sample-data", localDir / "sample-data2").foreach { sampleDataDir =>
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
+        Main.run(
           Array("import")
         )
-        Main.main(
+        Main.run(
           Array("load")
         )
       }
