@@ -6,7 +6,7 @@ class ValidateSpec extends IntegrationTestBase {
 
   "Validating Domain" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
-      Main.main(
+      Main.run(
         Array("validate")
       )
     }

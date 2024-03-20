@@ -13,7 +13,7 @@ class XlsIntegrationSpec extends BigQueryIntegrationSpecBase {
       copyFilesToIncomingDir(sampleDataDir)
       val loadDir = localDir / "metadata" / "load"
 
-      Main.main(
+      Main.run(
         Array("yml2xls", "--xls", loadDir.pathAsString)
       )
       (loadDir / "sales.xlsx").exists shouldBe true
