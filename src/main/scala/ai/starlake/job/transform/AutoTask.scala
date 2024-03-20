@@ -81,7 +81,7 @@ abstract class AutoTask(
   def tableExists: Boolean
 
   protected lazy val allVars =
-    schemaHandler.activeEnvVars() ++ commandParameters ++ Map("merge" -> tableExists)
+    schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
   protected lazy val preSql = parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
   protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 

@@ -369,6 +369,64 @@ case class FsSink(
   path: Option[String] = None
 ) extends Sink {
 
+  private lazy val xlsOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter { case (k, _) => k.startsWith("xls:") }
+    .map { case (k, v) => k.split(":").last -> v }
+
+  lazy val startCell: Option[String] = xlsOptions.get("startCell")
+
+  lazy val template: Option[String] = xlsOptions.get("template")
+
+  private lazy val csvOptions: Map[String, String] = options
+    .getOrElse(Map.empty)
+    .filter { case (k, _) => k.startsWith("csv:") }
+    .map { case (k, v) => k.split(":").last -> v }
+
+  lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
+
+  lazy val separator: Option[String] = csvOptions.get("separator")
+
+  val finalPath: Option[String] = path.orElse(xlsOptions.get("path")).orElse(csvOptions.get("path"))
+
+  def getStorageFormat()(implicit settings: Settings): String = {
+    if (isExport())
+      "csv"
+    else
+      format.getOrElse(settings.appConfig.defaultWriteFormat)
+  }
+
+  def getStorageOptions(): Map[String, String] = {
+    getOptions() + ("separator" -> separator.getOrElse("µ")) + ("withHeader" -> "false")
+  }
+
+  def isExport(): Boolean = {
+    val format = this.format.getOrElse("")
+    val exportFormats = Set("csv", "xls")
+    exportFormats.contains(format)
+  }
+
+  def getPartitionByClauseSQL(): String =
+    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+
+  def getClusterByClauseSQL(): String =
+    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
+
+  def getTableOptionsClause(): String = {
+    val opts = getOptions()
+    if (opts.isEmpty) {
+      ""
+    } else {
+      opts.map { case (k, v) => s"'$k'='$v'" }.mkString("OPTIONS(", ",", ")")
+    }
+  }
+
+  /** Get the options for the sink that are not specific to the format (e.g. csv:, xls:)
+    * @return
+    */
+  def getOptions(): Map[String, String] =
+    options.getOrElse(Map.empty).filterNot { case (k, _) => k.contains(":") }
+
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef = connectionRef,
