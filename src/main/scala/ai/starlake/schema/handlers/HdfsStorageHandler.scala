@@ -544,7 +544,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         .listStatus(srcDir)
         .filter(status => status.isFile)
         .map(_.getPath)
-      if (parts.nonEmpty) {
+      if (parts.nonEmpty || header.nonEmpty) {
         val outputStream = currentFS.create(dstFile)
         header.foreach { header =>
           val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
@@ -572,9 +572,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     }
   }
 
-  override def open(path: Path): InputStream = {
+  override def open(path: Path): Option[InputStream] = {
     pathSecurityCheck(path)
-    fs(path).open(path)
+    Try(fs(path).open(path)) match {
+      case Success(is) => Some(is)
+      case Failure(f) =>
+        logger.error(f.getMessage)
+        None
+    }
   }
 
   override def output(path: Path): OutputStream = getOutputStream(path)
