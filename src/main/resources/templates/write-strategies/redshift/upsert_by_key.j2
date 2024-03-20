@@ -16,12 +16,9 @@ WHEN NOT MATCHED THEN {{ tableInsert }};
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
 CREATE  TEMPORARY TABLE SL_INCOMING AS
-SELECT  {{ tableColumnsCsv }}
-   FROM (
-    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY 0) AS SL_SEQ
-    FROM ({{ selectStatement }})
-   )
-WHERE SL_SEQ = 1;
+SELECT {{ tableColumnsCsv }}
+FROM ({{ selectStatement }})
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY 0) = 1;
 
 MERGE INTO {{ tableFullName }} 
 USING  SL_INCOMING
