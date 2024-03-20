@@ -31,7 +31,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
       strategy.startTs.getOrElse(throw new IllegalArgumentException("strategy requires startTs"))
     val scd2EndTimestamp =
       strategy.endTs.getOrElse(throw new IllegalArgumentException("strategy requires endTs"))
-    val finalSqls =
+    val finalSqls = {
       if (!tableExists) {
         // Table may have been created yet. Happen only for AutoTask, At ingestion, the table is always created upfront
         // If table does not exist we know for sure that the sql request is a SELECT
@@ -40,7 +40,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
         else {
           val mainSql =
             s"""CREATE TABLE $fullTableName
-               |USING ${sink.getFormat()}
+               |USING ${sink.getStorageFormat()}
                |${sink.getTableOptionsClause()}
                |${sink.getPartitionByClauseSQL()}
                |${sink.getClusterByClauseSQL()}
@@ -85,6 +85,7 @@ class SparkSQLStrategiesBuilder extends StrategiesBuilder {
           }
         insertSqls
       }
+    }
     preMainSqls ++ finalSqls
   }
 
