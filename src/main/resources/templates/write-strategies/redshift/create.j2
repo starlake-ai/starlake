@@ -12,14 +12,17 @@
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
-CREATE OR REPLACE VIEW #SL_VIEW_WITH_ROWNUM AS SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY 0) AS SL_SEQ FROM SL_INCOMING;
-{{ createPrefix }} {{ tableFullName }} AS SELECT  {{ tableColumnsCsv }} FROM #SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
-
+{{ createPrefix }} {{ tableFullName }} AS
+SELECT {{ tableColumnsCsv }}
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY 0) = 1;
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
-CREATE OR REPLACE VIEW #SL_VIEW_WITH_ROWNUM AS SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ FROM SL_INCOMING;
-{{ createPrefix }} {{ tableFullName }} AS SELECT {{ tableColumnsCsv }} FROM #SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+{{ createPrefix }} {{ tableFullName }} AS 
+SELECT {{ tableColumnsCsv }}
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
 """.stripMargin
 
 {%  endif %}

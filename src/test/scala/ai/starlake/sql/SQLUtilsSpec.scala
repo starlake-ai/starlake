@@ -225,7 +225,7 @@ class SQLUtilsSpec extends TestHelper {
         )
 
       val sqlMerge =
-        StrategiesBuilder("ai.starlake.job.strategies.JdbcStrategiesBuilder")
+        new StrategiesBuilder()
           .run(
             strategy,
             selectWithCTEs,
@@ -241,8 +241,7 @@ class SQLUtilsSpec extends TestHelper {
             settings.appConfig.jdbcEngines("bigquery"),
             AllSinks().getSink()
           )
-      sqlMerge.replaceAll("\\s", "") should be("""
-                                                 |CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS (WITH
+      sqlMerge.replaceAll("\\s", "") should be("""MERGE INTO  starlake-project-id.dataset3.transactions_v3 SL_EXISTING USING (WITH
                                                  |    transactions AS (
                                                  |        SELECT
                                                  |            transaction_id,
@@ -295,21 +294,9 @@ class SQLUtilsSpec extends TestHelper {
                                                  |        LEFT JOIN
                                                  |    sellers s ON t.seller_id = s.seller_id
                                                  |
-                                                 |);
-                                                 |
-                                                 |CREATE OR REPLACE TEMPORARY VIEW SL_VIEW_WITH_ROWNUM AS
-                                                 |  SELECT  `transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`,
-                                                 |          ROW_NUMBER() OVER (PARTITION BY `transaction_id`  ORDER BY (select 0)) AS SL_SEQ
-                                                 |  FROM SL_INCOMING;
-                                                 |
-                                                 |CREATE TEMPORARY TABLE SL_DEDUP AS
-                                                 |  SELECT  `transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`
-                                                 |  FROM SL_VIEW_WITH_ROWNUM
-                                                 |  WHERE SL_SEQ = 1;
-                                                 |
-                                                 |MERGE INTO starlake-project-id.dataset3.transactions_v3 USING SL_DEDUP ON (SL_DEDUP.`transaction_id` = starlake-project-id.dataset3.transactions_v3.`transaction_id`)
-                                                 |WHEN MATCHED THEN UPDATE SET `transaction_id` = SL_DEDUP.`transaction_id`,`transaction_date` = SL_DEDUP.`transaction_date`,`amount` = SL_DEDUP.`amount`,`location_info` = SL_DEDUP.`location_info`,`seller_info` = SL_DEDUP.`seller_info`
-                                                 |WHEN NOT MATCHED THEN INSERT (`transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`) VALUES (SL_DEDUP.`transaction_id`,SL_DEDUP.`transaction_date`,SL_DEDUP.`amount`,SL_DEDUP.`location_info`,SL_DEDUP.`seller_info`)
+                                                 |) SL_INCOMING ON ( SL_INCOMING.`transaction_id` = SL_EXISTING.`transaction_id`)
+                                                 |WHEN MATCHED THEN  UPDATE SET `transaction_id` = SL_INCOMING.`transaction_id`,`transaction_date` = SL_INCOMING.`transaction_date`,`amount` = SL_INCOMING.`amount`,`location_info` = SL_INCOMING.`location_info`,`seller_info` = SL_INCOMING.`seller_info`
+                                                 |WHEN NOT MATCHED THEN INSERT (`transaction_id`,`transaction_date`,`amount`,`location_info`,`seller_info`) VALUES (SL_INCOMING.`transaction_id`,SL_INCOMING.`transaction_date`,SL_INCOMING.`amount`,SL_INCOMING.`location_info`,SL_INCOMING.`seller_info`)
                                                  |""".stripMargin.replaceAll("\\s", ""))
     }
     "Strip comments" should "succeed" in {

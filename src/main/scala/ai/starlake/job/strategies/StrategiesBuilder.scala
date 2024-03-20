@@ -71,8 +71,8 @@ class StrategiesBuilder extends StrictLogging {
         materializedView,
         jdbcEngine,
         sinkConfig,
-        "CREATE"
-      ).mkString(";\n")
+        strategy.getEffectiveType().toString
+      )
     } else {
       buildSqlWithJ2(
         strategy,
@@ -84,7 +84,7 @@ class StrategiesBuilder extends StrictLogging {
         jdbcEngine,
         sinkConfig,
         strategy.getEffectiveType().toString
-      ).mkString(";\n")
+      )
     }
   }
 
