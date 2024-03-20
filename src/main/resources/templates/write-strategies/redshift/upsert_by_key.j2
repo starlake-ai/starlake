@@ -1,74 +1,35 @@
-
-{#
-
-{{ sinkConnectionRef }}
-{{ sinkClustering }}
-{{ sinkDays }}
-{{ sinkRequirePartitionFilter }}
-{{ sinkMaterializedView }}
-{{ sinkEnableRefresh }}
-{{ sinkRefreshIntervalMs }}
-{{ sinkId }}
-{{ sinkFormat }}
-{{ sinkExtension }}
-{{ sinkPartition }}
-{{ sinkCoalesce }}
-{{ sinkOptions }}
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+{% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
 
 
-{{ tableDatabase }}
-{{ tableDomain }}
-{{ tableName }}
-{{ tableColumnNames }}
-{{ tableFullName }}
-{{ selectStatement }}
-{{ tableExists }}
-{{ tableTruncate }}
-{{ tableParamsForInsertSql }}
-{{ tableParamsForUpdateSql }}
-{{ tableInsert }}
-{{ tableUpdate }}
-{{ tableColumnsCsv }}
-{{ tableIncomingColumnsCsv }}
-{{ materializedView }}
+{% if strategyOn == 'TARGET' %}
 
-{{ engineQuote }}
-{{ engineCanMerge }}
-{{ engineViewPrefix }}
-{{ enginePreActions }}
-{{ engineStrategyBuilder }}
+CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
 
-{{ strategyType }}
-{{ strategyTypes }}
-{{ strategyKey }}
-{{ strategyTimestamp }}
-{{ strategyQueryFilter }}
-{{ strategyOn }}
-{{ strategyStartTs }}
-{{ strategyEndTs }}
-{{ strategyKeyCsv }}
-{{ strategyKeyJoinCondition }}
-
-#}
-
-{%- if strategyOn == 'TARGET' -%}
-
-MERGE INTO  {{ tableFullName }} SL_EXISTING USING ({{ selectStatement }}) SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
+MERGE INTO  {{ tableFullName }}
+USING SL_INCOMING
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }})
 WHEN MATCHED THEN  {{ tableUpdate }}
-WHEN NOT MATCHED THEN {{ tableInsert }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
 
-{%- else -%} {# strategyOn == 'SOURCE_AND_TARGET' #}
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
-MERGE INTO {{ tableFullName  }} SL_EXISTING 
-USING 
-  (SELECT  {{ tableColumnsCsv }}
+CREATE  TEMPORARY TABLE SL_INCOMING AS
+SELECT  {{ tableColumnsCsv }}
    FROM (
-    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
+    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY 0) AS SL_SEQ
     FROM ({{ selectStatement }})
-  )
-  WHERE SL_SEQ = 1) SL_INCOMING
-ON ( {{strategyKeyJoinCondition}} )
-WHEN MATCHED THEN {{ tableUpdate }}
-WHEN NOT MATCHED THEN {{ tableInsert }}
+   )
+WHERE SL_SEQ = 1;
 
-{%  endif %}
+MERGE INTO {{ tableFullName }} 
+USING  SL_INCOMING
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }})
+WHEN MATCHED THEN {{ tableUpdate }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+
+{% endif %}
+
+DROP TABLE SL_INCOMING;

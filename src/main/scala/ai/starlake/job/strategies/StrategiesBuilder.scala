@@ -9,7 +9,8 @@ import ai.starlake.utils.Utils
 import better.files.Resource
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.reflect.runtime.{universe => ru}
+import scala.jdk.CollectionConverters.{mapAsJavaMapConverter, seqAsJavaListConverter}
+//import scala.reflect.runtime.{universe => ru}
 
 class StrategiesBuilder extends StrictLogging {
 
@@ -375,6 +376,8 @@ class StrategiesBuilder extends StrictLogging {
 
 object StrategiesBuilder {
   def apply(className: String): StrategiesBuilder = {
+    new StrategiesBuilder()
+    /*
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
     val classSymbol: ru.ClassSymbol =
       mirror.staticClass(className)
@@ -385,14 +388,15 @@ object StrategiesBuilder {
 
     val strategyBuilder = consMethodMirror.apply().asInstanceOf[StrategiesBuilder]
     strategyBuilder
+     */
   }
 
   implicit class JavaWriteStrategy(writeStrategy: WriteStrategy) {
     def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
       Map(
         "strategyType"        -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
-        "strategyTypes"       -> writeStrategy.types.getOrElse(Map.empty[String, String]),
-        "strategyKey"         -> writeStrategy.key,
+        "strategyTypes"       -> writeStrategy.types.getOrElse(Map.empty[String, String]).asJava,
+        "strategyKey"         -> writeStrategy.key.asJava,
         "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
         "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),
         "strategyOn"          -> writeStrategy.on.getOrElse(MergeOn.TARGET).toString,
@@ -450,7 +454,7 @@ object StrategiesBuilder {
         "tableDatabase"           -> database,
         "tableDomain"             -> domain,
         "tableName"               -> name,
-        "tableColumnNames"        -> columnNames,
+        "tableColumnNames"        -> columnNames.asJava,
         "tableFullName"           -> getFullTableName(),
         "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
         "tableParamsForUpdateSql" -> SQLUtils

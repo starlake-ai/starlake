@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object Settings extends StrictLogging {
   val latestSchemaVersion: Int = 1
@@ -969,7 +969,16 @@ object Settings extends StrictLogging {
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
-          Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
+          Try(
+            Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
+          ) match {
+            case Success(value) => value
+            case Failure(exception) =>
+              throw new Exception(
+                s"Error while parsing Jinja in ${applicationYmlPath.toString}",
+                exception
+              )
+          }
         val finalNode: JsonNode =
           YamlSerde
             .deserializeYamlApplication(content, applicationYmlPath.toString)

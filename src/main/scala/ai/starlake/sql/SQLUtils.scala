@@ -149,7 +149,7 @@ object SQLUtils extends StrictLogging {
   )(implicit
     settings: Settings
   ): String = {
-    logger.info(s"Source SQL: $sql")
+    logger.debug(s"Source SQL: $sql")
     val fromResolved =
       buildSingleSQLQueryForRegex(
         sql,
@@ -160,7 +160,7 @@ object SQLUtils extends StrictLogging {
         "FROM",
         connection
       )
-    logger.info(s"fromResolved SQL: $fromResolved")
+    logger.debug(s"fromResolved SQL: $fromResolved")
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
@@ -171,7 +171,7 @@ object SQLUtils extends StrictLogging {
         "JOIN",
         connection
       )
-    logger.info(s"joinAndFromResolved SQL: $joinAndFromResolved")
+    logger.debug(s"joinAndFromResolved SQL: $joinAndFromResolved")
     joinAndFromResolved
   }
 

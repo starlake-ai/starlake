@@ -1,62 +1,9 @@
 
-{#
 
-{{ sinkConnectionRef }}
-{{ sinkClustering }}
-{{ sinkDays }}
-{{ sinkRequirePartitionFilter }}
-{{ sinkMaterializedView }}
-{{ sinkEnableRefresh }}
-{{ sinkRefreshIntervalMs }}
-{{ sinkId }}
-{{ sinkFormat }}
-{{ sinkExtension }}
-{{ sinkPartition }}
-{{ sinkCoalesce }}
-{{ sinkOptions }}
-
-
-{{ tableDatabase }}
-{{ tableDomain }}
-{{ tableName }}
-{{ tableColumnNames }}
-{{ tableFullName }}
-{{ selectStatement }}
-{{ tableExists }}
-{{ tableTruncate }}
-{{ tableParamsForInsertSql }}
-{{ tableParamsForUpdateSql }}
-{{ tableInsert }}
-{{ tableUpdate }}
-{{ tableColumnsCsv }}
-{{ tableIncomingColumnsCsv }}
-{{ materializedView }}
-
-{{ engineQuote }}
-{{ engineCanMerge }}
-{{ engineViewPrefix }}
-{{ enginePreActions }}
-{{ engineStrategyBuilder }}
-
-{{ strategyType }}
-{{ strategyTypes }}
-{{ strategyKey }}
-{{ strategyTimestamp }}
-{{ strategyQueryFilter }}
-{{ strategyOn }}
-{{ strategyStartTs }}
-{{ strategyEndTs }}
-{{ strategyKeyCsv }}
-{{ strategyKeyJoinCondition }}
-
-#}
-
-
-BEGIN TRANSACTION;
+CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
 
 DELETE FROM {{ tableFullName }} 
-WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM ({{ selectStatement }}));
+WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM #SL_INCOMING);
 
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) {{ selectStatement }};
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableIncomingColumnsCsv }} FROM #SL_INCOMING;
 
-COMMIT TRANSACTION;

@@ -2,10 +2,14 @@ package ai.starlake.job.strategies
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.{AllSinks, MergeOn, WriteStrategy, WriteStrategyType}
+import better.files.File
 
 trait StrategiesBuilderSpec extends TestHelper {
   def engine: String
+  def targetFolder = File(s"/tmp/strategies/$engine")
   new WithSettings() {
+    targetFolder.delete(true)
+    targetFolder.createDirectories()
     "create table" should "return correct SQL" in {
       val strategy =
         WriteStrategy(
@@ -15,7 +19,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -29,7 +33,9 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "CREATE.sql").overwrite(finalSql)
+
+      logger.info("create table target------------------------------------------------------------")
     }
     "create table strategy source and target" should "return correct SQL" in {
       val strategy =
@@ -42,7 +48,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -56,7 +62,11 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "CREATE_SOURCE_TARGET.sql").overwrite(finalSql)
+
+      logger.info(
+        "create table source and target------------------------------------------------------------"
+      )
     }
     "create table  strategy source and target with SCD2" should "return correct SQL" in {
       val strategy =
@@ -71,7 +81,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -85,7 +95,11 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "CREATE_SCD2.sql").overwrite(finalSql)
+
+      logger.info(
+        "create table target with scd2------------------------------------------------------------"
+      )
     }
     "append table" should "return correct SQL" in {
       val strategy =
@@ -96,7 +110,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -110,7 +124,8 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "APPEND"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "APPEND.sql").overwrite(finalSql)
+      logger.info("append ------------------------------------------------------------")
     }
 
     "truncate then append table" should "return correct SQL" in {
@@ -122,7 +137,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -136,7 +151,10 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "APPEND"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "APPEND_TRUNCATE.sql").overwrite(finalSql)
+      logger.info(
+        "truncate then append------------------------------------------------------------"
+      )
     }
 
     "overwrite table" should "return correct SQL" in {
@@ -148,7 +166,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -162,7 +180,8 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "OVERWRITE"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "OVERWRITE.sql").overwrite(finalSql)
+      logger.info("overwrite------------------------------------------------------------")
     }
     "upsert by key" should "return correct SQL" in {
       val strategy =
@@ -177,7 +196,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -191,7 +210,8 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "UPSERT_BY_KEY.sql").overwrite(finalSql)
+      logger.info("upsert by key------------------------------------------------------------")
     }
 
     "upsert by key on source and target" should "return correct SQL" in {
@@ -207,7 +227,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -221,7 +241,10 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "UPSERT_BY_KEY_SOURCE_TARGET.sql").overwrite(finalSql)
+      logger.info(
+        "upsert by key source and target------------------------------------------------------------"
+      )
     }
 
     "upsert by key and timestamp on target" should "return correct SQL" in {
@@ -238,7 +261,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -252,7 +275,10 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY_AND_TIMESTAMP"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "UPSERT_BY_KEY_AND_TIMESTAMP.sql").overwrite(finalSql)
+      logger.info(
+        "upsert by key and timestamp on target------------------------------------------------------------"
+      )
     }
 
     "upsert by key and timestamp on source and target" should "return correct SQL" in {
@@ -269,7 +295,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val finalSql =
         new BigQueryStrategiesBuilder().buildSqlWithJ2(
           strategy,
-          "SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info",
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
             "",
             "BQ_TEST_DS",
@@ -283,7 +309,44 @@ trait StrategiesBuilderSpec extends TestHelper {
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY_AND_TIMESTAMP"
         )
-      logger.info("------------------------------------------------------------")
+      File(targetFolder, "UPSERT_BY_KEY_AND_TIMESTAMP_S_AND_T.sql").overwrite(finalSql)
+      logger.info(
+        "upsert by key and timestamp on source and target------------------------------------------------------------"
+      )
+    }
+
+    "delete then insert" should "return correct SQL" in {
+      val strategy =
+        WriteStrategy(
+          `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
+          key = List("transaction_id"),
+          on = Some(MergeOn.SOURCE_AND_TARGET),
+          timestamp = Some("transaction_date"),
+          startTs = Some("start_ts"),
+          endTs = Some("end_ts")
+        )
+
+      val finalSql =
+        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+          strategy,
+          "WITH CTE AS (SELECT '12345' as transaction_id, '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
+          StrategiesBuilder.TableComponents(
+            "",
+            "BQ_TEST_DS",
+            "transactions_v3",
+            List("transaction_id", "transaction_date", "amount", "location_info", "seller_info")
+          ),
+          targetTableExists = true,
+          truncate = false,
+          materializedView = false,
+          settings.appConfig.jdbcEngines(engine),
+          AllSinks(format = Some("delta")).getSink(),
+          "DELETE_THEN_INSERT"
+        )
+      File(targetFolder, "DELETE_THEN_INSERT.sql").overwrite(finalSql)
+      logger.info(
+        "upsert by key and timestamp on source and target------------------------------------------------------------"
+      )
     }
 
   }

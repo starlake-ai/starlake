@@ -66,20 +66,27 @@
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
 {{ createPrefix }} {{ tableFullName }} AS
-WITH SL_INCOMING AS ({{selectStatement }}),
-SL_VIEW_WITH_ROWNUM AS (SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) AS SL_SEQ FROM SL_INCOMING)
-SELECT  {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+SELECT  {{ tableColumnsCsv }} 
+FROM 
+(SELECT {{ tableColumnsCsv }}, 
+        ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) AS SL_SEQ 
+ FROM ({{selectStatement }})
+)
+WHERE SL_SEQ = 1;
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 {{ createPrefix }} {{ tableFullName }} AS
-WITH SL_INCOMING AS ({{ selectStatement }}),
 SL_VIEW_WITH_ROWNUM AS (
-  SELECT  {{ tableColumnsCsv }},
-          ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
-  FROM SL_INCOMING
+  
 )
-SELECT {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+SELECT {{ tableColumnsCsv }} 
+FROM 
+(SELECT  {{ tableColumnsCsv }},
+          ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+  FROM ({{ selectStatement }})
+) 
+WHERE SL_SEQ = 1;
 """.stripMargin
 
 {%  endif %}

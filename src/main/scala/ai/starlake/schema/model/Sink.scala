@@ -182,12 +182,15 @@ case class AllSinks(
     format.getOrElse(settings.appConfig.defaultWriteFormat)
   }
 
+  @JsonIgnore
   def getPartitionByClauseSQL(): String =
     partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
 
+  @JsonIgnore
   def getClusterByClauseSQL(): String =
     clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
 
+  @JsonIgnore
   def getTableOptionsClause(): String = {
     val opts = options.getOrElse(Map.empty)
     if (opts.isEmpty) {

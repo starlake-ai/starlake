@@ -1,69 +1,16 @@
 
-{#
 
-{{ sinkConnectionRef }}
-{{ sinkClustering }}
-{{ sinkDays }}
-{{ sinkRequirePartitionFilter }}
-{{ sinkMaterializedView }}
-{{ sinkEnableRefresh }}
-{{ sinkRefreshIntervalMs }}
-{{ sinkId }}
-{{ sinkFormat }}
-{{ sinkExtension }}
-{{ sinkPartition }}
-{{ sinkCoalesce }}
-{{ sinkOptions }}
-{{ sinkTableOptionsClause }}
-{{ sinkTablePartitionClause }}
-{{ sinkTableClusteringClause }}
-
-{{ tableDatabase }}
-{{ tableDomain }}
-{{ tableName }}
-{{ tableColumnNames }}
-{{ tableFullName }}
-{{ selectStatement }}
-{{ tableExists }}
-{{ tableTruncate }}
-{{ tableParamsForInsertSql }}
-{{ tableParamsForUpdateSql }}
-{{ tableInsert }}
-{{ tableUpdate }}
-{{ tableColumnsCsv }}
-{{ tableIncomingColumnsCsv }}
-{{ materializedView }}
-
-{{ engineQuote }}
-{{ engineCanMerge }}
-{{ engineViewPrefix }}
-{{ enginePreActions }}
-{{ engineStrategyBuilder }}
-
-{{ strategyType }}
-{{ strategyTypes }}
-{{ strategyKey }}
-{{ strategyTimestamp }}
-{{ strategyQueryFilter }}
-{{ strategyOn }}
-{{ strategyStartTs }}
-{{ strategyEndTs }}
-{{ strategyKeyCsv }}
-{{ strategyKeyJoinCondition }}
-
-#}
-
-{%- if materializedView -%}
+{% if materializedView %}
 {% set createPrefix = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
-{%- else -%}
+{% else %}
 {% set createPrefix = 'CREATE TABLE ' + tableFullName + ' USING ' + sinkFormat + ' ' + sinkTableOptionsClause + ' ' + sinkTablePartitionClause + ' ' + sinkTableClusteringClause %}
-{%- endif -%}
+{% endif %}
 
-{%- if strategyOn == 'TARGET' -%}
+{% if strategyOn == 'TARGET' %}
 
 {{ createPrefix }}  AS {{ selectStatement }};
 
-{%- elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' -%}
+{% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
 {{ createPrefix }}  AS
 WITH SL_INCOMING AS ({{selectStatement }}),
@@ -71,7 +18,7 @@ SL_VIEW_WITH_ROWNUM AS (SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITI
 SELECT  {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
 
 
-{%- else -%} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 {{ createPrefix }} AS
 WITH SL_INCOMING AS ({{ selectStatement }}),
@@ -87,9 +34,9 @@ SELECT {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
 {%  endif %}
 
 
-{%- if strategyType == 'SCD2' -%}
+{% if strategyType == 'SCD2' %}
 ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
 ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
-{%- endif -%}
+{% endif %}
 
 

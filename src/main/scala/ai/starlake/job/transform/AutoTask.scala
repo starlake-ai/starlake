@@ -117,9 +117,16 @@ abstract class AutoTask(
     * @param sqls
     * @return
     */
-  protected def parseJinja(sqls: List[String], vars: Map[String, Any]): List[String] = {
+  protected def parseJinja(
+    sqls: List[String],
+    vars: Map[String, Any],
+    failOnUnknownTokens: Boolean = false
+  ): List[String] = {
     val result = Utils
-      .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters ++ vars)
+      .parseJinja(
+        sqls,
+        schemaHandler.activeEnvVars() ++ commandParameters ++ vars
+      )
     logger.debug(s"Parse Jinja result: $result")
     result
   }
