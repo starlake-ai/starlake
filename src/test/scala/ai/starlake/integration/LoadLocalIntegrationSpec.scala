@@ -36,12 +36,12 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       "SL_ENV"                      -> "LOCAL"
     ) {
       copyFilesToIncomingDir(sampleDataDir)
-      Main.run(
-        Array("import")
+      assert(
+        new Main().run(
+          Array("import")
+        )
       )
-      Main.run(
-        Array("load")
-      )
+      assert(new Main().run(Array("load")))
       val ordersCount = sparkSession.sql("select * from sales.orders").count
       assert(ordersCount == 3)
       val sellersCount = sparkSession.sql("select * from hr.sellers").count
@@ -63,12 +63,12 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     ) {
       List(localDir / "sample-data", localDir / "sample-data2").foreach { sampleDataDir =>
         copyFilesToIncomingDir(sampleDataDir)
-        Main.run(
-          Array("import")
+        assert(
+          new Main().run(
+            Array("import")
+          )
         )
-        Main.run(
-          Array("load")
-        )
+        assert(new Main().run(Array("load")))
       }
       val ordersCount = sparkSession.sql("select * from sales.orders").count
       assert(ordersCount == 6)

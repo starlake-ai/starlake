@@ -16,11 +16,15 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.run(
-          Array("import")
+        assert(
+          new Main().run(
+            Array("import")
+          )
         )
-        Main.run(
-          Array("load")
+        assert(
+          new Main().run(
+            Array("load")
+          )
         )
       }
     }
@@ -31,11 +35,15 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
       ) {
         val sampleDataDir2 = localDir / "sample-data2"
         copyFilesToIncomingDir(sampleDataDir2)
-        Main.run(
-          Array("import")
+        assert(
+          new Main().run(
+            Array("import")
+          )
         )
-        Main.run(
-          Array("load")
+        assert(
+          new Main().run(
+            Array("load")
+          )
         )
       }
     }
