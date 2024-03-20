@@ -4,11 +4,9 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -307,30 +305,6 @@ class BigQueryAutoTask(
   }
   override def run(): Try[JobResult] = {
     runBQ(None)
-  }
-
-  override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-
-    val tableComponents = StrategiesBuilder.TableComponents(
-      taskDesc.getDatabase().getOrElse(""), // because we will need it for jinjava
-      taskDesc.domain,
-      taskDesc.table,
-      columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-    )
-
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
-      strategy,
-      sqlWithParameters,
-      tableComponents,
-      tableExists,
-      truncate,
-      isMaterializedView(),
-      jdbcRunEngine,
-      sinkConfig
-    )
-    mainSql
   }
 
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {

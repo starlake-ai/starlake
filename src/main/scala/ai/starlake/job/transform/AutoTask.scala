@@ -22,6 +22,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
@@ -90,20 +91,42 @@ abstract class AutoTask(
   val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
   def substituteRefTaskMainSQL(sql: String) = {
-    val selectStatement = Utils.parseJinja(sql, allVars)
-    val select =
-      SQLUtils.substituteRefInSQLSelect(
-        selectStatement,
-        schemaHandler.refs(),
-        schemaHandler.domains(),
-        schemaHandler.tasks(),
-        taskDesc.getRunConnection()
-      )
-    select
+    if (sql.trim.isEmpty)
+      sql
+    else {
+      val selectStatement = Utils.parseJinja(sql, allVars)
+      val select =
+        SQLUtils.substituteRefInSQLSelect(
+          selectStatement,
+          schemaHandler.refs(),
+          schemaHandler.domains(),
+          schemaHandler.tasks(),
+          taskDesc.getRunConnection()
+        )
+      select
+    }
   }
 
   def buildAllSQLQueries(sql: Option[String]): String = {
-    throw new Exception("Implemented in subclasses only")
+    assert(taskDesc.parseSQL.getOrElse(true))
+    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
+    val tableComponents = StrategiesBuilder.TableComponents(
+      taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
+      taskDesc.domain,
+      taskDesc.table,
+      SQLUtils.extractColumnNames(sqlWithParameters)
+    )
+    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
+      strategy,
+      sqlWithParameters,
+      tableComponents,
+      tableExists,
+      truncate = truncate,
+      materializedView = isMaterializedView(),
+      jdbcRunEngine,
+      sinkConfig
+    )
+    mainSql
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(

@@ -47,7 +47,7 @@ class SparkAutoTask(
               ConnectionType.FS,
               ConnectionType.FS
             ) => // databricks to databricks including fs (text, csv ...)
-          runSparkOnSpark(taskDesc.getSql())
+          runSparkOnSpark()
 
         case _ =>
           runSparkOnAny()
@@ -276,7 +276,7 @@ class SparkAutoTask(
     dataframe
   }
 
-  def runSparkOnSpark(sql: String): Try[SparkJobResult] = {
+  def runSparkOnSpark(sql: Option[String] = None): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
     Try {
       if (taskDesc._dbComment.nonEmpty || taskDesc.tags.nonEmpty) {
@@ -292,7 +292,7 @@ class SparkAutoTask(
       }
 
       // we replace any ref in the sql
-      val sqlNoRefs = substituteRefTaskMainSQL(sql)
+      val sqlNoRefs = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
       val jobResult = interactive match {
         case Some(_) =>
           // just run the request and return the dataframe
@@ -301,7 +301,7 @@ class SparkAutoTask(
         case None =>
           runSqls(preSql, "Pre")
           val jobResult =
-            (sql, taskDesc.python) match {
+            (sqlNoRefs, taskDesc.python) match {
               case (_, None) =>
                 val sqlToRun =
                   if (taskDesc.parseSQL.getOrElse(true)) {
@@ -586,7 +586,7 @@ class SparkAutoTask(
     val allAttributes = incomingSchema.fieldNames.mkString(",")
     val result =
       if (dataset.columns.length > 0) {
-        runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
+        runSparkOnSpark(Some(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW"))
 
       } else {
         Success(SparkJobResult(None))

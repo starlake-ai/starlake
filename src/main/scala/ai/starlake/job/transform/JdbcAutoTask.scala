@@ -3,10 +3,8 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -100,28 +98,6 @@ class JdbcAutoTask(
       case _ =>
     }
   }
-  override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val tableComponents = StrategiesBuilder.TableComponents(
-      taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
-      taskDesc.domain,
-      taskDesc.table,
-      SQLUtils.extractColumnNames(sqlWithParameters)
-    )
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
-      strategy,
-      sqlWithParameters,
-      tableComponents,
-      tableExists,
-      truncate = truncate,
-      materializedView = isMaterializedView(),
-      jdbcRunEngine,
-      sinkConfig
-    )
-    mainSql
-  }
-
   def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 
