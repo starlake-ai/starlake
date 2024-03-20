@@ -6,16 +6,20 @@ class AclDependenciesSpec extends IntegrationTestBase {
 
   "All ACL Generation" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
-      Main.run(
-        Array("acl-dependencies")
+      assert(
+        new Main().run(
+          Array("acl-dependencies")
+        )
       )
     }
   }
 
   "Some ACL Generation" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
-      Main.run(
-        Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+      assert(
+        new Main().run(
+          Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+        )
       )
     }
   }

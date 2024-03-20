@@ -769,7 +769,8 @@ class IngestionWorkflow(
       val ok = transform(jobContext.children, options)
       if (ok) {
         if (jobContext.isTask()) {
-          transform(TransformConfig(jobContext.data.name, options))
+          val res = transform(TransformConfig(jobContext.data.name, options))
+          res
         } else
           true
       } else
@@ -780,7 +781,7 @@ class IngestionWorkflow(
   }
 
   def autoJob(config: TransformConfig): Try[Boolean] = Try {
-    if (config.recursive) {
+    val result = if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
       val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
         .jobsDependencyTree(taskConfig)
@@ -789,6 +790,12 @@ class IngestionWorkflow(
     } else {
       transform(config)
     }
+    if (result) {
+      result
+    } else {
+      throw new Exception(s"Job ${config.name} failed")
+    }
+
   }
 
   /** Successively run each task of a job

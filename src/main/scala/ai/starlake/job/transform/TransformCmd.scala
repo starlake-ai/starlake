@@ -70,8 +70,9 @@ trait TransformCmd extends Cmd[TransformConfig] {
   ): Try[JobResult] = {
     if (config.compile) {
       workflow(schemaHandler).compileAutoJob(config).map(_ => JobResult.empty)
-    } else
+    } else {
       workflow(schemaHandler).autoJob(config).map(_ => JobResult.empty)
+    }
   }
 }
 

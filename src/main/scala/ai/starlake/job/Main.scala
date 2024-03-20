@@ -165,7 +165,13 @@ class Main extends StrictLogging {
     logger.info(s"Running Starlake $executedCommand")
     val errCapture = new ByteArrayOutputStream()
     Console.withErr(errCapture) {
-      val result = run(args, schemaHandler)
+      val result =
+        try {
+          run(args, schemaHandler)
+        } catch {
+          case e: Throwable =>
+            Failure(e)
+        }
       // We raise an exception only on command failure not on parse args failure
       result match {
         case Failure(e: IllegalArgumentException) =>

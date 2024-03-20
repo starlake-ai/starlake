@@ -10,7 +10,7 @@ class BootstrapSpec extends IntegrationTestBase {
       val projectDir = starlakeDir / "bootstrap-test"
       projectDir.createDirectoryIfNotExists()
       withEnvs("SL_ROOT" -> projectDir.pathAsString) {
-        Main.run(Array("bootstrap", "--template", "initializer"))
+        assert(new Main().run(Array("bootstrap", "--template", "initializer")))
       }
     }
   }

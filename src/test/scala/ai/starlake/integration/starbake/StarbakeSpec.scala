@@ -17,12 +17,14 @@ class StarbakeSpec extends IntegrationTestBase {
   "Infer Schema" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
       copyFilesToIncomingDir(sampleDataDir)
-      Main.run(
-        Array(
-          "infer-schema",
-          "--input",
-          s"$localDir/incoming/starbake",
-          "--clean"
+      assert(
+        new Main().run(
+          Array(
+            "infer-schema",
+            "--input",
+            s"$localDir/incoming/starbake",
+            "--clean"
+          )
         )
       )
     }
@@ -30,44 +32,46 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Import files" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("import"))
+      assert(new Main().run(Array("import")))
     }
   }
 
   "Load files" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("load"))
+      assert(new Main().run(Array("load")))
     }
   }
   "Transform revenue" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("transform", "--name", "kpi.revenue_summary"))
+      assert(new Main().run(Array("transform", "--name", "kpi.revenue_summary")))
     }
   }
 
   "Transform product" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("transform", "--name", "kpi.product_summary"))
+      assert(new Main().run(Array("transform", "--name", "kpi.product_summary")))
     }
   }
 
   "Transform order" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("transform", "--name", "kpi.order_summary"))
+      assert(new Main().run(Array("transform", "--name", "kpi.order_summary")))
     }
   }
 
   "Transform lineage" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(
-        Array("lineage", "--svg", "--tasks", "kpi.order_summary", "--output", "lineage.svg")
+      assert(
+        new Main().run(
+          Array("lineage", "--svg", "--tasks", "kpi.order_summary", "--output", "lineage.svg")
+        )
       )
     }
   }
 
   "Transform recursive" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
-      Main.run(Array("transform", "--recursive", "--name", "kpi.order_summary"))
+      assert(new Main().run(Array("transform", "--recursive", "--name", "kpi.order_summary")))
     }
   }
 
