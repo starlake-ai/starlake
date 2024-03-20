@@ -853,18 +853,11 @@ class SparkAutoTask(
   ): Boolean = {
     result match {
       case Some(df) =>
-        /** retrieve the export root path
-          */
-        val exportDir = new Path(settings.appConfig.datasets + "/export")
-        storageHandler.mkdirs(exportDir)
-
-        /** retrieve the domain export root path
-          */
-        val domainDir = new Path(exportDir, domainName)
+        // retrieve the domain export root path
+        val domainDir = DatasetArea.export(domainName)
         storageHandler.mkdirs(domainDir)
 
-        /** retrieve the xls file extension
-          */
+        // retrieve the xls file extension
         val extension = {
           outputExtension() match {
             case Some(ext) if ext.nonEmpty =>
@@ -876,13 +869,11 @@ class SparkAutoTask(
           }
         }
 
-        /** retrieve the FS Sink configuration
-          */
+        // retrieve the FS Sink configuration
         val fsSink = sinkConfig.asInstanceOf[FsSink]
 
-        /** define the full path to the xls file
-          */
-        val finalXlsPath = {
+        // define the full path to the xls file
+        val finalXlsPath =
           fsSink.path
             .map { p =>
               val parsed = parseJinja(List(p), allVars).head
@@ -897,20 +888,14 @@ class SparkAutoTask(
                 tableName.split("\\.").headOption.getOrElse(tableName) + extension
               )
             )
-        }
 
-        /** retrieve the schema of the dataset
-          */
-//        val schema = df.schema
-
+        // retrieve the schema of the dataset
         df.show(truncate = false)
 
-        /** create an iterator that will contain all the dataframe rows to sink to the xls file
-          */
+        // create an iterator that will contain all the dataframe rows to sink to the xls file
         val rows = df.toLocalIterator()
 
-        /** create an input stream to the targeted workbook or the optional template
-          */
+        // create an input stream to the targeted workbook or the optional template
         val inputStream = storageHandler.open(finalXlsPath).orElse {
           fsSink.template.map { p =>
             if (p.contains("://"))
@@ -923,8 +908,7 @@ class SparkAutoTask(
           }
         }
 
-        /** create the targeted workbook
-          */
+        // create the targeted workbook
         val workbook: Workbook = inputStream match {
           case Some(is) => WorkbookFactory.create(is)
           case _        => WorkbookFactory.create(true)
