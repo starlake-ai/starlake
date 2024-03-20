@@ -970,7 +970,7 @@ class SparkAutoTask(
               // then we will start writing to the row specified if the later is larger than the last row previously added
               // or if the start cell is empty
               if (
-                tempRowNum > rowNum || Option(
+                tempRowNum > lastRow || Option(
                   sheet
                     .getRow(tempRowNum)
                 ).flatMap(r =>
