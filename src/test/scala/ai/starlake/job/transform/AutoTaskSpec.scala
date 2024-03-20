@@ -25,7 +25,7 @@ class AutoTaskSpec extends TestHelper {
         workflow.autoJob(TransformConfig(name = "result.file"))
 
         // val location = getTablePath("result", "file")
-        val csvLocation = DatasetArea.export("result", "file" + "csv")
+        val csvLocation = DatasetArea.export("result", "file" + ".csv")
 
         val content = readFileContent(
           new Path(s"$csvLocation")
