@@ -69,7 +69,6 @@ trait TestHelper
 
   override protected def beforeAll(): Unit = {
     Settings.invalidateCaches()
-
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -582,6 +581,8 @@ object TestHelper extends StrictLogging {
   def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
     if (testId != _testId) {
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
+      // val settings: Settings = Settings(Settings.referenceConfig)
+      new Directory(new java.io.File(isettings.appConfig.datasets)).deleteRecursively()
       val job = new SparkJob {
         override def name: String = s"test-${UUID.randomUUID()}"
 

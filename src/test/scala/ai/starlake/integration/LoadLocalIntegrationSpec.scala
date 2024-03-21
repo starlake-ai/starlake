@@ -22,6 +22,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     sparkSession.sql("drop table if exists sales.customers")
     sparkSession.sql("drop table if exists sales.categories")
     sparkSession.sql("drop table if exists sales.products")
+    sparkSession.sql("drop table if exists sales.orders")
     sparkSession.sql("drop table if exists hr.sellers")
     sparkSession.sql("drop table if exists hr.flat_locations")
   }

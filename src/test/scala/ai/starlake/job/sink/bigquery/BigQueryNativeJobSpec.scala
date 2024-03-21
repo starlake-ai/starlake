@@ -53,6 +53,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   }
   new WithSettings(bigQueryConfiguration) {
     "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
+      println(sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean)
       if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
         import org.slf4j.impl.StaticLoggerBinder
         val binder = StaticLoggerBinder.getSingleton

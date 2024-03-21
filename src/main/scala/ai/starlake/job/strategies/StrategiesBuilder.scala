@@ -83,7 +83,7 @@ class StrategiesBuilder extends StrictLogging {
         materializedView,
         jdbcEngine,
         sinkConfig,
-        strategy.getEffectiveType().toString
+        "CREATE"
       )
     }
   }

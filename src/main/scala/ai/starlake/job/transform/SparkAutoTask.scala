@@ -5,7 +5,6 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils

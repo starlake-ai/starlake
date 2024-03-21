@@ -9,4 +9,9 @@ transform:
       sink:
         partition:
           - timestamp
+    - name: byseller_kpi0
+      table: byseller_kpi
+      sink:
+        partition:
+          - timestamp
 
