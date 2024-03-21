@@ -200,8 +200,6 @@ case class AllSinks(
     }
   }
 
-  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
-
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {
