@@ -14,6 +14,14 @@ class StarbakeSpec extends IntegrationTestBase {
   override def localDir = starlakeDir / "samples" / "starbake"
   override def sampleDataDir = localDir / "sample-data"
   logger.info(localDir.pathAsString)
+
+  "Autoload" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+      copyFilesToIncomingDir(sampleDataDir)
+      assert(new Main().run(Array("autoload", "--clean")))
+    }
+  }
+
   "Infer Schema" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
       copyFilesToIncomingDir(sampleDataDir)

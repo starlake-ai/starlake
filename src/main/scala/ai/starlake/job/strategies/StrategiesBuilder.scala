@@ -3,14 +3,13 @@ package ai.starlake.job.strategies
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.JdbcEngine
 import ai.starlake.job.strategies.StrategiesBuilder.TableComponents
+import ai.starlake.schema.generator.WriteStrategyTemplateLoader
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
-import better.files.Resource
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.jdk.CollectionConverters.{mapAsJavaMapConverter, seqAsJavaListConverter}
-//import scala.reflect.runtime.{universe => ru}
 
 class StrategiesBuilder extends StrictLogging {
 
@@ -36,19 +35,12 @@ class StrategiesBuilder extends StrictLogging {
       sinkConfig
     )
     val paramMap = context.asMap().asInstanceOf[Map[String, Object]]
-    Resource.asString(
-      s"templates/write-strategies/${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
-    ) match {
-      case Some(content) =>
-        val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
-        logger.info(jinjaOutput)
-        jinjaOutput
-      case None =>
-        throw new RuntimeException(
-          s"SQL Template not found in for ${jdbcEngine.strategyBuilder}/$action.j2"
-        )
-    }
-
+    val content = new WriteStrategyTemplateLoader().loadTemplate(
+      s"${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
+    )
+    val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
+    logger.info(jinjaOutput)
+    jinjaOutput
   }
 
   def run(
@@ -480,12 +472,17 @@ object StrategiesBuilder {
     sinkConfig: Sink
   ) {
 
-    def asMap(): Map[String, Any] = {
+    def asMap()(implicit settings: Settings): Map[String, Any] = {
+      val tableFormat = sinkConfig
+        .toAllSinks()
+        .format
+        .getOrElse(settings.appConfig.defaultWriteFormat)
       strategy.asMap(jdbcEngine) ++ tableComponents.asMap(jdbcEngine) ++ Map(
         "selectStatement"  -> selectStatement,
         "tableExists"      -> targetTableExists,
         "tableTruncate"    -> truncate,
-        "materializedView" -> materializedView
+        "materializedView" -> materializedView,
+        "tableFormat"      -> tableFormat
       ) ++ jdbcEngine.asMap() ++ sinkConfig.toAllSinks().asMap()
 
     }

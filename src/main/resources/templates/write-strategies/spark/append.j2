@@ -1,5 +1,5 @@
 
-{% if tableTruncate and sinkFormat == 'delta' %}
+{% if tableTruncate and tableFormat == 'delta' %}
 DELETE FROM {{ tableFullName }}; 
 {% elif tableTruncate %}
 TRUNCATE TABLE {{ tableFullName }};

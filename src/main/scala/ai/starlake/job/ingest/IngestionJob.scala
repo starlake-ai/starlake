@@ -314,7 +314,7 @@ trait IngestionJob extends SparkJob {
         val result = new BigQueryNativeIngestionJob(this).run()
         result
       case Engine.SPARK =>
-        val result = runSpark()
+        val result = ingestWithSpark()
         result
       case other =>
         throw new Exception(s"Unsupported engine $other")
@@ -349,7 +349,7 @@ trait IngestionJob extends SparkJob {
     * @return
     *   : Spark Session used for the job
     */
-  def runSpark(): Try[IngestionCounters] = {
+  def ingestWithSpark(): Try[IngestionCounters] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
       settings.appConfig.sparkScheduling.poolName
