@@ -1,0 +1,7 @@
+{
+  "label": "Export",
+  "link": {
+    "type": "generated-index",
+    "description": "Export from your datawarehouse to text (CSV / JSON), binary (parquet / avro) or Excel files"
+  }
+}
