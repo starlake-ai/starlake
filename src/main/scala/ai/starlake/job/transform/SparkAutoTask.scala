@@ -98,7 +98,7 @@ class SparkAutoTask(
     }
   }
 
-  val fullTableName = s"${taskDesc.domain}.${taskDesc.table.replace(".", "_")}"
+  val fullTableName = s"${taskDesc.domain}.${taskDesc.table}"
 
   private def sinkToES(dataframe: DataFrame): Try[JobResult] = {
     val sink: EsSink = this.taskDesc.sink
@@ -796,10 +796,6 @@ class SparkAutoTask(
     result
   }
 
-  ///////////////////////////////////////////////////////////////////////
-  // TODO Everything below this line should be moved to an export package
-  ///////////////////////////////////////////////////////////////////////
-
   /** This function is called only if csvOutput is true This means we are sure that sink is an
     * FsSink
     *
@@ -897,7 +893,7 @@ class SparkAutoTask(
             .getOrElse(
               new Path(
                 domainDir,
-                tableName.split("\\.").headOption.getOrElse(tableName) + extension
+                tableName + extension
               )
             )
 
@@ -929,7 +925,7 @@ class SparkAutoTask(
         /** retrieve the workbook sheet name to which all the dataframe rows will be added - table
           * name by default
           */
-        val sheetName = if (tableName.contains(".")) tableName.split("\\.").last else tableName
+        val sheetName = fsSink.sheetName.getOrElse(tableName)
 
         /** retrieve the workbook sheet and the last row added to the latter
           */

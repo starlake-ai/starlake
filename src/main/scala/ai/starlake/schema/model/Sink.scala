@@ -325,6 +325,8 @@ case class FsSink(
     .filter { case (k, _) => k.startsWith("xls:") }
     .map { case (k, v) => k.split(":").last -> v }
 
+  lazy val sheetName: Option[String] = xlsOptions.get("sheetName")
+
   lazy val startCell: Option[String] = xlsOptions.get("startCell")
 
   lazy val template: Option[String] = xlsOptions.get("template")
