@@ -8,7 +8,7 @@ trait StrategiesBuilderSpec extends TestHelper {
   def engine: String
   def targetFolder = File(s"/tmp/strategies/$engine")
   new WithSettings() {
-    targetFolder.delete(true)
+    targetFolder.delete(swallowIOExceptions = true)
     targetFolder.createDirectories()
     "create table" should "return correct SQL" in {
       val strategy =
@@ -17,7 +17,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -46,7 +46,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -79,7 +79,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -108,7 +108,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -135,7 +135,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -164,7 +164,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-01-01' as transaction_date, 100 as amount, 'NY' as location_info, 'John'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -194,7 +194,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -225,7 +225,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -259,7 +259,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -293,7 +293,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -327,7 +327,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -361,7 +361,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -395,7 +395,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
 
       val finalSql =
-        new BigQueryStrategiesBuilder().buildSqlWithJ2(
+        new StrategiesBuilder().buildSqlWithJ2(
           strategy,
           "WITH CTE AS (SELECT '12345' as transaction_id, timestamp '2021-03-01' as transaction_date, 300 as amount, 'CA' as location_info, 'Dua'  as seller_info) select * FROM CTE",
           StrategiesBuilder.TableComponents(
@@ -416,6 +416,5 @@ trait StrategiesBuilderSpec extends TestHelper {
         "upsert by key and timestamp on source and target------------------------------------------------------------"
       )
     }
-
   }
 }

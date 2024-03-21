@@ -1793,7 +1793,7 @@
         },
         "writeStrategies": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Where are located user defined write strategies; Default is ${metadata}/write-strategies"
+          "description": "Location where are located user defined write strategies; Default is ${metadata}/write-strategies"
         },
         "metadata": {
           "$ref": "#/definitions/ConvertibleToString",
