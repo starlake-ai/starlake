@@ -702,6 +702,7 @@ trait BigQueryJobBase extends StrictLogging {
             }
 
             val bqTableInfo = bqTableInfoBuilder.build
+            logger.info(s"Creating table ${tableId.getDataset}.${tableId.getTable}")
             val result = bigquery().create(bqTableInfo)
             logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
             result
