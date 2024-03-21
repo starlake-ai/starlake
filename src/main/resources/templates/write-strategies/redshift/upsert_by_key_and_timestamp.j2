@@ -1,4 +1,10 @@
 
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+{% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+
+
 {% if strategyOn == 'TARGET' %}
 
 CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};

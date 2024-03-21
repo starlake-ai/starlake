@@ -2,7 +2,7 @@
 {% if tableTruncate and sinkFormat == 'delta' %}
 DELETE FROM {{ tableFullName }}; 
 {% elif tableTruncate %}
-DELETE FROM {{ tableFullName }};
+TRUNCATE TABLE {{ tableFullName }};
 {% endif %}
 
 INSERT INTO {{ tableFullName }} {{ selectStatement }};
