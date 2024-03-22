@@ -61,7 +61,7 @@
 
 {% if strategyOn == 'TARGET' %}
 
-{{ createPrefix }} {{ tableFullName }} AS {{selectStatement }};
+{{ createPrefix }} {{ tableFullName }} AS {{ selectStatement }};
 
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 

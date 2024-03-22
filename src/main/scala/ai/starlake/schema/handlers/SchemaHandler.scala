@@ -57,7 +57,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  private val forceViewPrefixRegex: Regex = settings.appConfig.forceViewPattern.r
   private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 

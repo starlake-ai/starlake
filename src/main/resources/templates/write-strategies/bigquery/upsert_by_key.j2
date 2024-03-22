@@ -1,4 +1,3 @@
-
 {% if strategyOn == 'TARGET' %}
 
 MERGE INTO  {{ tableFullName }} SL_EXISTING USING ({{ selectStatement }}) SL_INCOMING ON ( {{ strategyKeyJoinCondition }})

@@ -7,7 +7,7 @@ import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.transform.SparkAutoTask
-import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
+import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -604,7 +604,7 @@ trait IngestionJob extends SparkJob {
     * @param validationResult
     */
   protected def saveAccepted(
-    validationResult: ValidationResult
+    validationResult: CheckValidityResult
   ): Try[Long] = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       logger.whenDebugEnabled {

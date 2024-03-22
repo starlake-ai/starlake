@@ -32,7 +32,8 @@ import com.networknt.schema.{
   ApplyDefaultsStrategy,
   JsonSchemaFactory,
   PathType,
-  SchemaValidatorsConfig
+  SchemaValidatorsConfig,
+  ValidationResult
 }
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.typesafe.scalalogging.LazyLogging
@@ -166,7 +167,7 @@ object YamlSerde extends LazyLogging {
         s"No '$subPath' attribute found in $inputFilename. Please check your config and define it under '$subPath' attribute."
       )
     }
-    val validationResult =
+    val validationResult: ValidationResult =
       forceLocaleIn(Locale.ROOT) { // Use root instead of ENGLISH otherwise it fallbacks to local language if it exists. ROOT messages are in ENGLISH.
         val factory = JsonSchemaFactory.getInstance(VersionFlag.V201909)
         val config = new SchemaValidatorsConfig()

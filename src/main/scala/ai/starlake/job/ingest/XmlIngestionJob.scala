@@ -22,7 +22,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.job.validator.ValidationResult
+import ai.starlake.job.validator.CheckValidityResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
@@ -111,7 +111,7 @@ class XmlIngestionJob(
           schemaHandler
         ).flatMap { _ =>
           saveAccepted(
-            ValidationResult(
+            CheckValidityResult(
               session.emptyDataset[String],
               session.emptyDataset[String],
               dataset
