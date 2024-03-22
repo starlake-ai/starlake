@@ -46,7 +46,7 @@ object FlatRowValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     val now = Timestamp.from(Instant.now)
     val attributesAndTypes = attributes.zip(types).toArray
     val attributesLen = attributes.length
@@ -143,7 +143,7 @@ object FlatRowValidator extends GenericRowValidator {
     val rejectedDS = rejectedRDD.toDS()
     val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
 
-    ValidationResult(
+    CheckValidityResult(
       rejectedDS.persist(cacheStorageLevel),
       rejectedInputLinesDS.persist(cacheStorageLevel),
       acceptedDS.persist(cacheStorageLevel)

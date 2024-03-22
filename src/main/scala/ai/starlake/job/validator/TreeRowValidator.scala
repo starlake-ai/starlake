@@ -49,7 +49,7 @@ object TreeRowValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD =
       validateDataset(
@@ -75,7 +75,7 @@ object TreeRowValidator extends GenericRowValidator {
     val errorDS = errorRDD.toDS()
     // TODO add here input lines to be rejected
     val rejectedInputDS = session.emptyDataset[String]
-    ValidationResult(errorDS, rejectedInputDS, successDS)
+    CheckValidityResult(errorDS, rejectedInputDS, successDS)
   }
 
   private def validateDataset(

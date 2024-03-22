@@ -934,6 +934,7 @@ object Settings extends StrictLogging {
   private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     if (settings.storageHandler().exists(applicationConfPath)) {
+      logger.info(s"Loading $applicationConfPath")
       val applicationConfContent = settings.storageHandler().read(applicationConfPath)
       val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
       val effectiveApplicationConfig = applicationConfig
@@ -966,6 +967,7 @@ object Settings extends StrictLogging {
     val applicationYmlPath = new Path(DatasetArea.metadata(settings), "application.sl.yml")
     val applicationYmlConfig =
       if (settings.storageHandler().exists(applicationYmlPath)) {
+        logger.info(s"Loading $applicationYmlPath")
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =

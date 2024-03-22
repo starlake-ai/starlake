@@ -123,7 +123,7 @@ assembly / assemblyExcludedJars := {
       "httpclient-",
       "httpcore-",
       "jackson-datatype-jsr310-",
-      "json-",
+      "json-2",
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
