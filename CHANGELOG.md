@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.2
+__New Feature__:
+- Excel export
+- Custom write strategies using Jinja2
+
 # 1.1.1:
 __Improvement__:
 - add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
