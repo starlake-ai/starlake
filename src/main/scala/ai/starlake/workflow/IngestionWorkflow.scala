@@ -749,7 +749,7 @@ class IngestionWorkflow(
     )
   }
 
-  def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
+  def compileAutoJob(config: TransformConfig): Try[String] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val mainSQL = action.buildAllSQLQueries(None)
@@ -757,6 +757,7 @@ class IngestionWorkflow(
       settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(s"""$mainSQL"""))
     logger.info(s"""$mainSQL""")
+    mainSQL
   }
 
   def transform(

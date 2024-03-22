@@ -334,9 +334,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .mapValues(
           _.richFormat(sys.env, slDateVars)
         ) // will replace with sys.env
-    val activeEnvName = Option(System.getenv().get("SL_ENV"))
+
+    val activeEnvName = Option(System.getProperties().get("env"))
+      .orElse(Option(System.getenv().get("SL_ENV")))
       .orElse(globalEnvVars.get("SL_ENV"))
       .getOrElse(settings.appConfig.env)
+      .toString
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
 

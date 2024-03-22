@@ -972,7 +972,9 @@ object Settings extends StrictLogging {
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
           Try(
-            Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars())(settings)
+            Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars(reload = true))(
+              settings
+            )
           ) match {
             case Success(value) => value
             case Failure(exception) =>
