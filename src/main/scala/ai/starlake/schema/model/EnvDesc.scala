@@ -63,10 +63,10 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
       if (domain.isEmpty) {
         table
       } else {
-        s"$quote$domain.$table$quote"
+        s"$quote$domain$quote.$quote$table$quote"
       }
     } else {
-      s"$quote$database$separator$domain.$table$quote"
+      s"$quote$database$quote$separator$quote$domain$quote.$quote$table$quote"
     }
   }
 }
