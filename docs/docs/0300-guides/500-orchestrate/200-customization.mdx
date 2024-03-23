@@ -332,9 +332,9 @@ Depending on the **template** chosen, a specific **concrete** factory class exte
 
 
 #### IStarlakeJob
-`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the starlake's [import](load#import-step), [load](../concepts/load) and [transform](../concepts/transform) commands:
+`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the starlake's [stage](../../cli/stage), [load](../../category/load) and [transform](../../category/transform) commands:
 
-- **sl_import** will generate the task that will run the starlake [import](../cli/import) command.
+- **sl_import** will generate the task that will run the starlake [stage](../../cli/stage) command.
 
 ```python
 def sl_import(
@@ -350,7 +350,7 @@ def sl_import(
 | task_id | str  | the optional task id (`{domain}_import` by default) |
 | domain  | str  | the required domain to import                         |
 
-- **sl_load** will generate the task that will run the starlake [load](../cli/load) command.
+- **sl_load** will generate the task that will run the starlake [load](../../cli/load) command.
 
 ```python
 def sl_load(
@@ -370,7 +370,7 @@ def sl_load(
 | table        | str                 | the required table to load                                  |
 | spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`        |
 
-- **sl_transform** will generate the task that will run the starlake [transform](../cli/transform) command.
+- **sl_transform** will generate the task that will run the starlake [transform](../../cli/transform) command.
 
 ```python
 def sl_transform(
