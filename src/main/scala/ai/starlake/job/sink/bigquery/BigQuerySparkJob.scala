@@ -28,7 +28,12 @@ class BigQuerySparkJob(
   lazy val connectorOptions =
     connectionOptions -- List("allowFieldAddition", "allowFieldRelaxation")
 
-  override def name: String = s"bqload-${bqTable}"
+  override def name: String = {
+    cliConfig.outputTableId match {
+      case Some(_) => s"bqload-$bqTable"
+      case _       => "bqload-query"
+    }
+  }
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.debug(s"BigQuery Config $cliConfig")

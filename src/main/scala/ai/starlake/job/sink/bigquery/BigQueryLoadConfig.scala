@@ -1,7 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.schema.model._
-import com.google.cloud.bigquery.TableId
+import com.google.cloud.bigquery.{JobInfo, TableId}
 import org.apache.spark.sql.DataFrame
 
 case class BigQueryLoadConfig(
@@ -11,8 +11,8 @@ case class BigQueryLoadConfig(
   outputPartition: Option[String] = None,
   outputClustering: Seq[String] = Nil,
   sourceFormat: String = "",
-  createDisposition: String = "",
-  writeDisposition: String = "",
+  createDisposition: String = JobInfo.CreateDisposition.CREATE_IF_NEEDED.name(),
+  writeDisposition: String = JobInfo.WriteDisposition.WRITE_APPEND.name(),
   days: Option[Int] = None,
   rls: List[RowLevelSecurity] = Nil,
   requirePartitionFilter: Boolean = false,
