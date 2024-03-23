@@ -65,7 +65,7 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.3.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
@@ -156,9 +156,9 @@ object Dependencies {
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.17.0" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.17.1" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
-    "org.postgresql" % "postgresql" % "42.7.2" % Test
+    "org.postgresql" % "postgresql" % "42.7.3" % Test
   )
 
   val jinja = Seq(
