@@ -112,6 +112,14 @@ object DatasetArea extends StrictLogging {
     path(domain, settings.appConfig.area.accepted)
   }
 
+  def export(domain: String)(implicit settings: Settings): Path = {
+    path(domain, "export")
+  }
+
+  def export(domain: String, table: String)(implicit settings: Settings): Path = {
+    new Path(export(domain), table)
+  }
+
   /** Invalid records and the reason why they have been rejected for the datasets of the specified
     * domain are stored in this folder.
     *

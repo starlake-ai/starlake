@@ -18,9 +18,9 @@ object Versions {
   val esSpark212 = "8.10.3"
   val scopt = "4.1.0"
   val gcsConnector = "hadoop3-2.2.21"
-  val bigquery = "2.38.1"
+  val bigquery = "2.38.2"
   val hadoop = "3.3.6"
-  val sparkBigqueryWithDependencies = "0.36.1"
+  val sparkBigqueryWithDependencies = "0.37.0"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.2.224" // Test only
   val poi = "4.1.2"
@@ -29,7 +29,7 @@ object Versions {
   val confluentVersion = "7.6.0"
   val testContainers = "0.41.3"
   val gcpDataCatalog = "1.43.0"
-  val gcpCloudLogging = "3.16.1"
+  val gcpCloudLogging = "3.16.2"
   val jinja = "2.7.2" // forces dependency override on guava
   val snowflakeJDBC = "3.13.34"
   val snowflakeSpark: String = "2.15.0-spark_3.4"
