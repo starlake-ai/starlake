@@ -82,6 +82,12 @@ object Bootstrap extends StrictLogging {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
+    val dagLibDir = File(metadataFolder, "dags", "generated")
+    dagLibDir.createDirectories()
+    import scala.sys.process._
+    println("Installing starlake-airflow")
+    val pipResult = s"pip install --target $dagLibDir starlake-airflow".!!
+    println(pipResult)
     template
       .foreach { template =>
         val rootFolder = metadataFolder.parent
