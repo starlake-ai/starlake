@@ -29,7 +29,7 @@ object Versions {
   val confluentVersion = "7.6.0"
   val testContainers = "0.41.3"
   val gcpDataCatalog = "1.43.0"
-  val gcpCloudLogging = "3.16.1"
+  val gcpCloudLogging = "3.16.2"
   val jinja = "2.7.2" // forces dependency override on guava
   val snowflakeJDBC = "3.13.34"
   val snowflakeSpark: String = "2.15.0-spark_3.4"
