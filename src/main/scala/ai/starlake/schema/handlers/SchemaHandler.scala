@@ -418,7 +418,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         } else {
           (
             configPath,
-            Failure(new RuntimeException(s"Config file not found in ${directory.toString}"))
+            Success(Domain(directory.getName()))
           )
         }
       }

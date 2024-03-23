@@ -22,5 +22,5 @@ application:
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
   dagRef:
-    load: "dagster_load_shell"
-    transform: "dagster_transform_shell"
+    load: "airflow_scheduled_table_bash"
+    transform: "airflow_scheduled_task_bash"
