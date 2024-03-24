@@ -137,7 +137,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
       val config = mapperWithEmptyString.writeValueAsString(yamlExtractConfig)
       try {
         val deserializedConfig = YamlSerde.deserializeYamlExtractConfig(config, "input")
-        deserializedConfig should equal(yamlExtractConfig.extract.propageGlobalJdbcSchemas())
+        deserializedConfig should equal(yamlExtractConfig.extract.propagateGlobalJdbcSchemas())
       } catch {
         case e: Exception =>
           logger.info("Generated config\n" + config)

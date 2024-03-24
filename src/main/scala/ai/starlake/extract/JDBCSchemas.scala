@@ -24,7 +24,7 @@ case class JDBCSchemas(
     *   - write
     *   - pattern
     */
-  def propageGlobalJdbcSchemas(): JDBCSchemas = {
+  def propagateGlobalJdbcSchemas(): JDBCSchemas = {
     if (default.isDefined) {
       this.copy(jdbcSchemas = jdbcSchemas.map(schema => {
         schema
@@ -91,8 +91,7 @@ case class JDBCSchema(
   fetchSize: Option[Int] = None,
   stringPartitionFunc: Option[String] = None,
   fullExport: Option[Boolean] = None,
-  sanitizeName: Option[Boolean] = None,
-  filter: Option[String] = None
+  sanitizeName: Option[Boolean] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -135,7 +134,8 @@ case class JDBCTable(
   numPartitions: Option[Int],
   connectionOptions: Map[String, String],
   fetchSize: Option[Int],
-  fullExport: Option[Boolean]
+  fullExport: Option[Boolean],
+  filter: Option[String] = None
 ) {
   def this() =
     this(
