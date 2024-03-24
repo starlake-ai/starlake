@@ -85,4 +85,13 @@ The `$SL_ROOT/incoming/starbake` folder will contain the extracted data in CSV f
 You are now ready to load the data into the datawarehouse of your choice using the [starlake load](../load/tutorial) command.
 
 
+## Extract Schema (Optional)
+
+The command below generates a table schema description file in the metadata/load directory and allows you to load the data into the datawarehouse of your choice,
+using starlake load command instead of going through the infer-schema feature starlake provides.
+
+```bash
+$ cd $SL_ROOT
+$ starlake.sh extract-schema --config my_extract_config.sl.yml # extract description
+```
 
