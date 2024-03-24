@@ -227,7 +227,7 @@ object YamlSerde extends LazyLogging {
         Some(YamlMigrator.ScalaClass.ExtractConfig)
       ).path(extractSubPath)
     val jdbcSchemas = mapper.treeToValue(extractNode, classOf[JDBCSchemas])
-    jdbcSchemas.propageGlobalJdbcSchemas()
+    jdbcSchemas.propagateGlobalJdbcSchemas()
   }
   def deserializeYamlRefs(content: String, path: String): RefDesc = {
     val refsSubPath = "refs"
