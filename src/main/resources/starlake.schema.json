@@ -1458,6 +1458,10 @@
         },
         "fullExport": {
           "type": "boolean"
+        },
+        "filter": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Filter applied along data extraction. Scope: Data extraction"
         }
       }
     },
@@ -1590,10 +1594,6 @@
               "items": {
                 "$ref": "#/definitions/ConvertibleToString"
               }
-            },
-            "filter": {
-              "$ref": "#/definitions/ConvertibleToString",
-              "description": "Filter applied along data extraction. Scope: Data extraction"
             }
           }
         }
