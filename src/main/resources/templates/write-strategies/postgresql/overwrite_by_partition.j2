@@ -3,5 +3,5 @@ CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 DELETE FROM {{ tableFullName }} 
 WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM SL_INCOMING);
 
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableColumnNames }} FROM SL_INCOMING;
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableColumnNamesCsv }} FROM SL_INCOMING;
 

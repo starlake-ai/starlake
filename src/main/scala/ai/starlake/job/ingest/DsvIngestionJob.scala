@@ -211,19 +211,23 @@ class DsvIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult)
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
+    val rejectedResult =
+      saveRejected(validationResult.errors, validationResult.rejected)(
+        settings,
+        storageHandler,
+        schemaHandler
+      )
+    rejectedResult match {
+      case Success(_) =>
+        val acceptedResult = saveAccepted(validationResult)
+        acceptedResult match {
+          case Success(rejectedRecordCount) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+          case Failure(exception) =>
+            throw exception
+        }
       case Failure(exception) =>
         throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }
 }
