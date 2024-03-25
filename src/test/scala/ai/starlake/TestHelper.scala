@@ -95,6 +95,7 @@ trait TestHelper
 
   def baseConfigString =
     s"""
+       |SL_VALIDATE_ON_LOAD=true
        |SL_ASSERTIONS_ACTIVE=true
        |SL_DEFAULT_WRITE_FORMAT=delta
        |SL_ROOT="${starlakeTestRoot}"

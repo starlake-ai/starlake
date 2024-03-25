@@ -24,6 +24,7 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
+import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
 import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, TransformEngine, Utils, YamlSerde}
@@ -834,14 +835,18 @@ object Settings extends StrictLogging {
           .map(ref => List(ref.load.toList, ref.transform.toList).flatten)
           .getOrElse(Nil)
 
+      val dagTemplateLoader = new Yml2DagTemplateLoader()
       dagRef.foreach { dagConfigRef =>
         val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
-        if (!storageHandler.exists(dagConfigPath)) {
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.toString}"
-          )
+
+        Try(dagTemplateLoader.loadTemplate(dagConfigRef)(settings)) match {
+          case Failure(exception) =>
+            errors = errors :+ ValidationMessage(
+              Severity.Error,
+              "AppConfig",
+              s"dagConfigRef $dagConfigRef not found in ${dagTemplateLoader.allPaths(settings).mkString("[", ",", "]")}"
+            )
+          case _ =>
         }
       }
       errors

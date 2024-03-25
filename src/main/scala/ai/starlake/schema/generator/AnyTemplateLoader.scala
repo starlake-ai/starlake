@@ -14,6 +14,12 @@ abstract class AnyTemplateLoader extends LazyLogging {
   protected def RESOURCE_TEMPLATE_FOLDER: String
   protected def EXTERNAL_TEMPLATE_BASE_PATH(implicit settings: Settings): Path
 
+  def allPaths(implicit settings: Settings): List[String] = {
+    List(
+      EXTERNAL_TEMPLATE_BASE_PATH.toString,
+      RESOURCE_TEMPLATE_FOLDER
+    )
+  }
   def loadTemplate(templatePathname: String)(implicit settings: Settings): String = {
     assert(
       templatePathname.endsWith(JINJA_EXTENSION),

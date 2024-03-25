@@ -370,7 +370,7 @@ object Domain {
               ValidationMessage(
                 Warning,
                 "Domain",
-                s"Domain directory for $domainName should contain a _config.sl.yml file"
+                s"Domain directory for $domainName does not have a _config.sl.yml file"
               )
             )
           )

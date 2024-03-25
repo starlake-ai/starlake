@@ -219,8 +219,34 @@ class Main extends StrictLogging {
           printUsage(command)
           Failure(new IllegalArgumentException(s"Unknown command $command"))
         case Some(cmd) =>
-          if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad)
-            schemaHandler.checkValidity()
+          if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad) {
+            val checkResult = schemaHandler.checkValidity()
+            checkResult match {
+              case Failure(e) =>
+                return throw e
+              case Success((Nil, _, _)) =>
+                // scalastyle:off println
+                println(s"No errors found. Project loaded successfully.")
+              case Success((errorsAndWarning, 0, warningCount)) =>
+                // scalastyle:off println
+                println(s"Found $warningCount warning(s)")
+                errorsAndWarning.foreach(println)
+              case Success((errorsAndWarning, errorCount, warningCount)) =>
+                if (warningCount == 0) {
+                  // scalastyle:off println
+                  println(s"$errorCount error(s)")
+                } else {
+                  // scalastyle:off println
+                  println(s"Found $warningCount warning(s) and $errorCount error(s)")
+                }
+                errorsAndWarning.foreach(println)
+                Failure(
+                  new Exception(
+                    s"Validation failed. $warningCount warning(s) and $errorCount error(s). Please fix the issues before proceeding"
+                  )
+                )
+            }
+          }
           val r = cmd.run(args.drop(1), schemaHandler)
           if (cmd.command == BootstrapCmd.command)
             System.exit(0)
