@@ -48,7 +48,8 @@ import java.io.ObjectStreamException
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
-import scala.collection.JavaConverters._
+import scala.annotation.nowarn
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -297,11 +298,13 @@ object Settings extends StrictLogging {
 
     def getType(): ConnectionType = ConnectionType.fromString(`type`)
 
+    @nowarn
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!Connection.allstorageOptions.contains(_))
+      options.filterKeys(!Connection.allstorageOptions.contains(_)).toMap
 
+    @nowarn
     def authOptions(): Map[String, String] =
-      options.filterKeys(Connection.allstorageOptions.contains(_))
+      options.filterKeys(Connection.allstorageOptions.contains(_)).toMap
 
     @JsonIgnore
     def getJdbcEngineName(): Engine = {

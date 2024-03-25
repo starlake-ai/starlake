@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import com.google.cloud.bigquery.{Dataset, Table}
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object BigQueryInfo {
   def extractInfo(

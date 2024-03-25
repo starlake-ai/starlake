@@ -337,7 +337,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .loadEnv(envsCometPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
-          .mapValues(_.richFormat(sys.env, globalEnvVars ++ slDateVars))
+          .mapValues(_.richFormat(sys.env, (globalEnvVars ++ slDateVars).toMap))
+
       } else
         Map.empty[String, String]
 

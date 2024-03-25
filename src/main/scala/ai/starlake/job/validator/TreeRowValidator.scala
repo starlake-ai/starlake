@@ -119,8 +119,8 @@ object TreeRowValidator extends GenericRowValidator {
     allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
     topLevel: Boolean,
     emptyIsNull: Boolean
-  ): (GenericRowWithSchema, mutable.MutableList[String]) = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  ): (GenericRowWithSchema, mutable.ListBuffer[String]) = {
+    val errorList: mutable.ListBuffer[String] = mutable.ListBuffer.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
         Option(item).map(_.toString),

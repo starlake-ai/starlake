@@ -13,7 +13,8 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.{Success, Try}
 
 class BigQuerySparkJob(
@@ -196,9 +197,10 @@ class BigQuerySparkJob(
             }
 
             // bigquery does not support having the cols in the wrong order
-            val tableColNames = stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
+            val tableColNames: mutable.Seq[String] =
+              stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
             val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
-            val orderedFields = tableColNames.flatMap { fieldsMap.get }
+            val orderedFields = tableColNames.flatMap { fieldsMap.get }.toSeq
             val orderedDF = sourceDF.select(orderedFields.map(col): _*)
             orderedDF.write
               .mode(saveMode)

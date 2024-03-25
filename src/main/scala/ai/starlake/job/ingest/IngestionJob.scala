@@ -29,7 +29,7 @@ import org.apache.spark.sql.types.StructType
 import java.sql.Timestamp
 import java.time.Instant
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters.{asJavaIterableConverter, asScalaBufferConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)

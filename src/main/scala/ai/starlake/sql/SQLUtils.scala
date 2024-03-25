@@ -18,7 +18,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder
 import java.util.UUID
 import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 

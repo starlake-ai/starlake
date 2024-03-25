@@ -197,7 +197,7 @@ object Utils extends StrictLogging {
     values: List[String],
     errorMessage: String
   ): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
       size > 1
     }

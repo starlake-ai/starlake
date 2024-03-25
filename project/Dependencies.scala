@@ -173,6 +173,10 @@ object Dependencies {
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
   )
 
+  val scalaCompat = Seq(
+    "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
+    "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
+  )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++

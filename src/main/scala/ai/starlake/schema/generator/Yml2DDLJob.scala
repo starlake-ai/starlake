@@ -21,7 +21,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{ExtractTableAttributes, ExtractUtils, JDBCSchema, JdbcDbUtils}
+import ai.starlake.extract.{ExtractTableAttributes, JDBCSchema, JdbcDbUtils, ParUtils}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -105,7 +105,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           case Some(connection) =>
             val connectionSettings = settings.appConfig.getConnection(connection)
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-              ExtractUtils.createForkSupport(config.parallelism)
+              ParUtils.createForkSupport(config.parallelism)
             JdbcDbUtils.extractJDBCTables(
               JDBCSchema(
                 config.catalog,
