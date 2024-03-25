@@ -136,7 +136,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def checkValidity(
     config: ValidateConfig = ValidateConfig()
-  ): Try[(Int, Int)] = Try {
+  ): Try[(List[ValidationMessage], Int, Int)] = Try {
+    val envErrorsAndWarnings = EnvDesc.checkValidity(storage, settings)
     val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
     val typesDomainsJobsErrorsAndWarnings =
       checkTypeDomainsJobsValidity(reload = config.reload)(storage)
@@ -152,7 +153,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val allErrorsAndWarnings =
-      settingsErrorsAndWarnings ++ typesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+      envErrorsAndWarnings ++ settingsErrorsAndWarnings ++ typesDomainsJobsErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
     val (warnings, errors) = allErrorsAndWarnings.partition(_.severity == Warning)
     val errorCount = errors.length
     val warningCount = warnings.length
@@ -167,22 +168,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
         )
       )
-      logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
       allErrorsAndWarnings.foreach { err =>
-        if (err.severity == Warning)
-          logger.warn(err.message)
-        else
-          logger.error(err.message)
         output.foreach(_.appendLine(err.message))
       }
-      logger.error(s"END VALIDATION RESULTS")
       output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-      if (settings.appConfig.validateOnLoad)
-        throw new Exception(
-          s"Validation Failed: $errorCount errors and $warningCount warning found"
-        )
     }
-    (errorCount, warningCount)
+    (allErrorsAndWarnings, errorCount, warningCount)
   }
 
   def loadTypes(filename: String): List[Type] = {
@@ -314,18 +305,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def loadActiveEnvVars(): Map[String, String] = {
-    def loadEnv(path: Path): Option[EnvDesc] =
-      if (storage.exists(path))
-        Option(YamlSerde.deserializeYamlEnvConfig(storage.read(path), path.toString))
-      else {
-        logger.warn(s"Env file $path not found")
-        None
-      }
-
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
-    val globalEnv = loadEnv(globalsCometPath)
+    val globalEnv = EnvDesc.loadEnv(globalsCometPath)(storage)
     // System Env variables may be used as values for variables defined in the env files.
     val globalEnvVars =
       globalEnv
@@ -350,7 +333,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
 
-        loadEnv(envsCometPath)
+        EnvDesc
+          .loadEnv(envsCometPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
           .mapValues(_.richFormat(sys.env, globalEnvVars ++ slDateVars))
