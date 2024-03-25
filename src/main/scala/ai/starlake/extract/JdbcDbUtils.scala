@@ -28,8 +28,8 @@ import java.sql.{
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
+import scala.collection.mutable
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -452,8 +452,8 @@ object JdbcDbUtils extends LazyLogging {
         }
         // Extract the Starlake Schema
         val selectedTablesAndColumnsAndFilter: Map[TableName, ExtractTableAttributes] =
-          ExtractUtils
-            .makeParallel(selectedTables)
+          ParUtils
+            .makeParallel(selectedTables.toList)
             .map { case (tableName, tableRemarks) =>
               val jdbcTableColumnsOpt =
                 jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName)).map(_.columns)
@@ -656,7 +656,7 @@ object JdbcDbUtils extends LazyLogging {
                 }
               }
             }
-            .seq
+            .toList
             .toMap
         selectedTablesAndColumnsAndFilter
       } match {
@@ -849,7 +849,7 @@ object JdbcDbUtils extends LazyLogging {
       extractConfig.jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
     if (doTablesExtraction) {
       // Map tables to columns and primary keys
-      implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(extractConfig.parallelism)
+      implicit val forkJoinTaskSupport = ParUtils.createForkSupport(extractConfig.parallelism)
       val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
@@ -859,8 +859,8 @@ object JdbcDbUtils extends LazyLogging {
         )
       val globalStart = System.currentTimeMillis()
       val extractionResults: List[Try[Unit]] =
-        ExtractUtils
-          .makeParallel(selectedTablesAndColumns)
+        ParUtils
+          .makeParallel(selectedTablesAndColumns.toList)
           .map { case (tableName, tableAttrs) =>
             Try {
               val context = s"[${extractConfig.jdbcSchema.schema}.$tableName]"
@@ -1107,8 +1107,10 @@ object JdbcDbUtils extends LazyLogging {
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
     var tableCount = new AtomicLong();
-    val extractionResults: GenTraversable[Try[Int]] =
-      ExtractUtils.makeParallel(boundaries.partitions.zipWithIndex).map { case (bounds, index) =>
+    val parList =
+      ParUtils.makeParallel(boundaries.partitions.zipWithIndex.toList)
+    val extractionResults: List[Try[Int]] =
+      parList.map { case (bounds, index) =>
         Try {
           val boundaryContext = s"$context[$index]"
           logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
@@ -1245,7 +1247,8 @@ object JdbcDbUtils extends LazyLogging {
             )
           )
         }
-      }
+      }.toList
+
     val success = if (extractionResults.exists(_.isFailure)) {
       logger.error(s"$context An error occured during extraction.")
       extractionResults.foreach {

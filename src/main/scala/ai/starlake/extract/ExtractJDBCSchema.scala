@@ -10,6 +10,7 @@ import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -17,6 +18,7 @@ import scala.util.{Failure, Success, Try}
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit: SchemaHandler = schemaHandler
+  @nowarn
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractJDBCSchemaCmd.run(args, schemaHandler).map(_ => ())
   }
@@ -45,8 +47,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       }
 
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-        ExtractUtils.createForkSupport(config.parallelism)
-      ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+        ParUtils.createForkSupport(config.parallelism)
+      ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
         val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
           val content = settings
             .storageHandler()

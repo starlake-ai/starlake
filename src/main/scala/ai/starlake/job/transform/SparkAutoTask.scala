@@ -809,7 +809,7 @@ class SparkAutoTask(
     result match {
       case Some(df) =>
         // retrieve the domain export root path
-        val domainDir = DatasetArea.export(domainName)
+        val domainDir = DatasetArea.`export`(domainName)
         storageHandler.mkdirs(domainDir)
 
         // retrieve the xls file extension

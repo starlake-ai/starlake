@@ -60,7 +60,7 @@ case class AutoJobDesc(
   def checkValidity(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceJobPrefixRegex = settings.appConfig.forceJobPattern.r

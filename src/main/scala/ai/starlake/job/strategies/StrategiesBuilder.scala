@@ -9,7 +9,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.jdk.CollectionConverters.{mapAsJavaMapConverter, seqAsJavaListConverter}
+import scala.jdk.CollectionConverters._
 
 class StrategiesBuilder extends StrictLogging {
 

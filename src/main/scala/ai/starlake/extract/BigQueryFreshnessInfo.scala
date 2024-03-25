@@ -10,6 +10,7 @@ import com.google.cloud.bigquery.{Dataset, Table}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -188,6 +189,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
     }
   }
 
+  @nowarn
   def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
     BigQueryFreshnessInfoCmd.run(args, schemaHandler).map(_ => ())

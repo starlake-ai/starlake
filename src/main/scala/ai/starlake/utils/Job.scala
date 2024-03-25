@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 
-import scala.jdk.CollectionConverters.mapAsJavaMapConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 trait JobResult {
@@ -118,8 +118,8 @@ trait SparkJob extends JobBase {
     import session.implicits._
     session
       .sql(s"desc formatted $fullTableName")
-      .toDF
-      .filter('col_name === "Location")
+      .toDF()
+      .filter(Symbol("col_name") === "Location")
       .collect()(0)(1)
       .toString
   }

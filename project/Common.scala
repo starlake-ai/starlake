@@ -18,7 +18,7 @@
  *
  */
 
-import com.github.sbt.git.GitPlugin.autoImport._
+import com.github.sbt.git.GitPlugin.autoImport.*
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.github.sbt.git.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
@@ -75,13 +75,6 @@ object Common {
 
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
-      scalacOptions ++= Seq(
-        "-deprecation",
-        "-feature",
-        "-Xmacro-settings:materialize-derivations",
-        "-Ywarn-unused:imports",
-        "-Xfatal-warnings"
-      ),
       Test / testOptions ++= Seq(
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),

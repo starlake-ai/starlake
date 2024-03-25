@@ -182,7 +182,7 @@ case class LoadDesc(version: Int, load: Domain)
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
 
-    val messageList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val messageList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.appConfig.forceDomainPattern.r

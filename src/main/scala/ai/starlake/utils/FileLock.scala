@@ -1,7 +1,6 @@
 package ai.starlake.utils
 
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.handlers.StorageHandler
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 

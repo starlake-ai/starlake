@@ -7,7 +7,7 @@ import ai.starlake.utils.JsonSerializer
 
 import java.util
 import java.util.Calendar
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.jdk.CollectionConverters._
 
 case class DagDesc(version: Int, dag: DagGenerationConfig)
 

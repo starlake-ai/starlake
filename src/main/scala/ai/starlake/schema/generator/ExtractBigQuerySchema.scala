@@ -11,7 +11,7 @@ import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)

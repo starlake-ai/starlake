@@ -1,7 +1,7 @@
-import Dependencies.*
+import Dependencies._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
-import xerial.sbt.Sonatype.*
+import xerial.sbt.Sonatype._
 
 lazy val javacCompilerVersion = "11"
 
@@ -38,9 +38,9 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.18"
 
-lazy val scala213 = "2.13.12"
+lazy val scala213 = "2.13.13"
 
-lazy val supportedScalaVersions = List(scala212) // , scala213
+lazy val supportedScalaVersions = List(scala212, scala213)
 
  ThisBuild / crossScalaVersions := supportedScalaVersions
 
@@ -48,21 +48,24 @@ organization := "ai.starlake"
 
 organizationName := "starlake"
 
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala213 // scala213 scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 resolvers ++= Resolvers.allResolvers
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark, pureConfigs) = {
+  val versionSpecificLibs = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
-      case Some((2, 13)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
+      case Some((2, 12)) => Seq()
+      case Some((2, 13)) => scalaCompat
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark_3d0_forScala_2d12 ++
+    jackson212ForSpark3 ++ esSpark212 ++
+    pureConfig212 ++ scalaReflection(scalaVersion.value) ++
+    versionSpecificLibs
 }
 
 dependencyOverrides := Seq(
@@ -88,6 +91,25 @@ assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${vers
 Common.enableStarlakeAliases
 
 enablePlugins(Common.starlakePlugins: _*)
+
+
+scalacOptions ++= {
+  val extractOptions = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => Seq("-Xfatal-warnings")
+      case Some((2, 13)) =>  Seq()
+      case _ => throw new Exception(s"Invalid Scala Version")
+    }
+  }
+  Seq(
+    "-deprecation",
+    "-feature",
+    "-Xmacro-settings:materialize-derivations",
+    "-Ywarn-unused:imports"
+  ) ++ extractOptions
+
+}
+
 
 Common.customSettings
 

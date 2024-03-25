@@ -6,10 +6,12 @@ import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.annotation.nowarn
 import scala.util.Try
 
 class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
+  @nowarn
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractDataCmd.run(args, schemaHandler).map(_ => ())
   }

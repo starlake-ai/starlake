@@ -21,6 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.ParUtils
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -45,19 +46,16 @@ import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
 import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
+import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
-import java.util.concurrent.ForkJoinPool
 import java.util.regex.Pattern
 import scala.annotation.nowarn
-import scala.collection.GenSeq
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
 private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -343,7 +341,7 @@ class IngestionWorkflow(
         }
 
       // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[FileInfo]] = filteredResolved.map {
+      val groupedResolved = filteredResolved.map {
         case (Some(schema), fileInfo) => (schema, fileInfo)
         case (None, _)                => throw new Exception("Should never happen")
       } groupBy { case (schema, _) => schema } mapValues (it =>
@@ -385,8 +383,10 @@ class IngestionWorkflow(
                 JobContext(domain, schema, path :: Nil, config.options)
               }
             }
-            val (parJobs, forkJoinPool) =
-              makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
+            implicit val forkJoinTaskSupport =
+              ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
+            val parJobs =
+              ParUtils.makeParallel(jobs.toList)
             val res = parJobs.map { jobContext =>
               ingest(
                 jobContext.domain,
@@ -400,7 +400,7 @@ class IngestionWorkflow(
                 case Success(r) => true
               }
             }.toList
-            forkJoinPool.foreach(_.shutdown())
+            forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
             res.forall(_ == true)
           }
         }
@@ -647,15 +647,17 @@ class IngestionWorkflow(
     ingestionResult match {
       case Success(Success(jobResult)) =>
         if (settings.appConfig.archive) {
-          val (parIngests, forkJoinPool) =
-            makeParallel(ingestingPath, settings.appConfig.maxParCopy)
+          implicit val forkJoinTaskSupport =
+            ParUtils.createForkSupport(Some(settings.appConfig.maxParCopy))
+          val parIngests =
+            ParUtils.makeParallel(ingestingPath)
           parIngests.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          forkJoinPool.foreach(_.shutdown())
+          forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
         } else {
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
@@ -667,22 +669,6 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
         Failure(exception)
-    }
-  }
-
-  @nowarn
-  private def makeParallel[T](
-    collection: List[T],
-    maxPar: Int
-  ): (GenSeq[T], Option[ForkJoinPool]) = {
-    maxPar match {
-      case 1 => (collection, None)
-      case _ =>
-        val parCollection = collection.par
-        val forkJoinPool =
-          new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
-        parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
-        (parCollection, Some(forkJoinPool))
     }
   }
 
@@ -764,8 +750,11 @@ class IngestionWorkflow(
     dependencyTree: List[TaskViewDependencyNode],
     options: Map[String, String]
   ): Boolean = {
-    val (parJobs, forkJoinPool) =
-      makeParallel(dependencyTree, settings.appConfig.maxParTask)
+    implicit val forkJoinTaskSupport =
+      ParUtils.createForkSupport(Some(settings.appConfig.maxParTask))
+
+    val parJobs =
+      ParUtils.makeParallel(dependencyTree)
     val res = parJobs.map { jobContext =>
       val ok = transform(jobContext.children, options)
       if (ok) {
@@ -777,7 +766,7 @@ class IngestionWorkflow(
       } else
         false
     }
-    forkJoinPool.foreach(_.shutdown())
+    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
     res.forall(_ == true)
   }
 

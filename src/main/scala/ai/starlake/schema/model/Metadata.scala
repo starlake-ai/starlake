@@ -223,7 +223,7 @@ case class Metadata(
 
   @JsonIgnore
   def getEngine()(implicit settings: Settings): Engine = {
-    val connection = settings.appConfig.connections(getSinkConnectionRef)
+    val connection = settings.appConfig.connections(getSinkConnectionRef())
     connection.getEngine()
   }
 

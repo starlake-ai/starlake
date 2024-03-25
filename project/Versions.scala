@@ -39,4 +39,6 @@ object Versions {
   val jSqlParser = "4.9"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.26"
+  val scalaCompat = "2.11.0"
+  val scalaParallelCollections = "1.0.4"
 }
