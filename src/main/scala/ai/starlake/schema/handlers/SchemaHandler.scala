@@ -402,7 +402,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         } else {
           (
             configPath,
-            Success(Domain(directory.getName()))
+            Success(
+              Domain(name = directory.getName(), comment = Some(s"${directory.getName()} domain"))
+            )
           )
         }
       }
