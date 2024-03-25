@@ -1248,6 +1248,51 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
+  it should "migrate Table to V1 keep user defined writeStrategy types when already defined" in {
+    val expectedConfigStr =
+      """
+        |version: 1
+        |table:
+        |  metadata:
+        |      writeStrategy:
+        |        types:
+        |          FULL: OVERWRITE
+        |          DELTA: APPEND
+        |      sink:
+        |       partition:
+        |          - p1
+        |          - p2
+        |""".stripMargin
+    val expectedConfig = YamlSerde.mapper.readTree(expectedConfigStr)
+    val flatConfigStr =
+      """
+        |table:
+        | metadata:
+        |     write: OVERWRITE
+        |     sink:
+        |       type: SNOWFLAKE
+        |       partition:
+        |         attributes:
+        |           - p1
+        |           - p2
+        |         sampling: 0.5
+        |         attribute: p3
+        |         options:
+        |           - opt1
+        |       dynamicPartitionOverwrite: true
+        |     writeStrategy:
+        |       types:
+        |         FULL: OVERWRITE
+        |         DELTA: APPEND
+        |""".stripMargin
+    YamlMigrator.V1.TableConfig.canMigrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe true
+    YamlMigrator.V1.TableConfig.migrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe expectedConfig
+  }
+
   it should "migrate Table to V1 and consider write when dynamic partition is false or unset" in {
     val expectedConfigStr =
       """
