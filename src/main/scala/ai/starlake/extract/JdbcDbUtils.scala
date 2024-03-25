@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.exceptions.DataExtractionException
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
@@ -242,11 +242,13 @@ object JdbcDbUtils extends LazyLogging {
   private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
     connection: SQLConnection,
-    table: String
+    table: String,
+    jdbcEngine: Option[JdbcEngine]
   )(implicit
     settings: Settings
   ): Option[String] = {
-    jdbcSchema.tableRemarks.map { remarks =>
+    val tableRemarks = jdbcSchema.tableRemarks.orElse(jdbcEngine.flatMap(_.tableRemarks))
+    tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting table remarks using $sql")
       val statement = connection.createStatement()
@@ -271,11 +273,13 @@ object JdbcDbUtils extends LazyLogging {
   private def extractColumnRemarks(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    table: String
+    table: String,
+    jdbcEngine: Option[JdbcEngine]
   )(implicit
     settings: Settings
   ): Option[Map[TableRemarks, TableRemarks]] = {
-    jdbcSchema.columnRemarks.map { remarks =>
+    val columnRemarks = jdbcSchema.columnRemarks.orElse(jdbcEngine.flatMap(_.columnRemarks))
+    columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting column remarks using $sql")
       withJDBCConnection(connectionSettings.options) { connection =>
@@ -343,6 +347,10 @@ object JdbcDbUtils extends LazyLogging {
     fjp: Option[ForkJoinTaskSupport]
   ): Map[TableName, ExtractTableAttributes] =
     withJDBCConnection(connectionSettings.options) { connection =>
+      val url = connectionSettings.options("url")
+      val jdbcServer = url.split(":")(1)
+      val jdbcEngine = settings.appConfig.jdbcEngines.get(jdbcServer)
+
       val databaseMetaData = connection.getMetaData()
 
       val jdbcTableMap =
@@ -384,7 +392,7 @@ object JdbcDbUtils extends LazyLogging {
                     if (skipRemarks) None
                     else
                       Try {
-                        extractTableRemarks(jdbcSchema, connection, tableName)
+                        extractTableRemarks(jdbcSchema, connection, tableName, jdbcEngine)
                       } match {
                         case Failure(exception) =>
                           logger.warn(exception.getMessage, exception)
@@ -524,7 +532,7 @@ object JdbcDbUtils extends LazyLogging {
                     val remarks: Map[TableRemarks, TableRemarks] = (
                       if (skipRemarks) None
                       else
-                        extractColumnRemarks(jdbcSchema, connectionSettings, tableName)
+                        extractColumnRemarks(jdbcSchema, connectionSettings, tableName, jdbcEngine)
                     ).getOrElse(Map.empty)
 
                     val attrs = new Iterator[Attribute] {

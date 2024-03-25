@@ -402,7 +402,9 @@ object Settings extends StrictLogging {
     quote: String,
     viewPrefix: String,
     preActions: String,
-    strategyBuilder: String
+    strategyBuilder: String,
+    columnRemarks: Option[String] = None,
+    tableRemarks: Option[String] = None
   )
 
   object JdbcEngine {
