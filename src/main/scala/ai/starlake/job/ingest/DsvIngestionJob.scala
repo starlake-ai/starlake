@@ -22,7 +22,6 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
