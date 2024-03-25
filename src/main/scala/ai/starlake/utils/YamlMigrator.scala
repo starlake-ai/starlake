@@ -200,7 +200,11 @@ object YamlMigrator extends LazyLogging {
       protected val migrateWriteMetadataNode: List[JsonNode => JsonNode] =
         List[JsonNode => JsonNode] {
           case writeContainerNode: ObjectNode =>
-            if (!writeContainerNode.path("writeStrategy").hasNonNull("type")) {
+            if (
+              !(writeContainerNode
+                .path("writeStrategy")
+                .hasNonNull("type") || writeContainerNode.path("writeStrategy").hasNonNull("types"))
+            ) {
               writeContainerNode.path("write") match {
                 case tn: TextNode =>
                   val writeMode = tn.textValue().toUpperCase match {
@@ -263,19 +267,17 @@ object YamlMigrator extends LazyLogging {
             val keyNode = mergeNode.path("key")
             val timestampNode = mergeNode.path("timestamp")
             // write strategy is created in migrateMetadata and set when dynamic partition overwrite is used only. AutoTaskDesc don't have this declarative feature.
-            val writeStrategyType = Option(tableOrTransform.get("metadata"))
-              .flatMap(m => Option(m.get("writeStrategy")))
-              .flatMap(w => Option(w.get("type")))
-              .map {
-                case tn: TextNode => tn.textValue()
-                case _            => ""
-              }
+            val existingWriteStrategyNode = tableOrTransform.path("metadata").path("writeStrategy")
+            val writeStrategyType = existingWriteStrategyNode.path("type") match {
+              case tn: TextNode => tn.textValue()
+              case _            => ""
+            }
             (mergeNode.isMissingNode(), writeStrategyType) match {
-              case (false, Some(t)) if t == WriteStrategyType.OVERWRITE_BY_PARTITION.value =>
+              case (false, t) if t == WriteStrategyType.OVERWRITE_BY_PARTITION.value =>
                 throw new RuntimeException(
                   "Cannot define both dynamic partition overwrite and merge in the same table definition"
                 )
-              case (true, Some(t)) if t == WriteStrategyType.OVERWRITE_BY_PARTITION.value =>
+              case (true, t) if t == WriteStrategyType.OVERWRITE_BY_PARTITION.value =>
               // do nothing since we already have the final writeStrategy and don't have any merge attribute
               case (false, _) =>
                 // compute write strategy based on merge attribute
@@ -283,12 +285,25 @@ object YamlMigrator extends LazyLogging {
                   if (!tableOrTransform.has("metadata")) {
                     tableOrTransform.set("metadata", mapper.createObjectNode())
                   }
-                  tableOrTransform
-                    .path("metadata")
-                    .asInstanceOf[ObjectNode]
-                    .set("writeStrategy", mergeNode)
+                  existingWriteStrategyNode match {
+                    case on: ObjectNode =>
+                      // merge only if not already set
+                      mergeNode.fieldNames().asScala.foreach { f =>
+                        if (on.has(f)) {
+                          logger.warn(s"writeStrategy already defined attribute $f. Skipping it.")
+                        } else {
+                          on.set[ObjectNode](f, mergeNode.get(f))
+                        }
+                      }
+                    case _ =>
+                      tableOrTransform
+                        .path("metadata")
+                        .asInstanceOf[ObjectNode]
+                        .set[ObjectNode]("writeStrategy", mergeNode)
+                  }
                   tableOrTransform.path("metadata").path("writeStrategy")
                 } else {
+                  // Before V1, we didn't accept / handle any write strategy for transform so we don't need to consider its existence
                   tableOrTransform.set("writeStrategy", mergeNode)
                   tableOrTransform.path("writeStrategy")
                 }
@@ -348,18 +363,25 @@ object YamlMigrator extends LazyLogging {
                 case _ =>
               }
               sinkNode.remove("timestamp")
-              Option(sinkNode.get("dynamicPartitionOverwrite"))
-                .flatMap {
-                  case bn: BooleanNode if bn.booleanValue() =>
-                    val objectNode = mapper
-                      .createObjectNode()
-                      .set[ObjectNode](
-                        "type",
-                        TextNode.valueOf(WriteStrategyType.OVERWRITE_BY_PARTITION.value)
-                      )
-                    Some(parentSinkNode.set[ObjectNode]("writeStrategy", objectNode))
-                  case _ => None
-                }
+              if (
+                !(parentSinkNode
+                  .path("writeStrategy")
+                  .has("type") || parentSinkNode.path("writeStrategy").has("types"))
+              ) {
+                // we do nothing since write strategy node already exists
+                Option(sinkNode.get("dynamicPartitionOverwrite"))
+                  .flatMap {
+                    case bn: BooleanNode if bn.booleanValue() =>
+                      val objectNode = mapper
+                        .createObjectNode()
+                        .set[ObjectNode](
+                          "type",
+                          TextNode.valueOf(WriteStrategyType.OVERWRITE_BY_PARTITION.value)
+                        )
+                      Some(parentSinkNode.set[ObjectNode]("writeStrategy", objectNode))
+                    case _ => None
+                  }
+              }
               sinkNode.remove("dynamicPartitionOverwrite")
               sinkNode
             case n => n
