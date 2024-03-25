@@ -250,7 +250,9 @@ case class AllSinks(
 
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
-
+    if (ref.isEmpty) {
+      throw new Exception("No connectionRef found")
+    }
     val connection = settings.appConfig.connections
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     val options = this.options.getOrElse(connection.options)
