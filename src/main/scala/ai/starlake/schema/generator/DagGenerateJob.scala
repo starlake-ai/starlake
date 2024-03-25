@@ -41,7 +41,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
-              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}. Dag config founds ${dagConfigs.keys
+              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}. Dag configs found ${dagConfigs.keys
                   .mkString(",")}"
             )
           )
@@ -74,7 +74,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
-              s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config founds ${dagConfigs.keys
+              s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config found ${dagConfigs.keys
                   .mkString(",")}"
             )
           )
