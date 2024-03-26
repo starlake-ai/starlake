@@ -19,43 +19,11 @@ The workflow below is a typical use case:
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
-## How is Starlake declarative ?
-
-Looking at ELT tools, we can see that they are either:
-- __Code based__: This is the case for example for Databricks or Meltano.
-- __GUI based__: This is the case for example for Apache NiFi, Airbyte or Fivetran.
-
-Looking at existing data orchestration tools, we can see that they are either:
-- __Code based__: This is the case for example for Apache Airflow or Dagster.
-- __GUI based__: This is the case for example for Apache NiFi or StreamSets.
-
-
 Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
 instead of writing code or using a GUI.
 
-These YAML files are then interpreted by Starlake runtime to execute your end to end data pipelines.
 
-Among the properties you may specify in the YAML file, the following are worth mentioning:
-* field normalization
-* field encryption
-* field renaming
-* field removal
-* field transformation
-* field addition (computed fields)
-* metrics computation
-* semantic types by allowing you to set type constraints on the incoming data
-* multiple file formats and source / target databases (Postgres, MySQL, SQL Server, Oracle, Snowflake, Redshift, BigQuery, ...)
-* merge strategy (INSERT OVERWRITE or MERGE INTO)
-* partitioning and clustering strategies
-* data retention policies
-* data quality rules
-* data ownership
-* data access policies
-* schema evolution
-
-The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain.
-
-The YAML DSL added value is best explained with an example:
+The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain. This is best explained with an example:
 
 ### Extract
 
@@ -164,6 +132,6 @@ The resulting DAG is shown below:
 
 ## Supported platforms
 
-The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the figure below.
+The Load & Transform steps support multiple configurations for inputs and outputs.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
