@@ -2,6 +2,10 @@
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 # About Starlake
+
+starlake is a, devops friendly, declarative test based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
+
+
 Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
 # What is Starlake ?
 ![](docs/static/img/starlake-draw.png)
