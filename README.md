@@ -1,24 +1,18 @@
 ![Build Status](https://github.com/starlake-ai/starlake/workflows/Build/badge.svg)
-[![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-blue.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
-[![codecov](https://codecov.io/gh/starlake-ai/starlake/branch/master/graph/badge.svg)](https://codecov.io/gh/starlake-ai/starlake)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/569178d6936842808702e72c30d74643)](https://www.codacy.com/gh/starlake-ai/starlake/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=starlake-ai/starlake&amp;utm_campaign=Badge_Grade)
-[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://starlake-ai.github.io/starlake/)
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12)
-[![Slack](https://img.shields.io/badge/slack-join-blue.svg?logo=slack)](https://starlakeai.slack.com)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 # About Starlake
-
 Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
 # What is Starlake ?
+![](docs/static/img/starlake-draw.png)
 
 Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
-* Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
-* Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
-* Configure the loading process
-* Start watching your data being available as Tables in your warehouse.
-* Build aggregates using SQL and YAML configuration files.
-* Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ) in the right order.
+* **Extract** your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
+* Define or infer table schemas fom test files (csv, json, xml, fixed-wdith ...)
+* **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse. 
+* **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to you selected strategy (Append, Overwrite, Merge ...).
+* **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
