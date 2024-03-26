@@ -159,20 +159,7 @@ The resulting DAG is shown below:
 
 ![](docs/static/img/quickstart/transform-dags.png)
 
-## How it works
-
-Starlake Data Pipeline automates the loading and parsing of files and
-their ingestion into a warehouse where datasets become available as strongly typed records.
-
-![](docs/static/img/workflow.png)
-
-
-The figure above describes how Starlake implements the `Extract Load Transform (ELT)` Data Pipeline steps.
-Starlake may be used indistinctly for all or any of these steps.
-
-* The `extract` step allows to export selective data from an existing SQL database to a set of CSV files.
-* The `load` step allows you to load text files, to ingest POSITION/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
-* The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
+## Supported platforms
 
 The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the figure below.
 
