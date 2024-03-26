@@ -3,7 +3,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 
-Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
 # What is Starlake ?
 starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
 
@@ -135,3 +134,7 @@ The resulting DAG is shown below:
 The Load & Transform steps support multiple configurations for inputs and outputs.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
+
+
+## Documentation
+Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
