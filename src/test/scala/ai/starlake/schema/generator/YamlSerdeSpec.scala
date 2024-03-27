@@ -1106,6 +1106,7 @@ object YamlConfigGenerators {
       env                        <- arbitrary[String]
       datasets                   <- arbitrary[String]
       incoming                   <- arbitrary[String]
+      tests                      <- arbitrary[String]
       dags                       <- arbitrary[String]
       writeStrategies            <- arbitrary[String]
       metadata                   <- arbitrary[String]
@@ -1180,6 +1181,7 @@ object YamlConfigGenerators {
       env = env,
       datasets = datasets,
       incoming = incoming,
+      tests = tests,
       dags = dags,
       writeStrategies = writeStrategies,
       metadata = metadata,

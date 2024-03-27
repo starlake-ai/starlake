@@ -544,6 +544,7 @@ object Settings extends StrictLogging {
     datasets: String,
     incoming: String,
     dags: String,
+    tests: String,
     writeStrategies: String,
     metadata: String,
     metrics: Metrics,

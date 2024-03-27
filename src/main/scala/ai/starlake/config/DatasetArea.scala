@@ -163,6 +163,9 @@ object DatasetArea extends StrictLogging {
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
+  def tests(implicit settings: Settings): Path =
+    new Path(metadata, "tests")
+
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
 
