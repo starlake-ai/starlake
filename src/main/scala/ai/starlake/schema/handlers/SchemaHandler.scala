@@ -29,7 +29,7 @@ import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerde}
-import better.files.File
+import better.files.{File, Resource}
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -200,14 +200,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadTypes(): List[Type] = {
+    val resourceTypes = Resource.asString("types/default.sl.yml") match {
+      case Some(value) =>
+        YamlSerde.deserializeYamlTypes(value, "resource:types/default.sl.yml")
+      case None =>
+        Nil
+    }
     val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
     val types = loadTypes("types")
 
-    val redefinedTypeNames =
-      defaultTypes.map(_.name).intersect(types.map(_.name))
+    val redefinedResourceTypeNames = resourceTypes.map(_.name).intersect(defaultTypes.map(_.name))
+    val defaultAndRedefinedTypes =
+      resourceTypes.filter(resourceType => !redefinedResourceTypeNames.contains(resourceType.name))
 
-    this._types =
-      defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
+    val redefinedTypeNames = defaultAndRedefinedTypes.map(_.name).intersect(types.map(_.name))
+
+    this._types = defaultAndRedefinedTypes.filter(defaultType =>
+      !redefinedTypeNames.contains(defaultType.name)
+    ) ++ types
+
     this._types
   }
 
