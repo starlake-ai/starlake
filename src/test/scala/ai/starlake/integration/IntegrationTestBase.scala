@@ -16,7 +16,7 @@ class IntegrationTestBase
     with BeforeAndAfterAll
     with BeforeAndAfterEach
     with StrictLogging {
-  implicit val settings: Settings = Settings(Settings.referenceConfig)
+  implicit var settings: Settings = Settings(Settings.referenceConfig)
 
   implicit val copyOptions = File.CopyOptions(overwrite = true)
 
@@ -46,6 +46,7 @@ class IntegrationTestBase
     envList.foreach { case (k, v) => setEnv(k, v) }
     setEnv("SL_INTERNAL_WITH_ENVS_SET", "true")
     Settings.invalidateCaches()
+    settings = Settings(Settings.referenceConfig)
     val result = Try {
       fun
     }
