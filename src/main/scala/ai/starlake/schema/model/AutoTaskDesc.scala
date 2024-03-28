@@ -1,9 +1,11 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
-import ai.starlake.config.{DatasetArea, Settings}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
+
+case class TaskDesc(version: Int, task: AutoTaskDesc)
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -27,14 +29,15 @@ import org.apache.hadoop.fs.Path
   * @param rls
   *   Row level security policy to apply too the output data.
   */
+@JsonIgnoreProperties(
+  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
+)
 case class AutoTaskDesc(
   name: String,
   sql: Option[String],
   database: Option[String],
   domain: String,
   table: String,
-  write: Option[WriteMode],
-  partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
   sink: Option[AllSinks] = None,
@@ -49,7 +52,6 @@ case class AutoTaskDesc(
   writeStrategy: Option[WriteStrategy] = None,
   schedule: Option[String] = None,
   dagRef: Option[String] = None,
-  recursive: Boolean = false,
   _filenamePrefix: String = "", // for internal use. prefix of sql / py file
   parseSQL: Option[Boolean] = None,
   _auditTableName: Option[String] = None,
@@ -64,13 +66,14 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getStrategy()(implicit settings: Settings): WriteStrategy = {
     val st1 = writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.APPEND)))
-    val startTs = st1.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-    val endTs = st1.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-    st1.copy(start_ts = Some(startTs), end_ts = Some(endTs))
+    val startTs = st1.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = st1.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+    st1.copy(startTs = Some(startTs), endTs = Some(endTs))
   }
 
   @JsonIgnore
-  def getWriteMode(): WriteMode = write.getOrElse(WriteMode.OVERWRITE)
+  def getWriteMode(): WriteMode =
+    writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
   def merge(child: AutoTaskDesc): AutoTaskDesc = {
     AutoTaskDesc(
@@ -79,8 +82,6 @@ case class AutoTaskDesc(
       database = child.database.orElse(database),
       domain = if (child.domain.isEmpty) domain else child.domain,
       table = if (child.table.isEmpty) table else child.table,
-      write = child.write.orElse(write),
-      partition = if (child.partition.isEmpty) partition else child.partition,
       presql = presql ++ child.presql,
       postsql = postsql ++ child.postsql,
       sink = sink.orElse(child.sink).map(_.merge(child.sink.getOrElse(AllSinks()))),
@@ -107,11 +108,7 @@ case class AutoTaskDesc(
         s"freshness: $error"
       }
     }
-    if (writeStrategy.isDefined && write.isDefined && write.get != WriteMode.OVERWRITE) {
-      Left(List("Merge and write mode are not compatible"))
-    } else {
-      Right(true)
-    }
+    Right(true)
   }
 
   def this() = this(
@@ -120,34 +117,12 @@ case class AutoTaskDesc(
     database = None,
     domain = "",
     table = "",
-    write = Some(WriteMode.OVERWRITE),
     python = None,
     writeStrategy = None,
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
-
-  /** Return a Path only if a storage area s defined
-    * @return
-    */
-  @JsonIgnore
-  def getTargetPath()(implicit settings: Settings): Path = {
-    val auditDomain = settings.appConfig.audit.getDomain()
-    if (domain == auditDomain) {
-      table match {
-        case "continuous" | "discrete" | "frequencies" =>
-          DatasetArea.metrics(domain, table)
-        case "audit" | "expectations" =>
-          DatasetArea.audit(domain, table)
-        case "rejected" =>
-          new Path(DatasetArea.rejected(domain), table)
-        case _ =>
-          throw new Exception(s"$table: Audit table name not supported")
-      }
-    } else
-      new Path(DatasetArea.business(domain), table)
-  }
 
   def getDatabase()(implicit settings: Settings): Option[String] = {
     database
@@ -167,7 +142,13 @@ case class AutoTaskDesc(
     connection
   }
   def getRunConnectionRef()(implicit settings: Settings): String = {
-    this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+    val connectionRef = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+    if (connectionRef.isEmpty) {
+      throw new Exception(
+        "Connection ref is empty. Please define a default connection ref in application.sl.yml"
+      )
+    }
+    connectionRef
   }
 
   def getRunConnection()(implicit settings: Settings): Connection = {

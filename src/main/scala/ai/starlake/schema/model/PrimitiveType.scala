@@ -345,7 +345,7 @@ object PrimitiveType {
   }
 
   val primitiveTypes: Set[PrimitiveType] =
-    Set(string, long, int, double, decimal, boolean, byte, date, timestamp, struct)
+    Set(string, long, int, double, short, decimal, boolean, byte, date, timestamp, struct)
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
     // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date

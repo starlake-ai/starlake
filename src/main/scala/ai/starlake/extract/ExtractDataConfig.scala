@@ -23,8 +23,8 @@ import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
 import better.files.File
 
-import java.time.{Instant, ZoneId}
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneId}
 
 /** This class defined the configuration provided by the end user from CLI
   *
@@ -101,7 +101,7 @@ sealed trait TableExtractDataConfig {
   def columnsProjection: List[Attribute]
   def fullExport: Boolean
   def fetchSize: Option[Int]
-
+  def filterOpt: Option[String]
   def tableOutputDir: File
 
   val extractionDateTime: String = {
@@ -129,7 +129,8 @@ case class UnpartitionnedTableExtractDataConfig(
   columnsProjection: List[Attribute],
   fullExport: Boolean,
   fetchSize: Option[Int],
-  tableOutputDir: File
+  tableOutputDir: File,
+  filterOpt: Option[String]
 ) extends TableExtractDataConfig
 
 case class PartitionnedTableExtractDataConfig(
@@ -142,5 +143,13 @@ case class PartitionnedTableExtractDataConfig(
   partitionColumnType: PrimitiveType,
   hashFunc: Option[String],
   nbPartitions: Int,
-  tableOutputDir: File
+  tableOutputDir: File,
+  filterOpt: Option[String]
 ) extends TableExtractDataConfig
+
+case class ExtractTableAttributes(
+  tableRemarks: String,
+  columNames: List[Attribute],
+  primaryKeys: List[String],
+  filterOpt: Option[String]
+)

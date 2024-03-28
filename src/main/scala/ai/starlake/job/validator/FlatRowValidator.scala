@@ -22,7 +22,7 @@ object FlatRowValidator extends GenericRowValidator {
       case Format.DSV =>
         // dropRight removes CometInputFileName Column
         row.toSeq.dropRight(1).map(Option(_).getOrElse("").toString).mkString(separator)
-      case Format.SIMPLE_JSON =>
+      case Format.JSON_FLAT =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
         new Gson().toJson(rowAsMap - CometColumns.cometInputFileNameColumn)
       case Format.POSITION =>
@@ -46,7 +46,7 @@ object FlatRowValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     val now = Timestamp.from(Instant.now)
     val attributesAndTypes = attributes.zip(types).toArray
     val attributesLen = attributes.length
@@ -143,7 +143,7 @@ object FlatRowValidator extends GenericRowValidator {
     val rejectedDS = rejectedRDD.toDS()
     val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
 
-    ValidationResult(
+    CheckValidityResult(
       rejectedDS.persist(cacheStorageLevel),
       rejectedInputLinesDS.persist(cacheStorageLevel),
       acceptedDS.persist(cacheStorageLevel)

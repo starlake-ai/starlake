@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{Domain, Format, FsSink, Schema}
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 
 import scala.util.{Failure, Success}
@@ -17,19 +17,19 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val schema1Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
     val schema2Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
-    lazy val result: Domain = YamlSerializer
-      .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
+    lazy val result: Domain = YamlSerde
+      .deserializeYamlLoadConfig(outputPath.contentAsString, outputPath.pathAsString) match {
       case Success(value)     => value
       case Failure(exception) => throw exception
     }
 
-    lazy val schema1: Schema = YamlSerializer
-      .deserializeSchemaRefs(schema1Path.contentAsString, schema1Path.pathAsString)
+    lazy val schema1: Schema = YamlSerde
+      .deserializeYamlTables(schema1Path.contentAsString, schema1Path.pathAsString)
       .tables
       .head
 
-    lazy val schema2: Schema = YamlSerializer
-      .deserializeSchemaRefs(schema2Path.contentAsString, schema2Path.pathAsString)
+    lazy val schema2: Schema = YamlSerde
+      .deserializeYamlTables(schema2Path.contentAsString, schema2Path.pathAsString)
       .tables
       .head
 
@@ -93,8 +93,8 @@ class Xls2YmlDomainsSpec extends TestHelper {
       val yamlPath =
         File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
 
-      val yamlTable = YamlSerializer
-        .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
+      val yamlTable = YamlSerde
+        .deserializeYamlLoadConfig(yamlPath.contentAsString, yamlPath.pathAsString)
         .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         .tables
         .head

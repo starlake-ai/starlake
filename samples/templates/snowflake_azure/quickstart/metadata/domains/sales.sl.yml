@@ -11,15 +11,14 @@ load:
     sink:
       type: {{sink_type}}
       connectionRef: {{sink_connection}}
-  schemas:
+  tables:
     - name: "customers"
       pattern: "customers-.*.psv"
       metadata:
         separator: "|"
         sink:
           partition:
-            attributes:
-              - signup
+            - signup
       merge:
         # for BQ only
         #queryFilter: date(signup) in last(4)

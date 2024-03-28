@@ -198,11 +198,11 @@ case class DomainDiff(
   rename: ListDiff[String]
 ) {
   def isEmpty(): Boolean =
-    tables.isEmpty &&
-    metadata.isEmpty &&
-    comment.isEmpty &&
-    tags.isEmpty &&
-    rename.isEmpty
+    tables.isEmpty() &&
+    metadata.isEmpty() &&
+    comment.isEmpty() &&
+    tags.isEmpty() &&
+    rename.isEmpty()
 
 }
 

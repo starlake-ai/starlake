@@ -1,0 +1,42 @@
+
+
+{% if materializedView %}
+{% set createPrefix = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
+{% else %}
+{% set createPrefix = 'CREATE TABLE ' + tableFullName + ' USING ' + tableFormat + ' ' + sinkTableOptionsClause + ' ' + sinkTablePartitionClause + ' ' + sinkTableClusteringClause %}
+{% endif %}
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createPrefix }}  AS {{ selectStatement }};
+
+{% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
+
+{{ createPrefix }}  AS
+WITH SL_INCOMING AS ({{selectStatement }}),
+SL_VIEW_WITH_ROWNUM AS (SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) AS SL_SEQ FROM SL_INCOMING)
+SELECT  {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
+
+{{ createPrefix }} AS
+WITH SL_INCOMING AS ({{ selectStatement }}),
+SL_VIEW_WITH_ROWNUM AS (
+  SELECT  {{ tableColumnsCsv }},
+          ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+  FROM SL_INCOMING
+)
+SELECT {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+""".stripMargin
+
+
+{%  endif %}
+
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
+{% endif %}
+
+

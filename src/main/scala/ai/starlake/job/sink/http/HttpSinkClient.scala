@@ -36,8 +36,8 @@ private[http] class HttpSinkClient(parameters: Map[String, String]) extends Stri
 
   def send(dataFrame: DataFrame): Int = {
     // performed on the driver node instead of worker nodes, so use local iterator
-    val iter = dataFrame.toLocalIterator;
-    val buffer = ArrayBuffer[Seq[String]]();
+    val iter = dataFrame.toLocalIterator()
+    val buffer = ArrayBuffer[Seq[String]]()
     var count = 0
     while (iter.hasNext) {
       val row = iter.next().toSeq.map(Option(_).getOrElse("").toString) // deal with null values

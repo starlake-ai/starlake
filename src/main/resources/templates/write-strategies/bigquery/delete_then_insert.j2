@@ -1,0 +1,27 @@
+
+{% macro makeMD5(columnNames) %}
+{% for columnName in columnNames %}{{ columnName }}{% if not loop.last %} || '-' {% endif %}{%endfor%}
+{% endmacro %}
+
+BEGIN TRANSACTION;
+
+{% if columnNames|length > 1 %}
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ makeMD5(strategyKey) }} in 
+(
+    SELECT {{ makeMD5(strategyKey) }} FROM ({{ selectStatement }})
+);
+
+{% else %}
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ strategyKeyCsv }} in 
+(
+    SELECT {{ strategyKeyCsv }} FROM ({{ selectStatement }})
+);
+
+{% endif%}
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) {{ selectStatement }};
+
+COMMIT TRANSACTION;

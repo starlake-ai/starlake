@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.exceptions.DataExtractionException
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
@@ -13,6 +13,8 @@ import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.jdbc.JdbcType
+import org.apache.spark.sql.types._
 
 import java.nio.charset.StandardCharsets
 import java.sql.Types._
@@ -28,8 +30,8 @@ import java.sql.{
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
+import scala.collection.mutable
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -90,12 +92,12 @@ object JdbcDbUtils extends LazyLogging {
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     assert(
       connectionOptions.contains("driver"),
-      "driver class not found in JDBC connection options"
+      s"driver class not found in JDBC connection options $connectionOptions"
     )
     Class.forName(connectionOptions("driver"))
     val url = connectionOptions("url")
     val properties = new Properties()
-    (connectionOptions - "url").foreach { case (key, value) =>
+    (connectionOptions - "url" - "driver").foreach { case (key, value) =>
       properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
@@ -242,11 +244,13 @@ object JdbcDbUtils extends LazyLogging {
   private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
     connection: SQLConnection,
-    table: String
+    table: String,
+    jdbcEngine: Option[JdbcEngine]
   )(implicit
     settings: Settings
   ): Option[String] = {
-    jdbcSchema.tableRemarks.map { remarks =>
+    val tableRemarks = jdbcSchema.tableRemarks.orElse(jdbcEngine.flatMap(_.tableRemarks))
+    tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting table remarks using $sql")
       val statement = connection.createStatement()
@@ -271,11 +275,13 @@ object JdbcDbUtils extends LazyLogging {
   private def extractColumnRemarks(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    table: String
+    table: String,
+    jdbcEngine: Option[JdbcEngine]
   )(implicit
     settings: Settings
   ): Option[Map[TableRemarks, TableRemarks]] = {
-    jdbcSchema.columnRemarks.map { remarks =>
+    val columnRemarks = jdbcSchema.columnRemarks.orElse(jdbcEngine.flatMap(_.columnRemarks))
+    columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting column remarks using $sql")
       withJDBCConnection(connectionSettings.options) { connection =>
@@ -296,7 +302,7 @@ object JdbcDbUtils extends LazyLogging {
     schemaName: String
   ): Try[String] = {
     connectionSettings match {
-      case d if d.isMySQL() =>
+      case d if d.isMySQLOrMariaDb() =>
         Using(
           databaseMetaData.getCatalogs()
         ) { resultSet =>
@@ -341,8 +347,12 @@ object JdbcDbUtils extends LazyLogging {
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
-  ): Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
+  ): Map[TableName, ExtractTableAttributes] =
     withJDBCConnection(connectionSettings.options) { connection =>
+      val url = connectionSettings.options("url")
+      val jdbcServer = url.split(":")(1)
+      val jdbcEngine = settings.appConfig.jdbcEngines.get(jdbcServer)
+
       val databaseMetaData = connection.getMetaData()
 
       val jdbcTableMap =
@@ -359,7 +369,7 @@ object JdbcDbUtils extends LazyLogging {
         val tableNames = mutable.Map.empty[String, String]
         Try {
           connectionSettings match {
-            case d if d.isMySQL() =>
+            case d if d.isMySQLOrMariaDb() =>
               databaseMetaData.getTables(
                 schemaName,
                 "%",
@@ -384,7 +394,7 @@ object JdbcDbUtils extends LazyLogging {
                     if (skipRemarks) None
                     else
                       Try {
-                        extractTableRemarks(jdbcSchema, connection, tableName)
+                        extractTableRemarks(jdbcSchema, connection, tableName, jdbcEngine)
                       } match {
                         case Failure(exception) =>
                           logger.warn(exception.getMessage, exception)
@@ -442,10 +452,10 @@ object JdbcDbUtils extends LazyLogging {
         logger.whenDebugEnabled {
           selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
         }
-        // Extract the Comet Schema
-        val selectedTablesAndColumns: Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
-          ExtractUtils
-            .makeParallel(selectedTables)
+        // Extract the Starlake Schema
+        val selectedTablesAndColumnsAndFilter: Map[TableName, ExtractTableAttributes] =
+          ParUtils
+            .makeParallel(selectedTables.toList)
             .map { case (tableName, tableRemarks) =>
               val jdbcTableColumnsOpt =
                 jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName)).map(_.columns)
@@ -458,7 +468,7 @@ object JdbcDbUtils extends LazyLogging {
 
                     val foreignKeysResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getImportedKeys(
                             schemaName,
                             None.orNull,
@@ -505,7 +515,7 @@ object JdbcDbUtils extends LazyLogging {
                     // Extract all columns
                     val columnsResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getColumns(
                             schemaName,
                             None.orNull,
@@ -524,7 +534,7 @@ object JdbcDbUtils extends LazyLogging {
                     val remarks: Map[TableRemarks, TableRemarks] = (
                       if (skipRemarks) None
                       else
-                        extractColumnRemarks(jdbcSchema, connectionSettings, tableName)
+                        extractColumnRemarks(jdbcSchema, connectionSettings, tableName, jdbcEngine)
                     ).getOrElse(Map.empty)
 
                     val attrs = new Iterator[Attribute] {
@@ -578,13 +588,15 @@ object JdbcDbUtils extends LazyLogging {
                       columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
                     }
 
+                    val jdbcCurrentTable = jdbcTableMap
+                      .get(tableName.toUpperCase)
                     // Limit to the columns specified by the user if any
                     val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
-                      jdbcTableMap
-                        .get(tableName.toUpperCase)
+                      jdbcCurrentTable
                         .map(_.columns.map(c => c.name.toUpperCase.trim -> c.rename))
                         .getOrElse(Map.empty)
                         .toMap
+                    val currentFilter = jdbcCurrentTable.flatMap(_.filter)
                     val selectedColumns: List[Attribute] =
                       (if (
                          currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
@@ -614,7 +626,7 @@ object JdbcDbUtils extends LazyLogging {
                     //      // Find primary keys
                     val primaryKeysResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getPrimaryKeys(
                             schemaName,
                             None.orNull,
@@ -633,7 +645,12 @@ object JdbcDbUtils extends LazyLogging {
 
                       def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
                     }.toList
-                    tableName -> (tableRemarks, selectedColumns, primaryKeys)
+                    tableName -> ExtractTableAttributes(
+                      tableRemarks,
+                      selectedColumns,
+                      primaryKeys,
+                      currentFilter
+                    )
                   }
                 } match {
                   case Failure(exception) => throw exception
@@ -641,9 +658,9 @@ object JdbcDbUtils extends LazyLogging {
                 }
               }
             }
-            .seq
+            .toList
             .toMap
-        selectedTablesAndColumns
+        selectedTablesAndColumnsAndFilter
       } match {
         case Failure(exception) =>
           Utils.logException(logger, exception)
@@ -682,7 +699,7 @@ object JdbcDbUtils extends LazyLogging {
   def extractDomain(
     jdbcSchema: JDBCSchema,
     domainTemplate: Option[Domain],
-    selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)]
+    selectedTablesAndColumns: Map[String, ExtractTableAttributes]
   ): Domain = {
 
     def isNumeric(sparkType: String): Boolean = {
@@ -695,25 +712,24 @@ object JdbcDbUtils extends LazyLogging {
     val trimTemplate =
       domainTemplate.flatMap(_.tables.headOption.flatMap(_.attributes.head.trim))
 
-    val cometSchema = selectedTablesAndColumns.map {
-      case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
-        val sanitizedTableName = Utils.keepAlphaNum(tableName)
-        Schema(
-          name = tableName,
-          rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
-          pattern = Pattern.compile(s"$tableName.*"),
-          attributes = selectedColumns.map(attr =>
-            attr.copy(trim =
-              if (isNumeric(attr.`type`)) jdbcSchema.numericTrim.orElse(trimTemplate)
-              else trimTemplate
-            )
-          ),
-          metadata = None,
-          comment = Option(tableRemarks),
-          presql = Nil,
-          postsql = Nil,
-          primaryKey = primaryKeys
-        )
+    val cometSchema = selectedTablesAndColumns.map { case (tableName, tableAttrs) =>
+      val sanitizedTableName = Utils.keepAlphaNum(tableName)
+      Schema(
+        name = tableName,
+        rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
+        pattern = Pattern.compile(s"$tableName.*"),
+        attributes = tableAttrs.columNames.map(attr =>
+          attr.copy(trim =
+            if (isNumeric(attr.`type`)) jdbcSchema.numericTrim.orElse(trimTemplate)
+            else trimTemplate
+          )
+        ),
+        metadata = None,
+        comment = Option(tableAttrs.tableRemarks),
+        presql = Nil,
+        postsql = Nil,
+        primaryKey = tableAttrs.primaryKeys
+      )
     }
 
     // Generate the domain with a dummy watch directory
@@ -835,8 +851,8 @@ object JdbcDbUtils extends LazyLogging {
       extractConfig.jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
     if (doTablesExtraction) {
       // Map tables to columns and primary keys
-      implicit val forkJoinTaskSupport = ExtractUtils.createForkSupport(extractConfig.parallelism)
-      val selectedTablesAndColumns: Map[TableName, (TableRemarks, Columns, PrimaryKeys)] =
+      implicit val forkJoinTaskSupport = ParUtils.createForkSupport(extractConfig.parallelism)
+      val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
           extractConfig.data,
@@ -845,9 +861,9 @@ object JdbcDbUtils extends LazyLogging {
         )
       val globalStart = System.currentTimeMillis()
       val extractionResults: List[Try[Unit]] =
-        ExtractUtils
-          .makeParallel(selectedTablesAndColumns)
-          .map { case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+        ParUtils
+          .makeParallel(selectedTablesAndColumns.toList)
+          .map { case (tableName, tableAttrs) =>
             Try {
               val context = s"[${extractConfig.jdbcSchema.schema}.$tableName]"
 
@@ -884,7 +900,7 @@ object JdbcDbUtils extends LazyLogging {
                       .orElse(extractConfig.jdbcSchema.numPartitions)
                       .getOrElse(extractConfig.numPartitions)
                     // Partition column type is useful in order to know how to compare values since comparing numeric, big decimal, date and timestamps are not the same
-                    val partitionColumnType = selectedColumns
+                    val partitionColumnType = tableAttrs.columNames
                       .find(_.name.equalsIgnoreCase(partitionColumn))
                       .flatMap(attr => schemaHandler.types().find(_.name == attr.`type`))
                       .map(_.primitiveType)
@@ -900,23 +916,25 @@ object JdbcDbUtils extends LazyLogging {
                     PartitionnedTableExtractDataConfig(
                       domainName,
                       tableName,
-                      selectedColumns,
+                      tableAttrs.columNames,
                       fullExport,
                       fetchSize,
                       partitionColumn,
                       partitionColumnType,
                       stringPartitionFuncTpl,
                       numPartitions,
-                      tableOutputDir
+                      tableOutputDir,
+                      tableAttrs.filterOpt
                     )
                   case None =>
                     UnpartitionnedTableExtractDataConfig(
                       domainName,
                       tableName,
-                      selectedColumns,
+                      tableAttrs.columNames,
                       fullExport,
                       fetchSize,
-                      tableOutputDir
+                      tableOutputDir,
+                      tableAttrs.filterOpt
                     )
                 }
               }
@@ -1008,7 +1026,10 @@ object JdbcDbUtils extends LazyLogging {
       .getOrElse(true)
   }
 
-  private def getCurrentTableDefinition(jdbcSchema: JDBCSchema, tableName: TableName) = {
+  private def getCurrentTableDefinition(
+    jdbcSchema: JDBCSchema,
+    tableName: TableName
+  ): Option[JDBCTable] = {
     jdbcSchema.tables
       .flatMap { table =>
         if (table.name.contains("*") || table.name.equalsIgnoreCase(tableName)) {
@@ -1040,7 +1061,7 @@ object JdbcDbUtils extends LazyLogging {
     // This is applied when the table is exported for the first time
 
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
+    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"and $w").getOrElse("")
 
     /** @param columnExprToDistribute
       *   expression to use in order to distribute data.
@@ -1088,8 +1109,10 @@ object JdbcDbUtils extends LazyLogging {
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
     var tableCount = new AtomicLong();
-    val extractionResults: GenTraversable[Try[Int]] =
-      ExtractUtils.makeParallel(boundaries.partitions.zipWithIndex).map { case (bounds, index) =>
+    val parList =
+      ParUtils.makeParallel(boundaries.partitions.zipWithIndex.toList)
+    val extractionResults: List[Try[Int]] =
+      parList.map { case (bounds, index) =>
         Try {
           val boundaryContext = s"$context[$index]"
           logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
@@ -1203,7 +1226,6 @@ object JdbcDbUtils extends LazyLogging {
               start = new Timestamp(partitionStart),
               end = new Timestamp(partitionEnd),
               duration = (partitionEnd - partitionStart).toInt,
-              mode = extractConfig.jdbcSchema.writeMode().toString,
               count = count,
               success = true,
               message = tableExtractDataConfig.partitionColumn,
@@ -1227,7 +1249,8 @@ object JdbcDbUtils extends LazyLogging {
             )
           )
         }
-      }
+      }.toList
+
     val success = if (extractionResults.exists(_.isFailure)) {
       logger.error(s"$context An error occured during extraction.")
       extractionResults.foreach {
@@ -1250,7 +1273,6 @@ object JdbcDbUtils extends LazyLogging {
       start = new Timestamp(tableStart),
       end = new Timestamp(tableEnd),
       duration = duration,
-      mode = extractConfig.jdbcSchema.writeMode().toString,
       count = boundaries.count,
       success = success,
       message = tableExtractDataConfig.partitionColumn,
@@ -1278,7 +1300,7 @@ object JdbcDbUtils extends LazyLogging {
     auditColumns: Columns
   )(implicit settings: Settings): Try[Unit] = {
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"where $w").getOrElse("")
+    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"where $w").getOrElse("")
     // non partitioned tables are fully extracted there is no delta mode
     val sql =
       s"""select $dataColumnsProjection from ${extractConfig.data.quoteIdentifier(
@@ -1318,7 +1340,6 @@ object JdbcDbUtils extends LazyLogging {
       start = new Timestamp(tableStart),
       end = new Timestamp(tableEnd),
       duration = (tableEnd - tableStart).toInt,
-      mode = extractConfig.jdbcSchema.writeMode().toString,
       count = count,
       success = count >= 0,
       message = "FULL",
@@ -1414,8 +1435,8 @@ object JdbcDbUtils extends LazyLogging {
         .find { case (tableName, _) =>
           tableName.equalsIgnoreCase(lastExportTableName)
         }
-        .map { case (_, (_, columns, _)) =>
-          columns
+        .map { case (_, tableAttrs) =>
+          tableAttrs.columNames
         }
         .getOrElse(
           throw new RuntimeException(s"$lastExportTableName table not found. Please create it.")
@@ -1513,6 +1534,31 @@ object JdbcDbUtils extends LazyLogging {
     } else
       jdbcOptions
     CaseInsensitiveMap[String](options)
+  }
+
+  def getCommonJDBCType(dt: DataType): Option[JdbcType] = {
+    dt match {
+      case IntegerType    => Option(JdbcType("INTEGER", java.sql.Types.INTEGER))
+      case LongType       => Option(JdbcType("BIGINT", java.sql.Types.BIGINT))
+      case DoubleType     => Option(JdbcType("DOUBLE PRECISION", java.sql.Types.DOUBLE))
+      case FloatType      => Option(JdbcType("REAL", java.sql.Types.FLOAT))
+      case ShortType      => Option(JdbcType("INTEGER", java.sql.Types.SMALLINT))
+      case ByteType       => Option(JdbcType("BYTE", java.sql.Types.TINYINT))
+      case BooleanType    => Option(JdbcType("BIT(1)", java.sql.Types.BIT))
+      case StringType     => Option(JdbcType("TEXT", java.sql.Types.CLOB))
+      case BinaryType     => Option(JdbcType("BLOB", java.sql.Types.BLOB))
+      case CharType(n)    => Option(JdbcType(s"CHAR($n)", java.sql.Types.CHAR))
+      case VarcharType(n) => Option(JdbcType(s"VARCHAR($n)", java.sql.Types.VARCHAR))
+      case TimestampType  => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      // This is a common case of timestamp without time zone. Most of the databases either only
+      // support TIMESTAMP type or use TIMESTAMP as an alias for TIMESTAMP WITHOUT TIME ZONE.
+      // Note that some dialects override this setting, e.g. as SQL Server.
+      case TimestampNTZType => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      case DateType         => Option(JdbcType("DATE", java.sql.Types.DATE))
+      case t: DecimalType =>
+        Option(JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
+      case _ => None
+    }
   }
 }
 
@@ -1804,7 +1850,7 @@ object LastExportUtils extends LazyLogging {
     tableExtractDataConfig: PartitionnedTableExtractDataConfig,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
-    val extraCondition = extractConfig.jdbcSchema.filter.map(w => s"and $w").getOrElse("")
+    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"and $w").getOrElse("")
     val quotedColumn = extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
     val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
@@ -1907,7 +1953,7 @@ object LastExportUtils extends LazyLogging {
     preparedStatement.setTimestamp(3, row.start)
     preparedStatement.setTimestamp(4, row.end)
     preparedStatement.setInt(5, row.duration)
-    preparedStatement.setString(6, row.mode)
+    preparedStatement.setString(6, WriteMode.OVERWRITE.toString)
     preparedStatement.setLong(7, row.count)
     preparedStatement.setBoolean(8, row.success)
     preparedStatement.setString(9, row.message)
@@ -1968,7 +2014,6 @@ case class DeltaRow(
   start: java.sql.Timestamp,
   end: java.sql.Timestamp,
   duration: Int,
-  mode: String,
   count: Long,
   success: Boolean,
   message: String,

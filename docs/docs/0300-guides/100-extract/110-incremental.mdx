@@ -1,0 +1,20 @@
+# Incremental extraction
+
+Incremental extraction is useful when you want to extract only the data that has changed since the last extraction.
+This is useful when you have a large dataset and only a small portion of the data changes frequently.
+
+To enable incremental extraction, you need to provide a column that can be used to identify the new rows.
+This column is called the `partitionColumn`.
+
+
+```yaml {7,8} title="metadata/extract/my_extract_config.sl.yml"
+extract:
+  connectionRef: "duckdb" # The database connection to use
+  jdbcSchemas:
+    - schema: "starbake"
+      tables:
+        - name: "order"               # table names or  "*" to extract all tables
+          fullExport: false           # (optional) set to true to do a full export
+          partitionColumn: "order_id" # (optional) column to use for incremental extraction
+  ...
+```

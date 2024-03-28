@@ -5,7 +5,6 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
@@ -33,6 +32,7 @@ class SparkAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -159,62 +159,7 @@ class SparkAutoTask(
     mergedDF
   }
 
-  private def sinkToBQ2(dataframe: DataFrame): Try[JobResult] = { // TODO declaration is never used
-    val bqSink = this.sinkConfig.asInstanceOf[BigQuerySink]
-
-    val source = Right(Utils.setNullableStateOfColumn(dataframe, nullable = true))
-    val (createDisposition, writeDisposition) = {
-      Utils.getDBDisposition(this.taskDesc.getWriteMode())
-    }
-    val bqLoadConfig =
-      BigQueryLoadConfig(
-        connectionRef = Some(sinkConnectionRef),
-        source = source,
-        outputTableId = Some(
-          BigQueryJobBase.extractProjectDatasetAndTable(
-            this.taskDesc.database,
-            this.taskDesc.domain,
-            this.taskDesc.table
-          )
-        ),
-        sourceFormat = settings.appConfig.defaultWriteFormat,
-        createDisposition = createDisposition,
-        writeDisposition = writeDisposition,
-        outputPartition = bqSink.getPartitionColumn(),
-        outputClustering = bqSink.clustering.getOrElse(Nil),
-        days = bqSink.days,
-        requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-        rls = this.taskDesc.rls,
-        acl = this.taskDesc.acl,
-        // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-        attributesDesc = this.taskDesc.attributesDesc,
-        outputDatabase = this.taskDesc.database
-      )
-    val result =
-      new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment).run()
-    result
-  }
-
-  override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val columnNames = SQLUtils.extractColumnNames(sql.getOrElse(taskDesc.getSql()))
-    val mainSql =
-      StrategiesBuilder(jdbcSinkEngine.strategyBuilder)
-        .buildSQLForStrategy(
-          strategy,
-          sql.getOrElse(taskDesc.getSql()),
-          fullTableName,
-          columnNames,
-          tableExists,
-          truncate,
-          isMaterializedView(),
-          jdbcSinkEngine,
-          sinkConfig
-        )
-    mainSql
-  }
-
-  def runSparkQueryOnBigQuery(): Option[DataFrame] = {
+  def buildDataframeFromBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
       connectionRef = Some(this.taskDesc.getRunConnectionRef())
     )
@@ -228,7 +173,7 @@ class SparkAutoTask(
     }
   }
 
-  def runSparkQueryOnJdbc(): Option[DataFrame] = {
+  def buildDataframeFromJdbc(): Option[DataFrame] = {
     val runConnection = taskDesc.getRunConnection()
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
@@ -251,7 +196,7 @@ class SparkAutoTask(
     SparkJobResult(dataFrameToSink)
   }
 
-  def runSparkQueryOnFS(): Option[DataFrame] = {
+  def buildDataframeFromFS(): Option[DataFrame] = {
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     runSqls(List(sqlWithParameters), "Main")
   }
@@ -261,21 +206,20 @@ class SparkAutoTask(
     val dataframe =
       (runEngine, runConnectionType) match {
         case (Engine.SPARK, ConnectionType.FS) =>
-          runSparkQueryOnFS()
+          buildDataframeFromFS()
         case (Engine.SPARK, ConnectionType.BQ) =>
-          runSparkQueryOnBigQuery()
+          buildDataframeFromBigQuery()
         case (Engine.SPARK, ConnectionType.JDBC) =>
-          runSparkQueryOnJdbc()
+          buildDataframeFromJdbc()
         case (Engine.BQ, ConnectionType.BQ) =>
-          runSparkQueryOnBigQuery()
+          buildDataframeFromBigQuery()
         case (Engine.JDBC, ConnectionType.JDBC) =>
-          runSparkQueryOnJdbc()
+          buildDataframeFromJdbc()
         case _ =>
           throw new Exception(
             s"Unsupported engine $runEngine and connection type $runConnectionType"
           )
       }
-
     dataframe
   }
 
@@ -355,11 +299,11 @@ class SparkAutoTask(
           SparkJobResult(jobResult)
       }
       val end = Timestamp.from(Instant.now())
-      logAuditSuccess(start, end, -1)
+      logAuditSuccess(start, end, -1, test)
       jobResult
     } recoverWith { case e: Exception =>
       val end = Timestamp.from(Instant.now())
-      logAuditFailure(start, end, e)
+      logAuditFailure(start, end, e, test)
       Failure(e)
     }
   }
@@ -389,7 +333,7 @@ class SparkAutoTask(
     // We first download locally all files because PythonRunner only support local filesystem
     val pyFiles =
       pythonFile +: settings.sparkConfig
-        .getString("py-files")
+        .getString("pyFiles")
         .split(",")
         .filter(_.nonEmpty)
         .map(x => new Path(x.trim))
@@ -460,14 +404,14 @@ class SparkAutoTask(
 
           case _: BigQuerySink =>
             val bqJob =
-              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
+              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false, test)(
                 settings,
                 storageHandler,
                 schemaHandler
               )
             bqJob.tableExists
           case _: JdbcSink =>
-            val jdbcJob = new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
+            val jdbcJob = new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false, test)(
               settings,
               storageHandler,
               schemaHandler
@@ -493,9 +437,9 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.getStrategyType() == WriteStrategyType.SCD2) {
-        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+      if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
+        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
           incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
@@ -678,6 +622,7 @@ class SparkAutoTask(
             commandParameters,
             interactive,
             truncate,
+            test,
             resultPageSize
           )
           secondStepTask.updateBigQueryTableSchema(loadedDF.schema)
@@ -699,6 +644,7 @@ class SparkAutoTask(
           commandParameters,
           interactive,
           truncate,
+          test,
           resultPageSize
         )
       secondSTepTask.updateBigQueryTableSchema(loadedDF.schema)
@@ -767,7 +713,7 @@ class SparkAutoTask(
           )
 
         val secondStepAutoTask =
-          new JdbcAutoTask(secondStepTaskDesc, Map.empty, None, truncate = false)(
+          new JdbcAutoTask(secondStepTaskDesc, Map.empty, None, truncate = false, test)(
             settings,
             storageHandler,
             schemaHandler
@@ -788,13 +734,17 @@ class SparkAutoTask(
           sql = None
         )
         val secondAutoStepTask =
-          new JdbcAutoTask(secondStepDesc, Map.empty, None, truncate = false)
+          new JdbcAutoTask(secondStepDesc, Map.empty, None, truncate = false, test)
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
         jobResult
       }
     result
   }
+
+  ///////////////////////////////////////////////////////////////////////
+  // TODO Everything below this line should be moved to an export package
+  ///////////////////////////////////////////////////////////////////////
 
   /** This function is called only if csvOutput is true This means we are sure that sink is an
     * FsSink
@@ -823,7 +773,7 @@ class SparkAutoTask(
         ".csv"
       }
     val fsSink = sinkConfig.asInstanceOf[FsSink]
-    val finalCsvPath: Path = fsSink.path
+    val finalCsvPath: Path = fsSink.finalPath
       .map { p =>
         val parsed = parseJinja(List(p), allVars).head
         if (parsed.contains("://"))
@@ -833,6 +783,7 @@ class SparkAutoTask(
       }
       .getOrElse(getExportFilePath(domainName, tableName + extension))
     storageHandler.delete(finalCsvPath)
+
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
@@ -861,7 +812,7 @@ class SparkAutoTask(
     result match {
       case Some(df) =>
         // retrieve the domain export root path
-        val domainDir = DatasetArea.export(domainName)
+        val domainDir = DatasetArea.`export`(domainName)
         storageHandler.mkdirs(domainDir)
 
         // retrieve the xls file extension
@@ -881,7 +832,7 @@ class SparkAutoTask(
 
         // define the full path to the xls file
         val finalXlsPath =
-          fsSink.path
+          fsSink.finalPath
             .map { p =>
               val parsed = parseJinja(List(p), allVars).head
               if (parsed.contains("://"))

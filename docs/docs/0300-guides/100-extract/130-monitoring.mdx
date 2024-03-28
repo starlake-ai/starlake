@@ -1,0 +1,23 @@
+# Monitoring
+
+Starlake keeps track of the successive extractions in the table `SL_LAST_EXPORT` located in the audit schema (`audit` by default).
+
+The connection to the audit schema is defined in the `metadata/application.sl.yml` file.
+
+```yaml
+version: 1
+application:
+  audit:
+    domain: "audit" # Schema name
+    sink:
+      connectionRef: "audit_connection" # Connection to the audit schema
+
+  connections:
+    audit_connection:
+      type: "jdbc"
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
+    ...
+```
+

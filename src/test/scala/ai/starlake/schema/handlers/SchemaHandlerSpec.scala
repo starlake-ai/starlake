@@ -24,7 +24,6 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestConfig
-import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
@@ -115,13 +114,13 @@ class SchemaHandlerSpec extends TestHelper {
         }
 
         private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
-        validator.loadPending()
+        validator.load()
 
         sparkSessionReset(settings)
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator2.loadPending()
+        validator2.load()
 
         sparkSessionReset(settings)
 
@@ -153,7 +152,7 @@ class SchemaHandlerSpec extends TestHelper {
         deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
         sparkSessionReset(settings)
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator3.loadPending()
+        validator3.load()
 
         sparkSessionReset(settings)
 
@@ -193,7 +192,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
-        validator.loadPending()
+        validator.load()
 
         val accepted: Array[Row] = sparkSession
           .sql(s"select PK, firstName, lastName, DOB, YEAR, MONTH from $datasetDomainName.Players")
@@ -236,7 +235,7 @@ class SchemaHandlerSpec extends TestHelper {
         // Since full is loaded first, it will be the base for the delta
 
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").load()
 
         val acceptedFullDelta: Array[Row] = sparkSession
           .sql(
@@ -258,7 +257,7 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedFullDelta should contain theSameElementsAs expectedFullDelta
         sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").loadPending()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").load()
 
         val acceptedDeltaFull: Array[Row] = sparkSession
           .sql(
@@ -285,6 +284,7 @@ class SchemaHandlerSpec extends TestHelper {
   new WithSettings(esConfiguration) {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
+      // ES Load in standby
       pending
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.sl.yml",
@@ -334,31 +334,31 @@ class SchemaHandlerSpec extends TestHelper {
 
       }
     }
-    "load to elasticsearch" should "work" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
-        datasetDomainName = "locations",
-        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
-      ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
-        cleanMetadata
-        cleanDatasets
-        // loadPending
-        val validator = loadWorkflow()
-        val result = validator.esLoad(
-          ESLoadConfig(
-            domain = "DOMAIN",
-            schema = "",
-            format = "json",
-            dataset = Some(
-              Left(new Path(starlakeDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
-            ),
-            options = settings.appConfig.connectionOptions("elasticsearch")
-          )
-        )
-        result.isSuccess shouldBe true
-      }
-    }
+//    "load to elasticsearch" should "work" in {
+//      new SpecTrait(
+//        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+//        datasetDomainName = "locations",
+//        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+//      ) {
+//        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
+//        cleanMetadata
+//        cleanDatasets
+//        // loadPending
+//        val validator = loadWorkflow()
+//        val result = validator.esLoad(
+//          ESLoadConfig(
+//            domain = "DOMAIN",
+//            schema = "",
+//            format = "json",
+//            dataset = Some(
+//              Left(new Path(starlakeDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
+//            ),
+//            options = settings.appConfig.connectionOptions("elasticsearch")
+//          )
+//        )
+//        result.isSuccess shouldBe true
+//      }
+//    }
 
   }
   new WithSettings() {
@@ -384,7 +384,7 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
         ) {
           val targetPath = DatasetArea.path(
-            DatasetArea.pending("DOMAIN.sl.yml"),
+            DatasetArea.stage("DOMAIN.sl.yml"),
             new Path("/sample/SCHEMA-VALID.dsv").getName
           )
           cleanMetadata
@@ -416,6 +416,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
+        sparkSessionReset(settings)
 
         cleanMetadata
 
@@ -701,9 +702,10 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business.sl.yml"
+        val filename = "/sample/metadata/transform/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
+        // FIXME, check why this works on master
         job.success.value.name shouldBe "business2"
       }
     }
@@ -750,7 +752,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/business_with_vars.sl.yml"
+        val filename = "/sample/metadata/transform/business_with_vars/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val content = storageHandler.read(jobPath)
         val vars = content.extractVars()
@@ -769,7 +771,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
-        val filename = "/sample/metadata/business/my-jinja-job.sl.yml"
+        val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
 
@@ -894,8 +896,7 @@ class SchemaHandlerSpec extends TestHelper {
     "Custom mapping in Metadata" should "be read as a map" in {
       val sch = new SchemaHandler(storageHandler)
       val content =
-        """mode: FILE
-          |withHeader: false
+        """withHeader: false
           |encoding: ISO-8859-1
           |format: POSITION
           |sink:
@@ -906,7 +907,6 @@ class SchemaHandlerSpec extends TestHelper {
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
 
       metadata shouldBe Metadata(
-        mode = Some(Mode.FILE),
         format = Some(ai.starlake.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
@@ -1036,35 +1036,5 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
     }
-    "Schema with external refs" should "produce import external refs into domain" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/schema-refs/WITH_REF.sl.yml",
-        datasetDomainName = "WITH_REF",
-        sourceDatasetPathName = "/sample/Players.csv"
-      ) {
-        cleanMetadata
-        cleanDatasets
-
-        withSettings.deliverTestFile(
-          "/sample/schema-refs/players.sl.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "players.sl.yml")
-        )
-
-        withSettings.deliverTestFile(
-          "/sample/schema-refs/users.sl.yml",
-          new Path(new Path(domainMetadataRootPath, "WITH_REF"), "users.sl.yml")
-        )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
-        schemaHandler
-          .getDomain("WITH_REF")
-          .map(_.tables.map(_.name))
-          .get should contain theSameElementsAs List(
-          "User",
-          "Players",
-          "employee"
-        )
-      }
-    }
-
   }
 }

@@ -68,8 +68,8 @@ case class Attribute(
   name: String,
   `type`: String = "string",
   array: Option[Boolean] = None,
-  required: Boolean = true,
-  privacy: PrivacyLevel = PrivacyLevel.None,
+  required: Boolean = false,
+  privacy: TransformInput = TransformInput.None,
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
@@ -104,7 +104,7 @@ case class Attribute(
     *   true if attribute is valid
     */
   def checkValidity(schemaHandler: SchemaHandler): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     if (`type` == null)
       errorList +=
         ValidationMessage(Error, "Attribute.type", s"$this : unspecified type")
@@ -348,11 +348,11 @@ case class Attribute(
 
   def isIgnore(): Boolean = ignore.getOrElse(false)
 
-  def getPrivacy(): PrivacyLevel = Option(privacy).getOrElse(PrivacyLevel.None)
+  def getPrivacy(): TransformInput = privacy
 
   def isArray(): Boolean = array.getOrElse(false)
 
-  def isRequired(): Boolean = Option(required).getOrElse(false)
+  def isRequired(): Boolean = required
 
   @JsonIgnore
   val transform: Option[String] = Option(privacy).filter(_.sql).map(_.value)
@@ -405,9 +405,8 @@ object Attribute {
     val required = !sparkField.nullable
     val isArray = sparkType.isInstanceOf[ArrayType]
     sparkType match {
-      case _: StructType =>
-        val struct = sparkType.asInstanceOf[StructType]
-        val subFields = struct.fields.map(field => apply(field))
+      case st: StructType =>
+        val subFields = st.fields.map(field => apply(field))
         new Attribute(
           fieldName,
           PrimitiveType.struct.toString,
@@ -415,6 +414,28 @@ object Attribute {
           required,
           attributes = subFields.toList
         )
+      case at: ArrayType =>
+        at.elementType match {
+          case _: ArrayType =>
+            throw new RuntimeException("Don't support array of array")
+          case nestedSt: StructType =>
+            val subFields = nestedSt.fields.map(field => apply(field))
+            new Attribute(
+              fieldName,
+              PrimitiveType.struct.toString,
+              Some(isArray),
+              required,
+              attributes = subFields.toList
+            )
+          case nestedDt =>
+            val tpe = PrimitiveType.from(nestedDt)
+            new Attribute(
+              fieldName,
+              tpe.toString,
+              Some(isArray),
+              required
+            )
+        }
       case _ =>
         val tpe = PrimitiveType.from(sparkType)
         new Attribute(fieldName, tpe.toString, Some(isArray), required)
@@ -493,7 +514,7 @@ object Attribute {
       }
     refAttr.copy(
       privacy =
-        if (referenceSource.privacy != PrivacyLevel.None) referenceSource.privacy
+        if (referenceSource.privacy != TransformInput.None) referenceSource.privacy
         else fallbackSource.privacy, // We currently have no way to
       comment = referenceSource.comment.orElse(fallbackSource.comment),
       rename = referenceSource.rename.orElse(fallbackSource.rename),

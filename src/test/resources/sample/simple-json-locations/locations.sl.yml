@@ -1,23 +1,23 @@
 ---
+version: 1
 load:
   name: "locations"
-  directory: "__SL_TEST_ROOT__"
   metadata:
-    mode: "FILE"
-    format: "SIMPLE_JSON"
+    directory: "__SL_TEST_ROOT__"
+    format: "JSON_FLAT"
     multiline: true
     array: true
     withHeader: true
     separator: ""
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "locations"
       pattern: "locations.*"

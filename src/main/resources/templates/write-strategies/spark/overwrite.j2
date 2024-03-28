@@ -1,0 +1,11 @@
+
+{% if materializedView %}
+DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
+CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
+{% elif tableFormat == 'delta' %}
+DELETE FROM {{ tableFullName }};
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
+{% else %}
+TRUNCATE TABLE {{ tableFullName }};
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
+{% endif %}

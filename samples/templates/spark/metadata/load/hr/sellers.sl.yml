@@ -1,3 +1,4 @@
+version: 1
 table:
   name: "sellers"
   pattern: "sellers-.*.json"
@@ -5,8 +6,9 @@ table:
     - id
   metadata:
     array: true
-    format: "SIMPLE_JSON"
-    write: "APPEND"
+    format: "JSON_FLAT"
+    writeStrategy:
+      type: "APPEND"
   attributes:
     - name: "id"
       type: "string"

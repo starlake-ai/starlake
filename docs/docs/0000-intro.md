@@ -2,9 +2,11 @@
 sidebar_position: 1
 ---
 
+
+
 # What is Starlake ?
 
-Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
+Starlake is a configuration only Extract, Load, Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
 
 * Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
@@ -19,29 +21,16 @@ Starlake may be used indistinctly for all or any of these steps.
 * The `load` step allows you to load text files, to ingest FIXED-WIDTH/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
 * The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
 
-The Load and Transform steps support multiple configurations for inputs and outputs as illustrated in the
-figure below. 
 
-![Anywhere](/img/data-star.png "Anywhere")
-
-
-## Data Lifecycle
 
 The figure below illustrates the typical data lifecycle in Starlake.
 ![](/img/workflow.png)
 
-* Landing Area: In this optional step, files with predefined filename patterns are stored on a local filesystem in a predefined folder hierarchy
-*-* Pending Area: Files associated with a schema are imported into this area.
-* Accepted Area: Pending files are parsed against their schema and records are rejected or accepted and made available in  Bigquery/Snowflake/Databricks/Hive/... tables or parquet files in a cloud bucket.
-* Business Area: Tables (Hive / BigQuery / Parquet files / ...) in the working area may be joined to provide a holistic view of the data through the definition of transformations.
-* Data visualization: parquet files / tables may be exposed in data warehouses or elasticsearch indices through an indexing definition
-
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 
+## Extract
 
-## Data Extraction
-
-Starlake provides a fast way to extract, in full or incrementally, tables from your database. 
+Starlake provides a simple yet powerful  way to extract, in full or incrementally, tables from your database. 
 
 Using parallel load through a JDBC connection and configuring the incremental fields in the schema, you may extract your data incrementally.
 Once copied to the cloud provider of your choice, the data is available for further processing by the Load and Transform steps.
@@ -52,7 +41,7 @@ The extraction module support two modes:
 * JDBC mode: In this mode, Starlake will spawn a number of threads to extract the data. We were able to extract an average of 1 million records per second using the AdventureWorks database on Postgres.
 
 
-## Data Loading
+## Load
 
 Usually, data loading is done by writing hand made custom parsers that transform input files into datasets of records.
 
@@ -75,80 +64,72 @@ Starlake loads the data using an embedded Spark engine. Please note that this mo
 
 :::note
 
-On BigQuery, Starlake can make use of the bq load API to load the data. This is the fastest way to load the data into BigQuery but comes at the expense of limited features as show below.
+For some datawarehouses like BigQuery, Starlake can make use of the datawarehouse load API to load the data. 
+This is the fastest way to load the data but comes at the expense of limited features.
 
 :::
 
 The table below list the features supported by each mode, the one that meet your requirements depend on the quality of your source and on the audit level you wish to have:
 
-|File formats| Spark Mode | BigQuery Native Mode |
-|---|------------|----------------------|
-|CSV| x          | x                    |
-|CSV with multichar separator| x          |
-|JSON Lines| x          | x                    |
-|JSON Array| x          |                      |
-|XML| x          |                      |
-|POSITION| x          | x                    |
-|Parquet| x          | x                    |
-|Avro| x          | x                    |
-|Kafka| x          |                      |
-|Any JDBC database| x          |                      |
-|Any Spark Source| x          |                      |
-|Any char encoding including chinese, arabic, celtic ...| x          |                      |
+- Import from any source
+  - CSV
+  - CSV with multichar separator
+  - JSON Lines
+  - JSON Array
+  - XML
+  - POSITION
+  - Parquet
+  - Avro
+  - Kafka
+  - Any JDBC database
+  - Any Spark Source
+  - Any char encoding including chinese, arabic, celtic ...
+- Transform on load
+    - rename fields
+    - add new field (scripted fields)
+    - Apply SQL transform on any field
+    - Validate type
+    - Validate pattern (semantic types)
+    - Ignore some fields
+    - remove fields after transformation
+    - parse date and time fields in any format
+    - keep filename in target table for traceability
+    - Partition target table
+    - Append Mode
+    - Overwrite Mode
+    - Merge Mode (SCD2, Remove duplicates, overwrite by key / partition ...)
+    
+    - Run Pre or Post Load SQL scripts
+    - Report Data quality using expectations
+- Save to any sink
+  - Parquet
+  - Delta Lake
+  - Databricks
+  - Google BigQuery
+  - Amazon Redshift
+  - Snowflake
+  - Apache Hive
+  - Any JDBC database
+  - Any Spark Sink
 
-|Error Handling Levels|Spark|Native|
-|---|---|---|
-|File level|x|x|
-|Column level reporting|x||
-|Produce replay file|x||
-|Handle unlimited number of errors|x||
-
-|Features|Spark| Native |
-|---|---|--------|
-|rename domain|x| x      |
-|rename table|x| x      |
-|rename fields|x| x      |
-|add new field (scripted fields)|x| x      |
-|Apply privacy on field (transformation)|x| x      |
-|Validate type|x| x      |
-|Validate pattern (semantic types)|x|        |
-|Ignore fields|x| x      |
-|remove fields after transformation|x| x      |
-|date and time fields any format|x|        |
-|keep filename |x| x      |
-|Partition table|x| x      |
-|Append Mode|x| x      |
-|Overwrite Mode|x| x      |
-|Merge Mode|x| x      |
-|Pre/Post SQL|x| x      |
-|Apply assertions|x| x      |
-
-|Security|Spark|Native|
-|---|---|---|
-|Apply ACL|x|x|
-|Apply RLS|x|x|
-|Apply Tags|x|x|
+- Secure your tables
+    - Apply ACL
+    - Apply RLS
+    - Apply Tags
+- Audit / Error Handling Levels
+  - File level
+  - Column level reporting
+  - Produce replay file
+  - Handle unlimited number of errors
 
 
 
-## Data Transformation
+## Transform
 
 Simply write standard SQL et describe how you want the result to be stored in a YAML description file.
 The major benefits Starlake bring to your Data transformation jobs are:
 
-* Write transformations in regular SQL or python scripts
-* Use Jinja2 to augment your SQL scripts and make them easier to read and maintain
-* Describe where and how the result is stored using YML description files (or even easier using an Excel sheet)
-* Apply security to the target table
-* Preview your data lifecycle and publish in SVG format
-
-
-
-## Combining all steps
-
-You may use the extract, load and transform features independently or in combination.
-The figure below illustrates how all the steps above are combined using the starlake CLI to provide a complete data lifecycle.
-
-![Overview](/img/data-all-steps.png)
+* Write transformations in regular SQL as SELECT statements only, 
+Starlake will convert them to INSERT INTO, MERGE INTO or UPDATE statements depending on the write strategy you choose. 
 
 

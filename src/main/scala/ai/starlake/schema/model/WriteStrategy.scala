@@ -13,12 +13,12 @@ case class WriteStrategy(
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None,
   on: Option[MergeOn] = None, // target or both (on source and target
-  start_ts: Option[String] = None,
-  end_ts: Option[String] = None
+  startTs: Option[String] = None,
+  endTs: Option[String] = None
 ) {
 
   @JsonIgnore
-  def getStrategyType(): WriteStrategyType =
+  def getEffectiveType(): WriteStrategyType =
     `type`.getOrElse(WriteStrategyType.APPEND)
 
   @JsonIgnore
@@ -27,14 +27,20 @@ case class WriteStrategy(
       `type`.getOrElse(WriteStrategyType.APPEND)
     )
 
-  def validate() = {}
+  def validate(): Unit = {}
 
-  @JsonIgnore
-  def getWriteMode() = `type`.getOrElse(WriteStrategyType.APPEND).toWriteMode()
+  def toWriteMode(): WriteMode = `type`.getOrElse(WriteStrategyType.APPEND).toWriteMode()
 
   def requireKey(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireKey()
 
   def requireTimestamp(): Boolean = `type`.getOrElse(WriteStrategyType.APPEND).requireTimestamp()
+
+  def keyCsv(quote: String) = this.key.map(key => s"$quote$key$quote").mkString(",")
+
+  def keyJoinCondition(quote: String, incoming: String, existing: String): String =
+    this.key
+      .map(key => s"$incoming.$quote$key$quote = $existing.$quote$key$quote")
+      .mkString(" AND ")
 
   @JsonIgnore
   private val lastPat =
@@ -136,4 +142,9 @@ case class WriteStrategy(
 
   def compare(other: WriteStrategy): ListDiff[Named] =
     AnyRefDiff.diffAnyRef("", this, other)
+}
+
+object WriteStrategy {
+  val Overwrite = WriteStrategy(Some(WriteStrategyType.OVERWRITE))
+  val Append = WriteStrategy(Some(WriteStrategyType.APPEND))
 }

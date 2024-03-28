@@ -11,7 +11,7 @@ import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)
@@ -50,7 +50,8 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   def extractDataset(dataset: Dataset): Domain = {
     val datasetId = dataset.getDatasetId()
     val bqTables = bigquery.listTables(datasetId, TableListOption.pageSize(10000))
-    val allDatawareTables = bqTables.iterateAll.asScala
+    val allDatawareTables =
+      bqTables.iterateAll.asScala.filter(!_.getTableId.getTable().startsWith("zztmp_"))
     val datasetName = dataset.getDatasetId.getDataset()
     val tables =
       config.tables.get(datasetName) match {

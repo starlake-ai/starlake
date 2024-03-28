@@ -52,6 +52,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
               )
             )
             conn.commit() // some databases are transactional wrt schema updates
+          case Failure(e) => throw e
           case Success(_) => ;
         }
         stmt.close()

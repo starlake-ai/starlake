@@ -39,13 +39,13 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .optional()
         .text("Should we generate a dot file ?"),
       opt[Unit]("svg")
-        .action((_, c) => c.copy(svg = true))
+        .action((_, c) => c.copy(svg = true, viz = true))
         .optional()
         .text(
           "Should we generate SVG files ?"
         ),
       opt[Unit]("png")
-        .action((_, c) => c.copy(png = true))
+        .action((_, c) => c.copy(png = true, viz = true))
         .optional()
         .text(
           "Should we generate PNG files ?"

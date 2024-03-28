@@ -1,0 +1,153 @@
+# Customize the Transform
+
+Add write strategies, partitioning, access control, and more to your transform tasks.
+
+:::note
+Datawarehouses are organized around schemas where tables are grouped.
+Depending on the database, a database `schema` can be called `schema` or `catalog` or `dataset`.
+In starlake, we use the term `domain` to designate  a `schema`, `catalog` or `dataset`.
+:::
+
+Exactly like in the `load` section, the `transform` section is organized around the `domain` and `table` concepts.
+
+Transforming data consists in applying a series of operations to the data to make it ready for analysis.
+The operations can be as simple as renaming a column or as complex as joining multiple tables together.
+
+The transform takes SQL queries or python scripts as input and outputs to an existing or new table using a write strategy.
+
+The way the materialization is done is defined in a YAML file next to the SQL or Python file.
+The YAML file and the SQL file are named, by default, after the table they are transforming .
+
+## Conventions
+
+The transform directory looks like this:
+```plaintext title="transform directory structure"
+metadata/transform
+└── <domain>>
+    ├── _config.sl.yml
+    ├── <table>.sl.yml
+    └── <table>.sql
+```
+<br/>
+
+The SQL file contains only the SELECT statement that contain the transformations to apply before storing on the target table.
+
+And the YAML file contains the configuration of the transformation. The sections below describe the content of the YAML file.
+
+By default, your transforms tasks will be named after the table they are transforming. The result of the SQL file will be written to the table with the same name as the SQL file (`<table>`in this case) in the schema with the same name as
+the folder name (`<domain>` in this case).
+
+You can change this by specifying a different name in the `name` field of the transform configuration file:
+
+```yaml tile="metadata/transform/<domain>/custom.sl.yml"
+task:
+  domain: mydomain # will write to the mydomain schema whatever the name of the <domain> folder
+  table: mytable # will write to the mytable table whatever the name of the <table> in the filename
+  name: custom # this task name. Will be used to name the task when running from the CLI
+```
+
+
+## Write strategies
+
+If not specified, the result of the `SELECT`statement contained in the SQL file will be appended to the `<table>` located in `<domain>`.
+You may use any of these strategies. Below is an example of using the `overwrite` strategy.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+task:
+  writeStrategy:
+    type: overwrite ## or any of the strategies defined [here](../load/write-strategies)
+```
+
+Transform strategies work exactly like the load [write strategies](../load/write-strategies).
+
+
+## Clustering and Partitioning
+
+You can specify the clustering and partitioning of the table in the transform configuration file.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+task:
+  ...
+  clustering:
+    columns:
+      - column1
+      - column2
+  partitioning:
+    columns:
+      - column1
+      - column2
+```
+
+Detailed explanation of the clustering and partitioning can be found [here](../load/sink).
+
+
+##  Access control
+
+You can specify the access control of the table in the transform configuration file similar to the load configuration file [acccess control section](../load/security).
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+    ...
+    acl:
+        - role: SELECT
+          grants:
+            - user@starlake.ai
+            - group
+    rls:
+      - name: "USA only"
+        predicate: "country = 'USA'"
+        grants:
+          - "group:mygroup"
+    attributesDesc:
+        - name: "code0"
+          accessPolicy: <column_access_policy>
+
+    ...
+```
+
+
+## Running a transform against a different database
+
+By default, the transform runs against the database referenced in the connectionRef in the `metadata/application.sl.yml` file.
+You can override this by specifying the `connectionRef` in the transform configuration file.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+    ...
+    connectionRef: myConnection
+    ...
+
+```
+
+## Writing to a different database
+
+You can even specify a different target database in the sink section of the transform configuration file.
+
+This allows you to transform data from one database and write it to another database.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+    ...
+    sink:
+      connectionRef: myOtherConnection
+      ...
+    ...
+
+```
+
+## Expectations
+
+You can specify the expectations of the table in the transform configuration file.
+
+```yaml tile="metadata/transform/<domain>/<table>.sl.yml"
+task:
+  ...
+  expectations:
+    - "is_col_value_not_unique('id') => result(0) == 1"
+```
+
+
+Detailed explanation of the expectations can be found [here](../load/expectations).

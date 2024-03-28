@@ -22,7 +22,6 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -211,19 +210,23 @@ class DsvIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult)
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
+    val rejectedResult =
+      saveRejected(validationResult.errors, validationResult.rejected)(
+        settings,
+        storageHandler,
+        schemaHandler
+      )
+    rejectedResult match {
+      case Success(_) =>
+        val acceptedResult = saveAccepted(validationResult)
+        acceptedResult match {
+          case Success(rejectedRecordCount) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+          case Failure(exception) =>
+            throw exception
+        }
       case Failure(exception) =>
         throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }
 }

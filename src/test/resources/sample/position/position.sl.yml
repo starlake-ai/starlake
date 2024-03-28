@@ -1,23 +1,21 @@
 ---
+version: 1
 load:
   name: "position"
-  directory: "__SL_TEST_ROOT__/position"
-  ack: ""
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/position"
     format: "POSITION"
     withHeader: false
     separator: "|"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     sink:
       partition:
-        sampling: 0.5
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
     dagRef: "sample"
     schedule: "0 0 0 * * ?"
   tables:

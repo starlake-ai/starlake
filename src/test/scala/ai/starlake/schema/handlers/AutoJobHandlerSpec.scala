@@ -2,6 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.TaskViewDependency
@@ -55,6 +56,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .mode("overwrite")
         .parquet(pathGraduateProgramAccepted.toString)
     }
+    super.beforeAll()
   }
 
   new WithSettings() {
@@ -69,16 +71,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -90,7 +91,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler =
@@ -128,15 +129,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -148,7 +148,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -172,16 +172,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -193,7 +192,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(
@@ -232,16 +231,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -255,7 +253,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val workflow =
@@ -287,16 +285,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        write = Some(WriteMode.OVERWRITE),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
@@ -308,7 +305,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler)
@@ -339,7 +336,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "graduateProgram",
         table = "output",
-        write = Some(WriteMode.OVERWRITE),
         presql = List(
           s"""
             |create or replace temporary view graduate_agg_view as
@@ -350,7 +346,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |""".stripMargin
         ),
         python = None,
-        writeStrategy = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())
       )
       val configJob =
@@ -362,13 +358,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val configJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(configJob)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val businessTaskDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessTask1)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessTaskDef, pathGraduateProgramBusiness)
 
       val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
@@ -411,14 +407,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "DOMAIN",
         table = "TABLE",
-        write = Some(WriteMode.OVERWRITE),
-        partition = List("sl_year", "sl_month"),
         presql = Nil,
         postsql = Nil,
         None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        writeStrategy = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

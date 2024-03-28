@@ -21,8 +21,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{ExtractUtils, JDBCSchema, JdbcDbUtils}
-import ai.starlake.extract.JdbcDbUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.extract.{ExtractTableAttributes, JDBCSchema, JdbcDbUtils, ParUtils}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -106,7 +105,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           case Some(connection) =>
             val connectionSettings = settings.appConfig.getConnection(connection)
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-              ExtractUtils.createForkSupport(config.parallelism)
+              ParUtils.createForkSupport(config.parallelism)
             JdbcDbUtils.extractJDBCTables(
               JDBCSchema(
                 config.catalog,
@@ -122,7 +121,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               skipRemarks = true,
               keepOriginalName = true
             )
-          case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
+          case None => Map.empty[String, ExtractTableAttributes]
         }
         val toDeleteTables = existingTables.keys.filterNot(table =>
           schemas.map(_.finalName.toLowerCase()).contains(table.toLowerCase())
@@ -195,25 +194,25 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             val result = applyTemplate("create", createParamMap)
             sqlString.append(result)
           } else {
-            val (_, existingColumns, _) =
+            val tableAttrs =
               existingTables
                 .iget(schema.finalName)
                 .getOrElse(throw new Exception("Should never happen"))
             val addColumns =
               schema.attributes.filter(attr =>
-                !existingColumns
+                !tableAttrs.columNames
                   .map(_.getFinalName().toLowerCase())
                   .contains(attr.getFinalName().toLowerCase())
               )
             val dropColumns =
-              existingColumns.filter(attr =>
+              tableAttrs.columNames.filter(attr =>
                 !schema.attributes
                   .map(_.getFinalName().toLowerCase())
                   .contains(attr.getFinalName().toLowerCase())
               )
             val alterColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   (existingAttr.required != attr.required ||
                   !existingAttr.samePrimitiveType(attr)(schemaHandler) ||
@@ -222,21 +221,21 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               }
             val alterDataTypeColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   !existingAttr.samePrimitiveType(attr)(schemaHandler)
                 )
               }
             val alterDescriptionColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   existingAttr.comment.getOrElse("") != attr.comment.getOrElse("")
                 )
               }
             val alterRequiredColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   existingAttr.required != attr.required
                 )

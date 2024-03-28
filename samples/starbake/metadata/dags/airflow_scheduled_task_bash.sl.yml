@@ -1,0 +1,6 @@
+dag:
+    comment: "sample dag configuration"
+    template: "transform/airflow_scheduled_task_bash.py.j2"
+    filename: "airflow_all_tasks.py"
+    options:
+        load_dependencies: "true"

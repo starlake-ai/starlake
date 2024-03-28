@@ -7,12 +7,12 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
-import scala.jdk.CollectionConverters.{mapAsScalaMapConverter, seqAsJavaListConverter}
+import scala.jdk.CollectionConverters._
 
 class Yml2DagGenerateCommandSpec extends TestHelper {
   new WithSettings() {
     "Parse Jinja" should "should be able to extract template file and access all variables" in {
-      val templateContent = Yml2DagTemplateLoader.loadTemplate("sample.py.j2")
+      val templateContent = new Yml2DagTemplateLoader().loadTemplate("sample.py.j2")
       val context = LoadDagGenerationContext(
         config = DagGenerationConfig(
           template = "sample.py.j2",

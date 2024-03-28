@@ -1,15 +1,14 @@
 ---
+version: 1
 load:
   name: "DOMAIN"
-  directory: "__SL_TEST_ROOT__/DOMAIN"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/DOMAIN"
     format: "DSV"
     withHeader: false
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
     writeStrategy:
       types:
         APPEND: 'group(1) == "DELTA"'
@@ -66,7 +65,6 @@ load:
           privacy: "NONE"
           metricType: "NONE"
       metadata:
-        mode: "FILE"
         format: "DSV"
         encoding: "UTF-8"
         multiline: false

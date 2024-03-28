@@ -2,7 +2,7 @@
 name: "hello"
 type: "string"
 array: false
-required: true
+required: false
 privacy: "NONE"
 position:
   first: 1

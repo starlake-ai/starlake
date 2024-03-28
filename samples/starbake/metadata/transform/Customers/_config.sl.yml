@@ -1,7 +1,0 @@
-transform:
-  default:
-    write: OVERWRITE
-  tasks:
-    - name: "CustomerLifeTimeValue"
-      tags:
-        - "cust"

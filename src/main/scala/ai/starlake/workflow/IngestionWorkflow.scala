@@ -21,6 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.{JdbcDbUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -45,19 +46,15 @@ import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 import org.apache.spark.sql.catalyst.SQLConfHelper
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
 import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
+import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
-import java.util.concurrent.ForkJoinPool
 import java.util.regex.Pattern
 import scala.annotation.nowarn
-import scala.collection.GenSeq
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
 private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -67,7 +64,7 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case TimestampType =>
       Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.BOOLEAN))
-    case _ => JdbcUtils.getCommonJDBCType(dt)
+    case _ => JdbcDbUtils.getCommonJDBCType(dt)
   }
 }
 
@@ -131,10 +128,10 @@ class IngestionWorkflow(
     * the domain YML file.
     */
 
-  def loadLanding(config: ImportConfig): Try[Unit] = Try {
-    val filteredDomains = config.includes match {
+  def stage(config: StageConfig): Try[Unit] = Try {
+    val filteredDomains = config.domains match {
       case Nil => domains(Nil, Nil) // Load all domains & tables
-      case _   => domains(config.includes.toList, Nil)
+      case _   => domains(config.domains.toList, Nil)
     }
     logger.info(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
@@ -259,7 +256,7 @@ class IngestionWorkflow(
             }
           }
 
-          val destFolder = DatasetArea.pending(domain.name)
+          val destFolder = DatasetArea.stage(domain.name)
           filesToLoad.foreach { file =>
             logger.info(s"Importing $file")
             val destFile = new Path(destFolder, file.path.getName)
@@ -304,7 +301,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def loadPending(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
+  def load(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
     val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
@@ -321,9 +318,10 @@ class IngestionWorkflow(
         if (settings.appConfig.privacyOnly) {
           val (withPrivacy, noPrivacy) =
             resolved.partition { case (schema, _) =>
-              schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
+              schema.exists(_.attributes.map(_.getPrivacy()).exists(!TransformInput.None.equals(_)))
             }
           // files for schemas without any privacy attributes are moved directly to accepted area
+          /*
           noPrivacy.foreach {
             case (Some(schema), fileInfo) =>
               storageHandler.move(
@@ -335,27 +333,14 @@ class IngestionWorkflow(
               )
             case (None, _) => throw new Exception("Should never happen")
           }
-
-          // files for schemas without any privacy attributes are moved directly to accepted area
-          noPrivacy.foreach {
-            case (Some(schema), fileInfo) =>
-              storageHandler.move(
-                fileInfo.path,
-                new Path(
-                  new Path(DatasetArea.accepted(domain.name), schema.name),
-                  fileInfo.path.getName
-                )
-              )
-            case (None, _) => throw new Exception("Should never happen")
-          }
-
+           */
           withPrivacy
         } else {
           resolved
         }
 
       // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[FileInfo]] = filteredResolved.map {
+      val groupedResolved = filteredResolved.map {
         case (Some(schema), fileInfo) => (schema, fileInfo)
         case (None, _)                => throw new Exception("Should never happen")
       } groupBy { case (schema, _) => schema } mapValues (it =>
@@ -375,7 +360,7 @@ class IngestionWorkflow(
         .map { case (schema, pendingPaths) =>
           logger.info(s"""Ingest resolved file : ${pendingPaths
               .map(_.path.getName)
-              .mkString(",")} with schema ${schema.name}""")
+              .mkString(",")} as table ${domain.name}.${schema.name}""")
 
           // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
           val groupedPendingPathsIterator =
@@ -397,8 +382,10 @@ class IngestionWorkflow(
                 JobContext(domain, schema, path :: Nil, config.options)
               }
             }
-            val (parJobs, forkJoinPool) =
-              makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
+            implicit val forkJoinTaskSupport =
+              ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
+            val parJobs =
+              ParUtils.makeParallel(jobs.toList)
             val res = parJobs.map { jobContext =>
               ingest(
                 jobContext.domain,
@@ -412,7 +399,7 @@ class IngestionWorkflow(
                 case Success(r) => true
               }
             }.toList
-            forkJoinPool.foreach(_.shutdown())
+            forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
             res.forall(_ == true)
           }
         }
@@ -440,7 +427,7 @@ class IngestionWorkflow(
     domainName: String,
     schemasName: List[String]
   ): (Iterable[(Option[Schema], FileInfo)], Iterable[(Option[Schema], FileInfo)]) = {
-    val pendingArea = DatasetArea.pending(domainName)
+    val pendingArea = DatasetArea.stage(domainName)
     logger.info(s"List files in $pendingArea")
     val loadStrategy =
       Utils
@@ -502,7 +489,7 @@ class IngestionWorkflow(
     if (config.domain.isEmpty || config.schema.isEmpty) {
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
-      loadPending(
+      load(
         LoadConfig(
           domains = domainToWatch,
           tables = schemasToWatch,
@@ -580,7 +567,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case Format.SIMPLE_JSON =>
+        case Format.JSON_FLAT =>
           new SimpleJsonIngestionJob(
             domain,
             schema,
@@ -659,15 +646,17 @@ class IngestionWorkflow(
     ingestionResult match {
       case Success(Success(jobResult)) =>
         if (settings.appConfig.archive) {
-          val (parIngests, forkJoinPool) =
-            makeParallel(ingestingPath, settings.appConfig.maxParCopy)
+          implicit val forkJoinTaskSupport =
+            ParUtils.createForkSupport(Some(settings.appConfig.maxParCopy))
+          val parIngests =
+            ParUtils.makeParallel(ingestingPath)
           parIngests.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          forkJoinPool.foreach(_.shutdown())
+          forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
         } else {
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
@@ -679,22 +668,6 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
         Failure(exception)
-    }
-  }
-
-  @nowarn
-  private def makeParallel[T](
-    collection: List[T],
-    maxPar: Int
-  ): (GenSeq[T], Option[ForkJoinPool]) = {
-    maxPar match {
-      case 1 => (collection, None)
-      case _ =>
-        val parCollection = collection.par
-        val forkJoinPool =
-          new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
-        parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
-        (parCollection, Some(forkJoinPool))
     }
   }
 
@@ -711,27 +684,7 @@ class IngestionWorkflow(
     val saveDir = config.outputDir.getOrElse(DatasetArea.load.toString)
 
     // table name if not specified will be the file name without extension and delta part if any product-delta.csv
-    val fileNameWithoutExt = File(config.inputPath).nameWithoutExtension(includeAll = true)
-    val pattern = Pattern.compile("[._-]")
-    val matcher = pattern.matcher(fileNameWithoutExt)
-    val (name, write) = {
-      if (matcher.find()) {
-        val matchedChar = fileNameWithoutExt.charAt(matcher.start())
-        val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
-        val name = fileNameWithoutExt.substring(0, lastIndex)
-        val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
-        if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
-          (name, WriteMode.APPEND)
-        } else {
-          (fileNameWithoutExt, WriteMode.OVERWRITE)
-        }
-      } else {
-        val name = fileNameWithoutExt
-        val deltaPart = ""
-        val write = WriteMode.OVERWRITE
-        (name, write)
-      }
-    }
+    val (name, write) = config.extractTableNameAndWriteMode()
     val tableName =
       if (config.schemaName.isEmpty)
         name
@@ -766,12 +719,13 @@ class IngestionWorkflow(
       schemaHandler
         .task(config.name)
         .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
-    logger.info(taskDesc.toString)
+    logger.debug(taskDesc.toString)
     AutoTask.task(
       taskDesc,
       config.options,
       config.interactive,
       config.truncate,
+      config.test,
       taskDesc.getRunEngine(),
       resultPageSize = 1000
     )(
@@ -781,7 +735,7 @@ class IngestionWorkflow(
     )
   }
 
-  def compileAutoJob(config: TransformConfig): Try[Unit] = Try {
+  def compileAutoJob(config: TransformConfig): Try[String] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val mainSQL = action.buildAllSQLQueries(None)
@@ -789,30 +743,35 @@ class IngestionWorkflow(
       settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(s"""$mainSQL"""))
     logger.info(s"""$mainSQL""")
+    mainSQL
   }
 
   def transform(
     dependencyTree: List[TaskViewDependencyNode],
     options: Map[String, String]
   ): Boolean = {
-    val (parJobs, forkJoinPool) =
-      makeParallel(dependencyTree, settings.appConfig.maxParTask)
+    implicit val forkJoinTaskSupport =
+      ParUtils.createForkSupport(Some(settings.appConfig.maxParTask))
+
+    val parJobs =
+      ParUtils.makeParallel(dependencyTree)
     val res = parJobs.map { jobContext =>
       val ok = transform(jobContext.children, options)
       if (ok) {
         if (jobContext.isTask()) {
-          transform(TransformConfig(jobContext.data.name, options))
+          val res = transform(TransformConfig(jobContext.data.name, options))
+          res
         } else
           true
       } else
         false
     }
-    forkJoinPool.foreach(_.shutdown())
+    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
     res.forall(_ == true)
   }
 
   def autoJob(config: TransformConfig): Try[Boolean] = Try {
-    if (config.recursive) {
+    val result = if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
       val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
         .jobsDependencyTree(taskConfig)
@@ -821,6 +780,12 @@ class IngestionWorkflow(
     } else {
       transform(config)
     }
+    if (result) {
+      result
+    } else {
+      throw new Exception(s"Job ${config.name} failed")
+    }
+
   }
 
   /** Successively run each task of a job

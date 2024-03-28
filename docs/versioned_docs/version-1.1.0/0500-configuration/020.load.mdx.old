@@ -155,8 +155,8 @@ format: Enum
 *Optional*. DSV by default. Supported file formats are :
 - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator" field.
 - POSITION : FIXED format file where values are located at an exact position in each line.
-- SIMPLE_JSON : For optimisation purpose, we differentiate flat JSON from JSON with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
-- JSON :  Deep JSON file. Use only when your json documents contain subdocuments, otherwise prefer to use SIMPLE_JSON since it is much faster.
+- JSON_FLAT : For optimisation purpose, we differentiate flat JSON from JSON with deep level fields. JSON_FLAT are JSON files with top level fields only.
+- JSON :  Deep JSON file. Use only when your json documents contain subdocuments, otherwise prefer to use JSON_FLAT since it is much faster.
 - XML : For XML files
 
 ````scala

@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.2
+__New Feature__:
+- Excel export
+- Custom write strategies using Jinja2
+
 # 1.1.1:
 __Improvement__:
 - add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
@@ -9,6 +14,9 @@ __Improvement__:
 **BREAKING CHANGE** 
 - Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
 - Default data extraction output dir is now in 'metadata/extract' instead of 'metadata/load'.
+- Defining yaml config file without specifying explicitly one container root attribute is now prohibited
+- In load files, can't use `schemas` anymore. Use `tables` instead.
+- Default timestamp pattern for data extraction is now the iso format 'yyyy-MM-dd'T'HH:mm:ss.SSSXXX'. To restore previous behavior, set timestamp pattern to 'yyyy-MM-dd HH:mm:ss'
 
 __Bug Fix__:
 - concurrent schema extraction close resource prematurely

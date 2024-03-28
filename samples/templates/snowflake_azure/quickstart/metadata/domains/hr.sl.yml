@@ -7,14 +7,14 @@ load:
     sink:
       type: {{sink_type}}
       connectionRef: {{sink_connection}}
-  schemas:
+  tables:
     - name: "sellers"
       pattern: "sellers-.*.json"
       primaryKey:
         - id
       metadata:
         array: true
-        format: "SIMPLE_JSON"
+        format: "JSON_FLAT"
         write: "APPEND"
       attributes:
         - name: "id"

@@ -156,15 +156,15 @@ The default reference.conf file defines the following valid privacy strategies:
 ```hocon
 privacy {
   options = {
-    "none": "ai.starlake.privacy.No",
-    "hide": "ai.starlake.privacy.Hide",
-    "hide10X": "ai.starlake.privacy.Hide(\"X\",10)",
-    "approxLong20": "ai.starlake.privacy.ApproxLong(20)",
-    "md5": "ai.starlake.privacy.Md5",
-    "sha1": "ai.starlake.privacy.Sha1",
-    "sha256": "ai.starlake.privacy.Sha256",
-    "sha512": "ai.starlake.privacy.Sha512",
-    "initials": "ai.starlake.privacy.Initials"
+    "none": "ai.starlake.utils.No",
+    "hide": "ai.starlake.utils.Hide",
+    "hide10X": "ai.starlake.utils.Hide(\"X\",10)",
+    "approxLong20": "ai.starlake.utils.ApproxLong(20)",
+    "md5": "ai.starlake.utils.Md5",
+    "sha1": "ai.starlake.utils.Sha1",
+    "sha256": "ai.starlake.utils.Sha256",
+    "sha512": "ai.starlake.utils.Sha512",
+    "initials": "ai.starlake.utils.Initials"
   }
 }
 ```
@@ -174,29 +174,29 @@ Below the predefined strategies:
 
 Privacy Strategy|Privacy class|Description
 :---|:---|:---
-none|ai.starlake.privacy.No|Return the input string itself
-hide|ai.starlake.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
-md5|ai.starlake.privacy.Md5|Return the md5 of the input string
-sha1|ai.starlake.privacy.Sha1|Return the sha1 of the input string
-sha256|ai.starlake.privacy.Sha256|Return the sha256 of the input string
-sha512|ai.starlake.privacy.Sha512|Return the sha256 of the input string
-initials|ai.starlake.privacy.Initials|Return the first char of each word (usually applied to user names)
+none|ai.starlake.utils.No|Return the input string itself
+hide|ai.starlake.utils.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
+md5|ai.starlake.utils.Md5|Return the md5 of the input string
+sha1|ai.starlake.utils.Sha1|Return the sha1 of the input string
+sha256|ai.starlake.utils.Sha256|Return the sha256 of the input string
+sha512|ai.starlake.utils.Sha512|Return the sha256 of the input string
+initials|ai.starlake.utils.Initials|Return the first char of each word (usually applied to user names)
 
 The following startegies are also defined and may be declared in the custom configuration file.
 
 Privacy class|Description
 :---|:---
-ai.starlake.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked
-ai.starlake.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
-ai.starlake.privacy.RandomDouble|Return a random double number
-ai.starlake.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
-ai.starlake.privacy.RandomLong|Return a random long number
-ai.starlake.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
-ai.starlake.privacy.RandomInt|Return a random int number
-ai.starlake.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
-ai.starlake.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value
-ai.starlake.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
-ai.starlake.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side.
+ai.starlake.utils.IPv4(8)|Return the IPv4 address with the last 8 bytes masked
+ai.starlake.utils.IPv6(8|Return the IPv6 address with the last 8 bytes masked
+ai.starlake.utils.RandomDouble|Return a random double number
+ai.starlake.utils.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
+ai.starlake.utils.RandomLong|Return a random long number
+ai.starlake.utils.RandomLong(10, 20)|Return a random long number between 10 and 20
+ai.starlake.utils.RandomInt|Return a random int number
+ai.starlake.utils.RandomInt(10, 20)|Return a random int number between 10 and 20
+ai.starlake.utils.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value
+ai.starlake.utils.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
+ai.starlake.utils.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side.
 
 
 Any new privacy strategy should implement the following trait:

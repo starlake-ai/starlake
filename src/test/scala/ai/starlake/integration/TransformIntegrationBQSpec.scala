@@ -20,8 +20,20 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
-          Array("transform", "--name", "sales_kpi.byseller_kpi")
+        assert(
+          new Main().run(
+            Array("import")
+          )
+        )
+        assert(
+          new Main().run(
+            Array("load")
+          )
+        )
+        assert(
+          new Main().run(
+            Array("transform", "--name", "sales_kpi.byseller_kpi")
+          )
         )
       }
     }

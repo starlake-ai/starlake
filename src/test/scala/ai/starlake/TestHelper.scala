@@ -21,7 +21,7 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
+import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
@@ -31,6 +31,7 @@ import com.dimafeng.testcontainers.{
   ElasticsearchContainer,
   JdbcDatabaseContainer,
   KafkaContainer,
+  MariaDBContainer,
   PostgreSQLContainer
 }
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -69,7 +70,6 @@ trait TestHelper
 
   override protected def beforeAll(): Unit = {
     Settings.invalidateCaches()
-
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -96,6 +96,7 @@ trait TestHelper
 
   def baseConfigString =
     s"""
+       |SL_VALIDATE_ON_LOAD=true
        |SL_ASSERTIONS_ACTIVE=true
        |SL_DEFAULT_WRITE_FORMAT=delta
        |SL_ROOT="${starlakeTestRoot}"
@@ -112,12 +113,21 @@ trait TestHelper
        |include required("application-test.conf")
        |connections.test-pg {
        |    type = "jdbc"
-       |    ## The default URI is in memory only
        |    options {
        |      "url": "${TestHelper.pgContainer.jdbcUrl}"
        |      "user": "test"
        |      "password": "test"
        |      "driver": "org.postgresql.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |connections.test-mariadb {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${TestHelper.mariadbContainer.jdbcUrl.replace(":mariadb:", ":mysql:")}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.mariadb.jdbc.Driver"
        |      "quoteIdentifiers": false
        |    }
        |  }
@@ -149,8 +159,8 @@ trait TestHelper
           "lock.poll-time",
           ConfigValueFactory.fromAnyRef("5 ms")
         ) // in local mode we don't need to wait quite as much as we do on a real cluster
-
     testConfig
+
   }
 
   val allTypes: List[FileToImport] = List(
@@ -437,7 +447,7 @@ trait TestHelper
       codec: Codec
     ): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
-        DatasetArea.pending(datasetDomainName),
+        DatasetArea.stage(datasetDomainName),
         new Path(sourceDatasetPathName).getName
       )
 
@@ -455,7 +465,7 @@ trait TestHelper
 
     def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
-      validator.loadPending()
+      validator.load()
     }
 
     def secure(config: LoadConfig): Try[Boolean] = {
@@ -509,7 +519,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler)
-      validator.loadLanding(ImportConfig())
+      validator.stage(StageConfig())
     }
   }
 
@@ -569,6 +579,25 @@ object TestHelper extends StrictLogging {
     container
   }
 
+  lazy val mariadbContainer: MariaDBContainer = {
+    val dockerImage = "mariadb"
+    val dockerTag = "latest"
+    val dockerImageName = DockerImageName.parse(s"$dockerImage:$dockerTag")
+    val initScriptParam =
+      JdbcDatabaseContainer.CommonParams()
+    val container = MariaDBContainer
+      .Def(
+        dockerImageName,
+        dbName = "starlake",
+        dbUsername = "test",
+        dbPassword = "test",
+        commonJdbcParams = initScriptParam
+      )
+      .createContainer()
+    container.start()
+    container
+  }
+
   private var _session: SparkSession = null
   private var _testId: String = null
 
@@ -582,6 +611,8 @@ object TestHelper extends StrictLogging {
   def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
     if (testId != _testId) {
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
+      // val settings: Settings = Settings(Settings.referenceConfig)
+      new Directory(new java.io.File(isettings.appConfig.datasets)).deleteRecursively()
       val job = new SparkJob {
         override def name: String = s"test-${UUID.randomUUID()}"
 

@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.utils.YamlSerde
 import better.files.File
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
@@ -109,7 +109,7 @@ object InferSchemaHandler {
                 row.dataType.typeName == "timestamp" && Set(
                   Format.DSV,
                   Format.POSITION,
-                  Format.SIMPLE_JSON
+                  Format.JSON_FLAT
                 ).contains(format)
               ) {
                 // We handle here the case when it is a date and not a timestamp
@@ -142,16 +142,17 @@ object InferSchemaHandler {
     format: Format,
     array: Option[Boolean] = None,
     withHeader: Option[Boolean] = None,
-    separator: Option[String] = None
+    separator: Option[String] = None,
+    options: Option[Map[String, String]] = None
   ): Metadata =
     Metadata(
-      mode = Some(Mode.fromString("FILE")),
       format = Some(format),
       encoding = None,
       multiline = None,
-      array = array,
+      array = if (array.contains(true)) array else None,
       withHeader = withHeader,
-      separator = separator
+      separator = separator,
+      options = options
     )
 
   /** * builds the Schema case class
@@ -220,25 +221,16 @@ object InferSchemaHandler {
     domainFolder.createDirectories()
     val configPath = File(domainFolder, "_config.sl.yml")
     if (!configPath.exists) {
-      // minimal config file
-      val configData = s"""
-         |load:
-         |  metadata:
-         |    directory: "{{incoming_path}}/${domain.name}"
-         |""".stripMargin
-      configPath.overwrite(configData)
+      YamlSerde.serializeToFile(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
     val tablePath = File(domainFolder, s"${table.name}.sl.yml")
-    if (tablePath.exists) {
-      if (!clean) {
-        throw new Exception(
-          s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
-        )
-      }
-    } else {
-      YamlSerializer.serializeToFile(tablePath, table)
+    if (tablePath.exists && !clean) {
+      throw new Exception(
+        s"Could not write table ${domain.tables.head.name} already defined in file $tablePath"
+      )
     }
+    YamlSerde.serializeToFile(tablePath, table)
     tablePath
   }
 }

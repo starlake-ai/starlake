@@ -1,0 +1,89 @@
+# Load fixed width files
+
+To load fixed width files, you need to know the width of each column.
+The example below is an example of how a fixed width file may be used to represent orders.
+
+<br/>
+
+```plaintext
+00001    62024-02-05T21:19:15.454ZCancelled
+00002    72024-02-05T21:19:15.454ZCancelled
+00003    82024-02-05T21:19:15.454ZDelivered
+```
+
+<br/>
+
+In the file above the columns are as follows:
+- order_id: 5 characters
+- customer_id: 5 characters
+- timestamp: 24 characters
+- status: 10 characters
+
+## Infer schema
+
+The width of each column is fixed, but the columns are not separated by a delimiter.
+We just need to provide the `infer-schema` command with a file that contains a single record where each field is placed on a separate line prefixed by its name followed by a colon.
+
+to infer the schema of the fixed width file above, we can submit the following file to the `infer_schema` command:
+
+```plaintext
+order_id:00001
+customer_id:    6
+timestamp:2024-02-05T21:19:15.454Z
+status:Cancelled
+```
+
+After calling the infer-schema command below, the schema will be inferred and printed to the console.
+
+```bash
+$ starlake infer-schema -inputPath /my/path/fixed_width_file.txt --format FIXED --outputDir $SL_ROOT/metadata/load/starbake
+```
+
+The schema will be saved in the directory specified by the `outputDir` parameter.
+The starlake YAML schema will look like the one below:
+
+```yaml
+load:
+    metadata:
+      format: FIXED
+      writeStrategy:
+        type: APPEND
+    ...
+    attributes:
+      - name: order_id
+        type: string
+        position:  # first 5 characters
+          first: 0
+          last: 4
+      - name: customer_id
+        type: string
+        position: # next  5 characters
+          first: 5
+          last: 9
+      - name: timestamp
+        type: string
+        position: # next 24 characters
+          first: 10
+          last: 33
+      - name: status
+        type: string
+        position: # next 10 characters
+          first: 34
+          last: 43
+```
+
+
+
+
+
+## Load data
+
+After inferring the schema, we can use the `load` command to load the data into the datawarehouse.
+
+```bash
+$ starlake load
+```
+
+
+
+

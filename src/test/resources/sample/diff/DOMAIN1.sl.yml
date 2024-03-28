@@ -12,10 +12,9 @@ load:
     write: "APPEND"
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
@@ -125,9 +124,8 @@ load:
         write: "OVERWRITE"
         sink:
           partition:
-            attributes:
-              - "YEAR"
-              - "MONTH"
+            - "YEAR"
+            - "MONTH"
       merge:
         key:
           - "PK"

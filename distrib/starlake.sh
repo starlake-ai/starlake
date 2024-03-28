@@ -15,6 +15,7 @@ SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
 SPARK_EXTRA_LIB_FOLDER=$SCRIPT_DIR/bin
 DEPS_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/deps
 STARLAKE_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/sl
+SL_SQL_WH="${SL_DATASETS:-$SL_ROOT/datasets}"
 
 #SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
@@ -30,6 +31,19 @@ fi
 if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
   PROXY=${https_proxy:-$http_proxy}
 fi
+
+
+launch_spark_sql() {
+  mkdir -p $SL_SQL_WH/local-conf
+  cat > $SL_SQL_WH/local-conf/spark-defaults.conf <<EOF
+spark.sql.warehouse.dir=$SL_SQL_WH
+spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+spark.driver.extraJavaOptions -Dderby.system.home=$SL_SQL_WH
+EOF
+export SPARK_CONF_DIR=$SL_SQL_WH/local-conf
+$SPARK_TARGET_FOLDER/bin/spark-sql "$@"
+}
 
 get_binary_from_url() {
     local url=$1
@@ -135,7 +149,7 @@ launch_starlake() {
      SPARK_LOCAL_HOSTNAME="127.0.0.1" SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --jars "$extra_jars" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
     fi
   else
-    echo "Starlake jar $SL_JAR_NAME do not exists. Please install it."
+    echo "Starlake jar $SL_JAR_NAME does not exists. Please install it."
     exit 1
   fi
 }
@@ -147,6 +161,12 @@ case "$1" in
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
+    ;;
+  sql)
+    echo "----------------------------------------------"
+    echo "Experimental feature."
+    echo "----------------------------------------------"
+    launch_spark_sql "$@"
     ;;
   serve)
     launch_starlake "$@"

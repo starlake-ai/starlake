@@ -13,7 +13,8 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.{Success, Try}
 
 class BigQuerySparkJob(
@@ -196,9 +197,10 @@ class BigQuerySparkJob(
             }
 
             // bigquery does not support having the cols in the wrong order
-            val tableColNames = stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
+            val tableColNames: mutable.Seq[String] =
+              stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
             val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
-            val orderedFields = tableColNames.flatMap { fieldsMap.get }
+            val orderedFields = tableColNames.flatMap { fieldsMap.get }.toSeq
             val orderedDF = sourceDF.select(orderedFields.map(col): _*)
             orderedDF.write
               .mode(saveMode)
@@ -229,9 +231,19 @@ class BigQuerySparkJob(
   }
 
   def runSparkReader(sql: String): Try[DataFrame] = {
-    prepareConf()
-    Try {
-      session.read.format("bigquery").load(sql)
+    val hasMaterializationDataset =
+      settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")
+    val hasViewsEnabled =
+      settings.sparkConfig.hasPath("datasource.bigquery.viewsEnabled")
+    if (hasMaterializationDataset && hasViewsEnabled) {
+      prepareConf()
+      Try {
+        session.read.format("bigquery").load(sql)
+      }
+    } else {
+      throw new Exception(
+        "Make sure the keys spark.datasource.bigquery.materializationDataset and spark.datasource.bigquery.viewsEnabled are set in the application.sl.yml file."
+      )
     }
   }
 

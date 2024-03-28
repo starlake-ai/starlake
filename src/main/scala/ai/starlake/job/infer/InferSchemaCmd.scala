@@ -6,11 +6,12 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Format, WriteMode}
 import ai.starlake.utils.JobResult
 import better.files.File
+import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
-object InferSchemaCmd extends Cmd[InferSchemaConfig] {
+object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
 
   val command = "infer-schema"
 
@@ -81,10 +82,18 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] {
       }
 
     val results = inputPaths.map { inputPath =>
+      logger.info(s"Inferring schema for $inputPath")
       workflow(schemaHandler)
         .inferSchema(
           config.copy(inputPath = inputPath)
-        )
+        ) match {
+        case Success(_) =>
+          logger.info(s"Successfully inferred schema for $inputPath")
+          Success(JobResult.empty)
+        case Failure(exception) =>
+          logger.error(s"Failed to infer schema for $inputPath", exception)
+          Failure(exception)
+      }
     }
 
     val failures = results.filter(_.isFailure).map {

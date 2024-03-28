@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -72,11 +72,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "SL_BQ_TEST_DS",
             "SL_BQ_TEST_TABLE_DYNAMIC",
-            Some(WriteMode.OVERWRITE),
             sink = Some(
               BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            writeStrategy = None
+            writeStrategy = Some(WriteStrategy.Overwrite)
           )
 
           case class Task(task: AutoTaskDesc)
@@ -114,11 +113,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "SL_BQ_TEST_DS",
             "SL_BQ_TEST_TABLE_DYNAMIC",
-            Some(WriteMode.OVERWRITE),
             sink = Some(
               BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            writeStrategy = None
+            writeStrategy = Some(WriteStrategy.Overwrite)
           )
           private val businessTaskAddPartDef = mapper
             .writer()

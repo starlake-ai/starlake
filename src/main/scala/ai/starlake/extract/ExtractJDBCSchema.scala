@@ -1,15 +1,16 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -17,6 +18,7 @@ import scala.util.{Failure, Success, Try}
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit: SchemaHandler = schemaHandler
+  @nowarn
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractJDBCSchemaCmd.run(args, schemaHandler).map(_ => ())
   }
@@ -38,20 +40,20 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
         .read(mappingPath(config.extractConfig))
         .richFormat(schemaHandler.activeEnvVars(), Map.empty)
       val jdbcSchemas =
-        YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
+        YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
       val connectionSettings = jdbcSchemas.connectionRef match {
         case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
         case None => throw new Exception(s"No connectionRef defined for jdbc schemas.")
       }
 
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-        ExtractUtils.createForkSupport(config.parallelism)
-      ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+        ParUtils.createForkSupport(config.parallelism)
+      ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
         val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
           val content = settings
             .storageHandler()
             .read(mappingPath(ymlTemplate))
-          YamlSerializer.deserializeDomain(content, ymlTemplate) match {
+          YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate) match {
             case Success(domain) =>
               domain
             case Failure(e) => throw e
@@ -138,13 +140,14 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
           restoredTable.copy(pattern = pat)
       }
 
-      val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
+      val content =
+        YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
       val file = File(baseOutputDir, domainName, table.name + ".sl.yml")
       file.overwrite(content)
     }
 
     val finalDomain = domain.copy(tables = Nil)
-    YamlSerializer.serializeToFile(
+    YamlSerde.serializeToFile(
       File(baseOutputDir, domainName, "_config.sl.yml"),
       finalDomain
     )

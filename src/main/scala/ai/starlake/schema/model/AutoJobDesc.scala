@@ -27,7 +27,7 @@ import scala.collection.mutable
 import scala.util.Try
 import ai.starlake.schema.model.Severity._
 
-case class TransformDesc(transform: AutoJobDesc)
+case class TransformDesc(version: Int, transform: AutoJobDesc)
 
 /** A job is a set of transform tasks executed using the specified engine.
   *
@@ -60,7 +60,7 @@ case class AutoJobDesc(
   def checkValidity(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceJobPrefixRegex = settings.appConfig.forceJobPattern.r
