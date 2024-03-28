@@ -211,7 +211,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val redefinedResourceTypeNames = resourceTypes.map(_.name).intersect(defaultTypes.map(_.name))
     val defaultAndRedefinedTypes =
-      resourceTypes.filter(resourceType => !redefinedResourceTypeNames.contains(resourceType.name))
+      resourceTypes.filter(resourceType =>
+        !redefinedResourceTypeNames.contains(resourceType.name)
+      ) ++ defaultTypes
 
     val redefinedTypeNames = defaultAndRedefinedTypes.map(_.name).intersect(types.map(_.name))
 

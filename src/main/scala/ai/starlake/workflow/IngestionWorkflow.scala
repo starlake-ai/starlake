@@ -21,7 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.ParUtils
+import ai.starlake.extract.{JdbcDbUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -47,7 +47,6 @@ import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
 import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
 import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
@@ -65,7 +64,7 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case TimestampType =>
       Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.BOOLEAN))
-    case _ => JdbcUtils.getCommonJDBCType(dt)
+    case _ => JdbcDbUtils.getCommonJDBCType(dt)
   }
 }
 
@@ -361,7 +360,7 @@ class IngestionWorkflow(
         .map { case (schema, pendingPaths) =>
           logger.info(s"""Ingest resolved file : ${pendingPaths
               .map(_.path.getName)
-              .mkString(",")} with schema ${schema.name}""")
+              .mkString(",")} as table ${domain.name}.${schema.name}""")
 
           // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
           val groupedPendingPathsIterator =
@@ -726,6 +725,7 @@ class IngestionWorkflow(
       config.options,
       config.interactive,
       config.truncate,
+      config.test,
       taskDesc.getRunEngine(),
       resultPageSize = 1000
     )(

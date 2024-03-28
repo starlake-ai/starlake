@@ -182,6 +182,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
         Map.empty,
         None,
         truncate = false,
+        test = false,
         Engine.BQ
       )(
         settings,
@@ -357,7 +358,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       parseSQL = Some(true)
     )
     val job =
-      new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false)(
+      new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
         settings,
         storageHandler,
         schemaHandler

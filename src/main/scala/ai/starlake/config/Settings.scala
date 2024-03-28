@@ -342,7 +342,13 @@ object Settings extends StrictLogging {
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
 
     @JsonIgnore
+    def isMySQLOrMariaDb(): Boolean = isMySQL() || isMariaDb()
+
+    @JsonIgnore
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
+
+    @JsonIgnore
+    def isMariaDb(): Boolean = getJdbcEngineName().toString == "mariadb"
 
     @JsonIgnore
     lazy val jdbcUrl: String = applyIfConnectionTypeIs(

@@ -159,7 +159,8 @@ abstract class AutoTask(
     end: Timestamp,
     jobResultCount: Long,
     success: Boolean,
-    message: String
+    message: String,
+    test: Boolean
   ): Unit = {
     if (taskDesc._auditTableName.isEmpty) { // avoid recursion when logging audit
       val log = AuditLog(
@@ -176,17 +177,18 @@ abstract class AutoTask(
         message,
         Step.TRANSFORM.toString,
         taskDesc.getDatabase(),
-        settings.appConfig.tenant
+        settings.appConfig.tenant,
+        test
       )
       AuditLog.sink(log)
     }
   }
 
-  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =
-    logAudit(start, end, jobResultCount, success = true, "success")
+  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long, test: Boolean): Unit =
+    logAudit(start, end, jobResultCount, success = true, "success", test)
 
-  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable): Unit =
-    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
+  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit =
+    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e), test)
 
   def dependencies(): List[String] = {
     val result = SQLUtils.extractRefsInFromAndJoin(parseJinja(taskDesc.getSql(), Map.empty))
@@ -212,7 +214,7 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false))
+      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
   }
 
   def task(
@@ -220,6 +222,7 @@ object AutoTask extends StrictLogging {
     configOptions: Map[String, String],
     interactive: Option[String],
     truncate: Boolean,
+    test: Boolean,
     engine: Engine,
     resultPageSize: Int = 1
   )(implicit
@@ -234,6 +237,7 @@ object AutoTask extends StrictLogging {
           configOptions,
           interactive,
           truncate = truncate,
+          test = test,
           resultPageSize = resultPageSize
         )
       case Engine.JDBC =>
@@ -242,6 +246,7 @@ object AutoTask extends StrictLogging {
           configOptions,
           interactive,
           truncate = truncate,
+          test = test,
           resultPageSize = resultPageSize
         )
       case _ =>
@@ -250,6 +255,7 @@ object AutoTask extends StrictLogging {
           configOptions,
           interactive,
           truncate = truncate,
+          test = test,
           resultPageSize = resultPageSize
         )
     }

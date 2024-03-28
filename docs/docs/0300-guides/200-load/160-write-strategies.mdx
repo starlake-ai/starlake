@@ -12,6 +12,7 @@ The following strategies are available:
 | OVERWRITE_BY_KEY | Merge the new rows with the existing rows. If a row with the same key already exists in the table, the new row will overwrite the old one otherwise it will be appended. |
 | OVERWRITE_BY_KEY_AND_TIMESTAMP | Merge the new rows with the existing rows. If a row with the same key and an older timestamp already exists in the table, the new row will overwrite the old one otherwise it will be appended. |
 | OVERWRITE_BY_PARTITION | Merge the new rows with the existing rows. All existing partitions present in the new data will be overwritten. All other partitions will be left untouched and new partitions will be appended. |
+| DELETE_THEN_INSERT | Delete rows in the target table for which records with the same keys exist in the incoming data, before inserting the incoming rows.  |
 | SCD2 | Merge the new rows with the existing rows using the [Slowly Changing Dimension Type 2](https://en.wikipedia.org/wiki/Slowly_changing_dimension) strategy. This will keep track of the history of the rows in the table. |
 | ADAPTATIVE | The write strategy will be determined at runtime based on the properties of the file being loaded.|
 
@@ -100,6 +101,24 @@ table:
     writeStrategy:
       type: "OVERWRITE_BY_PARTITION"
       on: TARGET
+  attributes:
+    - ...
+```
+
+
+## DELETE_THEN_INSERT
+If the table does not exist, it will be created.
+Delete rows in the target table for which records with the same keys exist in the incoming data, before inserting the incoming rows.
+<br/>
+
+```yaml title="Delete then insert"
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "DELETE_THEN_INSERT"
+      key: ["id", "name" ...]
   attributes:
     - ...
 ```

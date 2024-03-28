@@ -31,6 +31,7 @@ class BigQueryAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -237,7 +238,7 @@ class BigQueryAutoTask(
                 val end = Timestamp.from(Instant.now())
                 val jobResultCount =
                   jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
-                jobResultCount.foreach(logAuditSuccess(start, end, _))
+                jobResultCount.foreach(logAuditSuccess(start, end, _, test))
                 // We execute assertions only on success
                 if (settings.appConfig.expectations.active) {
                   new ExpectationJob(
@@ -285,7 +286,7 @@ class BigQueryAutoTask(
             case _ =>
               val err = errors.reduce(_.initCause(_))
               val end = Timestamp.from(Instant.now())
-              logAuditFailure(start, end, err)
+              logAuditFailure(start, end, err, test)
               Failure(err)
           }
 

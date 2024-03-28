@@ -161,6 +161,12 @@ object Dependencies {
     "org.postgresql" % "postgresql" % "42.7.3" % Test
   )
 
+  val mariadb = Seq(
+    "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3" % Test,
+    "mysql" % "mysql-connector-java" % "8.0.33" % Test
+  )
+
   val jinja = Seq(
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
@@ -177,8 +183,9 @@ object Dependencies {
     "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
   )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++
-    pgGcp ++ jsonSchemaValidator
+    pgGcp ++ jsonSchemaValidator ++ mariadb
 }

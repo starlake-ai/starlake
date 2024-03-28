@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+
+
 # What is Starlake ?
 
 Starlake is a configuration only Extract, Load, Transform and Orchestration Declarative Data Pipeline Tool.
@@ -25,7 +27,6 @@ The figure below illustrates the typical data lifecycle in Starlake.
 ![](/img/workflow.png)
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
-
 
 ## Extract
 

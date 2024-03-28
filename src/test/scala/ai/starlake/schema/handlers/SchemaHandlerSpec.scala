@@ -416,6 +416,7 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
+        sparkSessionReset(settings)
 
         cleanMetadata
 
