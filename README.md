@@ -4,7 +4,7 @@
 
 
 # What is Starlake ?
-starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
+Starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
 
 ![](docs/static/img/starlake-draw.png)
 
@@ -17,6 +17,23 @@ The workflow below is a typical use case:
 * **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
+
+## Starlake Philosophy
+
+The advent of declarative programming, exemplified by tools like Ansible and Terraform, 
+has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution. 
+This paradigm shift brings forth benefits such as reduced error prone coding tasks, significantly shortened development cycles, 
+enhanced code readability, and increased accessibility for developers of all levels.
+
+Starlake is a YAML-based declarative tool designed for expressing Extract, Load, Transform, and Orchestration tasks. 
+Drawing inspiration from the successes of declarative programming in infrastructure, 
+Starlake aims to bring similar advantages to the realm of data engineering.
+
+This paradigm shift  encourages a focus on defining goals for data warehouses, 
+rather than the intricacies of implementation details. 
+
+This makes you reconsider and enhance your data pipeline practices, 
+unlocking the full potential of declarative programming for data engineering.
 
 Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
 instead of writing code or using a GUI.
