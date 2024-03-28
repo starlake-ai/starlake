@@ -12,6 +12,7 @@ class TestsIntegrationSpec extends IntegrationTestBase {
     withEnvs(
       "SL_ROOT" -> localDir.pathAsString
     ) {
+
       val tests = StarlakeTestData.loadTests()
       StarlakeTestData.run(tests)
     }
