@@ -13,6 +13,8 @@ import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.jdbc.JdbcType
+import org.apache.spark.sql.types._
 
 import java.nio.charset.StandardCharsets
 import java.sql.Types._
@@ -300,7 +302,7 @@ object JdbcDbUtils extends LazyLogging {
     schemaName: String
   ): Try[String] = {
     connectionSettings match {
-      case d if d.isMySQL() =>
+      case d if d.isMySQLOrMariaDb() =>
         Using(
           databaseMetaData.getCatalogs()
         ) { resultSet =>
@@ -367,7 +369,7 @@ object JdbcDbUtils extends LazyLogging {
         val tableNames = mutable.Map.empty[String, String]
         Try {
           connectionSettings match {
-            case d if d.isMySQL() =>
+            case d if d.isMySQLOrMariaDb() =>
               databaseMetaData.getTables(
                 schemaName,
                 "%",
@@ -466,7 +468,7 @@ object JdbcDbUtils extends LazyLogging {
 
                     val foreignKeysResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getImportedKeys(
                             schemaName,
                             None.orNull,
@@ -513,7 +515,7 @@ object JdbcDbUtils extends LazyLogging {
                     // Extract all columns
                     val columnsResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getColumns(
                             schemaName,
                             None.orNull,
@@ -624,7 +626,7 @@ object JdbcDbUtils extends LazyLogging {
                     //      // Find primary keys
                     val primaryKeysResultSet = use(
                       connectionSettings match {
-                        case d if d.isMySQL() =>
+                        case d if d.isMySQLOrMariaDb() =>
                           databaseMetaData.getPrimaryKeys(
                             schemaName,
                             None.orNull,
@@ -1532,6 +1534,31 @@ object JdbcDbUtils extends LazyLogging {
     } else
       jdbcOptions
     CaseInsensitiveMap[String](options)
+  }
+
+  def getCommonJDBCType(dt: DataType): Option[JdbcType] = {
+    dt match {
+      case IntegerType    => Option(JdbcType("INTEGER", java.sql.Types.INTEGER))
+      case LongType       => Option(JdbcType("BIGINT", java.sql.Types.BIGINT))
+      case DoubleType     => Option(JdbcType("DOUBLE PRECISION", java.sql.Types.DOUBLE))
+      case FloatType      => Option(JdbcType("REAL", java.sql.Types.FLOAT))
+      case ShortType      => Option(JdbcType("INTEGER", java.sql.Types.SMALLINT))
+      case ByteType       => Option(JdbcType("BYTE", java.sql.Types.TINYINT))
+      case BooleanType    => Option(JdbcType("BIT(1)", java.sql.Types.BIT))
+      case StringType     => Option(JdbcType("TEXT", java.sql.Types.CLOB))
+      case BinaryType     => Option(JdbcType("BLOB", java.sql.Types.BLOB))
+      case CharType(n)    => Option(JdbcType(s"CHAR($n)", java.sql.Types.CHAR))
+      case VarcharType(n) => Option(JdbcType(s"VARCHAR($n)", java.sql.Types.VARCHAR))
+      case TimestampType  => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      // This is a common case of timestamp without time zone. Most of the databases either only
+      // support TIMESTAMP type or use TIMESTAMP as an alias for TIMESTAMP WITHOUT TIME ZONE.
+      // Note that some dialects override this setting, e.g. as SQL Server.
+      case TimestampNTZType => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      case DateType         => Option(JdbcType("DATE", java.sql.Types.DATE))
+      case t: DecimalType =>
+        Option(JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
+      case _ => None
+    }
   }
 }
 

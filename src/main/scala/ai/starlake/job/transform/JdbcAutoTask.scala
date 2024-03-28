@@ -21,6 +21,7 @@ class JdbcAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -180,9 +181,9 @@ class JdbcAutoTask(
     val end = Timestamp.from(Instant.now())
     res match {
       case Success(_) =>
-        logAuditSuccess(start, end, -1)
+        logAuditSuccess(start, end, -1, test)
       case Failure(e) =>
-        logAuditFailure(start, end, e)
+        logAuditFailure(start, end, e, test)
     }
     res
   }

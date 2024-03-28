@@ -39,7 +39,7 @@ class StrategiesBuilder extends StrictLogging {
       s"${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
     )
     val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
-    logger.info(jinjaOutput)
+    logger.info(s"Applying SQL for strategy: ${strategy.`type`} => $jinjaOutput")
     jinjaOutput
   }
 

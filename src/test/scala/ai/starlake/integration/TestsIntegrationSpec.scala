@@ -1,9 +1,7 @@
 package ai.starlake.integration
 
-import ai.starlake.tests.StarlakeTest
+import ai.starlake.tests.StarlakeTestData
 import better.files.File
-
-import java.sql.DriverManager
 
 class TestsIntegrationSpec extends IntegrationTestBase {
   override def templates: File = starlakeDir / "samples"
@@ -14,10 +12,8 @@ class TestsIntegrationSpec extends IntegrationTestBase {
     withEnvs(
       "SL_ROOT" -> localDir.pathAsString
     ) {
-      val tests = StarlakeTest.load()
-      val conn = DriverManager.getConnection("jdbc:duckdb:/Users/hayssams/tmp/duckdb.db")
-      StarlakeTest.drop(tests, conn)
-      StarlakeTest.run(tests, conn)
+      val tests = StarlakeTestData.loadTests()
+      StarlakeTestData.run(tests)
     }
   }
 }

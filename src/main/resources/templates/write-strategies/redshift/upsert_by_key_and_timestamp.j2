@@ -10,8 +10,7 @@
 CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
 
 
-DELETE
-SELECT DISTINCT {{ strategyKeyCsv }}  
+SELECT DISTINCT {{ strategyKeyCsv }}
 FROM {{ tableFullName }} AS SL_EXISTING INNER JOIN SL_INCOMING 
 ON {{ strategyKeyJoinCondition }};
 WHERE

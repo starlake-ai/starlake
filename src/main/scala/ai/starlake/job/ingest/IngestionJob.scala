@@ -254,7 +254,8 @@ trait IngestionJob extends SparkJob {
       err,
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler)
     logger.error(err)
@@ -287,7 +288,8 @@ trait IngestionJob extends SparkJob {
       if (success) "success" else s"$rejectedCount invalid records",
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
@@ -742,7 +744,7 @@ trait IngestionJob extends SparkJob {
         tags = schema.tags,
         writeStrategy = Some(strategy)
       )
-      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, false)(
+      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
         settings,
         storageHandler,
         schemaHandler

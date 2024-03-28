@@ -59,11 +59,6 @@ object Main extends StrictLogging {
   def main(args: Array[String]): Unit = {
     new Main().run(args)
   }
-
-}
-
-class Main extends StrictLogging {
-
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
     TransformCmd,
@@ -100,6 +95,11 @@ class Main extends StrictLogging {
     MainServerCmd,
     DagGenerateCmd
   )
+}
+
+class Main extends StrictLogging {
+
+  import Main.commands
   private def printUsage(): Unit = {
     // scalastyle:off println
     println(s"Starlake Version ${BuildInfo.version}")

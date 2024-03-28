@@ -73,7 +73,8 @@ case class AuditLog(
   message: String,
   step: String,
   database: Option[String],
-  tenant: String
+  tenant: String,
+  test: Boolean
 ) {
 
   def asMap(): Map[String, Any] = {
@@ -89,7 +90,8 @@ case class AuditLog(
       "duration"      -> duration,
       "message"       -> message,
       "step"          -> step,
-      "tenant"        -> tenant
+      "tenant"        -> tenant,
+      "test"          -> test
     ) ++ List(
       paths.map("paths" -> _),
       database.map("database" -> _)
@@ -117,7 +119,8 @@ case class AuditLog(
                '{{message}}' as MESSAGE,
                '{{step}}' as STEP,
                '{{database}}' as DATABASE,
-               '{{tenant}}' as TENANT
+               '{{tenant}}' as TENANT,
+                {{test}} AS TEST
            """)
     val selectStatement = template.richFormat(
       Map(
@@ -134,7 +137,8 @@ case class AuditLog(
         "message"       -> message.replaceAll("'", "-").replaceAll("\n", " "),
         "step"          -> step,
         "database"      -> database.getOrElse(""),
-        "tenant"        -> tenant.replaceAll("'", "-")
+        "tenant"        -> tenant.replaceAll("'", "-"),
+        "test"          -> test
       ),
       Map.empty
     )
@@ -157,6 +161,7 @@ case class AuditLog(
        |step=$step
        |database=$database
        |tenant=$tenant
+       |test=$test
        |""".stripMargin.split('\n').mkString(",")
 }
 
@@ -176,7 +181,8 @@ object AuditLog extends StrictLogging {
     ("message", StandardSQLTypeName.STRING, StringType),
     ("step", StandardSQLTypeName.STRING, StringType),
     ("database", StandardSQLTypeName.STRING, StringType),
-    ("tenant", StandardSQLTypeName.STRING, StringType)
+    ("tenant", StandardSQLTypeName.STRING, StringType),
+    ("test", StandardSQLTypeName.BOOL, BooleanType)
   )
 
   val starlakeSchema = Schema(
@@ -230,6 +236,7 @@ object AuditLog extends StrictLogging {
               Map.empty,
               None,
               truncate = false,
+              test = log.test,
               engine = auditTaskDesc.getSinkConnection().getEngine()
             )
           val res = task.run()

@@ -646,6 +646,10 @@
           "description": "TODO"
         },
         {
+          "const": "DELETE_THEN_INSERT",
+          "description": "TODO"
+        },
+        {
           "const": "SCD2",
           "description": "TODO"
         },
@@ -1773,6 +1777,10 @@
         "dags": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "DAG generation config folder. metadata/dags by default"
+        },
+        "tests": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Path to tests folder. Default is ${metadata}/tests"
         },
         "writeStrategies": {
           "$ref": "#/definitions/ConvertibleToString",

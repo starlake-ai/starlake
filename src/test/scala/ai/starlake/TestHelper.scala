@@ -31,6 +31,7 @@ import com.dimafeng.testcontainers.{
   ElasticsearchContainer,
   JdbcDatabaseContainer,
   KafkaContainer,
+  MariaDBContainer,
   PostgreSQLContainer
 }
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -112,12 +113,21 @@ trait TestHelper
        |include required("application-test.conf")
        |connections.test-pg {
        |    type = "jdbc"
-       |    ## The default URI is in memory only
        |    options {
        |      "url": "${TestHelper.pgContainer.jdbcUrl}"
        |      "user": "test"
        |      "password": "test"
        |      "driver": "org.postgresql.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |connections.test-mariadb {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${TestHelper.mariadbContainer.jdbcUrl.replace(":mariadb:", ":mysql:")}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.mariadb.jdbc.Driver"
        |      "quoteIdentifiers": false
        |    }
        |  }
@@ -562,6 +572,25 @@ object TestHelper extends StrictLogging {
         databaseName = "starlake",
         username = "test",
         password = "test",
+        commonJdbcParams = initScriptParam
+      )
+      .createContainer()
+    container.start()
+    container
+  }
+
+  lazy val mariadbContainer: MariaDBContainer = {
+    val dockerImage = "mariadb"
+    val dockerTag = "latest"
+    val dockerImageName = DockerImageName.parse(s"$dockerImage:$dockerTag")
+    val initScriptParam =
+      JdbcDatabaseContainer.CommonParams()
+    val container = MariaDBContainer
+      .Def(
+        dockerImageName,
+        dbName = "starlake",
+        dbUsername = "test",
+        dbPassword = "test",
         commonJdbcParams = initScriptParam
       )
       .createContainer()
