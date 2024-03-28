@@ -32,14 +32,8 @@ Starlake aims to bring similar advantages to the realm of data engineering.
 This paradigm shift  encourages a focus on defining goals for data warehouses, 
 rather than the intricacies of implementation details. 
 
-This makes you reconsider and enhance your data pipeline practices, 
-unlocking the full potential of declarative programming for data engineering.
 
-Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
-instead of writing code or using a GUI.
-
-
-The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain. This is best explained with an example:
+The YAML DSL is self-explanatory and easy to understand. This is best explained with an example:
 
 ### Extract
 
