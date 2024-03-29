@@ -27,7 +27,7 @@ The workflow below is a typical use case:
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
-## Starlake Philosophy
+## How it works
 
 The advent of declarative programming, exemplified by tools like Ansible and Terraform, 
 has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution. 
