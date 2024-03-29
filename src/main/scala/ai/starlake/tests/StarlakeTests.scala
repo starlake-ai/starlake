@@ -190,8 +190,7 @@ object StarlakeTestData {
   }
 
   def drop(
-    tests: List[(String, List[(String, List[(String, StarlakeTest)])])],
-    conn: java.sql.Connection
+    tests: List[(String, List[(String, List[(String, StarlakeTest)])])]
   )(implicit settings: Settings) = {
     tests.foreach { case (domainName, tables) =>
       dropSchema(domainName)
