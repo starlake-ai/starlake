@@ -118,13 +118,14 @@ transform:
         type: "UPSERT_BY_KEY_AND_TIMESTAMP"
         timestamp: signup
         key: [id]
-      sql: |              # based on the merge strategy and the current state,
-          SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
-            productid,
-            SUM(unitprice * orderqty) AS total_revenue
-            FROM salesorderdetail
-            GROUP BY productid
-            ORDER BY total_revenue DESC
+```
+```sql
+SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
+    productid,
+    SUM(unitprice * orderqty) AS total_revenue
+FROM salesorderdetail
+GROUP BY productid
+ORDER BY total_revenue DESC
 ```
 
 Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `writeStrategy` property and the input /output tables .
