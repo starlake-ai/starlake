@@ -969,14 +969,12 @@ object YamlConfigGenerators {
   implicit val jdbcEngine: Arbitrary[JdbcEngine] = Arbitrary {
     for {
       tables          <- arbitrary[Map[String, TableDdl]]
-      canMerge        <- arbitrary[Boolean]
-      viewPrefix      <- arbitrary[String]
+      viewPrefix      <- arbitrary[Option[String]]
       quote           <- arbitrary[String]
-      preActions      <- arbitrary[String]
+      preActions      <- arbitrary[Option[String]]
       strategyBuilder <- arbitrary[String]
     } yield JdbcEngine(
       tables = tables,
-      canMerge = canMerge,
       quote = quote,
       viewPrefix = viewPrefix,
       preActions = preActions,

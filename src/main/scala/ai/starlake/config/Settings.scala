@@ -407,10 +407,9 @@ object Settings extends StrictLogging {
     */
   final case class JdbcEngine(
     tables: Map[String, TableDdl],
-    canMerge: Boolean,
     quote: String,
-    viewPrefix: String,
-    preActions: String,
+    viewPrefix: Option[String],
+    preActions: Option[String],
     strategyBuilder: String,
     columnRemarks: Option[String] = None,
     tableRemarks: Option[String] = None

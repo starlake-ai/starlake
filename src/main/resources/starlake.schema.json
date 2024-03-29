@@ -424,10 +424,6 @@
           "$ref": "#/definitions/MapTableDdlV1",
           "description": "List of all SQL create statements used to create audit tables for this JDBC engine.\nTables are created only if the execution of the pingSQL statement fails"
         },
-        "canMerge": {
-          "type": "boolean",
-          "description": "TODO"
-        },
         "quote": {
           "type": "string",
           "description": "TODO"
@@ -443,9 +439,17 @@
         "strategyBuilder": {
           "type": "string",
           "description": "TODO"
+        },
+        "columnRemarks": {
+          "type": "string",
+          "description": "TODO"
+        },
+        "tableRemarks": {
+          "type": "string",
+          "description": "TODO"
         }
       },
-      "required": ["tables", "canMerge", "quote", "viewPrefix", "preActions", "strategyBuilder"]
+      "required": ["tables",  "quote", "strategyBuilder"]
     },
     "PrivacyV1": {
       "type": "object",
