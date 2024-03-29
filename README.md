@@ -2,18 +2,20 @@
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-img[src*='#center'] {
-display: block;
-margin: auto;
-}
 
 # What is Starlake ?
 
-![](docs/static/img/intent.png#center)
+
+<p align="center">
+  <img src="docs/static/img/intent.png" />
+</p>
 
 Starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
 
-![](docs/static/img/starlake-draw.png)
+<p align="center">
+  <img src="docs/static/img/starlake-draw.png" />
+</p>
+
 
 Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
