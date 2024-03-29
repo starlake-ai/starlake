@@ -124,6 +124,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_SNOWFLAKE = envIsTrue("ENABLE_SNOWFLAKE");
     public static boolean ENABLE_REDSHIFT = envIsTrue("ENABLE_REDSHIFT");
     public static boolean ENABLE_POSTGRESQL = envIsTrue("ENABLE_POSTGRESQL");
+    public static boolean ENABLE_DUCKDB = envIsTrue("ENABLE_DUCKDB");
+
+    private static final boolean[] ALL_ENABLERS = new boolean[] {
+            ENABLE_BIGQUERY,
+            ENABLE_AZURE,
+            ENABLE_SNOWFLAKE,
+            ENABLE_REDSHIFT,
+            ENABLE_POSTGRESQL,
+            ENABLE_DUCKDB
+    };
 
     // SPARK & STARLAKE
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
@@ -149,6 +159,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     // POSTGRESQL
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
 
+    // DUCKDB
+    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("0.10.0");
+
     // REDSHIFT
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.595");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
@@ -157,8 +170,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // DUCKDB
-    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("0.10.0");
-
     private static final JarDependency SPARK_JAR = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
     private static final JarDependency SPARK_BQ_JAR = new JarDependency("spark-bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
@@ -173,8 +184,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final JarDependency SPARK_SNOWFLAKE_JAR = new JarDependency("spark-snowflake", "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
             "/" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + "/spark-snowflake_" + SCALA_VERSION + "-" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + ".jar");
     private static final JarDependency POSTGRESQL_JAR = new JarDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
-    private static final JarDependency DUCKDB_JAR = new JarDependency("duckdb", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
 
+    private static final JarDependency DUCKDB_JAR = new JarDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
     private static final JarDependency AWS_JAVA_SDK_JAR = new JarDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
     private static final JarDependency HADOOP_AWS_JAR = new JarDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final JarDependency REDSHIFT_JDBC_JAR = new JarDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
@@ -309,7 +320,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     private static boolean anyDependencyEnabled() {
-        return ENABLE_BIGQUERY || ENABLE_AZURE || ENABLE_SNOWFLAKE || ENABLE_REDSHIFT || ENABLE_POSTGRESQL;
+        for (boolean enabled : ALL_ENABLERS) {
+            if (enabled) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -430,6 +446,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
+
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
