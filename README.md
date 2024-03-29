@@ -3,12 +3,9 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 
-# What is Starlake ?
 
 
-<p align="center">
-  <img src="docs/static/img/intent.png" />
-</p>
+<img src="docs/static/img/intent.png" />
 
 Starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
 
@@ -27,7 +24,7 @@ The workflow below is a typical use case:
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
-## How it works
+# How it works
 
 The advent of declarative programming, exemplified by tools like Ansible and Terraform, 
 has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution. 
@@ -44,7 +41,7 @@ rather than the intricacies of implementation details.
 
 The YAML DSL is self-explanatory and easy to understand. This is best explained with an example:
 
-### Extract
+## Extract
 
 Let's say we want to extract data from a Postgres Server database on a daily basis
 ```yaml
@@ -69,7 +66,7 @@ extract:
 
 That's it, we have defined our extraction pipeline.
 
-### Load
+## Load
 
 Let's say we want to load the data extracted from the previous example into a datawarehouse
 
@@ -105,7 +102,7 @@ table:
 That's it, we have defined our loading pipeline.
 
 
-### Transform
+## Transform
 
 Let's say we want to build aggregates from the previously loaded data
 
@@ -132,7 +129,7 @@ transform:
 
 Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `writeStrategy` property and the input /output tables .
 
-### Orchestrate
+## Orchestrate
 
 Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
 whenever  the tables referenced in the SQL query are updated.
@@ -149,12 +146,12 @@ The resulting DAG is shown below:
 
 ![](docs/static/img/quickstart/transform-dags.png)
 
-## Supported platforms
+# Supported platforms
 
 The Load & Transform steps support multiple configurations for inputs and outputs.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
 
 
-## Documentation
+# Documentation
 Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
