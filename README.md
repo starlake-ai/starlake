@@ -1,64 +1,39 @@
 ![Build Status](https://github.com/starlake-ai/starlake/workflows/Build/badge.svg)
-[![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-blue.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
-[![codecov](https://codecov.io/gh/starlake-ai/starlake/branch/master/graph/badge.svg)](https://codecov.io/gh/starlake-ai/starlake)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/569178d6936842808702e72c30d74643)](https://www.codacy.com/gh/starlake-ai/starlake/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=starlake-ai/starlake&amp;utm_campaign=Badge_Grade)
-[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://starlake-ai.github.io/starlake/)
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12)
-[![Slack](https://img.shields.io/badge/slack-join-blue.svg?logo=slack)](https://starlakeai.slack.com)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-# About Starlake
 
-Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
+
 # What is Starlake ?
+Starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
+
+![](docs/static/img/starlake-draw.png)
 
 Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
-* Extract your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
-* Define or infer the structure of each POSITION/DSV/JSON/XML file with a schema using YAML syntax
-* Configure the loading process
-* Start watching your data being available as Tables in your warehouse.
-* Build aggregates using SQL and YAML configuration files.
-* Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ) in the right order.
+* **Extract** your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
+* Define or infer table schemas fom test files (csv, json, xml, fixed-wdith ...)
+* **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse. 
+* **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to you selected strategy (Append, Overwrite, Merge ...).
+* **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
 
-## How is Starlake declarative ?
+## Starlake Philosophy
 
-Looking at ELT tools, we can see that they are either:
-- __Code based__: This is the case for example for Databricks or Meltano.
-- __GUI based__: This is the case for example for Apache NiFi, Airbyte or Fivetran.
+The advent of declarative programming, exemplified by tools like Ansible and Terraform, 
+has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution. 
+This paradigm shift brings forth benefits such as reduced error prone coding tasks, significantly shortened development cycles, 
+enhanced code readability, and increased accessibility for developers of all levels.
 
-Looking at existing data orchestration tools, we can see that they are either:
-- __Code based__: This is the case for example for Apache Airflow or Dagster.
-- __GUI based__: This is the case for example for Apache NiFi or StreamSets.
+Starlake is a YAML-based declarative tool designed for expressing Extract, Load, Transform, and Orchestration tasks. 
+Drawing inspiration from the successes of declarative programming in infrastructure, 
+Starlake aims to bring similar advantages to the realm of data engineering.
+
+This paradigm shift  encourages a focus on defining goals for data warehouses, 
+rather than the intricacies of implementation details. 
 
 
-Starlake is different because it is declarative, meaning that we define our data pipelines using a YAML DSL (Domain Specific Language)
-instead of writing code or using a GUI.
-
-These YAML files are then interpreted by Starlake runtime to execute your end to end data pipelines.
-
-Among the properties you may specify in the YAML file, the following are worth mentioning:
-* field normalization
-* field encryption
-* field renaming
-* field removal
-* field transformation
-* field addition (computed fields)
-* metrics computation
-* semantic types by allowing you to set type constraints on the incoming data
-* multiple file formats and source / target databases (Postgres, MySQL, SQL Server, Oracle, Snowflake, Redshift, BigQuery, ...)
-* merge strategy (INSERT OVERWRITE or MERGE INTO)
-* partitioning and clustering strategies
-* data retention policies
-* data quality rules
-* data ownership
-* data access policies
-* schema evolution
-
-The YAML DSL is self-explanatory and easy to understand. It is also very concise and easy to maintain.
-
-The YAML DSL added value is best explained with an example:
+The YAML DSL is self-explanatory and easy to understand. This is best explained with an example:
 
 ### Extract
 
@@ -165,21 +140,12 @@ The resulting DAG is shown below:
 
 ![](docs/static/img/quickstart/transform-dags.png)
 
-## How it works
+## Supported platforms
 
-Starlake Data Pipeline automates the loading and parsing of files and
-their ingestion into a warehouse where datasets become available as strongly typed records.
-
-![](docs/static/img/workflow.png)
-
-
-The figure above describes how Starlake implements the `Extract Load Transform (ELT)` Data Pipeline steps.
-Starlake may be used indistinctly for all or any of these steps.
-
-* The `extract` step allows to export selective data from an existing SQL database to a set of CSV files.
-* The `load` step allows you to load text files, to ingest POSITION/CSV/JSON/XML files as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery) or whatever sink you configured
-* The `transform` step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
-
-The Load & Transform steps support multiple configurations for inputs and outputs as illustrated in the figure below.
+The Load & Transform steps support multiple configurations for inputs and outputs.
 
 ![Anywhere](docs/static/img/data-star.png "Anywhere")
+
+
+## Documentation
+Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
