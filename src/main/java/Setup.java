@@ -169,7 +169,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.1.0-spark_3.5");
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+    // DUCKDB
     private static final JarDependency SPARK_JAR = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
     private static final JarDependency SPARK_BQ_JAR = new JarDependency("spark-bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
@@ -184,6 +184,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final JarDependency SPARK_SNOWFLAKE_JAR = new JarDependency("spark-snowflake", "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
             "/" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + "/spark-snowflake_" + SCALA_VERSION + "-" + SCALA_VERSION + ".0-spark_" + SPARK_SNOWFLAKE_VERSION + ".jar");
     private static final JarDependency POSTGRESQL_JAR = new JarDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
+
     private static final JarDependency DUCKDB_JAR = new JarDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
     private static final JarDependency AWS_JAVA_SDK_JAR = new JarDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
     private static final JarDependency HADOOP_AWS_JAR = new JarDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
@@ -216,7 +217,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             POSTGRESQL_JAR
     };
 
-    private static final JarDependency[] duckdbDependencies = {
+    private static final JarDependency[] duckDbDependencies = {
             DUCKDB_JAR
     };
 
@@ -280,6 +281,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("SCALA_VERSION", SCALA_VERSION);
             variableWriter.apply(writer).accept("SPARK_VERSION", SPARK_VERSION);
             variableWriter.apply(writer).accept("HADOOP_VERSION", HADOOP_VERSION);
+            variableWriter.apply(writer).accept("DUCKDB_VERSION", DUCKDB_VERSION);
+
             if (ENABLE_BIGQUERY || !anyDependencyEnabled()) {
                 variableWriter.apply(writer).accept("SPARK_BQ_VERSION", SPARK_BQ_VERSION);
             }
@@ -398,6 +401,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
             final File binDir = new File(targetDir, "bin");
 
+
             File slDir = new File(binDir, "sl");
             if (SL_VERSION.endsWith("SNAPSHOT")) {
                 deleteFile(new File(slDir, STARLAKE_SNAPSHOT_JAR.getUrlName()));
@@ -416,6 +420,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             File depsDir = new File(binDir, "deps");
 
+            downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
             if (ENABLE_BIGQUERY) {
                 downloadAndDisplayProgress(bigqueryDependencies, depsDir, true);
             } else {
@@ -441,11 +446,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
             }
-            if (ENABLE_DUCKDB) {
-                downloadAndDisplayProgress(duckdbDependencies, depsDir, true);
-            } else {
-                deleteDependencies(duckdbDependencies, depsDir);
-            }
+
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
