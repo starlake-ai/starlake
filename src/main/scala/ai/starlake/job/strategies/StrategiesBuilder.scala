@@ -173,7 +173,6 @@ class StrategiesBuilder extends StrictLogging {
     val mergeTimestampCol = strategy.timestamp
     val mergeOn = strategy.on.getOrElse(MergeOn.SOURCE_AND_TARGET)
     val quote = jdbcEngine.quote
-    val canMerge = jdbcEngine.canMerge
     val targetColumnsAsSelectString =
       SQLUtils.targetColumnsForSelectSql(targetTableColumns, quote)
 
@@ -408,9 +407,8 @@ object StrategiesBuilder {
     def asMap(): Map[String, Any] = {
       Map(
         "engineQuote"           -> jdbcEngine.quote,
-        "engineCanMerge"        -> jdbcEngine.canMerge,
-        "engineViewPrefix"      -> jdbcEngine.viewPrefix,
-        "enginePreActions"      -> jdbcEngine.preActions,
+        "engineViewPrefix"      -> jdbcEngine.viewPrefix.getOrElse(""),
+        "enginePreActions"      -> jdbcEngine.preActions.getOrElse(""),
         "engineStrategyBuilder" -> jdbcEngine.strategyBuilder
       )
     }

@@ -1081,7 +1081,7 @@ object JdbcDbUtils extends LazyLogging {
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ? $columnExprToDistribute > ? $extraCondition""".stripMargin
+         |where $columnExprToDistribute <= ? and $columnExprToDistribute > ? $extraCondition""".stripMargin
 
     // Get the boundaries of each partition that will be handled by a specific thread.
     val boundaries = withJDBCConnection(extractConfig.data.options) { connection =>

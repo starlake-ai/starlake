@@ -123,7 +123,10 @@ class JdbcAutoTask(
           case None =>
             conn.setAutoCommit(false)
             val parsedPreActions =
-              Utils.parseJinja(jdbcSinkEngine.preActions, Map("schema" -> taskDesc.domain))
+              Utils.parseJinja(
+                jdbcSinkEngine.preActions.getOrElse(""),
+                Map("schema" -> taskDesc.domain)
+              )
             Try {
               runPreActions(conn, parsedPreActions.splitSql(";"))
               runSqls(conn, preSql, "Pre")

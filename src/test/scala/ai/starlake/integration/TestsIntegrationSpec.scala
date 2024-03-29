@@ -10,7 +10,7 @@ class TestsIntegrationSpec extends IntegrationTestBase {
 
   "Load Tests" should "succeed" in {
     withEnvs(
-      "SL_ROOT" -> localDir.pathAsString
+      "SL_ROOTdocker create " -> localDir.pathAsString
     ) {
 
       val tests = StarlakeTestData.loadTests()
