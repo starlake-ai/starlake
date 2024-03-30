@@ -46,15 +46,8 @@ metadata/load
     ├── product.sl.yml
     └── order.sl.yml
 datasets/
-├── starbake.db     # files are loaded as tables into the starbake domain
-│   ├── order
-│   ├── order_line
-│   └── product
 ├── archive         # files are moved to the archive directory after being loaded
 │   └── starbake
-├── audit.db        # audit tables are created in the audit schema
-│   ├── audit
-│   └── rejected
 ├── ingesting       # files are moved to the ingesting directory before being loaded
 │   └── starbake
 ├── replay          # invalid records that need to be replayed are moved
@@ -62,11 +55,28 @@ datasets/
 ├── stage           # files are moved to the stage directory before being loaded
 │   └── starbake
 └── unresolved      # files with names that do not match a valid pattern
-└── starbake        # are moved to the unresolved directory.
+                    # are moved to the unresolved directory.
 
 ```
 
 <br/>
+
+When running against Spark Locally, the tables are created in the `datasets` directory.
+When running against a real datawarehouse, the tables are created in the target database.
+
+```shell title="Extra files when running autoload against spark locally"
+datasets/
+├── starbake.db     # files are loaded as tables into the starbake domain
+│   ├── order
+│   ├── order_line
+│   └── product
+├── audit.db        # audit tables are created in the audit schema
+│   ├── audit
+│   └── rejected
+
+
+````
+
 
 
 

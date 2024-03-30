@@ -1,9 +1,9 @@
-version: 1
 dag:
     comment: "data loading for {{domain}}"
     template: "load/dagster_scheduled_table_shell.py.j2"
-    filename: "{{domain}}.py"
+    filename: "dagster_all_load.py"
     options:
+        load_dependencies: "true"
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "{{SL_ROOT}}/starlake"
 
