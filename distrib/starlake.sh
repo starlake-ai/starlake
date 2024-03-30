@@ -33,18 +33,6 @@ if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
 fi
 
 
-launch_spark_sql() {
-  mkdir -p $SL_SQL_WH/local-conf
-  cat > $SL_SQL_WH/local-conf/spark-defaults.conf <<EOF
-spark.sql.warehouse.dir=$SL_SQL_WH
-spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
-spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
-spark.driver.extraJavaOptions -Dderby.system.home=$SL_SQL_WH
-EOF
-export SPARK_CONF_DIR=$SL_SQL_WH/local-conf
-$SPARK_TARGET_FOLDER/bin/spark-sql "$@"
-}
-
 get_binary_from_url() {
     local url=$1
     local target_file=$2
@@ -111,11 +99,12 @@ launch_starlake() {
     #                  fs.defaultFS=$SL_FS"
     #fi
 
+    grep -v "rootLogger.level" $SPARK_TARGET_FOLDER/conf/log4j.properties > $SPARK_TARGET_FOLDER/conf/err.log4j2.properties
     if [[ -z "$SL_DEBUG" ]]
     then
-      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
+      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/bin/spark/conf/log4j2.properties"
     else
-      SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+      SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     fi
 
     if [[ "$SL_DEFAULT_LOADER" == "native" ]]
@@ -161,12 +150,6 @@ case "$1" in
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
-    ;;
-  sql)
-    echo "----------------------------------------------"
-    echo "Experimental feature."
-    echo "----------------------------------------------"
-    launch_spark_sql "$@"
     ;;
   serve)
     launch_starlake "$@"

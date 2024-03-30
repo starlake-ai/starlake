@@ -100,7 +100,7 @@ object InferSchemaHandler {
                 if (timestampCandidates.isEmpty)
                   "string"
                 else if (timestampCandidates.forall(v => parseIsoInstant(v)))
-                  "timestamp"
+                  "iso_date_time"
                 else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
                   "date"
                 else

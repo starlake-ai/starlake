@@ -8,8 +8,6 @@ application:
       connectionRef: "{{connectionRef}}"
 
   connections:
-    sparkLocal:
-      type: "fs" # Connection to local file system (delta files)
     duckdb:
       type: "jdbc" # Connection to DuckDB
       options:
@@ -22,6 +20,8 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+    sparkLocal:
+      type: "fs" # Connection to local file system (delta files)
   dagRef:
     load: "dagster_load_shell"
     transform: "dagster_transform_shell"
