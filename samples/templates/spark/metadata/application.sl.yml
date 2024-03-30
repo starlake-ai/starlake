@@ -32,7 +32,7 @@ application:
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #jobTimeoutMs: 3600000
         #maximumBytesBilled: 100000000000
-    localFilesystem:
+    sparkLocal:
       type: "fs"
 
   spark:

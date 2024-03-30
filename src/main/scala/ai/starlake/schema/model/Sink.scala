@@ -172,7 +172,7 @@ case class AllSinks(
     options.foreach(map += "sinkOptions" -> _.asJava)
 
     map += "sinkTableOptionsClause"    -> this.getTableOptionsClause()
-    map += "sinkTablePartitionClause"  -> this.getTableOptionsClause()
+    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL()
     map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL()
 
     map.toMap

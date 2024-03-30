@@ -1,3 +1,4 @@
+version: 1
 application:
   connectionRef: "{{ connection }}"
   loader: native
@@ -55,7 +56,7 @@ application:
         keep_column_case: "off"
         autopushdown: on
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
-    localFilesystem:
+    sparkLocal:
       type: "fs"
   accessPolicies: # Required to set RLS and ACLs on tables
     apply: true
