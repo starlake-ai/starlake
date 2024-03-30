@@ -388,7 +388,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     private static void updateSparkLog4j2Properties(File sparkDir) {
-        File log4jFile = new File(new File(sparkDir, "conf"), "log4j.properties");
+        File log4jFile = new File(new File(sparkDir, "conf"), "log4j2.properties");
         try {
             BufferedReader reader = new BufferedReader(new FileReader(log4jFile));
             StringBuilder sb = new StringBuilder();
