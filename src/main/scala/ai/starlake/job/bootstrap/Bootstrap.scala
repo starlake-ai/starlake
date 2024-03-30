@@ -36,7 +36,7 @@ object Bootstrap extends StrictLogging {
     }
   }
 
-  def askTemplate(maybeString: Option[String]): Option[String] = {
+  private def askTemplate(maybeString: Option[String]): Option[String] = {
     maybeString match {
       case Some(template) =>
         Some(template)
