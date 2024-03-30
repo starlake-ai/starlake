@@ -82,8 +82,8 @@ types:
       postgres: BOOLEAN
   - name: "timestamp"
     primitiveType: "timestamp"
-    pattern: "ISO_DATE_TIME"
-    sample: "2019-12-31T23:59:02"
+    pattern: "yyyy-MM-dd HH:mm:ss"
+    sample: "2019-12-31 23:59:02"
     comment: "date/time in epoch millis"
     ddlMapping:
       bigquery: TIMESTAMP
