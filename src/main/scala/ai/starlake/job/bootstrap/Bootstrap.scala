@@ -12,8 +12,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object Bootstrap extends StrictLogging {
-  val SAMPLES_DIR = "bootstrap/samples"
-  val TEMPLATES_DIR = s"$SAMPLES_DIR/templates"
+  val TEMPLATES_DIR = "templates/bootstrap/samples"
   private def copyToFolder(
     resources: List[String],
     templateFolder: String,
