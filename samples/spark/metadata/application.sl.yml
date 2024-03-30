@@ -16,6 +16,11 @@ application:
         user: "{{POSTGRES_USER}}"
         password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
+    duckdb:
+      type: "jdbc" # Connection to DuckDB
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
     redshift:
       type: jdbc
       options:
@@ -47,7 +52,7 @@ application:
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #jobTimeoutMs: 3600000
         #maximumBytesBilled: 100000000000
-    localFilesystem:
+    sparkLocal:
       type: "fs"
 
   spark:

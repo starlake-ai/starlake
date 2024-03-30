@@ -112,7 +112,7 @@ $ python _scripts/dummy_data_generator.py
 
 application:
   loader: "native" # "spark" (default) or "native"
-  connectionRef: starbake-bigquery # of localFileSystem (see below)
+  connectionRef: starbake-bigquery # of sparkLocal (see below)
 
   connections:
     starbake-bigquery: # connection to bigquery
@@ -122,7 +122,7 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
-    localFileSystem:
+    sparkLocal:
         type: "fs" # Connection to local file system (parquet files)
 ```
 

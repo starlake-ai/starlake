@@ -11,7 +11,7 @@ The conventions used by the autoload command are:
 - files are stored under the incoming directory and named after the domain and table they are loaded into: `$SL_ROOT/incoming/<domain>/<table><suffix>.<extension>`
 - The target schema is named after the domain names
 - The target tables are named after the file name without the extension or suffix.
-- The suffix is used to differentiate betwwen files that are loaded in full `overwrite` mode and those loaded in `append` mode.
+- The suffix is used to differentiate between files that are loaded in full `overwrite` mode and those loaded in `append` mode.
 For example `order_20240228.json` and `order_line_20240228.csv` are respectively loaded into the same table `order` and `order_line`.
 
 ```plaintext title="directory structure example before running autoload"
@@ -24,7 +24,16 @@ metadata/load
 ```
 <br/>
 
-After running the `autoload`command:
+After running the `autoload` command:
+```shell
+starlake autoload
+```
+<br/>
+
+Since we did not specify the target datawarehouse but the local filesystem as the target, the directory structure will be updated as follows.
+
+In real life, the target datawarehouse will be a database and the tables will be created in the target database.
+
 ```plaintext title="table schemas inferred from the directory structure"
 incoming
 └── starbake
@@ -36,7 +45,27 @@ metadata/load
     ├── _config.sl.yml
     ├── product.sl.yml
     └── order.sl.yml
+datasets/
+├── starbake.db     # files are loaded as tables into the starbake domain
+│   ├── order
+│   ├── order_line
+│   └── product
+├── archive         # files are moved to the archive directory after being loaded
+│   └── starbake
+├── audit.db        # audit tables are created in the audit schema
+│   ├── audit
+│   └── rejected
+├── ingesting       # files are moved to the ingesting directory before being loaded
+│   └── starbake
+├── replay          # invalid records that need to be replayed are moved
+│   └── starbake    # in the  replay directory
+├── stage           # files are moved to the stage directory before being loaded
+│   └── starbake
+└── unresolved      # files with names that do not match a valid pattern
+└── starbake        # are moved to the unresolved directory.
+
 ```
+
 <br/>
 
 
@@ -44,6 +73,10 @@ metadata/load
 - The `_config.sl.yml` file is a configuration file that contains the domain configuration and describe how the domain will be created in the target database.
 
 - The `<table>.sl.yml` file contains the table configuration and describes how files are parsed, validated and loaded into the target database.
+
+
+## Query the loaded tables
+
 
 
 ## How autoload detects the format of the files

@@ -42,13 +42,18 @@ object Bootstrap extends StrictLogging {
       case Some(template) =>
         Some(template)
       case None =>
-        println("Please choose a template:")
         val templates = JarUtil.getResourceFolders("bootstrap/samples/templates/")
-        templates.zipWithIndex.foreach { case (template, index) =>
-          println(s"  $index. $template")
+        if (templates.length == 1) {
+          Some(templates.head)
+        } else {
+
+          println("Please choose a template:")
+          templates.zipWithIndex.foreach { case (template, index) =>
+            println(s"  $index. $template")
+          }
+          println(s"  q. quit")
+          requestAnswer(templates)
         }
-        println(s"  q. quit")
-        requestAnswer(templates)
     }
   }
 

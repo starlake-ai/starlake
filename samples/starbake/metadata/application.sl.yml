@@ -7,7 +7,7 @@ application:
       connectionRef: "{{connectionRef}}"
 
   connections:
-    localFileSystem:
+    sparkLocal:
       type: "fs" # Connection to local file system (delta files)
     duckdb:
       type: "jdbc" # Connection to DuckDB

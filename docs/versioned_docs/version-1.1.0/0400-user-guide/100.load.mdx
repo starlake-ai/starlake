@@ -86,7 +86,7 @@ $ docker run                                                      \
 </TabItem>
 </Tabs>
 
-This will load the data files and since we chose the localFilesystem connection, they will be stored them as parquet files into the following folders:
+This will load the data files and since we chose the sparkLocal connection, they will be stored them as parquet files into the following folders:
 - `datasets/accepted` for valid records
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
@@ -216,7 +216,7 @@ application:
   connectionRef: "databricks"
   loader: spark # note the spark loader here
   connections:
-    localFilesystem:
+    sparkLocal:
       type: "databricks"
 ```
 

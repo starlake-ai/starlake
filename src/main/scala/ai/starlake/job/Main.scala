@@ -1,6 +1,7 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
@@ -93,7 +94,8 @@ object Main extends StrictLogging {
     BigQueryFreshnessInfoCmd,
     ProjectCompareCmd,
     MainServerCmd,
-    DagGenerateCmd
+    DagGenerateCmd,
+    ConsoleCmd
   )
 }
 

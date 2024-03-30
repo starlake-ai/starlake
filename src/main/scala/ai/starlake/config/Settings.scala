@@ -27,7 +27,7 @@ import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
-import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, TransformEngine, Utils, YamlSerde}
+import ai.starlake.utils._
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -49,8 +49,8 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object Settings extends StrictLogging {
@@ -918,7 +918,6 @@ object Settings extends StrictLogging {
     logger.debug(YamlSerde.serialize(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
-
     // Load application.conf / application.sl.yml
     val applicationConfSettings =
       loadApplicationYaml(effectiveConfig, settings)
@@ -1092,7 +1091,6 @@ final case class Settings(
 ) {
 
   var _storageHandler: Option[StorageHandler] = None
-
   @transient
   def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))
     Some(this.sparkConfig.getString("sql.warehouse.dir"))

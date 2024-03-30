@@ -40,12 +40,6 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     */
   val config: SparkConf = confTransformer(settings.jobConf)
 
-  /*
-  if
-    if hive enabled:
-    if databricks running
-    if delta available
-   */
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
@@ -55,18 +49,15 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       }
     }
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
+      val sysProps = System.getProperties()
+      sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       config.set(
         "spark.sql.catalog.spark_catalog",
         "org.apache.spark.sql.delta.catalog.DeltaCatalog"
       )
     }
-    val session = {
-      if (settings.appConfig.isHiveCompatible())
-        SparkSession.builder().config(config).enableHiveSupport().getOrCreate()
-      else
-        SparkSession.builder().config(config).getOrCreate()
-    }
+    val session = SparkSession.builder().config(config).enableHiveSupport().getOrCreate()
 
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))
