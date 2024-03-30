@@ -6,6 +6,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 
 import java.io.File
+import java.nio.file.Files
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
@@ -56,14 +57,14 @@ case class StarlakeTestData(
   }
   def unload(conn: java.sql.Connection): Unit = {
     val stmt = conn.createStatement()
-    stmt.execute(s"DROP TABLE $domain.$table")
+    stmt.execute(s"DROP TABLE $domain.$table CASCADE")
     stmt.close()
 
   }
 }
 
 object StarlakeTestData {
-  val dbFilename = "/Users/hayssams/tmp/duckdb.db"
+  val dbFilename: String = Files.createTempFile("sl_duck", ".db").toString
 
   def createSchema(domainName: String): Unit = {
     Utils.withResources(
@@ -139,13 +140,35 @@ object StarlakeTestData {
   }
 
   def run(
-    tests: List[(String, List[(String, List[(String, StarlakeTest)])])]
+    dataAnddTests: (
+      List[StarlakeTestData], // root data
+      List[
+        (
+          String, // domain name
+          (
+            List[StarlakeTestData], // domain data
+            List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))] // domaintests
+          )
+        )
+      ]
+    )
   ): Unit = {
     new File(dbFilename).delete()
-    tests.foreach { case (domainName, tables) =>
+    val (rootData, tests) = dataAnddTests
+    tests.foreach { case (domainName, dataAndtables) =>
       createSchema(domainName)
-      tables.foreach { case (tableName, tests) =>
+      val (domainData, tables) = dataAndtables
+      tables.foreach { case (tableName, dataAndTests) =>
+        val (taskData, tests) = dataAndTests
         tests.foreach { case (testName, test) =>
+          Utils.withResources(
+            DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
+          ) { conn =>
+            rootData.foreach(_.load(conn))
+            domainData.foreach(_.load(conn))
+            taskData.foreach(_.load(conn))
+          }
+
           test.load()
           implicit val settings = createDuckDbSettings()
           import settings.storageHandler
@@ -162,7 +185,13 @@ object StarlakeTestData {
                 compareResults(test.domain, test.table, "sl_assert")
 
             }
-
+          Utils.withResources(
+            DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
+          ) { conn =>
+            rootData.foreach(_.unload(conn))
+            domainData.foreach(_.unload(conn))
+            taskData.foreach(_.unload(conn))
+          }
           test.unload()
         }
       }
@@ -206,16 +235,31 @@ object StarlakeTestData {
 
   def loadTests()(implicit
     settings: Settings
-  ): List[(String, List[(String, List[(String, StarlakeTest)])])] = {
+  ): (
+    List[StarlakeTestData],
+    List[
+      (
+        String,
+        (
+          List[StarlakeTestData],
+          List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))]
+        )
+      )
+    ]
+  ) = {
     import settings.storageHandler
     val schemaHandler = new SchemaHandler(storageHandler())
 
     val testDir = new File(DatasetArea.tests.toString)
     val domains = testDir.listFiles.filter(_.isDirectory).toList
+    val rootData = testDir.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
     val allTests = domains.map { domainPath =>
       val tasks = domainPath.listFiles(_.isDirectory).toList
+      val domainData =
+        domainPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
       val domainTests = tasks.map { taskPath =>
         val tests = taskPath.listFiles(_.isDirectory).toList
+        val taskData = taskPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
         val taskTests = tests.flatMap { testPath =>
           val dataPaths = testPath.listFiles(f => f.isFile && !f.getName().startsWith("_")).toList
           val assertFileCsv = new File(testPath, "_assert.csv")
@@ -238,41 +282,7 @@ object StarlakeTestData {
             }
           val testDataList =
             dataPaths.flatMap { dataPath =>
-              val dataName = dataPath.getName()
-              val components = dataName.split('.')
-              val filterOK = components.length == 3
-              if (filterOK) {
-                val testDataDomainName = components(0)
-                val testDataTableName = components(1)
-                val ext = components(2)
-                val extOK = Set("json", "csv", "sql").contains(ext)
-                if (extOK) {
-                  val dataContent =
-                    ext match {
-                      case "json" | "csv" =>
-                        s"CREATE TABLE $testDataDomainName.$testDataTableName AS SELECT * FROM '${dataPath.getPath}';"
-                      case "sql" =>
-                        val bufferedSource = Source.fromFile(dataPath.getPath)
-                        val result = bufferedSource.getLines.mkString("\n")
-                        bufferedSource.close
-                        result
-                      case _ => ""
-                    }
-
-                  Some(
-                    StarlakeTestData(
-                      testDataDomainName,
-                      testDataTableName,
-                      testPath.getName(),
-                      dataContent
-                    )
-                  )
-                } else {
-                  None
-                }
-              } else {
-                None
-              }
+              loadDataFile(testPath.getName(), dataPath)
             }
           val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskName")
           task match {
@@ -293,11 +303,48 @@ object StarlakeTestData {
               None
           }
         }
-        taskPath.getName() -> taskTests
+        taskPath.getName() -> (taskData, taskTests)
       }
-      domainPath.getName() -> domainTests
+      domainPath.getName() -> (domainData, domainTests)
     }
-    allTests
+    (rootData, allTests)
   }
 
+  private def loadDataFile(testName: String, dataPath: File) = {
+    val dataName = dataPath.getName()
+    val components = dataName.split('.')
+    val filterOK = components.length == 3
+    if (filterOK) {
+      val testDataDomainName = components(0)
+      val testDataTableName = components(1)
+      val ext = components(2)
+      val extOK = Set("json", "csv", "sql").contains(ext)
+      if (extOK) {
+        val dataContent =
+          ext match {
+            case "json" | "csv" =>
+              s"CREATE TABLE $testDataDomainName.$testDataTableName AS SELECT * FROM '${dataPath.getPath}';"
+            case "sql" =>
+              val bufferedSource = Source.fromFile(dataPath.getPath)
+              val result = bufferedSource.getLines.mkString("\n")
+              bufferedSource.close
+              result
+            case _ => ""
+          }
+
+        Some(
+          StarlakeTestData(
+            testDataDomainName,
+            testDataTableName,
+            testName,
+            dataContent
+          )
+        )
+      } else {
+        None
+      }
+    } else {
+      None
+    }
+  }
 }
