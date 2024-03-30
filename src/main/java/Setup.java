@@ -135,12 +135,17 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_DUCKDB
     };
 
-    // SPARK & STARLAKE
+    // SCALA
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.1.1-SNAPSHOT");
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.0");
+
+    // STARLAKE
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.2.0-SNAPSHOT");
+
+    // SPARK
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.1");
     private static final String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
+
 
     // BIGQUERY
     private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.36.1");
@@ -177,6 +182,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
     private static final JarDependency DELTA_SPARK_JAR = new JarDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
+
+    private static final JarDependency DELTA_STORAGE_JAR = new JarDependency("delta-storage",
+            "https://repo1.maven.org/maven2/io/delta/delta-storage" + "/" + DELTA_SPARK + "/delta-storage" +"-" + DELTA_SPARK + ".jar");
     private static final JarDependency HADOOP_AZURE_JAR = new JarDependency("hadoop-azure", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar");
     private static final JarDependency AZURE_STORAGE_JAR = new JarDependency("azure-storage", "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar");
     private static final JarDependency JETTY_SERVER_JAR = new JarDependency("jetty-server", "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar");
@@ -226,7 +234,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     private static final JarDependency[] sparkDependencies = {
-            DELTA_SPARK_JAR
+            DELTA_SPARK_JAR,
+            DELTA_STORAGE_JAR
     };
 
     private static Optional<String> getEnv(String env) {
@@ -378,6 +387,29 @@ public class Setup extends ProxySelector implements X509TrustManager {
         client = clientBuilder.build();
     }
 
+    private static void updateSparkLog4j2Properties(File sparkDir) {
+        File log4jFile = new File(new File(sparkDir, "conf"), "log4j2.properties");
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(log4jFile));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("rootLogger.level =")|| line.startsWith("rootLogger.level=")) {
+                    line = "rootLogger.level = ${env:SL_LOG_LEVEL:-info}";
+                }
+                sb.append(line).append("\n");
+            }
+            reader.close();
+
+            BufferedWriter writer = new BufferedWriter(new FileWriter(log4jFile));
+            writer.write(sb.toString());
+            writer.close();
+        } catch (IOException e) {
+            System.out.println("Failed to update log4j.properties");
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -414,13 +446,14 @@ public class Setup extends ProxySelector implements X509TrustManager {
             File sparkDir = new File(binDir, "spark");
             if (!sparkDir.exists()) {
                 downloadSpark(binDir);
-                File jarsDir = new File(sparkDir, "jars");
-                downloadAndDisplayProgress(sparkDependencies, jarsDir, true);
             }
 
             File depsDir = new File(binDir, "deps");
 
+            downloadAndDisplayProgress(sparkDependencies, depsDir, true);
+            updateSparkLog4j2Properties(sparkDir);
             downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
+
             if (ENABLE_BIGQUERY) {
                 downloadAndDisplayProgress(bigqueryDependencies, depsDir, true);
             } else {
