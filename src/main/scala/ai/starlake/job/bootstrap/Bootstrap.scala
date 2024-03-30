@@ -41,7 +41,7 @@ object Bootstrap extends StrictLogging {
       case Some(template) =>
         Some(template)
       case None =>
-        val templates = JarUtil.getResourceFolders("bootstrap/samples/templates/")
+        val templates = JarUtil.getResourceFolders("templates/bootstrap/samples/")
         if (templates.length == 1) {
           Some(templates.head)
         } else {

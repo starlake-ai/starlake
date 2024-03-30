@@ -387,6 +387,29 @@ public class Setup extends ProxySelector implements X509TrustManager {
         client = clientBuilder.build();
     }
 
+    private static void updateSparkLog4j2Properties(File sparkDir) {
+        File log4jFile = new File(new File(sparkDir, "conf"), "log4j.properties");
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(log4jFile));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("rootLogger.level =")|| line.startsWith("rootLogger.level=")) {
+                    line = "rootLogger.level = ${env:SL_LOG_LEVEL:-info}";
+                }
+                sb.append(line).append("\n");
+            }
+            reader.close();
+
+            BufferedWriter writer = new BufferedWriter(new FileWriter(log4jFile));
+            writer.write(sb.toString());
+            writer.close();
+        } catch (IOException e) {
+            System.out.println("Failed to update log4j.properties");
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
@@ -428,6 +451,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             File depsDir = new File(binDir, "deps");
 
             downloadAndDisplayProgress(sparkDependencies, depsDir, true);
+            updateSparkLog4j2Properties(sparkDir);
             downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
 
             if (ENABLE_BIGQUERY) {
