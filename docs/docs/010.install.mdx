@@ -46,7 +46,7 @@ and build your docker image
 ```shell
 $ git clone git@github.com:starlake-ai/starlake.git
 $ cd starlake
-$ docker build -t starlake .
+$ docker build -t starlakeai/starlake  .
 $ docker run -it starlake help
 
 ```
@@ -54,7 +54,7 @@ $ docker run -it starlake help
 To build the docker image with a specific version of Starlake or a specific branch, you can use the following command:
 
 ```sh
-$ docker build -t starlake --build-arg SL_VERSION=1.2.0 -t starlake .
+$ docker build -t starlakeai/starlake:1.2.0 --build-arg SL_VERSION=1.2.0 .
 ```
 
 To execute the docker image, you can use the following command:

@@ -88,7 +88,7 @@ metadata/transform
 before running our transform, let's see in what order we should run them by running the following command:
 
 ```bash
-starlake lineage --recursive --name kpi.order_summary
+starlake lineage  --task kpi.order_summary --print
 ```
 
 This should produce a acyclic graph showing the order in which the insights should be run. The output should look like this:
@@ -108,7 +108,7 @@ If you installed the [GraphViz tool](../../install#graph-visualization), you can
 
 ```bash
 
-starlake lineage --name kpi.order_summary --recursive --svg --output lineage.svg
+starlake lineage --task kpi.order_summary --svg --output lineage.svg
 ```
 
 ![](/img/lineage.svg)

@@ -82,7 +82,7 @@ object StarlakeTestData {
     }
   }
 
-  def decribeTable(connection: Connection, table: String): List[String] = {
+  def describeTable(connection: Connection, table: String): List[String] = {
     val (stmt, rs) = executeQuery(connection, s"DESCRIBE $table")
     val columns = new ListBuffer[String]()
     while (rs.next()) {
@@ -100,8 +100,8 @@ object StarlakeTestData {
     Utils.withResources(
       DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
     ) { conn =>
-      val targetColumns = decribeTable(conn, s"$targetDomain.$targetTable")
-      val assertColumns = decribeTable(conn, s"$targetDomain.$assertTable")
+      val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
+      val assertColumns = describeTable(conn, s"$targetDomain.$assertTable")
       val missingColumns = assertColumns.diff(targetColumns)
       val notExpectedColumns = targetColumns.diff(assertColumns)
 
