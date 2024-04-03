@@ -103,7 +103,7 @@ class StarbakeSpec extends IntegrationTestBase {
     ) {
       assert(
         new Main().run(
-          Array("lineage", "--svg", "--tasks", "kpi.order_summary", "--output", "lineage.svg")
+          Array("lineage", "--svg", "--task", "kpi.order_summary", "--output", "lineage.svg")
         )
       )
     }
