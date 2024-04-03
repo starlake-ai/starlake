@@ -3,6 +3,8 @@ package ai.starlake.integration
 import ai.starlake.TestHelper
 import ai.starlake.job.Main
 
+import scala.reflect.io.Directory
+
 class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
   override def templates = starlakeDir / "samples"
   override def localDir = templates / "spark"
@@ -10,11 +12,9 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
   override def sampleDataDir = localDir / "sample-data"
 
   override def beforeEach(): Unit = {
-    dropTables
     super.beforeEach()
   }
   override def afterEach(): Unit = {
-    dropTables
     super.afterEach()
   }
 
@@ -33,6 +33,8 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_ENV"                      -> "LOCAL"
     ) {
+      new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()
+
       copyFilesToIncomingDir(sampleDataDir)
       assert(
         new Main().run(
@@ -59,6 +61,8 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       "SL_ROOT" -> localDir.pathAsString,
       "SL_ENV"  -> "LOCAL"
     ) {
+      dropTables
+
       List(localDir / "sample-data", localDir / "sample-data2").foreach { sampleDataDir =>
         copyFilesToIncomingDir(sampleDataDir)
         assert(

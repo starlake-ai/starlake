@@ -27,13 +27,7 @@ import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
-import com.dimafeng.testcontainers.{
-  ElasticsearchContainer,
-  JdbcDatabaseContainer,
-  KafkaContainer,
-  MariaDBContainer,
-  PostgreSQLContainer
-}
+import com.dimafeng.testcontainers._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
@@ -45,7 +39,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, BeforeAndAfterAll}
+import org.scalatest.{Assertion, BeforeAndAfterAll, BeforeAndAfterEach}
 import org.testcontainers.utility.DockerImageName
 
 import java.io.{File, InputStream}
@@ -61,10 +55,16 @@ trait TestHelper
     extends AnyFlatSpec
     with Matchers
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with StrictLogging
     with DatasetLogging {
 
+  override protected def beforeEach(): Unit = {}
+
+  override protected def afterEach(): Unit = {}
+
   override protected def afterAll(): Unit = {
+    TestHelper.stopSession()
     BetterFile(starlakeTestRoot).delete()
   }
 
@@ -79,15 +79,17 @@ trait TestHelper
 
   def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
+  lazy val tempDir = Files.createTempDirectory(starlakeTestId)
+
   lazy val starlakeTestRoot: String =
     if (sys.env.getOrElse("SL_INTERNAL_WITH_ENVS_SET", "false").toBoolean) {
-      sys.env("SL_ROOT")
+      sys.env.getOrElse("SL_ROOT", tempDir.toString)
     } else {
       Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
         case Some(true) =>
-          BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+          BetterFile(tempDir).pathAsString
             .replace("\\", "/")
-        case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+        case _ => BetterFile(tempDir).pathAsString
       }
     }
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
@@ -244,8 +246,8 @@ trait TestHelper
         logger.error("Error in test", e)
         throw e
     } finally {
-      SparkSession.clearActiveSession()
-      SparkSession.clearDefaultSession()
+      // SparkSession.clearActiveSession()
+      // SparkSession.clearDefaultSession()
     }
   }
 
@@ -270,9 +272,8 @@ trait TestHelper
     implicit val settings = Settings(configuration)
     settings.appConfig.connections.values.foreach(_.checkValidity())
     implicit def withSettings: WithSettings = this
-
     def storageHandler = settings.storageHandler()
-
+    // TestHelper.sparkSessionReset
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new StarlakeObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
@@ -298,7 +299,7 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata: Try[Unit] =
+    def cleanMetadata(implicit settings: Settings): Try[Unit] =
       Try {
         val fload = new File(starlakeLoadPath)
         val dir = new Directory(fload)
@@ -364,8 +365,7 @@ trait TestHelper
   }
 
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
-
-    TestHelper.sparkSession(isettings, _testId)
+    TestHelper.sparkSession(isettings, _testId, forceReset = true)
   }
 
   abstract class SpecTrait(
@@ -603,16 +603,54 @@ object TestHelper extends StrictLogging {
 
   def stopSession() = {
     if (_session != null) {
+
+      _session.stop()
+      _session = null
+    }
+
+  }
+
+  def cleanMetastore(path: String): Try[Unit] =
+    Try {
+      val fMetastore = new File(path + "/metastore_db")
+      new Directory(fMetastore).deleteRecursively()
+      val fDerby = new File(path + "/derby.log")
+      fDerby.delete()
+    }
+
+  def cleanDatasets(path: String): Try[Unit] =
+    Try {
+      val fDatasets = new File(path)
+      val dir = new Directory(fDatasets)
+      dir.list.foreach { f =>
+        if (f.isDirectory) {
+          if (f.name != "metastore_db") {
+            f.deleteRecursively()
+          }
+        } else if (f.name != "derby.log") {
+          f.delete()
+        }
+      }
+    }
+
+  def closeSession(): Unit = {
+    if (_session != null) {
       _session.stop()
       _session = null
     }
   }
 
-  def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
-    if (testId != _testId) {
+  def sparkSession(implicit
+    isettings: Settings,
+    testId: String,
+    forceReset: Boolean = false
+  ): SparkSession = {
+    if (forceReset || _session == null) {
+      closeSession()
+      logger.info(s"Creating new Spark session for test $testId")
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
       // val settings: Settings = Settings(Settings.referenceConfig)
-      new Directory(new java.io.File(isettings.appConfig.datasets)).deleteRecursively()
+      // cleanDatasets(isettings.appConfig.datasets)
       val job = new SparkJob {
         override def name: String = s"test-${UUID.randomUUID()}"
 
@@ -621,11 +659,10 @@ object TestHelper extends StrictLogging {
         override def run(): Try[JobResult] =
           ??? // we just create a dummy job to get a valid Spark session
       }
-      if (_session != null) {
-        _session.stop()
-      }
       _session = job.session
       _testId = testId
+    } else {
+      logger.info(s"Reusing Spark session for test $testId")
     }
     _session
   }
@@ -633,6 +670,7 @@ object TestHelper extends StrictLogging {
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
     if (_session != null) {
       _session.stop()
+      _session = null
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
     }
     val job = new SparkJob {

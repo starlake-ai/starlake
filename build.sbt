@@ -1,7 +1,8 @@
-import Dependencies._
+import Dependencies.*
+import sbt.Tests.{Group, SubProcess}
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
-import xerial.sbt.Sonatype._
+import xerial.sbt.Sonatype.*
 
 lazy val javacCompilerVersion = "11"
 
@@ -13,7 +14,7 @@ javacOptions ++= Seq(
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
-Test / javaOptions ++= {
+val testJavaOptions = {
   val heapSize = sys.env.get("HEAP_SIZE").getOrElse("4g")
   val extraTestJavaArgs = Seq("-XX:+IgnoreUnrecognizedVMOptions",
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
@@ -33,6 +34,8 @@ Test / javaOptions ++= {
   s"-Xmx$heapSize -Xss4m -XX:ReservedCodeCacheSize=128m -Dfile.encoding=UTF-8 $extraTestJavaArgs"
     .split(" ").toSeq
 }
+
+Test / javaOptions ++= testJavaOptions
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
@@ -119,9 +122,6 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
-Test / fork := false
-
-Test / parallelExecution := false
 
 Compile / assembly / artifact := {
   val art: Artifact = (Compile / assembly / artifact).value
@@ -359,3 +359,12 @@ packageSetup := {
 }
 
 Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
+
+
+Test / parallelExecution := false
+
+// We want each test to run using its own spark context
+Test / testGrouping :=  (Test / definedTests).value.map { suite =>
+  Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
+}
+

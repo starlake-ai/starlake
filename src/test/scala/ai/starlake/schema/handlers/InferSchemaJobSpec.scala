@@ -86,7 +86,7 @@ class InferSchemaJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
         for {
           sourceFile <- File.temporaryFile()

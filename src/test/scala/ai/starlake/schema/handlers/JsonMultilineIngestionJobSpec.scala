@@ -26,15 +26,14 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
 
   "Ingest Complex Multiline JSON " should "should be ingested from pending to accepted, and archived " in {
     new WithSettings() {
-
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/jsonmultiline/json-multiline.sl.yml",
         datasetDomainName = "jsonmultiline",
         sourceDatasetPathName = "/sample/jsonmultiline/complex-multiline.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS jsonmultiline CASCADE")
+        Thread.sleep(5000)
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
 
         loadPending
 

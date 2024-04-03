@@ -13,7 +13,7 @@ load:
       type: "OVERWRITE"
   tables:
     - name: "Players"
-      pattern: "Players.*.csv"
+      pattern: "Play.*.csv"
       attributes:
         - name: "PK"
           type: "string"

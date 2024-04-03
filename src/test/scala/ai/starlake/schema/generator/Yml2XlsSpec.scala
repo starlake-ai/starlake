@@ -15,7 +15,7 @@ class Yml2XlsSpec extends TestHelper {
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))

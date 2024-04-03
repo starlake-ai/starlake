@@ -43,14 +43,15 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
+    val sysProps = System.getProperties()
     if (!settings.appConfig.isHiveCompatible()) {
       if (settings.getWarehouseDir().isEmpty) {
+        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
+        println("DATASETS=====> " + settings.appConfig.datasets)
         config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
       }
     }
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
-      val sysProps = System.getProperties()
-      sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       config.set(
         "spark.sql.catalog.spark_catalog",
