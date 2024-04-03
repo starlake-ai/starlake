@@ -9,7 +9,6 @@ import ai.starlake.schema.generator.TaskViewDependency
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -58,9 +57,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     super.beforeAll()
   }
 
-  new WithSettings() {
-    "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
-
+  "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
+      sparkSessionReset(settings)
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "",
@@ -115,8 +114,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("Elon", "Musk", 40)
       )
     }
-
-    "Extract file and view dependencies" should "work" in {
+  }
+  "Extract file and view dependencies" should "work" in {
+    new WithSettings() {
 
       val userView = pathUserAccepted.toString
       logger.info("************userView:" + userView)
@@ -159,8 +159,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user_view"
       )
     }
+  }
 
-    "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
+  "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
 
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
@@ -202,9 +204,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
-      workflow.autoJob(
-        TransformConfig("user.user")
-      )
+      workflow.autoJob(TransformConfig("user.user"))
 
       val result = sparkSession
         .table("user.user")
@@ -217,10 +217,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .toList should contain allElementsOf List(
         ("John", "Doe", 25)
       )
+      sparkSession.sql("DROP TABLE IF EXISTS user.user")
+
     }
+  }
 
-    "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
-
+  "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
+      TestHelper.sparkSessionReset(settings)
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
@@ -270,14 +274,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("fred", "abruzzi", 25),
         ("test3", "test4", 40)
       )
+      sparkSession
+        .sql(
+          "DROP TABLE IF EXISTS user.user"
+        )
     }
-
-    "trigger AutoJob using an UDF" should "generate a dataset in business" in {
-      sparkSessionReset(settings)
-      sparkSession.sql(
-        "DROP DATABASE IF EXISTS user CASCADE"
-      ) // because we are having a different schema for user in this test
-
+  }
+  "trigger AutoJob using an UDF" should "generate a dataset in business" in {
+    new WithSettings() {
+      // because we are having a different schema for user in this test
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
@@ -328,8 +333,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "test3 test4"
       )
     }
-
-    "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
+  }
+  "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
+    new WithSettings() {
       val businessTask1 = AutoTaskDesc(
         name = "graduateProgram",
         sql = Some(
@@ -340,12 +346,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "output",
         presql = List(
           s"""
-            |create or replace temporary view graduate_agg_view as
-            |      select degree, department,
-            |      school
-            |      from parquet.`${pathGraduateProgramAccepted.toString}`
-            |      where school={{school}}
-            |""".stripMargin
+               |create or replace temporary view graduate_agg_view as
+               |      select degree, department,
+               |      school
+               |      from parquet.`${pathGraduateProgramAccepted.toString}`
+               |      where school={{school}}
+               |""".stripMargin
         ),
         python = None,
         writeStrategy = Some(WriteStrategy.Overwrite),
@@ -387,7 +393,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("Masters", "EECS", "UC_Berkeley"),
         ("Ph.D.", "EECS", "UC_Berkeley")
       )
-
     }
   }
 
@@ -400,7 +405,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val result = config.withFallback(super.testConfiguration)
       result
     }
-    val credentials: GoogleCredentials = GoogleCredentials.getApplicationDefault()
 
     new WithSettings(bqConfiguration) {
       val businessTask1 = AutoTaskDesc(

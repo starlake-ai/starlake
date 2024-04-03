@@ -15,9 +15,8 @@ class AutoTaskSpec extends TestHelper {
         datasetDomainName = "result",
         sourceDatasetPathName = ""
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS result CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceJob()
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
         println(starlakeDatasetsPath)
@@ -44,7 +43,7 @@ class AutoTaskSpec extends TestHelper {
           sourceDatasetPathName = ""
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceJob()
           deliverTestFile(
             "/sample/job/python/piJob.pi.py",
             new Path(this.jobMetadataRootPath, "piJob.pi.py")

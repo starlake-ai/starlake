@@ -59,7 +59,7 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/native/nativecustomers.psv"
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
           loadPending

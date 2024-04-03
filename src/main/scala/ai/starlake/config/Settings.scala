@@ -911,7 +911,9 @@ object Settings extends StrictLogging {
 
     // Load reference.conf
     val loaded = loadConf(Some(effectiveConfig))
-
+    logger.info(
+      "root=" + config.getString("root")
+    )
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )

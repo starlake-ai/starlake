@@ -17,7 +17,7 @@ class IngestionWorkflowSpec extends TestHelper {
         sourceDatasetPathName = landingFile
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
 
         storageHandler.delete(new Path(landingPath))
         // Make sure unrelated files, even without extensions, are not imported
@@ -42,7 +42,7 @@ class IngestionWorkflowSpec extends TestHelper {
         sourceDatasetPathName = landingFile
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
 
         storageHandler.delete(new Path(landingPath))
 

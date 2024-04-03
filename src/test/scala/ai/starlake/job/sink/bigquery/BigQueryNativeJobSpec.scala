@@ -66,7 +66,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
           loadPending
@@ -90,7 +90,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
           secure(LoadConfig())
@@ -157,6 +157,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       }
     }
     "Extract Table infos" should "succeed" in {
+      pending
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
       val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())

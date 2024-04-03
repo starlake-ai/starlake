@@ -26,15 +26,19 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 
 import java.nio.charset.Charset
 import scala.io.Codec
+import scala.reflect.io.Directory
 
 class PositionIngestionJobSpec extends TestHelper {
-  "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
-    import org.slf4j.impl.StaticLoggerBinder
-    val binder = StaticLoggerBinder.getSingleton
-    logger.debug(binder.getLoggerFactory.toString)
-    logger.debug(binder.getLoggerFactoryClassStr)
+  new WithSettings() {
+    "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
+      // clean datasets folder
+      new Directory(new java.io.File(starlakeDatasetsPath)).deleteRecursively()
 
-    new WithSettings() {
+      import org.slf4j.impl.StaticLoggerBinder
+      val binder = StaticLoggerBinder.getSingleton
+      logger.debug(binder.getLoggerFactory.toString)
+      logger.debug(binder.getLoggerFactoryClassStr)
+
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
@@ -69,35 +73,31 @@ class PositionIngestionJobSpec extends TestHelper {
           .count()
         acceptedDf.schema.fields.map(_.name).contains("calculatedCode") shouldBe true
         acceptedDf.schema.fields.map(_.name).contains("fileName") shouldBe true
+        sparkSession.sql("DROP TABLE IF EXISTS locations.locations")
+        sparkSession.sql("DROP TABLE IF EXISTS locations.flat_locations")
       }
-
     }
-  }
-  "Ingestion of empty Position file" should "run without errors" in {
-    new WithSettings() {
+    "Ingestion of empty Position file" should "run without errors" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/empty_position"
       ) {
         cleanMetadata
-        sparkSession.sql("DROP DATABASE IF EXISTS position CASCADE")
         deliverSourceDomain()
-        sparkSessionReset(settings)
         logger.info(settings.appConfig.datasets)
         loadPending.isSuccess shouldBe true
+        sparkSession.sql("DROP TABLE IF EXISTS position.account")
       }
     }
-  }
-  "Ingest Position File" should "use encoding when loading files" in {
-    new WithSettings() {
+
+    "Ingest Position File" should "use encoding when loading files" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/positionWithEncoding/positionWithEncoding.sl.yml",
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
       ) {
         cleanMetadata
-        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
         deliverSourceDomain()
         loadPending(new Codec(Charset forName "ISO-8859-1"))
 
@@ -113,18 +113,17 @@ class PositionIngestionJobSpec extends TestHelper {
             location
           )
         acceptedDf.filter(acceptedDf("someData").contains("spécifié")).count() shouldBe 1
+        sparkSession.sql("DROP TABLE IF EXISTS positionWithEncoding.positionWithEncoding")
       }
     }
-  }
-  "Ingest Position Regex File with ignore string" should "ignore first line" in {
-    new WithSettings() {
+
+    "Ingest Position Regex File with ignore string" should "ignore first line" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.sl.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataregex-ignore.dat"
       ) {
         cleanMetadata
-        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
         deliverSourceDomain()
         loadPending
         // Accepted should contain data formatted correctly
@@ -138,26 +137,24 @@ class PositionIngestionJobSpec extends TestHelper {
             .format(settings.appConfig.defaultWriteFormat)
             .load(location)
         acceptedDf.count() shouldBe 1
+        sparkSession.sql("DROP TABLE IF EXISTS positionWithIgnore.DATAREGEX")
       }
     }
-  }
 
-  "Ingest Position UDF File with ignore string" should "ignore first line" in {
-    new WithSettings() {
+    "Ingest Position UDF File with ignore string" should "ignore first line" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.sl.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
       ) {
         cleanMetadata
-        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
         deliverSourceDomain()
         loadPending
         // Accepted should contain data formatted correctly
         val acceptedDf = sparkSession.table(s"${datasetDomainName}.DATAUDF")
         acceptedDf.count() shouldBe 1
+        sparkSession.sql("DROP TABLE IF EXISTS positionWithIgnore.DATAUDF")
       }
     }
   }
-
 }

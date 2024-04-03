@@ -41,18 +41,16 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord])
 
   def configuration: Config
-
-  ("Ingest Complex JSON " + variant) should "be ingested from pending to accepted, and archived " in {
-    new WithSettings(configuration) {
+  new WithSettings(configuration) {
+    ("Ingest Complex JSON " + variant) should "be ingested from pending to accepted, and archived " in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/json/json.sl.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/" + jsonData
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS json CASCADE")
 
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
 
         loadPending
 
@@ -103,12 +101,11 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
       expectingRejections("test-pg", expectedRejectRecords(settings): _*)
       val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
       expectingMetrics("test-pg", continuous, discrete, frequencies)
+      sparkSession.sql("DROP TABLE IF EXISTS json.sample_json")
     }
-  }
 
-  "Ingestion JSON Schema" should "succeed" in {}
-  ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
-    new WithSettings(configuration) {
+    "Ingestion JSON Schema" should "succeed" in {}
+    ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
 
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/json/json-invalid-script.sl.yml",
@@ -117,7 +114,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
       ) {
 
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val res = loadPending
         res.getOrElse(false) shouldBe false
       }
