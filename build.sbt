@@ -364,7 +364,7 @@ Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
 Test / parallelExecution := false
 
 // We want each test to run using its own spark context
-//Test / testGrouping :=  (Test / definedTests).value.map { suite =>
-//  Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
-//}
+Test / testGrouping :=  (Test / definedTests).value.map { suite =>
+  Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
+}
 
