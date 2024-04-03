@@ -159,7 +159,10 @@ class DsvIngestionJob(
             case c if c > 0 =>
               val countMissing =
                 attributesWithoutScriptedFields.length - df.columns.length
-              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+              throw new Exception(
+                s"$countMissing MISSING columns in the input DataFrame ${attributesWithoutScriptedFields
+                    .map(_.name)} != ${df.columns.toList}"
+              )
             case _ => // compare < 0
               val cols = df.columns
               df.select(

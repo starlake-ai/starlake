@@ -40,9 +40,8 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS position CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
 
         logger.info(settings.appConfig.datasets)
         loadPending
@@ -82,7 +81,9 @@ class PositionIngestionJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/position/empty_position"
       ) {
         cleanMetadata
-        cleanDatasets
+        sparkSession.sql("DROP DATABASE IF EXISTS position CASCADE")
+        deliverSourceDomain()
+        sparkSessionReset(settings)
         logger.info(settings.appConfig.datasets)
         loadPending.isSuccess shouldBe true
       }
@@ -95,9 +96,9 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
       ) {
-        sparkSessionReset(settings)
         cleanMetadata
-        cleanDatasets
+        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
+        deliverSourceDomain()
         loadPending(new Codec(Charset forName "ISO-8859-1"))
 
         val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
@@ -123,7 +124,8 @@ class PositionIngestionJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/positionWithIgnore/dataregex-ignore.dat"
       ) {
         cleanMetadata
-        cleanDatasets
+        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
+        deliverSourceDomain()
         loadPending
         // Accepted should contain data formatted correctly
         val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
@@ -147,9 +149,9 @@ class PositionIngestionJobSpec extends TestHelper {
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS positionWithIgnore CASCADE")
         cleanMetadata
-        cleanDatasets
+        sparkSession.sql("DROP DATABASE IF EXISTS positionWithEncoding CASCADE")
+        deliverSourceDomain()
         loadPending
         // Accepted should contain data formatted correctly
         val acceptedDf = sparkSession.table(s"${datasetDomainName}.DATAUDF")

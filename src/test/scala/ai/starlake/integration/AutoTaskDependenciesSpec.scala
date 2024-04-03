@@ -85,7 +85,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
               "lineage",
               "--print",
               "--viz",
-              "--tasks",
+              "--task",
               "kpi.order_summary"
             )
           )

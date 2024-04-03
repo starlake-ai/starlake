@@ -23,7 +23,7 @@ table:
     privacy: "NONE"
     ignore: false
   - name: "timestamp"
-    type: "timestamp"
+    type: "iso_date_time"
     array: false
     required: false
     privacy: "NONE"

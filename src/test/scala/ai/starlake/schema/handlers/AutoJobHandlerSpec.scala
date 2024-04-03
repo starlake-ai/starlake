@@ -30,12 +30,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     starlakeDatasetsPath + "/business/graduateProgram/output"
   )
 
-  lazy val pathUserDatasetBusiness = new Path(starlakeDatasetsPath + "/business/user/user")
-
-  lazy val pathUserAccepted = new Path(starlakeDatasetsPath + "/accepted/user")
+  val tmpPath = new Path(starlakeTestRoot + "/tmp").toString
+  lazy val pathUserAccepted = new Path(tmpPath + "/accepted/user")
 
   lazy val pathGraduateProgramAccepted = new Path(
-    starlakeDatasetsPath + "/accepted/graduateProgram"
+    tmpPath + "/accepted/graduateProgram"
   )
 
   lazy val metadataPath = new Path(starlakeMetadataPath)
@@ -62,7 +61,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   new WithSettings() {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.appConfig.datasets}/accepted/user"
+      val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some(
@@ -119,7 +118,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "Extract file and view dependencies" should "work" in {
 
-      val userView = s"${settings.appConfig.datasets}/accepted/user"
+      val userView = pathUserAccepted.toString
       logger.info("************userView:" + userView)
       val businessTask1 = AutoTaskDesc(
         name = "user",
@@ -163,7 +162,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.appConfig.datasets}/accepted/user"
+      val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -222,7 +221,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
-      val userView = s"${settings.appConfig.datasets}/accepted/user"
+      val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -274,9 +273,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
-      sparkSession.sql("DROP DATABASE IF EXISTS user CASCADE")
+      sparkSessionReset(settings)
+      sparkSession.sql(
+        "DROP DATABASE IF EXISTS user CASCADE"
+      ) // because we are having a different schema for user in this test
 
-      val userView = s"${settings.appConfig.datasets}/accepted/user"
+      val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
         sql = Some(
@@ -341,7 +343,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
-            |      from parquet.`${settings.appConfig.datasets}/accepted/graduateProgram`
+            |      from parquet.`${pathGraduateProgramAccepted.toString}`
             |      where school={{school}}
             |""".stripMargin
         ),

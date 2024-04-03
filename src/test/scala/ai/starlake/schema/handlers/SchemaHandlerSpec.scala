@@ -101,7 +101,6 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
         getDomain("DOMAIN").foreach { domain =>
@@ -116,13 +115,10 @@ class SchemaHandlerSpec extends TestHelper {
         private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
         validator.load()
 
-        sparkSessionReset(settings)
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
         validator2.load()
-
-        sparkSessionReset(settings)
 
         /*
         val accepted: Array[Row] = sparkSession.read
@@ -150,11 +146,9 @@ class SchemaHandlerSpec extends TestHelper {
 
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
-        sparkSessionReset(settings)
+
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
         validator3.load()
-
-        sparkSessionReset(settings)
 
         /*        val accepted2: Array[Row] = sparkSession.read
           .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
@@ -184,11 +178,12 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
-
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        // sparkSessionReset(settings)
+        sparkSession.sql("DROP SCHEMA IF EXISTS DOMAIN CASCADE")
         loadPending
+        cleanMetadata
 
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
@@ -228,7 +223,7 @@ class SchemaHandlerSpec extends TestHelper {
         sparkSessionReset(settings)
         sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         loadPending
 
         // We are by  default in ingestion Time strategy
@@ -400,9 +395,10 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/employee.csv"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
-        cleanDatasets
+        sparkSessionReset(settings)
+        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
+        deliverSourceDomain()
         loadPending
         val acceptedDf: DataFrame =
           sparkSession.sql(s"select distinct(name) from $datasetDomainName.employee")
@@ -416,12 +412,10 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
-        sparkSessionReset(settings)
-
         cleanMetadata
-
         cleanDatasets
-
+        cleanMetastore
+        sparkSessionReset(settings)
         loadPending
 
         readFileContent(
@@ -465,9 +459,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS DOMAIN CASCADE")
         cleanMetadata
         cleanDatasets
+        cleanMetastore
         loadPending
         println(starlakeDatasetsPath)
 
@@ -536,10 +530,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
-
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
+        deliverSourceDomain()
         loadPending
 
         readFileContent(
@@ -576,9 +569,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
 
         loadPending
 
@@ -612,9 +605,9 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/xml/locations.xml"
       ) {
         sparkSessionReset(settings)
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
 
         loadPending
 
@@ -652,9 +645,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xsd/locations.xml"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
 
         withSettings.deliverTestFile(
           "/sample/xsd/locations.xsd",
@@ -697,8 +690,8 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
 
         import org.scalatest.TryValues._
-
         sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
+
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
@@ -712,6 +705,7 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Load Transform Job" should "not reject tasks without SQL (SQL my be in external file)" in {
       cleanMetadata
+      sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
       val schemaHandler = new SchemaHandler(storageHandler)
       val filename = "/sample/job-tasks-without-sql/nosql.sl.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -747,10 +741,10 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
-
         sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
+
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/transform/business_with_vars/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -769,7 +763,7 @@ class SchemaHandlerSpec extends TestHelper {
         import org.scalatest.TryValues._
         sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -809,9 +803,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
 
         val schemaHandler = new SchemaHandler(storageHandler)
 
@@ -872,9 +866,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        sparkSession.sql("DROP DATABASE IF EXISTS locations CASCADE")
 
         val schemaHandler = new SchemaHandler(storageHandler)
 
@@ -922,7 +916,7 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         File(starlakeMetadataPath + "/load").delete(swallowIOExceptions = true)
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         val tempFile = File.newTemporaryFile().pathAsString
@@ -993,9 +987,7 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
 
         cleanMetadata
-
         cleanDatasets
-
         loadPending
 
         readFileContent(
