@@ -144,7 +144,8 @@ object BigQueryFreshnessInfo extends StrictLogging {
             "freshness_info",
             Some("Information related to table freshness"),
             Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-            config.writeMode.getOrElse(WriteMode.APPEND)
+            config.writeMode.getOrElse(WriteMode.APPEND),
+            accessToken = config.accessToken
           )
         case scala.util.Success(_) =>
           logger.warn("Could not extract BigQuery tables info")

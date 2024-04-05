@@ -27,5 +27,6 @@ case class BigQueryLoadConfig(
   attributesDesc: List[AttributeDesc] = Nil,
   outputDatabase: Option[String] = None,
   enableRefresh: Option[Boolean] = None,
-  refreshIntervalMs: Option[Long] = None
+  refreshIntervalMs: Option[Long] = None,
+  accessToken: Option[String]
 )

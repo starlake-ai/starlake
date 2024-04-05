@@ -8,5 +8,6 @@ case class BigQueryTablesConfig(
   tables: Map[String, List[String]] = Map.empty,
   database: Option[String] = None,
   persist: Boolean = true,
-  external: Boolean = false
+  external: Boolean = false,
+  accessToken: Option[String] = None
 )

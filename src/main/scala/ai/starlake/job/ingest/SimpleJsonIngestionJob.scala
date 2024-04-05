@@ -50,9 +50,19 @@ class SimpleJsonIngestionJob(
   path: List[Path],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  options: Map[String, String]
+  options: Map[String, String],
+  accessToken: Option[String]
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends DsvIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken
+    ) {
 
   override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
@@ -65,7 +75,7 @@ class SimpleJsonIngestionJob(
             }
 
           session.read
-            .options(mergedMetadata.getOptions())
+            .options(sparkOptions)
             .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly

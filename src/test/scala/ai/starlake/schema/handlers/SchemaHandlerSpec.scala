@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.IngestConfig
+import ai.starlake.job.ingest.{IngestConfig, LoadConfig}
 import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
@@ -284,12 +284,12 @@ class SchemaHandlerSpec extends TestHelper {
         }
 
         private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
-        validator.load()
+        validator.load(LoadConfig(accessToken = None))
 
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator2.load()
+        validator2.load(LoadConfig(accessToken = None))
 
         /*
         val accepted: Array[Row] = sparkSession.read
@@ -319,7 +319,7 @@ class SchemaHandlerSpec extends TestHelper {
         deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
 
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator3.load()
+        validator3.load(LoadConfig(accessToken = None))
 
         /*        val accepted2: Array[Row] = sparkSession.read
           .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
@@ -361,7 +361,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
-        validator.load()
+        validator.load(LoadConfig(accessToken = None))
 
         val accepted: Array[Row] = sparkSession
           .sql(s"select PK, firstName, lastName, DOB, YEAR, MONTH from $datasetDomainName.Players")
@@ -409,7 +409,9 @@ class SchemaHandlerSpec extends TestHelper {
         // Since full is loaded first, it will be the base for the delta
 
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").load()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").load(
+          LoadConfig(accessToken = None)
+        )
 
         val acceptedFullDelta: Array[Row] = sparkSession
           .sql(
@@ -433,7 +435,9 @@ class SchemaHandlerSpec extends TestHelper {
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.Players")
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.complexUser")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
-        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").load()
+        loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").load(
+          LoadConfig(accessToken = None)
+        )
 
         val acceptedDeltaFull: Array[Row] = sparkSession
           .sql(
@@ -568,7 +572,9 @@ class SchemaHandlerSpec extends TestHelper {
         )
         cleanMetadata
         deliverSourceDomain()
-        load(IngestConfig("DOMAIN.sl.yml", "User", List(targetPath))).isSuccess shouldBe true
+        load(
+          IngestConfig("DOMAIN.sl.yml", "User", List(targetPath), accessToken = None)
+        ).isSuccess shouldBe true
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.User")
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.Players")
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.complexUser")

@@ -33,6 +33,7 @@ class SparkAutoTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -161,7 +162,8 @@ class SparkAutoTask(
 
   def buildDataframeFromBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
-      connectionRef = Some(this.taskDesc.getRunConnectionRef())
+      connectionRef = Some(this.taskDesc.getRunConnectionRef()),
+      accessToken = accessToken
     )
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val result = new BigQuerySparkJob(config).query(sqlWithParameters)
@@ -601,7 +603,8 @@ class SparkAutoTask(
         createDisposition = overwriteCreateDisposition,
         writeDisposition = overwriteWriteDisposition,
         days = Some(1),
-        outputDatabase = taskDesc.database
+        outputDatabase = taskDesc.database,
+        accessToken = accessToken
       )
 
       val sparkBigQueryJob = new BigQuerySparkJob(config, bqTableSchema, None)
@@ -623,6 +626,7 @@ class SparkAutoTask(
             interactive,
             truncate,
             test,
+            accessToken,
             resultPageSize
           )
           secondStepTask.updateBigQueryTableSchema(loadedDF.schema)
@@ -645,6 +649,7 @@ class SparkAutoTask(
           interactive,
           truncate,
           test,
+          accessToken,
           resultPageSize
         )
       secondSTepTask.updateBigQueryTableSchema(loadedDF.schema)

@@ -8,5 +8,6 @@ case class TransformConfig(
   reload: Boolean = false,
   truncate: Boolean = false,
   recursive: Boolean = false,
-  test: Boolean = false
+  test: Boolean = false,
+  accessToken: Option[String] = None
 )

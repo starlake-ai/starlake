@@ -35,6 +35,7 @@ import scala.util.{Failure, Success, Try}
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
 
 trait IngestionJob extends SparkJob {
+  val accessToken: Option[String]
 
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
@@ -84,6 +85,11 @@ trait IngestionJob extends SparkJob {
     */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
   lazy val loader: String = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
+
+  private val accessTokenOptions: Map[String, String] =
+    accessToken.map(token => Map("gcpAccessToken" -> token)).getOrElse(Map.empty)
+
+  protected val sparkOptions = mergedMetadata.getOptions() ++ accessTokenOptions
 
   /** ingestion algorithm
     *
@@ -168,7 +174,8 @@ trait IngestionJob extends SparkJob {
     val bqConfig = BigQueryLoadConfig(
       connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
       outputDatabase = schemaHandler.getDatabase(domain),
-      outputTableId = Some(tableId)
+      outputTableId = Some(tableId),
+      accessToken = accessToken
     )
     new BigQueryNativeJob(bqConfig, sql)
   }
@@ -313,7 +320,7 @@ trait IngestionJob extends SparkJob {
     // Run selected ingestion engine
     val jobResult = selectLoadEngine() match {
       case Engine.BQ =>
-        val result = new BigQueryNativeIngestionJob(this).run()
+        val result = new BigQueryNativeIngestionJob(this, accessToken).run()
         result
       case Engine.SPARK =>
         val result = ingestWithSpark()

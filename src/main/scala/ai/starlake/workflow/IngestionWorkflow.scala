@@ -301,7 +301,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def load(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
+  def load(config: LoadConfig): Try[Boolean] = Try {
     val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
@@ -351,7 +351,8 @@ class IngestionWorkflow(
         domain: Domain,
         schema: Schema,
         paths: List[Path],
-        options: Map[String, String]
+        options: Map[String, String],
+        accessToken: Option[String]
       )
       groupedResolved.toList
         .flatMap { case (schema, pendingPaths) =>
@@ -375,11 +376,17 @@ class IngestionWorkflow(
               ingestingPath
             }
             val jobs = if (settings.appConfig.grouped) {
-              JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+              JobContext(
+                domain,
+                schema,
+                ingestingPaths.toList,
+                config.options,
+                config.accessToken
+              ) :: Nil
             } else {
               // We ingest all the files but return false if one of them fails.
               ingestingPaths.map { path =>
-                JobContext(domain, schema, path :: Nil, config.options)
+                JobContext(domain, schema, path :: Nil, config.options, config.accessToken)
               }
             }
             implicit val forkJoinTaskSupport =
@@ -391,7 +398,8 @@ class IngestionWorkflow(
                 jobContext.domain,
                 jobContext.schema,
                 jobContext.paths,
-                jobContext.options
+                jobContext.options,
+                jobContext.accessToken
               ) match {
                 case Failure(e) =>
                   e.printStackTrace()
@@ -493,7 +501,8 @@ class IngestionWorkflow(
         LoadConfig(
           domains = domainToWatch,
           tables = schemasToWatch,
-          options = config.options
+          options = config.options,
+          accessToken = config.accessToken
         )
       )
     } else {
@@ -509,7 +518,7 @@ class IngestionWorkflow(
         val result = for {
           domain <- domains(domainName :: Nil, schemaName :: Nil).find(_.name == domainName)
           schema <- domain.tables.find(_.name == schemaName)
-        } yield ingest(domain, schema, ingestingPaths, config.options)
+        } yield ingest(domain, schema, ingestingPaths, config.options, config.accessToken)
         result match {
           case None | Some(Success(_)) => Success(true)
           case Some(Failure(exception)) =>
@@ -524,7 +533,8 @@ class IngestionWorkflow(
     domain: Domain,
     schema: Schema,
     ingestingPath: List[Path],
-    options: Map[String, String]
+    options: Map[String, String],
+    accessToken: Option[String]
   ): Try[JobResult] = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
@@ -545,7 +555,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.GENERIC =>
           new GenericIngestionJob(
@@ -555,7 +566,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.DSV =>
           new DsvIngestionJob(
@@ -565,7 +577,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.JSON_FLAT =>
           new SimpleJsonIngestionJob(
@@ -575,7 +588,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.JSON =>
           new JsonIngestionJob(
@@ -585,7 +599,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.XML =>
           new XmlIngestionJob(
@@ -595,7 +610,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.TEXT_XML =>
           new XmlSimplePrivacyJob(
@@ -605,7 +621,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.POSITION =>
           new PositionIngestionJob(
@@ -615,7 +632,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            accessToken
           ).run()
         case Format.KAFKA =>
           new KafkaIngestionJob(
@@ -626,7 +644,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            FILE
+            FILE,
+            accessToken
           ).run()
         case Format.KAFKASTREAM =>
           new KafkaIngestionJob(
@@ -637,7 +656,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            STREAM
+            STREAM,
+            accessToken
           ).run()
         case _ =>
           throw new Exception("Should never happen")
@@ -727,6 +747,7 @@ class IngestionWorkflow(
       config.truncate,
       config.test,
       taskDesc.getRunEngine(),
+      config.accessToken,
       resultPageSize = 1000
     )(
       settings,
@@ -921,10 +942,11 @@ class IngestionWorkflow(
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
   }
-  def applyIamPolicies(): Try[Unit] = {
+  def applyIamPolicies(accessToken: Option[String]): Try[Unit] = {
     val ignore = BigQueryLoadConfig(
       connectionRef = None,
-      outputDatabase = None
+      outputDatabase = None,
+      accessToken = accessToken
     )
     schemaHandler
       .iamPolicyTags()
@@ -946,7 +968,8 @@ class IngestionWorkflow(
           Nil,
           storageHandler,
           schemaHandler,
-          Map.empty
+          Map.empty,
+          config.accessToken
         )
         if (settings.appConfig.isHiveCompatible()) {
           dummyIngestionJob.applyHiveTableAcl()
@@ -963,7 +986,7 @@ class IngestionWorkflow(
               dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
-              val config = BigQueryLoadConfig(
+              val bqConfig = BigQueryLoadConfig(
                 connectionRef = Some(metadata.getSinkConnectionRef()),
                 outputTableId = Some(
                   BigQueryJobBase
@@ -972,9 +995,10 @@ class IngestionWorkflow(
                 rls = schema.rls,
                 acl = schema.acl,
                 starlakeSchema = Some(schema),
-                outputDatabase = database
+                outputDatabase = database,
+                accessToken = config.accessToken
               )
-              val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+              val res = new BigQuerySparkJob(bqConfig).applyRLSAndCLS(forceApply = true)
               res.recover { case e =>
                 Utils.logException(logger, e)
                 throw e

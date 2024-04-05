@@ -51,9 +51,19 @@ class KafkaIngestionJob(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   options: Map[String, String],
-  mode: Mode
+  mode: Mode,
+  accessToken: Option[String]
 )(implicit settings: Settings)
-    extends JsonIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends JsonIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken
+    ) {
 
   var offsets: List[(Int, Long)] = Nil
 

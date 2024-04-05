@@ -18,8 +18,10 @@ import java.nio.charset.Charset
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try, Using}
 
-class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settings: Settings)
-    extends StrictLogging {
+class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
+  val settings: Settings
+) extends StrictLogging {
+
   val domain: Domain = ingestionJob.domain
 
   val schema: Schema = ingestionJob.schema
@@ -78,7 +80,8 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
           starlakeSchema = Some(schemaWithMergedMetadata),
           domainTags = domain.tags,
           domainDescription = domain.comment,
-          outputDatabase = schemaHandler.getDatabase(domain)
+          outputDatabase = schemaHandler.getDatabase(domain),
+          accessToken = accessToken
         )
       val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
       if (twoSteps) {
