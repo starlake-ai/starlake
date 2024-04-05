@@ -6,6 +6,10 @@ __New Feature__:
 - Excel export
 - Custom write strategies using Jinja2
 
+__Bug Fix__:
+- Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.
+- Fix incremental next query
+
 # 1.1.1:
 __Improvement__:
 - add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.

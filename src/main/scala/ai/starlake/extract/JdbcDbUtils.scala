@@ -1081,7 +1081,7 @@ object JdbcDbUtils extends LazyLogging {
          |from ${extractConfig.data.quoteIdentifier(
           tableExtractDataConfig.domain
         )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ? and $columnExprToDistribute > ? $extraCondition""".stripMargin
+         |where $columnExprToDistribute <= ? AND $columnExprToDistribute > ? $extraCondition""".stripMargin
 
     // Get the boundaries of each partition that will be handled by a specific thread.
     val boundaries = withJDBCConnection(extractConfig.data.options) { connection =>
@@ -1778,34 +1778,61 @@ object LastExportUtils extends LazyLogging {
           tableExtractDataConfig,
           stringPartitionFunc
         ) { statement =>
-          statement.setLong(1, Long.MinValue)
-          executeQuery(statement) { rs =>
-            rs.next()
-            val count = rs.getLong(1)
-            // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
-            val min: Long = Option(rs.getLong(2)).getOrElse(0)
-            val max: Long = Option(rs.getLong(3)).getOrElse(0)
-            count match {
-              case 0 =>
-                Bounds(
-                  firstExport = true,
-                  PrimitiveType.long,
-                  count,
-                  0,
-                  0,
-                  Array.empty[(Any, Any)]
-                )
-              case _ =>
-                val partitions = (min until max).map(p => p -> (p + 1)).toArray
-                Bounds(
-                  firstExport = true,
-                  PrimitiveType.long,
-                  count,
-                  min,
-                  max,
-                  partitions.asInstanceOf[Array[(Any, Any)]]
-                )
-            }
+          val (count, min, max) = statement.getParameterMetaData.getParameterType(1) match {
+            case java.sql.Types.BIGINT =>
+              statement.setLong(1, Long.MinValue)
+              executeQuery(statement) { rs =>
+                rs.next()
+                val count = rs.getLong(1)
+                // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
+                val min: Long = Option(rs.getLong(2)).getOrElse(0)
+                val max: Long = Option(rs.getLong(3)).getOrElse(0)
+                (count, min, max)
+              }
+            case java.sql.Types.INTEGER =>
+              statement.setInt(1, Int.MinValue)
+              executeQuery(statement) { rs =>
+                rs.next()
+                val count = rs.getLong(1)
+                // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
+                val min: Long = Option(rs.getInt(2)).getOrElse(0).toLong
+                val max: Long = Option(rs.getInt(3)).getOrElse(0).toLong
+                (count, min, max)
+              }
+            case java.sql.Types.SMALLINT =>
+              statement.setShort(1, Short.MinValue)
+              executeQuery(statement) { rs =>
+                rs.next()
+                val count = rs.getLong(1)
+                // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
+                val min: Long = Option(rs.getShort(2)).getOrElse(0).toLong
+                val max: Long = Option(rs.getShort(3)).getOrElse(0).toLong
+                (count, min, max)
+              }
+            case _ =>
+              val typeName = statement.getParameterMetaData.getParameterTypeName(1)
+              throw new RuntimeException(s"Type $typeName not supported for partition")
+          }
+          count match {
+            case 0 =>
+              Bounds(
+                firstExport = true,
+                PrimitiveType.long,
+                count,
+                0,
+                0,
+                Array.empty[(Any, Any)]
+              )
+            case _ =>
+              val partitions = (min until max).map(p => p -> (p + 1)).toArray
+              Bounds(
+                firstExport = true,
+                PrimitiveType.long,
+                count,
+                min,
+                max,
+                partitions.asInstanceOf[Array[(Any, Any)]]
+              )
           }
         }
       case PrimitiveType.string if tableExtractDataConfig.hashFunc.isEmpty =>
