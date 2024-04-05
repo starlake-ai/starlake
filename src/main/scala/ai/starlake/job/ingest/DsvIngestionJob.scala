@@ -51,7 +51,8 @@ class DsvIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -103,7 +104,7 @@ class DsvIngestionJob(
         .option("nullValue", mergedMetadata.getNullValue())
         .option("parserLib", "UNIVOCITY")
         .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
 
       val dfInReaderWithSchema = if (withSchema) {

@@ -39,6 +39,11 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
         .action((x, c) => c.copy(clean = true))
         .text("Overwrite existing mapping files before starting"),
       builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional(),
+      builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .optional()
@@ -48,7 +53,7 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
   }
 
   def parse(args: Seq[String]): Option[AutoLoadConfig] =
-    OParser.parse(parser, args, AutoLoadConfig())
+    OParser.parse(parser, args, AutoLoadConfig(accessToken = None))
 
   override def run(config: AutoLoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
@@ -84,7 +89,9 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
         logger.info("All schemas inferred successfully")
         wf.stage(StageConfig(config.domains)).map { jb =>
           logger.info("Staged successfully")
-          wf.load(LoadConfig(config.domains, config.tables, config.options)) match {
+          wf.load(
+            LoadConfig(config.domains, config.tables, config.options, config.accessToken)
+          ) match {
             case Success(true) =>
               logger.info("Loaded successfully")
               SparkJobResult(None)

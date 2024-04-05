@@ -22,7 +22,7 @@ class IntegrationTestBase
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
-  def templates = starlakeDir / "samples" / "templates"
+  def templates = starlakeDir / "samples"
   def localDir = templates / "spark"
   def incomingDir = localDir / "incoming"
   def sampleDataDir = templates / "sample-data"

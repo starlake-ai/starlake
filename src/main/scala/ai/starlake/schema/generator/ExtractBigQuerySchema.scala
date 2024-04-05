@@ -21,10 +21,11 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     val settings = implicitSettings
     override def cliConfig: BigQueryLoadConfig = BigQueryLoadConfig(
       connectionRef = config.connectionRef,
-      outputDatabase = config.database
+      outputDatabase = config.database,
+      accessToken = config.accessToken
     )
   }
-  val bigquery = bqJob.bigquery()
+  val bigquery = bqJob.bigquery(accessToken = config.accessToken)
   def extractDatasets(): List[Domain] = {
     val datasets = bigquery.listDatasets(DatasetListOption.pageSize(10000))
     val allDatasets = datasets

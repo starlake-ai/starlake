@@ -65,6 +65,7 @@ object YamlSerde extends LazyLogging {
   }
 
   def serializeToPath[T](targetPath: Path, entity: T)(implicit storage: StorageHandler): Unit = {
+    println(serialize(wrapEntityToDesc(entity)))
     storage.write(serialize(wrapEntityToDesc(entity)), targetPath)
   }
 

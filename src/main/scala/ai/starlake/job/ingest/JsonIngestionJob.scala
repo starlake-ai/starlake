@@ -54,7 +54,8 @@ class JsonIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -70,7 +71,7 @@ class JsonIngestionJob(
       session.read
         .option("inferSchema", value = false)
         .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .textFile(path.map(_.toString): _*)
     }
 

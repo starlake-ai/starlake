@@ -43,6 +43,11 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .action((x, c) => c.copy(tables = x))
         .text("Deprecated: Schemas to watch"),
       builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional(),
+      builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .optional()
@@ -52,7 +57,7 @@ trait LoadCmd extends Cmd[LoadConfig] {
   }
 
   def parse(args: Seq[String]): Option[LoadConfig] =
-    OParser.parse(parser, args, LoadConfig())
+    OParser.parse(parser, args, LoadConfig(accessToken = None))
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings

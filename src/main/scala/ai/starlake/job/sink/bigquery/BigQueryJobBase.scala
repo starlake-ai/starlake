@@ -60,49 +60,57 @@ trait BigQueryJobBase extends StrictLogging {
   lazy val connectionOptions: Map[String, String] =
     connectionRef.map(_.options).getOrElse(Map.empty)
 
-  private def bigQueryCredentials(): scala.Option[Credentials] = {
+  private def bigQueryCredentials(
+    accessToken: scala.Option[String] = None
+  ): scala.Option[Credentials] = {
     logger.info(s"Using ${connectionOptions("authType")} Credentials")
-    connectionOptions("authType") match {
-      case "APPLICATION_DEFAULT" =>
-        val refreshToken =
-          Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
-        if (refreshToken) {
-          val scopes = connectionOptions
-            .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-            .split(',')
-          val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
-          Try {
-            cred.refresh()
-          } match {
-            case Failure(e) =>
-              logger.warn(s"Error refreshing credentials: ${e.getMessage}")
-              None
-            case Success(_) =>
-              Some(cred)
-          }
-        } else {
-          scala.Option(GoogleCredentials.getApplicationDefault())
+    accessToken match {
+      case Some(token) =>
+        val cred = GoogleCredentials.create(new AccessToken(token, null))
+        scala.Option(cred)
+      case None =>
+        connectionOptions("authType") match {
+          case "APPLICATION_DEFAULT" =>
+            val refreshToken =
+              Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
+            if (refreshToken) {
+              val scopes = connectionOptions
+                .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+                .split(',')
+              val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
+              Try {
+                cred.refresh()
+              } match {
+                case Failure(e) =>
+                  logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+                  None
+                case Success(_) =>
+                  Some(cred)
+              }
+            } else {
+              scala.Option(GoogleCredentials.getApplicationDefault())
+            }
+          case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+            val credentialsStream = getJsonKeyStream()
+            scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
+
+          case "USER_CREDENTIALS" =>
+            val clientId = connectionOptions("clientId")
+            val clientSecret = connectionOptions("clientSecret")
+            val refreshToken = connectionOptions("refreshToken")
+            val cred = UserCredentials
+              .newBuilder()
+              .setClientId(clientId)
+              .setClientSecret(clientSecret)
+              .setRefreshToken(refreshToken)
+              .build()
+            scala.Option(cred)
+
+          case "ACCESS_TOKEN" =>
+            val accessToken = connectionOptions("gcpAccessToken")
+            val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
+            scala.Option(cred)
         }
-      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        val credentialsStream = getJsonKeyStream()
-        scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
-
-      case "USER_CREDENTIALS" =>
-        val clientId = connectionOptions("clientId")
-        val clientSecret = connectionOptions("clientSecret")
-        val refreshToken = connectionOptions("refreshToken")
-        val cred = UserCredentials
-          .newBuilder()
-          .setClientId(clientId)
-          .setClientSecret(clientSecret)
-          .setRefreshToken(refreshToken)
-          .build()
-        scala.Option(cred)
-
-      case "ACCESS_TOKEN" =>
-        val accessToken = connectionOptions("gcpAccessToken")
-        val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
-        scala.Option(cred)
     }
   }
 
@@ -192,7 +200,9 @@ trait BigQueryJobBase extends StrictLogging {
     result
   }
 
-  def bigquery(alwaysCreate: Boolean = false)(implicit settings: Settings): BigQuery = {
+  def bigquery(alwaysCreate: Boolean = false, accessToken: scala.Option[String])(implicit
+    settings: Settings
+  ): BigQuery = {
     val create = alwaysCreate || _bigquery.isEmpty
     if (create) {
       logger.info(s"Getting BQ credentials for connection $connectionName")
@@ -209,7 +219,7 @@ trait BigQueryJobBase extends StrictLogging {
           )
         )
 
-      val credentials = bigQueryCredentials()
+      val credentials = bigQueryCredentials(accessToken)
       val bqOptions = bqOptionsBuilder.setProjectId(projectId(None))
       val bqService =
         credentials match {
@@ -398,7 +408,8 @@ trait BigQueryJobBase extends StrictLogging {
               val table = cliConfig.outputTableId match {
                 case None =>
                   throw new RuntimeException("TableId must be defined in order to apply CLS")
-                case Some(outputTableId) => bigquery().getTable(outputTableId)
+                case Some(outputTableId) =>
+                  bigquery(accessToken = cliConfig.accessToken).getTable(outputTableId)
               }
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
@@ -556,7 +567,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   def tableExists(tableId: TableId)(implicit settings: Settings): Boolean = {
     try {
-      val table = bigquery().getTable(tableId)
+      val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       table != null && table.exists
     } catch {
       case _: BigQueryException =>
@@ -572,7 +583,7 @@ trait BigQueryJobBase extends StrictLogging {
   def dropTable(tableId: TableId)(implicit
     settings: Settings
   ): Boolean = {
-    val success = bigquery().delete(tableId)
+    val success = bigquery(accessToken = cliConfig.accessToken).delete(tableId)
     if (success)
       logger.info(s"Table $tableId deleted")
     else
@@ -599,7 +610,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   def getBQSchema(tableId: TableId)(implicit settings: Settings): BQSchema = {
-    val table = bigquery().getTable(tableId)
+    val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
     assert(table.exists)
     table.getDefinition[StandardTableDefinition].getSchema
   }
@@ -608,7 +619,7 @@ trait BigQueryJobBase extends StrictLogging {
     settings: Settings
   ): Try[StandardTableDefinition] = {
     Try {
-      val table = bigquery().getTable(tableId)
+      val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       val newTableDefinition = StandardTableDefinition.newBuilder().setSchema(tableSchema).build()
       table.toBuilder.setDefinition(newTableDefinition).build().update()
       newTableDefinition
@@ -631,7 +642,8 @@ trait BigQueryJobBase extends StrictLogging {
         case Some(name) => DatasetId.of(projectId(cliConfig.outputDatabase), name)
         case None       => this.datasetId
       }
-      val existingDataset = scala.Option(bigquery().getDataset(datasetId))
+      val existingDataset =
+        scala.Option(bigquery(accessToken = cliConfig.accessToken).getDataset(datasetId))
       val labels = Utils.extractTags(cliConfig.domainTags).toMap
       existingDataset match {
         case Some(ds) =>
@@ -650,7 +662,7 @@ trait BigQueryJobBase extends StrictLogging {
             .setDescription(domainDescription.orNull)
             .setLabels(labels.asJava)
             .build
-          bigquery().create(datasetInfo)
+          bigquery(accessToken = cliConfig.accessToken).create(datasetInfo)
       }
     }
     tryResult match {
@@ -683,7 +695,7 @@ trait BigQueryJobBase extends StrictLogging {
 
         val table =
           if (tableExists(tableId)) {
-            val table = bigquery().getTable(tableId)
+            val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
             updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
           } else {
             val tableDefinition = newTableDefinition(tableInfo, dataFrame)
@@ -703,7 +715,7 @@ trait BigQueryJobBase extends StrictLogging {
 
             val bqTableInfo = bqTableInfoBuilder.build
             logger.info(s"Creating table ${tableId.getDataset}.${tableId.getTable}")
-            val result = bigquery().create(bqTableInfo)
+            val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
             logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
             result
           }
@@ -818,7 +830,7 @@ trait BigQueryJobBase extends StrictLogging {
 
     tableIds
       .flatMap(tableId =>
-        Try(bigquery().getTable(tableId))
+        Try(bigquery(accessToken = cliConfig.accessToken).getTable(tableId))
           .map { table =>
             logger.info(s"Get table source description field : ${table.getTableId.toString}")
             table
@@ -855,7 +867,7 @@ trait BigQueryJobBase extends StrictLogging {
     schema: BQSchema
   )(implicit settings: Settings): Table = {
     recoverBigqueryException {
-      val tableTarget = bigquery().getTable(tableId)
+      val tableTarget = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
       def buildSchema(
         originalFields: FieldList,
@@ -894,7 +906,7 @@ trait BigQueryJobBase extends StrictLogging {
       val (fieldList, descriptionChanged) = buildSchema(tableSchema.getFields, schema.getFields)
       if (descriptionChanged) {
         logger.info(s"$bqTable's column description has changed")
-        bigquery().update(
+        bigquery(accessToken = cliConfig.accessToken).update(
           tableTarget.toBuilder
             .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList.asJava)))
             .build()
@@ -923,7 +935,7 @@ trait BigQueryJobBase extends StrictLogging {
     acl: List[AccessControlEntry]
   )(implicit settings: Settings): Policy = {
     // val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
-    val existingPolicy: Policy = bigquery().getIamPolicy(tableId)
+    val existingPolicy: Policy = bigquery(accessToken = cliConfig.accessToken).getIamPolicy(tableId)
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = acl
@@ -942,7 +954,7 @@ trait BigQueryJobBase extends StrictLogging {
           bindings
         )
         .build()
-      bigquery().setIamPolicy(tableId, editedPolicy)
+      bigquery(accessToken = cliConfig.accessToken).setIamPolicy(tableId, editedPolicy)
       editedPolicy
     } else {
       logger.info(s"Iam Policy is the same as before on this Table: $tableId")
@@ -1071,7 +1083,9 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   def getTableDefinition(tableId: TableId)(implicit settings: Settings): StandardTableDefinition = {
-    bigquery().getTable(tableId).getDefinition[StandardTableDefinition]
+    bigquery(accessToken = cliConfig.accessToken)
+      .getTable(tableId)
+      .getDefinition[StandardTableDefinition]
   }
 }
 
@@ -1123,9 +1137,9 @@ object BigQueryJobBase {
   ): TableId = {
     databaseId.filter(_.nonEmpty) match {
       case Some(dbId) =>
-        BigQueryJobBase.extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId)
+        extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId)
       case None =>
-        BigQueryJobBase.extractProjectDatasetAndTable(datasetId + "." + tableId)
+        extractProjectDatasetAndTable(datasetId + "." + tableId)
     }
   }
 

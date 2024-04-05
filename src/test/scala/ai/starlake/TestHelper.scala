@@ -465,7 +465,7 @@ trait TestHelper
 
     def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
-      validator.load()
+      validator.load(LoadConfig(accessToken = None))
     }
 
     def secure(config: LoadConfig): Try[Boolean] = {

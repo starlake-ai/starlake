@@ -93,7 +93,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
-          secure(LoadConfig())
+          secure(LoadConfig(accessToken = None))
         }
         val tableFound =
           Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined

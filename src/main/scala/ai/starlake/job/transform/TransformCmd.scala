@@ -60,6 +60,11 @@ trait TransformCmd extends Cmd[TransformConfig] {
           s"Should we run this transform as a test ? Default value is false"
         ),
       builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional(),
+      builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = c.options ++ x))

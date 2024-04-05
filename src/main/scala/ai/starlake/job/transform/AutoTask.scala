@@ -224,6 +224,7 @@ object AutoTask extends StrictLogging {
     truncate: Boolean,
     test: Boolean,
     engine: Engine,
+    accessToken: Option[String] = None,
     resultPageSize: Int = 1
   )(implicit
     settings: Settings,
@@ -238,6 +239,7 @@ object AutoTask extends StrictLogging {
           interactive,
           truncate = truncate,
           test = test,
+          accessToken = accessToken,
           resultPageSize = resultPageSize
         )
       case Engine.JDBC =>
@@ -247,6 +249,7 @@ object AutoTask extends StrictLogging {
           interactive,
           truncate = truncate,
           test = test,
+          accessToken = accessToken,
           resultPageSize = resultPageSize
         )
       case _ =>
@@ -256,6 +259,7 @@ object AutoTask extends StrictLogging {
           interactive,
           truncate = truncate,
           test = test,
+          accessToken = accessToken,
           resultPageSize = resultPageSize
         )
     }

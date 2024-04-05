@@ -27,7 +27,8 @@ object BigQuerySparkWriter extends StrictLogging {
     tableName: String,
     maybeTableDescription: Option[String],
     maybeSchema: Option[BQSchema],
-    writeMode: WriteMode
+    writeMode: WriteMode,
+    accessToken: Option[String]
   )(implicit
     settings: Settings
   ): Try[Unit] = {
@@ -59,7 +60,8 @@ object BigQuerySparkWriter extends StrictLogging {
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
               rls = Nil,
               acl = Nil,
-              outputDatabase = settings.appConfig.audit.getDatabase()
+              outputDatabase = settings.appConfig.audit.getDatabase(),
+              accessToken = accessToken
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,

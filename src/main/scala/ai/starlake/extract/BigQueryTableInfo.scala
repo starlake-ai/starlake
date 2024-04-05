@@ -128,7 +128,8 @@ object BigQueryTableInfo extends StrictLogging {
           "dataset_info",
           Some("Information related to datasets"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
 
         val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
@@ -138,7 +139,8 @@ object BigQueryTableInfo extends StrictLogging {
           "table_info",
           Some("Information related to tables"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfTable.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
       case scala.util.Success(_) =>
         logger.warn("Could not extract BigQuery tables info")

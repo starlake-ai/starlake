@@ -32,6 +32,7 @@ class BigQueryAutoTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -110,7 +111,8 @@ class BigQueryAutoTask(
       refreshIntervalMs = bqSink.refreshIntervalMs,
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
-      outputDatabase = taskDesc.getDatabase()
+      outputDatabase = taskDesc.getDatabase(),
+      accessToken = accessToken
     )
   }
 
@@ -190,7 +192,8 @@ class BigQueryAutoTask(
                     starlakeSchema = None,
                     // outputTableDesc = action.taskDesc.comment.getOrElse(""),
                     attributesDesc = this.taskDesc.attributesDesc,
-                    outputDatabase = this.taskDesc.database
+                    outputDatabase = this.taskDesc.database,
+                    accessToken = accessToken
                   )
                 val bqSparkJob =
                   new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)

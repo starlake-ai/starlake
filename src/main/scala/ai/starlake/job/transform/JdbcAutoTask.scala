@@ -22,6 +22,7 @@ class JdbcAutoTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(

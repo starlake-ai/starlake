@@ -8,7 +8,13 @@ class ExtractBqSchemaSpec extends IntegrationTestBase {
       withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "BQ") {
         assert(
           new Main().run(
-            Array("extract-bq-schema", "--tables", "sales_kpi")
+            Array(
+              "extract-bq-schema",
+              "--tables",
+              "sales_kpi",
+              "--accessToken",
+              "ya29.a0Ad52N39EM_0hKc8QaOPas3yk1gVl6OgvJmYht919iBBXx-LpxTa8ZK4YmxozOiTpW6rQAXsokHU4nJ0Iswl3ssbY56wf-8kg1ZShXGabU8xUtn57_Z1zPeALann86QevOkiXUpPOJ9unxrRe74XpK4xo-jfxhsT56bBegWTDswmMaCgYKAQYSARASFQHGX2Mi6S4lisiKGfrziRAH-_nz4w0179"
+            )
           )
         )
       }

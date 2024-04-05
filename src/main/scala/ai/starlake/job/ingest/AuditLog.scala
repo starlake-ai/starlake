@@ -90,8 +90,7 @@ case class AuditLog(
       "duration"      -> duration,
       "message"       -> message,
       "step"          -> step,
-      "tenant"        -> tenant,
-      "test"          -> test
+      "tenant"        -> tenant
     ) ++ List(
       paths.map("paths" -> _),
       database.map("database" -> _)
@@ -119,8 +118,7 @@ case class AuditLog(
                '{{message}}' as MESSAGE,
                '{{step}}' as STEP,
                '{{database}}' as DATABASE,
-               '{{tenant}}' as TENANT,
-                {{test}} AS TEST
+               '{{tenant}}' as TENANT
            """)
     val selectStatement = template.richFormat(
       Map(
@@ -137,8 +135,7 @@ case class AuditLog(
         "message"       -> message.replaceAll("'", "-").replaceAll("\n", " "),
         "step"          -> step,
         "database"      -> database.getOrElse(""),
-        "tenant"        -> tenant.replaceAll("'", "-"),
-        "test"          -> test
+        "tenant"        -> tenant.replaceAll("'", "-")
       ),
       Map.empty
     )
@@ -161,7 +158,6 @@ case class AuditLog(
        |step=$step
        |database=$database
        |tenant=$tenant
-       |test=$test
        |""".stripMargin.split('\n').mkString(",")
 }
 
@@ -181,8 +177,7 @@ object AuditLog extends StrictLogging {
     ("message", StandardSQLTypeName.STRING, StringType),
     ("step", StandardSQLTypeName.STRING, StringType),
     ("database", StandardSQLTypeName.STRING, StringType),
-    ("tenant", StandardSQLTypeName.STRING, StringType),
-    ("test", StandardSQLTypeName.BOOL, BooleanType)
+    ("tenant", StandardSQLTypeName.STRING, StringType)
   )
 
   val starlakeSchema = Schema(
@@ -208,7 +203,7 @@ object AuditLog extends StrictLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
-    if (settings.appConfig.audit.isActive()) {
+    if (settings.appConfig.audit.isActive() && !log.test) {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
