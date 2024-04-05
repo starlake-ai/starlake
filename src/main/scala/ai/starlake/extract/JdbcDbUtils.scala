@@ -1110,7 +1110,7 @@ object JdbcDbUtils extends LazyLogging {
     // Export in parallel mode
     var tableCount = new AtomicLong();
     val parList =
-      ParUtils.makeParallel(boundaries.partitions.zipWithIndex.toList)
+      ParUtils.makeParallel(boundaries.partitions.zipWithIndex)
     val extractionResults: List[Try[Int]] =
       parList.map { case (bounds, index) =>
         Try {
@@ -1569,7 +1569,7 @@ object LastExportUtils extends LazyLogging {
     count: Long,
     min: Any,
     max: Any,
-    partitions: Array[(Any, Any)]
+    partitions: List[(Any, Any)]
   )
 
   private val MIN_TS = Timestamp.valueOf("1970-01-01 00:00:00")
@@ -1621,14 +1621,14 @@ object LastExportUtils extends LazyLogging {
                 else
                   min + (interval * (index + 1))
               (min + (interval * index), upper)
-            }.toArray
+            }.toList
             Bounds(
               lastExport.isEmpty,
               PrimitiveType.long,
               count,
               min,
               max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
+              intervals
             )
           }
         }
@@ -1664,14 +1664,14 @@ object LastExportUtils extends LazyLogging {
                 else
                   min.add(interval.multiply(new java.math.BigDecimal(index + 1)))
               (min.add(interval.multiply(new java.math.BigDecimal(index))), upper)
-            }.toArray
+            }.toList
             Bounds(
               lastExport.isEmpty,
               PrimitiveType.decimal,
               count,
               min,
               max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
+              intervals
             )
           }
         }
@@ -1705,14 +1705,14 @@ object LastExportUtils extends LazyLogging {
                 else
                   new java.sql.Date(min.getTime() + (interval * (index + 1)))
               (new java.sql.Date(min.getTime() + (interval * index)), upper)
-            }.toArray
+            }.toList
             Bounds(
               lastExport.isEmpty,
               PrimitiveType.date,
               count,
               min,
               max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
+              intervals
             )
           }
         }
@@ -1746,14 +1746,14 @@ object LastExportUtils extends LazyLogging {
                 else
                   new java.sql.Timestamp(min.getTime() + (interval * (index + 1)))
               (new java.sql.Timestamp(min.getTime() + (interval * index)), upper)
-            }.toArray
+            }.toList
             Bounds(
               lastExport.isEmpty,
               PrimitiveType.timestamp,
               count,
               min,
               max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
+              intervals
             )
           }
         }
@@ -1821,17 +1821,17 @@ object LastExportUtils extends LazyLogging {
                 count,
                 0,
                 0,
-                Array.empty[(Any, Any)]
+                List.empty[(Any, Any)]
               )
             case _ =>
-              val partitions = (min until max).map(p => p -> (p + 1)).toArray
+              val partitions = (min until max).map(p => p -> (p + 1)).toList
               Bounds(
                 firstExport = true,
                 PrimitiveType.long,
                 count,
                 min,
                 max,
-                partitions.asInstanceOf[Array[(Any, Any)]]
+                partitions
               )
           }
         }
