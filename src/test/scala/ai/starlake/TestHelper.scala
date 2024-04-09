@@ -65,7 +65,7 @@ trait TestHelper
 
   override protected def afterAll(): Unit = {
     TestHelper.stopSession()
-    BetterFile(starlakeTestRoot).delete()
+    BetterFile(starlakeTestRoot).delete(swallowIOExceptions = true)
   }
 
   override protected def beforeAll(): Unit = {
