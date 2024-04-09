@@ -5,10 +5,10 @@ import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
 import better.files.File
+import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.NoSuchFileException
 import java.sql.{DriverManager, ResultSet}
 import java.time.{LocalDateTime, OffsetDateTime, ZoneId}
 import scala.collection.mutable.ListBuffer
@@ -19,11 +19,11 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    TestHelper.pgContainer.start()
+    pgContainer.start()
   }
 
   override protected def afterEach(): Unit = {
-    TestHelper.pgContainer.stop()
+    pgContainer.stop()
     File(starlakeTestRoot).delete(swallowIOExceptions = true)
     super.afterEach()
   }
@@ -154,7 +154,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           Nil,
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
@@ -163,7 +163,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         "unpartitionned",
         st.executeQuery("SELECT * FROM test_table ORDER BY c_str"),
         None
-      )
+      )(settings.storageHandler())
       sinkResult.isSuccess shouldBe true
       private val outputFileName = s"t-${unpartitionnedConfig.extractionDateTime}.csv"
       outputFolder.list.map(_.name).toList should contain theSameElementsAs List(
@@ -202,7 +202,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.int,
           None,
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
@@ -211,7 +211,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         "partitionned",
         st.executeQuery("SELECT * FROM test_table ORDER BY c_str"),
         Some(1)
-      )
+      )(settings.storageHandler())
       sinkResult.isSuccess shouldBe true
       outputFolder.list.map(_.name).toList should contain theSameElementsAs List(
         s"t-${partitionnedConfig.extractionDateTime}-1.csv"
@@ -219,40 +219,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
     }
   }
 
-  it should "extract data to a folder that doesn't exists should fail" in {
-    new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
-      val jdbcConnection = settings.appConfig.connections("test-pg")
-      val conn = DriverManager.getConnection(
-        jdbcConnection.options("url"),
-        jdbcConnection.options("user"),
-        jdbcConnection.options("password")
-      )
-      val st = conn.createStatement()
-      st.execute(initSQL)
-      private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
-          "d",
-          "t",
-          Nil,
-          true,
-          Some(1000),
-          outputFolder,
-          None
-        )
-      val sinkResult = extractDataJob.sinkPartitionToFile(
-        FileFormat().fillWithDefault(),
-        unpartitionnedConfig,
-        "unpartitionned",
-        st.executeQuery("SELECT * FROM test_table ORDER BY c_str"),
-        None
-      )
-      // test failure on output folder non existence
-      sinkResult.isSuccess shouldBe false
-      sinkResult.failed.get shouldBe a[NoSuchFileException]
-    }
-  }
+  // Using hdfs client create missing folders automatically so testing "not extract data to a folder that doesn't exists should fail" is not necessary
 
   it should "consider CSV output settings" in {
     new WithSettings() {
@@ -274,7 +241,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           Nil,
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
@@ -292,7 +259,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         "unpartitionned",
         st.executeQuery("SELECT * FROM test_table ORDER BY c_str"),
         None
-      )
+      )(settings.storageHandler())
       sinkResult.isSuccess shouldBe true
       private val outputFileName = s"t-${unpartitionnedConfig.extractionDateTime}.csv"
       outputFolder.list.map(_.name).toList should contain theSameElementsAs List(
@@ -310,11 +277,11 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
     new WithSettings() {
       private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
       val outputDir = extractDataJob.createDomainOutputDir(
-        File(starlakeTestRoot + "/subfolder/subsubfolder"),
+        new Path(starlakeTestRoot, "subfolder/subsubfolder"),
         "domain"
-      )
-      outputDir.exists shouldBe true
-      outputDir.pathAsString should endWith("/subfolder/subsubfolder/domain")
+      )(settings.storageHandler())
+      File(outputDir.toString).exists shouldBe true
+      outputDir.toString should endWith("/subfolder/subsubfolder/domain")
     }
   }
 
@@ -437,13 +404,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           1,
           None,
@@ -527,13 +494,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           Some("c_date IS NOT NULL")
         )
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           1,
           None,
@@ -604,13 +571,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           1,
           None,
@@ -694,13 +661,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           1,
           1,
           None,
@@ -788,7 +755,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -796,7 +763,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -886,7 +853,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           Some("c_short < 4")
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -894,7 +861,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -971,7 +938,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -979,7 +946,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1073,7 +1040,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1082,7 +1049,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1178,7 +1145,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1186,7 +1153,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1276,7 +1243,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.int,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1284,7 +1251,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1374,7 +1341,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.long,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1382,7 +1349,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1472,7 +1439,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.decimal,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1480,7 +1447,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1570,7 +1537,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.timestamp,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1578,7 +1545,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1668,7 +1635,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.date,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1676,7 +1643,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1766,7 +1733,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.string,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1774,7 +1741,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1871,7 +1838,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.short,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1879,7 +1846,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -1980,7 +1947,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.decimal,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -1988,7 +1955,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2089,7 +2056,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.timestamp,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2097,7 +2064,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2198,7 +2165,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.date,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2206,7 +2173,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2307,7 +2274,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.int,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2315,7 +2282,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2415,7 +2382,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.decimal,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2423,7 +2390,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2523,7 +2490,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.timestamp,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2531,7 +2498,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2631,7 +2598,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.date,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2639,7 +2606,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2739,7 +2706,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.int,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2747,7 +2714,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2848,7 +2815,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.decimal,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2856,7 +2823,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -2957,7 +2924,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.timestamp,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -2965,7 +2932,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -3066,7 +3033,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.date,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
@@ -3074,7 +3041,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val sinkResult = extractDataJob.extractTablePartionnedData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           0,
           2,
           None,
@@ -3230,12 +3197,12 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           PrimitiveType.date,
           Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
           2,
-          outputFolder,
+          new Path(outputFolder.pathAsString),
           None
         )
       private val extractDataConfig: ExtractDataConfig = ExtractDataConfig(
         JDBCSchema().copy(schema = "public"),
-        outputFolder,
+        new Path(outputFolder.pathAsString),
         0,
         2,
         None,
@@ -3324,7 +3291,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.isTableFullExport(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(true)),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3345,7 +3312,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.isTableFullExport(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(true)),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3366,7 +3333,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.isTableFullExport(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(false)),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3387,7 +3354,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.isTableFullExport(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = None),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3416,7 +3383,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.computeTableFetchSize(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = Some(100)),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3437,7 +3404,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.computeTableFetchSize(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = Some(100)),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,
@@ -3458,7 +3425,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.computeTableFetchSize(
         ExtractDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = None),
-          baseOutputDir = File("."),
+          baseOutputDir = new Path("."),
           limit = 1,
           numPartitions = 1,
           parallelism = None,

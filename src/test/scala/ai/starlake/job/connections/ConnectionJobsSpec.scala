@@ -39,7 +39,7 @@ class ConnectionJobsSpec extends TestHelper {
         statement.execute("CREATE TABLE myusers.myusers(firstname TEXT, lastname TEXT, age INT)")
       }
       usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
-      println(TestHelper.pgContainer.jdbcUrl)
+      println(pgContainer.jdbcUrl)
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some(

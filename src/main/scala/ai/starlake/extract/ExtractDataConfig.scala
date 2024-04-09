@@ -21,7 +21,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
-import better.files.File
+import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
@@ -77,7 +77,7 @@ case class UserExtractDataConfig(
   */
 case class ExtractDataConfig(
   jdbcSchema: JDBCSchema,
-  baseOutputDir: File,
+  baseOutputDir: Path,
   limit: Int,
   numPartitions: Int,
   parallelism: Option[Int],
@@ -102,7 +102,7 @@ sealed trait TableExtractDataConfig {
   def fullExport: Boolean
   def fetchSize: Option[Int]
   def filterOpt: Option[String]
-  def tableOutputDir: File
+  def tableOutputDir: Path
 
   val extractionDateTime: String = {
     val formatter = DateTimeFormatter
@@ -129,7 +129,7 @@ case class UnpartitionnedTableExtractDataConfig(
   columnsProjection: List[Attribute],
   fullExport: Boolean,
   fetchSize: Option[Int],
-  tableOutputDir: File,
+  tableOutputDir: Path,
   filterOpt: Option[String]
 ) extends TableExtractDataConfig
 
@@ -143,7 +143,7 @@ case class PartitionnedTableExtractDataConfig(
   partitionColumnType: PrimitiveType,
   hashFunc: Option[String],
   nbPartitions: Int,
-  tableOutputDir: File,
+  tableOutputDir: Path,
   filterOpt: Option[String]
 ) extends TableExtractDataConfig
 

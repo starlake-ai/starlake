@@ -57,7 +57,8 @@ trait TestHelper
     with BeforeAndAfterAll
     with BeforeAndAfterEach
     with StrictLogging
-    with DatasetLogging {
+    with DatasetLogging
+    with PgContainerHelper {
 
   override protected def beforeEach(): Unit = {}
 
@@ -116,7 +117,7 @@ trait TestHelper
        |connections.test-pg {
        |    type = "jdbc"
        |    options {
-       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "url": "${pgContainer.jdbcUrl}"
        |      "user": "test"
        |      "password": "test"
        |      "driver": "org.postgresql.Driver"
@@ -136,7 +137,7 @@ trait TestHelper
        |connections.audit {
        |    type = "jdbc"
        |    options {
-       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "url": "${pgContainer.jdbcUrl}"
        |      "driver": "org.postgresql.Driver"
        |      "user": "test"
        |      "password": "test"
@@ -560,25 +561,6 @@ trait TestHelper
 }
 
 object TestHelper extends StrictLogging {
-  lazy val pgContainer: PostgreSQLContainer = {
-    val pgDockerImage = "postgres"
-    val pgDockerTag = "latest"
-    val pgDockerImageName = DockerImageName.parse(s"$pgDockerImage:$pgDockerTag")
-    val initScriptParam =
-      JdbcDatabaseContainer.CommonParams(initScriptPath = Option("init-test-pg.sql"))
-    val container = PostgreSQLContainer
-      .Def(
-        pgDockerImageName,
-        databaseName = "starlake",
-        username = "test",
-        password = "test",
-        commonJdbcParams = initScriptParam
-      )
-      .createContainer()
-    container.start()
-    container
-  }
-
   lazy val mariadbContainer: MariaDBContainer = {
     val dockerImage = "mariadb"
     val dockerTag = "latest"

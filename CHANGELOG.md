@@ -5,6 +5,11 @@
 __New Feature__:
 - Excel export
 - Custom write strategies using Jinja2
+- The following commands now use HDFS client to interact with files and enables cloud storage support such as S3 or GCS:
+  - extract-schema
+  - extract-data
+  - infer-schema
+  - yml2xls
 
 __Bug Fix__:
 - Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.

@@ -8,6 +8,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Metadata, Schema}
 import ai.starlake.utils.YamlSerde
 import better.files.File
+import org.apache.hadoop.fs.Path
 
 import java.sql.DriverManager
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -75,7 +76,7 @@ class ExtractSpec extends TestHelper {
     new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
       jdbcSchema,
       connectionSettings,
-      outputDir,
+      new Path(outputDir.pathAsString),
       domainTemplate,
       None
     )
@@ -386,7 +387,7 @@ class ExtractSpec extends TestHelper {
           )
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-pg"),
-        tmpDir,
+        new Path(tmpDir.pathAsString),
         None,
         None
       )
@@ -448,7 +449,7 @@ class ExtractSpec extends TestHelper {
           List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-pg"),
-        tmpDir,
+        new Path(tmpDir.pathAsString),
         None,
         None
       )
