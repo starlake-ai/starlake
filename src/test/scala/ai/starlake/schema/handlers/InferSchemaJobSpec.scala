@@ -104,7 +104,7 @@ class InferSchemaJobSpec extends TestHelper {
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
             clean = false
-          )
+          )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.sl.yml")
           val maybeDomain =

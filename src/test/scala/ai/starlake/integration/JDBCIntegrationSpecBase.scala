@@ -1,10 +1,11 @@
 package ai.starlake.integration
 
+import ai.starlake.PgContainerHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import better.files.File
 
-class JDBCIntegrationSpecBase extends IntegrationTestBase {
+class JDBCIntegrationSpecBase extends IntegrationTestBase with PgContainerHelper {
 
   /** JDBC only database do not support deep json file formats
     * @param dir

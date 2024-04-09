@@ -76,7 +76,7 @@ class ExtractIntegrationSpec extends TestHelper {
         jdbcOptions.options("user"),
         jdbcOptions.options("password")
       )
-      logger.info(TestHelper.pgContainer.jdbcUrl)
+      logger.info(pgContainer.jdbcUrl)
       val sqls: String =
         """
           |drop table if exists test_table1 cascade;

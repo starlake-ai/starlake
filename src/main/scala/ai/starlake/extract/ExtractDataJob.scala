@@ -13,15 +13,16 @@ import ai.starlake.extract.JdbcDbUtils.{
   TableName
 }
 import ai.starlake.extract.LastExportUtils.{Boundary, ExclusiveBound, InclusiveBound}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.PrimitiveType
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
-import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
+import org.apache.hadoop.fs.Path
 
+import java.io.FileNotFoundException
 import java.nio.charset.StandardCharsets
 import java.sql.{Connection => SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
 import java.util.concurrent.atomic.AtomicLong
@@ -49,9 +50,17 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
   def run(
     config: UserExtractDataConfig
   )(implicit settings: Settings): Unit = {
+    val extractConfigPath = mappingPath(config.extractConfig)
+    Try(settings.storageHandler().exists(extractConfigPath)) match {
+      case Failure(_) | Success(false) =>
+        throw new FileNotFoundException(
+          s"Could not found extract config ${config.extractConfig}. Please check its existence."
+        )
+      case _ => // do nothing
+    }
     val content = settings
       .storageHandler()
-      .read(mappingPath(config.extractConfig))
+      .read(extractConfigPath)
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
       YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
@@ -131,6 +140,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     settings: Settings,
     schemaHandler: SchemaHandler
   ): Unit = {
+    implicit val storageHandler = settings.storageHandler()
     val auditColumns = initExportAuditTable(extractConfig.audit)
 
     // Some database accept strange chars (aka DB2). We get rid of them
@@ -233,13 +243,16 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
               ) {
                 if (extractConfig.cleanOnExtract) {
                   logger.info(s"Deleting all files of $tableName")
-                  tableOutputDir.list
-                    .filter(f =>
-                      s"^$tableName-\\d{14}[\\.\\-].*".r.pattern.matcher(f.name).matches()
+                  storageHandler
+                    .list(tableOutputDir, recursive = false)
+                    .filter(fileInfo =>
+                      s"^$tableName-\\d{14}[\\.\\-].*".r.pattern
+                        .matcher(fileInfo.path.getName)
+                        .matches()
                     )
                     .foreach { f =>
-                      f.delete(swallowIOExceptions = true)
-                      logger.debug(f"${f.pathAsString} deleted")
+                      storageHandler.delete(f.path)
+                      logger.debug(f"${f.path} deleted")
                     }
                 }
 
@@ -751,10 +764,11 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     updatedJdbcSchema
   }
 
-  private[extract] def createDomainOutputDir(baseOutputDir: File, domainName: TableName): File = {
-    baseOutputDir.createDirectories()
-    val outputDir = File(baseOutputDir.pathAsString + "/" + domainName)
-    outputDir.createDirectories()
+  private[extract] def createDomainOutputDir(baseOutputDir: Path, domainName: TableName)(implicit
+    storageHandler: StorageHandler
+  ): Path = {
+    val outputDir = new Path(baseOutputDir, domainName)
+    storageHandler.mkdirs(outputDir)
     outputDir
   }
 
@@ -826,7 +840,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     context: String,
     rs: ResultSet,
     index: Option[Int]
-  ): Try[Long] = {
+  )(implicit storageHandler: StorageHandler): Try[Long] = {
     val filename = index
       .map(index =>
         tableExtractDataConfig.table + s"-${tableExtractDataConfig.extractionDateTime}-$index.csv"
@@ -834,11 +848,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       .getOrElse(
         tableExtractDataConfig.table + s"-${tableExtractDataConfig.extractionDateTime}.csv"
       )
-    // Using syntax File(tableExtractDataConfig.tableOutputDir, filename) didn't fail when table output dir doesn't exists and resolve to a valid path that is not expected
-    val outFile = File(tableExtractDataConfig.tableOutputDir.pathAsString + "/" + filename)
+    val outFile = new Path(tableExtractDataConfig.tableOutputDir, filename)
     Try {
       logger.info(s"$context Starting extraction into $filename")
-      val outFileWriter = outFile.newFileOutputStream(append = false)
+      val outFileWriter = storageHandler.output(outFile)
       val writerSettings = new CsvWriterSettings()
       val format = new CsvFormat()
       outputFormat.quote.flatMap(_.headOption).foreach { q =>
@@ -872,7 +885,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       )
       objectRowWriterProcessor.getRecordsCount()
     }.recoverWith { case e =>
-      outFile.delete()
+      storageHandler.delete(outFile)
       Failure(e)
     }
   }

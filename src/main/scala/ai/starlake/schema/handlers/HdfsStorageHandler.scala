@@ -274,15 +274,20 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
+    readAndExecuteIS(path) { is =>
+      val currentFS = fs(path)
+      val factory = new CompressionCodecFactory(currentFS.getConf)
+      val decompressedIS = Option(factory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+      action(new InputStreamReader(decompressedIS, charset))
+    }
+  }
+
+  override def readAndExecuteIS[T](path: Path)(
+    action: InputStream => T
+  ): T = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
-    val factory = new CompressionCodecFactory(currentFS.getConf)
-    val is = currentFS.open(path)
-    val decompressedIS = Option(factory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
-    val output: T = Using.resource(new InputStreamReader(decompressedIS, charset)) { stream =>
-      action(stream)
-    }
-    output
+    Using.resource(currentFS.open(path))(action)
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.

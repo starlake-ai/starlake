@@ -691,7 +691,7 @@ class IngestionWorkflow(
     }
   }
 
-  def inferSchema(config: InferSchemaConfig): Try[File] = {
+  def inferSchema(config: InferSchemaConfig): Try[Path] = {
     // domain name if not specified will be the containing folder name
     val domainName =
       if (config.domainName.isEmpty) {
@@ -722,7 +722,7 @@ class IngestionWorkflow(
       writeMode = config.write.getOrElse(write),
       rowTag = config.rowTag,
       clean = config.clean
-    )
+    )(settings.storageHandler())
     Utils.logFailure(result, logger)
     result
   }
