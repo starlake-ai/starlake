@@ -10,6 +10,7 @@ import java.nio.file.Files
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
+import scala.reflect.io.Directory
 import scala.util.Failure
 
 case class StarlakeTest(
@@ -19,20 +20,16 @@ case class StarlakeTest(
   assertData: StarlakeTestData,
   data: List[StarlakeTestData]
 ) {
-  def load(): Unit = {
-    Utils.withResources(
-      DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
-    ) { conn =>
-      data.foreach { d =>
-        d.load(conn)
-      }
-      assertData.load(conn)
+  def load(conn: java.sql.Connection): Unit = {
+    data.foreach { d =>
+      d.load(conn)
     }
+    assertData.load(conn)
   }
 
-  def unload(): Unit = {
+  def unload(dbFilename: String): Unit = {
     Utils.withResources(
-      DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
+      DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
     ) { conn =>
       data.foreach { d =>
         d.unload(conn)
@@ -62,24 +59,20 @@ case class StarlakeTestData(
 
   }
 }
+case class StarlakeTestResult(
+  missingColumns: List[String],
+  notExpectedColumns: List[String],
+  missingRecords: File,
+  notExpectedRecords: File
+)
 
 object StarlakeTestData {
-  val dbFilename: String = Files.createTempFile("sl_duck", ".db").toString
-
-  def createSchema(domainName: String): Unit = {
-    Utils.withResources(
-      DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
-    ) { conn =>
-      execute(conn, s"CREATE SCHEMA IF NOT EXISTS $domainName")
-    }
+  def createSchema(domainName: String, conn: java.sql.Connection): Unit = {
+    execute(conn, s"CREATE SCHEMA IF NOT EXISTS $domainName")
   }
 
-  def dropSchema(domainName: String): Unit = {
-    Utils.withResources(
-      DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
-    ) { conn =>
-      execute(conn, s"DROP SCHEMA IF EXISTS $domainName CASCADE")
-    }
+  def dropSchema(domainName: String, conn: java.sql.Connection): Unit = {
+    execute(conn, s"DROP SCHEMA IF EXISTS $domainName CASCADE")
   }
 
   def describeTable(connection: Connection, table: String): List[String] = {
@@ -96,35 +89,53 @@ object StarlakeTestData {
     columns.toList
   }
 
-  def compareResults(targetDomain: String, targetTable: String, assertTable: String) = {
-    Utils.withResources(
-      DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
-    ) { conn =>
-      val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
-      val assertColumns = describeTable(conn, s"$targetDomain.$assertTable")
-      val missingColumns = assertColumns.diff(targetColumns)
-      val notExpectedColumns = targetColumns.diff(assertColumns)
-
-      if (missingColumns.nonEmpty) {
-        println(s"Missing columns: ${missingColumns.mkString(", ")}")
-      }
-
-      if (notExpectedColumns.nonEmpty) {
-        println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
-      }
-
-      if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
-        val notExpectedSql = s"""COPY
-         |(SELECT * FROM $targetDomain.$targetTable EXCEPT SELECT * FROM $targetDomain.$assertTable)
-         |TO '/tmp/not_expected.csv' (HEADER, DELIMITER ',') """.stripMargin
-        execute(conn, notExpectedSql)
-
-        val missingSql = s"""COPY
-         |(SELECT * FROM $targetDomain.$assertTable EXCEPT SELECT * FROM $targetDomain.$targetTable)
-         |TO '/tmp/missing.csv' (HEADER, DELIMITER ',') """.stripMargin
-        execute(conn, missingSql)
-      }
+  def compareResults(
+    testFolder: Directory,
+    targetDomain: String,
+    targetTable: String,
+    assertTable: String,
+    conn: java.sql.Connection
+  ): StarlakeTestResult = {
+    val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
+    val assertColumns = describeTable(conn, s"$targetDomain.$assertTable")
+    val missingColumns = assertColumns.diff(targetColumns)
+    val notExpectedColumns = targetColumns.diff(assertColumns)
+    val notExpectedPath = new File(testFolder.jfile, "not_expected.csv")
+    val missingPath = new File(testFolder.jfile, "missing.csv")
+    if (missingColumns.nonEmpty) {
+      println(s"Missing columns: ${missingColumns.mkString(", ")}")
     }
+
+    if (notExpectedColumns.nonEmpty) {
+      println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
+    }
+
+    if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
+      val notExpectedSql = s"""COPY
+         |(SELECT * FROM $targetDomain.$targetTable EXCEPT SELECT * FROM $targetDomain.$assertTable)
+         |TO '$notExpectedPath' (HEADER, DELIMITER ',') """.stripMargin
+      execute(conn, notExpectedSql)
+
+      val missingSql = s"""COPY
+         |(SELECT * FROM $targetDomain.$assertTable EXCEPT SELECT * FROM $targetDomain.$targetTable)
+         |TO '$missingPath' (HEADER, DELIMITER ',') """.stripMargin
+      execute(conn, missingSql)
+    } else {
+      Files.write(
+        notExpectedPath.toPath,
+        "number of columns does not match. Not expected data could not be computed".getBytes()
+      )
+      Files.write(
+        missingPath.toPath,
+        "number of columns does not match. Missing data could not be computed".getBytes()
+      )
+    }
+    StarlakeTestResult(
+      missingColumns = missingColumns,
+      notExpectedColumns = notExpectedColumns,
+      missingRecords = missingPath,
+      notExpectedRecords = notExpectedPath
+    )
   }
 
   private def execute(conn: Connection, sql: String): Unit = {
@@ -153,53 +164,63 @@ object StarlakeTestData {
       ]
     )
   ): Unit = {
-    new File(dbFilename).delete()
+    val originalSettings: Settings = Settings(Settings.referenceConfig)
+    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "tests"))
+    testsFolder.deleteRecursively()
+    testsFolder.createDirectory(force = true, failIfExists = false)
     val (rootData, tests) = dataAnddTests
     tests.foreach { case (domainName, dataAndtables) =>
-      createSchema(domainName)
       val (domainData, tables) = dataAndtables
       tables.foreach { case (tableName, dataAndTests) =>
         val (taskData, tests) = dataAndTests
         tests.foreach { case (testName, test) =>
+          val testFolder = new Directory(new File(testsFolder.jfile, testName))
+          testFolder.deleteRecursively()
+          testFolder.createDirectory(force = true)
+          val dbFilename = new File(testFolder.jfile, s"$testName.db").getPath()
+          implicit val settings = createDuckDbSettings(originalSettings, dbFilename)
+          import settings.storageHandler
+          val schemaHandler = new SchemaHandler(storageHandler())
           Utils.withResources(
-            DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
+            DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
           ) { conn =>
+            createSchema(domainName, conn)
             rootData.foreach(_.load(conn))
             domainData.foreach(_.load(conn))
             taskData.foreach(_.load(conn))
-          }
 
-          test.load()
-          implicit val settings = createDuckDbSettings()
-          import settings.storageHandler
-          val schemaHandler = new SchemaHandler(storageHandler())
+            test.load(conn)
+          }
+          // We close the connection here since the transform will open its own
+          // and concurrent access is not supported in embedded test mode
           val result =
             new Main().run(
               Array("transform", "--test", "--name", test.name),
               schemaHandler
             ) match {
               case Failure(e) =>
-                e.printStackTrace()
-                false
+                throw e
               case _ =>
-                compareResults(test.domain, test.table, "sl_assert")
-
+                Utils.withResources(
+                  DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
+                ) { conn =>
+                  compareResults(testFolder, test.domain, test.table, "sl_assert", conn)
+                }
             }
           Utils.withResources(
-            DriverManager.getConnection(s"jdbc:duckdb:${StarlakeTestData.dbFilename}")
+            DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
           ) { conn =>
             rootData.foreach(_.unload(conn))
             domainData.foreach(_.unload(conn))
             taskData.foreach(_.unload(conn))
           }
-          test.unload()
+          test.unload(dbFilename)
         }
       }
     }
   }
 
-  private def createDuckDbSettings(): Settings = {
-    val originalSettings: Settings = Settings(Settings.referenceConfig)
+  private def createDuckDbSettings(originalSettings: Settings, dbFilename: String): Settings = {
     originalSettings.copy(appConfig =
       originalSettings.appConfig.copy(
         connections = originalSettings.appConfig.connections.map { case (k, v) =>
@@ -219,14 +240,15 @@ object StarlakeTestData {
   }
 
   def drop(
-    tests: List[(String, List[(String, List[(String, StarlakeTest)])])]
+    tests: List[(String, List[(String, List[(String, StarlakeTest)])])],
+    conn: java.sql.Connection
   )(implicit settings: Settings) = {
     tests.foreach { case (domainName, tables) =>
-      dropSchema(domainName)
+      dropSchema(domainName, conn)
       tables.foreach { case (tableName, tests) =>
         tests.foreach { case (testName, test) =>
           test.data.foreach { d =>
-            dropSchema(d.domain)
+            dropSchema(d.domain, conn)
           }
         }
       }

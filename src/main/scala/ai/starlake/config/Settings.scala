@@ -1089,7 +1089,8 @@ final case class Settings(
   appConfig: Settings.AppConfig,
   sparkConfig: Config,
   extraConf: Config,
-  jobConf: SparkConf = new SparkConf()
+  jobConf: SparkConf = new SparkConf(),
+  created: Long = System.currentTimeMillis()
 ) {
 
   var _storageHandler: Option[StorageHandler] = None

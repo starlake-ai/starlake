@@ -3,7 +3,7 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 import better.files.File
 
-class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
+class TranspileIntegrationBQSpec extends BigQueryIntegrationSpecBase {
   override def beforeAll(): Unit = {}
   override def templates: File = starlakeDir / "samples"
 
@@ -19,27 +19,15 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
         "SL_ROOT"                                       -> localDir.pathAsString
       ) {
-        /*
-        cleanup()
-        copyFilesToIncomingDir(sampleDataDir)
-        assert(
-          new Main().run(
-            Array("import")
-          )
-        )
-        assert(
-          new Main().run(
-            Array("load")
-          )
-        )
-
-         */
         assert(
           new Main().run(
             Array(
               "transform",
+              "--compile",
               "--name",
-              "sales_kpi.byseller_kpi0"
+              "sales_kpi.byseller_kpi0",
+              "--accessToken",
+              "ya29.a0Ad52N3_uL--Zg9AoutEfC4GE7hs-CERpMZXhnrlqddl-FiXa1oxOzxbDkyqEI2PmfVQ3bku3Gw5oZL5ZsKdkIdtspPhDER0XOpSCwvYL9TagphsGZkzAbJ3eAeWU2GncH5XfSo1ptqA_YRDegpWIclu9F9ckEXz6rWhFfWhpKBaNhQaCgYKAVUSARASFQHGX2Miymf730chwqrafHc3l9vkxg0181"
             )
           )
         )

@@ -90,7 +90,7 @@ abstract class AutoTask(
   val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
   val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
-  def substituteRefTaskMainSQL(sql: String) = {
+  def substituteRefTaskMainSQL(sql: String): String = {
     if (sql.trim.isEmpty)
       sql
     else {
@@ -108,25 +108,29 @@ abstract class AutoTask(
   }
 
   def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val tableComponents = StrategiesBuilder.TableComponents(
-      taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
-      taskDesc.domain,
-      taskDesc.table,
-      SQLUtils.extractColumnNames(sqlWithParameters)
-    )
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
-      strategy,
-      sqlWithParameters,
-      tableComponents,
-      tableExists,
-      truncate = truncate,
-      materializedView = isMaterializedView(),
-      jdbcRunEngine,
-      sinkConfig
-    )
-    mainSql
+    if (taskDesc.parseSQL.getOrElse(true)) {
+      val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
+      val tableComponents = StrategiesBuilder.TableComponents(
+        taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
+        taskDesc.domain,
+        taskDesc.table,
+        SQLUtils.extractColumnNames(sqlWithParameters)
+      )
+      val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).run(
+        strategy,
+        sqlWithParameters,
+        tableComponents,
+        tableExists,
+        truncate = truncate,
+        materializedView = isMaterializedView(),
+        jdbcRunEngine,
+        sinkConfig
+      )
+      mainSql
+    } else {
+      val selectStatement = Utils.parseJinja(sql.getOrElse(taskDesc.getSql()), allVars)
+      selectStatement
+    }
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
