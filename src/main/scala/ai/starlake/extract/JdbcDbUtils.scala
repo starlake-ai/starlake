@@ -368,6 +368,21 @@ object JdbcDbUtils extends LazyLogging {
                 "%",
                 jdbcSchema.tableTypes.toArray
               )
+            case d if d.isDuckDb() =>
+              // https://duckdb.org/docs/sql/information_schema.html
+              val tableTypes = jdbcSchema.tableTypes.map { tt =>
+                if (tt == "TABLE")
+                  "BASE TABLE"
+                else
+                  tt
+
+              }.toArray
+              databaseMetaData.getTables(
+                jdbcSchema.catalog.orNull,
+                schemaName,
+                "%",
+                tableTypes
+              )
             case _ =>
               databaseMetaData.getTables(
                 jdbcSchema.catalog.orNull,
@@ -458,52 +473,63 @@ object JdbcDbUtils extends LazyLogging {
                   Using.Manager { use =>
                     // Find all foreign keys
 
-                    val foreignKeysResultSet = use(
-                      connectionSettings match {
-                        case d if d.isMySQLOrMariaDb() =>
-                          databaseMetaData.getImportedKeys(
-                            schemaName,
-                            None.orNull,
-                            tableName
+                    val foreignKeys: Map[String, String] =
+                      Try {
+                        new Iterator[(String, String)] {
+                          val foreignKeysResultSet = use(
+                            connectionSettings match {
+                              case d if d.isMySQLOrMariaDb() =>
+                                databaseMetaData.getImportedKeys(
+                                  schemaName,
+                                  None.orNull,
+                                  tableName
+                                )
+                              case _ =>
+                                databaseMetaData.getImportedKeys(
+                                  jdbcSchema.catalog.orNull,
+                                  schemaName,
+                                  tableName
+                                )
+                            }
                           )
-                        case _ =>
-                          databaseMetaData.getImportedKeys(
-                            jdbcSchema.catalog.orNull,
-                            schemaName,
-                            tableName
+
+                          def hasNext: Boolean = foreignKeysResultSet.next()
+
+                          def next(): (String, String) = {
+                            val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
+                            val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
+                            val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+                            val pkFinalColumnName = if (keepOriginalName) {
+                              pkColumnName
+                            } else {
+                              val pkTableColumnsOpt = jdbcSchema.tables
+                                .find(_.name.equalsIgnoreCase(pkTableName))
+                                .map(_.columns)
+                              pkTableColumnsOpt
+                                .flatMap(
+                                  _.find(_.name.equalsIgnoreCase(pkColumnName)).flatMap(_.rename)
+                                )
+                                .getOrElse(pkColumnName)
+                            }
+                            val fkColumnName =
+                              foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+
+                            val pkCompositeName =
+                              if (pkSchemaName == null) s"$pkTableName.$pkFinalColumnName"
+                              else s"$pkSchemaName.$pkTableName.$pkFinalColumnName"
+
+                            fkColumnName -> pkCompositeName
+                          }
+                        }.toMap
+                      } match {
+                        case Failure(exception) =>
+                          logger.warn(
+                            s"Could not extract foreign keys for table $tableName",
+                            exception
                           )
+                          Map.empty[String, String]
+                        case Success(value) => value
                       }
-                    )
-                    val foreignKeys = new Iterator[(String, String)] {
-                      def hasNext: Boolean = foreignKeysResultSet.next()
-
-                      def next(): (String, String) = {
-                        val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
-                        val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
-                        val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
-                        val pkFinalColumnName = if (keepOriginalName) {
-                          pkColumnName
-                        } else {
-                          val pkTableColumnsOpt = jdbcSchema.tables
-                            .find(_.name.equalsIgnoreCase(pkTableName))
-                            .map(_.columns)
-                          pkTableColumnsOpt
-                            .flatMap(
-                              _.find(_.name.equalsIgnoreCase(pkColumnName)).flatMap(_.rename)
-                            )
-                            .getOrElse(pkColumnName)
-                        }
-                        val fkColumnName =
-                          foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
-
-                        val pkCompositeName =
-                          if (pkSchemaName == null) s"$pkTableName.$pkFinalColumnName"
-                          else s"$pkSchemaName.$pkTableName.$pkFinalColumnName"
-
-                        fkColumnName -> pkCompositeName
-                      }
-                    }.toMap
-
                     // Extract all columns
                     val columnsResultSet = use(
                       connectionSettings match {
