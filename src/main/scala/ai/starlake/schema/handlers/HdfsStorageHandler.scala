@@ -27,7 +27,7 @@ import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{ByteArrayInputStream, IOException, InputStream, InputStreamReader, OutputStream}
+import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -209,7 +209,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   conf.set("fs.defaultFS", defaultNormalizedFileSystem)
 
-  private val defaultFS: FileSystem = FileSystem.get(conf)
+  private val defaultFS = FileSystem.get(conf)
   logger.info("defaultFS=" + defaultFS)
   logger.debug("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
   logger.debug("defaultFS.getUri=" + defaultFS.getUri)
@@ -220,14 +220,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       else new Path(settings.appConfig.fileSystem, inputPath.toString)
     val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toString)
     val fs = scheme match {
-      case "gs" =>
+      case "gs" | "s3" | "s3a" | "s3n" =>
         bucketOpt match {
           case Some(bucket) =>
             conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
             FileSystem.get(conf)
           case None =>
             throw new RuntimeException(
-              "Using gs scheme must be with a bucket name. gs://bucketName"
+              "Using gs/s3 scheme must be with a bucket name. gs://bucketName"
             )
         }
       case _ => defaultFS
