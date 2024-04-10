@@ -3,16 +3,8 @@ package ai.starlake.extract
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.DataExtractionException
-import ai.starlake.extract.JdbcDbUtils.{
-  createSchema,
-  execute,
-  lastExportTableName,
-  tableExists,
-  withJDBCConnection,
-  Columns,
-  TableName
-}
-import ai.starlake.extract.LastExportUtils.{Boundary, ExclusiveBound, InclusiveBound}
+import ai.starlake.extract.JdbcDbUtils._
+import ai.starlake.extract.LastExportUtils._
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.PrimitiveType
 import ai.starlake.utils.Formatter._
@@ -27,6 +19,7 @@ import java.nio.charset.StandardCharsets
 import java.sql.{Connection => SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.nowarn
+import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
@@ -208,28 +201,33 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                       extractConfig.jdbcSchema.stringPartitionFunc.orElse(
                         getStringPartitionFunc(extractConfig.data.getJdbcEngineName().toString)
                       )
-                    PartitionnedTableExtractDataConfig(
+                    TableExtractDataConfig(
                       domainName,
                       tableName,
                       tableAttrs.columNames,
                       fullExport,
                       fetchSize,
-                      partitionColumn,
-                      partitionColumnType,
-                      stringPartitionFuncTpl,
-                      numPartitions,
                       tableOutputDir,
-                      tableAttrs.filterOpt
+                      tableAttrs.filterOpt,
+                      Some(
+                        PartitionConfig(
+                          partitionColumn,
+                          partitionColumnType,
+                          stringPartitionFuncTpl,
+                          numPartitions
+                        )
+                      )
                     )
                   case None =>
-                    UnpartitionnedTableExtractDataConfig(
+                    TableExtractDataConfig(
                       domainName,
                       tableName,
                       tableAttrs.columNames,
                       fullExport,
                       fetchSize,
                       tableOutputDir,
-                      tableAttrs.filterOpt
+                      tableAttrs.filterOpt,
+                      None
                     )
                 }
               }
@@ -256,38 +254,21 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                     }
                 }
 
-                tableExtractDataConfig match {
-                  case _: UnpartitionnedTableExtractDataConfig =>
-                    extractTableData(
-                      extractConfig.copy(data =
-                        extractConfig.data.mergeOptionsWith(currentTableConnectionOptions)
-                      ),
-                      tableExtractDataConfig,
-                      context,
-                      auditColumns,
-                      sinkPartitionToFile(
-                        extractConfig.outputFormat,
-                        tableExtractDataConfig,
-                        _,
-                        _,
-                        _
-                      )
-                    )
-                  case config: PartitionnedTableExtractDataConfig =>
-                    extractTablePartionnedData(
-                      extractConfig,
-                      config,
-                      context,
-                      auditColumns,
-                      sinkPartitionToFile(
-                        extractConfig.outputFormat,
-                        tableExtractDataConfig,
-                        _,
-                        _,
-                        _
-                      )
-                    )
-                }
+                extractTableData(
+                  extractConfig.copy(data =
+                    extractConfig.data.mergeOptionsWith(currentTableConnectionOptions)
+                  ),
+                  tableExtractDataConfig,
+                  context,
+                  auditColumns,
+                  sinkPartitionToFile(
+                    extractConfig.outputFormat,
+                    tableExtractDataConfig,
+                    _,
+                    _,
+                    _
+                  )
+                )
               } else {
                 logger.info(s"Extraction skipped. $domainName.$tableName data is fresh enough.")
                 Success(())
@@ -345,7 +326,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     extractConfig: ExtractDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ): Boolean = {
-    extractConfig.fullExport
+    extractConfig.cliFullExport
       .orElse(
         currentTableDefinition
           .flatMap(_.fullExport)
@@ -408,9 +389,13 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       .headOption
   }
 
-  private[extract] def extractTablePartionnedData(
+  private def getQuotedPartitionColumn(connection: Connection, partitionColumn: String): String = {
+    connection.quoteIdentifier(partitionColumn)
+  }
+
+  private[extract] def extractTableData(
     extractConfig: ExtractDataConfig,
-    tableExtractDataConfig: PartitionnedTableExtractDataConfig,
+    tableExtractDataConfig: TableExtractDataConfig,
     context: String,
     auditColumns: Columns,
     extractedDataConsumer: (String, ResultSet, Option[Int]) => Try[Long]
@@ -418,144 +403,29 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     settings: Settings,
     forkJoinTaskSupport: Option[ForkJoinTaskSupport]
   ): Try[Unit] = {
-    // Table is partitioned, we only extract part of it. Actually, we need to export everything
-    // that has not been exported based on the last exported value present in the audit log.
-
-    // This is applied when the table is exported for the first time
-
-    val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"and $w").getOrElse("")
-
-    /** @param columnExprToDistribute
-      *   expression to use in order to distribute data.
-      */
-    def sqlFirst(columnExprToDistribute: String): String =
-      s"""select $dataColumnsProjection
-         |from ${extractConfig.data.quoteIdentifier(
-          tableExtractDataConfig.domain
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute <= ? $extraCondition""".stripMargin
-
-    /** @param columnExprToDistribute
-      *   expression to use in order to distribute data.
-      */
-    def sqlNext(columnExprToDistribute: String, boundary: Boundary): String = {
-      val (lowerOperator, upperOperator) = boundary match {
-        case Boundary(_: InclusiveBound, _: InclusiveBound) => ">=" -> "<="
-        case Boundary(_: InclusiveBound, _: ExclusiveBound) => ">=" -> "<"
-        case Boundary(_: ExclusiveBound, _: InclusiveBound) => ">"  -> "<="
-        case Boundary(_: ExclusiveBound, _: ExclusiveBound) => ">"  -> "<"
-      }
-      s"""select $dataColumnsProjection
-         |from ${extractConfig.data.quoteIdentifier(
-          tableExtractDataConfig.domain
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
-         |where $columnExprToDistribute $upperOperator ? AND $columnExprToDistribute $lowerOperator ? $extraCondition""".stripMargin
-    }
-
     // Get the boundaries of each partition that will be handled by a specific thread.
-    val boundaries = withJDBCConnection(extractConfig.data.options) { connection =>
-      def getBoundariesWith(auditConnection: SQLConnection): LastExportUtils.Bounds = {
-        auditConnection.setAutoCommit(false)
-        LastExportUtils.getBoundaries(
-          connection,
-          auditConnection,
-          extractConfig,
-          tableExtractDataConfig,
-          auditColumns
-        )
-      }
+    val (boundaries, boundDef) =
+      getBoundaries(extractConfig, tableExtractDataConfig, context, auditColumns)
 
-      if (extractConfig.data.options == extractConfig.audit.options) {
-        getBoundariesWith(connection)
-      } else {
-        withJDBCConnection(extractConfig.audit.options) { auditConnection =>
-          getBoundariesWith(auditConnection)
-        }
-      }
-    }
-
-    logger.info(s"$context Boundaries : $boundaries")
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
-    val tableCount = new AtomicLong();
-    val parList =
-      ParUtils.makeParallel(boundaries.partitions.zipWithIndex)
-    val extractionResults: List[Try[Int]] =
-      parList.map { case (bounds, index) =>
+    val tableCount = new AtomicLong()
+
+    val extractionResults: List[Try[Any]] =
+      boundaries.map { case (bounds, index) =>
         Try {
           val boundaryContext = s"$context[$index]"
-          logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
-          val quotedPartitionColumn =
-            extractConfig.data.quoteIdentifier(tableExtractDataConfig.partitionColumn)
-
-          def sql(boundary: Boundary, columnToDistribute: String = quotedPartitionColumn): String =
-            if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
-            else
-              sqlNext(columnToDistribute, boundary)
+          logger.info(s"$boundaryContext bounds = $bounds")
 
           withJDBCConnection(extractConfig.data.options) { connection =>
-            val (effectiveSql, statementFiller) = tableExtractDataConfig.partitionColumnType match {
-              case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
-                sql(bounds) -> ((st: PreparedStatement) => {
-                  st.setLong(1, bounds.upper.value.asInstanceOf[Long])
-                  if (!(boundaries.firstExport && index == 0))
-                    st.setLong(2, bounds.lower.value.asInstanceOf[Long])
-                })
-              case PrimitiveType.decimal =>
-                sql(bounds) -> ((st: PreparedStatement) => {
-                  st.setBigDecimal(1, bounds.upper.value.asInstanceOf[java.math.BigDecimal])
-                  if (!(boundaries.firstExport && index == 0))
-                    st.setBigDecimal(2, bounds.lower.value.asInstanceOf[java.math.BigDecimal])
-                })
-
-              case PrimitiveType.date =>
-                sql(bounds) -> ((st: PreparedStatement) => {
-                  st.setDate(1, bounds.upper.value.asInstanceOf[Date])
-                  if (!(boundaries.firstExport && index == 0))
-                    st.setDate(2, bounds.lower.value.asInstanceOf[Date])
-                })
-
-              case PrimitiveType.timestamp =>
-                sql(bounds) -> ((st: PreparedStatement) => {
-                  st.setTimestamp(1, bounds.upper.value.asInstanceOf[Timestamp])
-                  if (!(boundaries.firstExport && index == 0))
-                    st.setTimestamp(2, bounds.lower.value.asInstanceOf[Timestamp])
-                })
-              case PrimitiveType.string if tableExtractDataConfig.hashFunc.isDefined =>
-                tableExtractDataConfig.hashFunc match {
-                  case Some(tpl) =>
-                    val stringPartitionFunc =
-                      Utils.parseJinjaTpl(
-                        tpl,
-                        Map(
-                          "col"           -> quotedPartitionColumn,
-                          "nb_partitions" -> tableExtractDataConfig.nbPartitions.toString
-                        )
-                      )
-                    sql(bounds, stringPartitionFunc) -> ((st: PreparedStatement) => {
-                      st.setLong(1, bounds.upper.value.asInstanceOf[Long])
-                      if (!(boundaries.firstExport && index == 0))
-                        st.setLong(2, bounds.lower.value.asInstanceOf[Long])
-                    })
-                  case None =>
-                    throw new RuntimeException(
-                      "Should never happen since stringPartitionFuncTpl is always defined here"
-                    )
-                }
-              case _ =>
-                throw new Exception(
-                  s"type ${tableExtractDataConfig.partitionColumnType} not supported for partition columnToDistribute"
-                )
-            }
-            logger.info(s"$boundaryContext SQL: $effectiveSql")
+            val statement: PreparedStatement = computePrepareStatement(
+              extractConfig,
+              tableExtractDataConfig,
+              bounds,
+              boundaryContext,
+              connection
+            )
             val partitionStart = System.currentTimeMillis()
-            connection.setAutoCommit(false)
-            val statement = connection.prepareStatement(effectiveSql)
-            statementFiller(statement)
-            tableExtractDataConfig.fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-
-            statement.setMaxRows(extractConfig.limit)
             val count =
               extractedDataConsumer(boundaryContext, statement.executeQuery(), Some(index)) match {
                 case Failure(exception) =>
@@ -567,40 +437,52 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
               }
             val currentTableCount = tableCount.addAndGet(count)
 
-            val lineLength = 100
-            val progressPercent =
-              if (boundaries.count == 0) lineLength
-              else (currentTableCount * lineLength / boundaries.count).toInt
-            val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
-            val progressPercentUnfilled =
-              (progressPercent until lineLength).map(_ => " ").mkString
-            val progressBar =
-              s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
-            val partitionEnd = System.currentTimeMillis()
-            val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
-            logger.info(
-              s"$context $progressBar. Elapsed time: $elapsedTime"
-            )
-            val deltaRow = DeltaRow(
-              domain = extractConfig.jdbcSchema.schema,
-              schema = tableExtractDataConfig.table,
-              lastExport = boundaries.max,
-              start = new Timestamp(partitionStart),
-              end = new Timestamp(partitionEnd),
-              duration = (partitionEnd - partitionStart).toInt,
-              count = count,
-              success = true,
-              message = tableExtractDataConfig.partitionColumn,
-              step = index.toString
-            )
-            withJDBCConnection(extractConfig.audit.options) { connection =>
-              LastExportUtils.insertNewLastExport(
-                connection,
-                deltaRow,
-                Some(tableExtractDataConfig.partitionColumnType),
-                extractConfig.audit,
-                auditColumns
-              )
+            boundDef match {
+              case b: Bounds =>
+                val lineLength = 100
+                val progressPercent =
+                  if (b.count == 0) lineLength
+                  else (currentTableCount * lineLength / b.count).toInt
+                val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+                val progressPercentUnfilled =
+                  (progressPercent until lineLength).map(_ => " ").mkString
+                val progressBar =
+                  s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+                val partitionEnd = System.currentTimeMillis()
+                val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
+                logger.info(
+                  s"$context $progressBar. Elapsed time: $elapsedTime"
+                )
+                tableExtractDataConfig.partitionConfig match {
+                  case Some(p: PartitionConfig) =>
+                    val deltaRow = DeltaRow(
+                      domain = extractConfig.jdbcSchema.schema,
+                      schema = tableExtractDataConfig.table,
+                      lastExport = b.max,
+                      start = new Timestamp(partitionStart),
+                      end = new Timestamp(partitionEnd),
+                      duration = (partitionEnd - partitionStart).toInt,
+                      count = count,
+                      success = true,
+                      message = p.partitionColumn,
+                      step = index.toString
+                    )
+                    withJDBCConnection(extractConfig.audit.options) { connection =>
+                      LastExportUtils.insertNewLastExport(
+                        connection,
+                        deltaRow,
+                        Some(p.partitionColumnType),
+                        extractConfig.audit,
+                        auditColumns
+                      )
+                    }
+                  case None =>
+                    throw new RuntimeException(
+                      "Should never happen since we are fetching an interval"
+                    )
+                }
+              case NoBound =>
+              // do nothing
             }
           }
         }.recoverWith { case _: Exception =>
@@ -631,26 +513,56 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       logger.info(s"$context Extracted all lines in $elapsedTime")
     else
       logger.info(s"$context Extraction took $elapsedTime")
-    val deltaRow = DeltaRow(
-      domain = extractConfig.jdbcSchema.schema,
-      schema = tableExtractDataConfig.table,
-      lastExport = boundaries.max,
-      start = new Timestamp(tableStart),
-      end = new Timestamp(tableEnd),
-      duration = duration,
-      count = boundaries.count,
-      success = success,
-      message = tableExtractDataConfig.partitionColumn,
-      step = "ALL"
-    )
-    withJDBCConnection(extractConfig.audit.options) { connection =>
-      LastExportUtils.insertNewLastExport(
-        connection,
-        deltaRow,
-        Some(tableExtractDataConfig.partitionColumnType),
-        extractConfig.audit,
-        auditColumns
-      )
+    boundDef match {
+      case b: Bounds =>
+        tableExtractDataConfig.partitionConfig match {
+          case Some(p: PartitionConfig) =>
+            val deltaRow = DeltaRow(
+              domain = extractConfig.jdbcSchema.schema,
+              schema = tableExtractDataConfig.table,
+              lastExport = b.max,
+              start = new Timestamp(tableStart),
+              end = new Timestamp(tableEnd),
+              duration = duration,
+              count = b.count,
+              success = success,
+              message = p.partitionColumn,
+              step = "ALL"
+            )
+            withJDBCConnection(extractConfig.audit.options) { connection =>
+              LastExportUtils.insertNewLastExport(
+                connection,
+                deltaRow,
+                Some(p.partitionColumnType),
+                extractConfig.audit,
+                auditColumns
+              )
+            }
+          case _ =>
+            throw new RuntimeException("Should never happen since we are fetching an interval")
+        }
+      case NoBound =>
+        val deltaRow = DeltaRow(
+          domain = extractConfig.jdbcSchema.schema,
+          schema = tableExtractDataConfig.table,
+          lastExport = tableStart,
+          start = new Timestamp(tableStart),
+          end = new Timestamp(tableEnd),
+          duration = (tableEnd - tableStart).toInt,
+          count = tableCount.get(),
+          success = tableCount.get() >= 0,
+          message = "FULL",
+          step = "ALL"
+        )
+        withJDBCConnection(extractConfig.audit.options) { connection =>
+          LastExportUtils.insertNewLastExport(
+            connection,
+            deltaRow,
+            None,
+            extractConfig.audit,
+            auditColumns
+          )
+        }
     }
     if (success)
       Success(())
@@ -658,73 +570,165 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       Failure(new RuntimeException(s"$context An error occured during extraction."))
   }
 
-  private[extract] def extractTableData(
+  /** @param columnExprToDistribute
+    *   expression to use in order to distribute data.
+    */
+  def sqlFetchQuery(
     extractConfig: ExtractDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
-    context: String,
-    auditColumns: Columns,
-    extractedDataConsumer: (String, ResultSet, Option[Int]) => Try[Long]
-  )(implicit settings: Settings): Try[Unit] = {
+    boundary: BoundaryDef,
+    columnToDistribute: Option[String] = None
+  ): String = {
     val dataColumnsProjection = tableExtractDataConfig.columnsProjectionQuery(extractConfig.data)
-    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"where $w").getOrElse("")
-    // non partitioned tables are fully extracted there is no delta mode
-    val sql =
-      s"""select $dataColumnsProjection from ${extractConfig.data.quoteIdentifier(
-          extractConfig.jdbcSchema.schema
-        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)} $extraCondition"""
-    val tableStart = System.currentTimeMillis()
-    val (count, success) = Try {
-      withJDBCConnection(extractConfig.data.options) { connection =>
-        connection.setAutoCommit(false)
-        val statement = connection.prepareStatement(sql)
-        tableExtractDataConfig.fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-        logger.info(s"$context Fetch size = ${statement.getFetchSize}")
-        logger.info(s"$context SQL: $sql")
-        statement.setMaxRows(extractConfig.limit)
-        // Export the whole table now
-        extractedDataConsumer(
-          context,
-          statement.executeQuery(),
-          None
-        )
+    val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"and $w").getOrElse("")
+    val boundCondition = boundary match {
+      case b: Boundary =>
+        val columnExprToDistribute =
+          columnToDistribute.getOrElse(
+            getQuotedPartitionColumn(extractConfig.data, tableExtractDataConfig.partitionColumn)
+          )
+        val (lowerOperator, upperOperator) = b match {
+          case Boundary(_: InclusiveBound, _: InclusiveBound) => ">=" -> "<="
+          case Boundary(_: InclusiveBound, _: ExclusiveBound) => ">=" -> "<"
+          case Boundary(_: ExclusiveBound, _: InclusiveBound) => ">"  -> "<="
+          case Boundary(_: ExclusiveBound, _: ExclusiveBound) => ">"  -> "<"
+        }
+        s"$columnExprToDistribute $upperOperator ? AND $columnExprToDistribute $lowerOperator ?"
+      case Unbounded =>
+        "1=1"
+    }
+    s"""select $dataColumnsProjection
+       |from ${extractConfig.data.quoteIdentifier(
+        tableExtractDataConfig.domain
+      )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
+       |where $boundCondition $extraCondition""".stripMargin
+  }
+
+  private def computePrepareStatement(
+    extractConfig: ExtractDataConfig,
+    tableExtractDataConfig: TableExtractDataConfig,
+    bounds: BoundaryDef,
+    boundaryContext: String,
+    connection: SQLConnection
+  )(implicit settings: Settings) = {
+    val (effectiveSql, statementFiller) =
+      bounds match {
+        case Unbounded =>
+          sqlFetchQuery(extractConfig, tableExtractDataConfig, bounds) -> ((_: PreparedStatement) =>
+            ()
+          )
+        case bounds: Boundary =>
+          tableExtractDataConfig.partitionColumnType match {
+            case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
+              sqlFetchQuery(extractConfig, tableExtractDataConfig, bounds) -> (
+                (st: PreparedStatement) => {
+                  st.setLong(1, bounds.upper.value.asInstanceOf[Long])
+                  st.setLong(2, bounds.lower.value.asInstanceOf[Long])
+                }
+              )
+            case PrimitiveType.decimal =>
+              sqlFetchQuery(extractConfig, tableExtractDataConfig, bounds) -> (
+                (st: PreparedStatement) => {
+                  st.setBigDecimal(1, bounds.upper.value.asInstanceOf[java.math.BigDecimal])
+                  st.setBigDecimal(2, bounds.lower.value.asInstanceOf[java.math.BigDecimal])
+                }
+              )
+
+            case PrimitiveType.date =>
+              sqlFetchQuery(extractConfig, tableExtractDataConfig, bounds) -> (
+                (st: PreparedStatement) => {
+                  st.setDate(1, bounds.upper.value.asInstanceOf[Date])
+                  st.setDate(2, bounds.lower.value.asInstanceOf[Date])
+                }
+              )
+
+            case PrimitiveType.timestamp =>
+              sqlFetchQuery(extractConfig, tableExtractDataConfig, bounds) -> (
+                (st: PreparedStatement) => {
+                  st.setTimestamp(1, bounds.upper.value.asInstanceOf[Timestamp])
+                  st.setTimestamp(2, bounds.lower.value.asInstanceOf[Timestamp])
+                }
+              )
+            case PrimitiveType.string if tableExtractDataConfig.hashFunc.isDefined =>
+              tableExtractDataConfig.hashFunc match {
+                case Some(tpl) =>
+                  val stringPartitionFunc =
+                    Utils.parseJinjaTpl(
+                      tpl,
+                      Map(
+                        "col" -> getQuotedPartitionColumn(
+                          extractConfig.data,
+                          tableExtractDataConfig.partitionColumn
+                        ),
+                        "nb_partitions" -> tableExtractDataConfig.nbPartitions.toString
+                      )
+                    )
+                  sqlFetchQuery(
+                    extractConfig,
+                    tableExtractDataConfig,
+                    bounds,
+                    Some(stringPartitionFunc)
+                  ) -> ((st: PreparedStatement) => {
+                    st.setLong(1, bounds.upper.value.asInstanceOf[Long])
+                    st.setLong(2, bounds.lower.value.asInstanceOf[Long])
+                  })
+                case None =>
+                  throw new RuntimeException(
+                    "Should never happen since stringPartitionFuncTpl is always defined here"
+                  )
+              }
+            case _ =>
+              throw new Exception(
+                s"type ${tableExtractDataConfig.partitionColumnType} not supported for partition columnToDistribute"
+              )
+          }
       }
-    }.flatten match {
-      case Success(count) =>
-        count -> true
-      case Failure(e) =>
-        logger.error(s"$context An error occured during extraction.")
-        Utils.logException(logger, e)
-        -1L -> false
+    logger.info(s"$boundaryContext SQL: $effectiveSql")
+    connection.setAutoCommit(false)
+    val statement = connection.prepareStatement(effectiveSql)
+    statementFiller(statement)
+    tableExtractDataConfig.fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
+
+    statement.setMaxRows(extractConfig.limit)
+    statement
+  }
+
+  private def getBoundaries(
+    extractConfig: ExtractDataConfig,
+    tableExtractDataConfig: TableExtractDataConfig,
+    context: TableName,
+    auditColumns: Columns
+  )(implicit
+    settings: Settings,
+    fjp: Option[ForkJoinTaskSupport]
+  ): (GenSeq[(BoundaryDef, Int)], BoundariesDef) = {
+    tableExtractDataConfig.partitionConfig match {
+      case None =>
+        List(Unbounded -> 0) -> NoBound
+      case Some(_: PartitionConfig) =>
+        withJDBCConnection(extractConfig.data.options) { connection =>
+          def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
+            auditConnection.setAutoCommit(false)
+            LastExportUtils.getBoundaries(
+              connection,
+              auditConnection,
+              extractConfig,
+              tableExtractDataConfig,
+              auditColumns
+            )
+          }
+
+          val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
+            getBoundariesWith(connection)
+          } else {
+            withJDBCConnection(extractConfig.audit.options) { auditConnection =>
+              getBoundariesWith(auditConnection)
+            }
+          }
+          logger.info(s"$context Boundaries : $boundaries")
+          ParUtils.makeParallel(boundaries.partitions.zipWithIndex) -> boundaries
+        }
     }
-    val tableEnd = System.currentTimeMillis()
-    // Log the extraction in the audit database
-    val deltaRow = DeltaRow(
-      domain = extractConfig.jdbcSchema.schema,
-      schema = tableExtractDataConfig.table,
-      lastExport = tableStart,
-      start = new Timestamp(tableStart),
-      end = new Timestamp(tableEnd),
-      duration = (tableEnd - tableStart).toInt,
-      count = count,
-      success = count >= 0,
-      message = "FULL",
-      step = "ALL"
-    )
-    withJDBCConnection(extractConfig.audit.options) { connection =>
-      LastExportUtils.insertNewLastExport(
-        connection,
-        deltaRow,
-        None,
-        extractConfig.audit,
-        auditColumns
-      )
-    }
-    if (success)
-      Success(())
-    else
-      Failure(
-        new DataExtractionException(extractConfig.jdbcSchema.schema, tableExtractDataConfig.table)
-      )
   }
 
   /** @return
@@ -881,7 +885,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       )
       val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
       logger.info(
-        s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $filename in $elapsedTime"
+        s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $outFile in $elapsedTime"
       )
       objectRowWriterProcessor.getRecordsCount()
     }.recoverWith { case e =>
