@@ -5,7 +5,7 @@ transform:
       type: APPEND
   tasks:
     - name: byseller_kpi
-      parseSQL: false
+      parseSQL: true
       sink:
         partition:
           - timestamp

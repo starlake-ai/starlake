@@ -57,6 +57,9 @@ object DatasetArea extends StrictLogging {
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
+  def testsResults(domain: String)(implicit settings: Settings): Path =
+    path("_tests_results")
+
   /** datasets waiting to be ingested are stored here
     *
     * @param domain

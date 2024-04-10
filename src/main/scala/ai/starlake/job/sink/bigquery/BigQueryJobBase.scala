@@ -63,12 +63,13 @@ trait BigQueryJobBase extends StrictLogging {
   private def bigQueryCredentials(
     accessToken: scala.Option[String] = None
   ): scala.Option[Credentials] = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials")
     accessToken match {
       case Some(token) =>
+        logger.info(s"Using inline access token credentials")
         val cred = GoogleCredentials.create(new AccessToken(token, null))
         scala.Option(cred)
       case None =>
+        logger.info(s"Using ${connectionOptions("authType")} credentials")
         connectionOptions("authType") match {
           case "APPLICATION_DEFAULT" =>
             val refreshToken =
@@ -570,7 +571,8 @@ trait BigQueryJobBase extends StrictLogging {
       val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       table != null && table.exists
     } catch {
-      case _: BigQueryException =>
+      case e: BigQueryException =>
+        e.printStackTrace()
         false
     }
   }

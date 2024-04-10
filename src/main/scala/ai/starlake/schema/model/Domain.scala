@@ -192,7 +192,7 @@ case class LoadDesc(version: Int, load: Domain)
     // and then apply this syntax to all databases even if natively they don't accept that.
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
-    if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
+    if (name != null && !forceDomainPrefixRegex.pattern.matcher(name).matches())
       messageList += ValidationMessage(
         Error,
         "Domain",

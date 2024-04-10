@@ -41,6 +41,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.annotation.nowarn
+import scala.jdk.CollectionConverters.asScalaIteratorConverter
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -318,6 +319,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def loadActiveEnvVars(): Map[String, String] = {
+    val slVarsAsProperties =
+      System
+        .getProperties()
+        .keySet()
+        .iterator()
+        .asScala
+        .filter(_.toString.startsWith("SL_"))
+        .map { key =>
+          key.toString -> System.getProperties().get(key).toString
+        }
+        .toMap
+
+    val externalProps = sys.env ++ slVarsAsProperties
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
@@ -328,7 +342,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .map(_.env)
         .getOrElse(Map.empty)
         .mapValues(
-          _.richFormat(sys.env, slDateVars)
+          _.richFormat(externalProps, slDateVars)
         ) // will replace with sys.env
 
     val activeEnvName = Option(System.getProperties().get("env"))
@@ -350,13 +364,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .loadEnv(envsCometPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
-          .mapValues(_.richFormat(sys.env, (globalEnvVars ++ slDateVars).toMap))
+          .mapValues(
+            _.richFormat(sys.env, externalProps ++ globalEnvVars ++ slDateVars)
+          )
 
       } else
         Map.empty[String, String]
 
     // Please note below how profile specific vars override default profile vars.
-    val activeEnvVars = sys.env ++ slDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
+    val activeEnvVars = externalProps ++ slDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
 
     this._activeEnvVars = activeEnvVars
     this._activeEnvVars
@@ -874,6 +890,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
             } match {
               case Failure(e) =>
+                e.printStackTrace()
                 logger.error(e.getMessage, e)
                 // TODO: could not deserialise. Since we support legacy we may encounter sl.yml files that doesn't define task nor _config.sl.yml. We should add breaking change to remove this behavior and have a strict definition of config files.
                 None
@@ -925,7 +942,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def taskCommandPath(
     basePath: Path,
     sqlFilePrefix: String
-  ): Option[(Path)] = {
+  ): Option[Path] = {
     getTaskPathDetails(basePath, sqlFilePrefix, List("sql", "sql.j2", "py")).map {
       case (path, prefix, extension) => path
     }
