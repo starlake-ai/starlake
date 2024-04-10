@@ -147,14 +147,15 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "d",
           "t",
           Nil,
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
+          None,
           None
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
@@ -191,19 +192,23 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "d",
           "t",
           Nil,
           true,
           Some(1000),
-          "pColumn",
-          PrimitiveType.int,
-          None,
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "pColumn",
+              PrimitiveType.int,
+              None,
+              2
+            )
+          )
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
         FileFormat().fillWithDefault(),
@@ -234,14 +239,15 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "d",
           "t",
           Nil,
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
+          None,
           None
         )
       val sinkResult = extractDataJob.sinkPartitionToFile(
@@ -375,9 +381,9 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
-          "d",
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
           "test_table",
           List(
             new Attribute().copy(
@@ -405,8 +411,10 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
+          None,
           None
         )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -465,9 +473,9 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
-          "d",
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
           "test_table",
           List(
             new Attribute().copy(
@@ -495,8 +503,10 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
-          Some("c_date IS NOT NULL")
+          Some("c_date IS NOT NULL"),
+          None
         )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -554,9 +564,9 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
-          "d",
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
           "test_table",
           List(
             new Attribute().copy(
@@ -572,8 +582,10 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
+          None,
           None
         )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -632,9 +644,9 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val unpartitionnedConfig: UnpartitionnedTableExtractDataConfig =
-        UnpartitionnedTableExtractDataConfig(
-          "d",
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
           "test_table",
           List(
             new Attribute().copy(
@@ -662,8 +674,10 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           true,
           Some(1000),
           new Path(outputFolder.pathAsString),
+          None,
           None
         )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -722,8 +736,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -751,16 +765,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -820,8 +838,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -849,16 +867,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          Some("c_short < 4")
+          Some("c_short < 4"),
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -917,8 +939,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -934,16 +956,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1003,8 +1029,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1036,17 +1062,21 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allHeaders = ListBuffer[String]()
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1112,8 +1142,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1141,16 +1171,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1210,8 +1244,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1239,16 +1273,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_int",
-          PrimitiveType.int,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_int",
+              PrimitiveType.int,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1308,8 +1346,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1337,16 +1375,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_long",
-          PrimitiveType.long,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_long",
+              PrimitiveType.long,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1406,8 +1448,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1435,16 +1477,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_decimal",
-          PrimitiveType.decimal,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_decimal",
+              PrimitiveType.decimal,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1504,8 +1550,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1533,16 +1579,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_ts",
-          PrimitiveType.timestamp,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_ts",
+              PrimitiveType.timestamp,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1602,8 +1652,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1631,16 +1681,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_date",
-          PrimitiveType.date,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_date",
+              PrimitiveType.date,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1700,8 +1754,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1729,16 +1783,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_str",
-          PrimitiveType.string,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_str",
+              PrimitiveType.string,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1777,7 +1835,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       ).asIteratorOf(rowAsString)
         .toList should contain theSameElementsAs
       List(
-        "public, test_table, null, null, null, null, OVERWRITE, 2, true, c_str, 0",
+        "public, test_table, null, null, null, null, OVERWRITE, 1, true, c_str, 0",
+        "public, test_table, null, null, null, null, OVERWRITE, 1, true, c_str, 1",
         "public, test_table, null, null, null, null, OVERWRITE, 2, true, c_str, ALL"
       )
     }
@@ -1805,8 +1864,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 5,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, false, 'c_short', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1834,16 +1893,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_short",
-          PrimitiveType.short,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -1914,8 +1977,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 8.9,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, false, 'c_decimal', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -1943,16 +2006,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_decimal",
-          PrimitiveType.decimal,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_decimal",
+              PrimitiveType.decimal,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2023,8 +2090,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-12-24'::timestamp,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, false, 'c_ts', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2052,16 +2119,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_ts",
-          PrimitiveType.timestamp,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_ts",
+              PrimitiveType.timestamp,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2132,8 +2203,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-12-25'::date,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, false, 'c_date', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2161,16 +2232,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_date",
-          PrimitiveType.date,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_date",
+              PrimitiveType.date,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2241,8 +2316,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 1,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_int', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2270,16 +2345,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_int",
-          PrimitiveType.int,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_int",
+              PrimitiveType.int,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2349,8 +2428,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 3.4,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_decimal', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2378,16 +2457,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_decimal",
-          PrimitiveType.decimal,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_decimal",
+              PrimitiveType.decimal,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2457,8 +2540,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-02-01'::timestamp,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_ts', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2486,16 +2569,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_ts",
-          PrimitiveType.timestamp,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_ts",
+              PrimitiveType.timestamp,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2565,8 +2652,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-02-02'::date,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_date', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2594,16 +2681,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           false,
           Some(1000),
-          "c_date",
-          PrimitiveType.date,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_date",
+              PrimitiveType.date,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2673,8 +2764,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 1,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_int', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2702,16 +2793,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_int",
-          PrimitiveType.int,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_int",
+              PrimitiveType.int,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2782,8 +2877,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', 3.4,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_decimal', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2811,16 +2906,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_decimal",
-          PrimitiveType.decimal,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_decimal",
+              PrimitiveType.decimal,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -2891,8 +2990,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-02-01'::timestamp,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_ts', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -2920,16 +3019,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_ts",
-          PrimitiveType.timestamp,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_ts",
+              PrimitiveType.timestamp,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -3000,8 +3103,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'test_table', '2003-02-02'::date,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 1, true, 'c_date', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -3029,16 +3132,20 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_date",
-          PrimitiveType.date,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_date",
+              PrimitiveType.date,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
-      val sinkResult = extractDataJob.extractTablePartionnedData(
+      val sinkResult = extractDataJob.extractTableData(
         ExtractDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
@@ -3164,8 +3271,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           |('public', 'unsucessful_table', '2003-02-02'::date,  '2024-04-08'::timestamp, '2024-04-08'::timestamp, 10, 'OVERWRITE', 0, false, 'c_date', 'ALL');
           |""".stripMargin
       )
-      private val partitionnedConfig: PartitionnedTableExtractDataConfig =
-        PartitionnedTableExtractDataConfig(
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
           "public",
           "test_table",
           List(
@@ -3193,12 +3300,16 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           ),
           true,
           Some(1000),
-          "c_date",
-          PrimitiveType.date,
-          Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
-          2,
           new Path(outputFolder.pathAsString),
-          None
+          None,
+          Some(
+            PartitionConfig(
+              "c_date",
+              PrimitiveType.date,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
         )
       private val extractDataConfig: ExtractDataConfig = ExtractDataConfig(
         JDBCSchema().copy(schema = "public"),
@@ -3295,7 +3406,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = Some(false),
+          cliFullExport = Some(false),
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3316,7 +3427,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3337,7 +3448,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3358,7 +3469,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3387,7 +3498,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3408,7 +3519,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,
@@ -3429,7 +3540,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           limit = 1,
           numPartitions = 1,
           parallelism = None,
-          fullExport = None,
+          cliFullExport = None,
           extractionPredicate = None,
           ignoreExtractionFailure = true,
           cleanOnExtract = true,

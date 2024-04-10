@@ -879,15 +879,20 @@ object LastExportUtils extends LazyLogging {
   }
   case class InclusiveBound(value: Any) extends BoundType
   case class ExclusiveBound(value: Any) extends BoundType
-  case class Boundary(lower: BoundType, upper: BoundType)
+  sealed trait BoundaryDef
+  case class Boundary(lower: BoundType, upper: BoundType) extends BoundaryDef
+  case object Unbounded extends BoundaryDef
+
+  sealed trait BoundariesDef
 
   case class Bounds(
-    firstExport: Boolean,
     typ: PrimitiveType,
     count: Long,
     max: Any,
     partitions: List[Boundary]
-  )
+  ) extends BoundariesDef
+
+  case object NoBound extends BoundariesDef
 
   private val MIN_TS = Timestamp.valueOf("1970-01-01 00:00:00")
   private val MIN_DATE = java.sql.Date.valueOf("1970-01-01")
@@ -897,7 +902,7 @@ object LastExportUtils extends LazyLogging {
     conn: SQLConnection,
     auditConnection: SQLConnection,
     extractConfig: ExtractDataConfig,
-    tableExtractDataConfig: PartitionnedTableExtractDataConfig,
+    tableExtractDataConfig: TableExtractDataConfig,
     auditColumns: Columns
   )(implicit settings: Settings): Bounds = {
     val partitionRange = 0 until tableExtractDataConfig.nbPartitions
@@ -939,7 +944,6 @@ object LastExportUtils extends LazyLogging {
               Boundary(lower, InclusiveBound(upper))
             }.toList
             Bounds(
-              lastExport.isEmpty,
               PrimitiveType.long,
               count,
               max,
@@ -982,7 +986,6 @@ object LastExportUtils extends LazyLogging {
               Boundary(lower, InclusiveBound(upper))
             }.toList
             Bounds(
-              lastExport.isEmpty,
               PrimitiveType.decimal,
               count,
               max,
@@ -1023,7 +1026,6 @@ object LastExportUtils extends LazyLogging {
               Boundary(lower, InclusiveBound(upper))
             }.toList
             Bounds(
-              lastExport.isEmpty,
               PrimitiveType.date,
               count,
               max,
@@ -1064,7 +1066,6 @@ object LastExportUtils extends LazyLogging {
               Boundary(lower, InclusiveBound(upper))
             }.toList
             Bounds(
-              lastExport.isEmpty,
               PrimitiveType.timestamp,
               count,
               max,
@@ -1131,7 +1132,6 @@ object LastExportUtils extends LazyLogging {
           count match {
             case 0 =>
               Bounds(
-                firstExport = true,
                 PrimitiveType.long,
                 count,
                 0,
@@ -1139,9 +1139,8 @@ object LastExportUtils extends LazyLogging {
               )
             case _ =>
               val partitions =
-                (min until max).map(p => Boundary(InclusiveBound(p), ExclusiveBound(p + 1))).toList
+                (min to max).map(p => Boundary(InclusiveBound(p), ExclusiveBound(p + 1))).toList
               Bounds(
-                firstExport = true,
                 PrimitiveType.long,
                 count,
                 max,
@@ -1164,7 +1163,7 @@ object LastExportUtils extends LazyLogging {
   private def internalBoundaries[T](
     conn: SQLConnection,
     extractConfig: ExtractDataConfig,
-    tableExtractDataConfig: PartitionnedTableExtractDataConfig,
+    tableExtractDataConfig: TableExtractDataConfig,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
     val extraCondition = tableExtractDataConfig.filterOpt.map(w => s"and $w").getOrElse("")
@@ -1357,7 +1356,6 @@ object LastExportUtils extends LazyLogging {
             )
         }
     }
-
     preparedStatement.executeUpdate()
   }
 
