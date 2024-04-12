@@ -135,7 +135,8 @@ case class JDBCTable(
   connectionOptions: Map[String, String],
   fetchSize: Option[Int],
   fullExport: Option[Boolean],
-  filter: Option[String] = None
+  filter: Option[String] = None,
+  stringPartitionFunc: Option[String] = None
 ) {
   def this() =
     this(
