@@ -10,6 +10,7 @@ __New Feature__:
   - extract-data
   - infer-schema
   - yml2xls
+- add stringPartitionFunc attribute to table extraction definition
 
 __Bug Fix__:
 - Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.

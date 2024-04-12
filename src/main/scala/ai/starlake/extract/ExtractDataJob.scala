@@ -197,8 +197,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                           s"Could not find column type for partition column $partitionColumn in table $domainName.$tableName"
                         )
                       )
-                    val stringPartitionFuncTpl =
-                      extractConfig.jdbcSchema.stringPartitionFunc.orElse(
+                    val stringPartitionFuncTpl = currentTableDefinition
+                      .flatMap(_.stringPartitionFunc)
+                      .orElse(extractConfig.jdbcSchema.stringPartitionFunc)
+                      .orElse(
                         getStringPartitionFunc(extractConfig.data.getJdbcEngineName().toString)
                       )
                     TableExtractDataConfig(
