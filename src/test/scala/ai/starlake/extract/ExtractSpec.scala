@@ -47,6 +47,129 @@ class ExtractSpec extends TestHelper {
     }
   }
 
+  it should "should generate restricted column" in {
+    new WithSettings() {
+      val jdbcSchema = JDBCSchema(
+        None,
+        "PUBLIC",
+        pattern = Some("{{schema}}-{{table}}.*"),
+        tables = List(
+          new JDBCTable().copy(
+            name = "test_table1",
+            columns = List(
+              TableColumn(
+                name = "id"
+              )
+            )
+          )
+        )
+      )
+        .fillWithDefaultValues()
+      val connectionSettings = settings.appConfig.connections("test-pg")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcOptions.options("url"),
+        jdbcOptions.options("user"),
+        jdbcOptions.options("password")
+      )
+      val sql: String =
+        """
+          |drop table if exists test_table1 cascade;
+          |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
+          |create view test_view1 AS SELECT NAME FROM test_table1;
+          |insert into test_table1 values (1,'A');""".stripMargin
+      val st = conn.createStatement()
+      st.execute(sql)
+      val rs = st.executeQuery("select * from test_table1")
+      rs.next
+      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      assert(row1InsertionCheck, "Data not inserted")
+      val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
+      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
+      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+        jdbcSchema,
+        connectionSettings,
+        new Path(outputDir.pathAsString),
+        None,
+        None
+      )
+      val publicOutputDir = outputDir / "PUBLIC"
+      val tableFile = publicOutputDir / "test_table1.sl.yml"
+      val table =
+        YamlSerde
+          .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
+        "id" -> "long"
+      )
+      table.primaryKey should contain("id")
+      table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
+    }
+  }
+
+  it should "should generate restricted renamed column" in {
+    new WithSettings() {
+      val jdbcSchema = JDBCSchema(
+        None,
+        "PUBLIC",
+        pattern = Some("{{schema}}-{{table}}.*"),
+        tables = List(
+          new JDBCTable().copy(
+            name = "test_table1",
+            columns = List(
+              TableColumn(
+                name = "id",
+                rename = Some("renamed_id")
+              )
+            )
+          )
+        )
+      )
+        .fillWithDefaultValues()
+      val connectionSettings = settings.appConfig.connections("test-pg")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcOptions.options("url"),
+        jdbcOptions.options("user"),
+        jdbcOptions.options("password")
+      )
+      val sql: String =
+        """
+          |drop table if exists test_table1 cascade;
+          |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
+          |create view test_view1 AS SELECT NAME FROM test_table1;
+          |insert into test_table1 values (1,'A');""".stripMargin
+      val st = conn.createStatement()
+      st.execute(sql)
+      val rs = st.executeQuery("select * from test_table1")
+      rs.next
+      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      assert(row1InsertionCheck, "Data not inserted")
+      val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
+      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
+      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+        jdbcSchema,
+        connectionSettings,
+        new Path(outputDir.pathAsString),
+        None,
+        None
+      )
+      val publicOutputDir = outputDir / "PUBLIC"
+      val tableFile = publicOutputDir / "test_table1.sl.yml"
+      val table =
+        YamlSerde
+          .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
+        "renamed_id" -> "long"
+      )
+      table.primaryKey should contain("renamed_id")
+      table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
+    }
+  }
+
   private def testSchemaExtraction(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,

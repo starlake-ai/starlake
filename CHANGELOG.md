@@ -14,6 +14,7 @@ __New Feature__:
 __Bug Fix__:
 - Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.
 - Fix incremental next query
+- Fix restricted renamed column and pk renaming
 
 # 1.1.1:
 __Improvement__:

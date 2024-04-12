@@ -611,24 +611,31 @@ object JdbcDbUtils extends LazyLogging {
                     // Limit to the columns specified by the user if any
                     val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
                       jdbcCurrentTable
-                        .map(_.columns.map(c => c.name.toUpperCase.trim -> c.rename))
+                        .map(
+                          _.columns.map(c =>
+                            (if (keepOriginalName) c.name.toUpperCase.trim
+                             else c.rename.getOrElse(c.name).toUpperCase.trim) -> c.rename
+                          )
+                        )
                         .getOrElse(Map.empty)
                         .toMap
                     val currentFilter = jdbcCurrentTable.flatMap(_.filter)
                     val selectedColumns: List[Attribute] =
-                      (if (
-                         currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
-                           .contains("*")
-                       )
-                         columns
-                       else
-                         columns.filter(col =>
-                           currentTableRequestedColumns.contains(col.name.toUpperCase())
-                         )).map(c =>
-                        c.copy(rename =
-                          currentTableRequestedColumns.get(c.name.toUpperCase).flatten
-                        )
+                      if (
+                        currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
+                          .contains("*")
                       )
+                        columns
+                      else
+                        columns
+                          .filter(col =>
+                            currentTableRequestedColumns.contains(col.name.toUpperCase())
+                          )
+                          .map(c =>
+                            c.copy(rename =
+                              currentTableRequestedColumns.get(c.name.toUpperCase).flatten
+                            )
+                          )
                     logger.whenDebugEnabled {
                       val schemaMessage = selectedColumns
                         .map(c =>
@@ -661,7 +668,19 @@ object JdbcDbUtils extends LazyLogging {
                     val primaryKeys = new Iterator[String] {
                       def hasNext: Boolean = primaryKeysResultSet.next()
 
-                      def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
+                      def next(): String = {
+                        val pkColumnName = primaryKeysResultSet.getString("COLUMN_NAME")
+                        if (keepOriginalName) {
+                          pkColumnName
+                        } else {
+                          val pkTableColumnsOpt = jdbcCurrentTable.map(_.columns)
+                          pkTableColumnsOpt
+                            .flatMap(
+                              _.find(_.name.equalsIgnoreCase(pkColumnName)).flatMap(_.rename)
+                            )
+                            .getOrElse(pkColumnName)
+                        }
+                      }
                     }.toList
                     tableName -> ExtractTableAttributes(
                       tableRemarks,
