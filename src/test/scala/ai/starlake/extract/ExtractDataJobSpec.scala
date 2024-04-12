@@ -1,6 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.TestHelper
+import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
@@ -131,6 +132,243 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // trying to create table again should not fail and still return audit column names
       checkColumns(extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg")))
+    }
+  }
+
+  "getStringPartitionFunc" should "return string partition func for the given database if defined" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      extractDataJob.getStringPartitionFunc("sqlserver") shouldBe Some(
+        "abs( binary_checksum({{col}}) % {{nb_partitions}} )"
+      )
+      extractDataJob.getStringPartitionFunc("unknown") shouldBe None
+    }
+  }
+
+  "resolveNumPartitions" should "return partition column with precedence" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      // Table definition first
+      val jdbcConnection = settings.appConfig.connections("test-pg")
+      extractDataJob.resolveNumPartitions(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(numPartitions = Some(2)),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(numPartitions = Some(3)))
+      ) shouldBe 3
+
+      // second precedence: jdbcSchema
+      extractDataJob.resolveNumPartitions(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(numPartitions = Some(2)),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(numPartitions = None))
+      ) shouldBe 2
+
+      // default
+      extractDataJob.resolveNumPartitions(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(numPartitions = None),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(numPartitions = None))
+      ) shouldBe 1
+    }
+  }
+
+  "resolveTableStringPartitionFunc" should "return string partition function with precedence" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      // Table definition first
+      val jdbcConnection: Settings.Connection = settings.appConfig.connections("test-pg")
+      extractDataJob.resolveTableStringPartitionFunc(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = Some("schemaPartitionFunc")),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(stringPartitionFunc = Some("tablePartitionFunc")))
+      ) shouldBe Some("tablePartitionFunc")
+
+      // second precedence: jdbcSchema
+      extractDataJob.resolveTableStringPartitionFunc(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = Some("schemaPartitionFunc")),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(stringPartitionFunc = None))
+      ) shouldBe Some("schemaPartitionFunc")
+
+      // default
+      extractDataJob.resolveTableStringPartitionFunc(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = None),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(stringPartitionFunc = None))
+      ) shouldBe Some("abs( hashtext({{col}}) % {{nb_partitions}} )")
+
+      extractDataJob.resolveTableStringPartitionFunc(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = None),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection.copy(options = Map("url" -> "jdbc:as400//localhost")),
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(stringPartitionFunc = None))
+      ) shouldBe None
+    }
+  }
+
+  "resolvePartitionColumn" should "return partition column with precedence" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      // Table definition first
+      val jdbcConnection = settings.appConfig.connections("test-pg")
+      extractDataJob.resolvePartitionColumn(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(partitionColumn = Some("schemaPartitionColumn")),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(partitionColumn = Some("tablePartitionColumn")))
+      ) shouldBe Some("tablePartitionColumn")
+
+      // second precedence: jdbcSchema
+      extractDataJob.resolvePartitionColumn(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(partitionColumn = Some("schemaPartitionColumn")),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(partitionColumn = None))
+      ) shouldBe Some("schemaPartitionColumn")
+
+      // none
+      extractDataJob.resolvePartitionColumn(
+        ExtractDataConfig(
+          jdbcSchema = new JDBCSchema().copy(partitionColumn = None),
+          baseOutputDir = new Path("."),
+          limit = 1,
+          numPartitions = 1,
+          parallelism = None,
+          cliFullExport = None,
+          extractionPredicate = None,
+          ignoreExtractionFailure = true,
+          cleanOnExtract = true,
+          includeTables = Nil,
+          excludeTables = Nil,
+          outputFormat = FileFormat(),
+          data = jdbcConnection,
+          audit = jdbcConnection
+        ),
+        Some(new JDBCTable().copy(partitionColumn = None))
+      ) shouldBe None
     }
   }
 
@@ -3194,11 +3432,42 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
     }
   }
 
+  "cleanTableFiles" should "delete all files" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      val jdbcConnection = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcConnection.options("url"),
+        jdbcConnection.options("user"),
+        jdbcConnection.options("password")
+      )
+      val st = conn.createStatement()
+      st.execute(initSQL)
+      private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
+      outputFolder.createDirectory()
+      private val domainFolder: File = outputFolder / "public"
+      domainFolder.createDirectory()
+      (domainFolder / "test_table-20240102143002.csv").createFile()
+      (domainFolder / "test_table-20240102143002-1.json").createFile()
+      (domainFolder / "test_table-invalidpattern.json").createFile()
+      (domainFolder / "other_table-20240102143002.json").createFile()
+      extractDataJob.cleanTableFiles(
+        storageHandler,
+        new Path(domainFolder.pathAsString),
+        "test_table"
+      )
+      domainFolder.list.map(_.name).toList should contain theSameElementsAs List(
+        "test_table-invalidpattern.json",
+        "other_table-20240102143002.json"
+      )
+    }
+  }
+
   "getCurrentTableDefinition" should "retrieve the correct configuration" in {
     new WithSettings() {
       private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
       // specific configuration
-      extractDataJob.getCurrentTableDefinition(
+      extractDataJob.resolveTableDefinition(
         JDBCSchema(tables =
           List(
             new JDBCTable().copy(name = "T1", partitionColumn = Some("SpecificT1")),
@@ -3210,7 +3479,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       ) shouldBe Some(new JDBCTable().copy(name = "T1", partitionColumn = Some("SpecificT1")))
 
       // ignore case
-      extractDataJob.getCurrentTableDefinition(
+      extractDataJob.resolveTableDefinition(
         JDBCSchema(tables =
           List(
             new JDBCTable().copy(name = "T1", partitionColumn = Some("SpecificT1")),
@@ -3222,7 +3491,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       ) shouldBe Some(new JDBCTable().copy(name = "T2", partitionColumn = Some("SpecificT2")))
 
       // fallback to * config
-      extractDataJob.getCurrentTableDefinition(
+      extractDataJob.resolveTableDefinition(
         JDBCSchema(tables =
           List(
             new JDBCTable().copy(name = "T1", partitionColumn = Some("SpecificT1")),
@@ -3234,7 +3503,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       ) shouldBe Some(new JDBCTable().copy(name = "*", fullExport = Some(true)))
 
       // no config
-      extractDataJob.getCurrentTableDefinition(
+      extractDataJob.resolveTableDefinition(
         JDBCSchema(tables =
           List(
             new JDBCTable().copy(name = "T1", partitionColumn = Some("SpecificT1")),

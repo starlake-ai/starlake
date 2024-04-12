@@ -168,71 +168,31 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
 
               // Get the current table partition column and  connection options if any
               val currentTableDefinition =
-                getCurrentTableDefinition(extractConfig.jdbcSchema, tableName)
+                resolveTableDefinition(extractConfig.jdbcSchema, tableName)
               val currentTableConnectionOptions =
                 currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
               // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
               val fullExport = isTableFullExport(extractConfig, currentTableDefinition)
               val fetchSize =
                 computeTableFetchSize(extractConfig, currentTableDefinition)
-              val maybeBartitionColumn = currentTableDefinition
-                .flatMap(_.partitionColumn)
-                .orElse(extractConfig.jdbcSchema.partitionColumn)
-              val tableExtractDataConfig = {
-                maybeBartitionColumn match {
-                  case Some(partitionColumn) =>
-                    val numPartitions = currentTableDefinition
-                      .flatMap { tbl =>
-                        tbl.numPartitions
-                      }
-                      .orElse(extractConfig.jdbcSchema.numPartitions)
-                      .getOrElse(extractConfig.numPartitions)
-                    // Partition column type is useful in order to know how to compare values since comparing numeric, big decimal, date and timestamps are not the same
-                    val partitionColumnType = tableAttrs.columNames
-                      .find(_.name.equalsIgnoreCase(partitionColumn))
-                      .flatMap(attr => schemaHandler.types().find(_.name == attr.`type`))
-                      .map(_.primitiveType)
-                      .getOrElse(
-                        throw new Exception(
-                          s"Could not find column type for partition column $partitionColumn in table $domainName.$tableName"
-                        )
-                      )
-                    val stringPartitionFuncTpl = currentTableDefinition
-                      .flatMap(_.stringPartitionFunc)
-                      .orElse(extractConfig.jdbcSchema.stringPartitionFunc)
-                      .orElse(
-                        getStringPartitionFunc(extractConfig.data.getJdbcEngineName().toString)
-                      )
-                    TableExtractDataConfig(
-                      domainName,
-                      tableName,
-                      tableAttrs.columNames,
-                      fullExport,
-                      fetchSize,
-                      tableOutputDir,
-                      tableAttrs.filterOpt,
-                      Some(
-                        PartitionConfig(
-                          partitionColumn,
-                          partitionColumnType,
-                          stringPartitionFuncTpl,
-                          numPartitions
-                        )
-                      )
-                    )
-                  case None =>
-                    TableExtractDataConfig(
-                      domainName,
-                      tableName,
-                      tableAttrs.columNames,
-                      fullExport,
-                      fetchSize,
-                      tableOutputDir,
-                      tableAttrs.filterOpt,
-                      None
-                    )
-                }
-              }
+              val partitionConfig =
+                computePartitionConfig(
+                  extractConfig,
+                  domainName,
+                  tableName,
+                  currentTableDefinition,
+                  tableAttrs
+                )
+              val tableExtractDataConfig = TableExtractDataConfig(
+                domainName,
+                tableName,
+                tableAttrs.columNames,
+                fullExport,
+                fetchSize,
+                tableOutputDir,
+                tableAttrs.filterOpt,
+                partitionConfig
+              )
 
               if (
                 isExtractionNeeded(
@@ -242,18 +202,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                 )
               ) {
                 if (extractConfig.cleanOnExtract) {
-                  logger.info(s"Deleting all files of $tableName")
-                  storageHandler
-                    .list(tableOutputDir, recursive = false)
-                    .filter(fileInfo =>
-                      s"^$tableName-\\d{14}[\\.\\-].*".r.pattern
-                        .matcher(fileInfo.path.getName)
-                        .matches()
-                    )
-                    .foreach { f =>
-                      storageHandler.delete(f.path)
-                      logger.debug(f"${f.path} deleted")
-                    }
+                  cleanTableFiles(storageHandler, tableOutputDir, tableName)
                 }
 
                 extractTableData(
@@ -300,6 +249,89 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     } else {
       logger.info("Tables extraction skipped")
     }
+  }
+
+  private def computePartitionConfig(
+    extractConfig: ExtractDataConfig,
+    domainName: String,
+    tableName: TableName,
+    currentTableDefinition: Option[JDBCTable],
+    tableAttrs: ExtractTableAttributes
+  ): Option[PartitionConfig] = {
+    resolvePartitionColumn(extractConfig, currentTableDefinition)
+      .map { partitionColumn =>
+        val numPartitions = resolveNumPartitions(extractConfig, currentTableDefinition)
+        // Partition column type is useful in order to know how to compare values since comparing numeric, big decimal, date and timestamps are not the same
+        val partitionColumnType = tableAttrs.columNames
+          .find(_.name.equalsIgnoreCase(partitionColumn))
+          .flatMap(attr => schemaHandler.types().find(_.name == attr.`type`))
+          .map(_.primitiveType)
+          .getOrElse(
+            throw new Exception(
+              s"Could not find column type for partition column $partitionColumn in table $domainName.$tableName"
+            )
+          )
+        val stringPartitionFuncTpl =
+          resolveTableStringPartitionFunc(extractConfig, currentTableDefinition)
+        PartitionConfig(
+          partitionColumn,
+          partitionColumnType,
+          stringPartitionFuncTpl,
+          numPartitions
+        )
+      }
+  }
+
+  private[extract] def resolveTableStringPartitionFunc(
+    extractConfig: ExtractDataConfig,
+    currentTableDefinition: Option[JDBCTable]
+  ): Option[TableName] = {
+    currentTableDefinition
+      .flatMap(_.stringPartitionFunc)
+      .orElse(extractConfig.jdbcSchema.stringPartitionFunc)
+      .orElse(
+        getStringPartitionFunc(extractConfig.data.getJdbcEngineName().toString)
+      )
+  }
+
+  private[extract] def resolveNumPartitions(
+    extractConfig: ExtractDataConfig,
+    currentTableDefinition: Option[JDBCTable]
+  ): Int = {
+    currentTableDefinition
+      .flatMap { tbl =>
+        tbl.numPartitions
+      }
+      .orElse(extractConfig.jdbcSchema.numPartitions)
+      .getOrElse(extractConfig.numPartitions)
+  }
+
+  private[extract] def resolvePartitionColumn(
+    extractConfig: ExtractDataConfig,
+    currentTableDefinition: Option[JDBCTable]
+  ) = {
+    currentTableDefinition
+      .flatMap(_.partitionColumn)
+      .orElse(extractConfig.jdbcSchema.partitionColumn)
+  }
+
+  private[extract] def cleanTableFiles(
+    storageHandler: StorageHandler,
+    tableOutputDir: Path,
+    tableName: TableName
+  ): Unit = {
+    logger.info(s"Deleting all files of $tableName")
+    storageHandler
+      .list(tableOutputDir, recursive = false)
+      .filter(fileInfo =>
+        s"^$tableName-\\d{14}[\\.\\-].*".r.pattern
+          .matcher(fileInfo.path.getName)
+          .matches()
+      )
+      .foreach { f =>
+        storageHandler.delete(f.path)
+        logger.debug(f"${f.path} deleted")
+      }
   }
 
   /** Table fetch size precedence from higher to lower is:
@@ -372,7 +404,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       .getOrElse(true)
   }
 
-  private[extract] def getCurrentTableDefinition(
+  private[extract] def resolveTableDefinition(
     jdbcSchema: JDBCSchema,
     tableName: TableName
   ): Option[JDBCTable] = {
@@ -829,7 +861,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     }
   }
 
-  private def getStringPartitionFunc(dbType: String): Option[String] = {
+  private[extract] def getStringPartitionFunc(dbType: String): Option[String] = {
     val hashFunctions = Map(
       "sqlserver"  -> "abs( binary_checksum({{col}}) % {{nb_partitions}} )",
       "postgresql" -> "abs( hashtext({{col}}) % {{nb_partitions}} )",
