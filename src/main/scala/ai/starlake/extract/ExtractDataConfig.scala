@@ -76,20 +76,20 @@ case class UserExtractDataConfig(
 /** Class used during data extraction process
   */
 case class ExtractDataConfig(
-                              jdbcSchema: JDBCSchema,
-                              baseOutputDir: Path,
-                              limit: Int,
-                              numPartitions: Int,
-                              parallelism: Option[Int],
-                              cliFullExport: Option[Boolean],
-                              extractionPredicate: Option[Long => Boolean],
-                              ignoreExtractionFailure: Boolean,
-                              cleanOnExtract: Boolean,
-                              includeTables: Seq[String],
-                              excludeTables: Seq[String],
-                              outputFormat: FileFormat,
-                              data: Connection,
-                              audit: Connection
+  jdbcSchema: JDBCSchema,
+  baseOutputDir: Path,
+  limit: Int,
+  numPartitions: Int,
+  parallelism: Option[Int],
+  cliFullExport: Option[Boolean],
+  extractionPredicate: Option[Long => Boolean],
+  ignoreExtractionFailure: Boolean,
+  cleanOnExtract: Boolean,
+  includeTables: Seq[String],
+  excludeTables: Seq[String],
+  outputFormat: FileFormat,
+  data: Connection,
+  audit: Connection
 )
 
 /** Information related to how the table should be extracted. We've got partitionned table and
