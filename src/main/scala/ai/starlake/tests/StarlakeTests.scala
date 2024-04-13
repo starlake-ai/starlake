@@ -2,6 +2,7 @@ package ai.starlake.tests
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
+import ai.starlake.job.transform.TransformTestConfig
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 
@@ -10,6 +11,7 @@ import java.nio.file.Files
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import scala.reflect.io.Directory
 import scala.util.Failure
 
@@ -60,11 +62,67 @@ case class StarlakeTestData(
   }
 }
 case class StarlakeTestResult(
+  testFolder: String,
+  domainName: String,
+  tableName: String,
+  testName: String,
   missingColumns: List[String],
   notExpectedColumns: List[String],
   missingRecords: File,
-  notExpectedRecords: File
-)
+  notExpectedRecords: File,
+  success: Boolean
+) {
+  def html(): Unit = {
+    val missingLines = Files.readAllLines(missingRecords.toPath).asScala.toList.tail
+    val notExpectedLines = Files.readAllLines(notExpectedRecords.toPath).asScala.toList.tail
+    var builder = new StringBuilder
+    builder.append(s"<h2>Test: $domainName.$tableName.$testName</h2>")
+    if (missingColumns.nonEmpty) {
+      builder.append("<h3>Missing columns</h3>")
+      builder.append("<ul>")
+      missingColumns.foreach { c =>
+        builder.append(s"<li>$c</li>")
+      }
+      builder.append("</ul>")
+    }
+    if (notExpectedColumns.nonEmpty) {
+      builder.append("<h3>Not expected columns</h3>")
+      builder.append("<ul>")
+      notExpectedColumns.foreach { c =>
+        builder.append(s"<li>$c</li>")
+      }
+      builder.append("</ul>")
+    }
+    if (missingLines.nonEmpty) {
+      builder.append("<h3>Missing records</h3>")
+      builder.append("<table>")
+      missingLines.foreach { l =>
+        builder.append("<tr>")
+        l.split(",").foreach { c =>
+          builder.append(s"<td>$c</td>")
+        }
+        builder.append("</tr>")
+      }
+      builder.append("</table>")
+    }
+    if (notExpectedLines.nonEmpty) {
+      builder.append("<h3>Not expected records</h3>")
+      builder.append("<table>")
+      notExpectedLines.foreach { l =>
+        builder.append("<tr>")
+        l.split(",").foreach { c =>
+          builder.append(s"<td>$c</td>")
+        }
+        builder.append("</tr>")
+      }
+      builder.append("</table>")
+    }
+    val html = builder.toString()
+    Files.write(new File(testFolder, "index.html").toPath, html.getBytes())
+
+  }
+
+}
 
 object StarlakeTestData {
   def createSchema(domainName: String, conn: java.sql.Connection): Unit = {
@@ -89,6 +147,25 @@ object StarlakeTestData {
     columns.toList
   }
 
+  def outputTableDifferences(
+    conn: Connection,
+    targetDomain: String,
+    targetTable: String,
+    assertTable: String,
+    outputPath: File
+  ): Boolean = {
+    val diffSql = s"""COPY
+                        |(SELECT * FROM $targetDomain.$assertTable EXCEPT SELECT * FROM $targetDomain.$targetTable)
+                        |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
+    execute(conn, diffSql)
+    try {
+      val allLines = Files.readAllLines(outputPath.toPath)
+      allLines.size() <= 1
+    } catch {
+      case _: Exception => // ignore. File does not exists
+        true
+    }
+  }
   def compareResults(
     testFolder: Directory,
     targetDomain: String,
@@ -102,24 +179,32 @@ object StarlakeTestData {
     val notExpectedColumns = targetColumns.diff(assertColumns)
     val notExpectedPath = new File(testFolder.jfile, "not_expected.csv")
     val missingPath = new File(testFolder.jfile, "missing.csv")
+    var success = true
     if (missingColumns.nonEmpty) {
       println(s"Missing columns: ${missingColumns.mkString(", ")}")
     }
-
     if (notExpectedColumns.nonEmpty) {
       println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
     }
 
     if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
-      val notExpectedSql = s"""COPY
-         |(SELECT * FROM $targetDomain.$targetTable EXCEPT SELECT * FROM $targetDomain.$assertTable)
-         |TO '$notExpectedPath' (HEADER, DELIMITER ',') """.stripMargin
-      execute(conn, notExpectedSql)
+      val notExpectedSuccess = outputTableDifferences(
+        conn,
+        targetDomain,
+        targetTable,
+        assertTable,
+        notExpectedPath
+      )
 
-      val missingSql = s"""COPY
-         |(SELECT * FROM $targetDomain.$assertTable EXCEPT SELECT * FROM $targetDomain.$targetTable)
-         |TO '$missingPath' (HEADER, DELIMITER ',') """.stripMargin
-      execute(conn, missingSql)
+      val missingSuccess = outputTableDifferences(
+        conn,
+        targetDomain,
+        assertTable,
+        targetTable,
+        missingPath
+      )
+
+      success = notExpectedSuccess && missingSuccess
     } else {
       Files.write(
         notExpectedPath.toPath,
@@ -129,12 +214,19 @@ object StarlakeTestData {
         missingPath.toPath,
         "number of columns does not match. Missing data could not be computed".getBytes()
       )
+      success = false
     }
+
     StarlakeTestResult(
+      testFolder.path,
+      domainName = targetDomain,
+      tableName = targetTable,
+      testName = testFolder.name,
       missingColumns = missingColumns,
       notExpectedColumns = notExpectedColumns,
       missingRecords = missingPath,
-      notExpectedRecords = notExpectedPath
+      notExpectedRecords = notExpectedPath,
+      success = success
     )
   }
 
@@ -151,7 +243,7 @@ object StarlakeTestData {
   }
 
   def run(
-    dataAnddTests: (
+    dataAndTests: (
       List[StarlakeTestData], // root data
       List[
         (
@@ -162,18 +254,19 @@ object StarlakeTestData {
           )
         )
       ]
-    )
-  ): Unit = {
+    ),
+    config: TransformTestConfig
+  ): List[StarlakeTestResult] = {
     val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "tests"))
+    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "test-results"))
     testsFolder.deleteRecursively()
     testsFolder.createDirectory(force = true, failIfExists = false)
-    val (rootData, tests) = dataAnddTests
-    tests.foreach { case (domainName, dataAndtables) =>
-      val (domainData, tables) = dataAndtables
-      tables.foreach { case (tableName, dataAndTests) =>
+    val (rootData, tests) = dataAndTests
+    tests.flatMap { case (domainName, dataAndTables) =>
+      val (domainData, tables) = dataAndTables
+      tables.flatMap { case (tableName, dataAndTests) =>
         val (taskData, tests) = dataAndTests
-        tests.foreach { case (testName, test) =>
+        tests.map { case (testName, test) =>
           val testFolder = new Directory(new File(testsFolder.jfile, testName))
           testFolder.deleteRecursively()
           testFolder.createDirectory(force = true)
@@ -193,6 +286,7 @@ object StarlakeTestData {
           }
           // We close the connection here since the transform will open its own
           // and concurrent access is not supported in embedded test mode
+          val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
           val result =
             new Main().run(
               Array("transform", "--test", "--name", test.name),
@@ -215,6 +309,12 @@ object StarlakeTestData {
             taskData.foreach(_.unload(conn))
           }
           test.unload(dbFilename)
+          if (result.success) {
+            println(s"Test $domainName.$tableName.$testName succeeded")
+          } else {
+            println(s"Test $domainName.$tableName.$testName failed")
+          }
+          result
         }
       }
     }
