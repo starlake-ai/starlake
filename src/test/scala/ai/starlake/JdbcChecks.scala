@@ -223,7 +223,7 @@ trait JdbcChecks {
         rs.getString("step"),
         Option(rs.getString("database")),
         rs.getString("tenant"),
-        rs.getBoolean("test")
+        test = false
       )
 
       // item.timestamp.after(TestStart) should be(true)

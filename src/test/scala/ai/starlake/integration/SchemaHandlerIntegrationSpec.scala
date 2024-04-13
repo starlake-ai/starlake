@@ -30,7 +30,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
       val workflow =
         new IngestionWorkflow(settings.storageHandler(), schemaHandler)
-      assert(schemaHandler.domains(List("hr"), List("locations")).length == 1)
+      assert(schemaHandler.domains(List("hr"), List("flat_locations")).length == 1)
     }
   }
 

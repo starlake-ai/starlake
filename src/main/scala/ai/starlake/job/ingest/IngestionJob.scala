@@ -296,7 +296,7 @@ trait IngestionJob extends SparkJob {
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
       settings.appConfig.tenant,
-      false
+      test = false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
