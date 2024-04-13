@@ -264,9 +264,9 @@ trait TestHelper
     s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
   }
 
-  def getTodayPartitionPath: String = {
+  def getTodayPartitionCondition: String = {
     val now = LocalDate.now
-    s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
+    s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
   }
 
   abstract class WithSettings(configuration: Config = testConfiguration) {

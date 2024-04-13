@@ -60,12 +60,11 @@ class PositionIngestionJobSpec extends TestHelper {
         )
 
         // Accepted should have the same data as input
-        println(s"$location/$getTodayPartitionPath")
+        println(s"$location where $getTodayPartitionCondition")
         val acceptedDf = sparkSession.read
           .format(settings.appConfig.defaultWriteFormat)
-          .load(
-            s"$location/$getTodayPartitionPath"
-          )
+          .load(location)
+          .where(getTodayPartitionCondition)
         printDF(acceptedDf, "acceptedDf")
         acceptedDf.count() shouldBe
         sparkSession.read

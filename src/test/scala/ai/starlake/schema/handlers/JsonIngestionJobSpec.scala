@@ -70,9 +70,8 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
         val resultDf =
           sparkSession.read
             .format(settings.appConfig.defaultWriteFormat)
-            .load(
-              s"$location/${getTodayPartitionPath}"
-            )
+            .load(location)
+            .where(getTodayPartitionCondition)
 
         val expectedDf = sparkSession.read
           .schema(sparkSchema)

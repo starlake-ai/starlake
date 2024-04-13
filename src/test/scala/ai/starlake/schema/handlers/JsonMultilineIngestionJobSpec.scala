@@ -43,11 +43,11 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
 
         // Accepted should have the same data as input
         val location = getTablePath(datasetDomainName, "sample_json")
+
         val resultDf = sparkSession.read
           .format(settings.appConfig.defaultWriteFormat)
-          .load(
-            s"$location/${getTodayPartitionPath}"
-          )
+          .load(location)
+          .where(getTodayCondition)
 
         logger.info(resultDf.showString(truncate = 0))
         private val session = sparkSession
