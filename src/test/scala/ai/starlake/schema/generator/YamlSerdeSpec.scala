@@ -412,13 +412,15 @@ object YamlConfigGenerators {
   }
   implicit val jdbcTable: Arbitrary[JDBCTable] = Arbitrary {
     for {
-      name              <- arbitrary[String].filter(_.nonEmpty)
-      tableColumns      <- arbitrary[List[TableColumn]].filter(_.nonEmpty)
-      partitionColumn   <- Gen.option(arbitrary[String])
-      numPartitions     <- Gen.option(arbitrary[Int])
-      connectionOptions <- arbitrary[Map[String, String]]
-      fetchSize         <- Gen.option(arbitrary[Int])
-      fullExport        <- Gen.option(arbitrary[Boolean])
+      name                <- arbitrary[String].filter(_.nonEmpty)
+      tableColumns        <- arbitrary[List[TableColumn]].filter(_.nonEmpty)
+      partitionColumn     <- Gen.option(arbitrary[String])
+      numPartitions       <- Gen.option(arbitrary[Int])
+      connectionOptions   <- arbitrary[Map[String, String]]
+      fetchSize           <- Gen.option(arbitrary[Int])
+      fullExport          <- Gen.option(arbitrary[Boolean])
+      filter              <- Gen.option(arbitrary[String])
+      stringPartitionFunc <- Gen.option(arbitrary[String])
     } yield JDBCTable(
       name = name,
       columns = tableColumns,
@@ -426,7 +428,9 @@ object YamlConfigGenerators {
       numPartitions = numPartitions,
       connectionOptions = connectionOptions,
       fetchSize = fetchSize,
-      fullExport = fullExport
+      fullExport = fullExport,
+      filter = filter,
+      stringPartitionFunc = stringPartitionFunc
     )
   }
 

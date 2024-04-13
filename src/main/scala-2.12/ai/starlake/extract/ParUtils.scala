@@ -2,12 +2,13 @@ package ai.starlake.extract
 
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 
 object ParUtils extends StrictLogging {
   def makeParallel[T](
     collection: List[T]
-  )(implicit fjp: Option[ForkJoinTaskSupport]) = {
+  )(implicit fjp: Option[ForkJoinTaskSupport]): GenSeq[T] = {
     fjp match {
       case Some(pool) =>
         val parList = collection.par
