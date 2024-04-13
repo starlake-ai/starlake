@@ -27,8 +27,7 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
-import ai.starlake.utils.YamlSerde.{serializeToFile, serializeToPath}
-import better.files.File
+import ai.starlake.utils.YamlSerde.serializeToPath
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -308,16 +307,6 @@ case class LoadDesc(version: Int, load: Domain)
     tables.flatMap(
       _.rls
     )
-  }
-
-  def writeDomainAsYaml(loadBasePath: File): Unit = {
-    val folder = File(loadBasePath, this.name)
-    folder.createIfNotExists(asDirectory = true, createParents = true)
-    this.tables foreach { schema =>
-      serializeToFile(File(folder, s"${schema.name}.sl.yml"), schema)
-    }
-    val domainDataOnly = this.copy(tables = Nil)
-    serializeToFile(File(folder, s"_config.sl.yml"), domainDataOnly)
   }
 
   def writeDomainAsYaml(loadBasePath: Path)(implicit storage: StorageHandler): Unit = {

@@ -21,7 +21,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
-import better.files.File
+import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
@@ -77,11 +77,11 @@ case class UserExtractDataConfig(
   */
 case class ExtractDataConfig(
   jdbcSchema: JDBCSchema,
-  baseOutputDir: File,
+  baseOutputDir: Path,
   limit: Int,
   numPartitions: Int,
   parallelism: Option[Int],
-  fullExport: Option[Boolean],
+  cliFullExport: Option[Boolean],
   extractionPredicate: Option[Long => Boolean],
   ignoreExtractionFailure: Boolean,
   cleanOnExtract: Boolean,
@@ -95,14 +95,16 @@ case class ExtractDataConfig(
 /** Information related to how the table should be extracted. We've got partitionned table and
   * unpartitionned table.
   */
-sealed trait TableExtractDataConfig {
-  def domain: String
-  def table: String
-  def columnsProjection: List[Attribute]
-  def fullExport: Boolean
-  def fetchSize: Option[Int]
-  def filterOpt: Option[String]
-  def tableOutputDir: File
+case class TableExtractDataConfig(
+  domain: String,
+  table: String,
+  columnsProjection: List[Attribute],
+  fullExport: Boolean,
+  fetchSize: Option[Int],
+  tableOutputDir: Path,
+  filterOpt: Option[String],
+  partitionConfig: Option[PartitionConfig]
+) {
 
   val extractionDateTime: String = {
     val formatter = DateTimeFormatter
@@ -122,30 +124,28 @@ sealed trait TableExtractDataConfig {
       }
     )
     .mkString(",")
-}
-case class UnpartitionnedTableExtractDataConfig(
-  domain: String,
-  table: String,
-  columnsProjection: List[Attribute],
-  fullExport: Boolean,
-  fetchSize: Option[Int],
-  tableOutputDir: File,
-  filterOpt: Option[String]
-) extends TableExtractDataConfig
 
-case class PartitionnedTableExtractDataConfig(
-  domain: String,
-  table: String,
-  columnsProjection: List[Attribute],
-  fullExport: Boolean,
-  fetchSize: Option[Int],
+  lazy val partitionColumn: String = partitionConfig
+    .map(_.partitionColumn)
+    .getOrElse(throw new RuntimeException("Partition column not defined"))
+
+  lazy val partitionColumnType: PrimitiveType = partitionConfig
+    .map(_.partitionColumnType)
+    .getOrElse(throw new RuntimeException("Partition column type not defined"))
+
+  val hashFunc: Option[String] = partitionConfig.flatMap(_.hashFunc)
+
+  lazy val nbPartitions: Int = partitionConfig
+    .map(_.nbPartitions)
+    .getOrElse(throw new RuntimeException("Partition column type not defined"))
+}
+
+case class PartitionConfig(
   partitionColumn: String,
   partitionColumnType: PrimitiveType,
   hashFunc: Option[String],
-  nbPartitions: Int,
-  tableOutputDir: File,
-  filterOpt: Option[String]
-) extends TableExtractDataConfig
+  nbPartitions: Int
+)
 
 case class ExtractTableAttributes(
   tableRemarks: String,

@@ -2,13 +2,14 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
-import better.files.File
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 
+import java.io.FileNotFoundException
 import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -35,9 +36,17 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
     ExtractUtils.timeIt("Schema extraction") {
+      val extractConfigPath = mappingPath(config.extractConfig)
+      Try(settings.storageHandler().exists(extractConfigPath)) match {
+        case Failure(_) | Success(false) =>
+          throw new FileNotFoundException(
+            s"Could not found extract config ${config.extractConfig}. Please check its existence."
+          )
+        case _ => // do nothing
+      }
       val content = settings
         .storageHandler()
-        .read(mappingPath(config.extractConfig))
+        .read(extractConfigPath)
         .richFormat(schemaHandler.activeEnvVars(), Map.empty)
       val jdbcSchemas =
         YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
@@ -76,19 +85,19 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
   def extractSchema(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    baseOutputDir: File,
+    baseOutputDir: Path,
     domainTemplate: Option[Domain],
     currentDomain: Option[Domain]
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
   ): Unit = {
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
     val domainName = jdbcSchema.sanitizeName match {
       case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
       case _          => jdbcSchema.schema
     }
-    baseOutputDir.createDirectories()
-    File(baseOutputDir, domainName).createDirectories()
+    storageHandler.mkdirs(new Path(baseOutputDir, domainName))
     val extractedDomain = extractDomain(jdbcSchema, connectionSettings, domainTemplate)
     val domain = extractedDomain.copy(
       comment = extractedDomain.comment.orElse(currentDomain.flatMap(_.comment)),
@@ -142,13 +151,14 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
 
       val content =
         YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
-      val file = File(baseOutputDir, domainName, table.name + ".sl.yml")
-      file.overwrite(content)
+      val file = new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
+      storageHandler.delete(file)
+      storageHandler.write(content, file)
     }
 
     val finalDomain = domain.copy(tables = Nil)
-    YamlSerde.serializeToFile(
-      File(baseOutputDir, domainName, "_config.sl.yml"),
+    YamlSerde.serializeToPath(
+      new Path(new Path(baseOutputDir, domainName), "_config.sl.yml"),
       finalDomain
     )
   }

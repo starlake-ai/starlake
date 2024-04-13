@@ -25,7 +25,6 @@ import ai.starlake.schema.model.{
   Type,
   TypesDesc
 }
-import better.files.File
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.networknt.schema.{
@@ -58,10 +57,6 @@ object YamlSerde extends LazyLogging {
       case e: ModelSchema  => TableDesc(latestSchemaVersion, e)
       case _               => entity
     }
-  }
-
-  def serializeToFile[T](targetFile: File, entity: T): Unit = {
-    mapper.writeValue(targetFile.toJava, wrapEntityToDesc(entity))
   }
 
   def serializeToPath[T](targetPath: Path, entity: T)(implicit storage: StorageHandler): Unit = {
@@ -156,7 +151,7 @@ object YamlSerde extends LazyLogging {
   ): JsonNode = {
     val rawRootNode: JsonNode = mapper.readTree(content)
     val effectiveRootNode = if (migrationList.exists(_.canMigrate(rawRootNode))) {
-      logger.warn("Migrating config on-the-fly")
+      logger.warn(s"Migrating config of $inputFilename on-the-fly")
       migrationList.foldLeft(rawRootNode) { case (node, migrator) =>
         migrator.migrate(node)
       }

@@ -21,7 +21,7 @@
 package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
-import ai.starlake.schema.handlers.InferSchemaHandler
+import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import better.files.File
 import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
@@ -29,9 +29,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+import java.io.BufferedReader
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
-import scala.io.Source
 import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
@@ -253,10 +253,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     writeMode: WriteMode,
     rowTag: Option[String],
     clean: Boolean
-  ): Try[File] = {
+  )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
       val path = new Path(inputPath)
-      val content = Source.fromFile(path.toString).getLines().toList
+      val content = storageHandler.readAndExecute(path)(isr => {
+        val bufferedReader = new BufferedReader(isr)
+        (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
+      })
       val lines = content.map(_.trim).filter(_.nonEmpty)
 
       val schema = forceFormat match {
