@@ -1453,6 +1453,10 @@
         "filter": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Filter applied along data extraction. Scope: Data extraction"
+        },
+        "stringPartitionFunc": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "SQL template used on partition column's of type String. Some implementations are already defined, see ai.starlake.extract.JdbcDbUtils.getStringPartitionFunc. Mandatory variables: col, nb_partitions. Scope: Data extraction."
         }
       }
     },

@@ -1,16 +1,18 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.ConnectionType._
 import ai.starlake.schema.model._
+import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel._
 
-import java.io.File
 import scala.util.Try
 
-class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsModel {
+class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler: StorageHandler)
+    extends XlsModel {
 
   private val workbook: Workbook = input match {
-    case InputPath(s)  => WorkbookFactory.create(new File(s))
+    case InputPath(s)  => storageHandler.readAndExecuteIS(new Path(s))(WorkbookFactory.create)
     case InputFile(in) => WorkbookFactory.create(in)
   }
 

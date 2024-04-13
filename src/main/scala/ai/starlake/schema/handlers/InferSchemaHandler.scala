@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
-import better.files.File
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.time.ZonedDateTime
@@ -213,24 +213,25 @@ object InferSchemaHandler {
     */
   def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
     settings: Settings
-  ): Try[File] = Try {
+  ): Try[Path] = Try {
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
 
     /** load: metadata: directory: "{{incoming_path}}"
       */
-    val domainFolder = File(saveDir, domain.name)
-    domainFolder.createDirectories()
-    val configPath = File(domainFolder, "_config.sl.yml")
-    if (!configPath.exists) {
-      YamlSerde.serializeToFile(configPath, domain.copy(tables = Nil))
+    val domainFolder = new Path(saveDir, domain.name)
+    storageHandler.mkdirs(domainFolder)
+    val configPath = new Path(domainFolder, "_config.sl.yml")
+    if (!storageHandler.exists(configPath)) {
+      YamlSerde.serializeToPath(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
-    val tablePath = File(domainFolder, s"${table.name}.sl.yml")
-    if (tablePath.exists && !clean) {
+    val tablePath = new Path(domainFolder, s"${table.name}.sl.yml")
+    if (storageHandler.exists(tablePath) && !clean) {
       throw new Exception(
         s"Could not write table ${domain.tables.head.name} already defined in file $tablePath"
       )
     }
-    YamlSerde.serializeToFile(tablePath, table)
+    YamlSerde.serializeToPath(tablePath, table)
     tablePath
   }
 }

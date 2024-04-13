@@ -45,7 +45,7 @@ class Yml2XlsSpec extends TestHelper {
           .deserializeYamlLoadConfig(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         val schemaHandler = new SchemaHandler(settings.storageHandler())
-        new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
+        new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")(settings.storageHandler())
         val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")
         val complexReader =
           new XlsDomainReader(InputPath(xlsOut.pathAsString))
