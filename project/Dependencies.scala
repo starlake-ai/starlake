@@ -184,8 +184,13 @@ object Dependencies {
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
   )
 
+  val derbyTestServer = Seq(
+    "org.apache.derby" % "derby" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbyclient" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbynet" % Versions.derbyVersion % Test
+  )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer
 }

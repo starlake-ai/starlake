@@ -22,5 +22,6 @@ Parameter|Cardinality|Description
 --truncate:`<value>`|*Optional*|Force table to be truncated before insert. Default value is false
 --recursive:`<value>`|*Optional*|Execute all dependencies recursively. Default value is false
 --test:`<value>`|*Optional*|Should we run this transform as a test ? Default value is false
+--accessToken:`<value>`|*Optional*|Access token to use for authentication
 --options:`k1=v1,k2=v2...`|*Optional, Unbounded*|Job arguments to be used as substitutions
 

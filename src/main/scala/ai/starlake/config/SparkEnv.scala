@@ -58,7 +58,12 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         "org.apache.spark.sql.delta.catalog.DeltaCatalog"
       )
     }
-    val session = SparkSession.builder().config(config).enableHiveSupport().getOrCreate()
+
+    val session = SparkSession
+      .builder()
+      .config(config)
+      .enableHiveSupport()
+      .getOrCreate()
 
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))
