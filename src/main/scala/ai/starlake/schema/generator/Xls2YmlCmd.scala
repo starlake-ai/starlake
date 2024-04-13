@@ -95,7 +95,7 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
           iamPolicyTags,
           config.outputPath.getOrElse(DatasetArea.metadata.toString),
           "iam-policy-tags"
-        )
+        )(settings.storageHandler())
       }
     }.map(_ => JobResult.empty)
   }

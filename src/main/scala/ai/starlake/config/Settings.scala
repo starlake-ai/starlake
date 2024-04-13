@@ -351,6 +351,9 @@ object Settings extends StrictLogging {
     def isMariaDb(): Boolean = getJdbcEngineName().toString == "mariadb"
 
     @JsonIgnore
+    def isDuckDb(): Boolean = getJdbcEngineName().toString == "duckdb"
+
+    @JsonIgnore
     lazy val jdbcUrl: String = applyIfConnectionTypeIs(
       ConnectionType.JDBC,
       options.getOrElse(
