@@ -1,5 +1,6 @@
 package ai.starlake.integration
 
+import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -29,6 +30,10 @@ class IntegrationTestBase
 
   override protected def beforeAll() = {
     new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()
+  }
+
+  override protected def afterAll() = {
+    TestHelper.stopSession()
   }
 
   override def beforeEach(): Unit = {
