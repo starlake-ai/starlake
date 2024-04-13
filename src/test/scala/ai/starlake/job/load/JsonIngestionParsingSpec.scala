@@ -1,4 +1,4 @@
-package ai.starlake.schema.handlers
+package ai.starlake.job.load
 
 import ai.starlake.TestHelper
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil

@@ -35,13 +35,14 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.job.transform.{AutoTask, TransformConfig, TransformTestConfig}
 import ai.starlake.schema.AdaptiveWriteStrategy
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
+import ai.starlake.tests.StarlakeTestData
 import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -791,6 +792,27 @@ class IngestionWorkflow(
     res.forall(_ == true)
   }
 
+  def test(config: TransformTestConfig): Unit = {
+    val tests = StarlakeTestData.loadTests()
+    val results = StarlakeTestData.run(tests, config)
+    results.foreach { result =>
+      result.html()
+    }
+    val (sucess, failure) = results.partition(_.success)
+    println(s"Tests run: ${results.size}")
+    println(s"Tests succeeded: ${sucess.size}")
+    println(s"Tests failed: ${failure.size}")
+    if (failure.nonEmpty) {
+      println(
+        s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+      )
+    }
+    if (sucess.nonEmpty) {
+      println(
+        s"Tests succeeded: ${sucess.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+      )
+    }
+  }
   def autoJob(config: TransformConfig): Try[Boolean] = Try {
     val result = if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
