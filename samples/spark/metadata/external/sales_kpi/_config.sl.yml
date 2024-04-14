@@ -1,8 +1,8 @@
 ---
+version: 1
 load:
   name: "sales_kpi"
   metadata:
-    mode: "FILE"
     format: "DSV"
     encoding: "UTF-8"
     multiline: false
@@ -12,4 +12,5 @@ load:
     quote: "\""
     escape: "\\"
     sink: {}
+    emptyIsNull: true
   database: "starlake-325712"

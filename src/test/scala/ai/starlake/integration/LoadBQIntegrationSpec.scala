@@ -38,7 +38,7 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
             Array("import")
           )
         )
-        assert(new Main().run(Array("load", "--accessToken", "test-token")))
+        assert(new Main().run(Array("load")))
 
       }
     }

@@ -1,9 +1,10 @@
 ---
+version: 1
 table:
   name: "byseller_kpi"
   pattern: "ignore"
   attributes:
-  - name: "seller_email"
+  - name: "id"
     type: "string"
     array: false
     required: false
@@ -11,6 +12,12 @@ table:
     ignore: false
   - name: "sum"
     type: "decimal"
+    array: false
+    required: false
+    privacy: "NONE"
+    ignore: false
+  - name: "timestamp"
+    type: "date"
     array: false
     required: false
     privacy: "NONE"
