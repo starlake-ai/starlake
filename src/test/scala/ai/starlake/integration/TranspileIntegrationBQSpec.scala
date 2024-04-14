@@ -25,9 +25,7 @@ class TranspileIntegrationBQSpec extends BigQueryIntegrationSpecBase {
               "transform",
               "--compile",
               "--name",
-              "sales_kpi.byseller_kpi0",
-              "--accessToken",
-              "ya29.a0Ad52N3_uL--Zg9AoutEfC4GE7hs-CERpMZXhnrlqddl-FiXa1oxOzxbDkyqEI2PmfVQ3bku3Gw5oZL5ZsKdkIdtspPhDER0XOpSCwvYL9TagphsGZkzAbJ3eAeWU2GncH5XfSo1ptqA_YRDegpWIclu9F9ckEXz6rWhFfWhpKBaNhQaCgYKAVUSARASFQHGX2Miymf730chwqrafHc3l9vkxg0181"
+              "sales_kpi.byseller_kpi0"
             )
           )
         )

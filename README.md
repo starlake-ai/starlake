@@ -14,12 +14,12 @@ Starlake is a declarative text based tool that enables analysts and engineers to
 </p>
 
 
-Starlake is a configuration only Extract, Load,  Transform and Orchestration Declarative Data Pipeline Tool.
+Starlake is a configuration only Extract, Load, Transform and Orchestration Declarative Data Pipeline Tool.
 The workflow below is a typical use case:
 * **Extract** your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
-* Define or infer table schemas fom test files (csv, json, xml, fixed-wdith ...)
+* Define or infer table schemas fom text files (csv, json, xml, fixed-width ...)
 * **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse. 
-* **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to you selected strategy (Append, Overwrite, Merge ...).
+* **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to your selected strategy (Append, Overwrite, Merge ...).
 * **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
 
 You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
