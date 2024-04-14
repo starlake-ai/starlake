@@ -43,7 +43,7 @@ object IngestCmd extends Cmd[IngestConfig] {
   }
 
   def parse(args: Seq[String]): Option[IngestConfig] = {
-    OParser.parse(parser, args, IngestConfig(), setup)
+    OParser.parse(parser, args, IngestConfig(accessToken = None), setup)
   }
 
   override def run(config: IngestConfig, schemaHandler: SchemaHandler)(implicit

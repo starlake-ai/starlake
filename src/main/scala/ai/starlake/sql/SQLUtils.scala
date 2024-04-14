@@ -18,7 +18,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder
 import java.util.UUID
 import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -140,22 +140,16 @@ object SQLUtils extends StrictLogging {
     CCJSqlParserUtil.parse(parseable, features)
   }
 
-  def getColumnNames(sql: String): String = {
-    val columnNames = SQLUtils.extractColumnNames(sql)
-    val columnNamesString = columnNames.mkString("(", ",", ")")
-    columnNamesString
-  }
-
   def substituteRefInSQLSelect(
     sql: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     connection: Connection
   )(implicit
     settings: Settings
   ): String = {
-    logger.info(s"Source SQL: $sql")
+    logger.debug(s"Source SQL: $sql")
     val fromResolved =
       buildSingleSQLQueryForRegex(
         sql,
@@ -166,7 +160,7 @@ object SQLUtils extends StrictLogging {
         "FROM",
         connection
       )
-    logger.info(s"fromResolved SQL: $fromResolved")
+    logger.debug(s"fromResolved SQL: $fromResolved")
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
@@ -177,13 +171,13 @@ object SQLUtils extends StrictLogging {
         "JOIN",
         connection
       )
-    logger.info(s"joinAndFromResolved SQL: $joinAndFromResolved")
+    logger.debug(s"joinAndFromResolved SQL: $joinAndFromResolved")
     joinAndFromResolved
   }
 
   def buildSingleSQLQueryForRegex(
     sql: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     fromOrJoinRegex: Regex,
@@ -238,7 +232,7 @@ object SQLUtils extends StrictLogging {
 
   private def resolveTableNameInSql(
     tableName: String,
-    refs: Refs,
+    refs: RefDesc,
     domains: List[Domain],
     tasks: List[AutoTaskDesc],
     ctes: List[String],

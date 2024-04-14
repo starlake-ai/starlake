@@ -132,11 +132,11 @@ class ExpectationJob(
 
   override def run(): Try[JobResult] = {
     var bqSlThisCTE = ""
-    val tableName = database match {
+    val fullTableName = database match {
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
     }
-    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $tableName)\n"
+    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
     val macros = schemaHandler.jinjavaMacros
     val expectationReports = expectations.map { expectation =>
@@ -148,7 +148,7 @@ class ExpectationJob(
         )
       val assertion = Utils.parseJinja(expectation.expect, schemaHandler.activeEnvVars())
       logger.info(
-        s"Applying expectation ${expectation.name}: ${expectation.query} with request $sql"
+        s"Applying expectation: ${expectation.query} with request $sql"
       )
       Try {
         val expectationResult = sqlRunner.handle(sql, assertion)
@@ -158,7 +158,7 @@ class ExpectationJob(
           domainName,
           schemaName,
           Timestamp.from(Instant.now()),
-          expectation.name.getOrElse(""),
+          "",
           expectation.query,
           Some(sql),
           Some(expectationResult("count").asInstanceOf[Long]),
@@ -174,7 +174,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name.getOrElse(""),
+            "",
             expectation.query,
             None,
             None,
@@ -189,7 +189,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            expectation.name.getOrElse(""),
+            "",
             expectation.query,
             Some(sql),
             None,
@@ -214,8 +214,6 @@ class ExpectationJob(
         database = settings.appConfig.audit.getDatabase(),
         domain = settings.appConfig.audit.getDomain(),
         table = "expectations",
-        write = Some(WriteMode.APPEND),
-        partition = Nil,
         presql = Nil,
         postsql = Nil,
         sink = Some(settings.appConfig.audit.sink),
@@ -228,7 +226,8 @@ class ExpectationJob(
           Map.empty,
           None,
           truncate = false,
-          engine = taskDesc.getSinkConnection().getEngine()
+          engine = taskDesc.getSinkConnection().getEngine(),
+          test = false
         )(settings, storageHandler, schemaHandler)
       val res = task.run()
       Utils.logFailure(res, logger)

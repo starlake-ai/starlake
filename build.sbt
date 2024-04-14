@@ -1,4 +1,5 @@
 import Dependencies.*
+import sbt.Tests.{Group, SubProcess}
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype.*
@@ -13,13 +14,36 @@ javacOptions ++= Seq(
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
+val testJavaOptions = {
+  val heapSize = sys.env.get("HEAP_SIZE").getOrElse("4g")
+  val extraTestJavaArgs = Seq("-XX:+IgnoreUnrecognizedVMOptions",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/java.net=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+    "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+    "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+    "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED").mkString(" ")
+  s"-Xmx$heapSize -Xss4m -XX:ReservedCodeCacheSize=128m -Dfile.encoding=UTF-8 $extraTestJavaArgs"
+    .split(" ").toSeq
+}
+
+Test / javaOptions ++= testJavaOptions
+
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.18"
 
-lazy val scala213 = "2.13.12"
+lazy val scala213 = "2.13.13"
 
-lazy val supportedScalaVersions = List(scala212) // , scala213
+lazy val supportedScalaVersions = List(scala212, scala213)
 
  ThisBuild / crossScalaVersions := supportedScalaVersions
 
@@ -27,21 +51,24 @@ organization := "ai.starlake"
 
 organizationName := "starlake"
 
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala212 // scala213 scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 resolvers ++= Resolvers.allResolvers
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark, pureConfigs) = {
+  val versionSpecificLibs = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
-      case Some((2, 13)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
+      case Some((2, 12)) => Seq()
+      case Some((2, 13)) => scalaCompat
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark_3d0_forScala_2d12 ++
+    jackson212ForSpark3 ++ esSpark212 ++
+    pureConfig212 ++ scalaReflection(scalaVersion.value) ++
+    versionSpecificLibs
 }
 
 dependencyOverrides := Seq(
@@ -68,6 +95,25 @@ Common.enableStarlakeAliases
 
 enablePlugins(Common.starlakePlugins: _*)
 
+
+scalacOptions ++= {
+  val extractOptions = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => Seq("-Xfatal-warnings")
+      case Some((2, 13)) =>  Seq()
+      case _ => throw new Exception(s"Invalid Scala Version")
+    }
+  }
+  Seq(
+    "-deprecation",
+    "-feature",
+    "-Xmacro-settings:materialize-derivations",
+    "-Ywarn-unused:imports"
+  ) ++ extractOptions
+
+}
+
+
 Common.customSettings
 
 // Builds a far JAR with embedded spark libraries and other provided libs.
@@ -76,9 +122,6 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
-Test / fork := false
-
-Test / parallelExecution := false
 
 Compile / assembly / artifact := {
   val art: Artifact = (Compile / assembly / artifact).value
@@ -123,7 +166,7 @@ assembly / assemblyExcludedJars := {
       "httpclient-",
       "httpcore-",
       "jackson-datatype-jsr310-",
-      "json-",
+      "json-2",
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
@@ -316,3 +359,12 @@ packageSetup := {
 }
 
 Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
+
+
+Test / parallelExecution := false
+
+// We want each test to run using its own spark context
+Test / testGrouping :=  (Test / definedTests).value.map { suite =>
+  Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
+}
+

@@ -1,5 +1,6 @@
 package ai.starlake.utils
 
+import ai.starlake.extract.JdbcDbUtils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
@@ -39,7 +40,7 @@ object SparkUtils extends StrictLogging {
   def alterTableAddColumnString(field: StructField, tableName: String): Option[String] = {
     val addField = field.name
     val addFieldType = field.dataType
-    val addJdbcType = JdbcUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition)
+    val addJdbcType = JdbcDbUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition)
     val nullable =
       "" // Always nummable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
     addJdbcType.map(jdbcType => s"ALTER TABLE $tableName ADD COLUMN $addField $jdbcType $nullable")

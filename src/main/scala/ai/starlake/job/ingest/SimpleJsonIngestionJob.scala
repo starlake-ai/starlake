@@ -20,11 +20,9 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, Encoders}
@@ -52,9 +50,19 @@ class SimpleJsonIngestionJob(
   path: List[Path],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  options: Map[String, String]
+  options: Map[String, String],
+  accessToken: Option[String]
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends DsvIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken
+    ) {
 
   override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
@@ -67,7 +75,7 @@ class SimpleJsonIngestionJob(
             }
 
           session.read
-            .options(mergedMetadata.getOptions())
+            .options(sparkOptions)
             .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
@@ -105,7 +113,7 @@ class SimpleJsonIngestionJob(
         throw new Exception(
           s"""Invalid JSON File: ${path
               .map(_.toString)
-              .mkString(",")}. SIMPLE_JSON require a valid json file """
+              .mkString(",")}. JSON_FLAT require a valid json file """
         )
       } else {
         df

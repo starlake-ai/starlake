@@ -16,12 +16,12 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
-          Array("import")
+        assert(
+          new Main().run(
+            Array("import")
+          )
         )
-        Main.main(
-          Array("load")
-        )
+        assert(new Main().run(Array("load")))
       }
     }
     "Import / Load / Transform BQ 2" should "succeed" in {
@@ -33,12 +33,13 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         val sampleDataDir2 = localDir / "sample-data2"
         sampleDataDir2.copyTo(incomingDir)
 
-        Main.main(
-          Array("import")
+        assert(
+          new Main().run(
+            Array("import")
+          )
         )
-        Main.main(
-          Array("load")
-        )
+        assert(new Main().run(Array("load", "--accessToken", "test-token")))
+
       }
     }
   }

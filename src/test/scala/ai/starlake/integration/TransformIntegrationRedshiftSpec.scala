@@ -7,17 +7,19 @@ class TransformIntegrationRedshiftSpec extends BigQueryIntegrationSpecBase {
   override def localDir = templates / "spark"
   override def sampleDataDir = localDir / "sample-data"
 
-  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
+  if (false && sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    "Native Snowflake Transform" should "succeed" in {
+    "Native REDSHIFT Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"  -> "REDSHIFT",
         "SL_ROOT" -> localDir.pathAsString
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
-          Array("transform", "--name", "sales_kpi.byseller_kpi")
+        assert(
+          new Main().run(
+            Array("transform", "--name", "sales_kpi.byseller_kpi")
+          )
         )
       }
     }

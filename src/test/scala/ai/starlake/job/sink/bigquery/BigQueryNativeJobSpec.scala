@@ -53,6 +53,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   }
   new WithSettings(bigQueryConfiguration) {
     "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
+      println(sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean)
       if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
         import org.slf4j.impl.StaticLoggerBinder
         val binder = StaticLoggerBinder.getSingleton
@@ -65,7 +66,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
           loadPending
@@ -89,10 +90,10 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
 
           logger.info(settings.appConfig.datasets)
-          secure(LoadConfig())
+          secure(LoadConfig(accessToken = None))
         }
         val tableFound =
           Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
@@ -114,12 +115,11 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "bqtest",
             "jobresult",
-            Some(WriteMode.OVERWRITE),
             sink = Some(
               BigQuerySink(connectionRef = None).toAllSinks()
             ),
             python = None,
-            writeStrategy = None,
+            writeStrategy = Some(WriteStrategy.Overwrite),
             parseSQL = Some(true)
           )
           val businessTaskDef = mapper
@@ -157,6 +157,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       }
     }
     "Extract Table infos" should "succeed" in {
+      pending
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
       val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())

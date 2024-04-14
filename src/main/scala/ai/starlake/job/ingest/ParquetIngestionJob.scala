@@ -52,7 +52,8 @@ class ParquetIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -76,7 +77,7 @@ class ParquetIngestionJob(
     Try {
       val format = mergedMetadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .format(format)
         .load(path.map(_.toString): _*)
 

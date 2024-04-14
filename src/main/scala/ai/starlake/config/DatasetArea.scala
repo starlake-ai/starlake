@@ -21,12 +21,9 @@
 package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-
-import java.util.Locale
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the SL_DATASETS env var or datasets application property
@@ -60,6 +57,9 @@ object DatasetArea extends StrictLogging {
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
+  def testsResults(domain: String)(implicit settings: Settings): Path =
+    path("_tests_results")
+
   /** datasets waiting to be ingested are stored here
     *
     * @param domain
@@ -67,8 +67,8 @@ object DatasetArea extends StrictLogging {
     * @return
     *   Absolute path to the pending folder of domain
     */
-  def pending(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.pending)
+  def stage(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.appConfig.area.stage)
 
   /** datasets with a file name that could not match any schema file name pattern in the specified
     * domain are marked unresolved by being stored in this folder.
@@ -101,35 +101,13 @@ object DatasetArea extends StrictLogging {
   def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.appConfig.area.ingesting)
 
-  /** Valid records for datasets the specified domain are stored in this folder.
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the ingesting folder of domain
-    */
-  def accepted(domain: String)(implicit settings: Settings): Path = {
-    path(domain, settings.appConfig.area.accepted)
-  }
-
-  def export(domain: String)(implicit settings: Settings): Path = {
+  def `export`(domain: String)(implicit settings: Settings): Path = {
     path(domain, "export")
   }
 
-  def export(domain: String, table: String)(implicit settings: Settings): Path = {
-    new Path(export(domain), table)
+  def `export`(domain: String, table: String)(implicit settings: Settings): Path = {
+    new Path(`export`(domain), table)
   }
-
-  /** Invalid records and the reason why they have been rejected for the datasets of the specified
-    * domain are stored in this folder.
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the rejected folder of domain
-    */
-  def rejected(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.rejected)
 
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
@@ -170,16 +148,6 @@ object DatasetArea extends StrictLogging {
   def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
     DatasetArea.metrics(domain, "frequencies")
 
-  /** Default target folder for autojobs applied to datasets in this domain
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the business folder of domain
-    */
-  def business(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.business)
-
   def metadata(implicit settings: Settings): Path =
     new Path(s"${settings.appConfig.metadata}")
 
@@ -189,11 +157,17 @@ object DatasetArea extends StrictLogging {
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
 
+  def writeStrategies(implicit settings: Settings): Path =
+    new Path(settings.appConfig.writeStrategies)
+
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
 
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
+
+  def tests(implicit settings: Settings): Path =
+    new Path(metadata, "tests")
 
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
@@ -226,66 +200,9 @@ object DatasetArea extends StrictLogging {
     settings: Settings
   ): Unit = {
     domains.foreach { domain =>
-      List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
+      List(stage _, unresolved _, archive _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
     }
   }
-}
-
-/** After going through the data pipeline a dataset may be referenced through a Hive table in a Hive
-  * Database. For each input domain, 3 Hive databases may be created :
-  *   - The rejected database : contains tables referencing rejected records for each schema in the
-  *     domain
-  *   - The accepted database : contains tables referencing
-  *   - The business database : contains tables where autjob tables are created by default
-  *   - The ciustom database : contains tables where autojob tables are created when a specific area
-  *     is defined
-  */
-object StorageArea {
-
-  def fromString(value: String)(implicit settings: Settings): StorageArea = {
-
-    val lcValue = value.toLowerCase(Locale.ROOT)
-
-    lcValue match {
-      case _ if lcValue == settings.appConfig.area.rejectedFinal => StorageArea.rejected
-      case _ if lcValue == settings.appConfig.area.acceptedFinal => StorageArea.accepted
-      case _ if lcValue == settings.appConfig.area.replayFinal   => StorageArea.replay
-      case _ if lcValue == settings.appConfig.area.businessFinal => StorageArea.business
-      case custom                                                => StorageArea.Custom(custom)
-    }
-  }
-
-  case object rejected extends StorageArea {
-    def value: String = "rejected"
-  }
-
-  case object accepted extends StorageArea {
-    def value: String = "accepted"
-  }
-
-  case object replay extends StorageArea {
-    def value: String = "replay"
-  }
-
-  case object business extends StorageArea {
-    def value: String = "business"
-  }
-
-  final case class Custom(value: String) extends StorageArea
-
-  def area(domain: String, area: Option[StorageArea])(implicit settings: Settings): String =
-    settings.appConfig.area.hiveDatabase.richFormat(
-      Map.empty,
-      Map(
-        "domain" -> domain,
-        "area"   -> area.map(_.toString).getOrElse("")
-      )
-    )
-}
-
-sealed abstract class StorageArea {
-  def value: String
-  override def toString: String = value
 }

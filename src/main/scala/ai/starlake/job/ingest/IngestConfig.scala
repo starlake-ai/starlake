@@ -33,5 +33,6 @@ case class IngestConfig(
   domain: String = "",
   schema: String = "",
   paths: List[Path] = Nil,
-  options: Map[String, String] = Map.empty
+  options: Map[String, String] = Map.empty,
+  accessToken: Option[String]
 )

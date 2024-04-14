@@ -4,12 +4,12 @@ load:
   metadata:
     mode: "FILE"
     format: "JSON"
-  schemas:
+  tables:
     - name: "sellers"
       pattern: "sellers-.*.json"
       metadata:
         array: true
-        format: "SIMPLE_JSON"
+        format: "JSON_FLAT"
         write: "APPEND"
       attributes:
         - name: "id"

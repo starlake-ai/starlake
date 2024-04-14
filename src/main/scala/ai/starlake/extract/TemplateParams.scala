@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.WriteMode.OVERWRITE
-import ai.starlake.schema.model.{Domain, PrivacyLevel, Schema}
+import ai.starlake.schema.model.{Domain, Schema, TransformInput}
 
 /** Params for the script's mustache template
   * @param domainToExport
@@ -27,7 +27,7 @@ import ai.starlake.schema.model.{Domain, PrivacyLevel, Schema}
 case class TemplateParams(
   domainToExport: String,
   tableToExport: String,
-  columnsToExport: List[(String, String, Boolean, PrivacyLevel)],
+  columnsToExport: List[(String, String, Boolean, TransformInput)],
   fullExport: Boolean,
   deltaColumn: Option[String],
   dsvDelimiter: String,
@@ -141,7 +141,7 @@ object TemplateParams {
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
     val isFullExport =
-      schema.metadata.flatMap(_.writeStrategy.map(_.getWriteMode())).contains(OVERWRITE)
+      schema.metadata.flatMap(_.writeStrategy.map(_.toWriteMode())).contains(OVERWRITE)
     new TemplateParams(
       domainToExport = domainName,
       tableToExport = schema.name,

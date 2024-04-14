@@ -13,7 +13,8 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.{Success, Try}
 
 class BigQuerySparkJob(
@@ -85,28 +86,33 @@ class BigQuerySparkJob(
     )
     // Authentication
     logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
-    connectionOptions("authType") match {
-      case "APPLICATION_DEFAULT" =>
-        val scopes = connectionOptions
-          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-          .split(',')
-        val cred = GoogleCredentials
-          .getApplicationDefault()
-          .createScoped(scopes: _*)
-        cred.refresh()
-        val accessToken = cred.getAccessToken()
-        session.conf.set("gcpAccessToken", accessToken.getTokenValue())
-      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        val jsonKeyContent = getJsonKeyContent()
-        val jsonKeyInBase64 =
-          BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
-        session.conf.set("credentials", jsonKeyInBase64)
-      case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
-        val jsonKeyInBase64 = connectionOptions("jsonKeyBase64")
-        session.conf.set("credentials", jsonKeyInBase64)
-      case "ACCESS_TOKEN" =>
-        val accessToken = connectionOptions("gcpAccessToken")
+    cliConfig.accessToken match {
+      case Some(accessToken) =>
         session.conf.set("gcpAccessToken", accessToken)
+      case None =>
+        connectionOptions("authType") match {
+          case "APPLICATION_DEFAULT" =>
+            val scopes = connectionOptions
+              .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+              .split(',')
+            val cred = GoogleCredentials
+              .getApplicationDefault()
+              .createScoped(scopes: _*)
+            cred.refresh()
+            val accessToken = cred.getAccessToken()
+            session.conf.set("gcpAccessToken", accessToken.getTokenValue())
+          case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+            val jsonKeyContent = getJsonKeyContent()
+            val jsonKeyInBase64 =
+              BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
+            session.conf.set("credentials", jsonKeyInBase64)
+          case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
+            val jsonKeyInBase64 = connectionOptions("jsonKeyBase64")
+            session.conf.set("credentials", jsonKeyInBase64)
+          case "ACCESS_TOKEN" =>
+            val accessToken = connectionOptions("gcpAccessToken")
+            session.conf.set("gcpAccessToken", accessToken)
+        }
     }
     conf
   }
@@ -155,7 +161,7 @@ class BigQuerySparkJob(
       getOrCreateDataset(domainDescription = None, datasetName = materializationDataset)
 
       val stdTableDefinition =
-        bigquery()
+        bigquery(accessToken = cliConfig.accessToken)
           .getTable(table.getTableId)
           .getDefinition[StandardTableDefinition]
       logger.info(
@@ -196,9 +202,10 @@ class BigQuerySparkJob(
             }
 
             // bigquery does not support having the cols in the wrong order
-            val tableColNames = stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
+            val tableColNames: mutable.Seq[String] =
+              stdTableDefinition.getSchema.getFields.asScala.map(_.getName)
             val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
-            val orderedFields = tableColNames.flatMap { fieldsMap.get }
+            val orderedFields = tableColNames.flatMap { fieldsMap.get }.toSeq
             val orderedDF = sourceDF.select(orderedFields.map(col): _*)
             orderedDF.write
               .mode(saveMode)
@@ -210,7 +217,7 @@ class BigQuerySparkJob(
             Success(0L)
         }
       val stdTableDefinitionAfter =
-        bigquery()
+        bigquery(accessToken = cliConfig.accessToken)
           .getTable(table.getTableId)
           .getDefinition[StandardTableDefinition]
       logger.info(
@@ -229,9 +236,19 @@ class BigQuerySparkJob(
   }
 
   def runSparkReader(sql: String): Try[DataFrame] = {
-    prepareConf()
-    Try {
-      session.read.format("bigquery").load(sql)
+    val hasMaterializationDataset =
+      settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")
+    val hasViewsEnabled =
+      settings.sparkConfig.hasPath("datasource.bigquery.viewsEnabled")
+    if (hasMaterializationDataset && hasViewsEnabled) {
+      prepareConf()
+      Try {
+        session.read.format("bigquery").load(sql)
+      }
+    } else {
+      throw new Exception(
+        "Make sure the keys spark.datasource.bigquery.materializationDataset and spark.datasource.bigquery.viewsEnabled are set in the application.sl.yml file."
+      )
     }
   }
 

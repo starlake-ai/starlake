@@ -15,9 +15,7 @@ class TransformIntegrationSpec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
-          Array("transform", "--name", "sales_kpi.byseller_kpi", "--compile")
-        )
+        assert(new Main().run(Array("transform", "--name", "sales_kpi.byseller_kpi", "--compile")))
       }
     }
   }

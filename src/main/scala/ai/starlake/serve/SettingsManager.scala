@@ -60,7 +60,8 @@ object SettingsManager {
     root: String,
     metadata: Option[String],
     env: Option[String],
-    gcpProject: Option[String]
+    gcpProject: Option[String],
+    refresh: Boolean = false
   ): (Settings, Boolean) = {
     val sessionId = uniqueId(root, metadata, env)
     Utils.resetJinjaClassLoader()
@@ -77,11 +78,17 @@ object SettingsManager {
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("database", gcpProject)
     }
+    if (refresh) {
+      settingsMap.synchronized {
+        settingsMap.remove(sessionId)
+      }
+    }
     val updatedSession = settingsMap.getOrElse(
       sessionId, {
         settingsMap.synchronized {
           sysProps.setProperty("rootServe", outFile.pathAsString)
           sysProps.setProperty("root", root)
+          sysProps.setProperty("SL_ROOT", root)
           sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
 
           env match {

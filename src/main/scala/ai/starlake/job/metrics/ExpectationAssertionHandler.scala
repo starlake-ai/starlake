@@ -6,7 +6,7 @@ import ai.starlake.utils.conversion.BigQueryUtils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.SparkSession
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 trait ExpectationAssertionHandler extends StrictLogging {
