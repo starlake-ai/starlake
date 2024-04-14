@@ -19,7 +19,6 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
         "SL_ROOT"                                       -> localDir.pathAsString
       ) {
-        /*
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
         assert(
@@ -32,8 +31,6 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
             Array("load")
           )
         )
-
-         */
         assert(
           new Main().run(
             Array(

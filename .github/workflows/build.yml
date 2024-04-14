@@ -19,6 +19,12 @@ env:
   REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
   REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
   REDSHIFT_USER: ${{ secrets.REDSHIFT_USER }}
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_DB: ${{ secrets.SNOWFLAKE_DB }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
