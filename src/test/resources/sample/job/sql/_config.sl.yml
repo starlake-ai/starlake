@@ -1,14 +1,16 @@
+version: 1
 transform:
   tasks:
     - domain: result
       table: file
-      write: OVERWRITE
+      writeStrategy:
+        type: OVERWRITE
       sql: |
         select '  Name' as name,'Last Name   ' as lastName, '' as emptColumn
       sink:
         format: csv
         coalesce: true
-        connectedRef: "spark"
+        connectionRef: "spark"
         options:
           emptyValue: ""
           delimiter: "|"

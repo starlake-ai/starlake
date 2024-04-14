@@ -7,7 +7,7 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "APPEND"
-schemas:
+tables:
   - name: "customers"
     pattern: "customers-.*.psv"
     

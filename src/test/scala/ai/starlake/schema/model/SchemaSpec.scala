@@ -36,13 +36,13 @@ class SchemaSpec extends TestHelper {
         getClass.getResourceAsStream("/sample/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       val attr = Attribute(
         "attr",
         "invalid-type", // should raise error non existent type
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "MD5",
           false
         ) // Should raise an error. Privacy cannot be applied on types other than string
@@ -61,7 +61,7 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "ApproxLong(20)",
           false
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
@@ -75,7 +75,7 @@ class SchemaSpec extends TestHelper {
         "struct",
         Some(true),
         required = true,
-        PrivacyLevel(
+        TransformInput(
           "ApproxLong(20)",
           false
         ), // Should raise an error. Privacy cannot be applied on types other than string
@@ -121,9 +121,8 @@ class SchemaSpec extends TestHelper {
         Attribute("optionalAttribute", "long", required = false, default = Some("10"))
       optionalAttribute.checkValidity(schemaHandler) shouldBe Right(true)
     }
-    "Ignore attribute " should "be used only when file format is flat DSV, SIMPLE_JSON, POSITION" in {
+    "Ignore attribute " should "be used only when file format is flat DSV, JSON_FLAT, POSITION" in {
       val meta = new Metadata(
-        mode = Some(Mode.FILE),
         format = Some(Format.JSON),
         encoding = None,
         multiline = Some(false),
@@ -141,7 +140,6 @@ class SchemaSpec extends TestHelper {
     }
     "Ignore attribute " should "on DSV should be UDF" in {
       val meta = new Metadata(
-        mode = Some(Mode.FILE),
         format = Some(Format.DSV),
         encoding = None,
         multiline = Some(false),

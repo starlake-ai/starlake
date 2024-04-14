@@ -1,10 +1,10 @@
+version: 1
 table:
   name: "categories"
   pattern: "categories-.*.csv"
   primaryKey:
     - id
   metadata:
-    mode: "FILE"
     format: "DSV"
     encoding: "UTF-8"
     multiline: false

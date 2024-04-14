@@ -1,10 +1,11 @@
+version: 1
 table:
   name: "products"
   pattern: "products-.*.csv"
-  writeStrategy:
-    type: OVERWRITE_BY_PARTITION
   metadata:
     separator: ","
+    writeStrategy:
+      type: OVERWRITE_BY_PARTITION
     sink:
       partition:
         - "stock_date"

@@ -376,7 +376,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         assert(loadPending.isSuccess)
 
         val jdbcConfig = JdbcConnectionLoadCmd.fromComet(

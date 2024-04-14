@@ -6,7 +6,7 @@ title: iam-policies
 
 ## Synopsis
 
-**starlake iam-policies**
+**starlake iam-policies [options]**
 
 ## Description
 
@@ -15,4 +15,5 @@ title: iam-policies
 
 Parameter|Cardinality|Description
 ---|---|---
+--accessToken:`<value>`|*Optional*|Access token to use for authentication
 

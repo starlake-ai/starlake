@@ -1,0 +1,53 @@
+# Load strategies
+
+## Standard strategies
+The `starlake` load  will look for each domain and table, the files that match the pattern specified in
+the `table.pattern` attribute of the `metadata/load/<domain>/<table>.sl.yml` file in the directory specified in the `load.metadata.directory`
+attribute of the same file or, if not specified, from the `<domain>/_config.sl.yml` file.
+
+starlake comes with two load strategies:
+
+Load Strategy | Description
+--- | ---
+`ai.starlake.job.load.IngestionTimeStrategy` | Load the files in a chronological order based on the file last modification time. This is the default.
+`ai.starlake.job.load.IngestionNameStrategy` | Load the files in a lexicographical order based on the file name.
+
+To use a load strategy, you need to specify the `loadStrategyClass` attribute in the `metadata/application.sl.yml` file.
+
+<br/>
+
+```yaml title="metadata/application.sl.yml: to switch from a time based load to a name based load"
+application:
+  ...
+  loadStrategyClass: ai.starlake.job.load.IngestionNameStrategy
+  ...
+```
+
+## Custom Strategies
+
+You can define your own load strategy by implementing the `ai.starlake.job.load.LoadStrategy` interface.
+
+<br/>
+
+```scala title="src/main/scala/my/own//CustomLoadStrategy.scala"
+object CustomLoadStrategy extends LoadStrategy with StrictLogging {
+
+  def list(
+    storageHandler: StorageHandler,
+    path: Path,
+    extension: String = "",
+    since: LocalDateTime = LocalDateTime.MIN,
+    recursive: Boolean
+  ): List[FileInfo] = ???
+}
+```
+<br/>
+
+```yaml title="metadata/application.sl.yml: to use a custom load strategy"
+
+application:
+  ...
+  loadStrategyClass: ai.starlake.job.load.MyLoadStrategy
+  ...
+```
+

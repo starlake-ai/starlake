@@ -27,8 +27,7 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
-import ai.starlake.utils.YamlSerializer.{serializeToFile, serializeToPath}
-import better.files.File
+import ai.starlake.utils.YamlSerde.serializeToPath
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -39,7 +38,7 @@ import scala.util.Try
   * @param load:
   *   Domain to load
   */
-case class LoadDesc(load: Domain)
+case class LoadDesc(version: Int, load: Domain)
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
   * therefore the domain and customers & orders are your datasets. In a DBMS, A Domain would be
@@ -166,6 +165,7 @@ case class LoadDesc(load: Domain)
     * @return
     *   the ack attribute or ".ack" by default
     */
+  @JsonIgnore
   def getAck(): String = resolveAck().map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
 
   /** Is this Domain valid ? A domain is valid if :
@@ -181,7 +181,7 @@ case class LoadDesc(load: Domain)
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
 
-    val messageList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val messageList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.appConfig.forceDomainPattern.r
@@ -191,7 +191,7 @@ case class LoadDesc(load: Domain)
     // and then apply this syntax to all databases even if natively they don't accept that.
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
-    if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
+    if (name != null && !forceDomainPrefixRegex.pattern.matcher(name).matches())
       messageList += ValidationMessage(
         Error,
         "Domain",
@@ -309,16 +309,6 @@ case class LoadDesc(load: Domain)
     )
   }
 
-  def writeDomainAsYaml(loadBasePath: File): Unit = {
-    val folder = File(loadBasePath, this.name)
-    folder.createIfNotExists(asDirectory = true, createParents = true)
-    this.tables foreach { schema =>
-      serializeToFile(File(folder, s"${schema.name}.sl.yml"), schema)
-    }
-    val domainDataOnly = this.copy(tables = Nil)
-    serializeToFile(File(folder, s"_config.sl.yml"), domainDataOnly)
-  }
-
   def writeDomainAsYaml(loadBasePath: Path)(implicit storage: StorageHandler): Unit = {
 
     val folder = new Path(loadBasePath, this.name)
@@ -369,7 +359,7 @@ object Domain {
               ValidationMessage(
                 Warning,
                 "Domain",
-                s"Domain directory for $domainName should contain a _config.sl.yml file"
+                s"Domain directory for $domainName does not have a _config.sl.yml file"
               )
             )
           )

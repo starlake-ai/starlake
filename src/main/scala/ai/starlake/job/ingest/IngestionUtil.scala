@@ -1,13 +1,13 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
+import ai.starlake.utils.TransformEngine
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{StringType, TimestampType}
@@ -42,15 +42,15 @@ object IngestionUtil {
     rejectedDS: Dataset[String],
     domainName: String,
     schemaName: String,
-    now: Timestamp
+    now: Timestamp,
+    paths: List[Path]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[(Dataset[Row], Path)] = {
     import session.implicits._
-    val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
-    val rejectedPathName = rejectedPath.toString
+    val rejectedPathName = paths.map(_.toString).mkString(",")
     // We need to save first the application ID
     // referencing it inside the worker (rdd.map) below would fail.
     val applicationId = session.sparkContext.applicationId
@@ -75,8 +75,6 @@ object IngestionUtil {
         database = settings.appConfig.audit.getDatabase(),
         domain = settings.appConfig.audit.getDomain(),
         table = "rejected",
-        write = Some(WriteMode.APPEND),
-        partition = Nil,
         presql = Nil,
         postsql = Nil,
         sink = Some(settings.appConfig.audit.sink),
@@ -86,11 +84,12 @@ object IngestionUtil {
       taskDesc,
       Map.empty,
       None,
-      truncate = false
+      truncate = false,
+      test = false
     )
     val res = autoTask.sink(rejectedDF)
     if (res) {
-      Success(rejectedDF, rejectedPath)
+      Success(rejectedDF, paths.head)
     } else {
       Failure(new Exception("Failed to save rejected"))
     }
@@ -101,7 +100,7 @@ object IngestionUtil {
     colAttribute: Attribute,
     tpe: Type,
     colMap: => Map[String, Option[String]],
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
     emptyIsNull: Boolean
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
@@ -147,7 +146,7 @@ object IngestionUtil {
 
     val privacyLevel = colAttribute.getPrivacy()
     val colValueWithPrivacyApplied =
-      if (privacyLevel == PrivacyLevel.None || privacyLevel.sql) {
+      if (privacyLevel == TransformInput.None || privacyLevel.sql) {
         colValue
       } else {
         val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)

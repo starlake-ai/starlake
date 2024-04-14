@@ -1,16 +1,18 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.schema.handlers.StorageHandler
+import ai.starlake.schema.model.ConnectionType._
 import ai.starlake.schema.model._
-import ConnectionType._
+import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel._
 
-import java.io.File
 import scala.util.Try
 
-class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsModel {
+class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler: StorageHandler)
+    extends XlsModel {
 
   private val workbook: Workbook = input match {
-    case InputPath(s)  => WorkbookFactory.create(new File(s))
+    case InputPath(s)  => storageHandler.readAndExecuteIS(new Path(s))(WorkbookFactory.create)
     case InputFile(in) => WorkbookFactory.create(in)
   }
 
@@ -31,10 +33,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val schemaOpt =
         Option(row.getCell(headerMapSchema("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val writeOpt =
+      val writeStrategyOpt =
         Option(row.getCell(headerMapSchema("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(WriteMode.fromString)
+          .map(WriteStrategyType.fromString)
       val partitionOpt =
         Option(
           row.getCell(headerMapSchema("_partition"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -59,7 +61,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
       val clustering =
         Option(
           row.getCell(headerMapSchema("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toSeq)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
 
       val tags =
         Option(
@@ -140,12 +142,10 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
 
       val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
       val writeStrategy =
-        if (partitionColumns.nonEmpty && writeOpt.contains(WriteMode.OVERWRITE))
+        if (partitionColumns.nonEmpty && writeStrategyOpt.contains(WriteStrategyType.OVERWRITE))
           WriteStrategy(`type` = Some(WriteStrategyType.OVERWRITE_BY_PARTITION))
         else
-          WriteStrategy(
-            `type` = Some(WriteStrategyType.fromWriteMode(writeOpt.getOrElse(WriteMode.APPEND)))
-          )
+          WriteStrategy(`type` = writeStrategyOpt)
 
       val allSinks = AllSinks(
         connectionRef = sinkConnectionRefOpt,
@@ -174,9 +174,6 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               database = databaseOpt,
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
-              write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
-              presql = presqlOpt.getOrElse(Nil),
-              postsql = postsqlOpt.getOrElse(Nil),
               sink = Some(
                 sinkConnectionTypeOpt match {
                   case Some(BQ)     => BigQuerySink.fromAllSinks(allSinks).toAllSinks()
@@ -188,6 +185,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                   case _            => allSinks
                 }
               ),
+              presql = presqlOpt.getOrElse(Nil),
+              postsql = postsqlOpt.getOrElse(Nil),
               rls = rls,
               acl = acl,
               comment = commentOpt,

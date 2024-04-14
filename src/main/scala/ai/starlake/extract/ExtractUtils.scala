@@ -1,9 +1,6 @@
 package ai.starlake.extract
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.collection.GenTraversable
-import scala.collection.parallel.ForkJoinTaskSupport
-
 object ExtractUtils extends StrictLogging {
 
   def timeIt[T](blockLabel: String)(code: => T): T = {
@@ -51,32 +48,4 @@ object ExtractUtils extends StrictLogging {
     }
   }
 
-  def createForkSupport(
-    maxParOpt: Option[Int] = None,
-    minForPar: Int = 2
-  ): Option[ForkJoinTaskSupport] = {
-    val maxPar = maxParOpt.getOrElse(Runtime.getRuntime().availableProcessors())
-    if (maxPar < minForPar) { // don't treat as parallel if famine can occurs.
-      logger.info(
-        s"Not enough in pool to parallelize (minimum: $minForPar). Falling back to sequential"
-      )
-      None
-    } else {
-      val forkJoinPool = new java.util.concurrent.ForkJoinPool(maxPar)
-      Some(new ForkJoinTaskSupport(forkJoinPool))
-    }
-  }
-
-  def makeParallel[T](
-    list: GenTraversable[T]
-  )(implicit fjp: Option[ForkJoinTaskSupport]): GenTraversable[T] = {
-    fjp match {
-      case Some(pool) =>
-        val parList = list.par
-        parList.tasksupport = pool
-        parList
-      case None =>
-        list
-    }
-  }
 }

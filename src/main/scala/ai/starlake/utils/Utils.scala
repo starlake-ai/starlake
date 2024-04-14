@@ -27,14 +27,19 @@ import ai.starlake.utils.Formatter._
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
@@ -192,7 +197,7 @@ object Utils extends StrictLogging {
     values: List[String],
     errorMessage: String
   ): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
       size > 1
     }
@@ -259,7 +264,13 @@ object Utils extends StrictLogging {
       val res =
         try {
           Thread.currentThread.setContextClassLoader(this.getClass.getClassLoader)
-          new Jinjava()
+          val config = JinjavaConfig
+            .newBuilder()
+            .withFailOnUnknownTokens(false)
+            .withNestedInterpretationEnabled(false)
+            .build()
+
+          new Jinjava(config)
         } finally Thread.currentThread.setContextClassLoader(curClassLoader)
       res.setResourceLocator(new JinjaResourceHandler())
       _jinjava = res
@@ -273,7 +284,9 @@ object Utils extends StrictLogging {
     _jinjava = null
   }
 
-  def parseJinja(str: String, params: Map[String, Any])(implicit settings: Settings): String =
+  def parseJinja(str: String, params: Map[String, Any])(implicit
+    settings: Settings
+  ): String =
     parseJinja(
       List(str),
       params
@@ -291,17 +304,13 @@ object Utils extends StrictLogging {
     result
   }
 
-  def parseJinjaTpl(templateContent: String, params: Map[String, Object])(implicit
+  def parseJinjaTpl(
+    templateContent: String,
+    params: Map[String, Object]
+  )(implicit
     settings: Settings
   ): String = {
-    val config = JinjavaConfig
-      .newBuilder()
-      .withNestedInterpretationEnabled(false)
-      .build()
-    val context = jinjava.getGlobalContextCopy
-    context.putAll(params.asJava)
-    val interpreter = new JinjavaInterpreter(jinjava, context, config)
-    interpreter.render(templateContent)
+    parseJinja(templateContent, params)
   }
 
   def newYamlMapper(): ObjectMapper = {
@@ -315,8 +324,10 @@ object Utils extends StrictLogging {
   }
 
   def setMapperProperties(mapper: ObjectMapper): ObjectMapper = {
-    mapper.registerModule(DefaultScalaModule)
     mapper
+      .registerModule(DefaultScalaModule)
+      .registerModule(new HadoopModule())
+      .registerModule(new StorageLevelModule())
       .setSerializationInclusion(Include.NON_EMPTY)
       .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -392,9 +403,8 @@ object Utils extends StrictLogging {
       dotFile.delete(swallowIOExceptions = false)
       outputFile match {
         case None =>
-          svgFile.delete(swallowIOExceptions = false)
           println(svgFile.contentAsString)
-
+          svgFile.delete(swallowIOExceptions = false)
         case Some(_) =>
       }
     }
@@ -413,4 +423,51 @@ object Utils extends StrictLogging {
       }
     }
   }
+}
+
+class HadoopModule extends SimpleModule {
+  class HadoopPathSerializer(pathClass: Class[Path]) extends StdSerializer[Path](pathClass) {
+    def this() = {
+      this(classOf[Path])
+    }
+
+    override def serialize(value: Path, jGen: JsonGenerator, provider: SerializerProvider): Unit = {
+      jGen.writeString(value.toString)
+    }
+  }
+  this.addSerializer(new HadoopPathSerializer())
+}
+
+class StorageLevelModule extends SimpleModule {
+  class StorageLevelSerializer(storageLevelClass: Class[StorageLevel])
+      extends StdSerializer[StorageLevel](storageLevelClass) {
+    def this() = {
+      this(classOf[StorageLevel])
+    }
+
+    override def serialize(
+      value: StorageLevel,
+      jGen: JsonGenerator,
+      provider: SerializerProvider
+    ): Unit = {
+      def toString(s: StorageLevel): String = s match {
+        case NONE                  => "NONE"
+        case DISK_ONLY             => "DISK_ONLY"
+        case DISK_ONLY_2           => "DISK_ONLY_2"
+        case DISK_ONLY_3           => "DISK_ONLY_3"
+        case MEMORY_ONLY           => "MEMORY_ONLY"
+        case MEMORY_ONLY_2         => "MEMORY_ONLY_2"
+        case MEMORY_ONLY_SER       => "MEMORY_ONLY_SER"
+        case MEMORY_ONLY_SER_2     => "MEMORY_ONLY_SER_2"
+        case MEMORY_AND_DISK       => "MEMORY_AND_DISK"
+        case MEMORY_AND_DISK_2     => "MEMORY_AND_DISK_2"
+        case MEMORY_AND_DISK_SER   => "MEMORY_AND_DISK_SER"
+        case MEMORY_AND_DISK_SER_2 => "MEMORY_AND_DISK_SER_2"
+        case OFF_HEAP              => "OFF_HEAP"
+        case _ => throw new IllegalArgumentException(s"Invalid StorageLevel: $s")
+      }
+      jGen.writeString(toString(value))
+    }
+  }
+  this.addSerializer(new StorageLevelSerializer())
 }

@@ -10,14 +10,73 @@ import java.sql.DriverManager
 class ExtractIntegrationSpec extends TestHelper {
 
   new WithSettings() {
-    "Extract Data" should "succeed" in {
+    "Extract Data from mariadb" should "succeed" in {
+      val jdbcOptions = settings.appConfig.connections("test-mariadb")
+      val conn = DriverManager.getConnection(
+        jdbcOptions.options("url"),
+        jdbcOptions.options("user"),
+        jdbcOptions.options("password")
+      )
+      logger.info(TestHelper.mariadbContainer.jdbcUrl)
+      val sqls = """
+                   |CREATE SCHEMA IF NOT EXISTS starlake;
+                   |create table if not exists starlake.test_table(id int,name varchar(10));
+                   |insert into starlake.test_table values(1, 'a');
+                   |insert into starlake.test_table values(2, 'b');
+                   |insert into starlake.test_table values(3, 'c');
+                   |insert into starlake.test_table values(4, 'd');
+                   |insert into starlake.test_table values(5, 'e');
+                   |insert into starlake.test_table values(6, 'f');
+                   |insert into starlake.test_table values(7, 'g');
+                   |insert into starlake.test_table values(8, 'h');
+                   |insert into starlake.test_table values(9, 'i');
+                   |insert into starlake.test_table values(10, 'j');
+                   |""".stripMargin
+
+      sqls.split(";").filter(_.trim.nonEmpty).foreach { sql =>
+        logger.info("execute update : " + sql.trim)
+        val st = conn.createStatement()
+        st.executeUpdate(sql.trim)
+        st.close()
+      }
+
+      val config =
+        """
+          |version: 1
+          |extract:
+          |  connectionRef: "test-mariadb" # Connection name as defined in the connections section of the application.conf file
+          |  jdbcSchemas:
+          |    - schema: "starlake" # Database schema where tables are located
+          |      tables:
+          |        - name: "*" # Takes all tables
+          |      tableTypes: # One or many of the types below
+          |        - "TABLE"
+          |""".stripMargin
+      val tmpYmlFile = File.newTemporaryFile("extract", ".sl.yml")
+      val tmpDir = File.newTemporaryDirectory("extract")
+      tmpYmlFile.write(config)
+      val schemaHandler = new SchemaHandler(storageHandler)
+      val result = new ExtractDataJob(schemaHandler).run(
+        Array(
+          "--clean",
+          "--config",
+          tmpYmlFile.pathAsString,
+          "--outputDir",
+          tmpDir.pathAsString
+        )
+      )
+      result should be a 'success
+      val files = tmpDir.listRecursively.filter(_.name.endsWith(".csv")).toList
+      assert(files.size == 1)
+    }
+    "Extract Data from postgres" should "succeed" in {
       val jdbcOptions = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
         jdbcOptions.options("user"),
         jdbcOptions.options("password")
       )
-      logger.info(TestHelper.pgContainer.jdbcUrl)
+      logger.info(pgContainer.jdbcUrl)
       val sqls: String =
         """
           |drop table if exists test_table1 cascade;
@@ -50,11 +109,11 @@ class ExtractIntegrationSpec extends TestHelper {
       val st = conn.createStatement()
       val rs = st.executeQuery("select current_database()")
       rs.next()
-      println(rs.getString(1))
       st.close()
       conn.close()
       val config =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
@@ -75,7 +134,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpDir = File.newTemporaryDirectory("extract")
       tmpYmlFile.write(config)
       val schemaHandler = new SchemaHandler(storageHandler)
-      new ExtractDataJob(schemaHandler).run(
+      val result = new ExtractDataJob(schemaHandler).run(
         Array(
           "--clean",
           "--config",
@@ -84,6 +143,7 @@ class ExtractIntegrationSpec extends TestHelper {
           tmpDir.pathAsString
         )
       )
+      result should be a 'success
       val files = tmpDir.listRecursively.filter(_.name.endsWith(".csv")).toList
       assert(files.size == 2)
     }
@@ -125,6 +185,7 @@ class ExtractIntegrationSpec extends TestHelper {
 
       val config =
         """
+          |version: 1
           |extract:
           |  connectionRef: "test-pg" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:

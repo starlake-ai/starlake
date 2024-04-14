@@ -29,7 +29,7 @@ import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
@@ -66,8 +66,8 @@ case class Schema(
   name: String,
   pattern: Pattern,
   attributes: List[Attribute],
-  metadata: Option[Metadata],
-  comment: Option[String],
+  metadata: Option[Metadata] = None,
+  comment: Option[String] = None,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
   tags: Set[String] = Set.empty,
@@ -775,5 +775,9 @@ object Schema {
   }
 }
 
-case class SchemaRefs(tables: List[Schema])
-case class SchemaRef(table: Schema)
+case class TablesDesc(version: Int, tables: List[Schema])
+case class TableDesc(version: Int, table: Schema)
+
+object MakesCompîlerHappyCrossCompile {
+  SparkMetadata.empty
+}

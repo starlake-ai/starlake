@@ -1,5 +1,5 @@
 ---
-sidebar_position: 190
+sidebar_position: 180
 title: lineage
 ---
 
@@ -16,7 +16,7 @@ Generate Task dependencies graph
 Parameter|Cardinality|Description
 ---|---|---
 --output:`<value>`|*Optional*|Where to save the generated dot file ? Output to the console by default
---tasks:`<value>`|*Optional*|Compute dependencies of this job only. If not specified, compute all jobs.
+--task:`<value>`|*Optional*|Compute dependencies of these tasks only. If not specified, compute all jobs.
 --reload:`<value>`|*Optional*|Should we reload the domains first ?
 --viz:`<value>`|*Optional*|Should we generate a dot file ?
 --svg:`<value>`|*Optional*|Should we generate SVG files ?

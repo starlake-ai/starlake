@@ -33,7 +33,7 @@ import org.apache.spark.sql.types.{StringType, StructField}
 import scala.util.{Failure, Success, Try}
 
 /** Main class to complex json delimiter separated values file If your json contains only one level
-  * simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way
+  * simple attribute aka. kind of dsv but in json format please use JSON_FLAT instead. It's way
   * faster
   *
   * @param domain
@@ -54,7 +54,8 @@ class JsonIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -70,7 +71,7 @@ class JsonIngestionJob(
       session.read
         .option("inferSchema", value = false)
         .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .textFile(path.map(_.toString): _*)
     }
 

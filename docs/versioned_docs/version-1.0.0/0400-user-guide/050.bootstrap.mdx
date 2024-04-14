@@ -135,9 +135,9 @@ This application configuration file contains multiple connections:
 application:
   version: "1.0.0"
   # the connection to use for loading/transforming data. See connections section below
-  connectionRef: "localFilesystem"
+  connectionRef: "sparkLocal"
   connections:
-    localFilesystem:
+    sparkLocal:
       type: "fs"
 
 ```

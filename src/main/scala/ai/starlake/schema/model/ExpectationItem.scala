@@ -7,11 +7,13 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[ExpectationItemDeserializer])
-case class ExpectationItem(query: String, expect: String, name: Option[String] = None) {
+case class ExpectationItem(query: String, expect: String) {
   def this() = this("", "") // Should never be called. Here for Jackson deserialization only
   override def toString: String = s"$query => $expect"
 
-  def queryCall() = "{{" + query + "}}"
+  def name: String = query.replaceAll("[\"']", "").replaceAll("[^a-zA-Z0-9]", "_");
+
+  def queryCall(): String = "{{" + query + "}}"
 
 }
 
@@ -25,25 +27,23 @@ object ExpectationItem {
     }
   }
 
+  /** Parse a string into an ExpectationItem The format is either "macroCall(count) => expected" or
+    * "macroCall() => expected" or "macroCall => expected"
+    * @param expr:
+    *   String to parse
+    * @return
+    *   ExpectationItem object
+    */
   def apply(expr: String): ExpectationItem = {
     expr.indexOf("=>") match {
       case -1 =>
-        expr.indexOf(')') match {
-          case -1 => ExpectationItem(expr, "")
-          case i =>
-            ExpectationItem(expr.substring(0, i + 1).trim, "count " + expr.substring(i + 2).trim)
-        }
-        ExpectationItem(expr, "")
+        throw new IllegalArgumentException(
+          s"Invalid expectation format! Got $expr but expected macroCall => expected "
+        )
       case i =>
         val macroCall = expr.substring(0, i).trim
-        val expected = expr.substring(i + 2).trim
-        val parIndex = macroCall.indexOf("(")
-        val macroName =
-          if (parIndex > 0)
-            macroCall.substring(0, parIndex)
-          else
-            ""
-        ExpectationItem(macroCall, expected, Some(macroName))
+        val expected = expr.substring(i + "=>".length).trim
+        ExpectationItem(macroCall, expected)
     }
   }
 }

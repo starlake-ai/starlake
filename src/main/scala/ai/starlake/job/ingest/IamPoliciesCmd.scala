@@ -8,7 +8,7 @@ import scopt.OParser
 
 import scala.util.Try
 
-case class IamPoliciesConfig()
+case class IamPoliciesConfig(accessToken: Option[String])
 
 object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
 
@@ -18,16 +18,21 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
     val builder = OParser.builder[IamPoliciesConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
-      builder.head(shell, command),
-      builder.note("")
+      builder.head(shell, command, "[options]"),
+      builder.note(""),
+      builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional()
     )
   }
 
   def parse(args: Seq[String]): Option[IamPoliciesConfig] =
-    OParser.parse(parser, args, IamPoliciesConfig(), setup)
+    OParser.parse(parser, args, IamPoliciesConfig(accessToken = None), setup)
 
   override def run(config: IamPoliciesConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    workflow(schemaHandler).applyIamPolicies().map(_ => JobResult.empty)
+    workflow(schemaHandler).applyIamPolicies(accessToken = None).map(_ => JobResult.empty)
 }

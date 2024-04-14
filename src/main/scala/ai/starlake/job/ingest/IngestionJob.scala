@@ -7,7 +7,7 @@ import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.transform.SparkAutoTask
-import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
+import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -29,12 +29,13 @@ import org.apache.spark.sql.types.StructType
 import java.sql.Timestamp
 import java.time.Instant
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters.{asJavaIterableConverter, asScalaBufferConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
 
 trait IngestionJob extends SparkJob {
+  val accessToken: Option[String]
 
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
@@ -71,9 +72,9 @@ trait IngestionJob extends SparkJob {
 
   lazy val strategy: WriteStrategy = {
     val s = mergedMetadata.getStrategyOptions()
-    val startTs = s.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-    val endTs = s.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
-    s.copy(start_ts = Some(startTs), end_ts = Some(endTs))
+    val startTs = s.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+    val endTs = s.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+    s.copy(startTs = Some(startTs), endTs = Some(endTs))
   }
 
   def targetTableName: String = domain.finalName + "." + schema.finalName
@@ -84,6 +85,11 @@ trait IngestionJob extends SparkJob {
     */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
   lazy val loader: String = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
+
+  private val accessTokenOptions: Map[String, String] =
+    accessToken.map(token => Map("gcpAccessToken" -> token)).getOrElse(Map.empty)
+
+  protected val sparkOptions = mergedMetadata.getOptions() ++ accessTokenOptions
 
   /** ingestion algorithm
     *
@@ -168,7 +174,8 @@ trait IngestionJob extends SparkJob {
     val bqConfig = BigQueryLoadConfig(
       connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
       outputDatabase = schemaHandler.getDatabase(domain),
-      outputTableId = Some(tableId)
+      outputTableId = Some(tableId),
+      accessToken = accessToken
     )
     new BigQueryNativeJob(bqConfig, sql)
   }
@@ -226,7 +233,7 @@ trait IngestionJob extends SparkJob {
 
   private def isNativeCandidate(): Boolean = {
     val csvOrJsonLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON, Format.SIMPLE_JSON).contains(
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT).contains(
         mergedMetadata.getFormat()
       )
 
@@ -254,7 +261,8 @@ trait IngestionJob extends SparkJob {
       err,
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler)
     logger.error(err)
@@ -287,7 +295,8 @@ trait IngestionJob extends SparkJob {
       if (success) "success" else s"$rejectedCount invalid records",
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      test = false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
@@ -311,10 +320,10 @@ trait IngestionJob extends SparkJob {
     // Run selected ingestion engine
     val jobResult = selectLoadEngine() match {
       case Engine.BQ =>
-        val result = new BigQueryNativeIngestionJob(this).run()
+        val result = new BigQueryNativeIngestionJob(this, accessToken).run()
         result
       case Engine.SPARK =>
-        val result = runSpark()
+        val result = ingestWithSpark()
         result
       case other =>
         throw new Exception(s"Unsupported engine $other")
@@ -349,7 +358,7 @@ trait IngestionJob extends SparkJob {
     * @return
     *   : Spark Session used for the job
     */
-  def runSpark(): Try[IngestionCounters] = {
+  def ingestWithSpark(): Try[IngestionCounters] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
       settings.appConfig.sparkScheduling.poolName
@@ -398,7 +407,7 @@ trait IngestionJob extends SparkJob {
       this.schema.finalName
     )
     val tableExists = bigqueryJob.tableExists(tableId)
-    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     def bqSchemaWithSCD2(incomingTableSchema: BQSchema) = {
       if (
         isSCD2 && !incomingTableSchema.getFields.asScala.exists(
@@ -604,7 +613,7 @@ trait IngestionJob extends SparkJob {
     * @param validationResult
     */
   protected def saveAccepted(
-    validationResult: ValidationResult
+    validationResult: CheckValidityResult
   ): Try[Long] = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       logger.whenDebugEnabled {
@@ -736,14 +745,13 @@ trait IngestionJob extends SparkJob {
         database = schemaHandler.getDatabase(domain),
         domain = domain.finalName,
         table = schema.finalName,
-        write = Some(mergedMetadata.getWrite()),
         sink = mergedMetadata.sink,
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
         writeStrategy = Some(strategy)
       )
-      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, false)(
+      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
         settings,
         storageHandler,
         schemaHandler
@@ -830,7 +838,8 @@ trait IngestionJob extends SparkJob {
       errMessagesDS,
       domainName,
       schemaName,
-      now
+      now,
+      path
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
         Success(rejectedPath)

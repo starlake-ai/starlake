@@ -86,7 +86,7 @@ $ docker run                                                      \
 </TabItem>
 </Tabs>
 
-This will load the data files and since we chose the localFilesystem connection, they will be stored them as parquet files into the following folders:
+This will load the data files and since we chose the sparkLocal connection, they will be stored them as parquet files into the following folders:
 - `datasets/accepted` for valid records
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
@@ -216,7 +216,7 @@ application:
   connectionRef: "databricks"
   loader: spark # note the spark loader here
   connections:
-    localFilesystem:
+    sparkLocal:
       type: "databricks"
 ```
 
@@ -285,7 +285,7 @@ application:
         warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
         db: "{{SNOWFLAKE_DB}}"
         keep_column_case: "off"
-        preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
 ```
 
 </TabItem>
@@ -363,7 +363,7 @@ application:
           sfDatabase: "{{SNOWFLAKE_DB}}"
           keep_column_case: "off"
           autopushdown: on
-          preactions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+          preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
 
 ```
 

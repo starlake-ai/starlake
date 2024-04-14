@@ -1,0 +1,34 @@
+
+{% if materializedView %}
+{% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
+{% else %}
+{% set createPrefix = 'CREATE TABLE' %}
+{% endif %}
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createPrefix }} {{ tableFullName }} AS {{selectStatement }};
+
+{% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
+
+CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
+{{ createPrefix }} {{ tableFullName }} AS
+SELECT {{ tableColumnsCsv }}
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY 0) = 1;
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
+
+CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
+{{ createPrefix }} {{ tableFullName }} AS 
+SELECT {{ tableColumnsCsv }}
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
+""".stripMargin
+
+{%  endif %}
+
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
+{% endif %}

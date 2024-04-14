@@ -1,0 +1,61 @@
+# Load
+
+You'll use Load instead of Autoload when:
+- You want to load data from a file when the separator cannot be detected easily (e.g. a file with a multichar separator)
+- You want to load the data from a folders that are not in the standard `incoming` folder or that are not named after the domain name
+
+You may use a different folder location for your incoming files by setting the `application.incoming`  variable in the `metadata/application.sl.yml` file.
+<br/>
+
+
+
+```yaml title="metadata/application.sl.yml"
+application:
+  incoming: /path/to/incoming
+```
+<br/>
+
+You may also use a different incoming location per environment by setting the `incoming_path` variable in the `metadata/env.<env>.yml` file.
+
+```yaml title="metadata/env.<env>.yml"
+incoming_path: /path/to/incoming
+```
+<br/>
+
+```yaml title="metadata/application.sl.yml"
+application:
+  incoming: {{incoming_path}}
+```
+
+
+
+
+## Domain configuration
+
+We first need to define for each domain where the files will be loaded from.
+This is done by creating a domain configuration file that describe where the `load` command should look for the files to load
+
+<br/>
+
+In this case the load command will look in the directory `{{incoming_path}}/starbake` where `{{incoming_path}}` is an environment variable
+defined in the `metadata/env.sl.yml` file and that may be redefined for each environment (dev, test, prod) in the `metadata/env.dev.yml` file for example.
+
+<br/>
+
+```yaml title="metadata/load/<domain>/_config.sl.yml"
+load:
+  metadata:
+    directory: "{{incoming_path}}/starbake"
+```
+<br/>
+
+Since the directory is set at the domain level, this means that all files loaded for this domain, will be loaded from this directory.
+
+## Table configuration
+
+We then need to define for each table the file format and the file name pattern that the `load` command should look for:
+- [Load CSV files](csv)
+- [Load JSON files](json)
+- [Load XML files](xml)
+- [Load fixed position files](position)
+

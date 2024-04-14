@@ -21,7 +21,7 @@
 package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
-import ai.starlake.schema.handlers.InferSchemaHandler
+import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import better.files.File
 import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
@@ -29,9 +29,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+import java.io.BufferedReader
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
-import scala.io.Source
 import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
@@ -71,10 +71,10 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     file.extension(includeDot = false).getOrElse("").toLowerCase() match {
       case "xml" => "XML"
       case "json" if firstLine.startsWith("[") =>
-        "ARRAY_JSON"
+        "JSON_ARRAY"
       case "json" if firstLine.startsWith("{") =>
         "JSON"
-      case "csv" | "tsv" | "psv" => "DSV"
+      case "csv" | "dsv" | "tsv" | "psv" => "DSV"
       case _ =>
         val jsonRegexStart = """\{.*""".r
         val jsonArrayRegexStart = """\[.*""".r
@@ -87,7 +87,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
         (firstLine, lastLine) match {
           case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
-          case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
+          case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "JSON_ARRAY"
           case (xmlRegexStart(), xmlRegexEnd())             => "XML"
           case _                                            => "DSV"
         }
@@ -172,10 +172,11 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     content: String,
     tableName: String,
     rowTag: Option[String]
-  ): DataFrame = {
+  ): (DataFrame, Option[String]) = {
     val formatFile = getFormatFile(dataPath, lines)
+
     formatFile match {
-      case "ARRAY_JSON" =>
+      case "JSON_ARRAY" =>
         val content = lines.mkString("\n")
         val jsons = ListBuffer[String]()
         val jsonarray = new JSONArray(content)
@@ -187,16 +188,17 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         val tmpFile = File.newTemporaryFile()
         tmpFile.write(jsons.mkString("\n"))
         tmpFile.deleteOnExit()
-        session.read
+        val df = session.read
           .format("json")
           .option("inferSchema", value = true)
           .load(tmpFile.pathAsString)
+        (df, None)
       case "JSON" =>
-        session.read
+        val df = session.read
           .format("json")
           .option("inferSchema", value = true)
           .load(dataPath)
-
+        (df, None)
       case "XML" =>
         // find second occurrence of xml tag starting with letter in content
         val tag = {
@@ -217,20 +219,21 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           }
         }
 
-        session.read
+        val df = session.read
           .format("com.databricks.spark.xml")
           .option("rowTag", tag)
           .option("inferSchema", value = true)
           .load(dataPath)
-
+        (df, Some(tag))
       case "DSV" =>
-        session.read
+        val df = session.read
           .format("com.databricks.spark.csv")
           .option("header", value = true)
           .option("inferSchema", value = true)
           .option("delimiter", getSeparator(lines))
           .option("parserLib", "UNIVOCITY")
           .load(dataPath)
+        (df, None)
     }
   }
 
@@ -250,23 +253,35 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     writeMode: WriteMode,
     rowTag: Option[String],
     clean: Boolean
-  ): Try[File] = {
+  )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
       val path = new Path(inputPath)
-      val content = Source.fromFile(path.toString).getLines().toList
-      val lines = content.toList.map(_.trim).filter(_.nonEmpty)
+      val content = storageHandler.readAndExecute(path)(isr => {
+        val bufferedReader = new BufferedReader(isr)
+        (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
+      })
+      val lines = content.map(_.trim).filter(_.nonEmpty)
 
       val schema = forceFormat match {
         case Some(Format.POSITION) =>
           var lastIndex = -1
           val attributes = lines.zipWithIndex.map { case (line, index) =>
+            val fieldIndex = line.indexOf(":")
+            if (fieldIndex == -1)
+              throw new IllegalArgumentException(
+                s"""Positional format schem inference requires a colon (:) to separate the field name from in line $index.
+                   |Example
+                   |-------
+                   |order_id:00001
+                   |customer_id:010203
+                   |""".stripMargin
+              )
+            val fieldName = line.substring(0, fieldIndex).trim
+            val field = line.substring(fieldIndex + 1).trim
             val startPosition = lastIndex + 1
-            val endPosition = startPosition + line.length
+            val endPosition = startPosition + field.length
             lastIndex = endPosition
-            Attribute(
-              name = s"_c$index",
-              position = Some(Position(startPosition, endPosition))
-            )
+            Attribute(name = fieldName, position = Some(Position(startPosition, endPosition)))
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
@@ -277,13 +292,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             Some(metadata)
           )
         case forceFormat =>
-          val dataframeWithFormat =
+          val (dataframeWithFormat, xmlTag) =
             createDataFrameWithFormat(lines, inputPath, content.mkString("\n"), tableName, rowTag)
 
           val (format, array) = forceFormat match {
             case None =>
               val formatAsStr = getFormatFile(inputPath, lines)
-              (Format.fromString(formatAsStr), formatAsStr == "ARRAY_JSON")
+              (Format.fromString(formatAsStr), formatAsStr == "JSON_ARRAY")
             case Some(f) => (f, false)
           }
 
@@ -294,7 +309,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
                 val linesWithoutHeader = lines.drop(1)
                 (linesWithoutHeader.map(_.split(Pattern.quote(separator))), Some(separator))
               case _ =>
-                val linesWithoutHeader = dataframeWithFormat.collect
+                val linesWithoutHeader = dataframeWithFormat
+                  .collect()
                   .map(_.toSeq.map(_.toString).toArray)
                   .toList
                 (linesWithoutHeader, None)
@@ -303,11 +319,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val attributes: List[Attribute] =
             InferSchemaHandler.createAttributes(dataLines, dataframeWithFormat.schema, format)
 
+          val xmlOptions = xmlTag.map(tag => Map("rowTag" -> tag))
           val metadata = InferSchemaHandler.createMetaData(
             format,
             Option(array),
             Some(true),
-            separator
+            separator,
+            xmlOptions
           )
 
           val strategy = WriteStrategy(
