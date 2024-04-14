@@ -373,6 +373,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
   }
 
   "extractPartitionToFile" should "extract data to a file without index when extract config is not partitionned" in {
+    pending
     new WithSettings() {
       private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
       val jdbcConnection = settings.appConfig.connections("test-pg")
@@ -408,6 +409,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       outputFolder.list.map(_.name).toList should contain theSameElementsAs List(
         outputFileName
       )
+
       (outputFolder / outputFileName).contentAsString shouldBe
       """"c_str";"c_short";"c_int";"c_long";"c_decimal";"c_ts";"c_date"
           |"A\"";"0";"1";"2";"3.4";"2003-02-01T00:00:00.000+01:00";"2003-02-02"

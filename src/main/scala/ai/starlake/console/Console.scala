@@ -19,7 +19,7 @@ object Console {
   val historyFile = new FileHistory(
     new File(System.getProperty("user.home") + File.separator + ".sl_history")
   )
-  def console(handler: Input => Boolean) {
+  def console(handler: Input => Boolean): Unit = {
 
     val consoleReader = new jline.console.ConsoleReader()
     consoleReader.setBellEnabled(false)

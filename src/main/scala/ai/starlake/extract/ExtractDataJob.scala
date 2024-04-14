@@ -19,7 +19,6 @@ import java.nio.charset.StandardCharsets
 import java.sql.{Connection => SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.nowarn
-import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
@@ -735,7 +734,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
-  ): (GenSeq[(BoundaryDef, Int)], BoundariesDef) = {
+  ): (List[(BoundaryDef, Int)], BoundariesDef) = {
     tableExtractDataConfig.partitionConfig match {
       case None =>
         List(Unbounded -> 0) -> NoBound
@@ -760,7 +759,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
             }
           }
           logger.info(s"$context Boundaries : $boundaries")
-          ParUtils.makeParallel(boundaries.partitions.zipWithIndex) -> boundaries
+          ParUtils.makeParallel(boundaries.partitions.zipWithIndex).toList -> boundaries
         }
     }
   }
