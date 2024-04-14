@@ -11,7 +11,7 @@ import java.nio.file.Files
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.reflect.io.Directory
 import scala.util.Failure
 
