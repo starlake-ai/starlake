@@ -82,37 +82,37 @@ jobs:
 
 
 
-      - name: Run tests(config)  & Report On Push
+      - name: Run tests(config)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.config.*
-      - name: Run tests(extract)  & Report On Push
+      - name: Run tests(extract)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.extract.*
-      - name: Run tests(integration)  & Report On Push
+      - name: Run tests(integration)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.integration.*
-      - name: Run tests(job)  & Report On Push
+      - name: Run tests(job)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.job.*
-      - name: Run tests(privacy)  & Report On Push
+      - name: Run tests(privacy)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.privacy.*
-      - name: Run tests(schema)  & Report On Push
+      - name: Run tests(schema)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.schema.*
-      - name: Run tests(serve)  & Report On Push
+      - name: Run tests(serve)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.serve.*
-      - name: Run tests(sql)  & Report On Push
+      - name: Run tests(sql)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.sql.*
-      - name: Run tests(udf)  & Report On Push
+      - name: Run tests(udf)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.udf.*
-      - name: Run tests(utils)  & Report On Push
+      - name: Run tests(utils)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.utils.*
-      - name: Run tests(workflow)  & Report On Push
+      - name: Run tests(workflow)
         if: ${{ github.event_name == 'pull_request' }}
         run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}  SL_REMOTE_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.18! testOnly ai.starlake.workflow.*
 
