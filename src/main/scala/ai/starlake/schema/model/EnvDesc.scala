@@ -223,7 +223,8 @@ object EnvDesc extends StrictLogging {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "Env",
-          s"Specific env file $path has variables with no default: ${envVarsWithNoDefault.mkString(", ")}"
+          s"Specific env file ${path
+              .getName()} has variables with no default: ${envVarsWithNoDefault.mkString(", ")}"
         )
       }
     }

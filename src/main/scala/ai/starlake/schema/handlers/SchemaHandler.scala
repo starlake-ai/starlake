@@ -354,7 +354,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     // If no profile is defined, only default values are used.
 
     val localEnvVars =
-      if (activeEnvName.nonEmpty) {
+      if (activeEnvName.nonEmpty && activeEnvName != "None") {
         val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
 
         // We subsittute values defined in the current profile with variables defined
