@@ -91,8 +91,17 @@ object Bootstrap extends StrictLogging {
     dagLibDir.createDirectories()
     import scala.sys.process._
     println("Installing starlake-airflow")
-    val pipResult = s"pip install --target $dagLibDir starlake-airflow".!!
-    println(pipResult)
+    val pipCmd = s"pip install --target $dagLibDir starlake-airflow"
+    Try {
+      val pipResult = pipCmd.!!
+      println(pipResult)
+    } match {
+      case scala.util.Failure(exception) =>
+        println(s"Failed to install starlake-airflow using: $pipCmd")
+        println("Please install it manually.")
+      case _ =>
+
+    }
     template
       .foreach { template =>
         val rootFolder = metadataFolder.parent
