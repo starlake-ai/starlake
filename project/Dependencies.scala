@@ -164,7 +164,7 @@ object Dependencies {
   val mariadb = Seq(
     "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3" % Test,
-    "mysql" % "mysql-connector-java" % "8.0.33" % Test
+    "com.mysql" % "mysql-connector-j" % "8.3.0" % Test
   )
 
   val jinja = Seq(
