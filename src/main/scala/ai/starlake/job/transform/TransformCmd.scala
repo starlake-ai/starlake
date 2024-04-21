@@ -53,6 +53,18 @@ trait TransformCmd extends Cmd[TransformConfig] {
           s"Execute all dependencies recursively. Default value is false"
         ),
       builder
+        .opt[Unit]("test")
+        .action((_, c) => c.copy(test = true))
+        .optional()
+        .text(
+          s"Should we run this transform as a test ? Default value is false"
+        ),
+      builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional(),
+      builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = c.options ++ x))
@@ -70,8 +82,10 @@ trait TransformCmd extends Cmd[TransformConfig] {
   ): Try[JobResult] = {
     if (config.compile) {
       workflow(schemaHandler).compileAutoJob(config).map(_ => JobResult.empty)
-    } else
-      workflow(schemaHandler).autoJob(config).map(_ => JobResult.empty)
+    } else {
+      val res = workflow(schemaHandler).autoJob(config)
+      res.map(_ => JobResult.empty)
+    }
   }
 }
 

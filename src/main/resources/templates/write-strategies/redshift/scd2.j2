@@ -1,0 +1,60 @@
+
+{% if strategyOn == 'TARGET' %}
+
+
+INSERT INTO {{ tableFullName }}
+SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+
+MERGE INTO {{ tableFullName }} SL_EXISTING USING (
+    SELECT SL_INCOMING.* FROM {{ selectStatement }} SL_INCOMING, {{ tableFullName }} SL_EXISTING
+    WHERE   {{strategyKeyJoinCondition}} AND 
+            SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
+            SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
+) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+
+   
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+    MERGE INTO  {{ tableFullName }} SL_EXISTING
+    USING (
+    SELECT  {{ tableColumnsCsv }}
+    FROM (
+    SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY $mergeKeys  ORDER BY (select 0)) AS SL_SEQ
+    FROM ({{ selectStatement }})
+    ) WHERE SL_SEQ = 1
+
+    ) SL_INCOMING
+    ON ( {{ strategyKeyJoinCondition }})
+    WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  {{ tableUpdate }}
+    WHEN NOT MATCHED THEN {{ tableInsert }}
+
+
+
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
+SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+
+MERGE INTO {{ tableFullName }} SL_EXISTING USING (
+    SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
+        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+            FROM ({{ selectStatement }}) AS SL_INCOMING
+            WHERE SL_SEQ = 1 
+
+        ) AS SL_INCOMING, 
+        {{ tableFullName }} SL_EXISTING
+        WHERE   {{strategyKeyJoinCondition}} AND 
+            SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
+            SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
+) SL_INCOMING 
+ON ({{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+
+   
+
+
+{%  endif %}

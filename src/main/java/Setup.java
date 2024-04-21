@@ -395,7 +395,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("rootLogger.level =")|| line.startsWith("rootLogger.level=")) {
-                    line = "rootLogger.level = ${env:SL_LOG_LEVEL:-info}";
+                    line = "rootLogger.level = ${env:SL_LOG_LEVEL:-error}";
                 }
                 sb.append(line).append("\n");
             }

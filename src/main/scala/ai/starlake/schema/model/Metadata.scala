@@ -23,7 +23,6 @@ package ai.starlake.schema.model
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
-import ai.starlake.schema.model.Mode.FILE
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude}
@@ -42,10 +41,10 @@ import scala.collection.mutable
   *   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator"
   *     field.
   *   - POSITION : FIXED format file where values are located at an exact position in each line.
-  *   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from
-  *     JSON with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
+  *   - JSON_FLAT : For optimisation purpose, we differentiate JSON with top level values from JSON
+  *     with deep level fields. JSON_FLAT are JSON files with top level fields only.
   *   - JSON : Deep JSON file. Use only when your json documents contain subdocuments, otherwise
-  *     prefer to use SIMPLE_JSON since it is much faster.
+  *     prefer to use JSON_FLAT since it is much faster.
   *   - XML : XML files
   * @param encoding
   *   : UTF-8 if not specified.
@@ -73,7 +72,6 @@ import scala.collection.mutable
   *   Folder on the local filesystem where incoming files are stored. Typically, this folder will be
   *   scanned periodically to move the datasets to the cluster for ingestion. Files located in this
   *   folder are moved to the pending folder for ingestion by the "import" command.
-  * @param extensions:
   * @param ack:
   *   Ack extension used for each file. If specified, files are moved to the pending folder only
   *   once a file with the same name as the source file and with this extension is present. To move
@@ -104,7 +102,6 @@ import scala.collection.mutable
   *   if true, then it getters return default value, otherwise return currently defined value only
   */
 case class Metadata(
-  mode: Option[Mode] = None, // deprecated("Unused but reserved", "0.6.4")
   format: Option[Format] = None,
   encoding: Option[String] = None,
   multiline: Option[Boolean] = None,
@@ -116,7 +113,6 @@ case class Metadata(
   sink: Option[AllSinks] = None,
   ignore: Option[String] = None,
   directory: Option[String] = None,
-  extensions: List[String] = Nil,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   loader: Option[String] = None,
@@ -135,11 +131,11 @@ case class Metadata(
     sink.map(_.getSink()).getOrElse(AllSinks().getSink())
   }
 
+  @JsonIgnore
   def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
 
   override def toString: String =
     s"""
-       |mode:${getMode()}
        |format:${getFormat()}
        |encoding:${getEncoding()}
        |multiline:${getMultiline()}
@@ -150,7 +146,6 @@ case class Metadata(
        |escape:${getEscape()}
        |sink:${sink}
        |directory:${directory}
-       |extensions:${extensions}
        |ack:${ack}
        |options:${getOptions()}
        |loader:${loader}
@@ -160,8 +155,6 @@ case class Metadata(
        |emptyIsNull:${emptyIsNull}
        |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
-
-  def getMode(): Mode = getFinalValue(mode, FILE)
 
   @JsonIgnore
   def getStrategyOptions(): WriteStrategy = {
@@ -191,18 +184,17 @@ case class Metadata(
   def getEscape(): String = getFinalValue(escape, "\\")
 
   @JsonIgnore
-  def getWrite(): WriteMode = writeStrategy.map(_.getWriteMode()).getOrElse(APPEND)
+  def getWrite(): WriteMode = writeStrategy.map(_.toWriteMode()).getOrElse(APPEND)
 
   // scalastyle:off null
   def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
   // scalastyle:on null
 
   @JsonIgnore
-  def getPartitionAttributes()(implicit settings: Settings): List[String] = {
+  def getPartitionAttributes()(implicit settings: Settings): Seq[String] = {
     this.getSink().toAllSinks().partition.getOrElse(Nil)
   }
 
-  @JsonIgnore
   def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
@@ -231,7 +223,7 @@ case class Metadata(
 
   @JsonIgnore
   def getEngine()(implicit settings: Settings): Engine = {
-    val connection = settings.appConfig.connections(getSinkConnectionRef)
+    val connection = settings.appConfig.connections(getSinkConnectionRef())
     connection.getEngine()
   }
 
@@ -282,7 +274,6 @@ case class Metadata(
     val mergedSchedule = merge(this.schedule, child.schedule)
 
     Metadata(
-      mode = merge(this.mode, child.mode),
       format = merge(this.format, child.format),
       encoding = merge(this.encoding, child.encoding),
       multiline = merge(this.multiline, child.multiline),
@@ -294,7 +285,6 @@ case class Metadata(
       sink = merge(this.sink, child.sink),
       ignore = merge(this.ignore, child.ignore),
       directory = merge(this.directory, child.directory),
-      extensions = merge(this.extensions, child.extensions),
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       loader = merge(this.loader, child.loader),
@@ -317,7 +307,6 @@ case class Metadata(
     */
   def `keepIfDifferent`(parent: Metadata): Metadata = {
     Metadata(
-      mode = if (parent.mode != this.mode) this.mode else None,
       format = if (parent.format != this.format) this.format else None,
       encoding = if (parent.encoding != this.encoding) this.encoding else None,
       multiline = if (parent.multiline != this.multiline) this.multiline else None,
@@ -346,7 +335,7 @@ case class Metadata(
     */
   def asOption(): Option[Metadata] = {
     if (
-      mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
+      format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || writeStrategy.nonEmpty ||
       sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
@@ -373,7 +362,7 @@ case class Metadata(
     import Format._
     if (
       ignore.isDefined &&
-      !List(DSV, SIMPLE_JSON, POSITION).contains(getFormat())
+      !List(DSV, JSON_FLAT, POSITION).contains(getFormat())
     )
       errorList += ValidationMessage(
         Error,

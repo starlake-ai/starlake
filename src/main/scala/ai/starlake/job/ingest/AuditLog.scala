@@ -73,7 +73,8 @@ case class AuditLog(
   message: String,
   step: String,
   database: Option[String],
-  tenant: String
+  tenant: String,
+  test: Boolean
 ) {
 
   def asMap(): Map[String, Any] = {
@@ -202,7 +203,7 @@ object AuditLog extends StrictLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
-    if (settings.appConfig.audit.isActive()) {
+    if (settings.appConfig.audit.isActive() && !log.test) {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
@@ -217,8 +218,6 @@ object AuditLog extends StrictLogging {
             database = settings.appConfig.audit.getDatabase(),
             domain = settings.appConfig.audit.getDomain(),
             table = "audit",
-            write = Some(WriteMode.APPEND),
-            partition = Nil,
             presql = Nil,
             postsql = Nil,
             sink = Some(settings.appConfig.audit.sink),
@@ -232,6 +231,7 @@ object AuditLog extends StrictLogging {
               Map.empty,
               None,
               truncate = false,
+              test = log.test,
               engine = auditTaskDesc.getSinkConnection().getEngine()
             )
           val res = task.run()

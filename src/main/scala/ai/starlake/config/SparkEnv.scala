@@ -40,17 +40,14 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     */
   val config: SparkConf = confTransformer(settings.jobConf)
 
-  /*
-  if
-    if hive enabled:
-    if databricks running
-    if delta available
-   */
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
+    val sysProps = System.getProperties()
     if (!settings.appConfig.isHiveCompatible()) {
       if (settings.getWarehouseDir().isEmpty) {
+        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
+        println("DATASETS=====> " + settings.appConfig.datasets)
         config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
       }
     }
@@ -61,12 +58,12 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         "org.apache.spark.sql.delta.catalog.DeltaCatalog"
       )
     }
-    val session = {
-      if (settings.appConfig.isHiveCompatible())
-        SparkSession.builder().config(config).enableHiveSupport().getOrCreate()
-      else
-        SparkSession.builder().config(config).getOrCreate()
-    }
+
+    val session = SparkSession
+      .builder()
+      .config(config)
+      .enableHiveSupport()
+      .getOrCreate()
 
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))

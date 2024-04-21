@@ -28,6 +28,9 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
+import scala.collection.immutable.Seq
+import scala.jdk.CollectionConverters._
+
 /** Recognized file type format. This will select the correct parser
   *
   * @param value
@@ -144,14 +147,59 @@ case class AllSinks(
   // FS
   format: Option[String] = None,
   extension: Option[String] = None,
-  partition: Option[List[String]] = None,
   // clustering: Option[Seq[String]] = None,
+  partition: Option[Seq[String]] = None,
   coalesce: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
   // JDBC
   // partition: Option[List[String]] = None, // Only one column allowed
 
 ) {
+  def asMap(): Map[String, Any] = {
+    val map = scala.collection.mutable.Map.empty[String, Any]
+    connectionRef.foreach(map += "sinkConnectionRef" -> _)
+    clustering.foreach(map += "sinkClustering" -> _.asJava)
+    days.foreach(map += "sinkDays" -> _)
+    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
+    materializedView.foreach(map += "sinkMaterializedView" -> _)
+    enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
+    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
+    id.foreach(map += "sinkId" -> _)
+    map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
+    extension.foreach(map += "sinkExtension" -> _)
+    partition.foreach(map += "sinkPartition" -> _.asJava)
+    coalesce.foreach(map += "sinkCoalesce" -> _)
+    options.foreach(map += "sinkOptions" -> _.asJava)
+
+    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause()
+    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL()
+    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL()
+
+    map.toMap
+  }
+
+  def getFormat()(implicit settings: Settings): String = {
+    format.getOrElse(settings.appConfig.defaultWriteFormat)
+  }
+
+  @JsonIgnore
+  def getPartitionByClauseSQL(): String =
+    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+
+  @JsonIgnore
+  def getClusterByClauseSQL(): String =
+    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
+
+  @JsonIgnore
+  def getTableOptionsClause(): String = {
+    val opts = options.getOrElse(Map.empty)
+    if (opts.isEmpty) {
+      ""
+    } else {
+      opts.map { case (k, v) => s"'$k'='$v'" }.mkString("OPTIONS(", ",", ")")
+    }
+  }
+
   def checkValidity()(settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {
@@ -183,26 +231,28 @@ case class AllSinks(
 
   def merge(child: AllSinks): AllSinks = {
     AllSinks(
-      child.connectionRef.orElse(this.connectionRef),
-      child.clustering.orElse(this.clustering),
-      child.days.orElse(this.days),
-      child.requirePartitionFilter.orElse(this.requirePartitionFilter),
-      child.materializedView.orElse(this.materializedView),
-      child.enableRefresh.orElse(this.enableRefresh),
-      child.refreshIntervalMs.orElse(this.refreshIntervalMs),
-      child.id.orElse(this.id),
-      child.format.orElse(this.format),
-      child.extension.orElse(this.extension),
-      child.partition.orElse(this.partition),
-      child.coalesce.orElse(this.coalesce),
-      child.options.orElse(this.options)
+      connectionRef = child.connectionRef.orElse(this.connectionRef),
+      clustering = child.clustering.orElse(this.clustering),
+      days = child.days.orElse(this.days),
+      requirePartitionFilter = child.requirePartitionFilter.orElse(this.requirePartitionFilter),
+      materializedView = child.materializedView.orElse(this.materializedView),
+      enableRefresh = child.enableRefresh.orElse(this.enableRefresh),
+      refreshIntervalMs = child.refreshIntervalMs.orElse(this.refreshIntervalMs),
+      id = child.id.orElse(this.id),
+      format = child.format.orElse(this.format),
+      extension = child.extension.orElse(this.extension),
+      partition = child.partition.orElse(this.partition),
+      coalesce = child.coalesce.orElse(this.coalesce),
+      options = child.options.orElse(this.options)
     )
   }
   def toAllSinks(): AllSinks = this
 
   def getSink()(implicit settings: Settings): Sink = {
     val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
-
+    if (ref.isEmpty) {
+      throw new Exception("No connectionRef found")
+    }
     val connection = settings.appConfig.connections
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     val options = this.options.getOrElse(connection.options)
@@ -232,7 +282,7 @@ case class AllSinks(
   */
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  partition: Option[List[String]] = None,
+  partition: Option[Seq[String]] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
@@ -313,9 +363,10 @@ case class FsSink(
   format: Option[String] = None,
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
-  partition: Option[List[String]] = None,
+  partition: Option[Seq[String]] = None,
   coalesce: Option[Boolean] = None,
-  options: Option[Map[String, String]] = None
+  options: Option[Map[String, String]] = None,
+  path: Option[String] = None
 ) extends Sink {
 
   private lazy val xlsOptions: Map[String, String] = options
@@ -338,7 +389,7 @@ case class FsSink(
 
   lazy val separator: Option[String] = csvOptions.get("separator")
 
-  lazy val path: Option[String] = xlsOptions.get("path").orElse(csvOptions.get("path"))
+  val finalPath: Option[String] = path.orElse(xlsOptions.get("path")).orElse(csvOptions.get("path"))
 
   def getStorageFormat()(implicit settings: Settings): String = {
     if (isExport())
@@ -438,13 +489,13 @@ object GcpLogSink {
 object FsSink {
   def fromAllSinks(allSinks: AllSinks): FsSink = {
     FsSink(
-      allSinks.connectionRef,
-      allSinks.format,
-      allSinks.extension,
-      allSinks.clustering,
-      allSinks.partition,
-      allSinks.coalesce,
-      allSinks.options
+      connectionRef = allSinks.connectionRef,
+      format = allSinks.format,
+      extension = allSinks.extension,
+      clustering = allSinks.clustering,
+      partition = allSinks.partition,
+      coalesce = allSinks.coalesce,
+      options = allSinks.options
     )
   }
 }
@@ -458,7 +509,7 @@ object FsSink {
   *   Batch size of each JDBC bulk insert
   */
 @JsonTypeName("JDBC")
-case class JdbcSink(connectionRef: Option[String] = None, partition: Option[List[String]] = None)
+case class JdbcSink(connectionRef: Option[String] = None, partition: Option[Seq[String]] = None)
     extends Sink {
   def toAllSinks(): AllSinks = {
     AllSinks(

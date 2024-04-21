@@ -7,9 +7,9 @@ import ai.starlake.utils.JsonSerializer
 
 import java.util
 import java.util.Calendar
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.jdk.CollectionConverters._
 
-// We add
+case class DagDesc(version: Int, dag: DagGenerationConfig)
 
 case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
   def getSchedule(): String = schedule
@@ -45,6 +45,8 @@ case class DagGenerationConfig(
   options: Map[String, String]
 ) {
   def getfilenameVars()(implicit settings: Settings): Set[String] = filename.extractVars()
+
+  def this() = this("", "", "", Map.empty)
 
   def this(template: String, filename: String, options: Map[String, String]) =
     this("", template, filename, options)

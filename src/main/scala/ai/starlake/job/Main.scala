@@ -1,20 +1,21 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract._
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest.{IamPoliciesCmd, ImportCmd, IngestCmd, LoadCmd, SecureCmd}
+import ai.starlake.job.ingest._
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
-import ai.starlake.job.transform.TransformCmd
+import ai.starlake.job.transform.{TransformCmd, TransformTestCmd}
+import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
-import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.serve.MainServerCmd
 import ai.starlake.utils._
 import buildinfo.BuildInfo
@@ -57,22 +58,16 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    ProxySettings.setProxy()
-    val settings: Settings = Settings(Settings.referenceConfig)
-    logger.debug(settings.toString)
-    new Main().run(args)(settings)
+    new Main().run(args)
   }
-
-}
-
-class Main() extends StrictLogging {
-
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
     TransformCmd,
-    ImportCmd,
+    ImportCmd, // TODO: deprecate it in favor of StageCmd
+    StageCmd,
     ValidateCmd,
     LoadCmd,
+    AutoLoadCmd,
     IngestCmd,
     ESLoadCmd,
     KafkaJobCmd,
@@ -99,8 +94,15 @@ class Main() extends StrictLogging {
     BigQueryFreshnessInfoCmd,
     ProjectCompareCmd,
     MainServerCmd,
-    DagGenerateCmd
+    DagGenerateCmd,
+    ConsoleCmd,
+    TransformTestCmd
   )
+}
+
+class Main extends StrictLogging {
+
+  import Main.commands
   private def printUsage(): Unit = {
     // scalastyle:off println
     println(s"Starlake Version ${BuildInfo.version}")
@@ -144,7 +146,10 @@ class Main() extends StrictLogging {
 
   }
 
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
+  def run(args: Array[String]): Boolean = {
+    ProxySettings.setProxy()
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")
     val argList = args.toList
     checkPrerequisites(argList)
@@ -163,7 +168,13 @@ class Main() extends StrictLogging {
     logger.info(s"Running Starlake $executedCommand")
     val errCapture = new ByteArrayOutputStream()
     Console.withErr(errCapture) {
-      val result = run(args, schemaHandler)
+      val result =
+        try {
+          run(args, schemaHandler)
+        } catch {
+          case e: Throwable =>
+            Failure(e)
+        }
       // We raise an exception only on command failure not on parse args failure
       result match {
         case Failure(e: IllegalArgumentException) =>
@@ -194,6 +205,7 @@ class Main() extends StrictLogging {
             Runtime.getRuntime.halt(0)
           }
       }
+      result.isSuccess
     }
 
   }
@@ -210,8 +222,34 @@ class Main() extends StrictLogging {
           printUsage(command)
           Failure(new IllegalArgumentException(s"Unknown command $command"))
         case Some(cmd) =>
-          if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad)
-            schemaHandler.checkValidity()
+          if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad) {
+            val checkResult = schemaHandler.checkValidity()
+            checkResult match {
+              case Failure(e) =>
+                return throw e
+              case Success((Nil, _, _)) =>
+                // scalastyle:off println
+                println(s"No errors found. Project loaded successfully.")
+              case Success((errorsAndWarning, 0, warningCount)) =>
+                // scalastyle:off println
+                println(s"Found $warningCount warning(s)")
+                errorsAndWarning.foreach(println)
+              case Success((errorsAndWarning, errorCount, warningCount)) =>
+                if (warningCount == 0) {
+                  // scalastyle:off println
+                  println(s"$errorCount error(s)")
+                } else {
+                  // scalastyle:off println
+                  println(s"Found $warningCount warning(s) and $errorCount error(s)")
+                }
+                errorsAndWarning.foreach(println)
+                Failure(
+                  new Exception(
+                    s"Validation failed. $warningCount warning(s) and $errorCount error(s). Please fix the issues before proceeding"
+                  )
+                )
+            }
+          }
           val r = cmd.run(args.drop(1), schemaHandler)
           if (cmd.command == BootstrapCmd.command)
             System.exit(0)

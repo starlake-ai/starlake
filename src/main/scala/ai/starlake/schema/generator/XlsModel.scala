@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import org.apache.poi.ss.usermodel.{Cell, DataFormatter, Row, Sheet, Workbook}
 import org.apache.poi.xssf.usermodel.XSSFSheet
 
-import scala.jdk.CollectionConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter}
+import scala.jdk.CollectionConverters._
 
 trait XlsModel {
 

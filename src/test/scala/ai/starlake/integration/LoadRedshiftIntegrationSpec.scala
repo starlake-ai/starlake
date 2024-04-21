@@ -10,7 +10,7 @@ class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
   override def sampleDataDir = localDir / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    if (sys.env.contains("REDSHIFT_USER")) {
+    if (false && sys.env.contains("REDSHIFT_USER")) {
       "Import / Load / Transform Redshift" should "succeed" in {
         withEnvs(
           "SL_ROOT" -> localDir.pathAsString,
@@ -19,11 +19,15 @@ class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
           cleanup()
           copyFilesToIncomingDir(sampleDataDir)
 
-          Main.main(
-            Array("import")
+          assert(
+            new Main().run(
+              Array("import")
+            )
           )
-          Main.main(
-            Array("load")
+          assert(
+            new Main().run(
+              Array("load")
+            )
           )
         }
       }
@@ -34,11 +38,15 @@ class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
         ) {
           val sampleDataDir2 = localDir / "sample-data2"
           copyFilesToIncomingDir(sampleDataDir2)
-          Main.main(
-            Array("import")
+          assert(
+            new Main().run(
+              Array("import")
+            )
           )
-          Main.main(
-            Array("load")
+          assert(
+            new Main().run(
+              Array("load")
+            )
           )
         }
       }

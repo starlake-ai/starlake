@@ -19,11 +19,15 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
           cleanup()
           copyFilesToIncomingDir(sampleDataDir)
 
-          Main.main(
-            Array("import")
+          assert(
+            new Main().run(
+              Array("import")
+            )
           )
-          Main.main(
-            Array("load")
+          assert(
+            new Main().run(
+              Array("load")
+            )
           )
         }
       }
@@ -34,11 +38,15 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
         ) {
           val sampleDataDir2 = localDir / "sample-data2"
           copyFilesToIncomingDir(sampleDataDir2)
-          Main.main(
-            Array("import")
+          assert(
+            new Main().run(
+              Array("import")
+            )
           )
-          Main.main(
-            Array("load")
+          assert(
+            new Main().run(
+              Array("load")
+            )
           )
         }
       }

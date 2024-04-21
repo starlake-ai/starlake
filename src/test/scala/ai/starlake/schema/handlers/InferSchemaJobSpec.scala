@@ -3,7 +3,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
 import ai.starlake.schema.model.WriteMode
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 
 import scala.io.Source
@@ -73,11 +73,11 @@ class InferSchemaJobSpec extends TestHelper {
     }
 
     "GetFormatArrayJson" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "JSON_ARRAY"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "JSON_ARRAY"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
@@ -86,7 +86,7 @@ class InferSchemaJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
         for {
           sourceFile <- File.temporaryFile()
@@ -104,22 +104,22 @@ class InferSchemaJobSpec extends TestHelper {
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
             clean = false
-          )
+          )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.sl.yml")
           val maybeDomain =
-            YamlSerializer.deserializeDomain(
+            YamlSerde.deserializeYamlLoadConfig(
               targetConfig.contentAsString,
               targetConfig.pathAsString
             )
           maybeDomain.isSuccess shouldBe true
           val targetFile = File(locationDir, "flat_locations.sl.yml")
-          val maybeTable = YamlSerializer.deserializeSchema(
+          val maybeTable = YamlSerde.deserializeYamlTables(
             targetFile.contentAsString,
             targetFile.pathAsString
           )
 
-          val discoveredSchema = maybeTable.get
+          val discoveredSchema = maybeTable.tables.head
           discoveredSchema.name shouldBe "flat_locations"
           discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
             "id",

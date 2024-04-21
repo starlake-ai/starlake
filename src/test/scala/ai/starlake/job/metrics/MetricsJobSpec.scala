@@ -89,9 +89,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
-        sparkSession.sql("DROP DATABASE IF EXISTS yelp CASCADE")
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         loadPending
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")

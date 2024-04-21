@@ -60,7 +60,9 @@ class BigQueryNativeJob(
                     bqLoadConfig(bqSchema, formatOptions, sourceURIs)
                   // Load data from a GCS CSV file into the table
                   val jobId = newJobIdWithLocation()
-                  bigquery().create(JobInfo.newBuilder(loadConfig).setJobId(jobId).build())
+                  bigquery(accessToken = cliConfig.accessToken).create(
+                    JobInfo.newBuilder(loadConfig).setJobId(jobId).build()
+                  )
                 }
               }
               logger.info(s"Waiting for job ${job.getJobId}")
@@ -107,12 +109,12 @@ class BigQueryNativeJob(
   ): Job = {
     val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
     val jobId: JobId = newJobIdWithLocation()
-    Using(bigquery().writer(jobId, loadConfig)) { writer =>
+    Using(bigquery(accessToken = cliConfig.accessToken).writer(jobId, loadConfig)) { writer =>
       val outputStream = Channels.newOutputStream(writer)
       sourceURIs
         .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
     }
-    bigquery().getJob(jobId)
+    bigquery(accessToken = cliConfig.accessToken).getJob(jobId)
   }
 
   private def newJobIdWithLocation(): JobId = {
@@ -229,7 +231,7 @@ class BigQueryNativeJob(
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
-          case Format.JSON | Format.SIMPLE_JSON =>
+          case Format.JSON | Format.JSON_FLAT =>
             FormatOptions.json()
           case _ =>
             throw new Exception(s"Should never happen: ${metadata.getFormat()}")
@@ -263,7 +265,9 @@ class BigQueryNativeJob(
         recoverBigqueryException {
           val jobId = newJobIdWithLocation()
           val queryJob =
-            bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
+            bigquery(accessToken = cliConfig.accessToken).create(
+              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
+            )
           logger.info(s"Waiting for job $jobId")
           queryJob.waitFor(
             RetryOption.maxAttempts(0),
@@ -298,7 +302,7 @@ class BigQueryNativeJob(
     queryConfig: QueryJobConfiguration.Builder
   ): QueryJobConfiguration.Builder = {
     settings.appConfig
-      .getUdfs()
+      .getEffectiveUdfs()
       .foreach { udf =>
         if (udf.contains("://")) // make sure it's a URI
           queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
@@ -357,7 +361,8 @@ class BigQueryNativeJob(
           case None    =>
         }
         val table =
-          bigquery().create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
         setTagsOnTable(table)
         table
       }
@@ -397,7 +402,7 @@ class BigQueryNativeJob(
         }
         // Allow Field relaxation / addition in native job when appending to existing partitioned table
         val tableExists = Try(
-          bigquery()
+          bigquery(accessToken = cliConfig.accessToken)
             .getTable(tableId)
             .exists()
         ).toOption.getOrElse(false)
@@ -430,7 +435,9 @@ class BigQueryNativeJob(
         recoverBigqueryException {
           val jobId = newJobIdWithLocation()
           val jobInfo =
-            bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
+            bigquery(accessToken = cliConfig.accessToken).create(
+              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
+            )
           logger.info(s"Waiting for job $jobId")
           jobInfo.waitFor(
             RetryOption.totalTimeout(
@@ -450,7 +457,7 @@ class BigQueryNativeJob(
           logger.info(
             s"Query large results performed successfully: ${results.getTotalRows} rows inserted and processed ${totalBytesProcessed} bytes."
           )
-          val table = bigquery().getTable(tableId)
+          val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
           setTagsOnTable(table)
 
           applyRLSAndCLS().recover { case e =>
@@ -473,7 +480,7 @@ class BigQueryNativeJob(
 
   def getTable(tableId: TableId): Try[Table] = {
     Try {
-      bigquery().getTable(tableId)
+      bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
     }
   }
   // run batch query use only (for auditing only)
@@ -505,7 +512,8 @@ class BigQueryNativeJob(
             .build()
         logger.info(s"Executing batch BQ Query $sql")
         val job =
-          bigquery().create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
         logger.info(
           s"Batch query wth jobId $jobId sent to BigQuery "
         )

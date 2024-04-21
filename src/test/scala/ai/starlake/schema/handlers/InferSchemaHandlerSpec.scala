@@ -48,7 +48,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .json(Seq(SimpleJsonStr).toDS)
 
       val simpleAttr: List[Attribute] =
-        InferSchemaHandler.createAttributes(Nil, df1.schema, Format.SIMPLE_JSON)
+        InferSchemaHandler.createAttributes(Nil, df1.schema, Format.JSON_FLAT)
 
       val simpleAttr1: List[Attribute] = List(
         Attribute("key", "string", Some(false), required = false),

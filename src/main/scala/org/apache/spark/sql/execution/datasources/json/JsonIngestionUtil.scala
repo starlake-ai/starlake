@@ -86,7 +86,7 @@ object JsonIngestionUtil {
       case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
         val fields1 = unsortedFields1.sortBy(_.name)
         val fields2 = unsortedFields2.sortBy(_.name)
-        val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+        val errorList: mutable.ListBuffer[String] = mutable.ListBuffer.empty
         var f1Idx = 0
         var f2Idx = 0
         var typeComp = true
@@ -143,7 +143,7 @@ object JsonIngestionUtil {
 
   private def addError(
     context: List[String],
-    errorList: mutable.MutableList[String],
+    errorList: mutable.ListBuffer[String],
     expected: Option[StructField],
     incoming: StructField
   ): Unit = {

@@ -54,7 +54,8 @@ class GenericIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -175,7 +176,7 @@ class GenericIngestionJob(
     */
   def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val options = mergedMetadata.getOptions()
+      val options = sparkOptions
       val timestampColumn = options.get("_timestamp")
       val startTime = Timestamp.valueOf(LocalDateTime.now())
       for {

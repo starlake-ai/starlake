@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.PrivacyLevel
+import ai.starlake.schema.model.TransformInput
 import better.files.File
 
 class ExtractScriptGenSpec extends TestHelper {
@@ -15,8 +15,8 @@ class ExtractScriptGenSpec extends TestHelper {
         domainToExport = "domain1",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None)
         ),
         fullExport = false,
         dsvDelimiter = ",",
@@ -54,10 +54,10 @@ class ExtractScriptGenSpec extends TestHelper {
         domainToExport = "domain1",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None),
-          ("col3", "string", true, PrivacyLevel.None),
-          ("col4", "string", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None),
+          ("col3", "string", true, TransformInput.None),
+          ("col4", "string", false, TransformInput.None)
         ),
         fullExport = false,
         dsvDelimiter = ",",

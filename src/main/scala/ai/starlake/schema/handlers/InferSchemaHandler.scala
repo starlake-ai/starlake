@@ -22,8 +22,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
-import better.files.File
+import ai.starlake.utils.YamlSerde
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.time.ZonedDateTime
@@ -100,7 +100,7 @@ object InferSchemaHandler {
                 if (timestampCandidates.isEmpty)
                   "string"
                 else if (timestampCandidates.forall(v => parseIsoInstant(v)))
-                  "timestamp"
+                  "iso_date_time"
                 else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
                   "date"
                 else
@@ -109,7 +109,7 @@ object InferSchemaHandler {
                 row.dataType.typeName == "timestamp" && Set(
                   Format.DSV,
                   Format.POSITION,
-                  Format.SIMPLE_JSON
+                  Format.JSON_FLAT
                 ).contains(format)
               ) {
                 // We handle here the case when it is a date and not a timestamp
@@ -142,16 +142,17 @@ object InferSchemaHandler {
     format: Format,
     array: Option[Boolean] = None,
     withHeader: Option[Boolean] = None,
-    separator: Option[String] = None
+    separator: Option[String] = None,
+    options: Option[Map[String, String]] = None
   ): Metadata =
     Metadata(
-      mode = Some(Mode.fromString("FILE")),
       format = Some(format),
       encoding = None,
       multiline = None,
-      array = array,
+      array = if (array.contains(true)) array else None,
       withHeader = withHeader,
-      separator = separator
+      separator = separator,
+      options = options
     )
 
   /** * builds the Schema case class
@@ -212,33 +213,25 @@ object InferSchemaHandler {
     */
   def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
     settings: Settings
-  ): Try[File] = Try {
+  ): Try[Path] = Try {
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
 
     /** load: metadata: directory: "{{incoming_path}}"
       */
-    val domainFolder = File(saveDir, domain.name)
-    domainFolder.createDirectories()
-    val configPath = File(domainFolder, "_config.sl.yml")
-    if (!configPath.exists) {
-      // minimal config file
-      val configData = s"""
-         |load:
-         |  metadata:
-         |    directory: "{{incoming_path}}/${domain.name}"
-         |""".stripMargin
-      configPath.overwrite(configData)
+    val domainFolder = new Path(saveDir, domain.name)
+    storageHandler.mkdirs(domainFolder)
+    val configPath = new Path(domainFolder, "_config.sl.yml")
+    if (!storageHandler.exists(configPath)) {
+      YamlSerde.serializeToPath(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
-    val tablePath = File(domainFolder, s"${table.name}.sl.yml")
-    if (tablePath.exists) {
-      if (!clean) {
-        throw new Exception(
-          s"Could not write tble ${domain.tables.head.name} already defined in file $tablePath"
-        )
-      }
-    } else {
-      YamlSerializer.serializeToFile(tablePath, table)
+    val tablePath = new Path(domainFolder, s"${table.name}.sl.yml")
+    if (storageHandler.exists(tablePath) && !clean) {
+      throw new Exception(
+        s"Could not write table ${domain.tables.head.name} already defined in file $tablePath"
+      )
     }
+    YamlSerde.serializeToPath(tablePath, table)
     tablePath
   }
 }
