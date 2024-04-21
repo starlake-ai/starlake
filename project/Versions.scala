@@ -41,5 +41,5 @@ object Versions {
   val redshiftJDBC = "2.1.0.26"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
-  val derbyVersion = "10.14.2.0"
+  val derbyVersion = "10.17.1.0"
 }
