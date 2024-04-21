@@ -52,9 +52,19 @@ class PositionIngestionJob(
   path: List[Path],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  options: Map[String, String]
+  options: Map[String, String],
+  accessToken: Option[String]
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends DsvIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken
+    ) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped from the dataset (require datsets with a header)
@@ -66,7 +76,7 @@ class PositionIngestionJob(
     Try {
       val dfIn = mergedMetadata.getEncoding().toUpperCase match {
         case "UTF-8" =>
-          session.read.options(mergedMetadata.getOptions()).text(path.map(_.toString): _*)
+          session.read.options(sparkOptions).text(path.map(_.toString): _*)
         case _ => {
           val rdd =
             PositionIngestionUtil.loadDfWithEncoding(session, path, mergedMetadata.getEncoding())

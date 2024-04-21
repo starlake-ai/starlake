@@ -10,6 +10,7 @@ import com.google.cloud.bigquery.{Dataset, Table}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -143,7 +144,8 @@ object BigQueryFreshnessInfo extends StrictLogging {
             "freshness_info",
             Some("Information related to table freshness"),
             Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-            config.writeMode.getOrElse(WriteMode.APPEND)
+            config.writeMode.getOrElse(WriteMode.APPEND),
+            accessToken = config.accessToken
           )
         case scala.util.Success(_) =>
           logger.warn("Could not extract BigQuery tables info")
@@ -188,6 +190,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
     }
   }
 
+  @nowarn
   def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
     BigQueryFreshnessInfoCmd.run(args, schemaHandler).map(_ => ())

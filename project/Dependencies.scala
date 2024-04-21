@@ -87,7 +87,8 @@ object Dependencies {
   )
 
   val scalaTest = Seq(
-    "org.scalatest" %% "scalatest" % Versions.scalatest % Test
+    "org.scalatest" %% "scalatest" % Versions.scalatest % Test,
+    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test
   )
 
   val h2 = Seq(
@@ -150,16 +151,20 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
-  val bigQueue = Seq("com.leansoft" % "bigqueue" % Versions.bigQueue)
-
   val jna_apple_arm_testcontainers = Seq(
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.17.1" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.18.0" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.postgresql" % "postgresql" % "42.7.3" % Test
+  )
+
+  val mariadb = Seq(
+    "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.3.3" % Test,
+    "com.mysql" % "mysql-connector-j" % "8.3.0" % Test
   )
 
   val jinja = Seq(
@@ -168,7 +173,24 @@ object Dependencies {
 
   val jSqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser)
 
+  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
+
+  val jsonSchemaValidator = Seq(
+    "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
+  )
+
+  val scalaCompat = Seq(
+    "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
+    "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
+  )
+
+  val derbyTestServer = Seq(
+    "org.apache.derby" % "derby" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbyclient" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbynet" % Versions.derbyVersion % Test
+  )
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
+    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer
 }

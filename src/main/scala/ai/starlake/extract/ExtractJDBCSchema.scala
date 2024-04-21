@@ -1,15 +1,17 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{Utils, YamlSerializer}
-import better.files.File
+import ai.starlake.utils.{Utils, YamlSerde}
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 
+import java.io.FileNotFoundException
 import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -17,6 +19,7 @@ import scala.util.{Failure, Success, Try}
 class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   implicit val schemaHandlerImplicit: SchemaHandler = schemaHandler
+  @nowarn
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractJDBCSchemaCmd.run(args, schemaHandler).map(_ => ())
   }
@@ -33,25 +36,33 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
     ExtractUtils.timeIt("Schema extraction") {
+      val extractConfigPath = mappingPath(config.extractConfig)
+      Try(settings.storageHandler().exists(extractConfigPath)) match {
+        case Failure(_) | Success(false) =>
+          throw new FileNotFoundException(
+            s"Could not found extract config ${config.extractConfig}. Please check its existence."
+          )
+        case _ => // do nothing
+      }
       val content = settings
         .storageHandler()
-        .read(mappingPath(config.extractConfig))
+        .read(extractConfigPath)
         .richFormat(schemaHandler.activeEnvVars(), Map.empty)
       val jdbcSchemas =
-        YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
+        YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
       val connectionSettings = jdbcSchemas.connectionRef match {
         case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
         case None => throw new Exception(s"No connectionRef defined for jdbc schemas.")
       }
 
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-        ExtractUtils.createForkSupport(config.parallelism)
-      ExtractUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+        ParUtils.createForkSupport(config.parallelism)
+      ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
         val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
           val content = settings
             .storageHandler()
             .read(mappingPath(ymlTemplate))
-          YamlSerializer.deserializeDomain(content, ymlTemplate) match {
+          YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate) match {
             case Success(domain) =>
               domain
             case Failure(e) => throw e
@@ -74,19 +85,19 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
   def extractSchema(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    baseOutputDir: File,
+    baseOutputDir: Path,
     domainTemplate: Option[Domain],
     currentDomain: Option[Domain]
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
   ): Unit = {
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
     val domainName = jdbcSchema.sanitizeName match {
       case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
       case _          => jdbcSchema.schema
     }
-    baseOutputDir.createDirectories()
-    File(baseOutputDir, domainName).createDirectories()
+    storageHandler.mkdirs(new Path(baseOutputDir, domainName))
     val extractedDomain = extractDomain(jdbcSchema, connectionSettings, domainTemplate)
     val domain = extractedDomain.copy(
       comment = extractedDomain.comment.orElse(currentDomain.flatMap(_.comment)),
@@ -138,14 +149,16 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
           restoredTable.copy(pattern = pat)
       }
 
-      val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
-      val file = File(baseOutputDir, domainName, table.name + ".sl.yml")
-      file.overwrite(content)
+      val content =
+        YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
+      val file = new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
+      storageHandler.delete(file)
+      storageHandler.write(content, file)
     }
 
     val finalDomain = domain.copy(tables = Nil)
-    YamlSerializer.serializeToFile(
-      File(baseOutputDir, domainName, "_config.sl.yml"),
+    YamlSerde.serializeToPath(
+      new Path(new Path(baseOutputDir, domainName), "_config.sl.yml"),
       finalDomain
     )
   }

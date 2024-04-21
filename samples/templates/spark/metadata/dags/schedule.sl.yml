@@ -1,3 +1,4 @@
+version: 1
 dag:
     comment: "sample dag configuration"
     template: "sample.py.j2"

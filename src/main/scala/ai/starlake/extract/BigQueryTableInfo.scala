@@ -31,6 +31,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.util.Try
 
 case class BigQueryDatasetInfo(
@@ -127,7 +128,8 @@ object BigQueryTableInfo extends StrictLogging {
           "dataset_info",
           Some("Information related to datasets"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
 
         val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
@@ -137,7 +139,8 @@ object BigQueryTableInfo extends StrictLogging {
           "table_info",
           Some("Information related to tables"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfTable.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
       case scala.util.Success(_) =>
         logger.warn("Could not extract BigQuery tables info")
@@ -169,6 +172,7 @@ object BigQueryTableInfo extends StrictLogging {
     selectedInfos
   }
 
+  @nowarn
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
     BigQueryTableInfoCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())

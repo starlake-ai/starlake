@@ -1,24 +1,24 @@
 package ai.starlake.job.bootstrap
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.utils.{JarUtil, YamlSerializer}
+import ai.starlake.utils.{JarUtil, YamlSerde}
 import better.files.File
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.io.Source
-import scala.jdk.CollectionConverters.asScalaIteratorConverter
+import scala.jdk.CollectionConverters._
+
 import scala.util.Try
 
 object Bootstrap extends StrictLogging {
-  val SAMPLES_DIR = "bootstrap/samples"
-  val TEMPLATES_DIR = s"$SAMPLES_DIR/templates"
+  val TEMPLATES_DIR = "templates/bootstrap/samples"
   private def copyToFolder(
     resources: List[String],
     templateFolder: String,
     targetFolder: File
-  ): Unit = {
-    resources.foreach { resource =>
+  ): List[File] = {
+    resources.map { resource =>
       logger.info(s"copying $resource")
       val source = Source.fromResource(resource)
       if (source == null)
@@ -36,18 +36,23 @@ object Bootstrap extends StrictLogging {
     }
   }
 
-  def askTemplate(maybeString: Option[String]): Option[String] = {
+  private def askTemplate(maybeString: Option[String]): Option[String] = {
     maybeString match {
       case Some(template) =>
         Some(template)
       case None =>
-        println("Please choose a template:")
-        val templates = JarUtil.getResourceFolders("bootstrap/samples/templates/")
-        templates.zipWithIndex.foreach { case (template, index) =>
-          println(s"  $index. $template")
+        val templates = JarUtil.getResourceFolders("templates/bootstrap/samples/")
+        if (templates.length == 1) {
+          Some(templates.head)
+        } else {
+
+          println("Please choose a template:")
+          templates.zipWithIndex.foreach { case (template, index) =>
+            println(s"  $index. $template")
+          }
+          println(s"  q. quit")
+          requestAnswer(templates)
         }
-        println(s"  q. quit")
-        requestAnswer(templates)
     }
   }
 
@@ -82,22 +87,38 @@ object Bootstrap extends StrictLogging {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
-    askTemplate(template)
+    val dagLibDir = File(metadataFolder, "dags", "generated")
+    dagLibDir.createDirectories()
+    import scala.sys.process._
+    println("Installing starlake-airflow")
+    val pipResult = s"pip install --target $dagLibDir starlake-airflow".!!
+    println(pipResult)
+    template
       .foreach { template =>
         val rootFolder = metadataFolder.parent
         val templatePath = s"$TEMPLATES_DIR/$template/"
+
+        // copy template files
         val bootstrapFiles = JarUtil.getResourceFiles(templatePath)
         copyToFolder(bootstrapFiles, templatePath, rootFolder)
-        val vsCodeDir = s"$SAMPLES_DIR/vscode"
-        val vscodeExtensionFiles = List(s"$vsCodeDir/extensions.json")
+
+        // copy vscode settings
+        val vscodeExtensionFiles = List(s"$TEMPLATES_DIR/extensions.json")
         val targetDir = rootFolder / ".vscode"
         targetDir.createDirectories()
-        copyToFolder(vscodeExtensionFiles, vsCodeDir, targetDir)
+        copyToFolder(vscodeExtensionFiles, TEMPLATES_DIR, targetDir)
+
+        // copy gitignore
+        val gitIgnoreFilename = List(s"$TEMPLATES_DIR/gitignore")
+        val gitIgnoreFile = copyToFolder(gitIgnoreFilename, TEMPLATES_DIR, targetDir).head
+        val dotDitIgnoreFile = gitIgnoreFile.parent / ".gitignore"
+        gitIgnoreFile.moveTo(dotDitIgnoreFile)
+
         if (template == "initializer") {
           val appFile = metadataFolder / "application.sl.yml"
 
           val contents = appFile.contentAsString
-          val rootNode = YamlSerializer.mapper.readTree(contents)
+          val rootNode = YamlSerde.mapper.readTree(contents)
           val appNode = rootNode.path("application").asInstanceOf[ObjectNode]
           val connectionsNode = appNode.path("connections").asInstanceOf[ObjectNode]
 
@@ -129,7 +150,7 @@ object Bootstrap extends StrictLogging {
                 }
               }
             }
-            appFile.overwrite(YamlSerializer.mapper.writeValueAsString(rootNode))
+            appFile.overwrite(YamlSerde.mapper.writeValueAsString(rootNode))
           }
         }
       }
@@ -137,7 +158,7 @@ object Bootstrap extends StrictLogging {
   def main(args: Array[String]): Unit = {
     // askTemplate(None)
     val template = "bigquery"
-    val templatePath = s"$TEMPLATES_DIR/$template"
+    val templatePath = s"bootstrap/$template"
     val bootstrapFiles = JarUtil.getResourceFiles(templatePath)
     bootstrapFiles.foreach(println)
   }

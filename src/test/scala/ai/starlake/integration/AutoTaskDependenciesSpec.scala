@@ -3,32 +3,43 @@ package ai.starlake.integration
 import ai.starlake.job.Main
 
 class AutoTaskDependenciesSpec extends IntegrationTestBase {
+  override def localDir = starlakeDir / "samples" / "starbake"
+  override def sampleDataDir = localDir / "sample-data"
+  logger.info(localDir.pathAsString)
 
-  val samplesDir = starlakeDir / "samples"
-  logger.info(starlakeDir.pathAsString)
-  val starbakeDir = samplesDir / "starbake"
-  logger.info(starbakeDir.pathAsString)
+  override def beforeEach(): Unit = {
+    // do not clean
+  }
+
+  override def afterEach(): Unit = {
+    // do not clean
+  }
+
+  "Autoload" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+      copyFilesToIncomingDir(sampleDataDir)
+      assert(new Main().run(Array("autoload", "--clean")))
+    }
+  }
 
   "Recursive Transform" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
-      withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString
-      ) {
-        Main.main(
-          Array("transform", "--recursive", "--name", "Products.TopSellingProfitableProducts")
+      withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+        val result = new Main().run(
+          Array("transform", "--recursive", "--name", "kpi.order_summary")
         )
+        assert(result)
       }
     }
   }
 
   "sample test" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
-      withEnvs(
-        "SL_ROOT"     -> starbakeDir.pathAsString,
-        "SL_METADATA" -> starbakeDir.pathAsString
-      ) {
-        Main.main(
-          Array("acl-dependencies", "--all")
+      withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+        assert(
+          new Main().run(
+            Array("acl-dependencies", "--all")
+          )
         )
       }
     }
@@ -36,10 +47,13 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Dependency Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString
+        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ENV"  -> "DUCKDB"
       ) {
-        Main.main(
-          Array("lineage", "--viz", "--all")
+        assert(
+          new Main().run(
+            Array("lineage", "--viz", "--all")
+          )
         )
       }
     }
@@ -48,10 +62,13 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ENV"  -> "DUCKDB"
       ) {
-        Main.main(
-          Array("table-dependencies")
+        assert(
+          new Main().run(
+            Array("table-dependencies")
+          )
         )
       }
     }
@@ -60,15 +77,17 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "Job GraphViz Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> starbakeDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
+        "SL_ROOT" -> localDir.pathAsString /* , "SL_METADATA" -> starbakeDir.pathAsString */
       ) {
-        Main.main(
-          Array(
-            "lineage",
-            "--print",
-            "--viz",
-            "--tasks",
-            "Products.TopSellingProfitableProducts"
+        assert(
+          new Main().run(
+            Array(
+              "lineage",
+              "--print",
+              "--viz",
+              "--task",
+              "kpi.order_summary"
+            )
           )
         )
       }

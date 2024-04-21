@@ -1,19 +1,19 @@
 ---
+version: 1
 load:
   name: "json"
-  directory: "__SL_TEST_ROOT__/json"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/json"
     format: "JSON"
     separator: "|"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     sink:
       partition:
-        attributes:
-          - sl_year
-          - sl_month
-          - sl_day
-  schemas:
+        - sl_year
+        - sl_month
+        - sl_day
+  tables:
     - name: "sample_json"
       pattern: "complex.*"
       attributes:

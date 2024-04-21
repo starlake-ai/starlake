@@ -4,11 +4,9 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -25,7 +23,7 @@ import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import java.time.Instant
-import scala.jdk.CollectionConverters.{asJavaIterableConverter, asScalaBufferConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class BigQueryAutoTask(
@@ -33,6 +31,8 @@ class BigQueryAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -111,7 +111,8 @@ class BigQueryAutoTask(
       refreshIntervalMs = bqSink.refreshIntervalMs,
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
-      outputDatabase = taskDesc.getDatabase()
+      outputDatabase = taskDesc.getDatabase(),
+      accessToken = accessToken
     )
   }
 
@@ -191,7 +192,8 @@ class BigQueryAutoTask(
                     starlakeSchema = None,
                     // outputTableDesc = action.taskDesc.comment.getOrElse(""),
                     attributesDesc = this.taskDesc.attributesDesc,
-                    outputDatabase = this.taskDesc.database
+                    outputDatabase = this.taskDesc.database,
+                    accessToken = accessToken
                   )
                 val bqSparkJob =
                   new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
@@ -239,7 +241,7 @@ class BigQueryAutoTask(
                 val end = Timestamp.from(Instant.now())
                 val jobResultCount =
                   jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
-                jobResultCount.foreach(logAuditSuccess(start, end, _))
+                jobResultCount.foreach(logAuditSuccess(start, end, _, test))
                 // We execute assertions only on success
                 if (settings.appConfig.expectations.active) {
                   new ExpectationJob(
@@ -287,7 +289,7 @@ class BigQueryAutoTask(
             case _ =>
               val err = errors.reduce(_.initCause(_))
               val end = Timestamp.from(Instant.now())
-              logAuditFailure(start, end, err)
+              logAuditFailure(start, end, err, test)
               Failure(err)
           }
 
@@ -309,27 +311,8 @@ class BigQueryAutoTask(
     runBQ(None)
   }
 
-  override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
-      strategy,
-      sqlWithParameters,
-      fullTableName,
-      columnNames,
-      tableExists,
-      truncate,
-      isMaterializedView(),
-      jdbcSinkEngine,
-      sinkConfig
-    )
-    mainSql
-  }
-
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
-    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     if (
       isSCD2 && !incomingTableSchema.getFields.asScala.exists(
         _.getName().toLowerCase() == settings.appConfig.scd2StartTimestamp.toLowerCase()

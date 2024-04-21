@@ -3,10 +3,8 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -23,6 +21,8 @@ class JdbcAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -89,9 +89,9 @@ class JdbcAutoTask(
 
   def addSCD2Columns(connection: Connection): Unit = {
     this.taskDesc.writeStrategy match {
-      case Some(strategyOptions) if strategyOptions.getStrategyType() == WriteStrategyType.SCD2 =>
-        val startTsCol = strategyOptions.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTsCol = strategyOptions.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+      case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
+        val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
         val scd2Columns = List(startTsCol, endTsCol)
         val alterTableSqls = scd2Columns.map { column =>
           s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP"
@@ -100,24 +100,6 @@ class JdbcAutoTask(
       case _ =>
     }
   }
-  override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
-      strategy,
-      sqlWithParameters,
-      fullTableName,
-      columnNames,
-      tableExists,
-      truncate = truncate,
-      materializedView = isMaterializedView(),
-      jdbcSinkEngine,
-      sinkConfig
-    )
-    mainSql
-  }
-
   def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 
@@ -142,14 +124,17 @@ class JdbcAutoTask(
           case None =>
             conn.setAutoCommit(false)
             val parsedPreActions =
-              Utils.parseJinja(jdbcSinkEngine.preactions, Map("schema" -> taskDesc.domain))
+              Utils.parseJinja(
+                jdbcSinkEngine.preActions.getOrElse(""),
+                Map("schema" -> taskDesc.domain)
+              )
             Try {
               runPreActions(conn, parsedPreActions.splitSql(";"))
               runSqls(conn, preSql, "Pre")
               df match {
                 case Some(loadedDF) =>
                   logger.info(s"Writing dataframe to $fullTableName")
-                  val saveMode = strategy.getWriteMode().toSaveMode
+                  val saveMode = strategy.toWriteMode().toSaveMode
                   if (saveMode == SaveMode.Overwrite || truncate) {
                     val jdbcUrl = sinkConnection.options("url")
                     val dialect = SparkUtils.dialect(jdbcUrl)
@@ -200,9 +185,9 @@ class JdbcAutoTask(
     val end = Timestamp.from(Instant.now())
     res match {
       case Success(_) =>
-        logAuditSuccess(start, end, -1)
+        logAuditSuccess(start, end, -1, test)
       case Failure(e) =>
-        logAuditFailure(start, end, e)
+        logAuditFailure(start, end, e, test)
     }
     res
   }
@@ -240,8 +225,8 @@ class JdbcAutoTask(
 
   lazy val fullTableName = s"$fullDomainName.${taskDesc.table}"
 
-  private def runPreActions(conn: java.sql.Connection, preactions: List[String]): Unit = {
-    runSqls(conn, preactions, "Preactions")
+  private def runPreActions(conn: java.sql.Connection, preActions: List[String]): Unit = {
+    runSqls(conn, preActions, "PreActions")
   }
 
   @throws[Exception]
@@ -262,13 +247,13 @@ class JdbcAutoTask(
 
   def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
     // update target table schema if needed
-    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
       if (isSCD2) {
         incomingSchema
           .add(
             StructField(
-              strategy.start_ts
+              strategy.startTs
                 .getOrElse(settings.appConfig.scd2StartTimestamp),
               TimestampType,
               nullable = true
@@ -276,7 +261,7 @@ class JdbcAutoTask(
           )
           .add(
             StructField(
-              strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp),
+              strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp),
               TimestampType,
               nullable = true
             )

@@ -22,7 +22,7 @@ class Yml2DDLSpec extends TestHelper {
       ) {
         val schemaHandler = new SchemaHandler(storageHandler)
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
         val config = Yml2DDLConfig("bigquery")
         val result = new Yml2DDLJob(config, schemaHandler).run()
         Utils.logFailure(result, logger) match {

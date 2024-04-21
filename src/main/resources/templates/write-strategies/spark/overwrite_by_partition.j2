@@ -1,0 +1,5 @@
+
+INSERT OVERWRITE TABLE {{ tableFullName }} 
+PARTITION ({% for partitionColumn in sinkPartition %}{{ partitionColumn }} {% if not loop.last %}, {% endif %}{%endfor%})
+{{ selectStatement }};
+

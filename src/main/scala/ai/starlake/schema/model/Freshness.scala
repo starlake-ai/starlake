@@ -10,7 +10,7 @@ case class Freshness(
   error: Option[String] = None
 ) {
   def checkValidity(): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     def checkDuration(duration: Option[String]): Unit = {
       Try {

@@ -18,8 +18,10 @@ import java.nio.charset.Charset
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try, Using}
 
-class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settings: Settings)
-    extends StrictLogging {
+class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
+  val settings: Settings
+) extends StrictLogging {
+
   val domain: Domain = ingestionJob.domain
 
   val schema: Schema = ingestionJob.schema
@@ -49,7 +51,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
     Try {
       val effectiveSchema: Schema = computeEffectiveInputSchema()
       val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-        strategy.getWriteMode()
+        strategy.toWriteMode()
       )
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
       val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
@@ -78,7 +80,8 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
           starlakeSchema = Some(schemaWithMergedMetadata),
           domainTags = domain.tags,
           domainDescription = domain.comment,
-          outputDatabase = schemaHandler.getDatabase(domain)
+          outputDatabase = schemaHandler.getDatabase(domain),
+          accessToken = accessToken
         )
       val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
       if (twoSteps) {
@@ -174,7 +177,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
         database = archiveDatabaseName,
         archiveDomainName,
         archiveTableName,
-        Some(WriteMode.APPEND),
         sink = Some(mergedMetadata.getSink().toAllSinks())
       )
 
@@ -183,6 +185,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
         Map.empty,
         None,
         truncate = false,
+        test = false,
         Engine.BQ
       )(
         settings,
@@ -308,7 +311,19 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =
               csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-            schema.copy(attributes = effectiveAttributes)
+            if (effectiveAttributes.length > schema.attributes.length) {
+              logger.warn(
+                s"Attributes in the CSV file are bigger from the schema. " +
+                s"Schema will be updated to match the CSV file. " +
+                s"Schema: ${schema.attributes.map(_.name).mkString(",")}. " +
+                s"CSV: ${csvHeaders.mkString(",")}"
+              )
+              schema.copy(attributes = effectiveAttributes.take(schema.attributes.length))
+
+            } else {
+              schema.copy(attributes = effectiveAttributes)
+            }
+
           case _ => schema
         }
       case _ => schema
@@ -334,7 +349,6 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       database = schemaHandler.getDatabase(domain),
       domain = domain.finalName,
       table = schema.finalName,
-      write = Some(mergedMetadata.getWrite()),
       presql = schema.presql,
       postsql = schema.postsql,
       sink = mergedMetadata.sink,
@@ -347,7 +361,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob)(implicit val settin
       parseSQL = Some(true)
     )
     val job =
-      new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false)(
+      new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
         settings,
         storageHandler,
         schemaHandler

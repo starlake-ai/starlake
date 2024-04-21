@@ -41,7 +41,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
-              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}. Dag config founds ${dagConfigs.keys
+              s"Could not find dag config $dagRef referenced in ${domain.name}.${table.name}. Dag configs found ${dagConfigs.keys
                   .mkString(",")}"
             )
           )
@@ -74,7 +74,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagConfig = dagConfigs.getOrElse(
             dagRef,
             throw new Exception(
-              s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config founds ${dagConfigs.keys
+              s"Could not find dag config $dagRef referenced in ${taskWithDag.name}. Dag config found ${dagConfigs.keys
                   .mkString(",")}"
             )
           )
@@ -101,7 +101,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
     if (config.clean) {
       logger.info(s"Cleaning output directory $outputDir")
-      settings.storageHandler().delete(outputDir)
+      settings.storageHandler().delete(new Path(outputDir, "transform"))
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
@@ -140,7 +140,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val headConfig = taskConfigs.head match { case (_, config) => config }
         val dagConfig = headConfig.dagConfig
         val dagTemplateName = dagConfig.template
-        val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+        val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
         val cron = settings.appConfig.schedulePresets.getOrElse(
           headConfig.schedule.getOrElse("None"),
           headConfig.schedule.getOrElse("None")
@@ -167,7 +167,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
     if (config.clean) {
       logger.info(s"Cleaning output directory $outputDir")
-      settings.storageHandler().delete(outputDir)
+      settings.storageHandler().delete(new Path(outputDir, "load"))
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
@@ -182,7 +182,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
       val dagConfig = dagConfigs(dagConfigName)
       val dagTemplateName = dagConfig.template
-      val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+      val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
       if (filenameVars.exists(List("table", "finalTable").contains)) {
         if (!filenameVars.exists(List("domain", "finalDomain").contains))
@@ -301,7 +301,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           var scheduleIndex = 1
           val dagConfig = dagConfigs(dagConfigName)
           val dagTemplateName = dagConfig.template
-          val dagTemplateContent = Yml2DagTemplateLoader.loadTemplate(dagTemplateName)
+          val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
           val dagSchedules = groupedBySchedule
             .map { case (schedule, groupedByDomain) =>
               val (scheduleValue, nextScheduleIndex) =

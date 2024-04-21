@@ -37,8 +37,8 @@ class TemplateParamsSpec extends TestHelper {
         domainToExport = "AnyDomain",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None)
         ),
         fullExport = false,
         dsvDelimiter = ",",
@@ -81,8 +81,8 @@ class TemplateParamsSpec extends TestHelper {
         domainToExport = "AnyDomain",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None)
         ),
         fullExport = false,
         dsvDelimiter = "|",

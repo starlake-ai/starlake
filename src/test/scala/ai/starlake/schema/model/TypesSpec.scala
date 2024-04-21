@@ -25,14 +25,14 @@ import java.io.InputStream
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.Severity._
 
-class TypesSpec extends TestHelper {
+class TypesDescSpec extends TestHelper {
   new WithSettings() {
     "Default types" should "be valid" in {
       val stream: InputStream =
         getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       types.checkValidity() shouldBe Right(true)
     }
 
@@ -50,7 +50,7 @@ class TypesSpec extends TestHelper {
           |    sample: "-64564"
       """.stripMargin
 
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       types.checkValidity() shouldBe Left(
         List(
           ValidationMessage(
@@ -76,7 +76,7 @@ class TypesSpec extends TestHelper {
           |    zone: fr_FR
           |    sample: "-64564,21"
       """.stripMargin
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       "-123.45" shouldBe types.types
         .find(_.name == "double")
         .get
@@ -118,7 +118,7 @@ class TypesSpec extends TestHelper {
           |    sample: "2021-05-20T09:30:39.000000Z"
           |    comment: "Iso instant"
           |      """.stripMargin
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
 
       types.checkValidity() shouldBe Right(true)
 
@@ -167,7 +167,7 @@ class TypesSpec extends TestHelper {
         |    zone: Fr_fr
         |    comment: "Floating value with a sign prefix and french decimal point"
         |""".stripMargin
-      val types = mapper.readValue(lines, classOf[Types])
+      val types = mapper.readValue(lines, classOf[TypesDesc])
       val doubleType = types.types
         .find(_.name == "double")
         .get

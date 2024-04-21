@@ -1,9 +1,0 @@
-application:
-  connectionRef: "{{ connection }}"
-  accessPolicies:
-    apply: true
-    location: europe-west1
-  connections:
-    databricks:
-      type: "databricks"
-      sparkFormat: "delta"
