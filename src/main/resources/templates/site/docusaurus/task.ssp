@@ -18,7 +18,7 @@ import TabItem from '@theme/TabItem';
 | Property | Value |
 | --- | ----------- |
 | Name | ${ task.name } |
-| Write Mode | ${ task.writeStrategy.map(_.`type`).getOrElse("")} |
+| Write Strategy | <ul><li>types: ${ task.writeStrategy.flatMap(_.types.map(_.toList.map(t => "<li>" + t._1 + ": " + t._2 + "</li>").mkString("<ul>", "", "</ul>"))).getOrElse("")}</li><li>type: ${ task.writeStrategy.map(_.`type`.toString).getOrElse("")}</li><li>key: ${ task.writeStrategy.map(_.key.toList.mkString(", ")).getOrElse("")}</li><li>key: ${ task.writeStrategy.flatMap(_.timestamp).getOrElse("")}</li><li>queryFilter: ${ task.writeStrategy.flatMap(_.queryFilter).getOrElse("")}</li><li>on: ${ task.writeStrategy.flatMap(_.on.map(_.toString)).getOrElse("")}</li><li>startTs: ${ task.writeStrategy.flatMap(_.startTs).getOrElse("")}</li><li>endTs: ${ task.writeStrategy.flatMap(_.endTs).getOrElse("")}</li></ul> |
 | Tags | ${ task.tags.toList.sorted.mkString(",") } |
 
 </TabItem>

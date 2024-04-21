@@ -21,18 +21,13 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, LoadConfig}
+import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
-import com.dimafeng.testcontainers.{
-  ElasticsearchContainer,
-  JdbcDatabaseContainer,
-  KafkaContainer,
-  PostgreSQLContainer
-}
+import com.dimafeng.testcontainers._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
@@ -44,7 +39,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, BeforeAndAfterAll}
+import org.scalatest.{Assertion, BeforeAndAfterAll, BeforeAndAfterEach}
 import org.testcontainers.utility.DockerImageName
 
 import java.io.{File, InputStream}
@@ -60,16 +55,22 @@ trait TestHelper
     extends AnyFlatSpec
     with Matchers
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with StrictLogging
-    with DatasetLogging {
+    with DatasetLogging
+    with PgContainerHelper {
+
+  override protected def beforeEach(): Unit = {}
+
+  override protected def afterEach(): Unit = {}
 
   override protected def afterAll(): Unit = {
-    BetterFile(starlakeTestRoot).delete()
+    TestHelper.stopSession()
+    BetterFile(starlakeTestRoot).delete(swallowIOExceptions = true)
   }
 
   override protected def beforeAll(): Unit = {
     Settings.invalidateCaches()
-
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -79,15 +80,17 @@ trait TestHelper
 
   def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
+  lazy val tempDir = Files.createTempDirectory(starlakeTestId)
+
   lazy val starlakeTestRoot: String =
     if (sys.env.getOrElse("SL_INTERNAL_WITH_ENVS_SET", "false").toBoolean) {
-      sys.env("SL_ROOT")
+      sys.env.getOrElse("SL_ROOT", tempDir.toString)
     } else {
       Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
         case Some(true) =>
-          BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+          BetterFile(tempDir).pathAsString
             .replace("\\", "/")
-        case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+        case _ => BetterFile(tempDir).pathAsString
       }
     }
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
@@ -96,6 +99,7 @@ trait TestHelper
 
   def baseConfigString =
     s"""
+       |SL_VALIDATE_ON_LOAD=true
        |SL_ASSERTIONS_ACTIVE=true
        |SL_DEFAULT_WRITE_FORMAT=delta
        |SL_ROOT="${starlakeTestRoot}"
@@ -112,19 +116,28 @@ trait TestHelper
        |include required("application-test.conf")
        |connections.test-pg {
        |    type = "jdbc"
-       |    ## The default URI is in memory only
        |    options {
-       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "url": "${pgContainer.jdbcUrl}"
        |      "user": "test"
        |      "password": "test"
        |      "driver": "org.postgresql.Driver"
        |      "quoteIdentifiers": false
        |    }
        |  }
+       |connections.test-mariadb {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${TestHelper.mariadbContainer.jdbcUrl.replace(":mariadb:", ":mysql:")}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.mariadb.jdbc.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
        |connections.audit {
        |    type = "jdbc"
        |    options {
-       |      "url": "${TestHelper.pgContainer.jdbcUrl}"
+       |      "url": "${pgContainer.jdbcUrl}"
        |      "driver": "org.postgresql.Driver"
        |      "user": "test"
        |      "password": "test"
@@ -149,8 +162,8 @@ trait TestHelper
           "lock.poll-time",
           ConfigValueFactory.fromAnyRef("5 ms")
         ) // in local mode we don't need to wait quite as much as we do on a real cluster
-
     testConfig
+
   }
 
   val allTypes: List[FileToImport] = List(
@@ -234,8 +247,8 @@ trait TestHelper
         logger.error("Error in test", e)
         throw e
     } finally {
-      SparkSession.clearActiveSession()
-      SparkSession.clearDefaultSession()
+      // SparkSession.clearActiveSession()
+      // SparkSession.clearDefaultSession()
     }
   }
 
@@ -251,18 +264,17 @@ trait TestHelper
     s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
   }
 
-  def getTodayPartitionPath: String = {
+  def getTodayPartitionCondition: String = {
     val now = LocalDate.now
-    s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
+    s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
   }
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
     settings.appConfig.connections.values.foreach(_.checkValidity())
     implicit def withSettings: WithSettings = this
-
     def storageHandler = settings.storageHandler()
-
+    // TestHelper.sparkSessionReset
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new StarlakeObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
@@ -288,7 +300,7 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata: Try[Unit] =
+    def cleanMetadata(implicit settings: Settings): Try[Unit] =
       Try {
         val fload = new File(starlakeLoadPath)
         val dir = new Directory(fload)
@@ -354,8 +366,7 @@ trait TestHelper
   }
 
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
-
-    TestHelper.sparkSession(isettings, _testId)
+    TestHelper.sparkSession(isettings, _testId, forceReset = true)
   }
 
   abstract class SpecTrait(
@@ -437,7 +448,7 @@ trait TestHelper
       codec: Codec
     ): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
-        DatasetArea.pending(datasetDomainName),
+        DatasetArea.stage(datasetDomainName),
         new Path(sourceDatasetPathName).getName
       )
 
@@ -455,7 +466,7 @@ trait TestHelper
 
     def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
-      validator.loadPending()
+      validator.load(LoadConfig(accessToken = None))
     }
 
     def secure(config: LoadConfig): Try[Boolean] = {
@@ -509,7 +520,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler)
-      validator.loadLanding(ImportConfig())
+      validator.stage(StageConfig())
     }
   }
 
@@ -550,18 +561,18 @@ trait TestHelper
 }
 
 object TestHelper extends StrictLogging {
-  lazy val pgContainer: PostgreSQLContainer = {
-    val pgDockerImage = "postgres"
-    val pgDockerTag = "latest"
-    val pgDockerImageName = DockerImageName.parse(s"$pgDockerImage:$pgDockerTag")
+  lazy val mariadbContainer: MariaDBContainer = {
+    val dockerImage = "mariadb"
+    val dockerTag = "latest"
+    val dockerImageName = DockerImageName.parse(s"$dockerImage:$dockerTag")
     val initScriptParam =
-      JdbcDatabaseContainer.CommonParams(initScriptPath = Option("init-test-pg.sql"))
-    val container = PostgreSQLContainer
+      JdbcDatabaseContainer.CommonParams()
+    val container = MariaDBContainer
       .Def(
-        pgDockerImageName,
-        databaseName = "starlake",
-        username = "test",
-        password = "test",
+        dockerImageName,
+        dbName = "starlake",
+        dbUsername = "test",
+        dbPassword = "test",
         commonJdbcParams = initScriptParam
       )
       .createContainer()
@@ -574,14 +585,54 @@ object TestHelper extends StrictLogging {
 
   def stopSession() = {
     if (_session != null) {
+
+      _session.stop()
+      _session = null
+    }
+
+  }
+
+  def cleanMetastore(path: String): Try[Unit] =
+    Try {
+      val fMetastore = new File(path + "/metastore_db")
+      new Directory(fMetastore).deleteRecursively()
+      val fDerby = new File(path + "/derby.log")
+      fDerby.delete()
+    }
+
+  def cleanDatasets(path: String): Try[Unit] =
+    Try {
+      val fDatasets = new File(path)
+      val dir = new Directory(fDatasets)
+      dir.list.foreach { f =>
+        if (f.isDirectory) {
+          if (f.name != "metastore_db") {
+            f.deleteRecursively()
+          }
+        } else if (f.name != "derby.log") {
+          f.delete()
+        }
+      }
+    }
+
+  def closeSession(): Unit = {
+    if (_session != null) {
       _session.stop()
       _session = null
     }
   }
 
-  def sparkSession(implicit isettings: Settings, testId: String): SparkSession = {
-    if (testId != _testId) {
+  def sparkSession(implicit
+    isettings: Settings,
+    testId: String,
+    forceReset: Boolean = false
+  ): SparkSession = {
+    if (forceReset || _session == null) {
+      closeSession()
+      logger.info(s"Creating new Spark session for test $testId")
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
+      // val settings: Settings = Settings(Settings.referenceConfig)
+      // cleanDatasets(isettings.appConfig.datasets)
       val job = new SparkJob {
         override def name: String = s"test-${UUID.randomUUID()}"
 
@@ -590,11 +641,10 @@ object TestHelper extends StrictLogging {
         override def run(): Try[JobResult] =
           ??? // we just create a dummy job to get a valid Spark session
       }
-      if (_session != null) {
-        _session.stop()
-      }
       _session = job.session
       _testId = testId
+    } else {
+      logger.info(s"Reusing Spark session for test $testId")
     }
     _session
   }
@@ -602,6 +652,7 @@ object TestHelper extends StrictLogging {
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
     if (_session != null) {
       _session.stop()
+      _session = null
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
     }
     val job = new SparkJob {

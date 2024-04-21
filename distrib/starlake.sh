@@ -15,6 +15,7 @@ SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
 SPARK_EXTRA_LIB_FOLDER=$SCRIPT_DIR/bin
 DEPS_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/deps
 STARLAKE_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/sl
+SL_SQL_WH="${SL_DATASETS:-$SL_ROOT/datasets}"
 
 #SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
@@ -30,6 +31,7 @@ fi
 if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
   PROXY=${https_proxy:-$http_proxy}
 fi
+
 
 get_binary_from_url() {
     local url=$1
@@ -73,9 +75,9 @@ launch_starlake() {
     echo "- JAVA_HOME=$JAVA_HOME"
     echo "- SL_ROOT=$SL_ROOT"
     echo "- SL_ENV=$SL_ENV"
-    echo "- SL_MAIN=$SL_MAIN"
-    echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
-    echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
+#    echo "- SL_MAIN=$SL_MAIN"
+#    echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
+#    echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
     echo Make sure your java home path does not contain space
 
 
@@ -97,11 +99,12 @@ launch_starlake() {
     #                  fs.defaultFS=$SL_FS"
     #fi
 
+    grep -v "rootLogger.level" $SPARK_TARGET_FOLDER/conf/log4j.properties > $SPARK_TARGET_FOLDER/conf/err.log4j2.properties
     if [[ -z "$SL_DEBUG" ]]
     then
-      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
+      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/bin/spark/conf/log4j2.properties"
     else
-      SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
+      SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     fi
 
     if [[ "$SL_DEFAULT_LOADER" == "native" ]]
@@ -135,7 +138,7 @@ launch_starlake() {
      SPARK_LOCAL_HOSTNAME="127.0.0.1" SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --jars "$extra_jars" "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
     fi
   else
-    echo "Starlake jar $SL_JAR_NAME do not exists. Please install it."
+    echo "Starlake jar $SL_JAR_NAME does not exists. Please install it."
     exit 1
   fi
 }

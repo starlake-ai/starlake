@@ -1,6 +1,5 @@
 package ai.starlake.integration
 
-import ai.starlake.TestHelper
 import ai.starlake.job.Main
 
 class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
@@ -10,9 +9,9 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
 
   override def sampleDataDir = localDir / "sample-data"
 
-  val jdbcUrl = TestHelper.pgContainer.jdbcUrl
-  val jdbcHost = TestHelper.pgContainer.host
-  val jdbcPort = TestHelper.pgContainer.mappedPort(5432)
+  val jdbcUrl = pgContainer.jdbcUrl
+  val jdbcHost = pgContainer.host
+  val jdbcPort = pgContainer.mappedPort(5432)
   val envContent =
     s"""
         |env:
@@ -34,8 +33,10 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
-        Main.main(
-          Array("transform", "--name", "sales_kpi.byseller_kpi")
+        assert(
+          new Main().run(
+            Array("transform", "--name", "sales_kpi.byseller_kpi")
+          )
         )
       }
     }

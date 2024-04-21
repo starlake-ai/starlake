@@ -1,10 +1,10 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import better.files.File
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
@@ -33,7 +33,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     }
 
     domains.foreach { domain =>
-      writeDomainXls(domain, outputDir)
+      writeDomainXls(domain, outputDir)(settings.storageHandler())
     }
 
     schemaHandler
@@ -63,10 +63,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     }
   }
 
-  def writeDomainXls(domain: Domain, folder: String): Unit = {
+  def writeDomainXls(domain: Domain, folder: String)(implicit
+    storageHandler: StorageHandler
+  ): Unit = {
     val workbook = new XSSFWorkbook()
 
-    val xlsOut = File(folder, domain.name + ".xlsx")
+    val xlsOut = new Path(folder, domain.name + ".xlsx")
     val domainSheet = workbook.createSheet("_domain")
     fillHeaders(workbook, allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
@@ -99,14 +101,14 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         if (schema.name.length > 31) schema.name.take(27) + "_" + rowIndex else schema.name
       schemaRow.createCell(0).setCellValue(schemaName)
       schemaRow.createCell(1).setCellValue(schema.pattern.toString)
-      schemaRow.createCell(2).setCellValue(metadata.mode.map(_.toString).getOrElse(""))
-      if (metadata.getStrategyOptions().`type` == WriteStrategyType.SCD2)
+      schemaRow.createCell(2).setCellValue("")
+      if (metadata.getStrategyOptions().getEffectiveType() == WriteStrategyType.SCD2)
         schemaRow.createCell(3).setCellValue(WriteStrategyType.SCD2.value)
       else
         schemaRow
           .createCell(3)
           .setCellValue(
-            metadata.writeStrategy.map(_.getWriteMode()).getOrElse(WriteMode.APPEND).toString
+            metadata.writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND).toString
           )
 
       schemaRow.createCell(4).setCellValue(metadata.format.map(_.toString).getOrElse(""))
@@ -197,9 +199,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         attributesSheet.autoSizeColumn(i)
 
     }
-
-    xlsOut.delete(swallowIOExceptions = true)
-    workbook.write(xlsOut.newFileOutputStream(false))
+    val outputStream = storageHandler.output(xlsOut)
+    try {
+      workbook.write(outputStream)
+    } finally {
+      outputStream.close()
+    }
   }
 
 }

@@ -81,6 +81,10 @@ trait StorageHandler extends StrictLogging {
     action: InputStreamReader => T
   ): T
 
+  def readAndExecuteIS[T](path: Path)(
+    action: InputStream => T
+  ): T
+
   def write(data: String, path: Path)(implicit charset: Charset = defaultCharset): Unit
 
   def writeBinary(data: Array[Byte], path: Path): Unit

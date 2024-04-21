@@ -1,0 +1,211 @@
+# Create a project
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Select a project template
+
+To create a new project, you need first to create an empty folder and run the
+starlake bootstrap CLI command from there:
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
+$ starlake bootstrap
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```
+c:\> mkdir c:\userguide
+c:\> cd c:\userguide
+c:\> starlake bootstrap
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
+$ docker run  -v `pwd`:/app/userguide -e SL_ROOT=/app/userguide -it starlake bootstrap
+```
+
+
+</TabItem>
+
+</Tabs>
+
+:::note
+
+By default, the project will be created in the current working directory.
+To bootstrap the project in a different folder set SL_ROOT env variable to that folder:
+
+:::
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```
+$ SL_ROOT=/my/other/location starlake bootstrap
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```
+c:\> set SL_ROOT=c:\my\other\location
+c:\> starlake bootstrap
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+You are always required to set the SL_ROOT env var when using Docker
+
+```
+$ mkdir $HOME/userguide
+$ cd $HOME/userguide
+$ docker run  -v `pwd`:/app/userguide -e SL_ROOT=/app/userguide -it starlake bootstrap
+```
+
+</TabItem>
+</Tabs>
+
+
+The ```bootstrap``` command will ask you to select a project template from the list below:
+
+``` text {3}
+Please choose a template:
+  0. initializer
+  1. userguide
+  2. starbake
+  q. quit
+=> 1
+```
+Please choose `1. userguide` to create a project that comes with sample datasets and be able to follow this tutorial.
+starlake will then create a default project hierarchy that allow you to start to extract, load, transform your data and orchestrate you pipelines.
+
+
+``` text {2,5,7,8,9,10}
+.
+├── metadata
+│   ├── application.sl.yml      # project configuration
+│   ├── env.sl.yml              # variables used in the project with their default values
+│   ├── env.BQ.sl.yml           # variables overriden for a BigQuery connection
+│   ├── env.DUCKDB.sl.yml       # variables overriden for a DuckDB connection
+│   ├── expectations
+│   │   └── default.sl.yml      # expectations macros
+│   ├── extract
+│   ├── load
+│   ├── transform
+│   ├── types
+│   │   ├── default.sl.yml      # types mapping
+└── incoming                    # sample incoming data for this user guide
+    ├── starbake
+    │   ├── order_202403011414.json
+    │   ├── order_line_202403011415.csv
+    └── └── product.xml
+
+```
+
+
+- The `incoming` folder host all the files you will want to load into your warehouse.
+- The `metadata` folder contains the __extract__, __load__ and __transform__ configuration files
+- The `expectations` folder contains the expectations configuration files used for validating the data loaded / transformed in your warehouse
+
+## Configure your datawarehouse connection
+
+The project configuration is stored in the `metadata/application.sl.yml` file. This file contains the project version and the list of connections to the different data sinks.
+
+
+This application configuration file contains multiple connections:
+- Each connection is a sink where data can be loaded/transformed
+- The active connection to use for loading/transforming data is specified in the `connectionRef` property of the application section
+- The `connectionRef` property can be set to any of the connection names defined in the `connections` section.
+- We use environment variables to override the default values of the project configuration. The example below set the active connectionRef using the `activeConnection`variable.
+This allows us to run our project on different datawarehouses (DEV / QA / PROD) without the need to update the project configuration.
+
+
+```yaml {title="metadata/application.sl.yml" }
+
+---
+application:
+  connectionRef: "{{activeConnection}}"
+
+  audit:
+    sink:
+      connectionRef: "{{activeConnection}}"
+
+  connections:
+    sparkLocal:
+      type: "fs" # Connection to local file system (delta files)
+    duckdb:
+      type: "jdbc" # Connection to DuckDB
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
+    bigquery:
+      type: "bigquery"
+      options:
+        location: europe-west1
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform"
+        writeMethod: "direct"
+
+
+
+```
+
+
+The files `env.DUCKDB.sl.yml` and `env.BQ.sl.yml` are used to override the default values of the project configuration for the DuckDB and BigQuery connections.
+We then only need to define the SL_ENV environment variable to switch between the different environments.
+
+To switch to the DuckDB connection, we can run the following command:
+
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```bash
+$ SL_ENV=DUCKDB starlake <command>>
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:> SET SL_ENV=DUCKDB
+c:> starlake <command>>
+```
+
+</TabItem>
+<TabItem value="docker" label="Docker">
+
+```bash
+$ docker run    -v `pwd`:/app/userguide \
+                -e SL_ROOT=/app/userguide \
+                -e SL_ENV=DUCKDB \
+                -it starlake <command>
+```
+
+</TabItem>
+</Tabs>
+
+## Next steps
+
+That's it, we are ready to go. Let's start by [loading some data](load/tutorial) into our warehouse and then [transforming it](transform/tutorial) to make it ready for analysis.
+
+In this tutorial,
+- extract data from a database and then load the data into your favorite datawarehouse.
+- Run transformations from the command line and from Airflow
+- Generate the documentation for the project
+
+We will use the [Starbake](https://github.com/starlake-ai/StarBake/) project, a simple Github project that allows us to create fake data inside a database for our tutorial.
+
+![](/img/starbake.png)
+
+

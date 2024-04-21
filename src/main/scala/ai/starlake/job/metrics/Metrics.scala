@@ -267,7 +267,7 @@ object Metrics extends StrictLogging {
   ): List[String] = {
 
     val datasetAttributes =
-      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType).map(_.name).toList
+      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType()).map(_.name).toList
     logger.info(s"Valid Continuous datasetAttributes Attrs =$datasetAttributes")
     val intersectionAttributes = datasetAttributes.intersect(continuousAttributes)
     logger.info(s"Valid intersectionAttributes Attrs =$intersectionAttributes")

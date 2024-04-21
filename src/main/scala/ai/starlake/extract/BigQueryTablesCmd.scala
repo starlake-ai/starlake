@@ -54,6 +54,11 @@ trait BigQueryTablesCmd extends Cmd[BigQueryTablesConfig] {
         .optional()
         .text("List of datasetName.tableName1,datasetName.tableName2 ..."),
       builder
+        .opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional(),
+      builder
         .opt[Boolean]("persist")
         .action { (x, c) => c.copy(persist = x) }
         .optional()

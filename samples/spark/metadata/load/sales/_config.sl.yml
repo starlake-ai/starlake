@@ -1,12 +1,13 @@
+version: 1
 load:
   name: "sales"
   metadata:
     directory: "{{root_path}}/incoming/sales"
     loader: "{{loader}}"
-    mode: "FILE"
     format: "DSV"
     withHeader: true
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
       #timestamp: signup

@@ -116,7 +116,7 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
       }
     }
     val dfs = slices.map { case (transformer, slice) =>
-      val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice).map { item =>
+      val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice.toSeq).map { item =>
         InternalRow(UTF8String.fromString(item))
       }
       val dataframe = internalCreateDataFrame(

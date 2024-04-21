@@ -2,7 +2,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{PrivacyLevels, Settings}
-import ai.starlake.job.validator.ValidationResult
+import ai.starlake.job.validator.CheckValidityResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
@@ -35,7 +35,8 @@ class XmlSimplePrivacyJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -60,13 +61,13 @@ class XmlSimplePrivacyJob(
     * @param dataset
     */
   override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val privacyAttributes = schema.attributes.filter(_.getPrivacy() != PrivacyLevel.None)
+    val privacyAttributes = schema.attributes.filter(_.getPrivacy() != TransformInput.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session).toDF()
     }
     import session.implicits._
     saveAccepted(
-      ValidationResult(
+      CheckValidityResult(
         session.emptyDataset[String],
         session.emptyDataset[String],
         acceptedPrivacyDF

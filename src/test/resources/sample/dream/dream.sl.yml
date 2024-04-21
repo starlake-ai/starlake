@@ -1,22 +1,21 @@
 ---
+version: 1
 load:
   name: "dream"
-  directory: "__SL_TEST_ROOT__/dream"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__/dream"
     format: "DSV"
     withHeader: false
     separator: "|"
     quote: "\""
     escape: "\\"
-    write: "OVERWRITE"
+    writeStrategy:
+      type: "OVERWRITE"
     sink:
       partition:
-        sampling: 0.5
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "segment"
       pattern: "OneClient_Segmentation.*.*"

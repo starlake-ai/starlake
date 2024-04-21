@@ -1,9 +1,9 @@
 ---
+version: 1
 load:
   name: "locations"
-  directory: "__SL_TEST_ROOT__"
   metadata:
-    mode: "FILE"
+    directory: "__SL_TEST_ROOT__"
     format: "XML"
     multiline: true
     array: true
@@ -11,17 +11,17 @@ load:
     separator: ""
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    writeStrategy:
+      type: "APPEND"
     options:
       rowTag: element
       inferSchema: false
       rowValidationXSDPath: __SL_TEST_ROOT__/metadata/sample/xsd/locations.xsd
     sink:
       partition:
-        attributes:
-          - year
-          - month
-          - day
+        - year
+        - month
+        - day
   tables:
     - name: "locations"
       pattern: "locations.*"

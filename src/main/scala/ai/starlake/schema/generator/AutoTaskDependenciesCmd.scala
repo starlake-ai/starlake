@@ -24,10 +24,10 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Seq[String]]("tasks")
+      opt[Seq[String]]("task")
         .action((x, c) => c.copy(tasks = Some(x)))
         .optional()
-        .text("Compute dependencies of this job only. If not specified, compute all jobs."),
+        .text("Compute dependencies of these tasks only. If not specified, compute all jobs."),
       opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
         .optional()
@@ -39,13 +39,13 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .optional()
         .text("Should we generate a dot file ?"),
       opt[Unit]("svg")
-        .action((_, c) => c.copy(svg = true))
+        .action((_, c) => c.copy(svg = true, viz = true))
         .optional()
         .text(
           "Should we generate SVG files ?"
         ),
       opt[Unit]("png")
-        .action((_, c) => c.copy(png = true))
+        .action((_, c) => c.copy(png = true, viz = true))
         .optional()
         .text(
           "Should we generate PNG files ?"
