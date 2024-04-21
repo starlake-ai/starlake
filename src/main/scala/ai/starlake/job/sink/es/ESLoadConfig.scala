@@ -44,7 +44,7 @@ case class ESLoadConfig(
       case None =>
         Left(
           new Path(
-            s"${settings.appConfig.datasets}/${settings.appConfig.area.accepted}/$domain/$schema"
+            s"${settings.appConfig.datasets}/$domain/$schema"
           )
         )
       case Some(pathOrDF) =>

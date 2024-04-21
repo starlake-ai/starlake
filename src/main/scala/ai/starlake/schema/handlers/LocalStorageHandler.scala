@@ -85,15 +85,19 @@ class LocalStorageHandler(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
+    readAndExecuteIS(path) { is =>
+      val codecFactory = new CompressionCodecFactory(new Configuration())
+      val decompressedIS =
+        Option(codecFactory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+      action(new InputStreamReader(decompressedIS, charset))
+    }
+  }
+
+  override def readAndExecuteIS[T](path: Path)(action: InputStream => T): T = {
     pathSecurityCheck(path)
     val file = localFile(path)
     file.fileInputStream
-      .map { is =>
-        val codecFactory = new CompressionCodecFactory(new Configuration())
-        val decompressedIS =
-          Option(codecFactory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
-        action(new InputStreamReader(decompressedIS, charset))
-      }
+      .map(action)
       .get()
   }
 

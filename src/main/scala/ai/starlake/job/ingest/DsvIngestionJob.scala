@@ -22,7 +22,6 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -52,7 +51,8 @@ class DsvIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -104,7 +104,7 @@ class DsvIngestionJob(
         .option("nullValue", mergedMetadata.getNullValue())
         .option("parserLib", "UNIVOCITY")
         .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
 
       val dfInReaderWithSchema = if (withSchema) {
@@ -160,7 +160,10 @@ class DsvIngestionJob(
             case c if c > 0 =>
               val countMissing =
                 attributesWithoutScriptedFields.length - df.columns.length
-              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+              throw new Exception(
+                s"$countMissing MISSING columns in the input DataFrame ${attributesWithoutScriptedFields
+                    .map(_.name)} != ${df.columns.toList}"
+              )
             case _ => // compare < 0
               val cols = df.columns
               df.select(
@@ -211,19 +214,23 @@ class DsvIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult)
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
+    val rejectedResult =
+      saveRejected(validationResult.errors, validationResult.rejected)(
+        settings,
+        storageHandler,
+        schemaHandler
+      )
+    rejectedResult match {
+      case Success(_) =>
+        val acceptedResult = saveAccepted(validationResult)
+        acceptedResult match {
+          case Success(rejectedRecordCount) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+          case Failure(exception) =>
+            throw exception
+        }
       case Failure(exception) =>
         throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
   }
 }

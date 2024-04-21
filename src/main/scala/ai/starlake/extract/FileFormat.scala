@@ -26,7 +26,7 @@ case class FileFormat(
       quote = this.quote.orElse(Some("\"")),
       escape = this.escape.orElse(Some("\\")),
       datePattern = this.datePattern.orElse(Some("yyyy-MM-dd")),
-      timestampPattern = this.timestampPattern.orElse(Some("yyyy-MM-dd HH:mm:ss"))
+      timestampPattern = this.timestampPattern.orElse(Some("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"))
     )
   }
 }

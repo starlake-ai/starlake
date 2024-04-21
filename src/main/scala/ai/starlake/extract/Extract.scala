@@ -1,7 +1,6 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import better.files.File
 import org.apache.hadoop.fs.Path
 
 abstract class Extract {
@@ -21,10 +20,10 @@ abstract class Extract {
       paths.find(_.getName() == mappingFilename).getOrElse(new Path(mappingFilename))
     }
   }
-  protected def schemaOutputDir(outputDir: Option[String])(implicit settings: Settings): File =
-    File(outputDir.getOrElse(DatasetArea.load.toString))
+  protected def schemaOutputDir(outputDir: Option[String])(implicit settings: Settings): Path =
+    new Path(outputDir.getOrElse(DatasetArea.load.toString))
 
-  protected def dataOutputDir(outputDir: Option[String])(implicit settings: Settings): File =
-    File(outputDir.getOrElse(DatasetArea.extract.toString))
+  protected def dataOutputDir(outputDir: Option[String])(implicit settings: Settings): Path =
+    new Path(outputDir.getOrElse(DatasetArea.extract.toString))
 
 }

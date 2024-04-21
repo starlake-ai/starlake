@@ -139,22 +139,22 @@
   --ifm-hero-text-color: #ffffff;
   --ifm-color-secondary: #f0f0f0;
   --ifm-blockquote-color: #c0c0c0;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 
   --ifm-navbar-link-color: #fff;
 
   --ifm-card-background-color: #fff;
-  .hero__subtitle,
-  .feature-description,
-  .split-description {
-    color: #e3e3e3;
-  }
-  .feature-title {
-    color: #fff;
-  }
-  .main-wrapper a.theme-back-to-top-button {
-    background-color: #444950;
-  }
+}
+
+.hero__subtitle,
+.feature-description,
+.split-description {
+  color: #e3e3e3;
+}
+.feature-title {
+  color: #fff;
+}
+.main-wrapper a.theme-back-to-top-button {
+  background-color: #444950;
 }
 
 /** COMMUN **/

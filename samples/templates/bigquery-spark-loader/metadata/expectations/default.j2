@@ -1,4 +1,4 @@
-{% macro is_col_value_not_unique(col, table='sl_this') %}
+{% macro is_col_value_not_unique(col, table='SL_THIS') %}
     SELECT max(cnt)
     FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }}
     GROUP BY {{ col }}
@@ -21,14 +21,14 @@
 {% endmacro %}
 
 
-{% macro count_by_value(col, value, table='sl_this') %}
+{% macro count_by_value(col, value, table='SL_THIS') %}
     SELECT count(*)
     FROM {{ table }}
     WHERE {{ col }} LIKE '{{ value }}'
 {% endmacro %}
 
 
-{% macro column_occurs(col, times, table='sl_this') %}
+{% macro column_occurs(col, times, table='SL_THIS') %}
     SELECT max(cnt)
     FROM  (
     SELECT {{ col }}, count(*) as cnt FROM {{ table }}

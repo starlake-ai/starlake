@@ -1,11 +1,11 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer._
-import better.files.File
+import ai.starlake.utils.YamlSerde._
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 
 import scala.util.Try
 
@@ -16,11 +16,15 @@ object Xls2Yml extends LazyLogging {
   ): Unit = {
     val reader = new XlsDomainReader(InputPath(inputPath))
     reader.getDomain().foreach { domain =>
-      writeDomainAsYaml(domain, File(outputPath.getOrElse(DatasetArea.load.toString)))
+      writeDomainAsYaml(domain, new Path(outputPath.getOrElse(DatasetArea.load.toString)))(
+        settings.storageHandler()
+      )
     }
   }
 
-  def writeDomainAsYaml(domain: Domain, basePath: File): Unit = {
+  def writeDomainAsYaml(domain: Domain, basePath: Path)(implicit
+    storageHandler: StorageHandler
+  ): Unit = {
     logger.info(s"""Generated schemas:
          |${serialize(domain)}""".stripMargin)
     domain.writeDomainAsYaml(basePath)
@@ -30,10 +34,10 @@ object Xls2Yml extends LazyLogging {
     iamPolicyTags: IamPolicyTags,
     outputPath: String,
     fileName: String
-  ): Unit = {
+  )(implicit storageHandler: StorageHandler): Unit = {
     logger.info(s"""Generated schemas:
          |${serialize(iamPolicyTags)}""".stripMargin)
-    serializeToFile(File(outputPath, s"${fileName}.sl.yml"), iamPolicyTags)
+    serializeToPath(new Path(outputPath, s"${fileName}.sl.yml"), iamPolicyTags)
   }
 
   def run(args: Array[String]): Try[Boolean] = {
