@@ -78,12 +78,18 @@ if defined https_proxy (
     set "PROXY=%https_proxy%"
 ) else if defined http_proxy (
     set "PROXY=%http_proxy%"
-)
-if not "%PROXY%"=="" if defined SL_INSECURE (
-    curl --insecure --proxy %PROXY% -s -o %SCRIPT_DIR%setup.jar %setup_url%
 ) else (
-    curl -s -o %SCRIPT_DIR%setup.jar %setup_url%
+    set "PROXY="
 )
+
+if not "%PROXY%"=="" if defined SL_INSECURE (
+    set "CURL_EXTRA=--insecure"
+) else (
+    set "CURL_EXTRA="
+)
+
+curl %CURL_EXTRA%  %PROXY% -s -o %SCRIPT_DIR%setup.jar %setup_url%
+
 "%RUNNER%" -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
 goto :eof
 

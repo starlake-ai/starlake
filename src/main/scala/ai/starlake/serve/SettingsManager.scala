@@ -92,8 +92,10 @@ object SettingsManager {
           sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
 
           env match {
-            case Some(env) if env.nonEmpty && env != "None" =>
-              sysProps.setProperty("env", env)
+            case None =>
+              sysProps.setProperty("env", "None")
+            case Some(env) if env.isEmpty || env == "None" =>
+              sysProps.setProperty("env", "None")
             case _ =>
               sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
           }

@@ -155,7 +155,7 @@ assembly / assemblyExcludedJars := {
       "arrow-format-",
       "arrow-vector-",
       "commons-codec-",
-      // "commons-compress-", // Because POI needs it
+      //"commons-compress-", // Because POI needs it
       "commons-logging-",
       "commons-math3-",
       "flatbuffers-java-",
