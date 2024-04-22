@@ -99,7 +99,6 @@ launch_starlake() {
     #                  fs.defaultFS=$SL_FS"
     #fi
 
-    grep -v "rootLogger.level" $SPARK_TARGET_FOLDER/conf/log4j.properties > $SPARK_TARGET_FOLDER/conf/err.log4j2.properties
     if [[ -z "$SL_DEBUG" ]]
     then
       SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/bin/spark/conf/log4j2.properties"
