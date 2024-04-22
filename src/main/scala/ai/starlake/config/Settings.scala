@@ -317,6 +317,7 @@ object Settings extends StrictLogging {
                 "spark"
               else engineName
             case "bigquery" | "bq" => "bigquery"
+            case "spark"           => "spark"
             case _                 =>
               // if this is a jdbc url (aka snowflake, redshift ...)
               options
@@ -691,13 +692,13 @@ object Settings extends StrictLogging {
     ): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
       val appConfig = settings.appConfig
-      if (appConfig.env.nonEmpty) {
+      if (appConfig.env.nonEmpty && appConfig.env != "None") {
         val envFile = new Path(DatasetArea.metadata(settings), "env." + appConfig.env + ".sl.yml")
         if (!storageHandler.exists(envFile)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"env.${appConfig.env}.sl.yml not found in ${envFile.toString}"
+            s"env.${appConfig.env}.sl.yml not found in ${envFile.getName()}"
           )
         }
       }
