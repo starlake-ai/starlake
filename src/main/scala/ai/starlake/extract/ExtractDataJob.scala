@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
@@ -452,71 +452,81 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           logger.info(s"$boundaryContext bounds = $bounds")
 
           withJDBCConnection(extractConfig.data.options) { connection =>
-            val statement: PreparedStatement = computePrepareStatement(
-              extractConfig,
-              tableExtractDataConfig,
-              bounds,
-              boundaryContext,
-              connection
-            )
-            val partitionStart = System.currentTimeMillis()
-            val count =
-              extractedDataConsumer(boundaryContext, statement.executeQuery(), Some(index)) match {
-                case Failure(exception) =>
-                  logger.error(f"$boundaryContext Encountered an error during extraction.")
-                  Utils.logException(logger, exception)
-                  throw exception
-                case Success(value) =>
-                  value
-              }
-            val currentTableCount = tableCount.addAndGet(count)
-
-            boundDef match {
-              case b: Bounds =>
-                val lineLength = 100
-                val progressPercent =
-                  if (b.count == 0) lineLength
-                  else (currentTableCount * lineLength / b.count).toInt
-                val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
-                val progressPercentUnfilled =
-                  (progressPercent until lineLength).map(_ => " ").mkString
-                val progressBar =
-                  s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
-                val partitionEnd = System.currentTimeMillis()
-                val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
-                logger.info(
-                  s"$context $progressBar. Elapsed time: $elapsedTime"
-                )
-                tableExtractDataConfig.partitionConfig match {
-                  case Some(p: PartitionConfig) =>
-                    val deltaRow = DeltaRow(
-                      domain = extractConfig.jdbcSchema.schema,
-                      schema = tableExtractDataConfig.table,
-                      lastExport = b.max,
-                      start = new Timestamp(partitionStart),
-                      end = new Timestamp(partitionEnd),
-                      duration = (partitionEnd - partitionStart).toInt,
-                      count = count,
-                      success = true,
-                      message = p.partitionColumn,
-                      step = index.toString
-                    )
-                    withJDBCConnection(extractConfig.audit.options) { connection =>
-                      LastExportUtils.insertNewLastExport(
-                        connection,
-                        deltaRow,
-                        Some(p.partitionColumnType),
-                        extractConfig.audit,
-                        auditColumns
-                      )
-                    }
-                  case None =>
-                    throw new RuntimeException(
-                      "Should never happen since we are fetching an interval"
-                    )
+            Using.resource(
+              computePrepareStatement(
+                extractConfig,
+                tableExtractDataConfig,
+                bounds,
+                boundaryContext,
+                connection
+              )
+            ) { statement =>
+              val partitionStart = System.currentTimeMillis()
+              val count = {
+                Using.resource(statement.executeQuery()) { rs =>
+                  extractedDataConsumer(
+                    boundaryContext,
+                    rs,
+                    Some(index)
+                  )
+                } match {
+                  case Failure(exception) =>
+                    logger.error(f"$boundaryContext Encountered an error during extraction.")
+                    Utils.logException(logger, exception)
+                    throw exception
+                  case Success(value) =>
+                    value
                 }
-              case NoBound =>
-              // do nothing
+              }
+              val currentTableCount = tableCount.addAndGet(count)
+
+              boundDef match {
+                case b: Bounds =>
+                  val lineLength = 100
+                  val progressPercent =
+                    if (b.count == 0) lineLength
+                    else (currentTableCount * lineLength / b.count).toInt
+                  val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+                  val progressPercentUnfilled =
+                    (progressPercent until lineLength).map(_ => " ").mkString
+                  val progressBar =
+                    s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+                  val partitionEnd = System.currentTimeMillis()
+                  val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
+                  logger.info(
+                    s"$context $progressBar. Elapsed time: $elapsedTime"
+                  )
+                  tableExtractDataConfig.partitionConfig match {
+                    case Some(p: PartitionConfig) =>
+                      val deltaRow = DeltaRow(
+                        domain = extractConfig.jdbcSchema.schema,
+                        schema = tableExtractDataConfig.table,
+                        lastExport = b.max,
+                        start = new Timestamp(partitionStart),
+                        end = new Timestamp(partitionEnd),
+                        duration = (partitionEnd - partitionStart).toInt,
+                        count = count,
+                        success = true,
+                        message = p.partitionColumn,
+                        step = index.toString
+                      )
+                      withJDBCConnection(extractConfig.audit.options) { connection =>
+                        LastExportUtils.insertNewLastExport(
+                          connection,
+                          deltaRow,
+                          Some(p.partitionColumnType),
+                          extractConfig.audit,
+                          auditColumns
+                        )
+                      }
+                    case None =>
+                      throw new RuntimeException(
+                        "Should never happen since we are fetching an interval"
+                      )
+                  }
+                case NoBound =>
+                // do nothing
+              }
             }
           }
         }.recoverWith { case _: Exception =>
