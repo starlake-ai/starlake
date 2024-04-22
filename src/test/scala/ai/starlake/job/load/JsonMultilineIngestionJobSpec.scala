@@ -18,8 +18,9 @@
  *
  */
 
-package ai.starlake.schema.handlers
+package ai.starlake.job.load
 
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.{JdbcChecks, TestHelper}
 
 class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {

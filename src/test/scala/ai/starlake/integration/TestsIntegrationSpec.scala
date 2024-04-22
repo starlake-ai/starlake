@@ -1,6 +1,6 @@
 package ai.starlake.integration
 
-import ai.starlake.tests.StarlakeTestData
+import ai.starlake.job.Main
 import better.files.File
 
 class TestsIntegrationSpec extends IntegrationTestBase {
@@ -12,9 +12,7 @@ class TestsIntegrationSpec extends IntegrationTestBase {
     withEnvs(
       "SL_ROOT" -> localDir.pathAsString
     ) {
-
-      val tests = StarlakeTestData.loadTests()
-      StarlakeTestData.run(tests)
+      new Main().run(Array("test"))
     }
   }
 }

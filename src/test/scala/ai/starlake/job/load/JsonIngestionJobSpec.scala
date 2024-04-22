@@ -18,10 +18,11 @@
  *
  */
 
-package ai.starlake.schema.handlers
+package ai.starlake.job.load
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest._
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.{JdbcChecks, TestHelper}
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}

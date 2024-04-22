@@ -1,11 +1,11 @@
-package ai.starlake.schema.handlers
+package ai.starlake.job.transform
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.TaskViewDependency
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
