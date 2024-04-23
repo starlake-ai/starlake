@@ -695,16 +695,16 @@ class ExtractSpec extends TestHelper {
       }
       error.message should fullyMatch regex """Invalid content for .*?:
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tableTypes: string found, array expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]\.k: must not have unevaluated properties
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: should be valid to one and only one schema, but 0 are valid
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: must be valid to one and only one schema, but 0 are valid
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, string expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, boolean expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, number expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, integer expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, null expected
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: required property 'name' not found
+                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: property 'k' is not evaluated and the schema does not allow unevaluated properties
                                                |     - \$\.extract\.jdbcSchemas\[0]\.tables\[1]: string found, object expected
-                                               |     - \$\.extract: must not have unevaluated properties""".stripMargin
+                                               |     - \$: property 'extract' is not evaluated and the schema does not allow unevaluated properties""".stripMargin
     }
   }
 }
