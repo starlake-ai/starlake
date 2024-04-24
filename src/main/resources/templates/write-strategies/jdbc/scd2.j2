@@ -4,8 +4,8 @@ CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT SL_INCOMING.* FROM SL_INCOMING, {{ tableFullName }} SL_EXISTING
@@ -22,8 +22,8 @@ WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ item }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} 

@@ -39,6 +39,7 @@ class BigQueryAutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {

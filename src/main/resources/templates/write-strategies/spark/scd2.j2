@@ -8,7 +8,7 @@
 
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
-LEFT JOIN {{ tableFullName }} 
+LEFT JOIN {{ tableFullName }} SL_EXISTING
 ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
 WHERE {% for key in strategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
@@ -40,7 +40,7 @@ WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategy
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
 WHERE {% for key in strategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (

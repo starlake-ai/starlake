@@ -17,7 +17,7 @@ table:
     privacy: "NONE"
     ignore: false
   - name: "timestamp"
-    type: "date"
+    type: "timestamp"
     array: false
     required: false
     privacy: "NONE"

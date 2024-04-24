@@ -9,8 +9,6 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.jdk.CollectionConverters._
-
 class StrategiesBuilder extends StrictLogging {
 
   def buildSqlWithJ2(
@@ -366,7 +364,7 @@ class StrategiesBuilder extends StrictLogging {
 }
 
 object StrategiesBuilder {
-  def apply(className: String): StrategiesBuilder = {
+  def apply(): StrategiesBuilder = {
     new StrategiesBuilder()
     /*
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
@@ -382,13 +380,27 @@ object StrategiesBuilder {
      */
   }
 
+  def asJavaList[T](l: List[T]): java.util.ArrayList[T] = {
+    val res = new java.util.ArrayList[T]()
+    l.foreach(key => res.add(key))
+    res
+  }
+  def asJavaMap[K, V](m: Map[K, V]): java.util.Map[K, V] = {
+    val res = new java.util.HashMap[K, V]()
+    m.foreach { case (k, v) =>
+      res.put(k, v)
+    }
+    res
+  }
+
   implicit class JavaWriteStrategy(writeStrategy: WriteStrategy) {
+
     def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
       Map(
-        "strategyType"        -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
-        "strategyTypes"       -> writeStrategy.types.getOrElse(Map.empty[String, String]).asJava,
-        "strategyKey"         -> writeStrategy.key.asJava,
-        "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
+        "strategyType"      -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
+        "strategyTypes"     -> asJavaMap(writeStrategy.types.getOrElse(Map.empty[String, String])),
+        "strategyKey"       -> asJavaList(writeStrategy.key),
+        "strategyTimestamp" -> writeStrategy.timestamp.getOrElse(""),
         "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),
         "strategyOn"          -> writeStrategy.on.getOrElse(MergeOn.TARGET).toString,
         "strategyStartTs"     -> writeStrategy.startTs.getOrElse(""),
@@ -444,7 +456,7 @@ object StrategiesBuilder {
         "tableDatabase"           -> database,
         "tableDomain"             -> domain,
         "tableName"               -> name,
-        "tableColumnNames"        -> columnNames.asJava,
+        "tableColumnNames"        -> asJavaList(columnNames),
         "tableFullName"           -> getFullTableName(),
         "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
         "tableParamsForUpdateSql" -> SQLUtils

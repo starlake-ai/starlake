@@ -317,7 +317,6 @@ object Settings extends StrictLogging {
                 "spark"
               else engineName
             case "bigquery" | "bq" => "bigquery"
-            case "spark"           => "spark"
             case _                 =>
               // if this is a jdbc url (aka snowflake, redshift ...)
               options
@@ -338,6 +337,9 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+
+    @JsonIgnore
+    def isJdbcUrl() = this.options.get("url").exists(_.startsWith("jdbc"))
 
     @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
@@ -671,7 +673,7 @@ object Settings extends StrictLogging {
       val connectionTypeIsHive = this.connections
         .get(this.connectionRef)
         .exists { conn =>
-          conn.`type`.toLowerCase() == "hive"
+          conn.getType() == ConnectionType.FS
         }
       connectionTypeIsHive || Utils.isRunningInDatabricks()
     }
