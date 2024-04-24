@@ -108,7 +108,7 @@ object Resolvers {
   val mulesoft =
     "Mulesoft repository" at "https://repository.mulesoft.org/nexus/content/repositories/public/"
 
-  val allResolvers = Seq(typeSafe, confluent, mulesoft)
+  val allResolvers = Seq(typeSafe, confluent, mulesoft) ++ Resolver.sonatypeOssRepos("snapshots")
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 
