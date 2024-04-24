@@ -156,4 +156,4 @@ metals.sbt
 samples/starbake/site
 samples/starbake/datasets
 samples/starbake/metadata/dags/generated
-samples/spark/test-results
+samples/spark/test-reports

@@ -42,7 +42,7 @@ import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
-import ai.starlake.tests.StarlakeTestData
+import ai.starlake.tests.{StarlakeTestData, StarlakeTestResult}
 import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -771,7 +771,7 @@ class IngestionWorkflow(
   def transform(
     dependencyTree: List[TaskViewDependencyNode],
     options: Map[String, String]
-  ): Boolean = {
+  ): Try[String] = {
     implicit val forkJoinTaskSupport =
       ParUtils.createForkSupport(Some(settings.appConfig.maxParTask))
 
@@ -779,25 +779,28 @@ class IngestionWorkflow(
       ParUtils.makeParallel(dependencyTree)
     val res = parJobs.map { jobContext =>
       val ok = transform(jobContext.children, options)
-      if (ok) {
+      if (ok.isSuccess) {
         if (jobContext.isTask()) {
           val res = transform(TransformConfig(jobContext.data.name, options))
           res
         } else
-          true
+          Success("")
       } else
-        false
+        ok
     }
     forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
-    res.forall(_ == true)
+    val allIsSuccess = res.forall(_.isSuccess)
+    if (allIsSuccess) {
+      res.head
+    } else {
+      res.find(_.isFailure).getOrElse(throw new Exception("Should never happen"))
+    }
   }
 
   def test(config: TransformTestConfig): Unit = {
     val tests = StarlakeTestData.loadTests()
     val results = StarlakeTestData.run(tests, config)
-    results.foreach { result =>
-      result.html()
-    }
+    StarlakeTestResult.html(results)
     val (sucess, failure) = results.partition(_.success)
     println(s"Tests run: ${results.size}")
     println(s"Tests succeeded: ${sucess.size}")
@@ -813,7 +816,7 @@ class IngestionWorkflow(
       )
     }
   }
-  def autoJob(config: TransformConfig): Try[Boolean] = Try {
+  def autoJob(config: TransformConfig): Try[String] = {
     val result = if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
       val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
@@ -823,12 +826,7 @@ class IngestionWorkflow(
     } else {
       transform(config)
     }
-    if (result) {
-      result
-    } else {
-      throw new Exception(s"Job ${config.name} failed")
-    }
-
+    result
   }
 
   /** Successively run each task of a job
@@ -837,89 +835,80 @@ class IngestionWorkflow(
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
   // scalastyle:off println
-  def transform(transformConfig: TransformConfig): Boolean = {
+  def transform(transformConfig: TransformConfig): Try[String] = {
     schemaHandler.tasks(transformConfig.reload)
-    val result: Boolean = {
-      val action = buildTask(transformConfig)
-      logger.info(s"Transforming with config $transformConfig")
-      logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
-      action.taskDesc.getRunEngine() match {
-        case BQ =>
-          val result = action.run()
-          transformConfig.interactive match {
-            case Some(format) =>
-              result.map { result =>
-                val bqJobResult = result.asInstanceOf[BigQueryJobResult]
+    val action = buildTask(transformConfig)
+    logger.info(s"Transforming with config $transformConfig")
+    logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
+    action.taskDesc.getRunEngine() match {
+      case BQ =>
+        val result = action.run()
+        Utils.logFailure(result, logger)
+        result match {
+          case Success(res) =>
+            transformConfig.interactive match {
+              case Some(format) =>
+                val bqJobResult = res.asInstanceOf[BigQueryJobResult]
+                val pretty = bqJobResult.prettyPrint(format, settings.appConfig.rootServe)
                 logger.info("START INTERACTIVE")
-                bqJobResult.show(format, settings.appConfig.rootServe)
+                println(pretty)
                 logger.info("END INTERACTIVE")
+                Success(pretty)
+              case None =>
+                Success("")
+            }
+          case Failure(e) =>
+            val output =
+              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
+            output.foreach(_.append(Utils.exceptionAsString(e)))
+            Failure(e)
+        }
+      case Engine.JDBC =>
+        (action.run(), transformConfig.interactive) match {
+          case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
+            val pretty = jdbcJobResult.prettyPrint(format)
+            logger.info("""START INTERACTIVE""")
+            println(pretty)
+            logger.info("""END INTERACTIVE""")
+            Success(pretty) // Sink already done in JDBC
+          case (Success(_), _) =>
+            Success("")
+          case (Failure(exception), _) =>
+            val output =
+              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
+            output.foreach(_.append(Utils.exceptionAsString(exception)))
+            exception.printStackTrace()
+            Failure(exception)
+        }
+      case custom =>
+        (action.run(), transformConfig.interactive) match {
+          case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
+            val dsLogging =
+              new DatasetLogging {
+                def asString(ds: Dataset[Row]): String = ds.showString(10000, 0)
               }
-            case None =>
-          }
-          Utils.logFailure(result, logger)
-          result match {
-            case Success(res) =>
-            case Failure(e) =>
-              val output =
-                settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "extension.log")
-                )
-              output.foreach(_.append(Utils.exceptionAsString(e)))
-          }
-          result.isSuccess
-        case Engine.JDBC =>
-          (action.run(), transformConfig.interactive) match {
-            case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
-              logger.info("""START INTERACTIVE""")
-              jdbcJobResult.show(format, settings.appConfig.rootServe)
-              logger.info("""END INTERACTIVE""")
-              true // Sink already done in JDBC
-            case (Success(_), _) =>
-              true
-            case (Failure(exception), _) =>
-              val output =
-                settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "extension.log")
-                )
-              output.foreach(_.append(Utils.exceptionAsString(exception)))
-              exception.printStackTrace()
-              false
-          }
-        case custom =>
-          (action.run(), transformConfig.interactive) match {
-            case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
-              // For interactive display. Used by the VSCode plugin
-              logger.info("""START INTERACTIVE""")
-              dataFrame.show(false)
-              logger.info("""END INTERACTIVE""")
-              val dsLogging =
-                new DatasetLogging {
-                  def asString(ds: Dataset[Row]): String = ds.showString(10000, 0)
-                }
-              val output =
-                settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "extension.log")
-                )
-              import scala.language.reflectiveCalls
-              val data = dsLogging.asString(dataFrame)
-              output.foreach(_.append(s"""$data"""))
-              true
-            case (Success(_), None) =>
-              true
-            case (Failure(exception), _) =>
-              val output =
-                settings.appConfig.rootServe.map(rootServe =>
-                  File(File(rootServe), "extension.log")
-                )
-              output.foreach(_.append(Utils.exceptionAsString(exception)))
-              exception.printStackTrace()
-              false
-            case (Success(_), _) =>
-              throw new Exception("Should never happen")
-          }
-      }
+            val output =
+              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
+            import scala.language.reflectiveCalls
+            val data = dsLogging.asString(dataFrame)
+            // For interactive display. Used by the VSCode plugin
+            logger.info("""START INTERACTIVE""")
+            println(data)
+            logger.info("""END INTERACTIVE""")
+            output.foreach(_.append(s"""$data"""))
+            Success(data)
+          case (Success(_), None) =>
+            Success("")
+          case (Failure(exception), _) =>
+            val output =
+              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
+            output.foreach(_.append(Utils.exceptionAsString(exception)))
+            exception.printStackTrace()
+            Failure(exception)
+          case (Success(_), _) =>
+            throw new Exception("Should never happen")
+        }
     }
-    result
   }
 
   def esLoad(config: ESLoadConfig): Try[JobResult] = {

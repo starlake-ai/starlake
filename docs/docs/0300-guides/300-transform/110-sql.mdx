@@ -7,14 +7,9 @@ SQL transforms are used to materialize SELECT statements using a user defined st
 The result of the SELECT statement is then used to populate the target table by applying the [write strategy](../load/write-strategies) defined in the corresponding YAML configuration file.
 The SELECT statement can be as simple or as complex as needed.
 
-The only requirement is that the result of the SELECT statement must match the schema of the target table if ti exists, otherwise starlake will infer the schema.
+The only requirement is that the result of the SELECT statement must match the schema of the target table if it exists, otherwise starlake will infer the schema.
 
 
-:::warning
-
-The `*` character is not allowed in the SELECT statement.
-
-:::
 
 ## Column description
 

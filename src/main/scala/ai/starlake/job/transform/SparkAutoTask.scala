@@ -40,6 +40,7 @@ class SparkAutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -205,6 +206,8 @@ class SparkAutoTask(
 
   private def buildDataFrameToSink(): Option[DataFrame] = {
     val runConnectionType = taskDesc.getRunConnectionType()
+    val runEngine: Engine = taskDesc.getRunEngine()
+
     val dataframe =
       (runEngine, runConnectionType) match {
         case (Engine.SPARK, ConnectionType.FS) =>
@@ -699,7 +702,7 @@ class SparkAutoTask(
           )
         }
         loadedDF.write
-          .format("jdbc")
+          .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
           .option("dbtable", firstStepTempTable)
           .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
           .options(sinkConnectionRefOptions)

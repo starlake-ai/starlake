@@ -12,11 +12,8 @@ case class BigQueryJobResult(
   job: scala.Option[Job]
 ) extends JobResult {
 
-  def show(format: String, rootServe: scala.Option[String]): Unit = {
-    val output = rootServe.map(File(_, "extension.log"))
-    output.foreach(_.append(s"Total Bytes Processed: $totalBytesProcessed bytes.\n"))
-    println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
-    tableResult.foreach { rows =>
+  def prettyPrint(format: String, rootServe: scala.Option[String]): String = {
+    tableResult.map { rows =>
       val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
       val values =
         rows.iterateAll().asScala.toList.map { row =>
@@ -26,7 +23,16 @@ case class BigQueryJobResult(
             .toList
             .map(cell => scala.Option(cell.getValue()).getOrElse("null").toString)
         }
-      prettyPrint(format, headers, values, output)
+      val result = prettyPrint(format, headers, values)
+      result
     }
+  }.getOrElse("")
+
+  def show(format: String, rootServe: scala.Option[String]): Unit = {
+    val output = rootServe.map(File(_, "extension.log"))
+    output.foreach(_.append(s"Total Bytes Processed: $totalBytesProcessed bytes.\n"))
+    println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
+    val res = prettyPrint(format, rootServe)
+    println(res)
   }
 }
