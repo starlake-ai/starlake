@@ -3,6 +3,7 @@
 
 # 1.2
 __New Feature__:
+- Unit tests for transforms
 - Excel export
 - Custom write strategies using Jinja2
 - The following commands now use HDFS client to interact with files and enables cloud storage support such as S3 or GCS:
@@ -13,6 +14,7 @@ __New Feature__:
 - add stringPartitionFunc attribute to table extraction definition
 
 __Bug Fix__:
+- Amazon RedShift write strategy templates
 - Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.
 - Fix incremental next query
 - Fix restricted renamed column and pk renaming
