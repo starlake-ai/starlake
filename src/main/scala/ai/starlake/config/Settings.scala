@@ -621,7 +621,8 @@ object Settings extends StrictLogging {
     shortJobTimeoutMs: Long,
     createSchemaIfNotExists: Boolean,
     http: Http,
-    timezone: TimeZone
+    timezone: TimeZone,
+    hiveInTest: Boolean
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -668,12 +669,13 @@ object Settings extends StrictLogging {
     val cacheStorageLevel: StorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
+    // config.getOption("hive.metastore.uris")
     @JsonIgnore
     def isHiveCompatible(): Boolean = {
       val connectionTypeIsHive = this.connections
         .get(this.connectionRef)
         .exists { conn =>
-          conn.getType() == ConnectionType.FS
+          conn.getType() == ConnectionType.FS // && session.conf.getAll.contains("hive.metastore.uris")
         }
       connectionTypeIsHive || Utils.isRunningInDatabricks()
     }

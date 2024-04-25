@@ -1179,6 +1179,7 @@ object YamlConfigGenerators {
       createSchemaIfNotExists <- arbitrary[Boolean]
       http                    <- arbitrary[Http]
       timezone                <- arbitrary[TimeZone]
+      hiveInTest              <- arbitrary[Boolean]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1250,7 +1251,8 @@ object YamlConfigGenerators {
       shortJobTimeoutMs = shortJobTimeoutMs,
       createSchemaIfNotExists = createSchemaIfNotExists,
       http = http,
-      timezone = timezone
+      timezone = timezone,
+      hiveInTest = hiveInTest
     )
   }
 
