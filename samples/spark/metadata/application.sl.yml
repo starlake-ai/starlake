@@ -39,7 +39,7 @@ application:
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
         tempdir: "s3a://starlake-app/data"
-        aws_iam_role: "arn:aws:iam::966398187600:role/service-role/AmazonRedshift-CommandsAccessRole-20240423T103533"
+        aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
       type: jdbc
       options:
@@ -65,7 +65,6 @@ application:
         #maximumBytesBilled: 100000000000
     sparkLocal:
       type: "fs"
-
   spark:
     delta:
       logStore:
