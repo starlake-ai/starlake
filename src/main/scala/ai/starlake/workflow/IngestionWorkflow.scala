@@ -778,6 +778,7 @@ class IngestionWorkflow(
     val parJobs =
       ParUtils.makeParallel(dependencyTree)
     val res = parJobs.map { jobContext =>
+      logger.info(s"Transforming ${jobContext.data.name}")
       val ok = transform(jobContext.children, options)
       if (ok.isSuccess) {
         if (jobContext.isTask()) {
@@ -790,7 +791,9 @@ class IngestionWorkflow(
     }
     forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
     val allIsSuccess = res.forall(_.isSuccess)
-    if (allIsSuccess) {
+    if (res == Nil) {
+      Success("")
+    } else if (allIsSuccess) {
       res.head
     } else {
       res.find(_.isFailure).getOrElse(throw new Exception("Should never happen"))
