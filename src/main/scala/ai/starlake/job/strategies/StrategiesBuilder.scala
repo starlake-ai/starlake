@@ -33,12 +33,25 @@ class StrategiesBuilder extends StrictLogging {
       sinkConfig
     )
     val paramMap = context.asMap().asInstanceOf[Map[String, Object]]
-    val content = new WriteStrategyTemplateLoader().loadTemplate(
+    val contentTemplate = new WriteStrategyTemplateLoader().loadTemplate(
       s"${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
     )
-    val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
-    logger.info(s"Applying SQL for strategy: ${strategy.`type`} => $jinjaOutput")
-    jinjaOutput
+
+    val (contentTemplateUpdated, isSlIncomingRedshiftTempView) =
+      if (contentTemplate.contains("#SL_INCOMING")) {
+        (contentTemplate.replaceAll("#SL_INCOMING", "SL_INCOMING"), true)
+      } else {
+        (contentTemplate, false)
+      }
+    val jinjaOutput = Utils.parseJinjaTpl(contentTemplateUpdated, paramMap)
+    val jinjaOutputUpdated =
+      if (isSlIncomingRedshiftTempView) {
+        jinjaOutput.replaceAll("SL_INCOMING", "#SL_INCOMING")
+      } else {
+        jinjaOutput
+      }
+    logger.info(s"Applying SQL for strategy: ${strategy.`type`} => $jinjaOutputUpdated")
+    jinjaOutputUpdated
   }
 
   def run(
@@ -449,8 +462,8 @@ object StrategiesBuilder {
       val tableIncomingColumnsCsv =
         SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", columnNames, jdbcEngine.quote)
       val tableInsert = "INSERT " + paramsForInsertSql(jdbcEngine.quote)
-      val tableUpdate =
-        "UPDATE " + SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
+      val tableUpdateSetExpression =
+        SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
 
       Map(
         "tableDatabase"           -> database,
@@ -461,8 +474,8 @@ object StrategiesBuilder {
         "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
         "tableParamsForUpdateSql" -> SQLUtils
           .setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote),
-        "tableInsert" -> tableInsert,
-        "tableUpdate" -> tableUpdate,
+        "tableInsert"              -> tableInsert,
+        "tableUpdateSetExpression" -> tableUpdateSetExpression,
         "tableColumnsCsv" -> columnNames
           .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
           .mkString(","),

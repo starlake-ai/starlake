@@ -19,7 +19,7 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
             SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING 
 ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
 COMMIT TRANSACTION;
    
@@ -39,7 +39,7 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
         SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING 
 ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
 COMMIT TRANSACTION;
    
