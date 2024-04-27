@@ -447,7 +447,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     val extractionResults: List[Try[Any]] =
       boundaries.map { case (bounds, index) =>
         Try {
-          val boundaryContext = s"$context[$index]"
+          val boundaryContext = bounds match {
+            case _: Boundary => s"$context[$index]"
+            case Unbounded   => context
+          }
           logger.info(s"$boundaryContext bounds = $bounds")
 
           withJDBCConnection(extractConfig.data.options) { connection =>
@@ -466,7 +469,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                   extractedDataConsumer(
                     boundaryContext,
                     rs,
-                    Some(index)
+                    bounds match {
+                      case _: Boundary => Some(index)
+                      case Unbounded   => None
+                    }
                   )
                 } match {
                   case Failure(exception) =>
@@ -898,39 +904,40 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     val outFile = new Path(tableExtractDataConfig.tableOutputDir, filename)
     Try {
       logger.info(s"$context Starting extraction into $filename")
-      val outFileWriter = storageHandler.output(outFile)
-      val writerSettings = new CsvWriterSettings()
-      val format = new CsvFormat()
-      outputFormat.quote.flatMap(_.headOption).foreach { q =>
-        format.setQuote(q)
-      }
-      outputFormat.escape.flatMap(_.headOption).foreach(format.setQuoteEscape)
-      outputFormat.separator.foreach(format.setDelimiter)
-      writerSettings.setFormat(format)
-      outputFormat.nullValue.foreach(writerSettings.setNullValue)
-      outputFormat.withHeader.foreach(writerSettings.setHeaderWritingEnabled)
-      val csvRoutines = new CsvRoutines(writerSettings)
+      Using.resource(storageHandler.output(outFile)) { outFileWriter =>
+        val writerSettings = new CsvWriterSettings()
+        val format = new CsvFormat()
+        outputFormat.quote.flatMap(_.headOption).foreach { q =>
+          format.setQuote(q)
+        }
+        outputFormat.escape.flatMap(_.headOption).foreach(format.setQuoteEscape)
+        outputFormat.separator.foreach(format.setDelimiter)
+        writerSettings.setFormat(format)
+        outputFormat.nullValue.foreach(writerSettings.setNullValue)
+        outputFormat.withHeader.foreach(writerSettings.setHeaderWritingEnabled)
+        val csvRoutines = new CsvRoutines(writerSettings)
 
-      val extractionStartMs = System.currentTimeMillis()
-      val objectRowWriterProcessor = new SLObjectRowWriterProcessor()
-      outputFormat.datePattern.foreach(dtp =>
-        objectRowWriterProcessor.convertType(classOf[java.sql.Date], Conversions.toDate(dtp))
-      )
-      outputFormat.timestampPattern.foreach(tp =>
-        objectRowWriterProcessor.convertType(classOf[java.sql.Timestamp], Conversions.toDate(tp))
-      )
-      writerSettings.setQuoteAllFields(true)
-      writerSettings.setRowWriterProcessor(objectRowWriterProcessor)
-      csvRoutines.write(
-        rs,
-        outFileWriter,
-        outputFormat.encoding.getOrElse(StandardCharsets.UTF_8.name())
-      )
-      val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
-      logger.info(
-        s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $outFile in $elapsedTime"
-      )
-      objectRowWriterProcessor.getRecordsCount()
+        val extractionStartMs = System.currentTimeMillis()
+        val objectRowWriterProcessor = new SLObjectRowWriterProcessor(context)
+        outputFormat.datePattern.foreach(dtp =>
+          objectRowWriterProcessor.convertType(classOf[java.sql.Date], Conversions.toDate(dtp))
+        )
+        outputFormat.timestampPattern.foreach(tp =>
+          objectRowWriterProcessor.convertType(classOf[java.sql.Timestamp], Conversions.toDate(tp))
+        )
+        writerSettings.setQuoteAllFields(true)
+        writerSettings.setRowWriterProcessor(objectRowWriterProcessor)
+        csvRoutines.write(
+          rs,
+          outFileWriter,
+          outputFormat.encoding.getOrElse(StandardCharsets.UTF_8.name())
+        )
+        val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(extractionStartMs)
+        logger.info(
+          s"$context Extracted ${objectRowWriterProcessor.getRecordsCount()} rows and saved into $outFile in $elapsedTime"
+        )
+        objectRowWriterProcessor.getRecordsCount()
+      }
     }.recoverWith { case e =>
       storageHandler.delete(outFile)
       Failure(e)
