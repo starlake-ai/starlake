@@ -3,6 +3,7 @@
 
 # 1.2
 __New Feature__:
+- Custom DDL mapping for JDBC datawarehouses (Postgres, Snowflake, Redshift, Synapse ...)
 - Unit tests for transforms
 - Excel export
 - Custom write strategies using Jinja2
