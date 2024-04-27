@@ -56,6 +56,14 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  def attDdl(): Map[String, Map[String, String]] =
+    schemaHandler
+      .domains()
+      .find(_.name == taskDesc.domain)
+      .flatMap(_.tables.find(_.name == taskDesc.table))
+      .map(schemaHandler.getDdlMapping)
+      .getOrElse(Map.empty)
+
   val sparkSinkFormat =
     taskDesc.sink.flatMap(_.format).getOrElse(settings.appConfig.defaultWriteFormat)
 

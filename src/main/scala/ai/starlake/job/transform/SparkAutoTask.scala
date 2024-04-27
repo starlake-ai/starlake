@@ -692,13 +692,15 @@ class SparkAutoTask(
           }
         }
         val jdbcUrl = sinkConnectionRefOptions("url")
+
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
           SparkUtils.createTable(
             conn,
             firstStepTempTable,
             loadedDF.schema,
             caseSensitive = false,
-            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions)
+            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
+            attDdl()
           )
         }
         loadedDF.write

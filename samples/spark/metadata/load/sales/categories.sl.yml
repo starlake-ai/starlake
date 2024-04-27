@@ -19,7 +19,7 @@ table:
       timestamp: "last_update"
   attributes:
     - name: "id"
-      type: "string"
+      type: "longstring"
       required: true
     - name: "name"
       type: "string"

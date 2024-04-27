@@ -2,14 +2,17 @@ package ai.starlake.utils
 
 import ai.starlake.extract.JdbcDbUtils
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import org.apache.spark.sql.types.{StructField, StructType, TimestampNTZType}
 
 import java.sql.{Connection, SQLException}
+import java.util.regex.Pattern
 
 object SparkUtils extends StrictLogging {
   def added(incoming: StructType, existing: StructType): StructType = {
@@ -105,11 +108,18 @@ object SparkUtils extends StrictLogging {
     tableName: String,
     schema: StructType,
     caseSensitive: Boolean,
-    options: JdbcOptionsInWrite
+    options: JdbcOptionsInWrite,
+    attrDdlMapping: Map[String, Map[String, String]]
   ): Unit = {
     val statement = conn.createStatement
     val jdbcDialect = dialect(options.url)
-    val strSchema = schemaString(schema, caseSensitive, options.url, options.createTableColumnTypes)
+    val strSchema =
+      schemaString(
+        schema,
+        caseSensitive,
+        options.url,
+        attrDdlMapping
+      ) // options.createTableColumnTypes
     try {
       statement.setQueryTimeout(options.queryTimeout)
       val createTableOptions = options.createTableOptions
@@ -161,10 +171,35 @@ object SparkUtils extends StrictLogging {
     schema: StructType,
     caseSensitive: Boolean,
     url: String,
-    createTableColumnTypes: Option[String] = None
+    createTableColumnTypes: Map[String, Map[String, String]] = Map.empty
   ) = {
+    val dialectPattern = Pattern
+      .compile("jdbc:([a-zA-Z]+):.*")
+      .matcher(url)
+    assert(dialectPattern.find())
+    val dialectName = dialectPattern.group(1)
+
     val urlForRedshift = url.replace("jdbc:redshift", "jdbc:postgresql")
-    JdbcUtils.schemaString(schema, caseSensitive, urlForRedshift, createTableColumnTypes)
+    val sb = new StringBuilder()
+    val dialect = JdbcDialects.get(url)
+    schema.fields.foreach { field =>
+      val name = dialect.quoteIdentifier(field.name)
+      /*
+      val typ = userSpecifiedColTypesMap
+        .getOrElse(field.name, getJdbcType(field.dataType, dialect).databaseTypeDefinition)
+       */
+      val typMap =
+        if (caseSensitive) createTableColumnTypes
+        else
+          CaseInsensitiveMap(createTableColumnTypes)
+
+      val ddlTyp = typMap.get(field.name).flatMap(_.get(dialectName))
+      val typ =
+        ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
+      val nullable = if (field.nullable) "" else "NOT NULL"
+      sb.append(s", $name $typ $nullable")
+    }
+    if (sb.length < 2) "" else sb.substring(2)
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {
