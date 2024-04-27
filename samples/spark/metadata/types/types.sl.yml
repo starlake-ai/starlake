@@ -34,3 +34,14 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000)
+  - name: "longstring"
+    primitiveType: "string"
+    pattern: ".+"
+    sample: "Hello World"
+    comment: "Any set of chars"
+    ddlMapping:
+      redshift: VARCHAR(max)
+      bigquery: STRING
+      snowflake: STRING
+      postgres: varchar(8000)
+      synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
