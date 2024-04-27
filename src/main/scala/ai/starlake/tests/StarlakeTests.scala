@@ -370,7 +370,7 @@ object StarlakeTestData {
               s"CREATE TABLE $domainName.sl_assert AS SELECT * FROM '${assertFileJson.toString}';"
             } else if (assertFileSql.exists()) {
               val bufferedSource = Source.fromFile(assertFileSql)
-              val sql = bufferedSource.getLines.mkString("\n")
+              val sql = bufferedSource.getLines().mkString("\n")
               bufferedSource.close
               s"CREATE TABLE $domainName.sl_assert AS SELECT * $sql"
             } else {
@@ -422,7 +422,7 @@ object StarlakeTestData {
               s"CREATE TABLE $testDataDomainName.$testDataTableName AS SELECT * FROM '${dataPath.getPath}';"
             case "sql" =>
               val bufferedSource = Source.fromFile(dataPath.getPath)
-              val result = bufferedSource.getLines.mkString("\n")
+              val result = bufferedSource.getLines().mkString("\n")
               bufferedSource.close
               result
             case _ => ""

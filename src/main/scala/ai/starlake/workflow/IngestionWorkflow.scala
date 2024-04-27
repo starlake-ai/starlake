@@ -794,9 +794,9 @@ class IngestionWorkflow(
     if (res == Nil) {
       Success("")
     } else if (allIsSuccess) {
-      res.head
+      res.iterator.next()
     } else {
-      res.find(_.isFailure).getOrElse(throw new Exception("Should never happen"))
+      res.iterator.find(_.isFailure).getOrElse(throw new Exception("Should never happen"))
     }
   }
 
