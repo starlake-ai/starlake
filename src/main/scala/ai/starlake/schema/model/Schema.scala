@@ -90,6 +90,11 @@ case class Schema(
   ) // Should never be called. Here for Jackson deserialization only
 
   @JsonIgnore
+  def getTypesMap(): Map[String, String] = {
+    attributes.map(attr => attr.name -> attr.`type`).toMap
+  }
+
+  @JsonIgnore
   def isPrimaryKey(name: String): Boolean = {
     val isStrategyKey = metadata.exists(_.writeStrategy.exists(_.key.contains(name)))
     primaryKey.contains(name) || isStrategyKey
