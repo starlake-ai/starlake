@@ -129,9 +129,6 @@ object SparkUtils extends StrictLogging {
         else
           strSchema.replaceAll("\"", "")
 
-      logger.info(
-        s"Creating table $tableName with schema $finalStrSchema and options $createTableOptions"
-      )
       val domainName = tableName.split('.').head
       statement.executeUpdate(
         s"CREATE SCHEMA IF NOT EXISTS $domainName"
@@ -173,17 +170,20 @@ object SparkUtils extends StrictLogging {
     url: String,
     createTableColumnTypes: Map[String, Map[String, String]] = Map.empty
   ) = {
+    logger.debug(s"SchemaString of $schema")
+    createTableColumnTypes.foreach { case (k, v) =>
+      logger.debug(s"Column $k has DDL types $v")
+    }
     val dialectPattern = Pattern
       .compile("jdbc:([a-zA-Z]+):.*")
       .matcher(url)
     assert(dialectPattern.find())
     val dialectName = dialectPattern.group(1)
 
-    val urlForRedshift = url.replace("jdbc:redshift", "jdbc:postgresql")
+    val urlForRedshift = url.replace("jdbc:redshift:", "jdbc:postgresql:")
+    val dialect = JdbcDialects.get(urlForRedshift)
     val sb = new StringBuilder()
-    val dialect = JdbcDialects.get(url)
     schema.fields.foreach { field =>
-      val name = dialect.quoteIdentifier(field.name)
       /*
       val typ = userSpecifiedColTypesMap
         .getOrElse(field.name, getJdbcType(field.dataType, dialect).databaseTypeDefinition)
@@ -197,7 +197,8 @@ object SparkUtils extends StrictLogging {
       val typ =
         ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
       val nullable = if (field.nullable) "" else "NOT NULL"
-      sb.append(s", $name $typ $nullable")
+      val quotedFieldName = dialect.quoteIdentifier(field.name)
+      sb.append(s", $quotedFieldName $typ $nullable")
     }
     if (sb.length < 2) "" else sb.substring(2)
   }
