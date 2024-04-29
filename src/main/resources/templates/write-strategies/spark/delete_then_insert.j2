@@ -6,9 +6,9 @@
 {% if columnNames|length > 1 %}
 
 DELETE FROM {{ tableFullName }} 
-WHERE {{ makeMD5(strategyKey) }} in 
+WHERE {{ makeMD5(quotedStrategyKey) }} in
 (
-    SELECT {{ makeMD5(strategyKey) }} FROM ({{ selectStatement }})
+    SELECT {{ makeMD5(quotedStrategyKey) }} FROM ({{ selectStatement }})
 );
 
 {% else %}
@@ -22,5 +22,5 @@ WHERE {{ strategyKeyCsv }} in
 {% endif%}
 INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }}
 FROM ({{ selectStatement }})
-WHERE {% for mergeKey in strategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
 

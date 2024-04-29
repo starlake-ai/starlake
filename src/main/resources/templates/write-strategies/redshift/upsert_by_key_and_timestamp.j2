@@ -19,7 +19,7 @@ WHERE
 
 MERGE INTO  {{ tableFullName }}
 USING SL_INCOMING
-ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }})
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }})
 WHEN MATCHED THEN  {{ tableUpdate }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
