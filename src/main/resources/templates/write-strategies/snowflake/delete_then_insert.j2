@@ -20,5 +20,7 @@ WHERE {{ strategyKeyCsv }} in
 );
 
 {% endif%}
-INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) {{ selectStatement }};
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }}
+FROM ({{ selectStatement }})
+WHERE {% for mergeKey in strategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
 
