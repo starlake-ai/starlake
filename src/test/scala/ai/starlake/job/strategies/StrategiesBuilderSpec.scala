@@ -345,7 +345,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "DELETE_THEN_INSERT.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on source and target------------------------------------------------------------"
+        "delete then insert------------------------------------------------------------"
       )
     }
 
