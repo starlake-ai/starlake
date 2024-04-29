@@ -8,9 +8,9 @@ CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
 {% if columnNames|length > 1 %}
 
 DELETE FROM {{ tableFullName }} 
-WHERE {{ makeMD5(strategyKey) }} in 
+WHERE {{ makeMD5(quotedStrategyKey) }} in
 (
-    SELECT {{ makeMD5(strategyKey) }} FROM #SL_INCOMING
+    SELECT {{ makeMD5(quotedStrategyKey) }} FROM #SL_INCOMING
 );
 
 {% else %}
@@ -24,6 +24,6 @@ WHERE {{ strategyKeyCsv }} in
 {% endif%}
 
 INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING
-WHERE {% for mergeKey in strategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
 
 
