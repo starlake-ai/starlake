@@ -197,6 +197,42 @@ object Settings extends StrictLogging {
               s"Connection type $tpe requires a url"
             )
           }
+          sparkFormat match {
+            case Some(format) =>
+              if (format.contains("redshift")) {
+                if (options.get("aws_iam_role").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an aws_iam_role"
+                  )
+                }
+                if (options.get("tempdir").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an tempdir"
+                  )
+                }
+              }
+              if (format.contains("snowflake")) {
+                if (options.get("warehouse").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an warehouse"
+                  )
+                }
+                if (options.get("db").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an db"
+                  )
+                }
+              }
+            case None =>
+          }
         case ConnectionType.BQ =>
           if (!options.contains("location")) {
             errors = errors :+ ValidationMessage(
@@ -207,18 +243,18 @@ object Settings extends StrictLogging {
           }
           if (this.sparkFormat.isDefined) {
             val isIndirectWriteMethod = options.getOrElse("writeMethod", "indirect") == "indirect"
-            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
-              errors = errors :+ ValidationMessage(
-                Severity.Warning,
-                "Connection",
-                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
-              )
-            }
             if (isIndirectWriteMethod && !options.contains("gcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
                 s"Connection type $tpe requires a gcsBucket"
+              )
+            }
+            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
+              errors = errors :+ ValidationMessage(
+                Severity.Warning,
+                "Connection",
+                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
               )
             }
             if (!settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")) {
