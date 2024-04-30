@@ -978,7 +978,7 @@ class SparkAutoTask(
       for ((field, idx) <- fields.zipWithIndex) {
         val cell = Option(sheetRow.getCell(colIndex + idx)) match {
           case Some(cell) => cell
-          case _          => sheetRow.createCell(colIndex + idx)
+          case None       => sheetRow.createCell(colIndex + idx)
         }
         cell.setCellValue(field)
       }
