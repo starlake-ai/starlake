@@ -336,7 +336,7 @@ case class FsSink(
 
   lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
 
-  lazy val separator: Option[String] = csvOptions.get("separator")
+  lazy val delimiter: Option[String] = csvOptions.get("delimiter")
 
   lazy val path: Option[String] = xlsOptions.get("path").orElse(csvOptions.get("path"))
 
@@ -348,7 +348,7 @@ case class FsSink(
   }
 
   def getStorageOptions(): Map[String, String] = {
-    getOptions() + ("separator" -> separator.getOrElse("µ")) + ("withHeader" -> "false")
+    getOptions() + ("delimiter" -> delimiter.getOrElse("µ")) + ("withHeader" -> "false")
   }
 
   def isExport(): Boolean = {
