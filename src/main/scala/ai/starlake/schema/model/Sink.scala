@@ -387,7 +387,8 @@ case class FsSink(
 
   lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
 
-  lazy val delimiter: Option[String] = csvOptions.get("delimiter")
+  lazy val delimiter: Option[String] =
+    csvOptions.get("delimiter").orElse(csvOptions.get("separator"))
 
   val finalPath: Option[String] = path.orElse(xlsOptions.get("path")).orElse(csvOptions.get("path"))
 
