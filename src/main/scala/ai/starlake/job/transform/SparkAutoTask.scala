@@ -609,7 +609,7 @@ class SparkAutoTask(
               taskDesc.domain,
               taskDesc.table,
               if (fsSink.withHeader.getOrElse(false)) Some(dataset.columns.toList) else None,
-              fsSink.separator
+              fsSink.delimiter
             )
           case (_, true) =>
             exportToXls(taskDesc.domain, taskDesc.table, Some(dataset))
