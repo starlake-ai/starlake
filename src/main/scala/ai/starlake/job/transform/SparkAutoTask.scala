@@ -976,8 +976,10 @@ class SparkAutoTask(
       val sheetRow = Option(sheet.getRow(rowNum)).getOrElse(sheet.createRow(rowNum))
       val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse("")).toList
       for ((field, idx) <- fields.zipWithIndex) {
-        // TODO take into account field schema data type
-        val cell = sheetRow.createCell(colIndex + idx)
+        val cell = Option(sheetRow.getCell(colIndex + idx)) match {
+          case Some(cell) => cell
+          case _          => sheetRow.createCell(colIndex + idx)
+        }
         cell.setCellValue(field)
       }
       writeXlsRow(sheet, rows, rowNum + 1, colIndex)
