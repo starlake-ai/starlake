@@ -9,8 +9,8 @@
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} 
-ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+WHERE {% for key in quotedStrategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
     SELECT SL_INCOMING.* FROM ({{ selectStatement }}) SL_INCOMING, {{ tableFullName }} SL_EXISTING
@@ -41,11 +41,11 @@ WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategy
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for key in quotedStrategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
-        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKey }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+    SELECT {% for columnName in quotedTableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} FROM
+        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
             FROM ({{ selectStatement }}) AS SL_INCOMING
             WHERE SL_SEQ = 1 
 
