@@ -105,7 +105,23 @@ object AdaptiveWriteStrategy extends LazyLogging {
             val key = schema.metadata.flatMap(_.writeStrategy.map(_.key)).getOrElse(Nil)
             require(
               key.nonEmpty,
-              s"Using UPSERT_BY_KEY for schema ${schema.name} requires to set merge.key on it"
+              s"Using UPSERT_BY_KEY for schema ${schema.name} requires to set writeStrategy.key on it"
+            )
+            schema.copy(
+              metadata = schema.metadata.map(m =>
+                m.copy(
+                  sink = m.sink,
+                  writeStrategy = m.writeStrategy.map(
+                    _.copy(`type` = Some(WriteStrategyType.fromString(strategy)))
+                  )
+                )
+              )
+            )
+          case DELETE_THEN_INSERT.value =>
+            val key = schema.metadata.flatMap(_.writeStrategy.map(_.key)).getOrElse(Nil)
+            require(
+              key.nonEmpty,
+              s"Using DELETE_THEN_INSERT for schema ${schema.name} requires to set writeStrategy.key on it"
             )
             schema.copy(
               metadata = schema.metadata.map(m =>
@@ -123,7 +139,7 @@ object AdaptiveWriteStrategy extends LazyLogging {
 
             require(
               key.nonEmpty && timestamp.nonEmpty,
-              s"Using ${UPSERT_BY_KEY_AND_TIMESTAMP.value} for schema ${schema.name} requires to set merge.key and merge.timestamp on it"
+              s"Using ${UPSERT_BY_KEY_AND_TIMESTAMP.value} for schema ${schema.name} requires to set writeStrategy.key and writeStrategy.timestamp on it"
             )
             schema.copy(
               metadata = schema.metadata.map(m =>
@@ -136,11 +152,10 @@ object AdaptiveWriteStrategy extends LazyLogging {
               )
             )
           case OVERWRITE_BY_PARTITION.value =>
-            val connectionTypeOpt = sinksOpt.map(_.getSink().getConnectionType())
             val partition = sinksOpt.flatMap(_.partition).getOrElse(Nil)
             require(
               partition.nonEmpty,
-              s"Using ${OVERWRITE_BY_PARTITION.value} for schema ${schema.name} requires to one of merge.key, metadata.sink.timestamp or metadata.sink.partition depending on connection type."
+              s"Using ${OVERWRITE_BY_PARTITION.value} for schema ${schema.name} requires to one of writeStrategy.key, metadata.sink.timestamp or metadata.sink.partition depending on connection type."
             )
             schema.copy(
               metadata = schema.metadata.map(m =>
