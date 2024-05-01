@@ -229,6 +229,54 @@ object YamlMigrator extends LazyLogging {
           case n => n
         }
     }
+
+    trait WriteStrategyTypesMigrator extends YamlMigratorInterface {
+      protected val migrateWriteStrategyTypesMetadataNode: List[JsonNode => JsonNode] =
+        List[JsonNode => JsonNode] {
+          case writeContainerNode: ObjectNode =>
+            writeContainerNode.path("writeStrategy") match {
+              case writeStrategyNode: ObjectNode =>
+                if (
+                  writeStrategyNode
+                    .hasNonNull("type") || writeStrategyNode
+                    .path("writeStrategy")
+                    .hasNonNull("types")
+                ) {
+                  writeStrategyNode
+                    .path("type") match {
+                    case tn: TextNode =>
+                      tn.textValue().toUpperCase match {
+                        case WriteStrategyType.UPSERT_BY_KEY.value =>
+                          val deleteThenInsertNode =
+                            TextNode.valueOf(WriteStrategyType.DELETE_THEN_INSERT.value)
+                          writeStrategyNode.set[TextNode]("type", deleteThenInsertNode)
+                        case _ => // do nothing
+                      }
+                    case _ => // do nothing
+                  }
+                  writeStrategyNode
+                    .path("types") match {
+                    case on: ObjectNode =>
+                      on.fields().asScala.foreach { entry =>
+                        if (
+                          entry.getKey
+                            .toUpperCase() == WriteStrategyType.UPSERT_BY_KEY.value
+                        ) {
+                          on.remove(entry.getKey)
+                          on.set(WriteStrategyType.DELETE_THEN_INSERT.value, entry.getValue)
+                        }
+                      }
+                    case _ => // do nothing
+                  }
+                }
+                writeContainerNode
+              case _ => // do nothing
+                writeContainerNode
+            }
+          case n => n
+        }
+    }
+
     trait ModeMigrator extends YamlMigratorInterface {
       protected val migrateModeMetadataNode: List[JsonNode => JsonNode] = {
         List[JsonNode => JsonNode] {
@@ -244,12 +292,14 @@ object YamlMigrator extends LazyLogging {
 
     trait MetadataMigrator
         extends YamlMigratorInterface
+        with WriteStrategyTypesMigrator
         with SinkMigrator
         with WriteMigrator
         with ModeMigrator {
 
       protected val migrateMetadata: List[JsonNode => JsonNode] = {
         applyMigrationOnP1(_.path("sink"), identity, migrateSink) ++
+        applyMigrationOn(identity, migrateWriteStrategyTypesMetadataNode) ++
         applyMigrationOn(identity, migrateWriteMetadataNode) ++
         applyMigrationOn(identity, migrateModeMetadataNode)
       }
@@ -311,7 +361,7 @@ object YamlMigrator extends LazyLogging {
                 val writeStrategyType: WriteStrategyType =
                   (keyNode.isMissingNode, timestampNode.isMissingNode) match {
                     case (false, false) => WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
-                    case (false, true)  => WriteStrategyType.UPSERT_BY_KEY
+                    case (false, true)  => WriteStrategyType.DELETE_THEN_INSERT
                     case _              =>
                       // if timestamp is defined in merge but not key, doesn't have any effects but still add timestamp into writeStrategy. Maybe we should raise an exception
                       if (writeNode.asText("").toUpperCase == "OVERWRITE") {

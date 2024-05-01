@@ -519,7 +519,7 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Load to V1 and should set UPSERT_BY_KEY on table" in {
+  it should "migrate Load to V1 and should set DELETE_THEN_INSERT on table" in {
     val expectedConfigStr =
       """
         |version: 1
@@ -533,7 +533,7 @@ class YamlMigratorSpec extends TestHelper {
         | tables:
         |   - metadata:
         |       writeStrategy:
-        |         type: UPSERT_BY_KEY
+        |         type: DELETE_THEN_INSERT
         |         key:
         |           - k1
         |           - k2
@@ -983,14 +983,14 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Tables to V1 and should set UPSERT_BY_KEY on table" in {
+  it should "migrate Tables to V1 and should set DELETE_THEN_INSERT on table" in {
     val expectedConfigStr =
       """
         |version: 1
         |tables:
         |  - metadata:
         |      writeStrategy:
-        |        type: UPSERT_BY_KEY
+        |        type: DELETE_THEN_INSERT
         |        key:
         |          - k1
         |          - k2
@@ -1248,7 +1248,7 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Table to V1 keep user defined writeStrategy types when already defined" in {
+  it should "migrate Table to V1 transform user defined writeStrategy types when already defined" in {
     val expectedConfigStr =
       """
         |version: 1
@@ -1256,8 +1256,10 @@ class YamlMigratorSpec extends TestHelper {
         |  metadata:
         |      writeStrategy:
         |        types:
-        |          FULL: OVERWRITE
-        |          DELTA: APPEND
+        |          OVERWRITE: FULL_CONDITION
+        |          APPEND: DELTA_CONDITION
+        |          DELETE_THEN_INSERT: REPLACE_CONDITION
+        |        type: DELETE_THEN_INSERT
         |      sink:
         |       partition:
         |          - p1
@@ -1282,8 +1284,10 @@ class YamlMigratorSpec extends TestHelper {
         |       dynamicPartitionOverwrite: true
         |     writeStrategy:
         |       types:
-        |         FULL: OVERWRITE
-        |         DELTA: APPEND
+        |        OVERWRITE: FULL_CONDITION
+        |        APPEND: DELTA_CONDITION
+        |        UPSERT_BY_KEY: REPLACE_CONDITION
+        |       type: UPSERT_BY_KEY
         |""".stripMargin
     YamlMigrator.V1.TableConfig.canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
@@ -1412,14 +1416,14 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Table to V1 and should set UPSERT_BY_KEY on table" in {
+  it should "migrate Table to V1 and should set DELETE_THEN_INSERT on table" in {
     val expectedConfigStr =
       """
         |version: 1
         |table:
         |  metadata:
         |      writeStrategy:
-        |        type: UPSERT_BY_KEY
+        |        type: DELETE_THEN_INSERT
         |        key:
         |          - k1
         |          - k2
@@ -1793,14 +1797,14 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Transform to V1 and should set UPSERT_BY_KEY on table" in {
+  it should "migrate Transform to V1 and should set DELETE_THEN_INSERT on table" in {
     val expectedConfigStr =
       """
         |version: 1
         |transform:
         |  tasks:
         |    - writeStrategy:
-        |          type: UPSERT_BY_KEY
+        |          type: DELETE_THEN_INSERT
         |          key:
         |            - k1
         |            - k2
@@ -2158,13 +2162,13 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Task to V1 and should set UPSERT_BY_KEY on table" in {
+  it should "migrate Task to V1 and should set DELETE_THEN_INSERT on table" in {
     val expectedConfigStr =
       """
         |version: 1
         |task:
         |    writeStrategy:
-        |          type: UPSERT_BY_KEY
+        |          type: DELETE_THEN_INSERT
         |          key:
         |            - k1
         |            - k2

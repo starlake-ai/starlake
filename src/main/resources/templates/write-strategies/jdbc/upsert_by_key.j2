@@ -8,8 +8,8 @@ WHEN NOT MATCHED THEN {{ tableInsert }};
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
-MERGE INTO {{ tableFullName  }} SL_EXISTING 
-USING 
+MERGE INTO {{ tableFullName  }} SL_EXISTING
+USING
   (SELECT  {{ tableColumnsCsv }}
    FROM (
     SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
