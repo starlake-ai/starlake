@@ -319,7 +319,7 @@ trait StrategiesBuilderSpec extends TestHelper {
       val strategy =
         WriteStrategy(
           `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
-          key = List("transaction_id"),
+          key = List("transaction_id", "seller_info"),
           on = Some(MergeOn.SOURCE_AND_TARGET),
           timestamp = Some("transaction_date"),
           startTs = Some("start_ts"),
@@ -345,7 +345,7 @@ trait StrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "DELETE_THEN_INSERT.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on source and target------------------------------------------------------------"
+        "delete then insert------------------------------------------------------------"
       )
     }
 

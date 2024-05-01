@@ -385,9 +385,12 @@ object StrategiesBuilder {
   implicit class JavaWriteStrategy(writeStrategy: WriteStrategy) {
     def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
       Map(
-        "strategyType"        -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
-        "strategyTypes"       -> writeStrategy.types.getOrElse(Map.empty[String, String]).asJava,
-        "strategyKey"         -> writeStrategy.key.asJava,
+        "strategyType"  -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
+        "strategyTypes" -> writeStrategy.types.getOrElse(Map.empty[String, String]).asJava,
+        "strategyKey"   -> writeStrategy.key.asJava,
+        "quotedStrategyKey" -> writeStrategy.key
+          .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+          .asJava,
         "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
         "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),
         "strategyOn"          -> writeStrategy.on.getOrElse(MergeOn.TARGET).toString,
@@ -441,10 +444,13 @@ object StrategiesBuilder {
         "UPDATE " + SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
 
       Map(
-        "tableDatabase"           -> database,
-        "tableDomain"             -> domain,
-        "tableName"               -> name,
-        "tableColumnNames"        -> columnNames.asJava,
+        "tableDatabase"    -> database,
+        "tableDomain"      -> domain,
+        "tableName"        -> name,
+        "tableColumnNames" -> columnNames.asJava,
+        "quotedTableColumnNames" -> columnNames
+          .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+          .asJava,
         "tableFullName"           -> getFullTableName(),
         "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
         "tableParamsForUpdateSql" -> SQLUtils
