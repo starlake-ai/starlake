@@ -85,13 +85,13 @@ application:
         location: "us-central1" # EU or US or ...
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
-        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
-        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
-        #authType: "ACCESS_TOKEN"
-        #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        # authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        # jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        # authType: "ACCESS_TOKEN"
+        # gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   spark:
     datasource:
-      bigquery:
+      bigquery: # Setting properties here will apply them to all bigquery data sources (connection.type == bigquery)
         allowFieldAddition: "true" # Allow schema updates. To disable, set it to false
         allowFieldRelaxation: "true" # Allow schema updates. To disable, set it to false
 
@@ -112,6 +112,7 @@ application:
         location: "us-central1" # EU or US or ...
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        materializationDataset: "my-bucket-name" # when sparkFormat is defined, required by the spark-bigquery-connector (https://github.com/GoogleCloudDataproc/spark-bigquery-connector?tab=readme-ov-file#properties)
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #authType: "ACCESS_TOKEN"

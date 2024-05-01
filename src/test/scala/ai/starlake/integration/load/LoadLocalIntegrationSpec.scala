@@ -3,6 +3,7 @@ package ai.starlake.integration.load
 import ai.starlake.TestHelper
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
+import org.apache.spark.sql.DataFrame
 
 import scala.reflect.io.Directory
 
@@ -19,7 +20,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     super.afterEach()
   }
 
-  private def dropTables = {
+  private def dropTables: DataFrame = {
     sparkSession.sql("drop table if exists sales.customers")
     sparkSession.sql("drop table if exists sales.categories")
     sparkSession.sql("drop table if exists sales.products")

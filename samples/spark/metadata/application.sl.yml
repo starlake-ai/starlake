@@ -59,6 +59,9 @@ application:
         gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        # materializationDataset: "BQ_TEST_DS" # Put this option here if only applicable to this connection or
+        #                                        in the spark.datasource.bigquery below section
+        #                                        if applicable to all BigQuery connections
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #jobTimeoutMs: 3600000

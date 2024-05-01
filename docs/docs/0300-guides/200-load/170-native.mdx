@@ -23,6 +23,8 @@ table:
   ...
 ```
 
+In this case, the table will be loaded using the native loader.
+
 ## Domain level
 
 In the domain definition, you can specify the load mode as `native` as follows:
@@ -36,6 +38,7 @@ load:
   tables:
   ...
 ```
+In this case, all the tables in the domain will be loaded using the native loader if not otherwise specified at the table level.
 
 ## Project level
 
@@ -47,4 +50,6 @@ application:
   loader: native
   ...
 ```
+
+In this case, all the tables in the project will be loaded using the native loader if not otherwise specified at the domain or table level.
 
