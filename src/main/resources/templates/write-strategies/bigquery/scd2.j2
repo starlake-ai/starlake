@@ -1,13 +1,13 @@
 {% macro renderIncominTableColumns(columnNames) %}
-{% for columnName in columnNames %}SL_INCOMING.`{{ columnName }}`{% if not loop.last %}, {% endif %}{%endfor%}
+{% for columnName in columnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
 {% endmacro %}
 
 BEGIN TRANSACTION;
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, `{{ strategyStartTs }}`, `{{ strategyEndTs }}`)
-SELECT {{renderIncominTableColumns(tableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+SELECT {{renderIncominTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
-WHERE {% for key in strategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 {% if strategyOn == 'TARGET' %}
 
@@ -27,7 +27,7 @@ COMMIT TRANSACTION;
 
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT {% for columnName in tableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%} 
+    SELECT {% for columnName in quotedTableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
     FROM
         (   SELECT {{ tableColumnsCsv }}
             FROM ({{ selectStatement }}) AS SL_INCOMING

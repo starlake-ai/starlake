@@ -14,6 +14,7 @@ sealed case class WriteStrategyType(value: String) {
       case WriteStrategyType.OVERWRITE                   => WriteMode.OVERWRITE
       case WriteStrategyType.APPEND                      => WriteMode.APPEND
       case WriteStrategyType.UPSERT_BY_KEY               => WriteMode.APPEND
+      case WriteStrategyType.DELETE_THEN_INSERT          => WriteMode.APPEND
       case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => WriteMode.APPEND
       case WriteStrategyType.SCD2                        => WriteMode.APPEND
       case WriteStrategyType.OVERWRITE_BY_PARTITION      => WriteMode.APPEND
@@ -26,6 +27,7 @@ sealed case class WriteStrategyType(value: String) {
     this match {
       case WriteStrategyType.UPSERT_BY_KEY               => true
       case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => true
+      case WriteStrategyType.DELETE_THEN_INSERT          => true
       case WriteStrategyType.SCD2                        => true
       case _                                             => false
     }
@@ -51,6 +53,7 @@ object WriteStrategyType {
       case "UPSERT_BY_KEY_AND_TIMESTAMP" => WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
       case "SCD2"                        => WriteStrategyType.SCD2
       case "OVERWRITE_BY_PARTITION"      => WriteStrategyType.OVERWRITE_BY_PARTITION
+      case "DELETE_THEN_INSERT"          => WriteStrategyType.DELETE_THEN_INSERT
       case _                             => WriteStrategyType(value)
 
     }
@@ -66,10 +69,20 @@ object WriteStrategyType {
 
   object OVERWRITE_BY_PARTITION extends WriteStrategyType("OVERWRITE_BY_PARTITION")
 
+  object DELETE_THEN_INSERT extends WriteStrategyType("DELETE_THEN_INSERT")
+
   object SCD2 extends WriteStrategyType("SCD2")
 
   val strategies: Set[WriteStrategyType] =
-    Set(APPEND, OVERWRITE, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, SCD2, OVERWRITE_BY_PARTITION)
+    Set(
+      APPEND,
+      OVERWRITE,
+      UPSERT_BY_KEY,
+      UPSERT_BY_KEY_AND_TIMESTAMP,
+      SCD2,
+      OVERWRITE_BY_PARTITION,
+      DELETE_THEN_INSERT
+    )
 }
 
 class StrategyNameDeserializer extends JsonDeserializer[WriteStrategyType] {

@@ -1,27 +1,27 @@
-
-{% macro makeMD5(columnNames) %}
-{% for columnName in columnNames %}{{ columnName }}{% if not loop.last %} || '-' {% endif %}{%endfor%}
-{% endmacro %}
-
-BEGIN TRANSACTION;
-
-{% if columnNames|length > 1 %}
-
-DELETE FROM {{ tableFullName }} 
-WHERE {{ makeMD5(strategyKey) }} in 
-(
-    SELECT {{ makeMD5(strategyKey) }} FROM ({{ selectStatement }})
-);
-
-{% else %}
-
-DELETE FROM {{ tableFullName }} 
-WHERE {{ strategyKeyCsv }} in 
-(
-    SELECT {{ strategyKeyCsv }} FROM ({{ selectStatement }})
-);
-
-{% endif%}
-INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) {{ selectStatement }};
-
-COMMIT TRANSACTION;
+MERGE INTO {{ tableFullName  }} SL_EXISTING
+USING (
+  WITH
+  sl_incoming_data AS (
+    SELECT {{ tableColumnsCsv }}
+    FROM ({{ selectStatement }})
+    WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%}
+  ),
+  sl_existing_keys AS (
+    select distinct {{ strategyKeyCsv }} from {{ tableFullName  }}
+  ),
+  line_action as(
+    select
+      sid.* except({{ strategyKeyCsv }}),
+      {% for mergeKey in quotedStrategyKey %}coalesce(sid.{{ mergeKey }}, sek.{{ mergeKey }}) as {{ mergeKey }}, {%endfor%}
+      case
+        when sid.{{ quotedStrategyKey | first }} IS NULL then 'KEEP'
+        else 'INSERT' -- DELETE THEN INSERT CASE OR NEW KEYS CASE
+      end
+      as sl_merge_action
+    from sl_incoming_data sid FULL OUTER JOIN sl_existing_keys sek using({{ strategyKeyCsv }})
+  )
+  select * from line_action
+) SL_INCOMING
+ON {% for mergeKey in quotedStrategyKey %}SL_EXISTING.{{ mergeKey }} = SL_INCOMING.{{ mergeKey }} AND {%endfor%}SL_INCOMING.sl_merge_action = 'KEEP'
+WHEN NOT MATCHED BY SOURCE THEN DELETE
+WHEN NOT MATCHED THEN {{ tableInsert }}

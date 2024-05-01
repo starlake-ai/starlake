@@ -20,6 +20,9 @@ __Bug Fix__:
 - Fix incremental next query
 - Fix restricted renamed column and pk renaming
 
+__Improvement__:
+- add log during long extraction around every 30 seconds
+
 # 1.1.1:
 __Improvement__:
 - add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
