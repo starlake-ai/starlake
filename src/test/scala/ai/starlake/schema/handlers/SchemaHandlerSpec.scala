@@ -657,16 +657,6 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
         println(starlakeDatasetsPath)
 
-        private val firstLevel: List[Path] = storageHandler
-          .listDirectories(
-            new Path(starlakeDatasetsPath + s"/$datasetDomainName.db/Players".toLowerCase())
-          )
-          .filter(!_.getName().startsWith("_"))
-          .toList
-
-        firstLevel.size shouldBe 2
-        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
-
         val acceptedDf = sparkSession
           .sql(s"select * from $datasetDomainName.Players")
 

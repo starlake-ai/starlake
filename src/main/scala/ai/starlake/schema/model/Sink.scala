@@ -385,10 +385,18 @@ case class FsSink(
     .filter { case (k, _) => k.startsWith("csv:") }
     .map { case (k, v) => k.split(":").last -> v }
 
-  lazy val withHeader: Option[Boolean] = csvOptions.get("withHeader").map(_.toLowerCase == "true")
+  lazy val withHeader: Option[Boolean] =
+    csvOptions
+      .get("withHeader")
+      .orElse(this.getOptions().get("withHeader"))
+      .map(_.toLowerCase == "true")
 
   lazy val delimiter: Option[String] =
-    csvOptions.get("delimiter").orElse(csvOptions.get("separator"))
+    csvOptions
+      .get("delimiter")
+      .orElse(csvOptions.get("separator"))
+      .orElse(this.getOptions().get("delimiter"))
+      .orElse(this.getOptions().get("separator"))
 
   val finalPath: Option[String] = path.orElse(xlsOptions.get("path")).orElse(csvOptions.get("path"))
 
