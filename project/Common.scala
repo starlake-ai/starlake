@@ -18,7 +18,7 @@
  *
  */
 
-import com.github.sbt.git.GitPlugin.autoImport.*
+import com.github.sbt.git.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.github.sbt.git.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile

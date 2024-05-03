@@ -172,6 +172,9 @@ object DatasetArea extends StrictLogging {
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
 
+  def cache(implicit settings: Settings): Path =
+    new Path(metadata, ".cache")
+
   def external(implicit settings: Settings): Path =
     new Path(metadata, "external")
 
