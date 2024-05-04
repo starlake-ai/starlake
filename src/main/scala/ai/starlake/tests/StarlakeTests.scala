@@ -11,9 +11,8 @@ import java.nio.file.Files
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
-import scala.jdk.CollectionConverters._
 import scala.reflect.io.Directory
-import scala.util.Failure
+import scala.util.{Failure, Success}
 
 case class StarlakeTest(
   name: String,
@@ -22,6 +21,9 @@ case class StarlakeTest(
   assertData: StarlakeTestData,
   data: List[StarlakeTestData]
 ) {
+
+  def getTaskName(): String = name.split('.').last
+
   def load(conn: java.sql.Connection): Unit = {
     data.foreach { d =>
       d.load(conn)
@@ -60,68 +62,6 @@ case class StarlakeTestData(
     stmt.close()
 
   }
-}
-case class StarlakeTestResult(
-  testFolder: String,
-  domainName: String,
-  tableName: String,
-  testName: String,
-  missingColumns: List[String],
-  notExpectedColumns: List[String],
-  missingRecords: File,
-  notExpectedRecords: File,
-  success: Boolean
-) {
-  def html(): Unit = {
-    val missingLines = Files.readAllLines(missingRecords.toPath).asScala.toList.tail
-    val notExpectedLines = Files.readAllLines(notExpectedRecords.toPath).asScala.toList.tail
-    var builder = new StringBuilder
-    builder.append(s"<h2>Test: $domainName.$tableName.$testName</h2>")
-    if (missingColumns.nonEmpty) {
-      builder.append("<h3>Missing columns</h3>")
-      builder.append("<ul>")
-      missingColumns.foreach { c =>
-        builder.append(s"<li>$c</li>")
-      }
-      builder.append("</ul>")
-    }
-    if (notExpectedColumns.nonEmpty) {
-      builder.append("<h3>Not expected columns</h3>")
-      builder.append("<ul>")
-      notExpectedColumns.foreach { c =>
-        builder.append(s"<li>$c</li>")
-      }
-      builder.append("</ul>")
-    }
-    if (missingLines.nonEmpty) {
-      builder.append("<h3>Missing records</h3>")
-      builder.append("<table>")
-      missingLines.foreach { l =>
-        builder.append("<tr>")
-        l.split(",").foreach { c =>
-          builder.append(s"<td>$c</td>")
-        }
-        builder.append("</tr>")
-      }
-      builder.append("</table>")
-    }
-    if (notExpectedLines.nonEmpty) {
-      builder.append("<h3>Not expected records</h3>")
-      builder.append("<table>")
-      notExpectedLines.foreach { l =>
-        builder.append("<tr>")
-        l.split(",").foreach { c =>
-          builder.append(s"<td>$c</td>")
-        }
-        builder.append("</tr>")
-      }
-      builder.append("</table>")
-    }
-    val html = builder.toString()
-    Files.write(new File(testFolder, "index.html").toPath, html.getBytes())
-
-  }
-
 }
 
 object StarlakeTestData {
@@ -170,8 +110,10 @@ object StarlakeTestData {
     testFolder: Directory,
     targetDomain: String,
     targetTable: String,
+    taskName: String,
     assertTable: String,
-    conn: java.sql.Connection
+    conn: java.sql.Connection,
+    duration: Long
   ): StarlakeTestResult = {
     val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
     val assertColumns = describeTable(conn, s"$targetDomain.$assertTable")
@@ -221,12 +163,15 @@ object StarlakeTestData {
       testFolder.path,
       domainName = targetDomain,
       tableName = targetTable,
+      taskName = taskName,
       testName = testFolder.name,
       missingColumns = missingColumns,
       notExpectedColumns = notExpectedColumns,
       missingRecords = missingPath,
       notExpectedRecords = notExpectedPath,
-      success = success
+      success = success,
+      None,
+      duration
     )
   }
 
@@ -257,17 +202,20 @@ object StarlakeTestData {
     ),
     config: TransformTestConfig
   ): List[StarlakeTestResult] = {
+    Class.forName("org.duckdb.DuckDBDriver")
     val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "test-results"))
+    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
     testsFolder.deleteRecursively()
     testsFolder.createDirectory(force = true, failIfExists = false)
     val (rootData, tests) = dataAndTests
     tests.flatMap { case (domainName, dataAndTables) =>
+      val domainFolder = new Directory(new File(testsFolder.jfile, domainName))
       val (domainData, tables) = dataAndTables
       tables.flatMap { case (tableName, dataAndTests) =>
+        val tableFolder = new Directory(new File(domainFolder.jfile, tableName))
         val (taskData, tests) = dataAndTests
         tests.map { case (testName, test) =>
-          val testFolder = new Directory(new File(testsFolder.jfile, testName))
+          val testFolder = new Directory(new File(tableFolder.jfile, testName))
           testFolder.deleteRecursively()
           testFolder.createDirectory(force = true)
           val dbFilename = new File(testFolder.jfile, s"$testName.db").getPath()
@@ -287,19 +235,50 @@ object StarlakeTestData {
           // We close the connection here since the transform will open its own
           // and concurrent access is not supported in embedded test mode
           val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
+          val start = System.currentTimeMillis()
           val result =
             new Main().run(
-              Array("transform", "--test", "--name", test.name),
+              params,
               schemaHandler
             ) match {
               case Failure(e) =>
-                throw e
-              case _ =>
-                Utils.withResources(
+                val end = System.currentTimeMillis()
+                println(s"Test $domainName.$tableName.$testName failed to run (${e.getMessage})")
+                StarlakeTestResult(
+                  testFolder.path,
+                  domainName,
+                  tableName,
+                  test.getTaskName(),
+                  testName,
+                  Nil,
+                  Nil,
+                  new File(""),
+                  new File(""),
+                  success = false,
+                  exception = Some(e),
+                  duration = end - start // in milliseconds
+                )
+              case Success(_) =>
+                val end = System.currentTimeMillis()
+                val compareResult = Utils.withResources(
                   DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
                 ) { conn =>
-                  compareResults(testFolder, test.domain, test.table, "sl_assert", conn)
+                  compareResults(
+                    testFolder,
+                    test.domain,
+                    test.table,
+                    test.getTaskName(),
+                    "sl_assert",
+                    conn,
+                    end - start
+                  )
                 }
+                if (compareResult.success) {
+                  println(s"Test $domainName.$tableName.$testName succeeded")
+                } else {
+                  println(s"Test $domainName.$tableName.$testName failed")
+                }
+                compareResult
             }
           Utils.withResources(
             DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
@@ -309,11 +288,6 @@ object StarlakeTestData {
             taskData.foreach(_.unload(conn))
           }
           test.unload(dbFilename)
-          if (result.success) {
-            println(s"Test $domainName.$tableName.$testName succeeded")
-          } else {
-            println(s"Test $domainName.$tableName.$testName failed")
-          }
           result
         }
       }
@@ -396,7 +370,7 @@ object StarlakeTestData {
               s"CREATE TABLE $domainName.sl_assert AS SELECT * FROM '${assertFileJson.toString}';"
             } else if (assertFileSql.exists()) {
               val bufferedSource = Source.fromFile(assertFileSql)
-              val sql = bufferedSource.getLines.mkString("\n")
+              val sql = bufferedSource.getLines().mkString("\n")
               bufferedSource.close
               s"CREATE TABLE $domainName.sl_assert AS SELECT * $sql"
             } else {
@@ -448,7 +422,7 @@ object StarlakeTestData {
               s"CREATE TABLE $testDataDomainName.$testDataTableName AS SELECT * FROM '${dataPath.getPath}';"
             case "sql" =>
               val bufferedSource = Source.fromFile(dataPath.getPath)
-              val result = bufferedSource.getLines.mkString("\n")
+              val result = bufferedSource.getLines().mkString("\n")
               bufferedSource.close
               result
             case _ => ""

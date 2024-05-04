@@ -96,8 +96,8 @@ object SettingsManager {
               sysProps.setProperty("env", "None")
             case Some(env) if env.isEmpty || env == "None" =>
               sysProps.setProperty("env", "None")
-            case _ =>
-              sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
+            case Some(env) =>
+              sysProps.setProperty("env", env) // prod is the default value in reference.conf
           }
           Settings.invalidateCaches()
           val settings = Settings(Settings.referenceConfig)

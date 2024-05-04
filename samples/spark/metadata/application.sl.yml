@@ -29,6 +29,17 @@ application:
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
+    redshift_spark:
+      type: jdbc
+      sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.Driver"
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
+        tempdir: "s3a://starlake-app/data"
+        aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
       type: jdbc
       options:
@@ -48,13 +59,15 @@ application:
         gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        # materializationDataset: "BQ_TEST_DS" # Put this option here if only applicable to this connection or
+        #                                        in the spark.datasource.bigquery below section
+        #                                        if applicable to all BigQuery connections
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
         #jobTimeoutMs: 3600000
         #maximumBytesBilled: 100000000000
     sparkLocal:
       type: "fs"
-
   spark:
     delta:
       logStore:
@@ -62,6 +75,5 @@ application:
     datasource:
       bigquery:
         materializationDataset: "BQ_TEST_DS"
-
 
   connectionRef: "{{ myConnectionRef }}"

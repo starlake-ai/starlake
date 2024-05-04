@@ -40,6 +40,7 @@ class SparkAutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -205,6 +206,8 @@ class SparkAutoTask(
 
   private def buildDataFrameToSink(): Option[DataFrame] = {
     val runConnectionType = taskDesc.getRunConnectionType()
+    val runEngine: Engine = taskDesc.getRunEngine()
+
     val dataframe =
       (runEngine, runConnectionType) match {
         case (Engine.SPARK, ConnectionType.FS) =>
@@ -555,7 +558,7 @@ class SparkAutoTask(
               taskDesc.domain,
               taskDesc.table,
               if (fsSink.withHeader.getOrElse(false)) Some(dataset.columns.toList) else None,
-              fsSink.separator
+              fsSink.delimiter
             )
           case (_, true) =>
             exportToXls(taskDesc.domain, taskDesc.table, Some(dataset))
@@ -689,17 +692,19 @@ class SparkAutoTask(
           }
         }
         val jdbcUrl = sinkConnectionRefOptions("url")
+
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
           SparkUtils.createTable(
             conn,
             firstStepTempTable,
             loadedDF.schema,
             caseSensitive = false,
-            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions)
+            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
+            attDdl()
           )
         }
         loadedDF.write
-          .format("jdbc")
+          .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
           .option("dbtable", firstStepTempTable)
           .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
           .options(sinkConnectionRefOptions)
@@ -971,8 +976,10 @@ class SparkAutoTask(
       val sheetRow = Option(sheet.getRow(rowNum)).getOrElse(sheet.createRow(rowNum))
       val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse("")).toList
       for ((field, idx) <- fields.zipWithIndex) {
-        // TODO take into account field schema data type
-        val cell = sheetRow.createCell(colIndex + idx)
+        val cell = Option(sheetRow.getCell(colIndex + idx)) match {
+          case Some(cell) => cell
+          case None       => sheetRow.createCell(colIndex + idx)
+        }
         cell.setCellValue(field)
       }
       writeXlsRow(sheet, rows, rowNum + 1, colIndex)

@@ -197,6 +197,42 @@ object Settings extends StrictLogging {
               s"Connection type $tpe requires a url"
             )
           }
+          sparkFormat match {
+            case Some(format) =>
+              if (format.contains("redshift")) {
+                if (options.get("aws_iam_role").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an aws_iam_role"
+                  )
+                }
+                if (options.get("tempdir").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an tempdir"
+                  )
+                }
+              }
+              if (format.contains("snowflake")) {
+                if (options.get("warehouse").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an warehouse"
+                  )
+                }
+                if (options.get("db").isEmpty) {
+                  errors = errors :+ ValidationMessage(
+                    Severity.Error,
+                    "Connection",
+                    s"Connection type $tpe requires an db"
+                  )
+                }
+              }
+            case None =>
+          }
         case ConnectionType.BQ =>
           if (!options.contains("location")) {
             errors = errors :+ ValidationMessage(
@@ -207,18 +243,18 @@ object Settings extends StrictLogging {
           }
           if (this.sparkFormat.isDefined) {
             val isIndirectWriteMethod = options.getOrElse("writeMethod", "indirect") == "indirect"
-            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
-              errors = errors :+ ValidationMessage(
-                Severity.Warning,
-                "Connection",
-                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
-              )
-            }
             if (isIndirectWriteMethod && !options.contains("gcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
                 s"Connection type $tpe requires a gcsBucket"
+              )
+            }
+            if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
+              errors = errors :+ ValidationMessage(
+                Severity.Warning,
+                "Connection",
+                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
               )
             }
             if (!settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")) {
@@ -317,7 +353,6 @@ object Settings extends StrictLogging {
                 "spark"
               else engineName
             case "bigquery" | "bq" => "bigquery"
-            case "spark"           => "spark"
             case _                 =>
               // if this is a jdbc url (aka snowflake, redshift ...)
               options
@@ -338,6 +373,9 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+
+    @JsonIgnore
+    def isJdbcUrl() = this.options.get("url").exists(_.startsWith("jdbc"))
 
     @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
@@ -619,7 +657,8 @@ object Settings extends StrictLogging {
     shortJobTimeoutMs: Long,
     createSchemaIfNotExists: Boolean,
     http: Http,
-    timezone: TimeZone
+    timezone: TimeZone,
+    hiveInTest: Boolean
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -666,12 +705,13 @@ object Settings extends StrictLogging {
     val cacheStorageLevel: StorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
+    // config.getOption("hive.metastore.uris")
     @JsonIgnore
     def isHiveCompatible(): Boolean = {
       val connectionTypeIsHive = this.connections
         .get(this.connectionRef)
         .exists { conn =>
-          conn.`type`.toLowerCase() == "hive"
+          conn.getType() == ConnectionType.FS // && session.conf.getAll.contains("hive.metastore.uris")
         }
       connectionTypeIsHive || Utils.isRunningInDatabricks()
     }

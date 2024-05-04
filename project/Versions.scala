@@ -36,10 +36,12 @@ object Versions {
   val snowflakeJDBC = "3.15.1"
   val snowflakeSpark: String = "2.15.0-spark_3.4"
   val duckdb = "0.10.2"
-  val jSqlParser = "4.9"
+  val jSqlParser = "4.10-SNAPSHOT"
+  val jSqlTranspiler = "0.2-SNAPSHOT"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.26"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
-  val derbyVersion = "10.17.1.0"
+  val derbyVersion = "10.14.2.0" // last version compatible with Java 8
+  val directoryWatcher = "0.18.0"
 }

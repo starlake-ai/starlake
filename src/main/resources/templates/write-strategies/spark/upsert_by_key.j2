@@ -5,7 +5,7 @@ CREATE OR REPLACE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 
 
 MERGE INTO  {{ tableFullName }} SL_EXISTING USING SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN  {{ tableUpdate }}
+WHEN MATCHED THEN  UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
@@ -20,7 +20,7 @@ FROM SL_VIEW_WITH_ROWNUM
 WHERE SL_SEQ = 1;
 
 MERGE INTO {{ tableFullName }}  SL_EXISTING USING SL_DEDUP  SL_INCOMING ON ({{strategyKeyJoinCondition}})
-WHEN MATCHED THEN {{ tableUpdate }}
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }}
 
 

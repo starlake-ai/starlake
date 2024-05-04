@@ -97,7 +97,10 @@ object Dependencies {
 
   // Included
 
-  val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
+  val betterfiles = Seq(
+    "com.github.pathikrit" %% "better-files" % Versions.betterFiles,
+    "io.methvin" %% "directory-watcher-better-files" % Versions.directoryWatcher
+  )
 
   val logging = Seq(
     "com.typesafe" % "config" % Versions.typesafeConfig,
@@ -171,7 +174,10 @@ object Dependencies {
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
 
-  val jSqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser)
+  val jSqlTranspiler = Seq(
+    "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
+    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io")
+  )
 
   val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
 
@@ -191,6 +197,6 @@ object Dependencies {
   )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
-    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer
+    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler
 }

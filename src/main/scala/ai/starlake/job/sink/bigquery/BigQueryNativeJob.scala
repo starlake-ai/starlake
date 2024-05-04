@@ -120,7 +120,7 @@ class BigQueryNativeJob(
   private def newJobIdWithLocation(): JobId = {
     val jobName = UUID.randomUUID().toString();
     val jobIdBuilder = JobId.newBuilder().setJob(jobName);
-    jobIdBuilder.setProject(BigQueryJobBase.projectId(None))
+    jobIdBuilder.setProject(BigQueryJobBase.projectId(cliConfig.outputDatabase))
     jobIdBuilder.setLocation(
       connectionOptions.getOrElse(
         "location",

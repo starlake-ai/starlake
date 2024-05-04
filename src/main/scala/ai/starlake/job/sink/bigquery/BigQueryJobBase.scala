@@ -221,7 +221,7 @@ trait BigQueryJobBase extends StrictLogging {
         )
 
       val credentials = bigQueryCredentials(accessToken)
-      val bqOptions = bqOptionsBuilder.setProjectId(projectId(None))
+      val bqOptions = bqOptionsBuilder.setProjectId(projectId(cliConfig.outputDatabase))
       val bqService =
         credentials match {
           case None =>

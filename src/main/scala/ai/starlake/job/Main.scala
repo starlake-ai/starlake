@@ -103,7 +103,7 @@ object Main extends StrictLogging {
 class Main extends StrictLogging {
 
   import Main.commands
-  private def printUsage(): Unit = {
+  def printUsage(): Unit = {
     // scalastyle:off println
     println(s"Starlake Version ${BuildInfo.version}")
     println("Usage:")
@@ -113,7 +113,7 @@ class Main extends StrictLogging {
       println(s"\t${cmd.command}")
     }
   }
-  private def printUsage(command: String): Unit = {
+  def printUsage(command: String): Unit = {
     // scalastyle:off println
     commands.find(_.command == command) match {
       case None =>

@@ -2058,6 +2058,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
+        "hiveInTest": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Internal use only"
+        },
         "spark": {
           "type": "object",
           "description": "Map of string",

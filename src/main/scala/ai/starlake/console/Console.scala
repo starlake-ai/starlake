@@ -1,12 +1,11 @@
 package ai.starlake.console
 
-import ai.starlake.config
 import ai.starlake.config.Settings
-import ai.starlake.utils.{JobResult, SparkJob}
+import ai.starlake.job.Main
+import ai.starlake.serve.SingleUserMainServer
 import jline.console.history.FileHistory
 
 import java.io.File
-import scala.util.{Success, Try}
 
 object Console {
   sealed trait Input
@@ -19,6 +18,12 @@ object Console {
   val historyFile = new FileHistory(
     new File(System.getProperty("user.home") + File.separator + ".sl_history")
   )
+
+  def isCommand(s: String): Boolean = {
+    val userCmd = s.split(" ").headOption
+    userCmd.exists(userCmd => Main.commands.exists(c => userCmd.startsWith(c.command)))
+  }
+
   def console(handler: Input => Boolean): Unit = {
 
     val consoleReader = new jline.console.ConsoleReader()
@@ -35,6 +40,10 @@ object Console {
         finished = handler(EOF)
       } else if (line.isEmpty) {
         finished = handler(Blank)
+      } else if (line.startsWith("help")) {
+        finished = handler(InputLine(line))
+      } else if (isCommand(line)) {
+        finished = handler(InputLine(line))
       } else if (line.trim().endsWith(";")) {
         finished = handler(InputLine(currentInput))
         currentInput = ""
@@ -51,9 +60,28 @@ object Console {
       case Blank =>
         println("CTRL-D to quit")
         false
-      case InputLine(s) if s == "q" =>
+
+      case InputLine("help") =>
+        new Main().printUsage()
+        false
+      case InputLine(s) if s.startsWith("help") =>
+        new Main().printUsage(s.substring("help".length).trim)
+        false
+      case InputLine("q") =>
         true
-      case InputLine(sql) =>
+      case InputLine(s) =>
+        try {
+          val params = s.split(" ")
+          val response =
+            SingleUserMainServer.run(isettings.appConfig.root, None, params, None, None)
+          println(response)
+        } catch {
+          case e: Throwable =>
+            e.printStackTrace()
+        }
+        false
+      /*
+      case InputLine(sql) if 1 == 2 =>
         new SparkJob {
           override def name: String = "console-job"
           override implicit def settings: config.Settings = isettings
@@ -73,6 +101,8 @@ object Console {
           }
         }.run()
         false
+
+       */
       case _ =>
         false
     }

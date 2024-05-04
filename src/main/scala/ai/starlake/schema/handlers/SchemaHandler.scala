@@ -35,8 +35,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
+import io.methvin.better.files.RecursiveFileMonitor
 import org.apache.hadoop.fs.Path
 
+import java.nio.file.WatchEvent
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -57,6 +59,25 @@ case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
 class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
   settings: Settings
 ) extends StrictLogging {
+
+  if (false && settings.appConfig.fileSystem.startsWith("file:")) {
+    val handler = new MetadataFileChangeHandler(this)
+    val watcher = new RecursiveFileMonitor(File(DatasetArea.metadata.toString)) {
+      override def onEvent(
+        eventType: WatchEvent.Kind[java.nio.file.Path],
+        file: File,
+        count: Int
+      ): Unit = {
+        handler.onEvent(eventType, file, count)
+      }
+    }
+    import scala.concurrent.ExecutionContext.Implicits.global
+    watcher.start()
+  } else {
+    logger.warn(
+      "File system is not local, file watcher is not available. Please use local file system for file watcher."
+    )
+  }
 
   private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
@@ -175,6 +196,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
     }
     (allErrorsAndWarnings, errorCount, warningCount)
+  }
+
+  def getDdlMapping(schema: Schema): Map[String, Map[String, String]] = {
+
+    schema.attributes.flatMap { attr =>
+      val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
+      ddlMapping match {
+        case Some(Some(mapping)) =>
+          Some(attr.name -> mapping) // we found the primitive type and it has a ddlMapping
+        case None       => None // we did not find the primitive type (should never happen)
+        case Some(None) => None // we found the primitive type but it has no ddlMapping
+      }
+    }.toMap
   }
 
   def loadTypes(filename: String): List[Type] = {
@@ -513,20 +547,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private var (_domainErrors, _domains): (List[ValidationMessage], Option[List[Domain]]) =
+  private[handlers] var (_domainErrors, _domains): (List[ValidationMessage], Option[List[Domain]]) =
     (Nil, None)
-
-  private def initDomains(
-    domainNames: List[String] = Nil,
-    tableNames: List[String] = Nil,
-    raw: Boolean = false
-  ): (List[ValidationMessage], List[Domain]) = {
-    initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
-  }
 
   def loadExternals(): List[Domain] = {
     if (storage.exists(DatasetArea.external)) {
-      loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
+      loadDomains(DatasetArea.external, Nil, Nil, raw = false) match {
         case (list, Nil) => list.collect { case Success(domain) => domain }
         case (list, errors) =>
           errors.foreach {
@@ -581,14 +607,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  private def initDomainsFromArea(
-    area: Path,
+  private def initDomains(
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
     raw: Boolean = false
   ): (List[ValidationMessage], List[Domain]) = {
+    val area = DatasetArea.load
     val (validDomainsFile, invalidDomainsFiles) =
-      loadFullDomains(area, domainNames, tableNames, raw)
+      loadDomains(area, domainNames, tableNames, raw)
 
     val domains = validDomainsFile
       .collect { case Success(domain) => domain }
@@ -646,7 +672,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (this._domainErrors, nonEmptyDomains)
   }
 
-  private def loadFullDomains(
+  private def loadDomains(
     area: Path,
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
@@ -969,12 +995,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def jobs(reload: Boolean = false): List[AutoJobDesc] = {
-    if (reload) loadJobs()
+    if (reload) {
+      val (errors, validJobs) = loadJobs()
+      this._jobs = validJobs
+      this._jobErrors = errors
+    }
     _jobs
   }
 
   def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
-    if (reload) loadJobs()
+    if (reload) {
+      val (errors, validJobs) = loadJobs()
+      this._jobs = validJobs
+      this._jobErrors = errors
+    }
     jobs().flatMap(_.tasks)
   }
 
@@ -1066,9 +1100,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           else
             None
         }
-      this._jobs = validJobs
-      this._jobErrors = namePatternErrors ++ taskNamePatternErrors
-      (_jobErrors, _jobs)
+      (namePatternErrors ++ taskNamePatternErrors, validJobs)
     } else {
       (Nil, Nil)
     }
@@ -1196,4 +1228,83 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         RejectedRecord.starlakeSchema
       )
     )
+  def onTaskDelete(domain: String, task: String): Unit = {
+    _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
+      case None =>
+        logger.info(s"Job $domain not found")
+      case Some(domain) =>
+        val tasks = domain.tasks.filterNot(_.name.toLowerCase() == task.toLowerCase())
+        val newDomain = domain.copy(tasks = tasks)
+        _jobs = _jobs.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ newDomain
+    }
+  }
+  def onTableDelete(domain: String, table: String): Unit = {
+    _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+      case None =>
+        logger.info(s"Domain $domain not found")
+      case Some(domain) =>
+        val tables = domain.tables.filterNot(_.name.toLowerCase() == table.toLowerCase())
+        val newDomain = domain.copy(tables = tables)
+        _domains = _domains
+          .map(_.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ newDomain)
+          .orElse(Some(List(newDomain)))
+    }
+  }
+
+  def onTaskChange(domain: String, task: String, file: File): Unit = {
+    /*
+    val domainPath = new Path(DatasetArea.transform, domain)
+    val taskPath = new Path(domainPath, task + ".sl.yml")
+    if (storage.exists(taskPath)) {
+      val task = loadJobTasksFromFile(taskPath)
+      task match {
+        case Success(task) =>
+          _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
+            case None =>
+              logger.info(s"Job $domain not found")
+              val (validationMessages, validJobsFile) =
+                this.loadJobs(DatasetArea.transform, List(domain), Nil)
+              _jobs = _jobs ++ validJobsFile
+            case Some(job) =>
+              val tasks =
+                job.tasks.filterNot(_.name.toLowerCase() == task.name.toLowerCase()) :+ task
+              val newJob = job.copy(tasks = tasks)
+              _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ newJob
+
+          }
+        case Failure(err) =>
+          logger.error(s"Failed to load task $taskPath")
+          Utils.logException(logger, err)
+      }
+    }
+     */
+  }
+
+  def onTableChange(domain: String, table: String, file: File): Unit = {
+    val domainPath = new Path(DatasetArea.load, domain)
+    val tablePath = new Path(domainPath, table + ".sl.yml")
+    if (storage.exists(tablePath)) {
+      val loadedTable = Try(loadTableRefs(List(table), raw = false, folder = domainPath).head)
+      loadedTable match {
+        case Success(table) =>
+          _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+            case None =>
+              logger.info(s"Domain $domain not found")
+              val (validDomainsFile, invalidDomainsFiles) =
+                this.loadDomains(DatasetArea.load, List(domain), Nil, raw = false)
+              val newDomains = validDomainsFile.collect { case Success(domain) => domain }
+              _domains = Some(_domains.getOrElse(Nil) ++ newDomains)
+            case Some(domain) =>
+              val tables =
+                domain.tables.filterNot(_.name.toLowerCase() == table.name.toLowerCase()) :+ table
+              val newDomain = domain.copy(tables = tables)
+              _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ newDomain)
+          }
+        case Failure(err) =>
+          logger.error(s"Failed to load table $tablePath")
+          Utils.logException(logger, err)
+      }
+    }
+  }
+
 }

@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 
+import java.io.{ByteArrayOutputStream, PrintStream}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -14,43 +15,53 @@ trait JobResult {
   def prettyPrint(
     format: String,
     headers: List[String],
-    values: List[List[String]],
-    output: Option[File]
-  ): Unit = {
+    values: List[List[String]]
+  ): String = {
+    val baos = new ByteArrayOutputStream()
+    val printStream = new PrintStream(baos)
+
     format match {
       case "csv" =>
         (headers :: values).foreach { row =>
-          output.foreach(_.appendLine(row.toString.mkString(",")))
-          println(row.mkString(","))
+          printStream.println(row.mkString(","))
         }
 
       case "table" =>
         headers :: values match {
           case Nil =>
-            output.foreach(_.appendLine("Result is empty."))
-            println("Result is empty.")
+            printStream.println("Result is empty.")
           case _ =>
-            output.foreach(_.appendLine(TableFormatter.format(headers :: values)))
-            println(TableFormatter.format(headers :: values))
+            printStream.println(TableFormatter.format(headers :: values))
         }
 
       case "json" =>
-        values.foreach { value =>
-          val map = headers.zip(value).toMap
-          val json = new Gson().toJson(map.asJava)
-          output.foreach(_.appendLine(json))
-          println(json)
+        val res = values.foreach { value =>
+          val map = headers.zip(value).toMap.asJava
+          val json = new Gson().toJson(map)
+          printStream.println(json)
         }
+
+      case "json-array" =>
+        val res = values.map { value =>
+          val map = headers.zip(value).toMap.asJava
+          map
+        }
+        val json = new Gson().toJson(res.asJava)
+        printStream.println(json)
     }
+    baos.toString
   }
 }
 
 case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
+  def prettyPrint(format: String): String = prettyPrint(format, headers, rows)
+
   def show(format: String, rootServe: scala.Option[String]): Unit = {
     val output = rootServe.map(File(_, "extension.log"))
     output.foreach(_.append(s""))
-    prettyPrint(format, headers, rows, output)
+    val result = prettyPrint(format, headers, rows)
+    println(result)
   }
 
 }
