@@ -4,13 +4,13 @@ Load and validate, in one shot or incrementally, JSON, XML and CSV files into yo
 
 ## Prerequisites
 
-If you skipped the extract step above, you can download the data from [here](https://github.com/starlake-ai/starlake/tree/master/samples/starbake/sample-data/starbake).
-and copy them to the `$SL_ROOT/incoming/starbake` folder.
+If you skipped the extract step above, copy the folder and its files present in `$SL_ROOT/sample-data/` to the `$SL_ROOT/incoming/` folder.
 
-The folder contains now three files:
-- [product.xml](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/product.xml)
-- [order_20240228.json](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/order_202403011414.json)
-- [order_line_20240228.csv](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/order_line_202403011415.csv)
+
+The folder name `starbake` will be translated in to a schema name (dataset in BigQuery) in the datawarehouse.
+
+The files in the folder will be loaded into tables in the schema. Files will be loaded into tables with the same name in the schema.
+Tables suffixed by a date/time will be loaded incrementally.
 
 ## Autoload
 The autoload command is used to load the files in the default incoming folder into the datawarehouse.

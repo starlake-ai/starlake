@@ -421,12 +421,38 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
 
+    private static void askUserWhichConfigToEnable() {
+        if (!anyDependencyEnabled()) {
+            System.out.println("No configuration enabled, do you want to enable all configurations? [y/n]");
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                String answer = reader.readLine();
+                if (answer.equalsIgnoreCase("y")) {
+                    ENABLE_AZURE = true;
+                    ENABLE_BIGQUERY = true;
+                    ENABLE_SNOWFLAKE = true;
+                    ENABLE_REDSHIFT = true;
+                    ENABLE_POSTGRESQL = true;
+                } else {
+                    System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
+                    System.out.println("ENABLE_BIGQUERY, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL");
+                    System.exit(1);
+                }
+            } catch (IOException e) {
+                System.out.println("Failed to read user input");
+                e.printStackTrace();
+            }
+        }
+    }
     public static void main(String[] args) throws IOException {
         try {
             if (args.length == 0) {
                 System.out.println("Please specify the target directory");
                 System.exit(1);
             }
+
+            askUserWhichConfigToEnable();
+
             final File targetDir = new File(args[0]);
             if (!targetDir.exists()) {
                 targetDir.mkdirs();
