@@ -473,6 +473,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (isWindowsOs()) {
                 final File hadoopDir = new File(binDir, "hadoop");
                 final File hadoopBinDir = new File(hadoopDir, "bin");
+                if (!hadoopBinDir.exists()) {
+                    hadoopBinDir.mkdirs();
+                }
                 for (String lib : HADOOP_LIBS) {
                     final File libFile = new File(hadoopBinDir, lib.substring(lib.lastIndexOf("/") + 1));
                     downloadAndDisplayProgress(lib, libFile.getAbsolutePath());
@@ -531,7 +534,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
-            System.out.println("Failed to download dependencies from maven central" + e.getMessage());
+            System.out.println("Failed to download dependency" + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
