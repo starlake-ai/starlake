@@ -48,7 +48,6 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     if (!settings.appConfig.isHiveCompatible() || settings.appConfig.hiveInTest) {
       if (settings.getWarehouseDir().isEmpty) {
         sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
-        println("DATASETS=====> " + settings.appConfig.datasets)
         config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
       }
     }

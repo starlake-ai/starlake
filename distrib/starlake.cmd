@@ -20,6 +20,7 @@ set "DEPS_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin\deps"
 set "STARLAKE_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin\sl"
 if "%SPARK_DRIVER_MEMORY%"=="" set "SPARK_DRIVER_MEMORY=4G"
 set "SL_MAIN=ai.starlake.job.Main"
+set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
 :: set "SL_VALIDATE_ON_LOAD=false"
 if not "%SL_VERSION%"=="" SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar
 :: End of internal variables
