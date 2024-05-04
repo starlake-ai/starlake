@@ -411,7 +411,10 @@ object Utils extends StrictLogging {
   } match {
     case Success(_) =>
     case Failure(e) =>
-      logger.error(s"Error while converting dot to $format", Utils.exceptionAsString(e))
+      logger.error(
+        s"Error while converting dot to $format. Please make sure you installed the GraphViz tool.",
+        Utils.exceptionAsString(e)
+      )
   }
 
   def redact(options: Map[String, String]): Map[String, String] = {
