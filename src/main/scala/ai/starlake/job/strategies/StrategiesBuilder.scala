@@ -9,8 +9,6 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.jdk.CollectionConverters._
-
 class StrategiesBuilder extends StrictLogging {
 
   def buildSqlWithJ2(
@@ -35,12 +33,25 @@ class StrategiesBuilder extends StrictLogging {
       sinkConfig
     )
     val paramMap = context.asMap().asInstanceOf[Map[String, Object]]
-    val content = new WriteStrategyTemplateLoader().loadTemplate(
+    val contentTemplate = new WriteStrategyTemplateLoader().loadTemplate(
       s"${jdbcEngine.strategyBuilder.toLowerCase()}/${action.toLowerCase()}.j2"
     )
-    val jinjaOutput = Utils.parseJinjaTpl(content, paramMap)
-    logger.info(s"Applying SQL for strategy: ${strategy.`type`} => $jinjaOutput")
-    jinjaOutput
+
+    val (contentTemplateUpdated, isSlIncomingRedshiftTempView) =
+      if (contentTemplate.contains("#SL_INCOMING")) {
+        (contentTemplate.replaceAll("#SL_INCOMING", "SL_INCOMING"), true)
+      } else {
+        (contentTemplate, false)
+      }
+    val jinjaOutput = Utils.parseJinjaTpl(contentTemplateUpdated, paramMap)
+    val jinjaOutputUpdated =
+      if (isSlIncomingRedshiftTempView) {
+        jinjaOutput.replaceAll("SL_INCOMING", "#SL_INCOMING")
+      } else {
+        jinjaOutput
+      }
+    logger.info(s"Applying SQL for strategy: ${strategy.`type`} => $jinjaOutputUpdated")
+    jinjaOutputUpdated
   }
 
   def run(
@@ -366,7 +377,7 @@ class StrategiesBuilder extends StrictLogging {
 }
 
 object StrategiesBuilder {
-  def apply(className: String): StrategiesBuilder = {
+  def apply(): StrategiesBuilder = {
     new StrategiesBuilder()
     /*
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
@@ -382,15 +393,29 @@ object StrategiesBuilder {
      */
   }
 
+  def asJavaList[T](l: List[T]): java.util.ArrayList[T] = {
+    val res = new java.util.ArrayList[T]()
+    l.foreach(key => res.add(key))
+    res
+  }
+  def asJavaMap[K, V](m: Map[K, V]): java.util.Map[K, V] = {
+    val res = new java.util.HashMap[K, V]()
+    m.foreach { case (k, v) =>
+      res.put(k, v)
+    }
+    res
+  }
+
   implicit class JavaWriteStrategy(writeStrategy: WriteStrategy) {
+
     def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
       Map(
         "strategyType"  -> writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND).toString,
-        "strategyTypes" -> writeStrategy.types.getOrElse(Map.empty[String, String]).asJava,
-        "strategyKey"   -> writeStrategy.key.asJava,
-        "quotedStrategyKey" -> writeStrategy.key
-          .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
-          .asJava,
+        "strategyTypes" -> asJavaMap(writeStrategy.types.getOrElse(Map.empty[String, String])),
+        "strategyKey"   -> asJavaList(writeStrategy.key),
+        "quotedStrategyKey" -> asJavaList(
+          writeStrategy.key.map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+        ),
         "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
         "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),
         "strategyOn"          -> writeStrategy.on.getOrElse(MergeOn.TARGET).toString,
@@ -440,23 +465,23 @@ object StrategiesBuilder {
       val tableIncomingColumnsCsv =
         SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", columnNames, jdbcEngine.quote)
       val tableInsert = "INSERT " + paramsForInsertSql(jdbcEngine.quote)
-      val tableUpdate =
-        "UPDATE " + SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
+      val tableUpdateSetExpression =
+        SQLUtils.setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote)
 
       Map(
         "tableDatabase"    -> database,
         "tableDomain"      -> domain,
         "tableName"        -> name,
-        "tableColumnNames" -> columnNames.asJava,
-        "quotedTableColumnNames" -> columnNames
-          .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
-          .asJava,
+        "tableColumnNames" -> asJavaList(columnNames),
+        "quotedTableColumnNames" -> asJavaList(
+          columnNames.map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+        ),
         "tableFullName"           -> getFullTableName(),
         "tableParamsForInsertSql" -> paramsForInsertSql(jdbcEngine.quote),
         "tableParamsForUpdateSql" -> SQLUtils
           .setForUpdateSql("SL_INCOMING", columnNames, jdbcEngine.quote),
-        "tableInsert" -> tableInsert,
-        "tableUpdate" -> tableUpdate,
+        "tableInsert"              -> tableInsert,
+        "tableUpdateSetExpression" -> tableUpdateSetExpression,
         "tableColumnsCsv" -> columnNames
           .map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
           .mkString(","),

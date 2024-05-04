@@ -3,7 +3,7 @@ CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 {% if strategyOn == 'TARGET' %}
 
 MERGE INTO  {{ tableFullName }} SL_EXISTING USING SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN  {{ tableUpdate }}
+WHEN MATCHED THEN  UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
@@ -17,7 +17,7 @@ USING
   ) SL_TMP2
   WHERE SL_SEQ = 1) SL_INCOMING
 ON ( {{strategyKeyJoinCondition}} )
-WHEN MATCHED THEN {{ tableUpdate }}
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
 {%  endif %}

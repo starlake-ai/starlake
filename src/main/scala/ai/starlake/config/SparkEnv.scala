@@ -44,7 +44,8 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     */
   lazy val session: SparkSession = {
     val sysProps = System.getProperties()
-    if (!settings.appConfig.isHiveCompatible()) {
+
+    if (!settings.appConfig.isHiveCompatible() || settings.appConfig.hiveInTest) {
       if (settings.getWarehouseDir().isEmpty) {
         sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
         println("DATASETS=====> " + settings.appConfig.datasets)
@@ -59,11 +60,23 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       )
     }
 
-    val session = SparkSession
-      .builder()
-      .config(config)
-      .enableHiveSupport()
-      .getOrCreate()
+    val session =
+      if (
+        settings.appConfig.isHiveCompatible() || Utils
+          .isRunningInDatabricks()
+      )
+        SparkSession
+          .builder()
+          .config(config)
+          .enableHiveSupport()
+          .getOrCreate()
+      else
+        SparkSession
+          .builder()
+          .config(config)
+          .getOrCreate()
+
+    // hive support on databricks, spark local, hive metastore
 
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))

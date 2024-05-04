@@ -29,6 +29,7 @@ class JdbcAutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -144,7 +145,7 @@ class JdbcAutoTask(
                     }
                   }
                   loadedDF.write
-                    .format("jdbc")
+                    .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
                     .option("dbtable", fullTableName)
                     .mode(SaveMode.Append) // truncate done above if requested
                     .options(sinkConnection.options)
@@ -318,7 +319,8 @@ class JdbcAutoTask(
           tableName,
           incomingSchemaWithSCD2,
           caseSensitive = false,
-          optionsWrite
+          optionsWrite,
+          attDdl()
         )
       }
     }

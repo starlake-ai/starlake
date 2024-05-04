@@ -92,7 +92,8 @@ object JdbcDbUtils extends LazyLogging {
     (connectionOptions - "url" - "driver").foreach { case (key, value) =>
       properties.setProperty(key, value)
     }
-    logger.info(s"Connecting to $url with properties $properties")
+
+    logger.info(s"Connecting to $url")
 
     val connection = DriverManager.getConnection(url, properties)
     // connection.setAutoCommit(false)

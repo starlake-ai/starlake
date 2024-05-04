@@ -247,12 +247,8 @@ The 4 ingestion strategies described above are supported through the settings be
 <Tabs groupId="modes">
 <TabItem value="overwrite" label="Overwrite">
 
-```json {2} title="application.conf"
-// When set to "STATIC" all partitions are truncated before data is written in overwrite mode.
-spark.sql.sources.partitionOverwriteMode = "STATIC"
-```
 
-```yaml {8} title="Schema Definition File"
+```yaml {8,9} title="Schema Definition File"
      name: "mydb"
      directory: "..."
 +    metadata:
@@ -260,8 +256,9 @@ spark.sql.sources.partitionOverwriteMode = "STATIC"
       - name: "mytable"
         pattern: "data-.*.csv"
         metadata:
-          mode: "Overwrite"
-        attributes:
+          writeStrategy:
+            type: "OVERWRITE"
+       attributes:
           - name: "date"
             type: "date"
             rename: "id"
@@ -276,12 +273,8 @@ spark.sql.sources.partitionOverwriteMode = "STATIC"
 </TabItem>
 <TabItem value="append" label="Append">
 
-```json title="application.conf"
-// Irrelevant since we are only appending data afterwards
-spark.sql.sources.partitionOverwriteMode = "STATIC" // or "DYNAMIC"
-```
 
-```yaml {8} title="Schema Definition File"
+```yaml {8,9} title="Schema Definition File"
      name: "mydb"
      directory: "..."
 +    metadata:
@@ -289,7 +282,8 @@ spark.sql.sources.partitionOverwriteMode = "STATIC" // or "DYNAMIC"
       - name: "mytable"
         pattern: "data-.*.csv"
         metadata:
-          mode: "Append"
+          writeStrategy:
+            type: "APPEND"
         attributes:
           - name: "date"
             type: "date"
@@ -305,21 +299,21 @@ spark.sql.sources.partitionOverwriteMode = "STATIC" // or "DYNAMIC"
 </TabItem>
 <TabItem value="partitioned-overwrite" label="Dynamic partition Overwrite">
 
-```json {2} title="application.conf"
-// When set to "DYNAMIC", only partitions that are  affected will be truncated in overwrite mode.
-spark.sql.sources.partitionOverwriteMode = "DYNAMIC"
-```
 
-```yaml {8} title="Schema Definition File"
-     name: "mydb"
-     directory: "..."
-+    metadata:
+```yaml {8-12} title="Schema Definition File"
+    name: "mydb"
+    directory: "..."
++   metadata:
     schemas:
       - name: "mytable"
         pattern: "data-.*.csv"
         metadata:
-          mode: "Overwrite"
-        attributes:
+          strategy:
+            type: "OVERWRITE_BY_PARTITION"
+          sink:
+            partition:
+              - "date"
+       attributes:
           - name: "date"
             type: "date"
             rename: "id"
@@ -334,25 +328,19 @@ spark.sql.sources.partitionOverwriteMode = "DYNAMIC"
 </TabItem>
 <TabItem value="merge" label="Merge">
 
-```json title="application.conf"
-// Irrelevant since we are truncating manually and  appending data afterwards
-spark.sql.sources.partitionOverwriteMode = "DYNAMIC" // or STATIC
-```
 
-```yaml {8,9,12,13} title="Schema Definition File"
+```yaml {8,11} title="Schema Definition File"
      name: "mydb"
      directory: "..."
 +    metadata:
     schemas:
       - name: "mytable"
         pattern: "data-.*.csv"
-        merge:
-          key:
-            - "product"
         metadata:
-          mode: "Overwrite"
-          partition:
-            - "date"
+          strategy:
+            type: "OVERWRITE_BY_KEY_AND_TIMESTAMP"
+            key: ["product"]
+            timestamp: "date"
         attributes:
           - name: "date"
             type: "date"

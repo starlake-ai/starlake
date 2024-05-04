@@ -248,7 +248,7 @@ object AuditLog extends StrictLogging {
     val logName = settings.appConfig.audit.getDomain()
     val logging = LoggingOptions.getDefaultInstance
       .toBuilder()
-      .setProjectId(BigQueryJobBase.projectId(None))
+      .setProjectId(BigQueryJobBase.projectId(Option(settings.appConfig.database)))
       .build()
       .getService
     try {
