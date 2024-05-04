@@ -157,6 +157,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
     private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.51.v20230217");
 
+    // HADOOP_LIB ON WINDOWS
+    private static final String[] HADOOP_LIBS = new String[]{
+            "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/winutils.exe",
+            "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/hadoop.dll",
+    };
+
     // SNOWFLAKE
     private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.14.0");
     private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.4");
@@ -401,6 +407,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
             reader.close();
 
+            sb.append("logger.shutdown.name=org.apache.spark.util.ShutdownHookManager").append("\n");
+            sb.append("logger.shutdown.level=OFF").append("\n");
+            sb.append("logger.env.name=org.apache.spark.SparkEnv").append("\n");
+            sb.append("logger.env.level=error").append("\n");
+
             BufferedWriter writer = new BufferedWriter(new FileWriter(log4jFile));
             writer.write(sb.toString());
             writer.close();
@@ -433,6 +444,17 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
             final File binDir = new File(targetDir, "bin");
 
+            if (isWindowsOs()) {
+                final File hadoopDir = new File(binDir, "hadoop");
+                final File hadoopBinDir = new File(hadoopDir, "bin");
+                for (String lib : HADOOP_LIBS) {
+                    final File libFile = new File(hadoopBinDir, lib.substring(lib.lastIndexOf("/") + 1));
+                    downloadAndDisplayProgress(lib, libFile.getAbsolutePath());
+                }
+
+            } else {
+                System.out.println("Unix OS detected");
+            }
 
             File slDir = new File(binDir, "sl");
             if (SL_VERSION.endsWith("SNAPSHOT")) {

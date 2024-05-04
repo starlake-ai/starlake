@@ -4,22 +4,17 @@ Load and validate, in one shot or incrementally, JSON, XML and CSV files into yo
 
 ## Prerequisites
 
-If you skipped the extract step above, you can download the data from [here](https://github.com/starlake-ai/starlake/tree/master/samples/starbake/incoming/starbake).
-and copy them to the `$SL_ROOT/incoming/starbake` folder using the following command:
-
-```bash
-$ cd $SL_ROOT
-$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/incoming/starbake/order_202403011414.json -O https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/incoming/starbake/order_line_202403011415.csv -O https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/incoming/starbake/product.xml
-```
+If you skipped the extract step above, you can download the data from [here](https://github.com/starlake-ai/starlake/tree/master/samples/starbake/sample-data/starbake).
+and copy them to the `$SL_ROOT/incoming/starbake` folder.
 
 The folder contains now three files:
-- product.xml
-- order_20240228.json
-- order_line_20240228.csv
-
+- [product.xml](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/product.xml)
+- [order_20240228.json](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/order_202403011414.json)
+- [order_line_20240228.csv](https://raw.githubusercontent.com/starlake-ai/starlake/master/samples/starbake/sample-data/starbake/order_line_202403011415.csv)
 
 ## Autoload
-The autoload command is used to load the files in the incoming folder into the datawarehouse.
+The autoload command is used to load the files in the default incoming folder into the datawarehouse.
+
 The autoload command will:
 - detect the file type based on its extension and content
 - infer the schema of the target table
@@ -32,10 +27,24 @@ Run the following command to autoload the files located the incoming folder.
 starlake autoload
 ```
 
+:::note
+Starlake looks at files present in the $SL_ROOT/incoming folder.
+
+The default incoming folder may be changed by setting the SL_INCOMING environment variable.
+:::
+
+
+Once loaded, files are moved to the $SL_ROOT/datasets/archive folder if the SL_ARCHIVE environment variable is set to true (default).
+You can replay them by moving them back to the incoming folder.
+
 
 ## Query your datawarehouse
 That's it you have loaded the data into your datawarehouse and just need to query it.
 To query your database, open de DuckDB shell by running the following command:
+
+:::note
+Install [duckdb](https://duckdb.org/docs/installation/) if you haven't done it yet.
+:::
 
 ```bash
 $ cd $SL_ROOT
@@ -81,7 +90,7 @@ $
 
 ## Manual load
 
-When
+The autoload command above is a shortcut to the infer-schema, stage and load commands below.
 
 ### Infer schema
 This is done by running the following command:
