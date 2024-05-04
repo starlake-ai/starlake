@@ -423,7 +423,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static void askUserWhichConfigToEnable() {
         if (!anyDependencyEnabled()) {
-            System.out.println("No configuration enabled, do you want to enable all configurations? [y/n]");
+            System.out.println("Do you want to enable all datawarehouse configurations ? [y/n]");
             try {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
                 String answer = reader.readLine();
@@ -435,7 +435,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_POSTGRESQL = true;
                 } else {
                     System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                    System.out.println("ENABLE_BIGQUERY, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL");
+                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC");
                     System.exit(1);
                 }
             } catch (IOException e) {
