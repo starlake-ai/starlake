@@ -1,0 +1,21 @@
+projects:
+  - project: "projectA"
+    domains:
+      - name: "schemaA1"
+        tables:
+          - "tableA1"
+          - "tableA2"
+      - name: "schemaA2"
+        tables:
+          - "tableA3"
+          - "tableA4"
+  - project: "projectB"
+    domains:
+      - name: "schemaB1"
+        tables:
+          - "tableB1"
+          - "tableB2"
+      - name: "schemaB2"
+        tables:
+          - "tableB3"
+          - "tableB4"

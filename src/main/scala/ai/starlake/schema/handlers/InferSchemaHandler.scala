@@ -59,6 +59,7 @@ object InferSchemaHandler {
 
     schemaWithIndex
       .map { case (row, index) =>
+        val required = if (!row.nullable) Some(true) else None
         row.dataType match {
           // if the datatype is a struct {...} containing one or more other field
           case st: StructType =>
@@ -66,7 +67,7 @@ object InferSchemaHandler {
               row.name,
               row.dataType.typeName,
               Some(false),
-              !row.nullable,
+              required,
               attributes = createAttributes(lines, st, format)
             )
 
@@ -79,7 +80,7 @@ object InferSchemaHandler {
                   row.name,
                   st.typeName,
                   Some(true),
-                  !row.nullable,
+                  required,
                   attributes = createAttributes(lines, st, format)
                 )
               case _ =>
@@ -88,7 +89,7 @@ object InferSchemaHandler {
                   row.name,
                   PrimitiveType.from(dt.elementType).value,
                   Some(true),
-                  !row.nullable
+                  required
                 )
             }
 
@@ -120,7 +121,7 @@ object InferSchemaHandler {
                   "timestamp"
               } else
                 PrimitiveType.from(row.dataType).value
-            Attribute(row.name, cellType, Some(false), !row.nullable)
+            Attribute(row.name, cellType, Some(false), required)
         }
       }
   }.toList

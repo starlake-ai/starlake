@@ -133,18 +133,18 @@ object IngestionUtil {
 
     def colValueIsNull = colValue.isEmpty
 
-    def optionalColIsEmpty = !colAttribute.required && colValueIsNullOrEmpty
+    def optionalColIsEmpty = !colAttribute.resolveRequired() && colValueIsNullOrEmpty
 
     def requiredColIsEmpty = {
       if (emptyIsNull)
-        colAttribute.required && colValueIsNullOrEmpty
+        colAttribute.resolveRequired() && colValueIsNullOrEmpty
       else
-        colAttribute.required && colValueIsNull
+        colAttribute.resolveRequired() && colValueIsNull
     }
 
     def colPatternIsValid = colValue.exists(tpe.matches)
 
-    val privacyLevel = colAttribute.getPrivacy()
+    val privacyLevel = colAttribute.resolvePrivacy()
     val colValueWithPrivacyApplied =
       if (privacyLevel == TransformInput.None || privacyLevel.sql) {
         colValue

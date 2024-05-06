@@ -3,7 +3,7 @@ package ai.starlake.utils
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.extract.JDBCSchemas
+import ai.starlake.extract.{ExtractDesc, JDBCSchemas}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{
   AutoJobDesc,
@@ -35,6 +35,7 @@ import com.networknt.schema.{
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
+import ImplicitRichPath._
 
 import java.util.Locale
 import scala.util.{Failure, Success, Try}
@@ -49,15 +50,18 @@ object YamlSerde extends LazyLogging {
     */
   private def wrapEntityToDesc[T](entity: T) = {
     entity match {
-      case e: AutoJobDesc  => TransformDesc(latestSchemaVersion, e)
-      case e: AutoTaskDesc => TaskDesc(latestSchemaVersion, e)
-      case e: Domain       => LoadDesc(latestSchemaVersion, e)
-      case e: ModelSchema  => TableDesc(latestSchemaVersion, e)
-      case _               => entity
+      case e: AutoJobDesc         => TransformDesc(latestSchemaVersion, e)
+      case e: AutoTaskDesc        => TaskDesc(latestSchemaVersion, e)
+      case e: Domain              => LoadDesc(latestSchemaVersion, e)
+      case e: ModelSchema         => TableDesc(latestSchemaVersion, e)
+      case e: JDBCSchemas         => ExtractDesc(latestSchemaVersion, e)
+      case e: DagGenerationConfig => DagDesc(latestSchemaVersion, e)
+      case _                      => entity
     }
   }
 
   def serializeToPath[T](targetPath: Path, entity: T)(implicit storage: StorageHandler): Unit = {
+    // TODO REMOVE
     println(serialize(wrapEntityToDesc(entity)))
     storage.write(serialize(wrapEntityToDesc(entity)), targetPath)
   }
@@ -210,7 +214,11 @@ object YamlSerde extends LazyLogging {
       .getOrElse(effectiveRootNode)
   }
 
-  def deserializeYamlExtractConfig(content: String, inputFilename: String): JDBCSchemas = {
+  def deserializeYamlExtractConfig(
+    content: String,
+    inputFilename: String,
+    propageDefault: Boolean = true
+  ): JDBCSchemas = {
     val extractSubPath = "extract"
     val extractNode =
       validateConfigFile(
@@ -221,7 +229,11 @@ object YamlSerde extends LazyLogging {
         Some(YamlMigrator.ScalaClass.ExtractConfig)
       ).path(extractSubPath)
     val jdbcSchemas = mapper.treeToValue(extractNode, classOf[JDBCSchemas])
-    jdbcSchemas.propagateGlobalJdbcSchemas()
+    if (propageDefault) {
+      jdbcSchemas.propagateGlobalJdbcSchemas()
+    } else {
+      jdbcSchemas
+    }
   }
   def deserializeYamlRefs(content: String, path: String): RefDesc = {
     val refsSubPath = "refs"
@@ -269,16 +281,31 @@ object YamlSerde extends LazyLogging {
     }
   }
 
-  def deserializeYamlLoadConfig(content: String, path: String): Try[Domain] = {
+  def deserializeYamlLoadConfig(
+    content: String,
+    path: String,
+    isForExtract: Boolean
+  ): Try[Domain] = {
     Try {
       val loadSubPath = "load"
+      val filePath = new Path(path)
       val domainNode =
-        validateConfigFile(loadSubPath, content, path, List(YamlMigrator.V1.LoadConfig))
+        validateConfigFile(
+          loadSubPath,
+          content,
+          path,
+          List(
+            new YamlMigrator.V1.LoadConfig(
+              filePath.fileNameWithoutSlExt,
+              isForExtract = isForExtract
+            )
+          )
+        )
       mapper.treeToValue(domainNode, classOf[LoadDesc])
     } match {
       case Success(value) => Success(value.load)
       case Failure(exception) =>
-        logger.error(s"Invalid domain file: $path(${exception.getMessage})")
+        logger.error(s"Invalid domain file: $path(${exception.getMessage})", exception)
         Failure(exception)
     }
   }

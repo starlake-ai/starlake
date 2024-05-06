@@ -136,14 +136,14 @@ case class Metadata(
 
   override def toString: String =
     s"""
-       |format:${getFormat()}
-       |encoding:${getEncoding()}
-       |multiline:${getMultiline()}
-       |array:${isArray()}
-       |withHeader:${isWithHeader()}
-       |separator:${getSeparator()}
-       |quote:${getQuote()}
-       |escape:${getEscape()}
+       |format:${resolveFormat()}
+       |encoding:${resolveEncoding()}
+       |multiline:${resolveMultiline()}
+       |array:${resolveArray()}
+       |withHeader:${resolveWithHeader()}
+       |separator:${resolveSeparator()}
+       |quote:${resolveQuote()}
+       |escape:${resolveEscape()}
        |sink:${sink}
        |directory:${directory}
        |ack:${ack}
@@ -151,7 +151,7 @@ case class Metadata(
        |loader:${loader}
        |dag:${dagRef}
        |freshness:${freshness}
-       |nullValue:${getNullValue()}
+       |nullValue:${resolveNullValue()}
        |emptyIsNull:${emptyIsNull}
        |dag:$dagRef
        |fillWithDefaultValue:$fillWithDefaultValue""".stripMargin
@@ -162,32 +162,32 @@ case class Metadata(
     writeStrategy.getOrElse(WriteStrategy(Some(WriteStrategyType.fromString(writeMode.value))))
   }
 
-  def getFormat(): Format = getFinalValue(format, DSV)
+  def resolveFormat(): Format = getFinalValue(format, DSV)
 
-  def getEncoding(): String = getFinalValue(encoding, "UTF-8")
+  def resolveEncoding(): String = getFinalValue(encoding, "UTF-8")
 
   // scala Boolean value don't have implicit ev Null subtype and boxing java boolean to scala boolean turn null to False. That is why we keep the type as java one here
-  def getMultiline(): java.lang.Boolean =
+  def resolveMultiline(): java.lang.Boolean =
     getFinalValue(multiline.map(_.booleanValue()), false)
 
-  def isArray(): java.lang.Boolean =
+  def resolveArray(): java.lang.Boolean =
     getFinalValue(array.map(_.booleanValue()), false)
 
-  def isWithHeader(): java.lang.Boolean =
+  def resolveWithHeader(): java.lang.Boolean =
     getFinalValue(withHeader.map(_.booleanValue()), true)
 
-  def getSeparator(): String = getFinalValue(separator, ";")
+  def resolveSeparator(): String = getFinalValue(separator, ";")
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  def getQuote(): String = getFinalValue(quote, "\"")
+  def resolveQuote(): String = getFinalValue(quote, "\"")
 
-  def getEscape(): String = getFinalValue(escape, "\\")
+  def resolveEscape(): String = getFinalValue(escape, "\\")
 
   @JsonIgnore
   def getWrite(): WriteMode = writeStrategy.map(_.toWriteMode()).getOrElse(APPEND)
 
   // scalastyle:off null
-  def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
+  def resolveNullValue(): String = nullValue.getOrElse(if (resolveEmptyIsNull()) "" else null)
   // scalastyle:on null
 
   @JsonIgnore
@@ -195,7 +195,7 @@ case class Metadata(
     this.getSink().toAllSinks().partition.getOrElse(Nil)
   }
 
-  def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
+  def resolveEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
@@ -352,7 +352,7 @@ case class Metadata(
     def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
-    if (!isIgnoreUDF && getFormat() == Format.DSV)
+    if (!isIgnoreUDF && resolveFormat() == Format.DSV)
       errorList += ValidationMessage(
         Error,
         "Table metadata",
@@ -362,12 +362,12 @@ case class Metadata(
     import Format._
     if (
       ignore.isDefined &&
-      !List(DSV, JSON_FLAT, POSITION).contains(getFormat())
+      !List(DSV, JSON_FLAT, POSITION).contains(resolveFormat())
     )
       errorList += ValidationMessage(
         Error,
         "Table metadata",
-        s"ignore: ignore not yet supported for format ${getFormat()}"
+        s"ignore: ignore not yet supported for format ${resolveFormat()}"
       )
 
     val freshnessValidity = freshness.map(_.checkValidity()).getOrElse(Right(true))

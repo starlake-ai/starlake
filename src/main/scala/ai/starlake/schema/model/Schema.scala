@@ -127,26 +127,28 @@ case class Schema(
 
   def scriptAndTransformAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
-      !attribute.isIgnore() && (attribute.script.nonEmpty || attribute.transform.nonEmpty)
+      !attribute.resolveIgnore() && (attribute.script.nonEmpty || attribute.transform.nonEmpty)
     }
   }
 
   def exceptIgnoreScriptAndTransformAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
-      !attribute.isIgnore() && attribute.script.isEmpty && attribute.transform.isEmpty
+      !attribute.resolveIgnore() && attribute.script.isEmpty && attribute.transform.isEmpty
     }
   }
 
-  def exceptIgnoreAttributes(): List[Attribute] = attributes.filter(!_.isIgnore())
+  def exceptIgnoreAttributes(): List[Attribute] = attributes.filter(!_.resolveIgnore())
 
   def ignoredAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
-      attribute.isIgnore()
+      attribute.resolveIgnore()
     }
   }
 
   def hasTransformOrIgnoreOrScriptColumns(): Boolean = {
-    attributes.count(attr => attr.isIgnore() || attr.script.nonEmpty || attr.transform.nonEmpty) > 0
+    attributes.count(attr =>
+      attr.resolveIgnore() || attr.script.nonEmpty || attr.transform.nonEmpty
+    ) > 0
   }
 
   /** This Schema as a Spark Catalyst Schema
@@ -156,7 +158,7 @@ case class Schema(
     */
   def sourceSparkSchema(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
-      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -170,7 +172,7 @@ case class Schema(
       val structField = StructField(
         attr.getFinalName(),
         attr.sparkType(schemaHandler),
-        if (attr.script.isDefined) true else !attr.required
+        if (attr.script.isDefined) true else !attr.resolveRequired()
       )
       attr.comment.map(structField.withComment).getOrElse(structField)
     }
@@ -184,7 +186,7 @@ case class Schema(
     */
   def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.filter(_.script.isEmpty).map { attr =>
-      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -200,7 +202,7 @@ case class Schema(
           case (_, _)                                    => attr.sparkType(schemaHandler)
         }
       }
-      StructField(attr.name, sparkType, !attr.required)
+      StructField(attr.name, sparkType, !attr.resolveRequired())
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -214,10 +216,10 @@ case class Schema(
   }
 
   def sparkSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore() && attr.script.isEmpty)
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore() && attr.script.isEmpty)
 
   def sparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore())
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
 
   def sparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
@@ -246,7 +248,7 @@ case class Schema(
   }
 
   def finalAttributeNames(): List[String] =
-    attributes.filterNot(_.isIgnore()).map(attr => attr.getFinalName())
+    attributes.filterNot(_.resolveIgnore()).map(attr => attr.getFinalName())
 
   /** Check attribute definition correctness :
     *   - schema name should be a valid table identifier
@@ -281,7 +283,7 @@ case class Schema(
       }
     }
 
-    val format = this.metadata.map(_.getFormat()).getOrElse(DSV)
+    val format = this.metadata.map(_.resolveFormat()).getOrElse(DSV)
     def isXMLAttribute: Attribute => Boolean = (format == XML && _.getFinalName().startsWith("_"))
     val firstScriptedFiedlIndex = attributes.indexWhere(_.script.isDefined)
     val lastNonScriptedFiedlIndex =
@@ -674,17 +676,17 @@ object Schema {
           Attribute(
             obj.name,
             obj.dataType.typeName,
-            required = !obj.nullable,
+            required = Some(!obj.nullable),
             comment = obj.getComment()
           )
         case _: DecimalType =>
-          Attribute(obj.name, "decimal", required = !obj.nullable, comment = obj.getComment())
+          Attribute(obj.name, "decimal", required = Some(!obj.nullable), comment = obj.getComment())
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           Attribute(
             obj.name,
             "struct",
-            required = !obj.nullable,
+            required = Some(!obj.nullable),
             attributes = x.fields.map(buildAttributeTree).toList,
             comment = obj.getComment()
           )

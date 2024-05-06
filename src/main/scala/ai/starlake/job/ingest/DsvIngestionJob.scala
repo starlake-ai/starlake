@@ -96,15 +96,15 @@ class DsvIngestionJob(
   def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val dfInReader = session.read
-        .option("header", mergedMetadata.isWithHeader().toString)
+        .option("header", mergedMetadata.resolveWithHeader().toString)
         .option("inferSchema", value = false)
-        .option("delimiter", mergedMetadata.getSeparator())
-        .option("multiLine", mergedMetadata.getMultiline())
-        .option("quote", mergedMetadata.getQuote())
-        .option("escape", mergedMetadata.getEscape())
-        .option("nullValue", mergedMetadata.getNullValue())
+        .option("delimiter", mergedMetadata.resolveSeparator())
+        .option("multiLine", mergedMetadata.resolveMultiline())
+        .option("quote", mergedMetadata.resolveQuote())
+        .option("escape", mergedMetadata.resolveEscape())
+        .option("nullValue", mergedMetadata.resolveNullValue())
         .option("parserLib", "UNIVOCITY")
-        .option("encoding", mergedMetadata.getEncoding())
+        .option("encoding", mergedMetadata.resolveEncoding())
         .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
 
@@ -129,7 +129,7 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val resDF = if (mergedMetadata.isWithHeader()) {
+        val resDF = if (mergedMetadata.resolveWithHeader()) {
           val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
           val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
           if (datasetHeaders.length == drop.length) {
@@ -194,7 +194,7 @@ class DsvIngestionJob(
       val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
       val (tpes, sparkFields) = orderedAttributes.map { attribute =>
         val tpe = typeMap(attribute.`type`)
-        (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+        (tpe, tpe.sparkType(attribute.name, !attribute.resolveRequired(), attribute.comment))
       }.unzip
       (tpes, StructType(sparkFields))
     }
@@ -203,8 +203,8 @@ class DsvIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

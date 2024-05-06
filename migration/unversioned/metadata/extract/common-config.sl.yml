@@ -1,0 +1,23 @@
+extract:
+  connectionRef: databaseConn
+  auditConnectionRef: auditConn
+  output:
+    quote: "\""
+    escape: "\""
+  jdbcSchemas:
+    - schema: "db_schema"
+      fullExport: true
+      fetchSize: 1000
+      columnRemarks: >
+        column
+        remarks
+        query
+      tableRemarks: >
+        table
+        remarks
+        query
+      tables:
+        - name: "*"
+      tableTypes: # One or many of the types below
+        - "TABLE"
+      pattern: "^{{table}}-\\d{14}[\\.\\-].*"

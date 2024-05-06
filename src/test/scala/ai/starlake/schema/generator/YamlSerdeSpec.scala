@@ -171,7 +171,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlLoadConfig)
       YamlSerde
-        .deserializeYamlLoadConfig(config, "input")
+        .deserializeYamlLoadConfig(config, "input", isForExtract = false)
         .map { deserializedConfig =>
           deserializedConfig.tables
             .map(_.pattern)
@@ -658,19 +658,19 @@ object YamlConfigGenerators {
       // Instantiate with serialized default value otherwise comparison in round-trip would fail
       metadataInstance
         .copy(
-          format = Some(metadataInstance.getFormat()),
-          encoding = Some(metadataInstance.getEncoding()),
-          multiline = Some(metadataInstance.getMultiline()),
-          array = Some(metadataInstance.isArray()),
-          withHeader = Some(metadataInstance.isWithHeader()),
-          separator = Some(metadataInstance.getSeparator()),
-          quote = Some(metadataInstance.getQuote()),
-          escape = Some(metadataInstance.getEscape()),
+          format = Some(metadataInstance.resolveFormat()),
+          encoding = Some(metadataInstance.resolveEncoding()),
+          multiline = Some(metadataInstance.resolveMultiline()),
+          array = Some(metadataInstance.resolveArray()),
+          withHeader = Some(metadataInstance.resolveWithHeader()),
+          separator = Some(metadataInstance.resolveSeparator()),
+          quote = Some(metadataInstance.resolveQuote()),
+          escape = Some(metadataInstance.resolveEscape()),
           options = Some(metadataInstance.getOptions()),
           nullValue = Option(
-            metadataInstance.getNullValue()
+            metadataInstance.resolveNullValue()
           ),
-          emptyIsNull = Some(metadataInstance.isEmptyIsNull())
+          emptyIsNull = Some(metadataInstance.resolveEmptyIsNull())
         )
     }
   }
@@ -723,8 +723,8 @@ object YamlConfigGenerators {
       val attributeInstance = Attribute(sf)
       // Instantiate with serialized default value otherwise comparison in round-trip would fail
       attributeInstance.copy(
-        ignore = Some(attributeInstance.isIgnore()),
-        array = Some(attributeInstance.isArray())
+        ignore = Some(attributeInstance.resolveIgnore()),
+        array = Some(attributeInstance.resolveArray())
       )
     }
   }

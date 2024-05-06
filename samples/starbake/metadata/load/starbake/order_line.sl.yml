@@ -7,36 +7,18 @@ table:
   - name: "order_id"
     type: "int"
     array: false
-    required: false
-    privacy: "NONE"
-    ignore: false
   - name: "product_id"
     type: "int"
     array: false
-    required: false
-    privacy: "NONE"
-    ignore: false
   - name: "quantity"
     type: "int"
     array: false
-    required: false
-    privacy: "NONE"
-    ignore: false
   - name: "sale_price"
     type: "double"
     array: false
-    required: false
-    privacy: "NONE"
-    ignore: false
   metadata:
     format: "DSV"
-    encoding: "UTF-8"
-    multiline: false
-    array: false
     withHeader: true
     separator: ";"
-    quote: "\""
-    escape: "\\"
-    emptyIsNull: true
     writeStrategy:
       type: "APPEND"
