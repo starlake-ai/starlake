@@ -288,7 +288,7 @@
           "description": "DAG generation options"
         }
       },
-      "required": ["comment", "template", "filename"]
+      "required": ["template", "filename"]
     },
     "RowLevelSecurityV1": {
       "description": "Row level security policy to apply to the output data.",
@@ -1575,7 +1575,7 @@
           "description": "Override the output format of data extraction. Scope: Data extraction."
         },
         "default": {
-          "$ref": "#/definitions/JDBCSchemaV1",
+          "$ref": "#/definitions/DefaultJDBCSchemaV1",
           "description": "Configuration merged into each jdbcSchemas. Scope: Schema and Data extraction."
         }
       }

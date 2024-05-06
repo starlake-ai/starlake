@@ -1,0 +1,5 @@
+task:
+  parseSQL: true
+  sink:
+    partition:
+      - timestamp

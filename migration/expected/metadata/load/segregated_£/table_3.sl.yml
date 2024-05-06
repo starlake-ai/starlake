@@ -1,0 +1,22 @@
+---
+version: 1
+table:
+  name: "table_3"
+  pattern: "^\\Qtable_3\\E\\d{14}(?<mode>T|D|A|)\\..*"
+  attributes:
+    - name: "attr1"
+      type: "string"
+      comment: "attr1"
+    - name: "_partition"
+      type: "date"
+      script: "CURRENT_DATE()"
+  metadata:
+    sink:
+      partition:
+        - "_partition"
+    writeStrategy:
+      types:
+        OVERWRITE: 'group("mode") == "T"'
+        OVERWRITE_BY_PARTITION: 'group("mode") == "D" || group("mode") == ""'
+        DELETE_THEN_INSERT: 'group("mode") == "A"'
+      type: "OVERWRITE_BY_PARTITION"

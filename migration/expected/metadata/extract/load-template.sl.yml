@@ -1,0 +1,17 @@
+---
+version: 1
+load:
+  database: "{{custom_project_id}}"
+  name: "DOMAIN"
+  rename: "raw_{{normalized_domain}}"
+  metadata:
+    encoding: "ISO-8859-1"
+    format: "DSV"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\""
+    writeStrategy:
+      type: "OVERWRITE"

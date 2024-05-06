@@ -118,22 +118,22 @@ class StorageHandlerSpec extends TestHelper {
                 "firstname",
                 "string",
                 Some(false),
-                required = false,
-                TransformInput.None
+                required = Some(false),
+                Some(TransformInput.None)
               ),
               Attribute(
                 "lastname",
                 "string",
                 Some(false),
-                required = false,
-                TransformInput("SHA1", sql = false)
+                required = Some(false),
+                Some(TransformInput("SHA1", sql = false))
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
-                required = false,
-                TransformInput("HIDE", sql = false)
+                required = Some(false),
+                Some(TransformInput("HIDE", sql = false))
               )
             ),
             Some(Metadata(withHeader = Some(true))),

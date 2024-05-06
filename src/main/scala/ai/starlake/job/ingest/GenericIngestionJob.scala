@@ -298,8 +298,8 @@ class GenericIngestionJob(
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

@@ -267,7 +267,8 @@ class ExtractSpec extends TestHelper {
     val domain =
       YamlSerde.deserializeYamlLoadConfig(
         publicPath.contentAsString,
-        publicPath.pathAsString
+        publicPath.pathAsString,
+        isForExtract = true
       ) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
@@ -581,7 +582,8 @@ class ExtractSpec extends TestHelper {
       val domain =
         YamlSerde.deserializeYamlLoadConfig(
           publicPath.contentAsString,
-          publicPath.pathAsString
+          publicPath.pathAsString,
+          isForExtract = true
         ) match {
           case Success(domain) => domain
           case Failure(e)      => throw e
@@ -643,7 +645,8 @@ class ExtractSpec extends TestHelper {
       val domain =
         YamlSerde.deserializeYamlLoadConfig(
           publicPath.contentAsString,
-          publicPath.pathAsString
+          publicPath.pathAsString,
+          isForExtract = true
         ) match {
           case Success(domain) => domain
           case Failure(e)      => throw e

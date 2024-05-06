@@ -62,7 +62,7 @@ class XmlSimplePrivacyJob(
     * @param dataset
     */
   override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val privacyAttributes = schema.attributes.filter(_.getPrivacy() != TransformInput.None)
+    val privacyAttributes = schema.attributes.filter(_.resolvePrivacy() != TransformInput.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session).toDF()
     }
@@ -106,7 +106,7 @@ object XmlSimplePrivacyJob {
         val prefix = line.substring(0, openIndex)
         val suffix = line.substring(closeIndex)
         val privacyInput = line.substring(openIndex, closeIndex)
-        val attrPrivacy = attribute.getPrivacy()
+        val attrPrivacy = attribute.resolvePrivacy()
         val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(attrPrivacy.value)
         prefix + attrPrivacy.crypt(privacyInput, Map.empty, privacyAlgo, privacyParams) + suffix
       } else {

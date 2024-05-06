@@ -70,7 +70,7 @@ class SimpleJsonIngestionJob(
     Try {
 
       val dfIn =
-        if (mergedMetadata.isArray()) {
+        if (mergedMetadata.resolveArray()) {
           val jsonRDD =
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
               case (_, content) => content
@@ -88,8 +88,8 @@ class SimpleJsonIngestionJob(
 
         } else {
           session.read
-            .option("encoding", mergedMetadata.getEncoding())
-            .option("multiline", mergedMetadata.getMultiline())
+            .option("encoding", mergedMetadata.resolveEncoding())
+            .option("multiline", mergedMetadata.resolveMultiline())
             .options(mergedMetadata.getOptions())
             .json(path.map(_.toString): _*)
             .withColumn(

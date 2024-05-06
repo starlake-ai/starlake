@@ -76,7 +76,7 @@ class XmlIngestionJob(
               .format("com.databricks.spark.xml")
               .options(xmlOptions)
               .option("inferSchema", value = false)
-              .option("encoding", mergedMetadata.getEncoding())
+              .option("encoding", mergedMetadata.resolveEncoding())
               .options(sparkOptions)
               .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
@@ -136,8 +136,8 @@ class XmlIngestionJob(
         val validationResult =
           treeRowValidator.validate(
             session,
-            mergedMetadata.getFormat(),
-            mergedMetadata.getSeparator(),
+            mergedMetadata.resolveFormat(),
+            mergedMetadata.resolveSeparator(),
             withInputFileNameDS,
             schema.attributes,
             types,

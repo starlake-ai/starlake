@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  metadata:
+    writeStrategy:
+      types:
+        OVERWRITE: 'group("mode") == "T" || group("mode") == ""'
+        APPEND: 'group("mode") == "D"'
+        DELETE_THEN_INSERT: 'group("mode") == "A"'
+  rename: "target_all_inclusive"
+  database: "{{project_id}}"

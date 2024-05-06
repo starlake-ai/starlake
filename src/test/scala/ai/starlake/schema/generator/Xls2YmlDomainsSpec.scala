@@ -18,7 +18,11 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val schema2Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
     lazy val result: Domain = YamlSerde
-      .deserializeYamlLoadConfig(outputPath.contentAsString, outputPath.pathAsString) match {
+      .deserializeYamlLoadConfig(
+        outputPath.contentAsString,
+        outputPath.pathAsString,
+        isForExtract = false
+      ) match {
       case Success(value)     => value
       case Failure(exception) => throw exception
     }
@@ -60,7 +64,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
 
     "All configured schemas" should "have all declared attributes correctly set" in {
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
-      schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
+      schema1.metadata.flatMap(_.encoding) shouldBe None
       schema1.attributes.size shouldBe 19
 
       schema1.metadata.flatMap(_.writeStrategy.flatMap(_.timestamp)) shouldBe Some("ATTRIBUTE_1")
@@ -94,7 +98,11 @@ class Xls2YmlDomainsSpec extends TestHelper {
         File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
 
       val yamlTable = YamlSerde
-        .deserializeYamlLoadConfig(yamlPath.contentAsString, yamlPath.pathAsString)
+        .deserializeYamlLoadConfig(
+          yamlPath.contentAsString,
+          yamlPath.pathAsString,
+          isForExtract = false
+        )
         .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         .tables
         .head
@@ -112,7 +120,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     private def validCount(domain: Domain, algo: String, count: Int) =
       domain.tables
         .flatMap(_.attributes)
-        .filter(_.getPrivacy().toString == algo) should have length count
+        .filter(_.resolvePrivacy().toString == algo) should have length count
 
     "a scripted attribute" should "be generated" in {
       domainOpt shouldBe defined

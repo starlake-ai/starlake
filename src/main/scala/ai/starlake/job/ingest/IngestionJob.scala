@@ -101,7 +101,7 @@ trait IngestionJob extends SparkJob {
     val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
     val (tpes, sparkFields) = orderedAttributes.map { attribute =>
       val tpe = typeMap(attribute.`type`)
-      (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+      (tpe, tpe.sparkType(attribute.name, !attribute.resolveRequired(), attribute.comment))
     }.unzip
     (tpes, StructType(sparkFields))
   }
@@ -233,8 +233,8 @@ trait IngestionJob extends SparkJob {
 
   private def isNativeCandidate(): Boolean = {
     val csvOrJsonLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT).contains(
-        mergedMetadata.getFormat()
+      !mergedMetadata.resolveArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT).contains(
+        mergedMetadata.resolveFormat()
       )
 
     val nativeValidator =
@@ -687,14 +687,15 @@ trait IngestionJob extends SparkJob {
   private def removeIgnoredAttributes(
     acceptedDfWithScriptAndTransformedFields: DataFrame
   ): DataFrame = {
-    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
+    val ignoredAttributes = schema.attributes.filter(_.resolveIgnore()).map(_.getFinalName())
     val acceptedDfWithoutIgnoredFields =
       acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
     acceptedDfWithoutIgnoredFields
   }
 
   private def computeTransformedAttributes(acceptedDfWithScriptFields: DataFrame): DataFrame = {
-    val sqlAttributes = schema.attributes.filter(_.getPrivacy().sql).filter(_.transform.isDefined)
+    val sqlAttributes =
+      schema.attributes.filter(_.resolvePrivacy().sql).filter(_.transform.isDefined)
     sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
       df.withColumn(
         attr.getFinalName(),
@@ -762,7 +763,7 @@ trait IngestionJob extends SparkJob {
             if (isCSV(fsSink)) {
               val separator = mergedMetadata.separator
               val header =
-                if (mergedMetadata.isWithHeader())
+                if (mergedMetadata.resolveWithHeader())
                   Some(mergedDF.columns.toList)
                 else None
               autoTask.exportToCSV(domain.finalName, schema.finalName, header, separator)

@@ -13,6 +13,7 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
 import ai.starlake.job.transform.{TransformCmd, TransformTestCmd}
+import ai.starlake.migration.MigrateCmd
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
@@ -96,7 +97,8 @@ object Main extends StrictLogging {
     MainServerCmd,
     DagGenerateCmd,
     ConsoleCmd,
-    TransformTestCmd
+    TransformTestCmd,
+    MigrateCmd
   )
 }
 

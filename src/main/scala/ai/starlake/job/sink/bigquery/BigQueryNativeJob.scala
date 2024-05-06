@@ -207,7 +207,7 @@ class BigQueryNativeJob(
     }
     cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
-        metadata.getFormat() match {
+        metadata.resolveFormat() match {
           case Format.DSV =>
             metadata.nullValue.foreach(loadConfig.setNullMarker)
           case _ =>
@@ -220,21 +220,21 @@ class BigQueryNativeJob(
   private def bqLoadFormatOptions(): FormatOptions = {
     val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
-        metadata.getFormat() match {
+        metadata.resolveFormat() match {
           case Format.DSV =>
             val formatOptions =
               CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
-            if (metadata.isWithHeader())
+            if (metadata.resolveWithHeader())
               formatOptions.setSkipLeadingRows(1).build
-            formatOptions.setEncoding(metadata.getEncoding())
-            formatOptions.setFieldDelimiter(metadata.getSeparator())
+            formatOptions.setEncoding(metadata.resolveEncoding())
+            formatOptions.setFieldDelimiter(metadata.resolveSeparator())
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
           case Format.JSON | Format.JSON_FLAT =>
             FormatOptions.json()
           case _ =>
-            throw new Exception(s"Should never happen: ${metadata.getFormat()}")
+            throw new Exception(s"Should never happen: ${metadata.resolveFormat()}")
         }
       case None =>
         throw new Exception("Should never happen")

@@ -1,0 +1,25 @@
+load:
+  database: "{{custom_project_id}}"
+  name: "DOMAIN"
+  rename: "raw_{{normalized_domain}}"
+  metadata:
+    encoding: "ISO-8859-1"
+    mode: "FILE"
+    format: "DSV"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\""
+    write: "OVERWRITE"
+  tables:
+    - name: "User"
+      pattern: "table.*.csv"
+      attributes:
+        - name: "id"
+          type: "long"
+          array: false
+          required: false
+          privacy: "NONE"
+          trim: "BOTH"

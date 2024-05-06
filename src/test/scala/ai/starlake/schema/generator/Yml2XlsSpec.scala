@@ -42,7 +42,11 @@ class Yml2XlsSpec extends TestHelper {
         val yamlPath =
           File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
         val yamlDomain = YamlSerde
-          .deserializeYamlLoadConfig(yamlPath.contentAsString, yamlPath.pathAsString)
+          .deserializeYamlLoadConfig(
+            yamlPath.contentAsString,
+            yamlPath.pathAsString,
+            isForExtract = false
+          )
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")(settings.storageHandler())
