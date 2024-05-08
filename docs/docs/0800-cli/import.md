@@ -1,12 +1,12 @@
 ---
-sidebar_position: 150
-title: import
+sidebar_position: 170
+title: stage
 ---
 
 
 ## Synopsis
 
-**starlake import [options]**
+**starlake stage [options]**
 
 ## Description
 
@@ -33,5 +33,5 @@ comet import
 
 Parameter|Cardinality|Description
 ---|---|---
---include:`domain1,domain2...`|*Optional*|Domains to import
+--domains:`domain1,domain2...`|*Optional*|Domains to stage
 
