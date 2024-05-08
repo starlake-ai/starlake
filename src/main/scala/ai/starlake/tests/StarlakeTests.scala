@@ -1,10 +1,10 @@
 package ai.starlake.tests
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.job.Main
-import ai.starlake.job.transform.TransformTestConfig
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
+import org.apache.hadoop.fs.Path
 
 import java.io.File
 import java.nio.file.Files
@@ -187,6 +187,46 @@ object StarlakeTestData {
     (stmt, rs)
   }
 
+  def runTransforms(
+    dataAndTests: (
+      List[StarlakeTestData],
+      List[
+        (
+          String,
+          (
+            List[StarlakeTestData],
+            List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))]
+          )
+        )
+      ]
+    ),
+    config: StarlakeTestConfig
+  ): List[StarlakeTestResult] = {
+    def params(test: StarlakeTest): Array[String] =
+      Array("transform", "--test", "--name", test.name) ++ config.toArgs
+    run(dataAndTests, params)
+  }
+
+  def runLoads(
+    dataAndTests: (
+      List[StarlakeTestData],
+      List[
+        (
+          String,
+          (
+            List[StarlakeTestData],
+            List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))]
+          )
+        )
+      ]
+    ),
+    config: StarlakeTestConfig
+  ): List[StarlakeTestResult] = {
+    def params(test: StarlakeTest): Array[String] =
+      Array("load", "--test", "--domains", test.domain, "--tables", test.table) ++ config.toArgs
+    run(dataAndTests, params)
+  }
+
   def run(
     dataAndTests: (
       List[StarlakeTestData], // root data
@@ -200,7 +240,7 @@ object StarlakeTestData {
         )
       ]
     ),
-    config: TransformTestConfig
+    params: StarlakeTest => Array[String]
   ): List[StarlakeTestResult] = {
     Class.forName("org.duckdb.DuckDBDriver")
     val originalSettings: Settings = Settings(Settings.referenceConfig)
@@ -233,12 +273,11 @@ object StarlakeTestData {
             test.load(conn)
           }
           // We close the connection here since the transform will open its own
-          // and concurrent access is not supported in embedded test mode
-          val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
+          // also concurrent access is not supported in embedded test mode
           val start = System.currentTimeMillis()
           val result =
             new Main().run(
-              params,
+              params(test),
               schemaHandler
             ) match {
               case Failure(e) =>
@@ -268,7 +307,7 @@ object StarlakeTestData {
                     test.domain,
                     test.table,
                     test.getTaskName(),
-                    "sl_assert",
+                    "sl_expected",
                     conn,
                     end - start
                   )
@@ -329,7 +368,7 @@ object StarlakeTestData {
     }
   }
 
-  def loadTests()(implicit
+  def loadTests(area: Path)(implicit
     settings: Settings
   ): (
     List[StarlakeTestData],
@@ -346,7 +385,7 @@ object StarlakeTestData {
     import settings.storageHandler
     val schemaHandler = new SchemaHandler(storageHandler())
 
-    val testDir = new File(DatasetArea.tests.toString)
+    val testDir = new File(area.toString)
     val domains = testDir.listFiles.filter(_.isDirectory).toList
     val rootData = testDir.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
     val allTests = domains.map { domainPath =>
@@ -358,21 +397,21 @@ object StarlakeTestData {
         val taskData = taskPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
         val taskTests = tests.flatMap { testPath =>
           val dataPaths = testPath.listFiles(f => f.isFile && !f.getName().startsWith("_")).toList
-          val assertFileCsv = new File(testPath, "_assert.csv")
-          val assertFileJson = new File(testPath, "_assert.json")
-          val assertFileSql = new File(testPath, "_assert.sql")
+          val assertFileCsv = new File(testPath, "_expected.csv")
+          val assertFileJson = new File(testPath, "_expected.json")
+          val assertFileSql = new File(testPath, "_expected.sql")
           val domainName = domainPath.getName()
           val taskName = taskPath.getName()
           val assertContent =
             if (assertFileCsv.exists()) {
-              s"CREATE TABLE $domainName.sl_assert AS SELECT * FROM '${assertFileCsv.toString}';"
+              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileCsv.toString}';"
             } else if (assertFileJson.exists()) {
-              s"CREATE TABLE $domainName.sl_assert AS SELECT * FROM '${assertFileJson.toString}';"
+              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileJson.toString}';"
             } else if (assertFileSql.exists()) {
               val bufferedSource = Source.fromFile(assertFileSql)
               val sql = bufferedSource.getLines().mkString("\n")
               bufferedSource.close
-              s"CREATE TABLE $domainName.sl_assert AS SELECT * $sql"
+              s"CREATE TABLE $domainName.sl_expected AS $sql"
             } else {
               ""
             }
@@ -383,7 +422,7 @@ object StarlakeTestData {
           val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskName")
           task match {
             case Some(t) =>
-              val assertData = StarlakeTestData(t.domain, t.table, "_assert", assertContent)
+              val assertData = StarlakeTestData(t.domain, t.table, "_expected", assertContent)
               Some(
                 testPath.getName() -> StarlakeTest(
                   s"$domainName.$taskName",

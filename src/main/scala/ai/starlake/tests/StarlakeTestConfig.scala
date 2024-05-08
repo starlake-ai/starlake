@@ -1,6 +1,6 @@
-package ai.starlake.job.transform
+package ai.starlake.tests
 
-case class TransformTestConfig(accessToken: Option[String] = None) {
+case class StarlakeTestConfig(accessToken: Option[String] = None) {
   def toArgs: Array[String] = {
     val accessToken =
       this.accessToken.map(x => Array("--accessToken", x)).getOrElse(Array.empty[String])

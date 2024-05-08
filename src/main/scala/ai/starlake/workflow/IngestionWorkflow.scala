@@ -35,14 +35,14 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformConfig, TransformTestConfig}
+import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.AdaptiveWriteStrategy
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
-import ai.starlake.tests.{StarlakeTestData, StarlakeTestResult}
+import ai.starlake.tests.{StarlakeTestConfig, StarlakeTestData, StarlakeTestResult}
 import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -800,22 +800,22 @@ class IngestionWorkflow(
     }
   }
 
-  def test(config: TransformTestConfig): Unit = {
-    val tests = StarlakeTestData.loadTests()
-    val results = StarlakeTestData.run(tests, config)
+  def test(config: StarlakeTestConfig): Unit = {
+    val tests = StarlakeTestData.loadTests(DatasetArea.transformTests)
+    val results = StarlakeTestData.runTransforms(tests, config)
     StarlakeTestResult.html(results)
-    val (sucess, failure) = results.partition(_.success)
+    val (success, failure) = results.partition(_.success)
     println(s"Tests run: ${results.size}")
-    println(s"Tests succeeded: ${sucess.size}")
+    println(s"Tests succeeded: ${success.size}")
     println(s"Tests failed: ${failure.size}")
     if (failure.nonEmpty) {
       println(
         s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
       )
     }
-    if (sucess.nonEmpty) {
+    if (success.nonEmpty) {
       println(
-        s"Tests succeeded: ${sucess.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+        s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
       )
     }
   }

@@ -3,17 +3,18 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.tests.StarlakeTestConfig
 import ai.starlake.utils.JobResult
 import scopt.OParser
 
 import scala.util.{Success, Try}
 
-trait TransformTestCmd extends Cmd[TransformTestConfig] {
+trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"
 
-  val parser: OParser[Unit, TransformTestConfig] = {
-    val builder = OParser.builder[TransformTestConfig]
+  val parser: OParser[Unit, StarlakeTestConfig] = {
+    val builder = OParser.builder[StarlakeTestConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
@@ -26,11 +27,11 @@ trait TransformTestCmd extends Cmd[TransformTestConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[TransformTestConfig] = {
-    OParser.parse(parser, args, TransformTestConfig(), setup)
+  def parse(args: Seq[String]): Option[StarlakeTestConfig] = {
+    OParser.parse(parser, args, StarlakeTestConfig(), setup)
   }
 
-  override def run(config: TransformTestConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: StarlakeTestConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
     workflow(schemaHandler).test(config)
