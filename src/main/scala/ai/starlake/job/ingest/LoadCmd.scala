@@ -52,7 +52,12 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .valueName("k1=v1,k2=v2...")
         .optional()
         .action((x, c) => c.copy(options = x))
-        .text("Watch arguments to be used as substitutions")
+        .text("Watch arguments to be used as substitutions"),
+      builder
+        .opt[Unit]("test")
+        .optional()
+        .action((x, c) => c.copy(test = true))
+        .text("Should we run this load as a test ? Default value is false")
     )
   }
 

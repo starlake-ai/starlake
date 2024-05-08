@@ -1,13 +1,14 @@
 package ai.starlake.console
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
-import ai.starlake.serve.SingleUserMainServer
+import ai.starlake.serve.{SingleUserMainServer, SingleUserServices}
 import jline.console.history.FileHistory
+import org.apache.hadoop.fs.Path
 
 import java.io.File
 
-object Console {
+class Console(implicit isettings: Settings) {
   sealed trait Input
   case class InputLine(value: String) extends Input
   case object Blank extends Input
@@ -24,7 +25,8 @@ object Console {
     userCmd.exists(userCmd => Main.commands.exists(c => userCmd.startsWith(c.command)))
   }
 
-  def console(handler: Input => Boolean): Unit = {
+  private var envValue: Option[String] = None
+  def console(): Unit = {
 
     val consoleReader = new jline.console.ConsoleReader()
     consoleReader.setBellEnabled(false)
@@ -52,7 +54,7 @@ object Console {
     historyFile.flush()
   }
 
-  def handler(event: Input)(implicit isettings: Settings): Boolean = {
+  private def handler(event: Input)(implicit isettings: Settings): Boolean = {
     event match {
       case EOF =>
         println("CTRL-D")
@@ -69,11 +71,28 @@ object Console {
         false
       case InputLine("q") =>
         true
+      case InputLine("reload") =>
+        SingleUserServices.reset(reload = true)
+        false
+      case InputLine(s) if s.replaceAll("\\s+", "").startsWith("env=") =>
+        val envValue = s.replaceAll("\\s+", "").substring("env=".length)
+        this.envValue = if (envValue.isEmpty) None else Some(envValue)
+        val exists =
+          this.envValue
+            .map(e => new Path(DatasetArea.metadata(isettings), s"env.$e.sl.yml"))
+            .forall(isettings.storageHandler().exists)
+        if (exists) {
+          println(s"Setting env to $envValue")
+          SingleUserServices.reset(reload = true)
+        } else {
+          println(s"Env $envValue does not exist")
+        }
+        false
       case InputLine(s) =>
         try {
           val params = s.split(" ")
           val response =
-            SingleUserMainServer.run(isettings.appConfig.root, None, params, None, None)
+            SingleUserMainServer.run(isettings.appConfig.root, None, params, this.envValue, None)
           println(response)
         } catch {
           case e: Throwable =>

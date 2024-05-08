@@ -1,6 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
+import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract.{
   BigQueryFreshnessInfoCmd,
   BigQueryTableInfoCmd,
@@ -13,13 +14,13 @@ import ai.starlake.job.Cmd
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest.{IamPoliciesCmd, IngestCmd, LoadCmd, SecureCmd, StageCmd}
+import ai.starlake.job.ingest.{AutoLoadCmd, IamPoliciesCmd, IngestCmd, LoadCmd, SecureCmd, StageCmd}
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
-import ai.starlake.job.transform.TransformCmd
+import ai.starlake.job.transform.{TransformCmd, TransformTestCmd}
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.ValidateCmd
@@ -35,6 +36,7 @@ class CliConfigSpec extends TestHelper {
         StageCmd,
         ValidateCmd,
         LoadCmd,
+        AutoLoadCmd,
         IngestCmd,
         ESLoadCmd,
         KafkaJobCmd,
@@ -61,7 +63,9 @@ class CliConfigSpec extends TestHelper {
         BigQueryFreshnessInfoCmd,
         ProjectCompareCmd,
         MainServerCmd,
-        DagGenerateCmd
+        DagGenerateCmd,
+        ConsoleCmd,
+        TransformTestCmd
       )
       val configMap: Map[String, CliConfig[_]] = commands.map { cmd =>
         cmd.command -> cmd

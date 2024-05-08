@@ -1,5 +1,5 @@
 ---
-sidebar_position: 220
+sidebar_position: 240
 title: secure
 ---
 
@@ -21,4 +21,5 @@ Parameter|Cardinality|Description
 --schemas:`schema1,schema2,schema3...`|*Optional*|Deprecated: Schemas to watch
 --accessToken:`<value>`|*Optional*|Access token to use for authentication
 --options:`k1=v1,k2=v2...`|*Optional*|Watch arguments to be used as substitutions
+--test:`<value>`|*Optional*|Should we run this load as a test ? Default value is false
 
