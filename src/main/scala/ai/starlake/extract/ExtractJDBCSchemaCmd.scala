@@ -29,6 +29,11 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .optional()
         .text("Where to output YML files"),
       builder
+        .opt[Unit]("external")
+        .action((x, c) => c.copy(external = true))
+        .optional()
+        .text("Where to output YML files"),
+      builder
         .opt[Int]("parallelism")
         .action((x, c) => c.copy(parallelism = Some(x)))
         .optional()

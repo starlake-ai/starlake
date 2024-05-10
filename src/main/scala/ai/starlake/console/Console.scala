@@ -43,9 +43,14 @@ class Console(implicit isettings: Settings) {
       } else if (line.isEmpty) {
         finished = handler(Blank)
       } else if (line.startsWith("help")) {
+        currentInput = ""
         finished = handler(InputLine(line))
       } else if (isCommand(line)) {
-        finished = handler(InputLine(line))
+        currentInput = ""
+        if (line.endsWith("?")) {
+          new Main().printUsage(line.split(" ").head)
+        } else
+          finished = handler(InputLine(line))
       } else if (line.trim().endsWith(";")) {
         finished = handler(InputLine(currentInput))
         currentInput = ""

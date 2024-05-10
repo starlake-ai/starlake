@@ -273,7 +273,7 @@ class BigQueryAutoTask(
                   val config =
                     BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
                   if (settings.appConfig.autoExportSchema)
-                    ExtractBigQuerySchema.extractAndSaveAsDomains(config)
+                    ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
                 }
               } match {
                 case Success(_) =>

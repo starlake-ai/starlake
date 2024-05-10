@@ -1,7 +1,8 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.generator.ExtractBigQuerySchemaCmd
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -36,50 +37,65 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
     ExtractUtils.timeIt("Schema extraction") {
-      val extractConfigPath = mappingPath(config.extractConfig)
-      Try(settings.storageHandler().exists(extractConfigPath)) match {
-        case Failure(_) | Success(false) =>
-          throw new FileNotFoundException(
-            s"Could not found extract config ${config.extractConfig}. Please check its existence."
-          )
-        case _ => // do nothing
-      }
-      val content = settings
-        .storageHandler()
-        .read(extractConfigPath)
-        .richFormat(schemaHandler.activeEnvVars(), Map.empty)
-      val jdbcSchemas =
-        YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
+      val jdbcSchemas = fromConfig(config)
       val connectionSettings = jdbcSchemas.connectionRef match {
         case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
         case None => throw new Exception(s"No connectionRef defined for jdbc schemas.")
       }
-
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-        ParUtils.createForkSupport(config.parallelism)
-      ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
-        val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
-          val content = settings
-            .storageHandler()
-            .read(mappingPath(ymlTemplate))
-          YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate) match {
-            case Success(domain) =>
-              domain
-            case Failure(e) => throw e
-          }
+      val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
+      if (connectionSettings.isBigQuery()) {
+        for (jdbcSchema <- jdbcSchemas.jdbcSchemas) {
+          val bigQueryConfig = ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(config, jdbcSchema)
+          ExtractBigQuerySchemaCmd.run(bigQueryConfig, schemaHandler)
         }
-        val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
-        ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
-          extractSchema(
-            jdbcSchema,
-            connectionSettings,
-            schemaOutputDir(config.outputDir),
-            domainTemplate,
-            currentDomain
-          )
+      } else {
+        implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+          ParUtils.createForkSupport(config.parallelism)
+        ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
+          val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
+            val content = settings
+              .storageHandler()
+              .read(mappingPath(extractArea, ymlTemplate))
+            YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate) match {
+              case Success(domain) =>
+                domain
+              case Failure(e) => throw e
+            }
+          }
+          val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
+          ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
+            extractSchema(
+              jdbcSchema,
+              connectionSettings,
+              schemaOutputDir(config.outputDir),
+              domainTemplate,
+              currentDomain
+            )
+          }
         }
       }
     }
+  }
+
+  private def fromConfig(
+    config: ExtractSchemaConfig
+  )(implicit settings: _root_.ai.starlake.config.Settings): JDBCSchemas = {
+    val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
+    val extractConfigPath = mappingPath(extractArea, config.extractConfig)
+    Try(settings.storageHandler().exists(extractConfigPath)) match {
+      case Failure(_) | Success(false) =>
+        throw new FileNotFoundException(
+          s"Could not found extract config ${config.extractConfig}. Please check its existence."
+        )
+      case _ => // do nothing
+    }
+    val content = settings
+      .storageHandler()
+      .read(extractConfigPath)
+      .richFormat(schemaHandler.activeEnvVars(), Map.empty)
+    val jdbcSchemas =
+      YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
+    jdbcSchemas
   }
 
   def extractSchema(

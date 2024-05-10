@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.DataExtractionException
 import ai.starlake.extract.JdbcDbUtils._
@@ -42,7 +42,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
   def run(
     config: UserExtractDataConfig
   )(implicit settings: Settings): Unit = {
-    val extractConfigPath = mappingPath(config.extractConfig)
+    val extractConfigPath = mappingPath(DatasetArea.extract, config.extractConfig)
     Try(settings.storageHandler().exists(extractConfigPath)) match {
       case Failure(_) | Success(false) =>
         throw new FileNotFoundException(

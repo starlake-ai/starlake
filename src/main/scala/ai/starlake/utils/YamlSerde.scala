@@ -12,8 +12,6 @@ import ai.starlake.schema.model.{
   DagGenerationConfig,
   Domain,
   EnvDesc,
-  ExternalDatabase,
-  ExternalDesc,
   IamPolicyTags,
   LoadDesc,
   RefDesc,
@@ -234,17 +232,6 @@ object YamlSerde extends LazyLogging {
   def deserializeYamlApplication(content: String, path: String): JsonNode = {
     val refsSubPath = "application"
     validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ApplicationConfig))
-  }
-
-  def deserializeYamlExternal(content: String, path: String): List[ExternalDatabase] = {
-    val refsSubPath = "external"
-    val externalNode =
-      validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ExternalConfig))
-    mapper
-      .treeToValue(externalNode, classOf[ExternalDesc])
-      .external
-      .projects
-      .getOrElse(Nil)
   }
 
   def deserializeYamlTables(content: String, path: String): TablesDesc = {
