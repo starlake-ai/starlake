@@ -60,7 +60,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  if (false && settings.appConfig.fileSystem.startsWith("file:")) {
+  if (settings.appConfig.fileSystem.startsWith("file:")) {
     val handler = new MetadataFileChangeHandler(this)
     val watcher = new RecursiveFileMonitor(File(DatasetArea.metadata.toString)) {
       override def onEvent(
@@ -268,20 +268,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     macros.mkString("\n")
   }
-
-  def loadExternalSources(filename: String): List[ExternalDatabase] = {
-    val externalPath = new Path(DatasetArea.external, filename)
-    logger.info(s"Loading external $externalPath")
-    if (storage.exists(externalPath)) {
-      val content = Utils
-        .parseJinja(storage.read(externalPath), activeEnvVars())
-      YamlSerde.deserializeYamlExternal(content, externalPath.toString)
-    } else
-      List.empty[ExternalDatabase]
-  }
-
-  @throws[Exception]
-  def externalSources(): List[ExternalDatabase] = loadExternalSources("_config.sl.yml")
 
   private def viewName(sqlFile: Path) =
     if (sqlFile.getName().endsWith(".sql.j2"))

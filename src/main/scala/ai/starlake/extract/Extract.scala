@@ -5,7 +5,7 @@ import org.apache.hadoop.fs.Path
 
 abstract class Extract {
 
-  protected def mappingPath(mapping: String)(implicit settings: Settings): Path = {
+  protected def mappingPath(area: Path, mapping: String)(implicit settings: Settings): Path = {
     if (mapping.contains("/"))
       new Path(mapping)
     else {
@@ -14,7 +14,7 @@ abstract class Extract {
       val paths =
         settings
           .storageHandler()
-          .list(DatasetArea.extract, extension = ".yml", recursive = false)
+          .list(area, extension = ".yml", recursive = false)
           .map(_.path)
 
       paths.find(_.getName() == mappingFilename).getOrElse(new Path(mappingFilename))

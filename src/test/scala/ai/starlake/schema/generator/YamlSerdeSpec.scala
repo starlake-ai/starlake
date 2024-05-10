@@ -240,23 +240,6 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
     }
   }
 
-  it should "round-trip any Yaml External Config" in {
-    import YamlConfigGenerators._
-    forAll { (yamlExternalConfig: ExternalDesc) =>
-      val mapperWithEmptyString =
-        Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
-      val config = mapperWithEmptyString.writeValueAsString(yamlExternalConfig)
-      try {
-        val deserializedConfig = YamlSerde.deserializeYamlExternal(config, "input")
-        deserializedConfig should equal(yamlExternalConfig.external.projects.getOrElse(Nil))
-      } catch {
-        case e: Exception =>
-          logger.info("Generated config\n" + config)
-          throw e
-      }
-    }
-  }
-
   it should "round-trip any Yaml Task Config" in {
     import YamlConfigGenerators._
     forAll { (yamlTaskConfig: TaskDesc) =>
@@ -1290,32 +1273,6 @@ object YamlConfigGenerators {
     for {
       appConfig <- arbitrary[AppConfig]
     } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
-  }
-
-  implicit val externalDomain: Arbitrary[ExternalDomain] = Arbitrary {
-    for {
-      name   <- arbitrary[String]
-      tables <- arbitrary[List[String]]
-    } yield ExternalDomain(name = name, tables = tables)
-  }
-
-  implicit val externalDatabase: Arbitrary[ExternalDatabase] = Arbitrary {
-    for {
-      project <- arbitrary[String]
-      domains <- Gen.option(arbitrary[List[ExternalDomain]])
-    } yield ExternalDatabase(project = project, domains = domains)
-  }
-
-  implicit val externalSource: Arbitrary[ExternalSource] = Arbitrary {
-    for {
-      externalDatabases <- Gen.option(arbitrary[List[ExternalDatabase]])
-    } yield ExternalSource(projects = externalDatabases)
-  }
-
-  implicit val externalDesc: Arbitrary[ExternalDesc] = Arbitrary {
-    for {
-      external <- arbitrary[ExternalSource]
-    } yield ExternalDesc(latestSchemaVersion, external = external)
   }
 
   implicit val attributeDesc: Arbitrary[AttributeDesc] = Arbitrary {

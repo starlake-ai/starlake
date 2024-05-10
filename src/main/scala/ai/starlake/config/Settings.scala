@@ -372,6 +372,9 @@ object Settings extends StrictLogging {
     }
 
     @JsonIgnore
+    def isBigQuery() = this.`type`.equals("bigquery")
+
+    @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
 
     @JsonIgnore

@@ -243,11 +243,6 @@ class Main extends StrictLogging {
                   println(s"Found $warningCount warning(s) and $errorCount error(s)")
                 }
                 errorsAndWarning.foreach(println)
-                Failure(
-                  new Exception(
-                    s"Validation failed. $warningCount warning(s) and $errorCount error(s). Please fix the issues before proceeding"
-                  )
-                )
             }
           }
           val r = cmd.run(args.drop(1), schemaHandler)
@@ -255,7 +250,6 @@ class Main extends StrictLogging {
             System.exit(0)
           r
       }
-
     result
   }
 }
