@@ -821,52 +821,6 @@
         }
       }
     },
-    "ExternalDomainV1": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Schema in JDBC Database / Snowflake / Redshift or Dataset in BigQuery"
-        },
-        "tables": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ConvertibleToString"
-          },
-          "description": "Tables to scan in this domain"
-        }
-      },
-      "required": ["name"]
-    },
-    "ExternalDatabaseV1": {
-      "type": "object",
-      "properties": {
-        "project": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Database name of Project id in BigQuery"
-        },
-        "domains": {
-          "description": "List of domains to scan",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ExternalDomainV1"
-          }
-        }
-      },
-      "required": ["project"]
-    },
-    "ExternalSourceV1": {
-      "type": "object",
-      "properties": {
-        "projects": {
-          "type": "array",
-          "description": "Database name of Project id in BigQuery",
-          "items": {
-            "$ref": "#/definitions/ExternalDatabaseV1"
-          }
-        }
-      }
-    },
     "AreaV1": {
       "type": "object",
       "properties": {
@@ -2110,9 +2064,6 @@
             "$ref": "#/definitions/TableV1"
           }
         },
-        "external": {
-          "$ref": "#/definitions/ExternalSourceV1"
-        },
         "refs": {
           "type": "array",
           "items": {
@@ -2162,11 +2113,6 @@
         {
           "required": [
             "task"
-          ]
-        },
-        {
-          "required": [
-            "external"
           ]
         },
         {

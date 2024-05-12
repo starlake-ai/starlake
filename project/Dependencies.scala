@@ -176,7 +176,8 @@ object Dependencies {
 
   val jSqlTranspiler = Seq(
     "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
-    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io")
+    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io"),
+    "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
   )
 
   val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
@@ -195,6 +196,7 @@ object Dependencies {
     "org.apache.derby" % "derbyclient" % Versions.derbyVersion % Test,
     "org.apache.derby" % "derbynet" % Versions.derbyVersion % Test
   )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++

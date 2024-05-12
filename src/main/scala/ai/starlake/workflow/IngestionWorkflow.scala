@@ -45,6 +45,7 @@ import ai.starlake.schema.model._
 import ai.starlake.tests.{StarlakeTestConfig, StarlakeTestData, StarlakeTestResult}
 import ai.starlake.utils._
 import better.files.File
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
@@ -761,11 +762,12 @@ class IngestionWorkflow(
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val mainSQL = action.buildAllSQLQueries(None)
+    val formattedSql = if (config.format) JSQLFormatter.format(mainSQL) else mainSQL
     val output =
       settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-    output.foreach(_.overwrite(s"""$mainSQL"""))
-    logger.info(s"""$mainSQL""")
-    mainSQL
+    output.foreach(_.overwrite(s"""$formattedSql"""))
+    logger.info(s"""$formattedSql""")
+    formattedSql
   }
 
   def transform(

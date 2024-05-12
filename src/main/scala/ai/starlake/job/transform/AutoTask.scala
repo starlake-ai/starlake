@@ -27,7 +27,6 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
-import ai.starlake.transpiler.JSQLTranspiler.Dialect
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -91,7 +90,14 @@ abstract class AutoTask(
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
-  protected lazy val preSql = parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
+  protected lazy val preSql = {
+    val testMacros =
+      if (this.test) {
+        JSQLTranspiler.getMacroArray.toList
+      } else
+        Nil
+    testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
+  }
   protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 
   val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
@@ -118,9 +124,10 @@ abstract class AutoTask(
     if (taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
 
+      val runConnection = this.taskDesc.getRunConnection()
       val sqlWithParametersTranspiledIfInTest =
         if (this.test)
-          JSQLTranspiler.transpileQuery(sqlWithParameters, Dialect.GOOGLE_BIG_QUERY)
+          SQLUtils.transpile(sqlWithParameters, runConnection)
         else
           sqlWithParameters
 
@@ -130,7 +137,6 @@ abstract class AutoTask(
         taskDesc.table,
         SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
       )
-      val runConnection = this.taskDesc.getRunConnection()
       val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
 
       val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)

@@ -29,6 +29,11 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .optional()
         .text("Return final query only"),
       builder
+        .opt[Unit]("format")
+        .action((_, c) => c.copy(format = true))
+        .optional()
+        .text("pretty print the final query and update sql file"),
+      builder
         .opt[String]("interactive")
         .action((x, c) => c.copy(interactive = Some(x)))
         .optional()

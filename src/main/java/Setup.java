@@ -151,7 +151,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.36.1");
 
     // deltalake
-    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.1.0");
+    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.2.0");
 
     private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
