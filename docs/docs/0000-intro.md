@@ -133,3 +133,11 @@ The major benefits Starlake bring to your Data transformation jobs are:
 Starlake will convert them to INSERT INTO, MERGE INTO or UPDATE statements depending on the write strategy you choose. 
 
 
+## Orchestrate
+
+No more need to write complex ETL scripts, just write your SQL and YAML configuration files and let Starlake do the rest on your favorite scheduler.
+
+Starlake provides a simple yet powerful way to orchestrate your data pipeline.
+Dependencies between tasks are inferred from SQL statements and YAML configuration files.
+Starlake will generate a Directed Acyclic Graph (DAG) of your data pipeline and execute in the right order 
+the tasks that are ready to run through your own Airflow or Dagster scheduler.
