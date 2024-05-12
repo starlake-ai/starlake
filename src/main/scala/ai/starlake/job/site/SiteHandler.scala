@@ -4,6 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Domain, Schema}
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -241,11 +242,16 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
 
     val aclSVGFile = File(outputFile.parent, taskDesc.name + "-acl.svg")
     val aclSVG = buildACLSVG(aclSVGFile, List(s"${jobDesc.name}.${taskDesc.name}"))
+    val sql = taskDesc.sql.getOrElse("")
+    val trySql =
+      SQLUtils.format(sql, "PLAIN")
     val paramMap = Map(
       "task"          -> taskDesc,
       "schemaHandler" -> schemaHandler,
       "relationsSVG"  -> relationsSVGFile.name,
-      "aclSVG"        -> aclSVGFile.name
+      "aclSVG"        -> aclSVGFile.name,
+      "sql"           -> trySql.getOrElse(sql),
+      "python"        -> taskDesc.python.getOrElse("")
     )
 
     val (sspResource, templateContent) = config.templateContent(SiteCmd.TASK_TEMPLATE)

@@ -378,10 +378,16 @@ object Settings extends StrictLogging {
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
 
     @JsonIgnore
+    def isSpark(): Boolean = getJdbcEngineName().toString == "spark"
+
+    @JsonIgnore
     def isJdbcUrl() = this.options.get("url").exists(_.startsWith("jdbc"))
 
     @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
+
+    @JsonIgnore
+    def isPostgreSql(): Boolean = getJdbcEngineName().toString == "postgresql"
 
     @JsonIgnore
     def isMySQLOrMariaDb(): Boolean = isMySQL() || isMariaDb()

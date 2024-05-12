@@ -3,7 +3,9 @@ package ai.starlake.sql
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model._
+import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Utils
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
 import net.sf.jsqlparser.statement.select.{
@@ -384,4 +386,42 @@ object SQLUtils extends StrictLogging {
       .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
       .mkString(" AND ")
 
+  def format(sql: String, outputFormat: String): Try[String] = Try {
+    val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
+    val formatted = JSQLFormatter.format(preformat, s"outputFormat=$outputFormat")
+    val postFormat = formatted.replaceAll("______", "}}").replaceAll("___", "{{")
+    if (outputFormat.equalsIgnoreCase("HTML")) {
+      val startIndex = postFormat.indexOf("<body>") + "<body>".length
+      val endIndex = postFormat.indexOf("</body>")
+      if (startIndex > 0 && endIndex > 0) {
+        postFormat.substring(startIndex, endIndex)
+      } else {
+        postFormat
+      }
+    } else {
+      postFormat
+    }
+  }
+
+  def transpile(sql: String, conn: Connection): String = {
+    def transpilerDialect: JSQLTranspiler.Dialect = {
+      if (conn.isSpark())
+        JSQLTranspiler.Dialect.DATABRICKS
+      if (conn.isBigQuery())
+        JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY
+      else if (conn.isSnowflake())
+        JSQLTranspiler.Dialect.SNOWFLAKE
+      else if (conn.isRedshift())
+        JSQLTranspiler.Dialect.AMAZON_REDSHIFT
+      else if (conn.isPostgreSql())
+        JSQLTranspiler.Dialect.ANY
+      else if (conn.isMySQLOrMariaDb())
+        JSQLTranspiler.Dialect.ANY
+      else if (conn.isJdbcUrl())
+        JSQLTranspiler.Dialect.ANY
+      else
+        JSQLTranspiler.Dialect.ANY
+    } // Should not happen
+    JSQLTranspiler.transpileQuery(sql, transpilerDialect)
+  }
 }
