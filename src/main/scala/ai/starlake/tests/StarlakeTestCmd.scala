@@ -20,6 +20,29 @@ trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
       builder.head(shell, command, "[options]"),
       builder.note(""),
       builder
+        .opt[Unit]("load")
+        .action((x, c) => c.copy(load = true))
+        .text(s"Test load tasks only")
+        .optional(),
+      builder
+        .opt[Unit]("transform")
+        .action((x, c) => c.copy(transform = true))
+        .text(s"Test transform tasks only")
+        .optional(),
+      builder
+        .opt[Option[String]]("name")
+        .action { (x, c) =>
+          val splitted = x.map(_.split('.'))
+          if (splitted.exists(_.length != 3)) {
+            throw new IllegalArgumentException(
+              "Invalid test format. Use 'domainName.taskName.testName' or 'domainName.tableName.testName'"
+            )
+          }
+          c.copy(name = x)
+        }
+        .text(s"Test this test only")
+        .optional(),
+      builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
