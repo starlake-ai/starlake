@@ -850,12 +850,18 @@ class IngestionWorkflow(
   }
 
   def test(config: StarlakeTestConfig): Unit = {
-    val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests)
-    val loadResults = StarlakeTestData.runLoads(loadTests, config)
-
-    val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests)
-    val transformResults = StarlakeTestData.runTransforms(transformTests, config)
-
+    val loadResults =
+      if (config.runLoad()) {
+        val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests, config.name)
+        StarlakeTestData.runLoads(loadTests, config)
+      } else
+        Nil
+    val transformResults =
+      if (config.runTransform()) {
+        val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests, config.name)
+        StarlakeTestData.runTransforms(transformTests, config)
+      } else
+        Nil
     StarlakeTestResult.html(loadResults, transformResults)
 
     val (success, failure) = transformResults.partition(_.success)
