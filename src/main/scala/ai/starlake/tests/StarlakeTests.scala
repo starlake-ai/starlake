@@ -400,7 +400,7 @@ object StarlakeTestData {
       val test = split(2)
       (domainName, taskName, test)
     } match {
-      case None                               => ("", "", "")
+      case None                               => ("", "", "") // empty means load all
       case Some((domainName, taskName, test)) => (domainName, taskName, test)
     }
     val testDir = new File(area.toString)
@@ -427,7 +427,6 @@ object StarlakeTestData {
           val dataPaths = testPath.listFiles(f => f.isFile && !f.getName.startsWith("_")).toList
           val assertFileCsv = new File(testPath, "_expected.csv")
           val assertFileJson = new File(testPath, "_expected.json")
-          val assertFileSql = new File(testPath, "_expected.sql")
           val domainName = domainPath.getName
           val taskName = taskPath.getName
           val assertContent =
@@ -435,11 +434,6 @@ object StarlakeTestData {
               s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileCsv.toString}';"
             } else if (assertFileJson.exists()) {
               s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileJson.toString}';"
-            } else if (assertFileSql.exists()) {
-              val bufferedSource = Source.fromFile(assertFileSql)
-              val sql = bufferedSource.getLines().mkString("\n")
-              bufferedSource.close
-              s"CREATE TABLE $domainName.sl_expected AS $sql"
             } else {
               ""
             }
@@ -469,7 +463,18 @@ object StarlakeTestData {
                   val pre = preloadPaths.flatMap { dataPath =>
                     loadDataFile(testPath.getName, dataPath)
                   }
-                  (pre, loadPaths)
+                  val matchedPaths = loadPaths.filter { loadPath =>
+                    table.pattern.matcher(loadPath.getName).matches()
+                  }
+                  val unmatchedPaths = loadPaths.toSet -- matchedPaths.toSet
+                  if (unmatchedPaths.nonEmpty) {
+                    val testName = testPath.getName
+                    // scalastyle:off
+                    println(
+                      s"Load Test $domainName.$taskName.$testName has unmatched load files: ${unmatchedPaths.map(_.getName).mkString(", ")}"
+                    )
+                  }
+                  (pre, matchedPaths)
                 }
 
               val assertData =
