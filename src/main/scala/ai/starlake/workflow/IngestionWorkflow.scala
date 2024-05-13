@@ -303,27 +303,50 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def load(config: LoadConfig): Try[Boolean] = Try {
-    val includedDomains = domainsToWatch(config)
+  def load(config: LoadConfig): Try[Boolean] = {
+    if (config.test) {
+      logger.info("Test mode enabled")
+      val domain = schemaHandler.getDomain(config.domains.head)
+      domain match {
+        case Some(dom) =>
+          val schema = dom.tables.find(_.name == config.tables.head)
+          schema match {
+            case Some(sch) =>
+              val paths = config.files.getOrElse(Nil).map(new Path(_)).sortBy(_.getName)
+              ingest(dom, sch, paths, config.options, config.accessToken, config.test).map(_ =>
+                true
+              )
+            case None =>
+              throw new Exception(s"Schema ${config.tables.head} not found")
+          }
+        case None =>
+          throw new Exception(s"Domain ${config.domains.head} not found")
 
-    val result: List[Boolean] = includedDomains.flatMap { domain =>
-      logger.info(s"Watch Domain: ${domain.name}")
-      val (resolved, unresolved) = pending(domain.name, config.tables.toList)
-      unresolved.foreach { case (_, fileInfo) =>
-        val targetPath =
-          new Path(DatasetArea.unresolved(domain.name), fileInfo.path.getName)
-        logger.info(s"Unresolved file : ${fileInfo.path.getName}")
-        storageHandler.move(fileInfo.path, targetPath)
       }
+    } else
+      Try {
+        val includedDomains = domainsToWatch(config)
 
-      val filteredResolved =
-        if (settings.appConfig.privacyOnly) {
-          val (withPrivacy, noPrivacy) =
-            resolved.partition { case (schema, _) =>
-              schema.exists(_.attributes.map(_.getPrivacy()).exists(!TransformInput.None.equals(_)))
-            }
-          // files for schemas without any privacy attributes are moved directly to accepted area
-          /*
+        val result: List[Boolean] = includedDomains.flatMap { domain =>
+          logger.info(s"Watch Domain: ${domain.name}")
+          val (resolved, unresolved) = pending(domain.name, config.tables.toList)
+          unresolved.foreach { case (_, fileInfo) =>
+            val targetPath =
+              new Path(DatasetArea.unresolved(domain.name), fileInfo.path.getName)
+            logger.info(s"Unresolved file : ${fileInfo.path.getName}")
+            storageHandler.move(fileInfo.path, targetPath)
+          }
+
+          val filteredResolved =
+            if (settings.appConfig.privacyOnly) {
+              val (withPrivacy, noPrivacy) =
+                resolved.partition { case (schema, _) =>
+                  schema.exists(
+                    _.attributes.map(_.getPrivacy()).exists(!TransformInput.None.equals(_))
+                  )
+                }
+              // files for schemas without any privacy attributes are moved directly to accepted area
+              /*
           noPrivacy.foreach {
             case (Some(schema), fileInfo) =>
               storageHandler.move(
@@ -335,86 +358,88 @@ class IngestionWorkflow(
               )
             case (None, _) => throw new Exception("Should never happen")
           }
-           */
-          withPrivacy
-        } else {
-          resolved
-        }
-
-      // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved = filteredResolved.map {
-        case (Some(schema), fileInfo) => (schema, fileInfo)
-        case (None, _)                => throw new Exception("Should never happen")
-      } groupBy { case (schema, _) => schema } mapValues (it =>
-        it.map { case (_, fileInfo) => fileInfo }
-      )
-
-      case class JobContext(
-        domain: Domain,
-        schema: Schema,
-        paths: List[Path],
-        options: Map[String, String],
-        accessToken: Option[String]
-      )
-      groupedResolved.toList
-        .flatMap { case (schema, pendingPaths) =>
-          AdaptiveWriteStrategy.adaptThenGroup(schema, pendingPaths)
-        }
-        .map { case (schema, pendingPaths) =>
-          logger.info(s"""Ingest resolved file : ${pendingPaths
-              .map(_.path.getName)
-              .mkString(",")} as table ${domain.name}.${schema.name}""")
-
-          // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
-          val groupedPendingPathsIterator =
-            pendingPaths.grouped(settings.appConfig.groupedMax)
-          groupedPendingPathsIterator.map { pendingPaths =>
-            val ingestingPaths = pendingPaths.map { pendingPath =>
-              val ingestingPath =
-                new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
-              if (!storageHandler.move(pendingPath.path, ingestingPath)) {
-                logger.error(s"Could not move $pendingPath to $ingestingPath")
-              }
-              ingestingPath
-            }
-            val jobs = if (settings.appConfig.grouped) {
-              JobContext(
-                domain,
-                schema,
-                ingestingPaths.toList,
-                config.options,
-                config.accessToken
-              ) :: Nil
+               */
+              withPrivacy
             } else {
-              // We ingest all the files but return false if one of them fails.
-              ingestingPaths.map { path =>
-                JobContext(domain, schema, path :: Nil, config.options, config.accessToken)
+              resolved
+            }
+
+          // We group files with the same schema to ingest them together in a single step.
+          val groupedResolved = filteredResolved.map {
+            case (Some(schema), fileInfo) => (schema, fileInfo)
+            case (None, _)                => throw new Exception("Should never happen")
+          } groupBy { case (schema, _) => schema } mapValues (it =>
+            it.map { case (_, fileInfo) => fileInfo }
+          )
+
+          case class JobContext(
+            domain: Domain,
+            schema: Schema,
+            paths: List[Path],
+            options: Map[String, String],
+            accessToken: Option[String]
+          )
+          groupedResolved.toList
+            .flatMap { case (schema, pendingPaths) =>
+              AdaptiveWriteStrategy.adaptThenGroup(schema, pendingPaths)
+            }
+            .map { case (schema, pendingPaths) =>
+              logger.info(s"""Ingest resolved file : ${pendingPaths
+                  .map(_.path.getName)
+                  .mkString(",")} as table ${domain.name}.${schema.name}""")
+
+              // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
+              val groupedPendingPathsIterator =
+                pendingPaths.grouped(settings.appConfig.groupedMax)
+              groupedPendingPathsIterator.map { pendingPaths =>
+                val ingestingPaths = pendingPaths.map { pendingPath =>
+                  val ingestingPath =
+                    new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
+                  if (!storageHandler.move(pendingPath.path, ingestingPath)) {
+                    logger.error(s"Could not move $pendingPath to $ingestingPath")
+                  }
+                  ingestingPath
+                }
+                val jobs = if (settings.appConfig.grouped) {
+                  JobContext(
+                    domain,
+                    schema,
+                    ingestingPaths.toList,
+                    config.options,
+                    config.accessToken
+                  ) :: Nil
+                } else {
+                  // We ingest all the files but return false if one of them fails.
+                  ingestingPaths.map { path =>
+                    JobContext(domain, schema, path :: Nil, config.options, config.accessToken)
+                  }
+                }
+                implicit val forkJoinTaskSupport =
+                  ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
+                val parJobs =
+                  ParUtils.makeParallel(jobs.toList)
+                val res = parJobs.map { jobContext =>
+                  ingest(
+                    jobContext.domain,
+                    jobContext.schema,
+                    jobContext.paths,
+                    jobContext.options,
+                    jobContext.accessToken,
+                    config.test
+                  ) match {
+                    case Failure(e) =>
+                      e.printStackTrace()
+                      false
+                    case Success(r) => true
+                  }
+                }.toList
+                forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+                res.forall(_ == true)
               }
             }
-            implicit val forkJoinTaskSupport =
-              ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
-            val parJobs =
-              ParUtils.makeParallel(jobs.toList)
-            val res = parJobs.map { jobContext =>
-              ingest(
-                jobContext.domain,
-                jobContext.schema,
-                jobContext.paths,
-                jobContext.options,
-                jobContext.accessToken
-              ) match {
-                case Failure(e) =>
-                  e.printStackTrace()
-                  false
-                case Success(r) => true
-              }
-            }.toList
-            forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
-            res.forall(_ == true)
-          }
-        }
-    }.flatten
-    result.forall(_ == true)
+        }.flatten
+        result.forall(_ == true)
+      }
   }
 
   private def domainsToWatch(config: LoadConfig): List[Domain] = {
@@ -504,7 +529,9 @@ class IngestionWorkflow(
           domains = domainToWatch,
           tables = schemasToWatch,
           options = config.options,
-          accessToken = config.accessToken
+          accessToken = config.accessToken,
+          test = false,
+          files = None
         )
       )
     } else {
@@ -520,7 +547,14 @@ class IngestionWorkflow(
         val result = for {
           domain <- domains(domainName :: Nil, schemaName :: Nil).find(_.name == domainName)
           schema <- domain.tables.find(_.name == schemaName)
-        } yield ingest(domain, schema, ingestingPaths, config.options, config.accessToken)
+        } yield ingest(
+          domain,
+          schema,
+          ingestingPaths,
+          config.options,
+          config.accessToken,
+          test = false
+        )
         result match {
           case None | Some(Success(_)) => Success(true)
           case Some(Failure(exception)) =>
@@ -536,7 +570,8 @@ class IngestionWorkflow(
     schema: Schema,
     ingestingPath: List[Path],
     options: Map[String, String],
-    accessToken: Option[String]
+    accessToken: Option[String],
+    test: Boolean
   ): Try[JobResult] = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
@@ -558,7 +593,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.GENERIC =>
           new GenericIngestionJob(
@@ -569,7 +605,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.DSV =>
           new DsvIngestionJob(
@@ -580,7 +617,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.JSON_FLAT =>
           new SimpleJsonIngestionJob(
@@ -591,7 +629,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.JSON =>
           new JsonIngestionJob(
@@ -602,7 +641,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.XML =>
           new XmlIngestionJob(
@@ -613,7 +653,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.TEXT_XML =>
           new XmlSimplePrivacyJob(
@@ -624,7 +665,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.POSITION =>
           new PositionIngestionJob(
@@ -635,7 +677,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.KAFKA =>
           new KafkaIngestionJob(
@@ -647,7 +690,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             FILE,
-            accessToken
+            accessToken,
+            test
           ).run()
         case Format.KAFKASTREAM =>
           new KafkaIngestionJob(
@@ -659,7 +703,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             STREAM,
-            accessToken
+            accessToken,
+            test
           ).run()
         case _ =>
           throw new Exception("Should never happen")
@@ -667,7 +712,9 @@ class IngestionWorkflow(
     }
     ingestionResult match {
       case Success(Success(jobResult)) =>
-        if (settings.appConfig.archive) {
+        if (test) {
+          logger.info(s"Test mode enabled, no file will be deleted")
+        } else if (settings.appConfig.archive) {
           implicit val forkJoinTaskSupport =
             ParUtils.createForkSupport(Some(settings.appConfig.maxParCopy))
           val parIngests =
@@ -803,11 +850,16 @@ class IngestionWorkflow(
   }
 
   def test(config: StarlakeTestConfig): Unit = {
-    val tests = StarlakeTestData.loadTests(DatasetArea.transformTests)
-    val results = StarlakeTestData.runTransforms(tests, config)
-    StarlakeTestResult.html(results)
-    val (success, failure) = results.partition(_.success)
-    println(s"Tests run: ${results.size}")
+    val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests)
+    val loadResults = StarlakeTestData.runLoads(loadTests, config)
+
+    val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests)
+    val transformResults = StarlakeTestData.runTransforms(transformTests, config)
+
+    StarlakeTestResult.html(loadResults, transformResults)
+
+    val (success, failure) = transformResults.partition(_.success)
+    println(s"Tests run: ${transformResults.size}")
     println(s"Tests succeeded: ${success.size}")
     println(s"Tests failed: ${failure.size}")
     if (failure.nonEmpty) {
@@ -985,7 +1037,8 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           Map.empty,
-          config.accessToken
+          config.accessToken,
+          config.test
         )
         if (settings.appConfig.isHiveCompatible()) {
           dummyIngestionJob.applyHiveTableAcl()

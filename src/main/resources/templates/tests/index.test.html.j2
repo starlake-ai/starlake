@@ -3,20 +3,21 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Test results - Test Summary</title>
-    <link href="../../../css/base-style.css" rel="stylesheet" type="text/css"/>
-    <link href="../../../css/style.css" rel="stylesheet" type="text/css"/>
-    <script src="../../../js/report.js" type="text/javascript"></script>
+    <link href="../../../../css/base-style.css" rel="stylesheet" type="text/css"/>
+    <link href="../../../../css/style.css" rel="stylesheet" type="text/css"/>
+    <script src="../../../../js/report.js" type="text/javascript"></script>
 </head>
 <body>
 <div id="content">
 <div class="breadcumbs">
-<a href="../../../index.html">all</a> &gt; 
-<a href="../../index.html">{{ domainName}}</a>  &gt; 
+    <a href="../../../../index.html">All</a> &gt;
+    <a href="../../../index.html">{{ loadOrTransform }}</a> &gt;
+    <a href="../../index.html">{{ domainName}}</a>  &gt;
 <a href="../index.html">{{ tableName }}</a>
 
 </div>
 
-    <h1>{{testResult.domainName}}.{{testResult.taskName}}.{{testResult.testName}} Summary</h1>
+    <h1>{{testResult.testName}} Summary</h1>
     <div id="summary">
         <table>
             <tr>
@@ -27,25 +28,25 @@
                                 <td>
                                     <div class="infoBox" id="tests">
                                         <div class="counter">{{ testResult.missingColumnsCount }}</div>
-                                        <p>Missing Columns</p>
+                                        <p>Missing Column</p>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="infoBox" id="success">
                                         <div class="counter">{{ testResult.notExpectedColumnsCount }}</div>
-                                        <p>Unexpected Columns</p>
+                                        <p>Unexpected Column</p>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="infoBox" id="failures">
                                         <div class="counter">{{ testResult.missingRecordsCount }}</div>
-                                        <p>Missing Records</p>
+                                        <p>Missing Record</p>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="infoBox" id="duration">
                                         <div class="counter">{{ testResult.notExpectedRecordsCount }}</div>
-                                        <p>Unexpected Records</p>
+                                        <p>Unexpected Record</p>
                                     </div>
                                 </td>
                             </tr>
@@ -55,14 +56,15 @@
                 <td>
                 {% if testResult.success %}
                     <div class="infoBox success" id="successRate">
-                        <div class="percent">&NonBreakingSpace;</div>
+                        <div class="percent">test</div>
                         <p>successful</p>
                     </div>
-                {%- endif -%}
+                {%- else -%}
                     <div class="infoBox failures" id="successRate">
-                        <div class="percent">&NonBreakingSpace;</div>
+                        <div class="percent">test</div>
                         <p>failed</p>
                     </div>
+                {%- endif %}
                 </td>
             </tr>
         </table>
