@@ -9,7 +9,7 @@ In this tutorial, we will test the load tasks.
 Load tests are located in the `metadata/tests/load` directory.
 
 Each test is a directory located in the `domain/table` subdirectory and contains the following files:
-- a CSV of JSON file that will contain the initial data that will be loaded into the table before the unit test is run.
+- a CSV or JSON file that will contain the initial data that will be loaded into the table before the unit test is run.
 This file should be named after the domain and table names. For example, the file for the `starbake.product` table should be named `starbake.product.json` or `starbake.product.csv`.
 - one or multiple data files whose names match the file pattern expected by the loader for this table. This is the data that will be loaded into the table using the `starlake load` task.
 - a `_expected.csv` file that contains the expected data in the table after the load task is run.
