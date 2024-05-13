@@ -173,7 +173,7 @@ object DatasetArea extends StrictLogging {
     new Path(tests, "load")
 
   def transformTests(implicit settings: Settings): Path =
-    new Path(metadata, "transform")
+    new Path(tests, "transform")
 
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")

@@ -27,6 +27,7 @@ case class StarlakeTestResult(
   def getTestFolder(): String = testFolder
   def getDomainName(): String = domainName
   def getTableName(): String = tableName
+  def getTaskName(): String = taskName
   def getTestName(): String = testName
   def getMissingColumns(): java.util.List[String] = missingColumns.asJava
   def getMissingColumnsCount(): Int = missingColumns.size
@@ -36,16 +37,21 @@ case class StarlakeTestResult(
     if (missingRecords.exists())
       Files.readAllLines(missingRecords.toPath).asScala.mkString("\n")
     else ""
-  def getMissingRecordsCount() =
-    if (missingRecords.exists()) getMissingRecords().split("\n").length else 0
+  def getMissingRecordsCount() = {
+    val nbLines = if (missingRecords.exists()) getMissingRecords().split("\n").length else 0
+    if (nbLines >= 1) nbLines - 1 else 0
+  }
 
   def getNotExpectedRecords(): String =
     if (notExpectedRecords.exists())
       Files.readAllLines(notExpectedRecords.toPath).asScala.mkString("\n")
     else ""
 
-  def getNotExpectedRecordsCount() =
-    if (notExpectedRecords.exists()) getNotExpectedRecords().split("\n").length else 0
+  def getNotExpectedRecordsCount() = {
+    val nbLines = if (notExpectedRecords.exists()) getNotExpectedRecords().split("\n").length else 0
+    if (nbLines >= 1) nbLines - 1 else 0
+
+  }
 
   def getSuccess(): Boolean = success
   def getException(): String = exception.map(Utils.exceptionAsString).getOrElse("")
@@ -68,17 +74,45 @@ object StarlakeTestResult {
       Files.write(targetFile.toPath, content.getBytes())
     }
   }
-
-  def html(results: List[StarlakeTestResult]) = {
+  def html(
+    loadResults: List[StarlakeTestResult],
+    transformResults: List[StarlakeTestResult]
+  ): Unit = {
     implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
-    copyCssAndJs(testsFolder)
+    val rootFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
+    copyCssAndJs(rootFolder)
+
+    val loadSummaries = StarlakeTestsDomainSummary.summaries(loadResults)
+    val loadIndex = StarlakeTestsSummary.summaryIndex(loadSummaries)
+    val transformSummaries = StarlakeTestsDomainSummary.summaries(transformResults)
+    val transformIndex = StarlakeTestsSummary.summaryIndex(transformSummaries)
+    val j2Params = Map(
+      "loadIndex"          -> loadIndex,
+      "loadSummaries"      -> loadSummaries.asJava,
+      "transformIndex"     -> transformIndex,
+      "transformSummaries" -> transformSummaries.asJava,
+      "timestamp"          -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+    )
+    val indexJ2 = loader.loadTemplate("root.html.j2")
+    val indexContent = Utils.parseJinja(indexJ2, j2Params)
+    Files.write(new File(rootFolder.path, "index.html").toPath, indexContent.getBytes())
+
+    val loadFolder = new Directory(new File(rootFolder.jfile, "load"))
+    html(loadResults, loadFolder, "Load")
+    val transformFolder = new Directory(new File(rootFolder.jfile, "transform"))
+    html(transformResults, transformFolder, "Transform")
+  }
+
+  def html(results: List[StarlakeTestResult], testsFolder: Directory, loadOrTransform: String)(
+    implicit originalSettings: Settings
+  ): Unit = {
     val domainSummaries = StarlakeTestsDomainSummary.summaries(results)
     val summaryIndex = StarlakeTestsSummary.summaryIndex(domainSummaries)
     val j2Params = Map(
       "summaryIndex"    -> summaryIndex,
       "domainSummaries" -> domainSummaries.asJava,
-      "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+      "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now()),
+      "loadOrTransform" -> loadOrTransform
     )
     val indexJ2 = loader.loadTemplate("index.html.j2")
     val indexContent = Utils.parseJinja(indexJ2, j2Params)
@@ -88,9 +122,10 @@ object StarlakeTestResult {
       val tableSummaries = StarlakeTestsTableSummary.summaries(domainSummary.name, results)
       val indexJ2 = loader.loadTemplate("index.domain.html.j2")
       val j2Params = Map(
-        "domainSummary"  -> domainSummary,
-        "tableSummaries" -> tableSummaries.asJava,
-        "timestamp"      -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+        "domainSummary"   -> domainSummary,
+        "tableSummaries"  -> tableSummaries.asJava,
+        "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now()),
+        "loadOrTransform" -> loadOrTransform
       )
       val domainFolder = new File(testsFolder.path, domainSummary.name)
       domainFolder.mkdir()
@@ -102,10 +137,11 @@ object StarlakeTestResult {
           results.filter(r => s"${r.domainName}.${r.taskName}" == tableSummary.name)
         val indexJ2 = loader.loadTemplate("index.table.html.j2")
         val j2Params = Map(
-          "domainName"   -> domainSummary.name,
-          "tableSummary" -> tableSummary,
-          "testResults"  -> tableResults.asJava,
-          "timestamp"    -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+          "domainName"      -> domainSummary.name,
+          "tableSummary"    -> tableSummary,
+          "testResults"     -> tableResults.asJava,
+          "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now()),
+          "loadOrTransform" -> loadOrTransform
         )
         val tableFolder = new File(domainFolder, tableSummary.getTableName())
         tableFolder.mkdir()
@@ -116,17 +152,17 @@ object StarlakeTestResult {
     results.foreach { result =>
       val indexJ2 = loader.loadTemplate("index.test.html.j2")
       val j2Params = Map(
-        "domainName" -> result.domainName,
-        "tableName"  -> result.taskName,
-        "testResult" -> result,
-        "timestamp"  -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+        "domainName"      -> result.domainName,
+        "tableName"       -> result.taskName,
+        "testResult"      -> result,
+        "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now()),
+        "loadOrTransform" -> loadOrTransform
       )
       val testFolder =
         new File(
           testsFolder.path,
           result.domainName + File.separator + result.taskName + File.separator + result.testName
         )
-      testFolder.mkdirs()
       val resultContent = Utils.parseJinja(indexJ2, j2Params)
       Files.write(new File(testFolder, "index.html").toPath, resultContent.getBytes())
     }

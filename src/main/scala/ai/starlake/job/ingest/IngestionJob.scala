@@ -36,7 +36,7 @@ case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCoun
 
 trait IngestionJob extends SparkJob {
   val accessToken: Option[String]
-
+  val test: Boolean
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
       case "spark" => validatorClass
@@ -751,7 +751,7 @@ trait IngestionJob extends SparkJob {
         tags = schema.tags,
         writeStrategy = Some(strategy)
       )
-      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
+      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = test)(
         settings,
         storageHandler,
         schemaHandler
