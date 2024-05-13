@@ -486,6 +486,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domains
   }
 
+  def tableNames(): List[String] = {
+    domains().flatMap { d =>
+      d.tables.map { t =>
+        s"${d.finalName}.${t.finalName}"
+      }
+    }
+  }
+
   def findTableNames(domainName: Option[String]): List[String] = {
     val tablesFromDomain = {
       domainName match {

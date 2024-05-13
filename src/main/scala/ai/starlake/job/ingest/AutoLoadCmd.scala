@@ -90,7 +90,14 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
         wf.stage(StageConfig(config.domains)).map { jb =>
           logger.info("Staged successfully")
           wf.load(
-            LoadConfig(config.domains, config.tables, config.options, config.accessToken)
+            LoadConfig(
+              config.domains,
+              config.tables,
+              config.options,
+              config.accessToken,
+              test = false,
+              files = None
+            )
           ) match {
             case Success(true) =>
               logger.info("Loaded successfully")

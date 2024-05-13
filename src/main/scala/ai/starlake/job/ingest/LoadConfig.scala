@@ -5,5 +5,6 @@ case class LoadConfig(
   tables: Seq[String] = Seq.empty,
   options: Map[String, String] = Map.empty,
   accessToken: Option[String],
-  test: Boolean = false
+  test: Boolean,
+  files: Option[List[String]] = None
 )

@@ -13,6 +13,7 @@ __New Feature__:
   - infer-schema
   - yml2xls
 - add stringPartitionFunc attribute to table extraction definition
+- Support load unit tests
 
 __Bug Fix__:
 - Amazon RedShift write strategy templates

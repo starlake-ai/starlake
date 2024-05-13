@@ -154,8 +154,9 @@ class JdbcAutoTask(
                   val finalSqls = mainSql.splitSql()
                   runSqls(conn, finalSqls, "Main")
               }
-
-              applyJdbcAcl(sinkConnection, forceApply = true)
+              if (!test) {
+                applyJdbcAcl(sinkConnection, forceApply = true)
+              }
               runSqls(conn, postSql, "Post")
               addSCD2Columns(conn)
 
