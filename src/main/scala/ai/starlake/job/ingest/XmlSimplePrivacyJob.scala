@@ -36,7 +36,8 @@ class XmlSimplePrivacyJob(
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
   val options: Map[String, String],
-  val accessToken: Option[String]
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 

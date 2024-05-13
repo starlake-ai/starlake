@@ -51,7 +51,8 @@ class SimpleJsonIngestionJob(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   options: Map[String, String],
-  accessToken: Option[String]
+  accessToken: Option[String],
+  test: Boolean
 )(implicit settings: Settings)
     extends DsvIngestionJob(
       domain,
@@ -61,7 +62,8 @@ class SimpleJsonIngestionJob(
       storageHandler,
       schemaHandler,
       options,
-      accessToken
+      accessToken,
+      test
     ) {
 
   override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {

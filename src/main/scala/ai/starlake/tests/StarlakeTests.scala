@@ -19,7 +19,8 @@ case class StarlakeTest(
   domain: String,
   table: String,
   assertData: StarlakeTestData,
-  data: List[StarlakeTestData]
+  data: List[StarlakeTestData],
+  loadPaths: List[File]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -100,7 +101,7 @@ object StarlakeTestData {
     execute(conn, diffSql)
     try {
       val allLines = Files.readAllLines(outputPath.toPath)
-      allLines.size() <= 1
+      allLines.size() <= 1 // We ignore the header
     } catch {
       case _: Exception => // ignore. File does not exists
         true
@@ -201,30 +202,37 @@ object StarlakeTestData {
       ]
     ),
     config: StarlakeTestConfig
-  ): List[StarlakeTestResult] = {
+  )(implicit originalSettings: Settings): List[StarlakeTestResult] = {
     def params(test: StarlakeTest): Array[String] =
       Array("transform", "--test", "--name", test.name) ++ config.toArgs
-    run(dataAndTests, params)
+    val rootFolder = new File(originalSettings.appConfig.root, "test-reports")
+    val testsFolder = new Directory(new File(rootFolder, "transform"))
+    run(dataAndTests, params, testsFolder)
   }
 
   def runLoads(
     dataAndTests: (
-      List[StarlakeTestData],
+      List[StarlakeTestData], // root data
       List[
         (
-          String,
+          String, // domain name
           (
-            List[StarlakeTestData],
-            List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))]
+            List[StarlakeTestData], // domain data
+            List[(String, (List[StarlakeTestData], List[(String, StarlakeTest)]))] // domaintests
           )
         )
       ]
     ),
     config: StarlakeTestConfig
-  ): List[StarlakeTestResult] = {
+  )(implicit originalSettings: Settings): List[StarlakeTestResult] = {
     def params(test: StarlakeTest): Array[String] =
-      Array("load", "--test", "--domains", test.domain, "--tables", test.table) ++ config.toArgs
-    run(dataAndTests, params)
+      Array("load", "--test", "--domains", test.domain, "--tables", test.table) ++
+      Array("--files", test.loadPaths.map(_.toString).mkString(",")) ++
+      config.toArgs
+
+    val rootFolder = new File(originalSettings.appConfig.root, "test-reports")
+    val testsFolder = new Directory(new File(rootFolder, "load"))
+    run(dataAndTests, params, testsFolder)
   }
 
   def run(
@@ -240,11 +248,10 @@ object StarlakeTestData {
         )
       ]
     ),
-    params: StarlakeTest => Array[String]
-  ): List[StarlakeTestResult] = {
+    params: StarlakeTest => Array[String],
+    testsFolder: Directory
+  )(implicit originalSettings: Settings): List[StarlakeTestResult] = {
     Class.forName("org.duckdb.DuckDBDriver")
-    val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val testsFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
     testsFolder.deleteRecursively()
     testsFolder.createDirectory(force = true, failIfExists = false)
     val (rootData, tests) = dataAndTests
@@ -261,7 +268,7 @@ object StarlakeTestData {
           val dbFilename = new File(testFolder.jfile, s"$testName.db").getPath()
           implicit val settings = createDuckDbSettings(originalSettings, dbFilename)
           import settings.storageHandler
-          val schemaHandler = new SchemaHandler(storageHandler())
+          val schemaHandler = new SchemaHandler(storageHandler())(settings)
           Utils.withResources(
             DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
           ) { conn =>
@@ -269,7 +276,6 @@ object StarlakeTestData {
             rootData.foreach(_.load(conn))
             domainData.foreach(_.load(conn))
             taskData.foreach(_.load(conn))
-
             test.load(conn)
           }
           // We close the connection here since the transform will open its own
@@ -279,7 +285,7 @@ object StarlakeTestData {
             new Main().run(
               params(test),
               schemaHandler
-            ) match {
+            )(settings) match {
               case Failure(e) =>
                 val end = System.currentTimeMillis()
                 println(s"Test $domainName.$tableName.$testName failed to run (${e.getMessage})")
@@ -319,6 +325,7 @@ object StarlakeTestData {
                 }
                 compareResult
             }
+          /*
           Utils.withResources(
             DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
           ) { conn =>
@@ -327,6 +334,7 @@ object StarlakeTestData {
             taskData.foreach(_.unload(conn))
           }
           test.unload(dbFilename)
+           */
           result
         }
       }
@@ -396,12 +404,12 @@ object StarlakeTestData {
         val tests = taskPath.listFiles(_.isDirectory).toList
         val taskData = taskPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
         val taskTests = tests.flatMap { testPath =>
-          val dataPaths = testPath.listFiles(f => f.isFile && !f.getName().startsWith("_")).toList
+          val dataPaths = testPath.listFiles(f => f.isFile && !f.getName.startsWith("_")).toList
           val assertFileCsv = new File(testPath, "_expected.csv")
           val assertFileJson = new File(testPath, "_expected.json")
           val assertFileSql = new File(testPath, "_expected.sql")
-          val domainName = domainPath.getName()
-          val taskName = taskPath.getName()
+          val domainName = domainPath.getName
+          val taskName = taskPath.getName
           val assertContent =
             if (assertFileCsv.exists()) {
               s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileCsv.toString}';"
@@ -415,26 +423,72 @@ object StarlakeTestData {
             } else {
               ""
             }
-          val testDataList =
-            dataPaths.flatMap { dataPath =>
-              loadDataFile(testPath.getName(), dataPath)
-            }
+          val domain = schemaHandler.domains().find(_.finalName == domainName)
+          val table = domain.flatMap { d =>
+            d.tables.find(_.finalName == taskName)
+          }
           val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskName")
-          task match {
-            case Some(t) =>
-              val assertData = StarlakeTestData(t.domain, t.table, "_expected", assertContent)
+          (table, task) match {
+            case (Some(table), None) =>
+              val (preloadPaths, loadPaths) =
+                dataPaths.partition { path =>
+                  val name = path.getName
+                  val isDataFile =
+                    name.equals(s"$domainName.$taskName.json") ||
+                    name.equals(s"$domainName.$taskName.csv")
+                  isDataFile
+                }
+
+              // if only one file with the table name is found. This means that we are loading in overwrite mode.
+              // In this case we do not need the preload.
+              // The file in that case designates the load path
+              val (testDataList, testLoadPaths) =
+                if (loadPaths.isEmpty && preloadPaths.size == 1) {
+                  (Nil, preloadPaths)
+                } else {
+                  val pre = preloadPaths.flatMap { dataPath =>
+                    loadDataFile(testPath.getName, dataPath)
+                  }
+                  (pre, loadPaths)
+                }
+
+              val assertData =
+                StarlakeTestData(domainName, table.finalName, "_expected", assertContent)
               Some(
-                testPath.getName() -> StarlakeTest(
+                testPath.getName -> StarlakeTest(
                   s"$domainName.$taskName",
-                  t.domain,
-                  t.table,
+                  domainName,
+                  table.finalName,
                   assertData,
-                  testDataList
+                  testDataList,
+                  testLoadPaths
                 )
               )
-            case None =>
+            case (None, Some(task)) =>
+              val testDataList =
+                dataPaths.flatMap { dataPath =>
+                  loadDataFile(testPath.getName, dataPath)
+                }
+              val assertData = StarlakeTestData(task.domain, task.table, "_expected", assertContent)
+              Some(
+                testPath.getName -> StarlakeTest(
+                  s"$domainName.$taskName",
+                  task.domain,
+                  task.table,
+                  assertData,
+                  testDataList,
+                  Nil
+                )
+              )
+            case (Some(_), Some(_)) =>
               // scalastyle:off
-              println(s"Task $domainName.$taskName not found")
+              println(
+                s"Table / Task $domainName.$taskName found in tasks load and transform. Please rename one of them"
+              )
+              None
+            case (None, None) =>
+              // scalastyle:off
+              println(s"Table / Task $domainName.$taskName not found")
               None
           }
         }

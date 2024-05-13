@@ -57,12 +57,17 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .opt[Unit]("test")
         .optional()
         .action((x, c) => c.copy(test = true))
-        .text("Should we run this load as a test ? Default value is false")
+        .text("Should we run this load as a test ? Default value is false"),
+      builder
+        .opt[Seq[String]]("files")
+        .optional()
+        .action((x, c) => c.copy(files = Some(x.toList)))
+        .text("load this file only")
     )
   }
 
   def parse(args: Seq[String]): Option[LoadConfig] =
-    OParser.parse(parser, args, LoadConfig(accessToken = None))
+    OParser.parse(parser, args, LoadConfig(accessToken = None, test = false, files = None))
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
