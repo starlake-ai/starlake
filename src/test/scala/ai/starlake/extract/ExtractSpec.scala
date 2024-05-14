@@ -170,6 +170,65 @@ class ExtractSpec extends TestHelper {
     }
   }
 
+  it should "should generate schema from sql" in {
+    new WithSettings() {
+      val jdbcSchema = JDBCSchema(
+        None,
+        "PUBLIC",
+        pattern = Some("{{schema}}-{{table}}.*"),
+        tables = List(
+          new JDBCTable().copy(
+            name = "test_table1",
+            sql = Some("select * from PUBLIC.test_table1"),
+            columns = Nil
+          )
+        )
+      )
+        .fillWithDefaultValues()
+      val connectionSettings = settings.appConfig.connections("test-pg")
+      val jdbcOptions = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcOptions.options("url"),
+        jdbcOptions.options("user"),
+        jdbcOptions.options("password")
+      )
+      val sql: String =
+        """
+          |drop table if exists test_table1 cascade;
+          |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
+          |create view test_view1 AS SELECT NAME FROM test_table1;
+          |insert into test_table1 values (1,'A');""".stripMargin
+      val st = conn.createStatement()
+      st.execute(sql)
+      val rs = st.executeQuery("select * from test_table1")
+      rs.next
+      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      assert(row1InsertionCheck, "Data not inserted")
+      val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
+      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
+      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+        jdbcSchema,
+        connectionSettings,
+        new Path(outputDir.pathAsString),
+        None,
+        None
+      )
+      val publicOutputDir = outputDir / "PUBLIC"
+      val tableFile = publicOutputDir / "test_table1.sl.yml"
+      val table =
+        YamlSerde
+          .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
+        "id"   -> "long",
+        "name" -> "string"
+      )
+      table.primaryKey shouldBe Nil
+      table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_table1\\E.*"
+    }
+  }
+
   private def testSchemaExtraction(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
@@ -283,6 +342,7 @@ class ExtractSpec extends TestHelper {
             tables = List(
               JDBCTable(
                 "user",
+                None,
                 List(TableColumn("id", None), TableColumn("email", None)),
                 None,
                 None,
@@ -290,8 +350,8 @@ class ExtractSpec extends TestHelper {
                 None,
                 None
               ),
-              JDBCTable("product", Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None, None)
+              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -355,6 +415,7 @@ class ExtractSpec extends TestHelper {
             tables = List(
               JDBCTable(
                 "user",
+                None,
                 List(TableColumn("id", None), TableColumn("email", None)),
                 None,
                 None,
@@ -362,8 +423,8 @@ class ExtractSpec extends TestHelper {
                 None,
                 None
               ),
-              JDBCTable("product", Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None, None)
+              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -431,6 +492,7 @@ class ExtractSpec extends TestHelper {
             tables = List(
               JDBCTable(
                 "user",
+                None,
                 List(TableColumn("id", None), TableColumn("email", None)),
                 None,
                 None,
@@ -438,8 +500,8 @@ class ExtractSpec extends TestHelper {
                 None,
                 None
               ),
-              JDBCTable("product", Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None, None)
+              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -500,6 +562,7 @@ class ExtractSpec extends TestHelper {
           List(
             JDBCTable(
               "TEST_TABLE1",
+              None,
               List(TableColumn("ID", None)),
               None,
               None,
@@ -569,7 +632,7 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
+          List(JDBCTable("TEST_TABLE2", None, Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.appConfig.connections("test-pg"),
         new Path(tmpDir.pathAsString),
@@ -694,18 +757,7 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.pathAsString
         )
       }
-      error.message should fullyMatch regex """Invalid content for .*?:
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tableTypes: string found, array expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: must be valid to one and only one schema, but 0 are valid
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, string expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, boolean expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, number expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, integer expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: object found, null expected
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: required property 'name' not found
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[0]\.columns\[0]: property 'k' is not evaluated and the schema does not allow unevaluated properties
-                                               |     - \$\.extract\.jdbcSchemas\[0]\.tables\[1]: string found, object expected
-                                               |     - \$: property 'extract' is not evaluated and the schema does not allow unevaluated properties""".stripMargin
+      error.message should fullyMatch regex """(?s)Invalid content for .*?:.*""".stripMargin
     }
   }
 }

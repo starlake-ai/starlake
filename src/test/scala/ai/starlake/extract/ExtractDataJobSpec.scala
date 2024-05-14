@@ -390,6 +390,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "d",
           "t",
+          None,
           Nil,
           true,
           Some(1000),
@@ -436,6 +437,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "d",
           "t",
+          None,
           Nil,
           true,
           Some(1000),
@@ -483,6 +485,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "d",
           "t",
+          None,
           Nil,
           true,
           Some(1000),
@@ -625,9 +628,105 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
+            ),
+            new Attribute().copy(
+              name = "c_short"
+            ),
+            new Attribute().copy(
+              name = "c_int"
+            ),
+            new Attribute().copy(
+              name = "c_long"
+            ),
+            new Attribute().copy(
+              name = "c_decimal"
+            ),
+            new Attribute().copy(
+              name = "c_ts"
+            ),
+            new Attribute().copy(
+              name = "c_date"
+            )
+          ),
+          true,
+          Some(1000),
+          new Path(outputFolder.pathAsString),
+          None,
+          None
+        )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
+      val sinkResult = extractDataJob.extractTableData(
+        ExtractDataConfig(
+          JDBCSchema().copy(schema = "public"),
+          new Path(outputFolder.pathAsString),
+          0,
+          1,
+          None,
+          Some(true),
+          None,
+          false,
+          false,
+          Nil,
+          Nil,
+          FileFormat(),
+          jdbcConnection,
+          jdbcConnection
+        ),
+        unpartitionnedConfig,
+        "test",
+        columns,
+        (_, resultSet, _) => {
+          val rows = resultSet
+            .asIteratorOf(rowAsString)
+            .toList
+          rows should contain theSameElementsAs
+          List(
+            "A\", 0, 1, 2, 3.4, 2003-02-01 00:00:00.0, 2003-02-02",
+            "BÉ, 5, 6, 7, 8.9, 2003-12-24 00:00:00.0, 2003-12-25",
+            "null, null, null, null, null, null, null"
+          )
+          Success(rows.length)
+        }
+      )
+      sinkResult.isSuccess shouldBe true
+      st.executeQuery(
+        "select domain, schema, last_ts, last_date, last_long, last_decimal, mode, count, success, message, step from audit.sl_last_export"
+      ).asIteratorOf(rowAsString)
+        .toList should contain theSameElementsAs
+      List(
+        "public, test_table, null, null, null, null, OVERWRITE, 3, true, FULL, ALL"
+      )
+    }
+  }
+
+  it should "extract unpartitionned table from sql" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      val jdbcConnection = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcConnection.options("url"),
+        jdbcConnection.options("user"),
+        jdbcConnection.options("password")
+      )
+      val st = conn.createStatement()
+      st.execute(initSQL)
+      private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
+      outputFolder.createDirectory()
+      val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
+      private val unpartitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
+          "test_table",
+          Some(
+            "select c_str as c_str_sql, c_short, c_int, c_long, c_decimal, c_ts, c_date from public.test_table"
+          ),
+          List(
+            new Attribute().copy(
+              name = "c_str_sql"
             ),
             new Attribute().copy(
               name = "c_short"
@@ -717,6 +816,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -808,6 +908,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -888,6 +989,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -980,9 +1082,115 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
+            ),
+            new Attribute().copy(
+              name = "c_short"
+            ),
+            new Attribute().copy(
+              name = "c_int"
+            ),
+            new Attribute().copy(
+              name = "c_long"
+            ),
+            new Attribute().copy(
+              name = "c_decimal"
+            ),
+            new Attribute().copy(
+              name = "c_ts"
+            ),
+            new Attribute().copy(
+              name = "c_date"
+            )
+          ),
+          true,
+          Some(1000),
+          new Path(outputFolder.pathAsString),
+          None,
+          Some(
+            PartitionConfig(
+              "c_short",
+              PrimitiveType.short,
+              Some("abs( hashtext({{col}}) % {{nb_partitions}} )"),
+              2
+            )
+          )
+        )
+      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
+      val allRows = ListBuffer[String]()
+      val sinkResult = extractDataJob.extractTableData(
+        ExtractDataConfig(
+          JDBCSchema().copy(schema = "public"),
+          new Path(outputFolder.pathAsString),
+          0,
+          2,
+          None,
+          Some(true),
+          None,
+          false,
+          false,
+          Nil,
+          Nil,
+          FileFormat(),
+          jdbcConnection,
+          jdbcConnection
+        ),
+        partitionnedConfig,
+        "test",
+        columns,
+        (_, resultSet, _) => {
+          val resultSetRows = resultSet
+            .asIteratorOf(rowAsString)
+            .toList
+          allRows.append(resultSetRows: _*)
+          Success(resultSetRows.length)
+        }
+      )
+      allRows should contain theSameElementsAs
+      List(
+        "A\", 0, 1, 2, 3.4, 2003-02-01 00:00:00.0, 2003-02-02",
+        "BÉ, 5, 6, 7, 8.9, 2003-12-24 00:00:00.0, 2003-12-25"
+      )
+      sinkResult.isSuccess shouldBe true
+      st.executeQuery(
+        "select domain, schema, last_ts, last_date, last_long, last_decimal, mode, count, success, message, step from audit.sl_last_export"
+      ).asIteratorOf(rowAsString)
+        .toList should contain theSameElementsAs
+      List(
+        "public, test_table, null, null, 5, null, OVERWRITE, 1, true, c_short, 1",
+        "public, test_table, null, null, 5, null, OVERWRITE, 1, true, c_short, 0",
+        "public, test_table, null, null, 5, null, OVERWRITE, 2, true, c_short, ALL"
+      )
+    }
+  }
+
+  it should "extract partitionned table from sql" in {
+    new WithSettings() {
+      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      val jdbcConnection = settings.appConfig.connections("test-pg")
+      val conn = DriverManager.getConnection(
+        jdbcConnection.options("url"),
+        jdbcConnection.options("user"),
+        jdbcConnection.options("password")
+      )
+      val st = conn.createStatement()
+      st.execute(initSQL)
+      private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
+      outputFolder.createDirectory()
+      val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
+      private val partitionnedConfig: TableExtractDataConfig =
+        TableExtractDataConfig(
+          "public",
+          "test_table",
+          Some(
+            "select c_str as c_str_sql, c_short, c_int, c_long, c_decimal, c_ts, c_date from public.test_table"
+          ),
+          List(
+            new Attribute().copy(
+              name = "c_str_sql"
             ),
             new Attribute().copy(
               name = "c_short"
@@ -1082,6 +1290,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1183,6 +1392,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1273,6 +1483,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str",
@@ -1386,6 +1597,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1488,6 +1700,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1590,6 +1803,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1692,6 +1906,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1794,6 +2009,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1896,6 +2112,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -1998,6 +2215,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2108,6 +2326,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2221,6 +2440,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2334,6 +2554,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2447,6 +2668,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2560,6 +2782,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2672,6 +2895,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2784,6 +3008,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -2896,6 +3121,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -3008,6 +3234,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -3121,6 +3348,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -3234,6 +3462,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -3347,6 +3576,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
@@ -3546,6 +3776,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         TableExtractDataConfig(
           "public",
           "test_table",
+          None,
           List(
             new Attribute().copy(
               name = "c_str"
