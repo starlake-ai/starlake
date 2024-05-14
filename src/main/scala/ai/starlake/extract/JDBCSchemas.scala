@@ -129,6 +129,7 @@ case class TableColumn(name: String, rename: Option[String] = None) {
   */
 case class JDBCTable(
   name: String,
+  sql: Option[String],
   columns: List[TableColumn],
   partitionColumn: Option[String],
   numPartitions: Option[Int],
@@ -141,6 +142,7 @@ case class JDBCTable(
   def this() =
     this(
       "",
+      None,
       Nil,
       None,
       None,

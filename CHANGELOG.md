@@ -14,6 +14,7 @@ __New Feature__:
   - yml2xls
 - add stringPartitionFunc attribute to table extraction definition
 - Support load unit tests
+- add data and schema extraction from sql query for JDBC connection
 
 __Bug Fix__:
 - Amazon RedShift write strategy templates

@@ -1,0 +1,19 @@
+# Query extraction
+
+Query extraction is useful when you want to extract schema's and data based on a user-defined query.
+Schema's extraction will try to retrieve its remarks based on its table name if it exists.
+
+Query extraction doesn't infer primary keys nor foreign keys. All attributes are considered not required.
+
+```yaml {7,8} title="metadata/extract/my_extract_config.sl.yml"
+extract:
+  connectionRef: "duckdb" # The database connection to use
+  jdbcSchemas:
+    - schema: "starbake"
+      tables:
+        - name: "order"               # table names or  "*" to extract all tables
+          sql: "select * from starbake.order"
+  ...
+```
+
+It is currently supported only for JDBC connection
