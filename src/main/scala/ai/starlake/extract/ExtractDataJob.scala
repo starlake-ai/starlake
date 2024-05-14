@@ -185,6 +185,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
               val tableExtractDataConfig = TableExtractDataConfig(
                 domainName,
                 tableName,
+                currentTableDefinition.flatMap(_.sql),
                 tableAttrs.columNames,
                 fullExport,
                 fetchSize,
@@ -646,10 +647,13 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       case Unbounded =>
         "1=1"
     }
+    val dataSource = tableExtractDataConfig.sql
+      .map("(" + _ + ") sl_data_source")
+      .getOrElse(s"${extractConfig.data.quoteIdentifier(
+          tableExtractDataConfig.domain
+        )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}")
     s"""select $dataColumnsProjection
-       |from ${extractConfig.data.quoteIdentifier(
-        tableExtractDataConfig.domain
-      )}.${extractConfig.data.quoteIdentifier(tableExtractDataConfig.table)}
+       |from $dataSource
        |where $boundCondition $extraCondition""".stripMargin
   }
 
@@ -798,7 +802,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
         case None =>
           if (jdbcSchema.tables.isEmpty) {
             // having jdbcSchema.tables empty means that we have an implicit * without special config
-            includeTables.map(JDBCTable(_, Nil, None, None, Map.empty, None, None))
+            includeTables.map(JDBCTable(_, None, Nil, None, None, Map.empty, None, None))
           } else {
             Nil
           }
@@ -856,7 +860,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           JDBCSchema(
             schema = auditSchema,
             tables = List(
-              JDBCTable(name = lastExportTableName, List(), None, None, Map.empty, None, None)
+              JDBCTable(name = lastExportTableName, None, List(), None, None, Map.empty, None, None)
             ),
             tableTypes = List("TABLE")
           ),

@@ -1360,6 +1360,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Table name. Set to '*' to extract all tables. Scope: Schema and Data extraction."
         },
+        "sql": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "SQL used to extract schema and data. Ignore columns attribute if set."
+        },
         "columns": {
           "description": "List of columns to extract. All columns by default.",
           "type": "array",
