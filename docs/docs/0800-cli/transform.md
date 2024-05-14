@@ -17,6 +17,7 @@ Parameter|Cardinality|Description
 ---|---|---
 --name:`<value>`|*Required*|Task Name
 --compile:`<value>`|*Optional*|Return final query only
+--format:`<value>`|*Optional*|pretty print the final query and update sql file
 --interactive:`<value>`|*Optional*|Run query without sinking the result
 --reload:`<value>`|*Optional*|Reload YAML  files. Used in server mode
 --truncate:`<value>`|*Optional*|Force table to be truncated before insert. Default value is false

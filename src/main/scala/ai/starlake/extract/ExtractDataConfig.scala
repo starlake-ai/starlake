@@ -98,6 +98,7 @@ case class ExtractDataConfig(
 case class TableExtractDataConfig(
   domain: String,
   table: String,
+  sql: Option[String],
   columnsProjection: List[Attribute],
   fullExport: Boolean,
   fetchSize: Option[Int],
@@ -148,7 +149,7 @@ case class PartitionConfig(
 )
 
 case class ExtractTableAttributes(
-  tableRemarks: String,
+  tableRemarks: Option[String],
   columNames: List[Attribute],
   primaryKeys: List[String],
   filterOpt: Option[String]
