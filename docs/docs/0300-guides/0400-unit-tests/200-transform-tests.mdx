@@ -1,0 +1,64 @@
+# Test Transform Tasks
+
+Test your transform locally before deploying to production.
+
+Transform tasks are the second step in the data pipeline.
+They are responsible for transforming the data in the database.
+In this tutorial, we will test the transform tasks.
+
+
+Transform tests are located in the `metadata/tests/transform` directory.
+
+Each test is a directory located in the `domain/table` subdirectory and contains the following files:
+- multiple CSV or JSON files that will contain the initial data that will be loaded into the tables before the unit test is run.
+These files should be named after the domain and table names. For example, the file for the `starbake.product` table should be named `starbake.product.json` or `starbake.product.csv`.
+- a `_expected.csv` or `_expected.sql` file that contains the expected data in the table after the transform task is run.
+
+
+Before running the transform, starlake will transpile your SQL statements to the Duckdb dialect before running it.
+After running the transpiled SQL staement using the `starlake transform` task against local duckdb database populated by starlake using the data files present in the test directory,
+Starlake will compare the schema of the table with the schema of the expected data file and will raise an error if they do not match.
+
+The test will pass if the transform task succeeds and the data in the table matches the data in the `_expected.csv` file.
+
+The reports of the test `test-name` are stored in the `test-reports/transform/test-name` directory and contain the following files:
+- `test-reports/transform/test-name/testname.db`: the actual database after the load task is run. This database contains the following tables:
+  - sl_expected: The expected data.
+  - `starbake.product`: The actual data.
+  - sl_expectations: The results of the execution of any the expectation related to this table.
+  - audit.audit: The audit log of the transform task.
+- `test-reports/transform/test-name/not_expected.csv`: the unexpected data in the actual table after the transform task is run.
+- `test-reports/transform/test-name/missing.csv`: the missing data in the actual table after the transform task is run.
+
+The test reports are generated using the `starlake test` task.
+
+To run the transform tests without running load tests, use the following command:
+```bash
+starlake test --transform
+```
+
+To run a specific test use the `--name` flag:
+```bash
+starlake test --name starbake.product.test-name
+```
+
+
+Running tests will also generate a complete website report in the `test-reports` directory.
+
+
+## Example: Load  summary report
+
+![](/img/tests/load-summary.png)
+
+## Example: Transform Test report
+
+![](/img/tests/transform.png)
+
+## Example: Load & Transform report
+
+![](/img/tests/report.png)
+
+
+
+
+
