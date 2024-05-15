@@ -68,7 +68,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     logger.info(s"Extraction will be formatted following $fileFormat")
 
     implicit val implicitSchemaHandler: SchemaHandler = schemaHandler
-    jdbcSchemas.jdbcSchemas
+    implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+      ParUtils.createForkSupport(config.parallelism)
+    ParUtils
+      .makeParallel(jdbcSchemas.jdbcSchemas)
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true
@@ -102,6 +105,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           )
         )
       }
+    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
   }
 
   /** Extract data and save to output directory
@@ -130,7 +134,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     extractConfig: ExtractDataConfig
   )(implicit
     settings: Settings,
-    schemaHandler: SchemaHandler
+    schemaHandler: SchemaHandler,
+    forkJoinTaskSupport: Option[ForkJoinTaskSupport]
   ): Unit = {
     implicit val storageHandler = settings.storageHandler()
     val auditColumns = initExportAuditTable(extractConfig.audit)
@@ -149,7 +154,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       isProcessTablesExtraction(extractConfig, filteredJdbcSchema)
     if (doTablesExtraction) {
       // Map tables to columns and primary keys
-      implicit val forkJoinTaskSupport = ParUtils.createForkSupport(extractConfig.parallelism)
       val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
@@ -227,7 +231,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
             }.flatten
           }
           .toList
-      forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
       val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(globalStart)
       val nbFailures = extractionResults.count(_.isFailure)
       val dataExtractionFailures = extractionResults

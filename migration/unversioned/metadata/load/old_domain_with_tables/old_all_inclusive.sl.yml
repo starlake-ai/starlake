@@ -1,0 +1,51 @@
+name: "all_inclusive"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  encoding: "ISO-8859-1"
+  multiline: false
+  array: false
+  withHeader: true
+  separator: ";"
+  quote: "\""
+  escape: "\""
+  writeStrategy:
+    types:
+      OVERWRITE: 'group("mode") == "T" || group("mode") == ""'
+      APPEND: 'group("mode") == "D"'
+      UPSERT_BY_KEY: 'group("mode") == "A"'
+rename: "target_all_inclusive"
+database: "{{project_id}}"
+tables:
+  - name: "table_1"
+    pattern: "^\\Qtable_1\\E\\d{14}(?<mode>T|D|A|)\\..*"
+    attributes:
+      - name: "attr1"
+        type: "string"
+        comment: "attr1"
+      - name: "_partition"
+        type: "date"
+        script: "CURRENT_DATE()"
+    metadata:
+      sink:
+        timestamp: "_partition"
+        dynamicPartitionOverwrite: true
+      writeStrategy:
+        types:
+          OVERWRITE: 'group("mode") == "T"'
+          OVERWRITE_BY_PARTITION: 'group("mode") == "D" || group("mode") == ""'
+          UPSERT_BY_KEY: 'group("mode") == "A"'
+  - name: "table_2"
+    pattern: "^\\Qtable_2\\E\\d{14}(?<mode>T|D|A|)\\..*"
+    attributes:
+      - name: "attr1"
+        type: "string"
+        comment: "attr1"
+      - name: "_partition"
+        type: "date"
+        script: "CURRENT_DATE()"
+    merge:
+      key:
+        - "key1"
+        - "key2"
+    rename: "renamed_table2"

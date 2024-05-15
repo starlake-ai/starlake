@@ -196,53 +196,63 @@ final class JdbcColumnDatabaseMetadata(
     extends JdbcColumnMetadata {
 
   override def primaryKeys: PrimaryKeys = {
-    Using
-      .resource(
-        connectionSettings match {
-          case d if d.isMySQLOrMariaDb() =>
-            databaseMetaData.getPrimaryKeys(
-              schemaName,
-              None.orNull,
-              tableName
-            )
-          case _ =>
-            databaseMetaData.getPrimaryKeys(
-              jdbcSchema.catalog.orNull,
-              schemaName,
-              tableName
-            )
-        }
-      ) { primaryKeysResultSet =>
-        new Iterator[String] {
-          def hasNext: Boolean = primaryKeysResultSet.next()
-
-          def next(): String = {
-            val pkColumnName = primaryKeysResultSet.getString("COLUMN_NAME")
-            computeFinalColumnName(tableName, pkColumnName)
+    Try {
+      Using
+        .resource(
+          connectionSettings match {
+            case d if d.isMySQLOrMariaDb() =>
+              databaseMetaData.getPrimaryKeys(
+                schemaName,
+                None.orNull,
+                tableName
+              )
+            case _ =>
+              databaseMetaData.getPrimaryKeys(
+                jdbcSchema.catalog.orNull,
+                schemaName,
+                tableName
+              )
           }
-        }.toList
-      }
+        ) { primaryKeysResultSet =>
+          new Iterator[String] {
+            def hasNext: Boolean = primaryKeysResultSet.next()
+
+            def next(): String = {
+              val pkColumnName = primaryKeysResultSet.getString("COLUMN_NAME")
+              computeFinalColumnName(tableName, pkColumnName)
+            }
+          }.toList
+        }
+    } match {
+      case Failure(exception) =>
+        logger.warn(
+          s"Could not extract primary keys for table $tableName",
+          exception
+        )
+        Nil
+      case Success(value) => value
+    }
   }
 
   /** @return
     *   a map of foreign key name and its pk composite name
     */
   override def foreignKeys: Map[String, String] = {
-    Using.resource(connectionSettings match {
-      case d if d.isMySQLOrMariaDb() =>
-        databaseMetaData.getImportedKeys(
-          schemaName,
-          None.orNull,
-          tableName
-        )
-      case _ =>
-        databaseMetaData.getImportedKeys(
-          jdbcSchema.catalog.orNull,
-          schemaName,
-          tableName
-        )
-    }) { foreignKeysResultSet =>
-      Try {
+    Try {
+      Using.resource(connectionSettings match {
+        case d if d.isMySQLOrMariaDb() =>
+          databaseMetaData.getImportedKeys(
+            schemaName,
+            None.orNull,
+            tableName
+          )
+        case _ =>
+          databaseMetaData.getImportedKeys(
+            jdbcSchema.catalog.orNull,
+            schemaName,
+            tableName
+          )
+      }) { foreignKeysResultSet =>
         new Iterator[(String, String)] {
 
           def hasNext: Boolean = foreignKeysResultSet.next()
@@ -262,15 +272,15 @@ final class JdbcColumnDatabaseMetadata(
             fkColumnName -> pkCompositeName
           }
         }.toMap
-      } match {
-        case Failure(exception) =>
-          logger.warn(
-            s"Could not extract foreign keys for table $tableName",
-            exception
-          )
-          Map.empty[String, String]
-        case Success(value) => value
       }
+    } match {
+      case Failure(exception) =>
+        logger.warn(
+          s"Could not extract foreign keys for table $tableName",
+          exception
+        )
+        Map.empty[String, String]
+      case Success(value) => value
     }
   }
 
@@ -330,7 +340,7 @@ final class JdbcColumnDatabaseMetadata(
               colName,
               colTypename
             ),
-            required = colRequired,
+            required = Some(colRequired),
             comment = Option(colRemarks),
             foreignKey = foreignKey
           )

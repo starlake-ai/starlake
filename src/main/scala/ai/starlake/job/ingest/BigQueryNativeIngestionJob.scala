@@ -274,26 +274,32 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
   }
 
   private def computeEffectiveInputSchema(): Schema = {
-    mergedMetadata.getFormat() match {
+    mergedMetadata.resolveFormat() match {
       case Format.DSV =>
-        (mergedMetadata.isWithHeader(), path.map(_.toString).headOption) match {
+        (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
           case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
             val csvHeaders = storageHandler.readAndExecute(
               new Path(sourceFile),
-              Charset.forName(mergedMetadata.getEncoding())
+              Charset.forName(mergedMetadata.resolveEncoding())
             ) { is =>
               Using.resource(is) { reader =>
-                assert(mergedMetadata.getQuote().length <= 1, "quote must be a single character")
-                assert(mergedMetadata.getEscape().length <= 1, "quote must be a single character")
+                assert(
+                  mergedMetadata.resolveQuote().length <= 1,
+                  "quote must be a single character"
+                )
+                assert(
+                  mergedMetadata.resolveEscape().length <= 1,
+                  "quote must be a single character"
+                )
                 val csvParserSettings = new CsvParserSettings()
                 val format = new CsvFormat()
-                format.setDelimiter(mergedMetadata.getSeparator())
-                mergedMetadata.getQuote().headOption.foreach(format.setQuote)
-                mergedMetadata.getEscape().headOption.foreach(format.setQuoteEscape)
+                format.setDelimiter(mergedMetadata.resolveSeparator())
+                mergedMetadata.resolveQuote().headOption.foreach(format.setQuote)
+                mergedMetadata.resolveEscape().headOption.foreach(format.setQuoteEscape)
                 csvParserSettings.setFormat(format)
                 // allocate twice the declared columns. If fail a strange exception is thrown: https://github.com/uniVocity/univocity-parsers/issues/247
                 csvParserSettings.setMaxColumns(schema.attributes.length * 2)
-                csvParserSettings.setNullValue(mergedMetadata.getNullValue())
+                csvParserSettings.setNullValue(mergedMetadata.resolveNullValue())
                 csvParserSettings.setHeaderExtractionEnabled(true)
                 csvParserSettings.setMaxCharsPerColumn(-1)
                 val csvParser = new CsvParser(csvParserSettings)
@@ -306,7 +312,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
             val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
               csvHeaders.map(h =>
-                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = false))
+                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = None))
               )
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =

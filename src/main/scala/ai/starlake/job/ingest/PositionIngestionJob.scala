@@ -76,12 +76,16 @@ class PositionIngestionJob(
     */
   override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val dfIn = mergedMetadata.getEncoding().toUpperCase match {
+      val dfIn = mergedMetadata.resolveEncoding().toUpperCase match {
         case "UTF-8" =>
           session.read.options(sparkOptions).text(path.map(_.toString): _*)
         case _ => {
           val rdd =
-            PositionIngestionUtil.loadDfWithEncoding(session, path, mergedMetadata.getEncoding())
+            PositionIngestionUtil.loadDfWithEncoding(
+              session,
+              path,
+              mergedMetadata.resolveEncoding()
+            )
           val schema: StructType = StructType(Array(StructField("value", StringType)))
           session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
         }
@@ -113,8 +117,8 @@ class PositionIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

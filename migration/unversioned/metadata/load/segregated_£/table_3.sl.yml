@@ -1,0 +1,36 @@
+tables:
+  - name: "table_3"
+    pattern: "^\\Qtable_3\\E\\d{14}(?<mode>T|D|A|)\\..*"
+    attributes:
+      - name: "attr1"
+        type: "string"
+        comment: "attr1"
+      - name: "_partition"
+        type: "date"
+        script: "CURRENT_DATE()"
+    metadata:
+      sink:
+        timestamp: "_partition"
+        dynamicPartitionOverwrite: true
+      writeStrategy:
+        types:
+          OVERWRITE: 'group("mode") == "T"'
+          OVERWRITE_BY_PARTITION: 'group("mode") == "D" || group("mode") == ""'
+          UPSERT_BY_KEY: 'group("mode") == "A"'
+        type: "OVERWRITE_BY_PARTITION"
+  - name: "table_4"
+    pattern: "^\\Qtable_5\\E\\d{14}(?<mode>T|D|A|)\\..*"
+    attributes:
+      - name: "attr1"
+        type: "string"
+        comment: "attr1"
+      - name: "_partition"
+        type: "date"
+        script: "CURRENT_DATE()"
+    metadata:
+      sink:
+        timestamp: "_partition"
+    merge:
+      key:
+        - "key1"
+        - "key2"

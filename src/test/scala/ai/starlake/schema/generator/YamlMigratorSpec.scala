@@ -207,10 +207,10 @@ class YamlMigratorSpec extends TestHelper {
         |            - opt1
         |        dynamicPartitionOverwrite: true
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flagConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flagConfigStr)
     ) shouldBe expectedConfig
   }
@@ -267,10 +267,10 @@ class YamlMigratorSpec extends TestHelper {
         |        timestamp: time2
         |        dynamicPartitionOverwrite: true
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -329,10 +329,10 @@ class YamlMigratorSpec extends TestHelper {
         |           - opt1
         |       dynamicPartitionOverwrite: true
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -390,10 +390,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -445,10 +445,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -511,10 +511,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -575,10 +575,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -635,10 +635,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -696,10 +696,10 @@ class YamlMigratorSpec extends TestHelper {
         |          options:
         |            - opt1
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe expectedConfig
   }
@@ -740,11 +740,83 @@ class YamlMigratorSpec extends TestHelper {
         |  - metadata:
         |      write: OVERWRITE
         |""".stripMargin
-    YamlMigrator.V1.LoadConfig.canMigrate(
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
     ) shouldBe true
-    YamlMigrator.V1.LoadConfig.migrate(
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
       YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe expectedConfig
+  }
+
+  it should "migrate Load to V1 without having type and types simultaneously" in {
+    val expectedConfigStr =
+      """
+        |version: 1
+        |load:
+        | name: "domain name"
+        | metadata:
+        |   writeStrategy:
+        |     type: OVERWRITE_BY_PARTITION
+        |   sink:
+        |    partition:
+        |       - p1
+        |       - p2
+        | tables:
+        |   - metadata:
+        |       multiline: true
+        |       sink:
+        |         partition:
+        |           - p3
+        |           - p4
+        |       writeStrategy:
+        |         key:
+        |           - key1
+        |         types:
+        |           OVERWRITE: "group(\"mode\") == \"T\""
+        |           APPEND: "group(\"mode\") == \"D\""
+        |""".stripMargin
+    val expectedConfig = YamlSerde.mapper.readTree(expectedConfigStr)
+    val flagConfigStr =
+      """
+        |name: "domain name"
+        |metadata:
+        | sink:
+        |   type: SNOWFLAKE
+        |   partition:
+        |     attributes:
+        |       - p1
+        |       - p2
+        |     sampling: 0.5
+        |     attribute: p3
+        |     options:
+        |       - opt1
+        |   dynamicPartitionOverwrite: true
+        |tables:
+        |  - merge:
+        |      key:
+        |        - key1
+        |    metadata:
+        |      multiline: true
+        |      sink:
+        |        type: SNOWFLAKE
+        |        partition:
+        |          attributes:
+        |            - p3
+        |            - p4
+        |          sampling: 0.5
+        |          attribute: p3
+        |          options:
+        |            - opt1
+        |      writeStrategy:
+        |        types:
+        |          OVERWRITE: "group(\"mode\") == \"T\""
+        |          APPEND: "group(\"mode\") == \"D\""
+        |""".stripMargin
+    new YamlMigrator.V1.LoadConfig("load-file").canMigrate(
+      YamlSerde.mapper.readTree(flagConfigStr)
+    ) shouldBe true
+    new YamlMigrator.V1.LoadConfig("load-file").migrate(
+      YamlSerde.mapper.readTree(flagConfigStr)
     ) shouldBe expectedConfig
   }
 
@@ -1248,7 +1320,7 @@ class YamlMigratorSpec extends TestHelper {
     ) shouldBe expectedConfig
   }
 
-  it should "migrate Table to V1 transform user defined writeStrategy types when already defined" in {
+  it should "migrate Table to V1 transform user defined writeStrategy types and type when already defined" in {
     val expectedConfigStr =
       """
         |version: 1
@@ -1288,6 +1360,53 @@ class YamlMigratorSpec extends TestHelper {
         |        APPEND: DELTA_CONDITION
         |        UPSERT_BY_KEY: REPLACE_CONDITION
         |       type: UPSERT_BY_KEY
+        |""".stripMargin
+    YamlMigrator.V1.TableConfig.canMigrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe true
+    YamlMigrator.V1.TableConfig.migrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe expectedConfig
+  }
+
+  it should "migrate Table to V1 transform user defined writeStrategy types when already defined" in {
+    val expectedConfigStr =
+      """
+        |version: 1
+        |table:
+        |  metadata:
+        |      writeStrategy:
+        |        types:
+        |          OVERWRITE: FULL_CONDITION
+        |          APPEND: DELTA_CONDITION
+        |          DELETE_THEN_INSERT: REPLACE_CONDITION
+        |      sink:
+        |       partition:
+        |          - p1
+        |          - p2
+        |""".stripMargin
+    val expectedConfig = YamlSerde.mapper.readTree(expectedConfigStr)
+    val flatConfigStr =
+      """
+        |table:
+        | metadata:
+        |     write: OVERWRITE
+        |     sink:
+        |       type: SNOWFLAKE
+        |       partition:
+        |         attributes:
+        |           - p1
+        |           - p2
+        |         sampling: 0.5
+        |         attribute: p3
+        |         options:
+        |           - opt1
+        |       dynamicPartitionOverwrite: true
+        |     writeStrategy:
+        |       types:
+        |        OVERWRITE: FULL_CONDITION
+        |        APPEND: DELTA_CONDITION
+        |        UPSERT_BY_KEY: REPLACE_CONDITION
         |""".stripMargin
     YamlMigrator.V1.TableConfig.canMigrate(
       YamlSerde.mapper.readTree(flatConfigStr)
@@ -1554,6 +1673,31 @@ class YamlMigratorSpec extends TestHelper {
     val flatConfigStr =
       """
         |table:
+        |  metadata:
+        |      write: OVERWRITE
+        |""".stripMargin
+    YamlMigrator.V1.TableConfig.canMigrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe true
+    YamlMigrator.V1.TableConfig.migrate(
+      YamlSerde.mapper.readTree(flatConfigStr)
+    ) shouldBe expectedConfig
+  }
+
+  it should "migrate the table to V1 and delete attributes that existed previously but are no longer relevant in V1" in {
+    val expectedConfigStr =
+      """
+        |version: 1
+        |table:
+        |  metadata:
+        |      writeStrategy:
+        |        type: OVERWRITE
+        |""".stripMargin
+    val expectedConfig = YamlSerde.mapper.readTree(expectedConfigStr)
+    val flatConfigStr =
+      """
+        |table:
+        |  flat: true
         |  metadata:
         |      write: OVERWRITE
         |""".stripMargin

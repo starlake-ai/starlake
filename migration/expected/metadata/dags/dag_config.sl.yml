@@ -1,0 +1,8 @@
+---
+version: 1
+dag:
+  template: "custom_template.py.j2"
+  filename: "output-filename.py"
+  options:
+    opt1: "value_opt_1"
+    opt2: "value_opt_2"

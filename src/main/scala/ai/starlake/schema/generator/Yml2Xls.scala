@@ -114,7 +114,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(4).setCellValue(metadata.format.map(_.toString).getOrElse(""))
       schemaRow.createCell(5).setCellValue(metadata.withHeader.map(_.toString).getOrElse(""))
       schemaRow.getCell(5).setCellType(CellType.BOOLEAN)
-      schemaRow.createCell(6).setCellValue(metadata.getSeparator())
+      schemaRow.createCell(6).setCellValue(metadata.resolveSeparator())
 
       metadata.writeStrategy.foreach { mergeOptions =>
         schemaRow.createCell(7).setCellValue(mergeOptions.timestamp.getOrElse(""))
@@ -174,9 +174,9 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         attrRow.createCell(0).setCellValue(finalName)
         attrRow.createCell(1).setCellValue(attr.rename.getOrElse(""))
         attrRow.createCell(2).setCellValue(attr.`type`)
-        attrRow.createCell(3).setCellValue(attr.required)
+        attrRow.createCell(3).setCellValue(attr.resolveRequired())
         attrRow.getCell(3).setCellType(CellType.BOOLEAN)
-        attrRow.createCell(4).setCellValue(attr.getPrivacy().toString)
+        attrRow.createCell(4).setCellValue(attr.resolvePrivacy().toString)
         attrRow.createCell(5).setCellValue(attr.metricType.map(_.toString).getOrElse(""))
         attrRow.createCell(6).setCellValue(attr.default.getOrElse(""))
         attrRow.createCell(7).setCellValue(attr.script.getOrElse(""))

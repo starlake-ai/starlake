@@ -96,7 +96,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val domainStructureValidity = Domain.checkFilenamesValidity()(storage, settings)
     val types = this.types(reload)
     if (types.isEmpty) {
-      throw new Exception("No types defined. Please define types in metadata/types/default.sl.yml")
+      throw new Exception(
+        "No types defined. Please define types in metadata/types/default.sl.yml"
+      )
     }
 
     val typesValidity = types.map(_.checkValidity())
@@ -128,7 +130,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkJobsVars(): List[ValidationMessage] = {
-    val paths = storage.list(DatasetArea.transform, ".sl.yml", recursive = true).map(_.path)
+    val paths =
+      storage.list(DatasetArea.transform, ".sl.yml", recursive = true).map(_.path)
     val ymlWarnings = paths.flatMap(checkVarsAreDefined)
     val sqlPaths =
       (storage.list(DatasetArea.transform, ".sql.j2", recursive = true) ++ storage.list(
@@ -354,7 +357,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val externalProps = sys.env ++ slVarsAsProperties
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
-    val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
+    val globalsCometPath = new Path(DatasetArea.metadata, "env.sl.yml")
     val globalEnv = EnvDesc.loadEnv(globalsCometPath)(storage)
     // System Env variables may be used as values for variables defined in the env files.
     val globalEnvVars =
@@ -375,7 +378,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val localEnvVars =
       if (activeEnvName.nonEmpty && activeEnvName != "None") {
-        val envsCometPath = new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
+        val envsCometPath =
+          new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
 
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
@@ -440,7 +444,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             .deserializeYamlLoadConfig(
               if (raw) storage.read(configPath)
               else Utils.parseJinja(storage.read(configPath), activeEnvVars()),
-              configPath.toString
+              configPath.toString,
+              isForExtract = false
             )
           val domainWithName = domainOnly
             .map { domainOnly =>
@@ -563,7 +568,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths =
-      storage.list(path = dagPath, extension = ".sl.yml", recursive = false).map(_.path)
+      storage
+        .list(path = dagPath, extension = ".sl.yml", recursive = false)
+        .map(_.path)
     dagsConfigsPaths.map { dagsConfigsPath =>
       val dagConfigName = dagsConfigsPath.getName().dropRight(".sl.yml".length)
       val dagFileContent = storage.read(dagsConfigsPath)

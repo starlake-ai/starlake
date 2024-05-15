@@ -214,7 +214,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               schema.attributes.filter { attr =>
                 tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
-                  (existingAttr.required != attr.required ||
+                  (existingAttr.resolveRequired() != attr.resolveRequired() ||
                   !existingAttr.samePrimitiveType(attr)(schemaHandler) ||
                   existingAttr.comment.getOrElse("") != attr.comment.getOrElse(""))
                 )
@@ -237,7 +237,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               schema.attributes.filter { attr =>
                 tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
-                  existingAttr.required != attr.required
+                  existingAttr.resolveRequired() != attr.resolveRequired()
                 )
               }
 

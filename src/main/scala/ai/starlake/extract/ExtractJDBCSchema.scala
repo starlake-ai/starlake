@@ -52,16 +52,43 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
         implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
           ParUtils.createForkSupport(config.parallelism)
         ParUtils.makeParallel(jdbcSchemas.jdbcSchemas).foreach { jdbcSchema =>
-          val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
-            val content = settings
-              .storageHandler()
-              .read(mappingPath(extractArea, ymlTemplate))
-            YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate) match {
-              case Success(domain) =>
-                domain
-              case Failure(e) => throw e
+          val domainTemplate = jdbcSchema.template
+            .orElse {
+              val defaultDomainFile = "_domain_" + config.extractConfig
+              if (settings.storageHandler().exists(mappingPath(extractArea, defaultDomainFile))) {
+                Some(defaultDomainFile)
+              } else {
+                None
+              }
             }
-          }
+            .map { ymlTemplate =>
+              val domainTemplatePath = mappingPath(extractArea, ymlTemplate)
+              logger.info(s"Loading domain template from $domainTemplatePath")
+              val content = settings
+                .storageHandler()
+                .read(domainTemplatePath)
+              YamlSerde.deserializeYamlLoadConfig(content, ymlTemplate, isForExtract = true) match {
+                case Success(domain) =>
+                  val tableTemplatePath = mappingPath(
+                    extractArea,
+                    jdbcSchema.template
+                      .map(t => "_table_" + t)
+                      .getOrElse("_table_" + config.extractConfig)
+                  )
+                  if (settings.storageHandler().exists(tableTemplatePath)) {
+                    logger.info(s"Loading table template from $tableTemplatePath")
+                    val tableContent = settings
+                      .storageHandler()
+                      .read(tableTemplatePath)
+                    val tableDesc: TablesDesc =
+                      YamlSerde.deserializeYamlTables(tableContent, tableTemplatePath.toString)
+                    domain.copy(tables = tableDesc.tables)
+                  } else {
+                    domain
+                  }
+                case Failure(e) => throw e
+              }
+            }
           val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
           ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
             extractSchema(
@@ -167,7 +194,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
 
       val content =
         YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
-      val file = new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
+      val file =
+        new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
       storageHandler.delete(file)
       storageHandler.write(content, file)
     }

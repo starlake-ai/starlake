@@ -8,7 +8,6 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.io.Source
 import scala.jdk.CollectionConverters._
-
 import scala.util.Try
 
 object Bootstrap extends StrictLogging {

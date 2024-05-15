@@ -41,10 +41,12 @@ class SchemaSpec extends TestHelper {
         "attr",
         "invalid-type", // should raise error non existent type
         Some(true),
-        required = true,
-        TransformInput(
-          "MD5",
-          false
+        required = Some(true),
+        Some(
+          TransformInput(
+            "MD5",
+            false
+          )
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
@@ -60,10 +62,12 @@ class SchemaSpec extends TestHelper {
         "attr",
         "long",
         Some(true),
-        required = true,
-        TransformInput(
-          "ApproxLong(20)",
-          false
+        required = Some(true),
+        Some(
+          TransformInput(
+            "ApproxLong(20)",
+            false
+          )
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
       attr.checkValidity(schemaHandler) shouldBe Right(true)
@@ -74,10 +78,12 @@ class SchemaSpec extends TestHelper {
         "attr",
         "struct",
         Some(true),
-        required = true,
-        TransformInput(
-          "ApproxLong(20)",
-          false
+        required = Some(true),
+        Some(
+          TransformInput(
+            "ApproxLong(20)",
+            false
+          )
         ), // Should raise an error. Privacy cannot be applied on types other than string
         attributes = List[Attribute]()
       )
@@ -85,7 +91,7 @@ class SchemaSpec extends TestHelper {
         ValidationMessage(
           Error,
           "Attribute.primitiveType",
-          "Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
+          "Attribute Attribute(attr,struct,true,true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
         )
       )
 
@@ -96,7 +102,14 @@ class SchemaSpec extends TestHelper {
       val yml = loadTextFile(s"/expected/yml/position_serialization.sl.yml")
 
       val attr =
-        Attribute("hello", position = Some(Position(1, 2)))
+        Attribute(
+          "hello",
+          position = Some(Position(1, 2)),
+          array = Some(false),
+          required = Some(false),
+          privacy = Some(TransformInput.None),
+          ignore = Some(false)
+        )
       val writer = new StringWriter()
       mapper.writer().writeValue(writer, attr)
       logger.info("--" + writer.toString + "--")
@@ -106,7 +119,7 @@ class SchemaSpec extends TestHelper {
 
     "Default value for an attribute" should "only be used for non obligatory fields" in {
       val requiredAttribute =
-        Attribute("requiredAttribute", "long", required = true, default = Some("10"))
+        Attribute("requiredAttribute", "long", required = Some(true), default = Some("10"))
       requiredAttribute.checkValidity(schemaHandler) shouldBe Left(
         List(
           ValidationMessage(
@@ -118,7 +131,7 @@ class SchemaSpec extends TestHelper {
       )
 
       val optionalAttribute =
-        Attribute("optionalAttribute", "long", required = false, default = Some("10"))
+        Attribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
       optionalAttribute.checkValidity(schemaHandler) shouldBe Right(true)
     }
     "Ignore attribute " should "be used only when file format is flat DSV, JSON_FLAT, POSITION" in {
