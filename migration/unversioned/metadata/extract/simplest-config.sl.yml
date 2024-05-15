@@ -1,0 +1,5 @@
+connectionRef: databaseConn
+jdbcSchemas:
+  - schema: "db_schema"
+    tableTypes:
+      - "TABLE"

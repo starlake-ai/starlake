@@ -15,6 +15,8 @@ __New Feature__:
 - add stringPartitionFunc attribute to table extraction definition
 - Support load unit tests
 - add data and schema extraction from sql query for JDBC connection
+- migrate command added in order to ease migration between version
+- domain template used during schema extraction is now splitted in two files: domain-template and table-template. Table-template are prefixed with `_table_` and domain template may be prefixed with `_domain_` with the config file name. Ex: `_table_config.sl.yml`.
 
 __Bug Fix__:
 - Amazon RedShift write strategy templates
@@ -24,6 +26,8 @@ __Bug Fix__:
 
 __Improvement__:
 - add log during long extraction around every 30 seconds
+- primary and foreign keys extraction failure are not considered as errors anymore
+- make data extraction in parallel on schema's level
 
 # 1.1.1:
 __Improvement__:

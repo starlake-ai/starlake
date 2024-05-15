@@ -110,7 +110,8 @@ class InferSchemaJobSpec extends TestHelper {
           val maybeDomain =
             YamlSerde.deserializeYamlLoadConfig(
               targetConfig.contentAsString,
-              targetConfig.pathAsString
+              targetConfig.pathAsString,
+              isForExtract = false
             )
           maybeDomain.isSuccess shouldBe true
           val targetFile = File(locationDir, "flat_locations.sl.yml")

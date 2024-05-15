@@ -342,7 +342,7 @@ class IngestionWorkflow(
               val (withPrivacy, noPrivacy) =
                 resolved.partition { case (schema, _) =>
                   schema.exists(
-                    _.attributes.map(_.getPrivacy()).exists(!TransformInput.None.equals(_))
+                    _.attributes.map(_.resolvePrivacy()).exists(!TransformInput.None.equals(_))
                   )
                 }
               // files for schemas without any privacy attributes are moved directly to accepted area
@@ -583,7 +583,7 @@ class IngestionWorkflow(
 
     val ingestionResult = Try {
       val optionsAndEnvVars = schemaHandler.activeEnvVars() ++ options
-      metadata.getFormat() match {
+      metadata.resolveFormat() match {
         case Format.PARQUET =>
           new ParquetIngestionJob(
             domain,

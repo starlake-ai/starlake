@@ -179,7 +179,7 @@ object Settings extends StrictLogging {
           s"File not found: ${defaultTypes.toString}"
         )
 
-      val globalsCometPath = new Path(DatasetArea.metadata, s"env.sl.yml")
+      val globalsCometPath = new Path(DatasetArea.metadata, "env.sl.yml")
       if (!settings.storageHandler().exists(globalsCometPath))
         errors = errors :+ ValidationMessage(
           Severity.Warning,
@@ -742,7 +742,10 @@ object Settings extends StrictLogging {
       var errors = List.empty[ValidationMessage]
       val appConfig = settings.appConfig
       if (appConfig.env.nonEmpty && appConfig.env != "None") {
-        val envFile = new Path(DatasetArea.metadata(settings), "env." + appConfig.env + ".sl.yml")
+        val envFile = new Path(
+          DatasetArea.metadata(settings),
+          "env." + appConfig.env + ".sl.yml"
+        )
         if (!storageHandler.exists(envFile)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
@@ -1034,7 +1037,8 @@ object Settings extends StrictLogging {
     * @return
     */
   private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
-    val applicationYmlPath = new Path(DatasetArea.metadata(settings), "application.sl.yml")
+    val applicationYmlPath =
+      new Path(DatasetArea.metadata(settings), "application.sl.yml")
     val applicationYmlConfig =
       if (settings.storageHandler().exists(applicationYmlPath)) {
         logger.info(s"Loading $applicationYmlPath")

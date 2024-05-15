@@ -963,7 +963,6 @@ class AttributeSpec extends TestHelper {
           |          type: "string"
           |        - name: "array_struct_struct_attr2"
           |          type: "string"
-          |          required: false
           |          privacy: A
           |          comment: "my comment"
           |          rename: "rename value"

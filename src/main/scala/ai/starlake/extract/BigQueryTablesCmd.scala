@@ -43,7 +43,7 @@ trait BigQueryTablesCmd extends Cmd[BigQueryTablesConfig] {
         .opt[Unit]("external")
         .action((_, c) => c.copy(external = true))
         .text(
-          s"Include external datasets defined in _config.sl.yml instead of using other parameters of this command ? Defaults to false"
+          "Include external datasets defined in _config.sl.yml instead of using other parameters of this command ? Defaults to false"
         )
         .optional(),
       builder

@@ -27,6 +27,7 @@ class IntegrationTestBase
   def localDir = templates / "spark"
   def incomingDir = localDir / "incoming"
   def sampleDataDir = templates / "sample-data"
+  def migrationDir = starlakeDir / "migration"
 
   override protected def beforeAll() = {
     new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()

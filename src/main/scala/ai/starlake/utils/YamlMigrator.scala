@@ -11,11 +11,11 @@ import com.fasterxml.jackson.databind.node.{
   TextNode,
   ValueNode
 }
-import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
 
 import scala.collection.JavaConverters._
 
-trait YamlMigratorInterface {
+trait YamlMigratorInterface extends StrictLogging {
 
   private val versionFieldName = "version"
 
@@ -168,6 +168,22 @@ trait YamlMigratorInterface {
     )
   }
 
+  protected def keepFirst(
+    chrootNodeRetriever: JsonNode => JsonNode
+  ): JsonNode => JsonNode = { (rootNode: JsonNode) =>
+    {
+      chrootNodeRetriever(rootNode) match {
+        case an: ArrayNode =>
+          if (an.size() > 1) {
+            logger.warn(s"Keeping first element out of ${an.size()} in array.")
+          }
+          (1 until an.size()).foreach(an.remove)
+        case _ => // do nothing
+      }
+      rootNode
+    }
+  }
+
   protected def applyMigrationOnP1(
     chrootNodeRetriever: JsonNode => JsonNode,
     param1Retriever: JsonNode => JsonNode,
@@ -239,7 +255,6 @@ object YamlMigrator extends LazyLogging {
                 if (
                   writeStrategyNode
                     .hasNonNull("type") || writeStrategyNode
-                    .path("writeStrategy")
                     .hasNonNull("types")
                 ) {
                   writeStrategyNode
@@ -257,13 +272,16 @@ object YamlMigrator extends LazyLogging {
                   writeStrategyNode
                     .path("types") match {
                     case on: ObjectNode =>
-                      on.fields().asScala.foreach { entry =>
+                      on.fields().asScala.toList.foreach { entry =>
                         if (
                           entry.getKey
                             .toUpperCase() == WriteStrategyType.UPSERT_BY_KEY.value
                         ) {
                           on.remove(entry.getKey)
-                          on.set(WriteStrategyType.DELETE_THEN_INSERT.value, entry.getValue)
+                          on.set[ObjectNode](
+                            WriteStrategyType.DELETE_THEN_INSERT.value,
+                            entry.getValue
+                          )
                         }
                       }
                     case _ => // do nothing
@@ -273,7 +291,8 @@ object YamlMigrator extends LazyLogging {
               case _ => // do nothing
                 writeContainerNode
             }
-          case n => n
+          case n =>
+            n
         }
     }
 
@@ -310,6 +329,7 @@ object YamlMigrator extends LazyLogging {
       protected val migrateTableOrTransform: List[JsonNode => JsonNode] =
         applyMigrationOn(_.path("metadata"), migrateMetadata) ++ List[JsonNode => JsonNode] {
           case tableOrTransform: ObjectNode =>
+            tableOrTransform.remove("flat")
             val writeNode =
               if (isForTable) tableOrTransform.path("metadata").path("write")
               else tableOrTransform.path("write")
@@ -321,6 +341,10 @@ object YamlMigrator extends LazyLogging {
             val writeStrategyType = existingWriteStrategyNode.path("type") match {
               case tn: TextNode => tn.textValue()
               case _            => ""
+            }
+            val existsWriteStrategyTypes = existingWriteStrategyNode.path("types") match {
+              case _: ObjectNode => true
+              case _             => false
             }
             (mergeNode.isMissingNode(), writeStrategyType) match {
               case (false, t) if t == WriteStrategyType.OVERWRITE_BY_PARTITION.value =>
@@ -358,27 +382,75 @@ object YamlMigrator extends LazyLogging {
                   tableOrTransform.path("writeStrategy")
                 }
                 tableOrTransform.remove("merge")
-                val writeStrategyType: WriteStrategyType =
-                  (keyNode.isMissingNode, timestampNode.isMissingNode) match {
-                    case (false, false) => WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
-                    case (false, true)  => WriteStrategyType.DELETE_THEN_INSERT
-                    case _              =>
-                      // if timestamp is defined in merge but not key, doesn't have any effects but still add timestamp into writeStrategy. Maybe we should raise an exception
-                      if (writeNode.asText("").toUpperCase == "OVERWRITE") {
-                        WriteStrategyType.OVERWRITE
-                      } else {
-                        WriteStrategyType.APPEND
-                      }
-                  }
-                writeStrategyNode
-                  .asInstanceOf[ObjectNode]
-                  .set[ObjectNode]("type", TextNode.valueOf(writeStrategyType.value))
+                if (!existsWriteStrategyTypes) {
+                  // only set type if types is not defined.
+                  val writeStrategyType: WriteStrategyType =
+                    (keyNode.isMissingNode, timestampNode.isMissingNode) match {
+                      case (false, false) => WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
+                      case (false, true)  => WriteStrategyType.DELETE_THEN_INSERT
+                      case _              =>
+                        // if timestamp is defined in merge but not key, doesn't have any effects but still add timestamp into writeStrategy. Maybe we should raise an exception
+                        if (writeNode.asText("").toUpperCase == "OVERWRITE") {
+                          WriteStrategyType.OVERWRITE
+                        } else {
+                          WriteStrategyType.APPEND
+                        }
+                    }
+                  writeStrategyNode
+                    .asInstanceOf[ObjectNode]
+                    .set[ObjectNode]("type", TextNode.valueOf(writeStrategyType.value))
+                }
               case _ =>
               // there is no merge node, write strategy has been computed during metadata migration.
             }
             (if (isForTable) tableOrTransform.path("metadata") else tableOrTransform) match {
               case on: ObjectNode => on.remove("write")
               case _              => // do nothing
+            }
+            tableOrTransform
+          case n =>
+            n
+        }
+    }
+
+    trait ExtractTableOrTransformMigrator extends YamlMigratorInterface with MetadataMigrator {
+      protected def migrateExtractTable(
+        domainFileName: String
+      ): List[JsonNode => JsonNode] =
+        List[JsonNode => JsonNode] {
+          case tableOrTransform: ObjectNode =>
+            tableOrTransform.fields().asScala.toList.foreach { field =>
+              field.getKey match {
+                case "name"    => // do nothing, it will be set as domain's template name
+                case "pattern" => // do nothing, just required in table's schema. Overwrite with .*.
+                case "attributes" =>
+                  field.getValue match {
+                    case an: ArrayNode =>
+                      an.asScala.foreach {
+                        case on: ObjectNode =>
+                          on.fields().asScala.toList.foreach { attributesField =>
+                            attributesField.getKey match {
+                              case "trim" => // keep it as is
+                              case _      => on.remove(attributesField.getKey)
+                            }
+                          }
+                          on.set[ObjectNode]("name", TextNode.valueOf("*"))
+                        case _ => // do nothing, we expect to have an object node for attributes
+                          logger.error("attributes element is not an object node")
+                      }
+                    case _ => // do nothing, we expect to have an object node for attributes
+                      logger.error("attributes is not an array node")
+                  }
+                case _ => tableOrTransform.remove(field.getKey)
+              }
+              tableOrTransform.set[ObjectNode](
+                "name",
+                TextNode.valueOf(domainFileName)
+              )
+              tableOrTransform.set[ObjectNode](
+                "pattern",
+                TextNode.valueOf(".*")
+              )
             }
             tableOrTransform
           case n =>
@@ -513,13 +585,30 @@ object YamlMigrator extends LazyLogging {
       )
     }
 
-    object LoadConfig extends YamlMigratorInterfaceV1 with TableOrTransformMigrator {
+    class LoadConfig(domainFileNameWoExt: String, isForExtract: Boolean = false)
+        extends YamlMigratorInterfaceV1
+        with TableOrTransformMigrator
+        with ExtractTableOrTransformMigrator {
       override protected val isForTable: Boolean = true
       override val changes: List[JsonNode => JsonNode] =
         List(wrapToContainer("load"), setVersion(targetVersion)) ++ applyMigrationOn(
           _.path("load").path("metadata"),
           migrateMetadata
-        ) ++ applyMigrationOn(_.path("load").path("tables"), migrateTableOrTransform) ++ List(
+        ) ++ (
+          if (isForExtract)
+            applyMigrationOn(
+              _.path("load").path("tables"),
+              migrateExtractTable(domainFileNameWoExt) ++ List(
+                keepFirst(_.path("attributes"))
+              )
+            ) ++ List(
+              keepFirst(
+                _.path("load").path("tables")
+              )
+            )
+          else
+            applyMigrationOn(_.path("load").path("tables"), migrateTableOrTransform)
+        ) ++ List(
           removeField("load.metadata.write")
         )
     }

@@ -317,7 +317,7 @@ case class LoadDesc(version: Int, load: Domain)
       serializeToPath(new Path(folder, s"${schema.name}.sl.yml"), schema)
     }
     val domainDataOnly = this.copy(tables = Nil)
-    serializeToPath(new Path(folder, s"_config.sl.yml"), domainDataOnly)
+    serializeToPath(new Path(folder, "_config.sl.yml"), domainDataOnly)
   }
 
 }
@@ -347,7 +347,7 @@ object Domain {
     }
     val allWarnings = domainRootDirectories.flatMap { domainDirectory =>
       val domainName = domainDirectory.getName()
-      val expectedDomainYmlName = s"_config.sl.yml"
+      val expectedDomainYmlName = "_config.sl.yml"
       val expectedDomainYmlPath = new Path(domainDirectory, expectedDomainYmlName)
       val domainYmlExists = storage.exists(expectedDomainYmlPath)
       val domainYmlWarnings = if (domainYmlExists) {
