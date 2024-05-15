@@ -27,6 +27,7 @@ __Bug Fix__:
 __Improvement__:
 - add log during long extraction around every 30 seconds
 - primary and foreign keys extraction failure are not considered as errors anymore
+- make data extraction in parallel on schema's level
 
 # 1.1.1:
 __Improvement__:
