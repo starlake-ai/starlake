@@ -63,7 +63,8 @@ trait XlsModel {
     "_options"    -> "Spark ingestion options",
     "_validator"  -> "Class validator",
     "_null"       -> "Null value",
-    "_dagRef"     -> "Dag reference"
+    "_dagRef"     -> "Dag reference",
+    "_frequency"  -> "Job frenquency"
   )
 
   val allAttributeHeaders = List(
