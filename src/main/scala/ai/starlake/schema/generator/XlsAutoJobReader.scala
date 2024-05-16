@@ -35,6 +35,11 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         Option(row.getCell(headerMapSchema("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(WriteMode.fromString)
+      val scheduleOpt =
+        Option(
+          row.getCell(headerMapSchema("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
       val partitionOpt =
         Option(
           row.getCell(headerMapSchema("_partition"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -174,6 +179,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               database = databaseOpt,
               domain = domainOpt.getOrElse(throw new Exception("Domain name is required in XLS")),
               table = schemaOpt.getOrElse(throw new Exception("table name is required in XLS")),
+              schedule = scheduleOpt,
               write = writeOpt.orElse(Some(WriteMode.OVERWRITE)),
               presql = presqlOpt.getOrElse(Nil),
               postsql = postsqlOpt.getOrElse(Nil),
