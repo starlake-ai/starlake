@@ -72,6 +72,8 @@ object TaskViewDependency extends StrictLogging {
         SimpleEntry(jobName, TASK_TYPE, dependencies)
       }
 
+    val allTasks = schemaHandler.tasks()
+
     val jobAndViewDeps = jobDependencies.flatMap { case SimpleEntry(jobName, typ, parentRefs) =>
       logger.info(
         s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
@@ -86,9 +88,9 @@ object TaskViewDependency extends StrictLogging {
             case 1 =>
               val tablePart = parts.last // == 0
               val refs =
-                tasks.filter(task =>
-                  task.taskDesc.name.endsWith(s".$tablePart") ||
-                  task.taskDesc.table.toLowerCase() == tablePart.toLowerCase()
+                allTasks.filter(task =>
+                  task.name.endsWith(s".$tablePart") ||
+                  task.table.toLowerCase() == tablePart.toLowerCase()
                 )
               if (refs.size > 1) {
                 throw new Exception(
@@ -100,18 +102,18 @@ object TaskViewDependency extends StrictLogging {
                 )
 
               } else
-                refs.headOption.map(ref => (ref.name, ref.taskDesc.schedule))
+                refs.headOption.map(ref => (ref.name, ref.schedule))
 
             case 2 | 3 =>
               val domainPart = parts.dropRight(1).last
               val tablePart = parts.last
-              tasks
+              allTasks
                 .find(task =>
-                  task.taskDesc.name.toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
-                  (task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
-                  task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase())
+                  task.name.toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
+                  (task.table.toLowerCase() == tablePart.toLowerCase() &&
+                  task.domain.toLowerCase() == domainPart.toLowerCase())
                 )
-                .map(ref => (ref.name, ref.taskDesc.schedule))
+                .map(ref => (ref.name, ref.schedule))
             case _ =>
               val errors = schemaHandler.checkJobsVars().mkString("\n")
 
