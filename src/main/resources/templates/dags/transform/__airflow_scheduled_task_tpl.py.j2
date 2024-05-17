@@ -23,6 +23,8 @@ schedule = None
 
 datasets: Set[str] = []
 
+_filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', [])
+
 _extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
 
 _extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
@@ -30,7 +32,9 @@ _extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_d
 def _load_datasets(task: dict):
     if 'children' in task:
         for child in task['children']:
-            datasets.append(keep_ascii_only(child['data']['name']).lower())
+            dataset = keep_ascii_only(child['data']['name']).lower()
+            if dataset not in _filtered_datasets:
+                datasets.append(dataset)
             _load_datasets(child)
 
 if load_dependencies.lower() != 'true':
