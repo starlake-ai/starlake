@@ -18,7 +18,7 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
             SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
             SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
    
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
@@ -33,14 +33,14 @@ WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategy
 
     ) SL_INCOMING
     ON ( {{ strategyKeyJoinCondition }})
-    WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  {{ tableUpdate }}
+    WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  UPDATE {{ tableUpdateSetExpression }}
     WHEN NOT MATCHED THEN {{ tableInsert }}
 
 
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}{{ tableFullName }}.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
@@ -56,7 +56,7 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
             SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING 
 ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
 
 
