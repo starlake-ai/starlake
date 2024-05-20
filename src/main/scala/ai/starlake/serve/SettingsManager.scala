@@ -14,11 +14,10 @@ class SettingsWatcherThread(
     while (true) {
       Thread.sleep(ONE_MINUTE)
       val currentTime = System.currentTimeMillis()
-      for ((key, time) <- settingsTimeMap) {
+      for ((key, time) <- settingsTimeMap.toSet) {
         if (currentTime - time > TEN_MINUTES) {
-          settingsMap.synchronized {
-            settingsMap.remove(key)
-          }
+          settingsTimeMap.remove(key)
+          settingsMap.remove(key)
         }
       }
     }
@@ -37,12 +36,8 @@ object SettingsManager {
 
   def reset(): Boolean = {
     lastSettingsId = ""
-    settingsTimeMap.synchronized {
-      settingsTimeMap.clear()
-    }
-    settingsMap.synchronized {
-      settingsMap.clear()
-    }
+    settingsTimeMap.clear()
+    settingsMap.clear()
     true
   }
 
@@ -79,31 +74,31 @@ object SettingsManager {
       sysProps.setProperty("database", gcpProject)
     }
     if (refresh) {
-      settingsMap.synchronized {
-        settingsMap.remove(sessionId)
-      }
+      settingsMap.remove(sessionId)
     }
     val updatedSession = settingsMap.getOrElse(
       sessionId, {
-        settingsMap.synchronized {
-          sysProps.setProperty("rootServe", outFile.pathAsString)
-          sysProps.setProperty("root", root)
-          sysProps.setProperty("SL_ROOT", root)
-          sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
+        sysProps.setProperty("rootServe", outFile.pathAsString)
+        sysProps.setProperty("root", root)
+        sysProps.setProperty("SL_ROOT", root)
+        sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
 
-          env match {
-            case None =>
-              sysProps.setProperty("env", "None")
-            case Some(env) if env.isEmpty || env == "None" =>
-              sysProps.setProperty("env", "None")
-            case Some(env) =>
-              sysProps.setProperty("env", env) // prod is the default value in reference.conf
-          }
-          Settings.invalidateCaches()
-          val settings = Settings(Settings.referenceConfig)
-          settingsMap.put(sessionId, settings)
-          settings
+        env match {
+          case None =>
+            sysProps.setProperty("env", "None")
+          case Some(env) if env.isEmpty || env == "None" =>
+            sysProps.setProperty("env", "None")
+          case Some(env) =>
+            sysProps.setProperty("env", env) // prod is the default value in reference.conf
         }
+        Settings.invalidateCaches()
+        val settings = Settings(Settings.referenceConfig)
+        settingsMap.synchronized {
+          if (!settingsMap.contains(sessionId)) {
+            settingsMap.put(sessionId, settings)
+          }
+        }
+        settings
       }
     )
     settingsTimeMap.put(sessionId, System.currentTimeMillis())
