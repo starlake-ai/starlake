@@ -1,0 +1,96 @@
+# Load JSON Files
+
+
+Loading a JSON file is similar to loading a CSV file except that JSON attributes may have nested attributes.
+
+
+## Infer schema
+
+The very first step is to infer the schema of the file from a data file as described in the [autoload section](autoload#how-autoload-detects-the-format-of-the-files) before you start customizing your configuration. This is done using the `infer-schema` command. This will bootstrap the configuration file for the table.
+
+```bash
+
+starlake infer-schema --input-path incoming/starbake
+
+```
+
+## Parsing JSON
+
+Like other file formats, JSON Parsing options are defined in the `metadata` section of the configuration file.
+
+The `format`attribute may be set to one of the values below:
+
+| Format | Description |
+| --- | --- |
+| JSON | The JSON file is parsed as a list of objects, one object per line |
+| JSON_FLAT | The JSON objects do not contain any repeated or nested fields. Using this format instead of JSON makes file parsing faster |
+| JSON_ARRAY | The JSON file is parsed as a single array of objects |
+
+<br/>
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml - parsing section"
+table:
+  pattern: "order_line.*.csv"
+  metadata:
+    format: "JSON" # or "JSON_FLAT" since the JSON objects do not contain any repeated or nested fields
+    ...
+  attributes:
+    - ...
+```
+
+
+## Attributes validation
+
+The `attributes` section of the configuration file is used to define the attributes of the JSON file.
+The `attributes` section is a list of objects, each object representing an attribute of the JSON file.
+In addition to the common attributes, the `attributes` section may contain the following attributes:
+- 'array' (optional): The attribute is an array of objects. The value of this attribute is a list of objects, each object representing an attribute of the array.
+- 'struct' (optional): The attribute is an object containing other attributes.
+
+<br/>
+
+Given the Json record below:
+
+```json
+{
+  "order_id": 1,
+  "order_date": "2021-01-01",
+  "order_lines": [
+    {
+      "line_id": 1,
+      "product_id": 1,
+      "quantity": 2
+    },
+    {
+      "line_id": 2,
+      "product_id": 2,
+      "quantity": 3
+    }
+  ]
+}
+```
+
+The `attributes` section of the configuration file would be:
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml - attributes section"
+table:
+  pattern: "order_line.*.csv"
+  metadata:
+    format: "JSON"
+    ...
+  attributes:
+    - name: "order_id"
+      type: "integer"
+    - name: "order_date"
+      type: "date"
+    - name: "order_lines"
+      type: "struct"
+      array: true
+      attributes:
+        - name: "line_id"
+          type: "integer"
+        - name: "product_id"
+          type: "integer"
+        - name: "quantity"
+          type: "integer"
+```

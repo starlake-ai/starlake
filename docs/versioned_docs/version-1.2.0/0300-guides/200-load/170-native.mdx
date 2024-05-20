@@ -1,0 +1,55 @@
+# Native load
+
+When loading files into your datawarehouse, starlake uses Spark for advanced data validation and
+then uses you datawarehouse's engine to append or overwrite the data.
+
+This is done to ensure that the data is fully validated and  is loaded in the most efficient way possible.
+
+Sometimes you may want to load the data without running any validation checks. This can be done using the `native` load mode.
+
+You may instruct to use the native loader only for a table, a domain or for the entire project.
+
+## Table level
+
+In the table definition, you can specify the load mode as `native` as follows:
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml"
+table:
+  metadata:
+    ...
+    loader: native
+    ...
+  attributes:
+  ...
+```
+
+In this case, the table will be loaded using the native loader.
+
+## Domain level
+
+In the domain definition, you can specify the load mode as `native` as follows:
+
+```yaml title="metadata/load/<domain>/_config.sl.yml"
+load:
+  metadata:
+    ...
+    loader: native
+    ...
+  tables:
+  ...
+```
+In this case, all the tables in the domain will be loaded using the native loader if not otherwise specified at the table level.
+
+## Project level
+
+In the project definition, you can specify the load mode as `native` as follows:
+
+```yaml title="metadata/load/application.sl.yml"
+application:
+  ...
+  loader: native
+  ...
+```
+
+In this case, all the tables in the project will be loaded using the native loader if not otherwise specified at the domain or table level.
+

@@ -1,0 +1,158 @@
+# Tutorial
+
+Use SELECT statements to create insights from the data in the database.
+
+## Prerequisites
+Make sure you run the [Load step](../load/tutorial) first to get the data in the database.
+
+## The insights
+
+In this tutorial, we will create 3 insights:
+- revenue_summary: to get the total revenue per order
+- product_summary: to get per product and order, the total revenue, the number of units sold and the profit
+- order_summary: to get per order, the total revenue, the profit and the number of items sold
+
+This requires us to build the insights in the following order:
+
+1. revenue_summary and product_summary
+2. order_summary
+
+![](/img/starbake-transform.png)
+
+## The SELECT statements
+We will store these insights in the `kpi` schema. We need to write one SQL query per insight as shown below:
+
+<br/>
+
+```sql title="metadata/transform/kpi/revenue_summary.sql"
+SELECT
+    o.order_id,
+    o.timestamp AS order_date,
+    SUM(ol.quantity * ol.sale_price) AS total_revenue
+FROM
+    starbake.order o
+    JOIN starbake.order_line ol ON o.order_id = ol.order_id
+GROUP BY
+    o.order_id, o.timestamp
+```
+
+<br/>
+
+```sql title="metadata/transform/kpi/product_summary.sql"
+SELECT
+    p.product_id,
+    p.name AS product_name,
+    SUM(ol.quantity) AS total_units_sold,
+    (SUM(ol.sale_price) - Sum(ol.quantity * p.cost)) AS profit,
+    o.order_id,
+    o.timestamp AS order_date
+FROM
+    starbake.product p
+        JOIN starbake.order_line ol ON p.product_id = ol.product_id
+        JOIN starbake.order o ON ol.order_id = o.order_id
+GROUP BY
+    p.product_id,
+    o.order_id, p.name, o.timestamp
+
+```
+
+<br/>
+
+```sql title="metadata/transform/kpi/order_summary.sql"
+SELECT
+    ps.order_id,
+    ps.order_date,
+    rs.total_revenue,
+    ps.profit,
+    ps.total_units_sold
+FROM
+    kpi.product_summary ps
+        JOIN kpi.revenue_summary rs ON ps.order_id = rs.order_id
+
+```
+
+Storing the sql files in the `kpi` directory instructs starlake to store the insights in the `kpi` schema.
+
+Your metadata/transform directory should look like this:
+
+```plaintext
+metadata/transform
+└── kpi
+    ├── order_summary.sql
+    ├── product_summary.sql
+    └── revenue_summary.sql
+```
+
+## Run the transform
+
+before running our transform, let's see in what order we should run them by running the following command:
+
+```bash
+starlake lineage  --task kpi.order_summary --print
+```
+
+This should produce a acyclic graph showing the order in which the insights should be run. The output should look like this:
+
+```plaintext
+kpi.order_summary
+  kpi.product_summary
+    starbake.product
+    starbake.order_line
+    starbake.order
+  kpi.revenue_summary
+    starbake.order
+    starbake.order_line
+```
+
+If you installed the [GraphViz tool](../../install#graph-visualization), you can produce the same graph in svg or png format using the following command:
+
+```bash
+
+starlake lineage --task kpi.order_summary --svg --output lineage.svg
+```
+
+![](/img/lineage.svg)
+
+
+To build our top level insight, we can run the following command using the `recursive` flag, this instructs starlake to run the insights in the correct order:
+
+```bash
+starlake transform --recursive --name kpi.order_summary
+```
+
+Our database should now contain the following tables and data (amounts and dates may differ here):
+
+```plaintext
+$ duckdb ./duckdb.db
+v0.10.0 20b1486d11
+Enter ".help" for usage hints.
+D show;
+┌──────────┬──────────┬─────────────────┬──────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┬───────────┐
+│ database │  schema  │      name       │     column_names     │                                           column_types                                            │ temporary │
+│ varchar  │ varchar  │     varchar     │      varchar[]       │                                             varchar[]                                             │  boolean  │
+├──────────┼──────────┼─────────────────┼──────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┼───────────┤
+│ duckdb   │ audit    │ audit           │ [JOBID, PATHS, DOM…  │ [VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT, TIMESTAMP, INTEGER, VARCH…  │ false     │
+│ duckdb   │ audit    │ rejected        │ [JOBID, TIMESTAMP,…  │ [VARCHAR, TIMESTAMP, VARCHAR, VARCHAR, VARCHAR, VARCHAR]                                          │ false     │
+│ duckdb   │ kpi      │ order_summary   │ [order_id, order_d…  │ [BIGINT, TIMESTAMP, DOUBLE, DOUBLE, HUGEINT]                                                      │ false     │
+│ duckdb   │ kpi      │ product_summary │ [product_id, produ…  │ [BIGINT, VARCHAR, HUGEINT, DOUBLE, BIGINT, TIMESTAMP]                                             │ false     │
+│ duckdb   │ kpi      │ revenue_summary │ [order_id, order_d…  │ [BIGINT, TIMESTAMP, DOUBLE]                                                                       │ false     │
+│ duckdb   │ starbake │ order           │ [customer_id, orde…  │ [BIGINT, BIGINT, VARCHAR, TIMESTAMP]                                                              │ false     │
+│ duckdb   │ starbake │ order_line      │ [order_id, product…  │ [BIGINT, BIGINT, BIGINT, DOUBLE]                                                                  │ false     │
+│ duckdb   │ starbake │ product         │ [category, cost, d…  │ [VARCHAR, DOUBLE, VARCHAR, VARCHAR, DOUBLE, BIGINT]                                               │ false     │
+└──────────┴──────────┴─────────────────┴──────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┴───────────┘
+D select * from kpi.order_summary limit 5;
+┌──────────┬─────────────────────────┬────────────────────┬─────────────────────┬──────────────────┐
+│ order_id │       order_date        │   total_revenue    │       profit        │ total_units_sold │
+│  int64   │        timestamp        │       double       │       double        │      int128      │
+├──────────┼─────────────────────────┼────────────────────┼─────────────────────┼──────────────────┤
+│       24 │ 2024-02-13 07:03:35.94  │           11708.55 │             7609.14 │              405 │
+│       27 │ 2024-02-26 01:12:45.282 │            2430.00 │              850.50 │              162 │
+│       44 │ 2024-03-01 04:48:42.158 │            2109.24 │             1090.26 │              243 │
+│       46 │ 2024-02-10 18:27:05.732 │            3645.00 │             1883.25 │              243 │
+│       56 │ 2024-01-30 07:33:08.621 │            6075.00 │             3948.75 │              405 │
+└──────────┴─────────────────────────┴────────────────────┴─────────────────────┴──────────────────┘
+D .quit
+```
+<br/>
+Our insight is now built and stored in the `kpi` schema. We can now run them from inside our orchestrator to schedule them to run at regular intervals.
+

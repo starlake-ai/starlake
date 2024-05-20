@@ -1,0 +1,239 @@
+# Write strategies
+
+When loading a file to a database table you can specify how to data is written to the table.
+That's what the `metadata.writeStrategy` property is for.
+
+The following strategies are available:
+
+| Strategy | Description |
+|---|---|
+| APPEND | Insert all rows into the table. If the table already contains data, the new rows will be appended. |
+| OVERWRITE | Replace all rows in the table with the new rows. This will delete all existing rows and insert the new ones. |
+| OVERWRITE_BY_KEY | Merge the new rows with the existing rows. If a row with the same key already exists in the table, the new row will overwrite the old one otherwise it will be appended. |
+| OVERWRITE_BY_KEY_AND_TIMESTAMP | Merge the new rows with the existing rows. If a row with the same key and an older timestamp already exists in the table, the new row will overwrite the old one otherwise it will be appended. |
+| OVERWRITE_BY_PARTITION | Merge the new rows with the existing rows. All existing partitions present in the new data will be overwritten. All other partitions will be left untouched and new partitions will be appended. |
+| DELETE_THEN_INSERT | Delete rows in the target table for which records with the same keys exist in the incoming data, before inserting the incoming rows.  |
+| SCD2 | Merge the new rows with the existing rows using the [Slowly Changing Dimension Type 2](https://en.wikipedia.org/wiki/Slowly_changing_dimension) strategy. This will keep track of the history of the rows in the table. |
+| ADAPTATIVE | The write strategy will be determined at runtime based on the properties of the file being loaded.|
+
+## APPEND
+If the table does not exist, it will be created. If the table already contains data, the new rows will be appended.
+<br/>
+
+```yaml title="Append to the table."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "APPEND"
+  attributes:
+    - ...
+```
+
+## OVERWRITE
+If the table does not exist, it will be created.
+Replace all rows in the table with the new rows. This will delete all existing rows and insert the new ones.
+<br/>
+
+
+```yaml title="Overwrite the table."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "OVERWRITE"
+  attributes:
+    - ...
+```
+
+## OVERWRITE_BY_KEY
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows.
+If a row with the same key already exists in the table,
+the new row will overwrite the old one otherwise it will be appended.
+<br/>
+
+
+```yaml title="Overwrite by key. The column 'id' is used as key."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "OVERWRITE_BY_KEY"
+      key: ["id"]
+      on: TARGET
+  attributes:
+    - ...
+```
+## OVERWRITE_BY_KEY_AND_TIMESTAMP
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows. If a row with the same key and an older timestamp already exists in the table, the new row will overwrite the old one otherwise it will be appended.
+<br/>
+
+```yaml title="Overwrite by key and timestamp. The column 'id' is used as key."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "OVERWRITE_BY_KEY_AND_TIMESTAMP"
+      key: ["id"]
+      timestamp: "valid_from"
+      on: TARGET
+  attributes:
+    - ...
+```
+
+
+## OVERWRITE_BY_PARTITION
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows. All existing partitions present in the new data will be overwritten. All other partitions will be left untouched and new partitions will be appended.
+<br/>
+
+```yaml title="Overwrite by partition. Require the partition property to be set in the metadata.sink section."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "OVERWRITE_BY_PARTITION"
+      on: TARGET
+  attributes:
+    - ...
+```
+
+
+## DELETE_THEN_INSERT
+If the table does not exist, it will be created.
+Delete rows in the target table for which records with the same keys exist in the incoming data, before inserting the incoming rows.
+<br/>
+
+```yaml title="Delete then insert"
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "DELETE_THEN_INSERT"
+      key: ["id", "name" ...]
+  attributes:
+    - ...
+```
+
+## SCD2
+If the table does not exist, it will be created.
+Merge the new rows with the existing rows using the [Slowly Changing Dimension Type 2](https://en.wikipedia.org/wiki/Slowly_changing_dimension) strategy. This will keep track of the history of the rows in the table.
+
+<br/>
+
+```yaml title="Slow changing dimension Type 2. The column 'id' is used as key and the column 'date' is used as timestamp."
+table:
+  pattern: "<table>.*.csv"
+  metadata:
+    ...
+    writeStrategy:
+      type: "SCD2"
+      key: ["id"]
+      timestamp: "date"
+      startTs: "valid_from"
+      endTs: "valid_to"
+      on: BOTH
+  attributes:
+    - ...
+```
+
+<br/>
+the `startTs` and `endTs` properties are used to specify the names of the columns that will be used to store the start and end timestamps of the rows.
+
+They may be omitted. In that case, the default values `sl_start_ts` and `sl_end_ts` will be used.
+
+These default values may be changed in the `metadata/application.sl.yml` file by setting the following global variables .
+<br/>
+
+```yaml
+application:
+  ...
+  scd2StartTimestamp: "sl_start_ts"
+  scd2EndTimestamp: "sl_end_ts"
+```
+
+## Adaptive write strategy
+
+Have you ever needed to change the way you feed your table from time to time or periodically?
+Adaptive Write may be the solution to your need. This feature allows you to adjust the loading mode at runtime,
+according to various criteria listed in the table below.
+
+For example, you want to ingest in APPEND mode throughout the week,
+except on Sundays when the source sends you all of certain tables,
+as discrepancies may occur with the incremental mode.
+This can be done automatically by changing the domain or table configuration.
+
+The example below illustrates the change at domain level that will be propagated to all these tables.
+
+```yaml
+# _config.sl.yml
+load:
+   name: "DOMAIN
+   metadata:
+      ...
+      writeStrategy:
+         types:
+             APPEND: 'dayOfWeek != 7'
+             OVERWRITE: 'dayOfWeek == 7'
+```
+
+Another example is based on the file name:
+
+```yaml
+# _config.sl.yml
+load:
+   name: "DOMAIN"
+   metadata:
+      ...
+      writeStrategy:
+         types:
+             OVERWRITE: 'group("mode") == "FULL"'
+             APPEND: 'group("mode") == "APPEND"'
+```
+
+
+```yaml
+#my_table.sl.yml
+table:
+  ...
+  pattern: ".*-(?<mode>FULL|APPEND).csv$"
+```
+
+You may want to combine these criteria. If so, just use regular boolean operators with `!`, `&&`and `||` and wrap with parenthesis if necessary.
+
+:::note
+When using String in expression, makes sure to wrap them with double quotes `"`
+:::
+
+
+### List of criterias
+Criteria| Description | Example
+:---|:---|:---
+group(index or name) | File pattern must use (named) capture groups | pattern: `my-file-(F|D).csv$` => m.group(1) == "F"
+fileSize | Current file size in bytes | fileSize > 1000
+fileSizeB | Current file size in bytes. Alias of fileSize |
+fileSizeKo | Current file size in Ko |
+fileSizeMo | Current file size in Mo |
+fileSizeGo | Current file size in Go |
+fileSizeTo | Current file size in To |
+isFirstDayOfMonth | Current day is first day of month|
+isLastDayOfMonth | Current day is last day of month|
+dayOfWeek | Integer representing day of week. Monday = 1, ..., Sunday = 7|
+isFileFirstDayOfMonth | File modification date is first day of month|
+isFileLastDayOfMonth | File modification date is last day of month|
+fileDayOfWeek | Integer representing file modification day of week. Monday = 1, ..., Sunday = 7|
+
+:::note
+For a criteria relying on datetime, you can change its timezone with `timezone` application settings in `application.sl.yml`
+:::
+
+
+

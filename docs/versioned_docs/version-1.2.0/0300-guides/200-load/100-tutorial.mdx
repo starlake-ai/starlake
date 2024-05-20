@@ -1,0 +1,173 @@
+# Tutorial
+
+Load and validate, in one shot or incrementally, JSON, XML and CSV files into your datawarehouse using different write strategies.
+
+## Prerequisites
+
+If you skipped the extract step above, copy the folder and its files present in `$SL_ROOT/sample-data/` to the `$SL_ROOT/incoming/` folder.
+
+
+The folder name `starbake` will be translated in to a schema name (dataset in BigQuery) in the datawarehouse.
+
+The files in the folder will be loaded into tables in the schema. Files will be loaded into tables with the same name in the schema.
+Tables suffixed by a date/time will be loaded incrementally.
+
+## Autoload
+The autoload command is used to load the files in the default incoming folder into the datawarehouse.
+
+The autoload command will:
+- detect the file type based on its extension and content
+- infer the schema of the target table
+- stage the files
+- load the files into the target tables
+
+Run the following command to autoload the files located the incoming folder.
+
+```bash
+starlake autoload
+```
+
+:::note
+Starlake looks at files present in the $SL_ROOT/incoming folder.
+
+The default incoming folder may be changed by setting the SL_INCOMING environment variable.
+:::
+
+
+Once loaded, files are moved to the $SL_ROOT/datasets/archive folder if the SL_ARCHIVE environment variable is set to true (default).
+You can replay them by moving them back to the incoming folder.
+
+
+## Query your datawarehouse
+That's it you have loaded the data into your datawarehouse and just need to query it.
+To query your database, open de DuckDB shell by running the following command:
+
+:::note
+Install [duckdb](https://duckdb.org/docs/installation/) if you haven't done it yet.
+:::
+
+```bash
+$ cd $SL_ROOT
+$ duckdb datasets/duckdb.db
+v0.10.0 20b1486d11
+Enter ".help" for usage hints.
+```
+
+You can now query your datawarehouse using SQL.
+
+```bash
+D show;
+┌──────────┬──────────┬─────────────────┬──────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┬───────────┐
+│ database │  schema  │      name       │     column_names     │                                           column_types                                            │ temporary │
+│ varchar  │ varchar  │     varchar     │      varchar[]       │                                             varchar[]                                             │  boolean  │
+├──────────┼──────────┼─────────────────┼──────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┼───────────┤
+│ duckdb   │ audit    │ audit           │ [JOBID, PATHS, DOM…  │ [VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT, TIMESTAMP, INTEGER, VARCH…  │ false     │
+│ duckdb   │ audit    │ rejected        │ [JOBID, TIMESTAMP,…  │ [VARCHAR, TIMESTAMP, VARCHAR, VARCHAR, VARCHAR, VARCHAR]                                          │ false     │
+│ duckdb   │ starbake │ order           │ [customer_id, orde…  │ [BIGINT, BIGINT, VARCHAR, TIMESTAMP]                                                              │ false     │
+│ duckdb   │ starbake │ order_line      │ [order_id, product…  │ [BIGINT, BIGINT, BIGINT, DOUBLE]                                                                  │ false     │
+│ duckdb   │ starbake │ product         │ [category, cost, d…  │ [VARCHAR, DOUBLE, VARCHAR, VARCHAR, DOUBLE, BIGINT]                                               │ false     │
+└──────────┴──────────┴─────────────────┴──────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┴───────────┘
+
+D select * from starbake.order limit 5;
+┌─────────────┬──────────┬───────────┬─────────────────────────┐
+│ customer_id │ order_id │  status   │        timestamp        │
+│    int64    │  int64   │  varchar  │        timestamp        │
+├─────────────┼──────────┼───────────┼─────────────────────────┤
+│           6 │        1 │ Cancelled │ 2024-02-05 22:19:15.454 │
+│          23 │        2 │ Delivered │ 2024-01-02 11:44:37.59  │
+│          20 │        3 │ Delivered │ 2024-02-10 23:10:30.685 │
+│           6 │        4 │ Delivered │ 2024-01-17 19:31:22.917 │
+│          17 │        5 │ Pending   │ 2024-01-19 01:26:06.674 │
+└─────────────┴──────────┴───────────┴─────────────────────────┘
+```
+
+To exit the DuckDB shell, type `.quit` and press Enter.
+
+```bash
+D .quit
+$
+```
+
+## Manual load
+
+The autoload command above is a shortcut to the infer-schema, stage and load commands below.
+
+### Infer schema
+This is done by running the following command:
+
+```bash
+starlake infer-schema --input-path incoming/starbake --clean
+```
+
+Your metadata `load` folder should now contain the folder `starbake` with following files:
+- products.sl.yml
+- orders.sl.yml
+- order_lines.yml
+- _config.sl.yml
+
+The ìnfer-schema` command has created a schema file for each of the files in the incoming folder trying to detect the schema of the files.
+These schema files are used to load the data into the datawarehouse.
+
+In a real life scenario, you may want to review the schema files and adjust them to your needs.
+
+### Stage before loading
+starlake can stage the files before loading them into the datawarehouse.
+This is useful when your files arrive in a different folder from the one where they are loaded into the datawarehouse.
+
+To move the incoming files to the stage folder. Run the following command:
+
+```bash
+starlake stage
+```
+
+
+### Load data into your datawarehouse
+
+Run the following command to load the files in the incoming folder.
+Since we are target the DuckDB datawarehouse, we need to set the SL_ENV variable to `DUCKDB` to activate the env.DUCKDB.sl.yml configuration file.
+
+```bash
+
+SL_ENV=DUCKDB starlake load
+
+```
+
+## Query your loaded files in your datawarehouse
+That's it you have loaded the data into your datawarehouse and just need to query it.
+To query your database, you can use the following command:
+
+```bash
+$ cd $SL_ROOT
+$ duckdb datasets/duckdb.db
+v0.10.0 20b1486d11
+Enter ".help" for usage hints.
+D show;
+┌──────────┬──────────┬─────────────────┬──────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┬───────────┐
+│ database │  schema  │      name       │     column_names     │                                           column_types                                            │ temporary │
+│ varchar  │ varchar  │     varchar     │      varchar[]       │                                             varchar[]                                             │  boolean  │
+├──────────┼──────────┼─────────────────┼──────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┼───────────┤
+│ duckdb   │ audit    │ audit           │ [JOBID, PATHS, DOM…  │ [VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT, TIMESTAMP, INTEGER, VARCH…  │ false     │
+│ duckdb   │ audit    │ rejected        │ [JOBID, TIMESTAMP,…  │ [VARCHAR, TIMESTAMP, VARCHAR, VARCHAR, VARCHAR, VARCHAR]                                          │ false     │
+│ duckdb   │ starbake │ order           │ [customer_id, orde…  │ [BIGINT, BIGINT, VARCHAR, TIMESTAMP]                                                              │ false     │
+│ duckdb   │ starbake │ order_line      │ [order_id, product…  │ [BIGINT, BIGINT, BIGINT, DOUBLE]                                                                  │ false     │
+│ duckdb   │ starbake │ product         │ [category, cost, d…  │ [VARCHAR, DOUBLE, VARCHAR, VARCHAR, DOUBLE, BIGINT]                                               │ false     │
+└──────────┴──────────┴─────────────────┴──────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┴───────────┘
+
+D select * from starbake.order limit 5;
+┌─────────────┬──────────┬───────────┬─────────────────────────┐
+│ customer_id │ order_id │  status   │        timestamp        │
+│    int64    │  int64   │  varchar  │        timestamp        │
+├─────────────┼──────────┼───────────┼─────────────────────────┤
+│           6 │        1 │ Cancelled │ 2024-02-05 22:19:15.454 │
+│          23 │        2 │ Delivered │ 2024-01-02 11:44:37.59  │
+│          20 │        3 │ Delivered │ 2024-02-10 23:10:30.685 │
+│           6 │        4 │ Delivered │ 2024-01-17 19:31:22.917 │
+│          17 │        5 │ Pending   │ 2024-01-19 01:26:06.674 │
+└─────────────┴──────────┴───────────┴─────────────────────────┘
+
+D .quit
+$
+```
+
+Our raw files have been loaded into the datawarehouse and we can now start to [transform our data to build insights](../transform/tutorial).
+

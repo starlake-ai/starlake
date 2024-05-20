@@ -1,0 +1,49 @@
+#  SQL Transforms
+
+SQL transforms are used to materialize SELECT statements using a user defined strategy.
+
+## SELECT statements
+[SQL transforms](../transform/tutorial#the-select-statements) are SELECT statements materialized using a user defined strategy.
+The result of the SELECT statement is then used to populate the target table by applying the [write strategy](../load/write-strategies) defined in the corresponding YAML configuration file.
+The SELECT statement can be as simple or as complex as needed.
+
+The only requirement is that the result of the SELECT statement must match the schema of the target table if it exists, otherwise starlake will infer the schema.
+
+
+
+## Column description
+
+Most of the time you won't need to document the columns in the SELECT statement as starlake will infer the schema from the result of the SELECT statement
+and the column documentation from the source table column description.
+
+You may need to document the calculated columns in the SELECT statement as they don't exist in the source tables.
+You can do that by adding setting the `attributesDesc` key in the YAML configuration file.
+
+```yaml title="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+  ...
+  attributesDesc:
+    name: <column_name>
+    comment: <column_description>
+  ...
+
+```
+
+## Custom write strategy
+
+If none of the [predefined write strategies](../load/write-strategies) fits your need, you can write your own update/insert/merge statements directly in the SQL file
+instead of letting starlake convert your select statements into update/insert/merge statements.
+
+But in that case, you will need to set the `parseSQL` (`true` by default) to `false` in the YAML configuration file.
+
+```yaml title="metadata/transform/<domain>/<table>.sl.yml"
+
+task:
+  ...
+  parseSQL: false
+  ...
+
+```
+
+

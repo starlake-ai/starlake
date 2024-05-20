@@ -1,0 +1,7 @@
+{
+  "label": "Deploy",
+  "link": {
+    "type": "generated-index",
+    "description": "Deploy the application to the cloud",
+  }
+}

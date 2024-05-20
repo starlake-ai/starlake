@@ -1,0 +1,122 @@
+# Load DSV files
+
+
+## File load configuration
+
+Most of the time, we won't need to define the table configuration, as the `infer-schema` command will be able to infer the table configuration from the file itself using the `infer-schema command.
+
+Sometimes, we still need to update some properties of the load configuration for the table or add new properties not present in the source file (ACL, comments  ...) or apply transformations.
+
+<br/>
+
+Describing the file you load involves defining :
+- the file pattern that is mapped to this schema,
+- the parsing parameters and the materialization strategy (APPEND, OVERWRITE, OVERWRITE_BY_PARTITION, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, SCD2 ...)
+- the file format as a list of attributes.
+
+## Infer schema
+
+The very first step is to infer the schema of the file from a data file as described in the [autoload section](autoload#how-autoload-detects-the-format-of-the-files) before you start customizing your configuration. This is done using the `infer-schema` command. This will bootstrap the configuration file for the table.
+
+```bash
+
+starlake infer-schema --input-path incoming/starbake
+
+```
+
+
+## Parsing CSV
+
+CSV Parsing options are defined in the `metadata` section of the configuration file.
+
+<br/>
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml - parsing section"
+table:
+  pattern: "order_line.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    ...
+  attributes:
+    - ...
+```
+
+---
+
+|Attribute| Description|
+|---|---|
+|encoding| the encoding of the file. Default is `UTF-8`|
+|withHeader| if the file contains a header. Default is `true`|
+|separator| the separator used in the file. Default is `;`|
+|quote| the quote character used in the file. Default is `"`|
+|escape| the escape character used in the file. Default is `\`|
+|ignore| a regex to filter lines to ignore. All lines matching the regex will be ignored. Default is None|
+|ack| load file only if a file with the same name and with this extension exist in the same directory.|
+|options| a map of options to pass to the parser. Available options are defined in the [Apache Spark CSV documentation](https://spark.apache.org/docs/latest/sql-data-sources-csv.html#data-source-option)|
+|emptyIsNull| if empty column values should be considered as null. Default is `false`|
+|fillWithDefaultValue| if the null value should be filled with the default value of the column. Default is `false`|
+
+## Attributes validation
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml - validation section"
+table:
+  pattern: "order_line.*.csv"
+  metadata:
+    - ...
+  attributes:
+  - name: "order_id"
+    type: "int"
+  - name: "product_id"
+    type: "int"
+  - name: "quantity"
+    type: "int"
+  - name: "sale_price"
+    type: "double"
+```
+<br/>
+The attributes properties are defined in the `attributes` section of the configuration file.
+
+|Attribute|Description|Default|
+|---|---|---|
+|name| the name of the column in the file header. If no header is present, this refers to the column index in the file. This is the only required property. this will also refer to the column name in the table except if the `rename` property is set.| |
+|type| the type of the column. Default is `string`. Available types are `string`, `int`, `long`, `double`, `float`, `boolean`, any flavor of `date` or `timestamp` as defined in the `metadata/types/default.sl.yml` file. Also note that you can add your own types in the `metadata/types` directory.| |
+|required| if the column is required to have a non null value (see `nullValue` in the `metadata.options` section).| false|
+|privacy| a transformation to apply to the column.| |
+|transform| a transformation to apply to the column.| |
+|comment| a comment for the column.| |
+|rename| the name of the column in the database.|`name`|
+|default| the default value of the column.| |
+|trim| the trim strategy for the column.  Available trim strategies are `None`, `Left`, `Right`, `Both`| |
+
+
+To add / replace or ignore some attributes, check the [Transform on load](transform) section.
+
+## Complete configuration
+
+The name property of the column is the only required field. The type property is optional and will be set to `string` if not provided.
+The configuration file below describes how the `order_line` files should be loaded.
+
+
+<br/>
+
+```yaml title="metadata/load/<domain>/<table>.sl.yml"
+table:
+  pattern: "order_line.*.csv"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+  attributes:
+  - name: "order_id"
+    type: "int"
+  - name: "product_id"
+    type: "int"
+  - name: "quantity"
+    type: "int"
+  - name: "sale_price"
+    type: "double"
+```
