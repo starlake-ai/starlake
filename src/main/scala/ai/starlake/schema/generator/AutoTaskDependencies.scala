@@ -50,7 +50,7 @@ class AutoTaskDependencies(
       config.tasks.getOrElse(Nil) match {
         case Nil =>
           if (config.all)
-            List("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+            List("_lineage" -> TaskViewDependency.dependencies(tasks)(settings, schemaHandler))
           else
             Nil
         case taskOrDomainNames =>
@@ -66,7 +66,10 @@ class AutoTaskDependencies(
               taskOrDomainNames
             }
           taskNames.map(taskName =>
-            (taskName, TaskViewDependency.taskDependencies(taskName, tasks)(schemaHandler))
+            (
+              taskName,
+              TaskViewDependency.taskDependencies(taskName, tasks)(settings, schemaHandler)
+            )
           )
       }
     }
