@@ -154,7 +154,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val schemaHandler = new SchemaHandler(storageHandler)
 
       val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
-      val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
+      val deps = TaskViewDependency.dependencies(tasks)(settings, schemaHandler)
       deps.map(_.parentRef) should contain theSameElementsAs List(
         "parquet." + userView,
         "user_view"
