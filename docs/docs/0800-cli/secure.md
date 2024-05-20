@@ -1,5 +1,5 @@
 ---
-sidebar_position: 250
+sidebar_position: 260
 title: secure
 ---
 
@@ -22,4 +22,5 @@ Parameter|Cardinality|Description
 --accessToken:`<value>`|*Optional*|Access token to use for authentication
 --options:`k1=v1,k2=v2...`|*Optional*|Watch arguments to be used as substitutions
 --test:`<value>`|*Optional*|Should we run this load as a test ? Default value is false
+--files:`<value>`|*Optional*|load this file only
 

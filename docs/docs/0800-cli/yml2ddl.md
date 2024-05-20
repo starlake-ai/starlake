@@ -1,5 +1,5 @@
 ---
-sidebar_position: 350
+sidebar_position: 360
 title: yml2ddl
 ---
 
@@ -22,5 +22,5 @@ Parameter|Cardinality|Description
 --domain:`<value>`|*Optional*|Domain to create DDL for. All by default
 --schemas:`<value>`|*Optional*|List of schemas to generate DDL for. All by default
 --apply:`<value>`|*Optional*|Does the file contain a header (For CSV files only)
---parallelism:`<value>`|*Optional*|parallelism level. By default equals to the available cores: 12
+--parallelism:`<value>`|*Optional*|parallelism level. By default equals to the available cores: 10
 
