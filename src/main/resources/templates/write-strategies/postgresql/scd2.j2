@@ -4,7 +4,7 @@ CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
@@ -22,7 +22,7 @@ WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = {{ strategyTimestamp }}
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
@@ -39,7 +39,7 @@ MERGE INTO {{ tableFullName }} SL_EXISTING USING (
         SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
 ) SL_INCOMING 
 ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdate}}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
 
 
 {%  endif %}
