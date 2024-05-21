@@ -35,7 +35,9 @@ def generate_dag_name(schedule):
 
 _extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
 
-_extra_dataset_parameters = '?' + '&'.join(list(f'{k}={v}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
+from urllib import parse
+
+_extra_dataset_parameters = '?' + '&'.join(list(f'{parse.quote(k)}={parse.quote(v)}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
 
 # [START instantiate_dag]
 for schedule in schedules:
@@ -74,7 +76,9 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id))]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters), sl_job.outlets)))
+        extra: dict = {"source": dag.dag_id}
+
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id), extra)]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters, extra), sl_job.outlets)))
 
         all_load_tasks >> end
 
