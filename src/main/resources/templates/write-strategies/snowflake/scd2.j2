@@ -1,11 +1,11 @@
-{% macro renderIncominTableColumns(columnNames) %}
+{% macro renderIncomingTableColumns(columnNames) %}
 {% for columnName in columnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
 {% endmacro %}
 
 
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, {{ strategyStartTs }}, {{ strategyEndTs }})
-SELECT {{renderIncominTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+SELECT {{renderIncomingTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
 LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
