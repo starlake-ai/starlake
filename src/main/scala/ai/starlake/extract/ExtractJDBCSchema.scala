@@ -100,6 +100,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
             )
           }
         }
+        forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
       }
     }
   }

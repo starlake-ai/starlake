@@ -422,8 +422,8 @@ object JdbcDbUtils extends LazyLogging {
             ParUtils
               .makeParallel(selectedTables.toList)
               .map { case (tableName, tableRemarks) =>
-                ExtractUtils.timeIt(s"Table extraction of $tableName") {
-                  logger.info(s"Extracting table $tableName: $tableRemarks")
+                ExtractUtils.timeIt(s"Table's schema extraction of $tableName") {
+                  logger.info(s"Extracting table's schema $tableName: $tableRemarks")
                   withJDBCConnection(connectionSettings.options) { tableExtractConnection =>
                     val jdbcColumnMetadata: JdbcColumnMetadata =
                       jdbcSchema.tables
