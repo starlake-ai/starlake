@@ -6,6 +6,7 @@ import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types._
@@ -14,12 +15,10 @@ import java.sql.{
   Connection => SQLConnection,
   DatabaseMetaData,
   Date,
-  DriverManager,
   PreparedStatement,
   ResultSet,
   Timestamp
 }
-import java.util.Properties
 import java.util.regex.Pattern
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
@@ -32,6 +31,31 @@ object JdbcDbUtils extends LazyLogging {
   type Columns = List[Attribute]
   type PrimaryKeys = List[String]
 
+  object HikariConnectionPool {
+    private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
+
+    def apply(connectionOptions: Map[String, String]): HikariDataSource = {
+      assert(
+        connectionOptions.contains("driver"),
+        s"driver class not found in JDBC connection options $connectionOptions"
+      )
+      val driver = connectionOptions("driver")
+      val url = connectionOptions("url")
+      hikariPools.getOrElseUpdate(
+        url, {
+          val config = new HikariConfig()
+          (connectionOptions - "url" - "driver").foreach { case (key, value) =>
+            config.addDataSourceProperty(key, value)
+          }
+          config.setJdbcUrl(url)
+          config.setDriverClassName(driver)
+          config.setMinimumIdle(1)
+          config.setMaximumPoolSize(100) // dummy value since we are limited by the ForJoinPool size
+          new HikariDataSource(config)
+        }
+      )
+    }
+  }
   val lastExportTableName = "SL_LAST_EXPORT"
 
   /** Execute a block of code in the context of a newly created connection. We better use here a
@@ -46,22 +70,7 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    assert(
-      connectionOptions.contains("driver"),
-      s"driver class not found in JDBC connection options $connectionOptions"
-    )
-    Class.forName(connectionOptions("driver"))
-    val url = connectionOptions("url")
-    val properties = new Properties()
-    (connectionOptions - "url" - "driver").foreach { case (key, value) =>
-      properties.setProperty(key, value)
-    }
-
-    logger.info(s"Connecting to $url")
-
-    val connection = DriverManager.getConnection(url, properties)
-    // connection.setAutoCommit(false)
-
+    val connection = HikariConnectionPool(connectionOptions).getConnection()
     val result = Try {
       f(connection)
     } match {
@@ -74,6 +83,7 @@ object JdbcDbUtils extends LazyLogging {
         Success(value)
     }
 
+    val url = connectionOptions("url")
     Try(connection.close()) match {
       case Success(_) => logger.debug(s"Closed connection $url")
       case Failure(exception) =>
