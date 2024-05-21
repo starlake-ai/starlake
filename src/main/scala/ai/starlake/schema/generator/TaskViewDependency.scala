@@ -4,11 +4,10 @@ import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.schema.model.Domain
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 /*
@@ -74,6 +73,40 @@ object TaskViewDependency extends StrictLogging {
 
     val allTasks = schemaHandler.tasks()
 
+    def tableSchedule(tableName: String): Option[String] = {
+      val domains = schemaHandler.domains()
+      val parts = tableName.split('.')
+      parts.length match {
+        case 1 =>
+          val tablePart = parts.last // == 0
+          val theDomain =
+            domains
+              .find(domain =>
+                domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
+              )
+          val theTable = theDomain.flatMap(
+            _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
+          )
+          theTable
+            .flatMap(_.metadata)
+            .flatMap(_.schedule)
+            .orElse(theDomain.flatMap(_.metadata).flatMap(_.schedule))
+        case 2 | 3 =>
+          val domainPart = parts.dropRight(1).last
+          val tablePart = parts.last
+          val theDomain: Option[Domain] = domains
+            .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
+          val theTable = theDomain.flatMap(
+            _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
+          )
+          theTable
+            .flatMap(_.metadata)
+            .flatMap(_.schedule)
+            .orElse(theDomain.flatMap(_.metadata).flatMap(_.schedule))
+        case _ =>
+          None
+      }
+    }
     val jobAndViewDeps = jobDependencies.flatMap { case SimpleEntry(jobName, typ, parentRefs) =>
       logger.info(
         s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
@@ -102,7 +135,7 @@ object TaskViewDependency extends StrictLogging {
                 )
 
               } else
-                refs.headOption.map(ref => (ref.name, ref.schedule))
+                refs.headOption.map(_.name)
 
             case 2 | 3 =>
               val domainPart = parts.dropRight(1).last
@@ -113,7 +146,7 @@ object TaskViewDependency extends StrictLogging {
                   (task.table.toLowerCase() == tablePart.toLowerCase() &&
                   task.domain.toLowerCase() == domainPart.toLowerCase())
                 )
-                .map(ref => (ref.name, ref.schedule))
+                .map(_.name)
             case _ =>
               val errors = schemaHandler.checkJobsVars().mkString("\n")
 
@@ -128,28 +161,15 @@ object TaskViewDependency extends StrictLogging {
                 // Strange. This should never happen as far as I know. Let's make it clear
                 throw new Exception(
                   s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName'. Too many parts.
-                       |Make sure variables defined in your job have a default value in the selected env profile.
-                       |$errors""".stripMargin
+                     |Make sure variables defined in your job have a default value in the selected env profile.
+                     |$errors""".stripMargin
                 )
 
           }
           parentJobName match {
-            case Some(value) =>
+            case Some(parentJobName) =>
               val result =
-                generator.TaskViewDependency(
-                  jobName,
-                  typ,
-                  value._1,
-                  TASK_TYPE,
-                  parentSQLRef,
-                  None,
-                  Some(
-                    settings.appConfig.schedulePresets.getOrElse(
-                      value._2.getOrElse("None"),
-                      value._2.getOrElse("None")
-                    )
-                  )
-                )
+                generator.TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
               if (typ == TASK_TYPE) {
                 // TODO We just handle one task per job which is always the case till now.
                 val task = jobs(jobName).head
@@ -162,35 +182,24 @@ object TaskViewDependency extends StrictLogging {
               val parentTable = parts.length match {
                 case 1 =>
                   val tablePart = parts.last // == 0
-                  @tailrec
-                  def dt(ds: List[Domain]): Option[(Domain, Schema)] = {
-                    ds match {
-                      case x :: xs =>
-                        x.tables.find(
-                          _.finalName.toLowerCase() == tablePart.toLowerCase()
-                        ) match {
-                          case Some(table) => Some(x, table)
-                          case _           => dt(xs)
-                        }
-                      case Nil => None
-                    }
-                  }
-                  val domainWithTable: Option[(Domain, Schema)] = dt(domains)
-                  val schedule = domainWithTable.flatMap(_._2.metadata).flatMap(_.schedule)
-                  domainWithTable.map(dt => (dt._1.finalName, tablePart, schedule))
+                  val parentDomain: Option[Domain] = domains
+                    .find(domain =>
+                      domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
+                    )
+                  parentDomain.map(domain => (domain.finalName, tablePart))
 
                 case 2 | 3 =>
                   val domainPart = parts.dropRight(1).last
                   val tablePart = parts.last
                   val theDomain: Option[Domain] = domains
                     .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
-                  val theTable = theDomain.flatMap(
-                    _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
+                  val parentDomainFound = theDomain.exists(
+                    _.tables.exists(table =>
+                      table.finalName.toLowerCase() == tablePart.toLowerCase()
+                    )
                   )
-                  val schedule = theTable.flatMap(_.metadata).flatMap(_.schedule)
-                  val parentDomainFound = theTable.nonEmpty
                   if (parentDomainFound)
-                    Some((domainPart, tablePart, schedule))
+                    Some((domainPart, tablePart))
                   else
                     None
                 case _ =>
@@ -198,20 +207,13 @@ object TaskViewDependency extends StrictLogging {
                   throw new Exception(s"unknown $parentSQLRef syntax. Too many parts")
               }
               parentTable match {
-                case Some((parentDomainName, parentTableName, schedule)) =>
+                case Some((parentDomainName, parentTableName)) =>
                   TaskViewDependency(
                     jobName,
                     typ,
                     parentDomainName + "." + parentTableName,
                     TABLE_TYPE,
-                    parentSQLRef,
-                    None,
-                    Some(
-                      settings.appConfig.schedulePresets.getOrElse(
-                        schedule.getOrElse("None"),
-                        schedule.getOrElse("None")
-                      )
-                    )
+                    parentSQLRef
                   )
                 case None =>
                   TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
@@ -222,13 +224,31 @@ object TaskViewDependency extends StrictLogging {
       }
     }
     val tableNames = jobAndViewDeps.filter(_.parentTyp == TABLE_TYPE).groupBy(_.parent).keys
-    val tableDeps = tableNames.map(TaskViewDependency(_, TABLE_TYPE, "", UNKNOWN_TYPE, ""))
+    val tableDeps = tableNames.map(tableName => {
+      val schedule = tableSchedule(tableName)
+      val cron =
+        Some(
+          settings.appConfig.schedulePresets.getOrElse(
+            schedule.getOrElse("None"),
+            schedule.getOrElse("None")
+          )
+        )
+      TaskViewDependency(tableName, TABLE_TYPE, "", UNKNOWN_TYPE, "", None, cron)
+    })
     val jobAndViewDepsWithSink = jobAndViewDeps.map { dep =>
       if (dep.typ == TASK_TYPE) {
         // TODO We just handle one task per job which is always the case till now.
         val task = jobs(dep.name).head
         val sink = task.taskDesc.domain + "." + task.taskDesc.table
-        dep.copy(sink = Some(sink))
+        val schedule = allTasks.find(_.name.toLowerCase == dep.name.toLowerCase).flatMap(_.schedule)
+        val cron =
+          Some(
+            settings.appConfig.schedulePresets.getOrElse(
+              schedule.getOrElse("None"),
+              schedule.getOrElse("None")
+            )
+          )
+        dep.copy(sink = Some(sink), cron = cron)
       } else dep
 
     }
