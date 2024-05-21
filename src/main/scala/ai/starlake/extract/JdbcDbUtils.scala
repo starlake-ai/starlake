@@ -51,6 +51,7 @@ object JdbcDbUtils extends LazyLogging {
           config.setDriverClassName(driver)
           config.setMinimumIdle(1)
           config.setMaximumPoolSize(100) // dummy value since we are limited by the ForJoinPool size
+          logger.info(s"Creating connection pool for $url")
           new HikariDataSource(config)
         }
       )
