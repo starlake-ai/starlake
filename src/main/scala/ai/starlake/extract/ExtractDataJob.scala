@@ -546,7 +546,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
             )
           )
         }
-      }.toList
+      }
 
     val success = if (extractionResults.exists(_.isFailure)) {
       logger.error(s"$context An error occured during extraction.")

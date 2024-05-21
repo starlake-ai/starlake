@@ -1,33 +1,15 @@
+{% macro renderIncomingTableColumns(columnNames) %}
+    {% for columnName in columnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+    {% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
 
 {% if strategyOn == 'TARGET' %}
 
-    insert into stg_customer
-    with stg as (
-    select
-    custkey as stg_custkey, name as stg_name,
-    address as stg_address, nationkey as stg_nationkey,
-    phone as stg_phone, acctbal as stg_acctbal,
-    mktsegment as stg_mktsegment, comment as stg_comment,
-    effective_dt as stg_effective_dt,
-    FNV_HASH(address,FNV_HASH(phone)) as stg_track_hash
-    from
-    src_customer
-    )
-    select
-    s.* ,
-    case when c.c_custkey is null then 1 else 0 end new_ind,
-    case when c.c_custkey is not null
-    and s.stg_track_hash <> track_hash then 1 else 0 end track_ind
-    from
-    stg s
-    left join customer_dim c
-    on s.stg_custkey = c.c_custkey
-    and c.record_end_ts='2999-12-31'
-    ;
-
-
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, `{{ strategyStartTs }}`, `{{ strategyEndTs }}`)
-SELECT {{renderIncominTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) SL_INCOMING
+SELECT {{renderIncomingTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) SL_INCOMING
 LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
