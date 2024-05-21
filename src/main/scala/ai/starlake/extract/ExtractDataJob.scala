@@ -241,7 +241,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
         .mkString(", ")
       nbFailures match {
         case 0 =>
-          logger.info(s"Extracted sucessfully all tables in $elapsedTime")
+          logger.info(s"Extracted successfully all tables in $elapsedTime")
         case nb if extractConfig.ignoreExtractionFailure && dataExtractionFailures.nonEmpty =>
           logger.warn(s"Failed to extract $nb tables: $dataExtractionFailures")
         case nb if dataExtractionFailures.nonEmpty =>
