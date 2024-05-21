@@ -71,29 +71,32 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    val connection = HikariConnectionPool(connectionOptions).getConnection()
-    val result = Try {
-      f(connection)
-    } match {
+    Try(HikariConnectionPool(connectionOptions).getConnection()) match {
       case Failure(exception) =>
-        logger.error(s"Error running sql", exception)
-        // connection.rollback()
-        Failure(exception)
-      case Success(value) =>
-        // connection.commit()
-        Success(value)
-    }
-
-    val url = connectionOptions("url")
-    Try(connection.close()) match {
-      case Success(_) => logger.debug(s"Closed connection $url")
-      case Failure(exception) =>
-        logger.warn(s"Could not close connection to $url", exception)
-    }
-    result match {
-      case Failure(exception) =>
+        logger.error(s"Error creating connection", exception)
         throw exception
-      case Success(value) => value
+      case Success(connection) =>
+        val result = Try {
+          f(connection)
+        } match {
+          case Failure(exception) =>
+            logger.error(s"Error running sql", exception)
+            Failure(exception)
+          case Success(value) =>
+            Success(value)
+        }
+
+        val url = connectionOptions("url")
+        Try(connection.close()) match {
+          case Success(_) => logger.debug(s"Closed connection $url")
+          case Failure(exception) =>
+            logger.warn(s"Could not close connection to $url", exception)
+        }
+        result match {
+          case Failure(exception) =>
+            throw exception
+          case Success(value) => value
+        }
     }
   }
 
