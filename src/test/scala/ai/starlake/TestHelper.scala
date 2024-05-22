@@ -127,7 +127,7 @@ trait TestHelper
        |connections.test-mariadb {
        |    type = "jdbc"
        |    options {
-       |      "url": "${TestHelper.mariadbContainer.jdbcUrl.replace(":mariadb:", ":mysql:")}"
+       |      "url": "${TestHelper.mariadbContainer.jdbcUrl}"
        |      "user": "test"
        |      "password": "test"
        |      "driver": "org.mariadb.jdbc.Driver"

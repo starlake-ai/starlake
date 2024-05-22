@@ -158,9 +158,17 @@ object SparkUtils extends StrictLogging {
 
   def dialect(url: String): JdbcDialect = {
     val reworkedUrl =
-      url.replace("jdbc:redshift", "jdbc:postgresql").replace("jdbc:as400", "jdbc:db2")
-    val jdbcDialect = JdbcDialects.get(reworkedUrl)
-    logger.debug(s"JDBC dialect $jdbcDialect")
+      url
+        .replace("jdbc:redshift", "jdbc:postgresql")
+        .replace("jdbc:as400", "jdbc:db2")
+        .replace("mariadb", "mysql")
+
+    val jdbcDialect: JdbcDialect = JdbcDialects.get(reworkedUrl)
+    if (jdbcDialect.getClass.getSimpleName == "NoopDialect$") {
+      logger.warn(s"No dialect found for $url, falling back to default one")
+    } else {
+      logger.debug(s"JDBC dialect $jdbcDialect")
+    }
     jdbcDialect
   }
 
