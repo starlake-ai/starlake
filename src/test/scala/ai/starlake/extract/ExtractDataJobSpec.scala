@@ -1145,7 +1145,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1250,7 +1250,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1353,7 +1353,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1443,7 +1443,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1554,7 +1554,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1660,7 +1660,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1763,7 +1763,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1866,7 +1866,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -1969,7 +1969,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2072,7 +2072,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2175,7 +2175,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2278,7 +2278,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2389,7 +2389,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2503,7 +2503,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2617,7 +2617,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2731,7 +2731,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2845,7 +2845,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -2958,7 +2958,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3071,7 +3071,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3184,7 +3184,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3297,7 +3297,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3411,7 +3411,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3525,7 +3525,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )
@@ -3639,7 +3639,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           val resultSetRows = resultSet
             .asIteratorOf(rowAsString)
             .toList
-          allRows.append(resultSetRows: _*)
+          allRows.appendAll(resultSetRows)
           Success(resultSetRows.length)
         }
       )

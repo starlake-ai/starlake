@@ -39,7 +39,7 @@ import ImplicitRichPath._
 
 import java.util.Locale
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object YamlSerde extends LazyLogging {
   val mapper: ObjectMapper = Utils.newYamlMapper()

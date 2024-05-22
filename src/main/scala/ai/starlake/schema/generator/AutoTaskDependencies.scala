@@ -75,7 +75,11 @@ class AutoTaskDependencies(
     depsMap.map { case (jobName, allDeps) =>
       val deps =
         allDeps.filter(dep => config.objects.contains("all") || config.objects.contains(dep.typ))
-      val dedupEntities = deps.groupBy(_.name).mapValues(_.head).values.toList
+      val dedupEntities = deps
+        .groupBy(_.name)
+        .mapValues(_.head)
+        .values
+        .toList
       val relations = deps
         .filter(dep => config.objects.contains(dep.parentTyp))
 

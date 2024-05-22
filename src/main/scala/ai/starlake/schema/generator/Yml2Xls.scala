@@ -14,7 +14,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Yml2XlsCmd.run(args, schemaHandler).map(_ => ())
+    Yml2XlsCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 
   def generateXls(domainNames: Seq[String], outputDir: String)(implicit

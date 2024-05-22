@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.io.Source
 
 class MergeUtilsTest extends TestHelper {

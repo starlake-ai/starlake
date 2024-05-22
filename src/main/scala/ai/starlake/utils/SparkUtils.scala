@@ -37,7 +37,7 @@ object SparkUtils extends StrictLogging {
   }
 
   def alterTableAddColumnsString(allFields: StructType, tableName: String): Seq[String] = {
-    allFields.fields.flatMap(alterTableAddColumnString(_, tableName))
+    allFields.fields.flatMap(alterTableAddColumnString(_, tableName)).toIndexedSeq
   }
 
   def alterTableAddColumnString(field: StructField, tableName: String): Option[String] = {

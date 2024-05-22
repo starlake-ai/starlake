@@ -13,7 +13,7 @@ import com.fasterxml.jackson.databind.node.{
 }
 import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait YamlMigratorInterface extends StrictLogging {
 

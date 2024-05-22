@@ -37,7 +37,7 @@ import java.sql.Timestamp
 import java.util.Collections
 import java.util.regex.Pattern
 import scala.util.{Success, Try}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 sealed case class Step(value: String) {
   override def toString: String = value

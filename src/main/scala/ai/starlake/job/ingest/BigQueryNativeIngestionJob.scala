@@ -15,7 +15,7 @@ import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.Charset
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try, Using}
 
 class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option[String])(implicit

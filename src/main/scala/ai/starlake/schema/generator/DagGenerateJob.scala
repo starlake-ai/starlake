@@ -9,13 +9,13 @@ import org.apache.hadoop.fs.Path
 
 import java.nio.charset.StandardCharsets
 import java.util
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
-    DagGenerateCmd.run(args, schemaHandler).map(_ => ())
+    DagGenerateCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
 
   case class TableWithDagConfig(
     domain: Domain,

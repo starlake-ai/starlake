@@ -27,7 +27,7 @@ object Bootstrap extends StrictLogging {
       val targetFile =
         File(
           targetFolder.pathAsString,
-          resource.substring(templateFolder.length).split('/'): _*
+          resource.substring(templateFolder.length).split('/').toIndexedSeq: _*
         )
       targetFile.parent.createDirectories()
       val contents = lines.mkString("\n")

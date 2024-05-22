@@ -169,7 +169,7 @@ class DsvIngestionJob(
               val cols = df.columns
               df.select(
                 cols.head,
-                cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
+                cols.tail.take(attributesWithoutScriptedFields.length - 1).toIndexedSeq: _*
               ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
           }
         }

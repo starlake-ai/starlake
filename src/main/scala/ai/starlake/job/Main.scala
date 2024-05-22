@@ -160,7 +160,7 @@ class Main extends StrictLogging {
     DatasetArea.initMetadata(storageHandler())
 
     // extract any env var passed as --options argument
-    val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
+    val cliEnv = CliEnvConfig.parse(args.drop(1).toIndexedSeq) match {
       case Some(env) => env.options
       case None      => Map.empty[String, String]
     }
@@ -247,7 +247,7 @@ class Main extends StrictLogging {
                 errorsAndWarning.foreach(println)
             }
           }
-          val r = cmd.run(args.drop(1), schemaHandler)
+          val r = cmd.run(args.drop(1).toIndexedSeq, schemaHandler)
           if (cmd.command == BootstrapCmd.command)
             System.exit(0)
           r
