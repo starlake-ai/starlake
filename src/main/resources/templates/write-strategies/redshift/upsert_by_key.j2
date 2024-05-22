@@ -5,6 +5,7 @@
 
 {% if strategyOn == 'TARGET' %}
 
+DROP TABLE IF EXISTS SL_INCOMING;
 CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
 
 MERGE INTO  {{ tableFullName }}
@@ -15,6 +16,7 @@ WHEN NOT MATCHED THEN {{ tableInsert }};
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
+DROP TABLE IF EXISTS SL_INCOMING;
 CREATE  TEMPORARY TABLE SL_INCOMING AS
 SELECT {{ tableColumnsCsv }}
 FROM ({{ selectStatement }})
