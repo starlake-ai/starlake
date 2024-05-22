@@ -11,6 +11,6 @@ transform:
         connectedRef: "spark"
         options:
           emptyValue: ""
-          delimiter: "|"
+          csv:delimiter: "|"
           ignoreLeadingWhiteSpace: false
           ignoreTrailingWhiteSpace: false
