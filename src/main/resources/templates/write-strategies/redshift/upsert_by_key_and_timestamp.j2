@@ -10,6 +10,7 @@
 
 {% if strategyOn == 'TARGET' %}
 
+DROP TABLE IF EXISTS SL_INCOMING;
 CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
 
 UPDATE {{ tableFullName }} {{ tableUpdateSetExpression }}
