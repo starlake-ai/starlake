@@ -42,7 +42,7 @@ object Xls2Yml extends LazyLogging {
 
   def run(args: Array[String]): Try[Boolean] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
-    Xls2YmlCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => true)
+    Xls2YmlCmd.run(args.toIndexedSeq, new SchemaHandler(settings.storageHandler())).map(_ => true)
   }
 
   def main(args: Array[String]): Unit = {

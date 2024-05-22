@@ -22,7 +22,7 @@ import java.net.URI
 import java.nio.channels.Channels
 import java.nio.file.Files
 import java.util.UUID
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try, Using}
 
 class BigQueryNativeJob(

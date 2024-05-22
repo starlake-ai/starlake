@@ -135,7 +135,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     * (can be passed table by table as config element)
     */
   def run(args: Array[String]): Try[Unit] = Try {
-    ExtractScriptConfig.parse(args) match {
+    ExtractScriptConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         run(config)
       case _ =>

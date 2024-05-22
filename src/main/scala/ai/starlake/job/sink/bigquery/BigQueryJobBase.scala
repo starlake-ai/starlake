@@ -40,7 +40,7 @@ import java.io.ByteArrayInputStream
 import java.security.SecureRandom
 import java.util
 import scala.annotation.nowarn
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 

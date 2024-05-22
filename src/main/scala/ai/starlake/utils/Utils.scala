@@ -42,7 +42,7 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
 import java.io.{PrintWriter, StringWriter}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.reflect.runtime.universe
 import scala.sys.process.{Process, ProcessLogger}

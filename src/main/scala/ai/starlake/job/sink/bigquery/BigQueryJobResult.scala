@@ -4,7 +4,7 @@ import ai.starlake.utils.JobResult
 import better.files.File
 import com.google.cloud.bigquery._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class BigQueryJobResult(
   tableResult: scala.Option[TableResult],

@@ -38,7 +38,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import java.util.TimeZone
 import java.util.regex.Pattern
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 

@@ -88,6 +88,6 @@ object Parquet2CSV {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
 
     import settings.storageHandler
-    Parquet2CSVCmd.run(args, new SchemaHandler(storageHandler()))
+    Parquet2CSVCmd.run(args.toIndexedSeq, new SchemaHandler(storageHandler()))
   }
 }

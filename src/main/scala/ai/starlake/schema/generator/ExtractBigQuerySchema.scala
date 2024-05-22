@@ -111,7 +111,7 @@ object ExtractBigQuerySchema {
   def run(
     args: Array[String]
   )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = {
-    ExtractBigQuerySchemaCmd.run(args, schemaHandler).map(_ => ())
+    ExtractBigQuerySchemaCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 
   def extractAndSaveAsDomains(
