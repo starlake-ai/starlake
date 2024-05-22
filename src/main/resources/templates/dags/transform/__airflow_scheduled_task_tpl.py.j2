@@ -27,7 +27,7 @@ datasets: Set[str] = set()
 
 cronDatasets: dict = dict()
 
-_filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', [])
+_filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', set())
 
 _extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
 
@@ -46,9 +46,10 @@ def _load_datasets(task: dict):
                 datasets.add(dataset)
             _load_datasets(child)
 
-if load_dependencies.lower() != 'true' and _cron is None :
-    for task in task_deps:
-        _load_datasets(task)
+if load_dependencies.lower() != 'true' :
+    if not _cron:
+        for task in task_deps:
+            _load_datasets(task)
     schedule = list(map(lambda dataset: Dataset(dataset + _extra_dataset_parameters), datasets))
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
@@ -56,6 +57,9 @@ tags = sl_job.get_context_var(var_name='tags', default_value="", options=options
 from typing import List
 from croniter import croniter
 from datetime import datetime as dt
+
+def cron_start_time() -> dt:
+    return dt.fromtimestamp(dt.now().timestamp())
 
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
@@ -124,16 +128,16 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         start >> all_transform_tasks
 
     extra: dict = {"source": dag.dag_id}
-    start = dt.fromtimestamp(dt.now().timestamp())
+    start_time = cron_start_time()
     if _cron is not None :
-      extra['schedule'] = croniter(_cron, start).get_prev(dt).strftime('%Y-%m-%d')
+      extra['schedule'] = croniter(_cron, start_time).get_prev(dt).strftime('%Y-%m-%d')
     outlets: List[Dataset] = [Dataset(keep_ascii_only(dag.dag_id), extra)] + list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters, extra), sl_job.outlets))
     if cronDatasets :
       for dataset, cronDataset in cronDatasets.items() :
-        datasetNext = croniter(cronDataset, start).get_next(dt)
-        if start < datasetNext :
+        datasetNext = croniter(cronDataset, start_time).get_next(dt)
+        if start_time < datasetNext :
           if _cron :
-            next = croniter(_cron, start).get_next(dt)
+            next = croniter(_cron, start_time).get_next(dt)
             if next < datasetNext :
                 outlets.append(Dataset(dataset, extra))
           else :
