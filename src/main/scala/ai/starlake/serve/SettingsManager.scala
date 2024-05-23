@@ -25,11 +25,11 @@ class SettingsWatcherThread(
 }
 
 object SettingsManager {
-  private val settingsMap: scala.collection.mutable.Map[String, Settings] =
-    scala.collection.mutable.Map.empty
+  private val settingsMap: scala.collection.concurrent.TrieMap[String, Settings] =
+    scala.collection.concurrent.TrieMap.empty
 
-  private val settingsTimeMap: scala.collection.mutable.Map[String, Long] =
-    scala.collection.mutable.Map.empty
+  private val settingsTimeMap: scala.collection.concurrent.TrieMap[String, Long] =
+    scala.collection.concurrent.TrieMap.empty
 
   private val watcherThread = new SettingsWatcherThread(settingsMap, settingsTimeMap)
   watcherThread.start()
@@ -41,6 +41,7 @@ object SettingsManager {
     true
   }
 
+  // Used in vscode plugin only
   var lastSettingsId: String = ""
 
   private def uniqueId(
@@ -76,7 +77,7 @@ object SettingsManager {
     if (refresh) {
       settingsMap.remove(sessionId)
     }
-    val updatedSession = settingsMap.getOrElse(
+    val updatedSession = settingsMap.getOrElseUpdate(
       sessionId, {
         sysProps.setProperty("rootServe", outFile.pathAsString)
         sysProps.setProperty("root", root)
@@ -92,13 +93,8 @@ object SettingsManager {
             sysProps.setProperty("env", env) // prod is the default value in reference.conf
         }
         Settings.invalidateCaches()
-        val settings = Settings(Settings.referenceConfig)
-        settingsMap.synchronized {
-          if (!settingsMap.contains(sessionId)) {
-            settingsMap.put(sessionId, settings)
-          }
-        }
-        settings
+        println("new settings")
+        Settings(Settings.referenceConfig)
       }
     )
     settingsTimeMap.put(sessionId, System.currentTimeMillis())

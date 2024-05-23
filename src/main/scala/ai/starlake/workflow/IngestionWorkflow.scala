@@ -850,6 +850,22 @@ class IngestionWorkflow(
   }
 
   def test(config: StarlakeTestConfig): Unit = {
+    def testsLog(transformResults: List[StarlakeTestResult]): Unit = {
+      val (success, failure) = transformResults.partition(_.success)
+      println(s"Tests run: ${transformResults.size} ")
+      println(s"Tests succeeded: ${success.size}")
+      println(s"Tests failed: ${failure.size}")
+      if (failure.nonEmpty) {
+        println(
+          s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+        )
+      }
+      if (success.nonEmpty) {
+        println(
+          s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+        )
+      }
+    }
     val loadResults =
       if (config.runLoad()) {
         val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests, config.name)
@@ -863,22 +879,9 @@ class IngestionWorkflow(
       } else
         Nil
     StarlakeTestResult.html(loadResults, transformResults)
-
-    val (success, failure) = transformResults.partition(_.success)
-    println(s"Tests run: ${transformResults.size}")
-    println(s"Tests succeeded: ${success.size}")
-    println(s"Tests failed: ${failure.size}")
-    if (failure.nonEmpty) {
-      println(
-        s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
-      )
-    }
-    if (success.nonEmpty) {
-      println(
-        s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
-      )
-    }
+    testsLog(loadResults ++ transformResults)
   }
+
   def autoJob(config: TransformConfig): Try[String] = {
     val result = if (config.recursive) {
       val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))

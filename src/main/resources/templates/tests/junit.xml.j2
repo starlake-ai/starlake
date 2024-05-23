@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="All Tests" tests="{{ junitTestSuites.tests }}" failures="{{ junitTestSuites.failures }}" time="{{ junitTestSuites.time }}" timestamp="{{ timestamp }}">
+{%  for testSuite in junitTestSuites.testSuites %}
+    <testsuite name="{{ testSuite.name }}" tests="{{ testSuite.tests }}" failures="{{ testSuite.failures }}" time="{{ testSuite.time }}" timestamp="{{ timestamp }}">
+        {% for testCase in testSuite.testCases %}
+            <testcase name="{{ testCase.name }}" classname="{{ testCase.classname }}" time="{{ testCase.time }}">
+                {% if testCase.failure != "" %}
+                    <failure message="{{ testCase.failure }}" />
+                {% endif %}
+            </testcase>
+        {% endfor %}
+    </testsuite>
+{% endfor %}
+</testsuites>

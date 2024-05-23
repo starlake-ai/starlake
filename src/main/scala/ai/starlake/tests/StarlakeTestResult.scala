@@ -7,7 +7,53 @@ import scala.jdk.CollectionConverters._
 import java.io.File
 import java.nio.file.Files
 import java.time.format.DateTimeFormatter
+import java.util
 import scala.reflect.io.Directory
+
+case class JUnitTestSuite(
+  name: String,
+  tests: Int,
+  failures: Int,
+  errors: Int,
+  time: Double,
+  testCases: List[JunitTestCase]
+) {
+  def getName() = name
+  def getTests(): Int = tests
+  def getFailures(): Int = failures
+  def getErrors(): Int = errors
+  def getTime(): Double = time
+  def getTestCases(): util.List[JunitTestCase] = testCases.asJava
+}
+
+case class JunitTestSuites(
+  tests: Int,
+  failures: Int,
+  errors: Int,
+  time: Double,
+  loadSuite: JUnitTestSuite,
+  transformSuite: JUnitTestSuite
+) {
+  def getTests(): Int = tests
+  def getFailures(): Int = failures
+  def getErrors(): Int = errors
+  def getTime(): Double = time
+  def getLoadSuite(): JUnitTestSuite = loadSuite
+  def getTransformSuite(): JUnitTestSuite = transformSuite
+  def getTestSuites(): util.List[JUnitTestSuite] = List(loadSuite, transformSuite).asJava
+}
+
+case class JunitTestCase(
+  name: String,
+  classname: String,
+  time: Double,
+  failure: Option[String] = None
+) {
+  def getName(): String = name
+  def getClassname(): String = classname
+  def getTime(): Double = time
+  def getFailure(): String = failure.getOrElse("")
+}
 
 case class StarlakeTestResult(
   testFolder: String,
@@ -23,6 +69,21 @@ case class StarlakeTestResult(
   exception: Option[Throwable],
   duration: Long
 ) {
+  def junitErrMessage(): Option[String] = {
+    if (!success) {
+      Some(
+        s"""Missing columns: ${getMissingColumnsCount()}, Not expected columns: ${getNotExpectedColumnsCount()}, Missing records: ${getMissingRecordsCount()}, Not expected records: ${getNotExpectedRecordsCount()}, Exception: ${getExceptionHead()}""".stripMargin
+      )
+    } else None
+  }
+  def tName = if (Option(tableName).isEmpty || tableName.isEmpty) taskName else tableName
+  def toJunitTestCase(): JunitTestCase = {
+    val name: String = s"$domainName.$tName.$testName"
+    val classname: String = s"$domainName.$taskName"
+    val time: Double = duration.toDouble / 1000
+    val failure: Option[String] = junitErrMessage()
+    JunitTestCase(name, classname, time, failure)
+  }
   // getters for jinjava
   def getTestFolder(): String = testFolder
   def getDomainName(): String = domainName
@@ -54,7 +115,8 @@ case class StarlakeTestResult(
   }
 
   def getSuccess(): Boolean = success
-  def getException(): String = exception.map(Utils.exceptionAsString).getOrElse("")
+  def getExceptionHead(): String =
+    exception.map(Utils.exceptionAsString).getOrElse("None").split("\n").head
   def getDuration(): String = {
     val d: Double = duration.toDouble / 1000
     s"$d"
@@ -74,6 +136,58 @@ object StarlakeTestResult {
       Files.write(targetFile.toPath, content.getBytes())
     }
   }
+  def toJunitTestSuites(
+    loadResults: List[StarlakeTestResult],
+    transformResults: List[StarlakeTestResult]
+  ): JunitTestSuites = {
+    val loadTestCases = loadResults.map(_.toJunitTestCase())
+    val transformTestCases = transformResults.map(_.toJunitTestCase())
+    val loadSuite = JUnitTestSuite(
+      name = "Tests.Load",
+      tests = loadTestCases.size,
+      failures = loadTestCases.count(_.failure.isDefined),
+      errors = 0,
+      time = loadTestCases.map(_.time).sum,
+      testCases = loadTestCases
+    )
+    val transformSuite = JUnitTestSuite(
+      name = "Tests.Transform",
+      tests = transformTestCases.size,
+      failures = transformTestCases.count(_.failure.isDefined),
+      errors = 0,
+      time = transformTestCases.map(_.time).sum,
+      testCases = transformTestCases
+    )
+    JunitTestSuites(
+      tests = loadSuite.tests + transformSuite.tests,
+      failures = loadSuite.failures + transformSuite.failures,
+      errors = 0,
+      time = loadSuite.time + transformSuite.time,
+      loadSuite = loadSuite,
+      transformSuite = transformSuite
+    )
+  }
+  def junitXml(
+    loadResults: List[StarlakeTestResult],
+    transformResults: List[StarlakeTestResult]
+  ): Unit = {
+
+    implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
+    val rootFolder = new Directory(
+      new File(originalSettings.appConfig.root, "test-reports")
+    )
+
+    val junitTestSuites = toJunitTestSuites(loadResults, transformResults)
+    val j2Params = Map(
+      "junitTestSuites" -> junitTestSuites,
+      "timestamp"       -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+    )
+    val indexJ2 = loader.loadTemplate("junit.xml.j2")
+    val indexContent = Utils.parseJinja(indexJ2, j2Params)
+    Files.write(new File(rootFolder.path, "junit.xml").toPath, indexContent.getBytes())
+
+  }
+
   def html(
     loadResults: List[StarlakeTestResult],
     transformResults: List[StarlakeTestResult]
@@ -98,9 +212,12 @@ object StarlakeTestResult {
     Files.write(new File(rootFolder.path, "index.html").toPath, indexContent.getBytes())
 
     val loadFolder = new Directory(new File(rootFolder.jfile, "load"))
+    loadFolder.createDirectory()
     html(loadResults, loadFolder, "Load")
     val transformFolder = new Directory(new File(rootFolder.jfile, "transform"))
+    transformFolder.createDirectory()
     html(transformResults, transformFolder, "Transform")
+    junitXml(loadResults, transformResults)
   }
 
   def html(results: List[StarlakeTestResult], testsFolder: Directory, loadOrTransform: String)(
