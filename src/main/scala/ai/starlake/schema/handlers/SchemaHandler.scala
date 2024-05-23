@@ -60,7 +60,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  if (settings.appConfig.fileSystem.startsWith("file:")) {
+  if (false && settings.appConfig.fileSystem.startsWith("file:")) {
     val handler = new MetadataFileChangeHandler(this)
     val watcher = new RecursiveFileMonitor(File(DatasetArea.metadata.toString)) {
       override def onEvent(

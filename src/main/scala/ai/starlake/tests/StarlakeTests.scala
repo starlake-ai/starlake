@@ -52,14 +52,14 @@ case class StarlakeTestData(
 ) {
   def load(conn: java.sql.Connection): Unit = {
     val stmt = conn.createStatement()
-    stmt.execute(s"CREATE SCHEMA IF NOT EXISTS $domain")
+    stmt.execute(s"""CREATE SCHEMA IF NOT EXISTS "$domain"""")
     stmt.execute(data)
     stmt.close()
 
   }
   def unload(conn: java.sql.Connection): Unit = {
     val stmt = conn.createStatement()
-    stmt.execute(s"DROP TABLE $domain.$table CASCADE")
+    stmt.execute(s"""DROP TABLE "$domain"."$table" CASCADE""")
     stmt.close()
 
   }
@@ -67,15 +67,19 @@ case class StarlakeTestData(
 
 object StarlakeTestData {
   def createSchema(domainName: String, conn: java.sql.Connection): Unit = {
-    execute(conn, s"CREATE SCHEMA IF NOT EXISTS $domainName")
+    execute(conn, s"""CREATE SCHEMA IF NOT EXISTS "$domainName"""")
   }
 
   def dropSchema(domainName: String, conn: java.sql.Connection): Unit = {
-    execute(conn, s"DROP SCHEMA IF EXISTS $domainName CASCADE")
+    execute(conn, s"""DROP SCHEMA IF EXISTS "$domainName" CASCADE""")
   }
 
-  def describeTable(connection: Connection, table: String): List[String] = {
-    val (stmt, rs) = executeQuery(connection, s"DESCRIBE $table")
+  def describeTable(connection: Connection, domainAndTable: String): List[String] = {
+    val domAndTbl = domainAndTable.split('.')
+    val domain = domAndTbl(0)
+    val table = domAndTbl(1)
+
+    val (stmt, rs) = executeQuery(connection, s"""DESCRIBE "$domain"."$table"""")
     val columns = new ListBuffer[String]()
     while (rs.next()) {
       val name = rs.getString("column_name")
@@ -96,7 +100,7 @@ object StarlakeTestData {
     outputPath: File
   ): Boolean = {
     val diffSql = s"""COPY
-                        |(SELECT * FROM $targetDomain.$assertTable EXCEPT SELECT * FROM $targetDomain.$targetTable)
+                        |(SELECT * FROM "$targetDomain"."$assertTable" EXCEPT SELECT * FROM "$targetDomain"."$targetTable")
                         |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
     execute(conn, diffSql)
     try {
