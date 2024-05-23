@@ -52,17 +52,19 @@ case class StarlakeTestData(
   data: String
 ) {
   def load(conn: java.sql.Connection): Unit = {
-    val stmt = conn.createStatement()
-    stmt.execute(s"""CREATE SCHEMA IF NOT EXISTS "$domain"""")
-    stmt.execute(data)
-    stmt.close()
-
+    if (data.nonEmpty) {
+      val stmt = conn.createStatement()
+      stmt.execute(s"""CREATE SCHEMA IF NOT EXISTS "$domain"""")
+      stmt.execute(data)
+      stmt.close()
+    }
   }
   def unload(conn: java.sql.Connection): Unit = {
-    val stmt = conn.createStatement()
-    stmt.execute(s"""DROP TABLE "$domain"."$table" CASCADE""")
-    stmt.close()
-
+    if (data.nonEmpty) {
+      val stmt = conn.createStatement()
+      stmt.execute(s"""DROP TABLE "$domain"."$table" CASCADE""")
+      stmt.close()
+    }
   }
 }
 
