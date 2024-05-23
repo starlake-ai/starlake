@@ -3,6 +3,7 @@ package ai.starlake.tests
 import ai.starlake.config.Settings
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.DDLLeaf
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
@@ -433,18 +434,34 @@ object StarlakeTestData {
           val assertFileJson = new File(testPath, "_expected.json")
           val domainName = domainPath.getName
           val taskName = taskPath.getName
-          val assertContent =
-            if (assertFileCsv.exists()) {
-              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileCsv.toString}';"
-            } else if (assertFileJson.exists()) {
-              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFileJson.toString}';"
-            } else {
-              ""
-            }
           val domain = schemaHandler.domains().find(_.finalName == domainName)
           val table = domain.flatMap { d =>
             d.tables.find(_.finalName == taskName)
           }
+          val assertFile =
+            if (assertFileCsv.exists()) {
+              Some(assertFileCsv)
+            } else if (assertFileJson.exists()) {
+              Some(assertFileJson)
+            } else {
+              None
+            }
+          val expectedCreateTable = (table, assertFile) match {
+            case (Some(table), Some(assertFile)) =>
+              val fields = table.ddlMapping("duckdb", schemaHandler)
+              val cols = fields
+                .map { case field: DDLLeaf =>
+                  s""""${field.name}" ${field.tpe}"""
+                }
+                .mkString(", ")
+              s"""CREATE TABLE "$domainName"."sl_expected" ($cols);
+                 |COPY "$domainName"."sl_expected" FROM '${assertFile.toString}';""".stripMargin
+            case (None, Some(assertFile)) =>
+              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFile.toString}';"
+            case _ => ""
+          }
+
+          val assertContent = expectedCreateTable
           val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskName")
           (table, task) match {
             case (Some(table), None) =>
