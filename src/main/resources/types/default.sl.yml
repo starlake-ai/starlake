@@ -11,6 +11,7 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
+      duckdb: VARCHAR
   - name: "integer"
     pattern: "[-|\\+|0-9][0-9]*"
     primitiveType: "long"
@@ -21,6 +22,7 @@ types:
       snowflake: INT
       synapse: int
       postgres: INT
+      duckdb: INTEGER
   - name: "int"
     pattern: "[-|\\+|0-9][0-9]*"
     primitiveType: "long"
@@ -31,6 +33,7 @@ types:
       snowflake: INT
       synapse: int
       postgres: INT
+      duckdb: INTEGER
   - name: "byte"
     primitiveType: "byte"
     pattern: "."
@@ -41,6 +44,7 @@ types:
       snowflake: INT
       synapse: smallint
       postgres: INT
+      duckdb: TINYINT
   - name: "double"
     primitiveType: "double"
     pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
@@ -51,6 +55,7 @@ types:
       snowflake: DOUBLE
       synapse: float
       postgres: DOUBLE PRECISION
+      duckdb: DOUBLE
   - name: "long"
     primitiveType: "long"
     pattern: "-?\\d+"
@@ -61,6 +66,7 @@ types:
       snowflake: INTEGER
       synapse: bigint
       postgres: INT
+      duckdb: BIGINT
   - name: "short"
     primitiveType: "short"
     pattern: "-?\\d+"
@@ -71,6 +77,7 @@ types:
       snowflake: INTEGER
       synapse: smallint
       postgres: smallint
+      duckdb: SMALLINT
   - name: "boolean"
     primitiveType: "boolean"
     pattern: "(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f"
@@ -80,6 +87,7 @@ types:
       snowflake: BOOLEAN
       synapse: bit
       postgres: BOOLEAN
+      duckdb: BOOLEAN
   - name: "timestamp"
     primitiveType: "timestamp"
     pattern: "yyyy-MM-dd HH:mm:ss"
@@ -90,6 +98,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "decimal"
     primitiveType: "decimal"
     pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
@@ -100,6 +109,7 @@ types:
       snowflake: DECIMAL
       synapse: decimal
       postgres: DECIMAL
+      duckdb: DECIMAL
   - name: "date"
     primitiveType: "date"
     pattern: "yyyy-MM-dd"
@@ -110,6 +120,7 @@ types:
       snowflake: DATE
       synapse: date
       postgres: DATE
+      duckdb: DATE
   - name: "basic_iso_date"
     primitiveType: "timestamp"
     pattern: "BASIC_ISO_DATE"
@@ -120,6 +131,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_local_date"
     primitiveType: "timestamp"
     pattern: "ISO_LOCAL_DATE"
@@ -130,6 +142,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_offset_date"
     primitiveType: "timestamp"
     pattern: "ISO_OFFSET_DATE"
@@ -140,6 +153,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_date"
     primitiveType: "timestamp"
     pattern: "ISO_DATE"
@@ -150,6 +164,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_local_date_time"
     primitiveType: "timestamp"
     pattern: "ISO_LOCAL_DATE_TIME"
@@ -160,6 +175,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_offset_date_time"
     primitiveType: "timestamp"
     pattern: "ISO_OFFSET_DATE_TIME"
@@ -170,6 +186,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_zoned_date_time"
     primitiveType: "timestamp"
     pattern: "ISO_ZONED_DATE_TIME"
@@ -180,6 +197,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_date_time"
     primitiveType: "timestamp"
     pattern: "ISO_DATE_TIME"
@@ -190,6 +208,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_ordinal_date"
     primitiveType: "timestamp"
     pattern: "ISO_ORDINAL_DATE"
@@ -200,6 +219,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_week_date"
     primitiveType: "timestamp"
     pattern: "ISO_WEEK_DATE"
@@ -210,6 +230,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "iso_instant"
     primitiveType: "timestamp"
     pattern: "ISO_INSTANT"
@@ -220,6 +241,7 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
   - name: "rfc_1123_date_time"
     primitiveType: "timestamp"
     pattern: "RFC_1123_DATE_TIME"
@@ -230,3 +252,4 @@ types:
       snowflake: TIMESTAMP
       synapse: datetime2
       postgres: TIMESTAMP
+      duckdb: TIMESTAMP
