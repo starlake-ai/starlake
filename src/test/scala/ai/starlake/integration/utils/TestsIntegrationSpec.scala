@@ -7,7 +7,7 @@ import better.files.File
 class TestsIntegrationSpec extends IntegrationTestBase {
   override def templates: File = starlakeDir / "samples"
 
-  override def localDir: File = templates / "spark"
+  override def localDir: File = File("/Users/tiboun/starlake-unit-testing")
 
   "Load Tests" should "succeed" in {
     withEnvs(
