@@ -29,11 +29,9 @@ cronDatasets: dict = dict()
 
 _filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', set())
 
-_extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
+_extra_dataset: dict = sys.modules[__name__].__dict__.get('extra_dataset', dict())
 
-from urllib import parse
-
-_extra_dataset_parameters = '?' + '&'.join(list(f'{parse.quote(k)}={parse.quote(v)}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
+from typing import List
 
 def _load_datasets(task: dict):
     if 'children' in task:
@@ -42,29 +40,26 @@ def _load_datasets(task: dict):
             if dataset not in datasets and dataset not in _filtered_datasets:
                 childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
                 if childCron :
-                    cronDatasets[dataset] = childCron
-                datasets.add(dataset)
+                    parameters = dict(_extra_dataset)
+                    parameters['sl_schedule'] = sl_schedule(childCron)
+                    cronDataset = dataset + asQueryParameters(parameters)
+                    datasets.add(cronDataset)
+                    cronDatasets[cronDataset] = childCron
+                else :
+                  datasets.add(dataset)
             _load_datasets(child)
 
 if load_dependencies.lower() != 'true' :
     if not _cron:
         for task in task_deps:
             _load_datasets(task)
-    schedule = list(map(lambda dataset: Dataset(dataset + _extra_dataset_parameters), datasets))
+    schedule = list(map(lambda dataset: Dataset(dataset + asQueryParameters(_extra_dataset)), datasets))
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
-from typing import List
-from croniter import croniter
-from datetime import datetime as dt
-
-def cron_start_time() -> dt:
-    return dt.fromtimestamp(dt.now().timestamp())
-
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
-         schedule_interval=_cron,
-         schedule=schedule,
+         schedule=_cron if _cron else schedule,
          default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
          catchup=False,
          user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
@@ -127,21 +122,17 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     else:
         start >> all_transform_tasks
 
+    parameters = dict(_extra_dataset)
     extra: dict = {"source": dag.dag_id}
-    start_time = cron_start_time()
     if _cron is not None :
-      extra['schedule'] = croniter(_cron, start_time).get_prev(dt).strftime('%Y-%m-%d')
-    outlets: List[Dataset] = [Dataset(keep_ascii_only(dag.dag_id), extra)] + list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters, extra), sl_job.outlets))
-    if cronDatasets :
-      for dataset, cronDataset in cronDatasets.items() :
-        datasetNext = croniter(cronDataset, start_time).get_next(dt)
-        if start_time < datasetNext :
-          if _cron :
-            next = croniter(_cron, start_time).get_next(dt)
-            if next < datasetNext :
-                outlets.append(Dataset(dataset, extra))
-          else :
-              outlets.append(Dataset(dataset, extra))
+      parameters['sl_schedule'] = sl_schedule(_cron)
+    outlets: List[Dataset] = [Dataset(keep_ascii_only(dag.dag_id), extra)] + list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets))
+    # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
+    if datasets.__len__() > 0:
+      if cronDatasets :
+          for dataset, _ in cronDatasets.items() :
+            # we republish all scheduled datasets
+            outlets.append(Dataset(dataset, extra))
 
     end = sl_job.dummy_op(task_id="end", outlets=outlets)
 
