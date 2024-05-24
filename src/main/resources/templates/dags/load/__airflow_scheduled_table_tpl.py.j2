@@ -33,19 +33,16 @@ def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
     return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
-_extra_dataset: Union[dict, None] = sys.modules[__name__].__dict__.get('extra_dataset', None)
-
-from urllib import parse
-
-_extra_dataset_parameters = '?' + '&'.join(list(f'{parse.quote(k)}={parse.quote(v)}' for (k,v) in _extra_dataset.items())) if _extra_dataset else ''
+_extra_dataset: dict = sys.modules[__name__].__dict__.get('extra_dataset', dict())
 
 # [START instantiate_dag]
 for schedule in schedules:
     tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
     for domain in schedule["domains"]:
         tags.append(domain["name"])
+    _cron = schedule['cron']
     with DAG(dag_id=generate_dag_name(schedule),
-             schedule_interval=schedule['cron'],
+             schedule=_cron,
              default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
              catchup=False,
              tags=set([tag.upper() for tag in tags]),
@@ -77,8 +74,11 @@ for schedule in schedules:
             start >> all_load_tasks
 
         extra: dict = {"source": dag.dag_id}
+        parameters = dict(_extra_dataset)
+        if _cron is not None :
+          parameters['sl_schedule'] = sl_schedule(_cron)
 
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id), extra)]+list(map(lambda x: Dataset(x.uri + _extra_dataset_parameters, extra), sl_job.outlets)))
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id), extra)]+list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets)))
 
         all_load_tasks >> end
 
