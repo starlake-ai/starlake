@@ -128,7 +128,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
       parameters['sl_schedule'] = sl_schedule(_cron)
     outlets: List[Dataset] = [Dataset(keep_ascii_only(dag.dag_id), extra)] + list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets))
     # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
-    if datasets.__len__() > 0:
+    if datasets.__len__() != cronDatasets.__len__():
       if cronDatasets :
           for dataset, _ in cronDatasets.items() :
             # we republish all scheduled datasets
