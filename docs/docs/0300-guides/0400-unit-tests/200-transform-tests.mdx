@@ -10,7 +10,7 @@ In this tutorial, we will test the transform tasks.
 Transform tests are located in the `metadata/tests/transform` directory.
 
 Each test is a directory located in the `domain/table` subdirectory and contains the following files:
-- multiple CSV or JSON files that will contain the initial data that will be loaded into the tables before the unit test is run.
+- multiple CSV or JSONL files that will contain the initial data that will be loaded into the tables before the unit test is run.
 These files should be named after the domain and table names. For example, the file for the `starbake.product` table should be named `starbake.product.json` or `starbake.product.csv`.
 - a `_expected.csv` or `_expected.sql` file that contains the expected data in the table after the transform task is run.
 
