@@ -35,10 +35,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
-import io.methvin.better.files.RecursiveFileMonitor
 import org.apache.hadoop.fs.Path
 
-import java.nio.file.WatchEvent
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -51,6 +49,12 @@ case class TableWithNameOnly(name: String, attrs: List[String])
 
 case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
 
+object SchemaHandler {
+  private val watcherMap: scala.collection.concurrent.TrieMap[String, Settings] =
+    scala.collection.concurrent.TrieMap.empty
+
+}
+
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
   * @param storage
@@ -59,8 +63,8 @@ case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
 class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
   settings: Settings
 ) extends StrictLogging {
-
-  if (false && settings.appConfig.fileSystem.startsWith("file:")) {
+  /*
+  if (settings.appConfig.fileSystem.startsWith("file:")) {
     val handler = new MetadataFileChangeHandler(this)
     val watcher = new RecursiveFileMonitor(File(DatasetArea.metadata.toString)) {
       override def onEvent(
@@ -78,7 +82,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       "File system is not local, file watcher is not available. Please use local file system for file watcher."
     )
   }
-
+   */
   private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 

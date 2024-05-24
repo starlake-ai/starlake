@@ -98,8 +98,7 @@ object Dependencies {
   // Included
 
   val betterfiles = Seq(
-    "com.github.pathikrit" %% "better-files" % Versions.betterFiles,
-    "io.methvin" %% "directory-watcher-better-files" % Versions.directoryWatcher
+    "com.github.pathikrit" %% "better-files" % Versions.betterFiles
   )
 
   val logging = Seq(
