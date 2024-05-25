@@ -20,3 +20,5 @@ table:
     - name: "seller_id"
       type: "string"
       required: false
+    - name: "ts"
+      type: "iso_instant"
