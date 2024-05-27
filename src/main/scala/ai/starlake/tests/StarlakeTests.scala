@@ -8,7 +8,8 @@ import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
@@ -456,8 +457,19 @@ object StarlakeTestData {
                   s""""${field.name}" ${field.tpe}"""
                 }
                 .mkString(", ")
+              val firstLine =
+                if (assertFile.getName.endsWith("json"))
+                  Files
+                    .readAllLines(Paths.get(assertFile.toString), StandardCharsets.UTF_8)
+                    .get(0)
+                    .trim
+                else
+                  ""
+              val extraArgs =
+                if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
+                else ""
               s"""CREATE TABLE "$domainName"."sl_expected" ($cols);
-                 |COPY "$domainName"."sl_expected" FROM '${assertFile.toString}';""".stripMargin
+                 |COPY "$domainName"."sl_expected" FROM '${assertFile.toString}' $extraArgs;""".stripMargin
             case (None, Some(assertFile)) =>
               s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFile.toString}';"
             case _ => ""
