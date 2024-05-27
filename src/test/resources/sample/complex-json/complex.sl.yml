@@ -1,0 +1,74 @@
+---
+version: 1
+table:
+  name: "complex"
+  pattern: "complex.json"
+  attributes:
+  - name: "aBoolean"
+    type: "boolean"
+    array: false
+  - name: "aDate"
+    type: "date"
+    array: false
+  - name: "aDoubleOrFloat"
+    type: "double"
+    array: false
+  - name: "aString"
+    type: "string"
+    array: false
+  - name: "aStruct"
+    type: "struct"
+    array: false
+    attributes:
+    - name: "aDateInStruct"
+      type: "date"
+      array: false
+    - name: "aDoubleOrFloatInStruct"
+      type: "double"
+      array: false
+    - name: "aStringInStruct"
+      type: "string"
+      array: false
+    - name: "aTimestampInStruct"
+      type: "iso_date_time"
+      array: false
+  - name: "aTimestamp"
+    type: "iso_date_time"
+    array: false
+  - name: "anArrayOfDate"
+    type: "date"
+    array: true
+  - name: "anArrayOfStruct"
+    type: "struct"
+    array: true
+    attributes:
+    - name: "anArrayOfString"
+      type: "string"
+      array: true
+    - name: "containingAStruct"
+      type: "struct"
+      array: false
+      attributes:
+      - name: "aDateInStruct"
+        type: "date"
+        array: false
+      - name: "aDoubleOrFloatInStruct"
+        type: "long"
+        array: false
+      - name: "aStringInStruct"
+        type: "string"
+        array: false
+      - name: "aTimestampInStruct"
+        type: "iso_date_time"
+        array: false
+      - name: "anArrayOfInt"
+        type: "long"
+        array: true
+  - name: "anInteger"
+    type: "long"
+    array: false
+  metadata:
+    format: "JSON"
+    withHeader: true
+    writeStrategy:
+      type: "OVERWRITE"

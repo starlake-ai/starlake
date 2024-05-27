@@ -55,6 +55,8 @@ __Bug Fix__:
 - Align infered schema primitive's type with the one declared `types.sl.yml`.
 - Fix dockerfile for latest Alpine by adding bash package
 - Fix precedence of data extraction mode
+- Handle null pointer exception on json schema inference
+- Infer schema from complex json with arrays and struct
 
 __Improvement__:
 - added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior

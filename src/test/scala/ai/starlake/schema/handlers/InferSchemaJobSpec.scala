@@ -6,6 +6,7 @@ import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 
+import java.util.regex.Pattern
 import scala.io.Source
 
 class InferSchemaJobSpec extends TestHelper {
@@ -126,6 +127,52 @@ class InferSchemaJobSpec extends TestHelper {
             "id",
             "name"
           )
+        }
+      }
+    }
+
+    "Ingest Complex JSON Schema" should "produce file in accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        val inputData = loadTextFile("/sample/complex-json/complex.json")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
+        } {
+          sourceFile.overwrite(inputData)
+          inferSchemaJob.infer(
+            domainName = "locations",
+            tableName = "complex",
+            pattern = None,
+            comment = None,
+            inputPath = sourceFile.pathAsString,
+            saveDir = targetDir.pathAsString,
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
+          )(settings.storageHandler())
+          val locationDir = File(targetDir, "locations")
+          val targetFile = File(locationDir, "complex.sl.yml")
+          val discoveredSchema = YamlSerde.deserializeYamlTables(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+
+          val expectedTable = YamlSerde.deserializeYamlTables(
+            loadTextFile("/sample/complex-json/complex.sl.yml"),
+            "/sample/complex-json/complex.sl.yml"
+          )
+
+          val filePattern = Pattern.compile("complex.json")
+          discoveredSchema.tables.head
+            .copy(pattern = filePattern) shouldBe expectedTable.tables.head
+            .copy(pattern = filePattern)
         }
       }
     }
