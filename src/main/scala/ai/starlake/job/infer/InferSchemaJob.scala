@@ -311,7 +311,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               case _ =>
                 val linesWithoutHeader = dataframeWithFormat
                   .collect()
-                  .map(_.toSeq.map(_.toString).toArray)
+                  .map(_.toSeq.map(Option(_).map(_.toString).orNull).toArray)
                   .toList
                 (linesWithoutHeader, None)
             }
