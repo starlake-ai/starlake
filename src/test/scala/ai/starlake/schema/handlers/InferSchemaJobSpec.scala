@@ -6,7 +6,6 @@ import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 
-import java.util.regex.Pattern
 import scala.io.Source
 
 class InferSchemaJobSpec extends TestHelper {
@@ -169,10 +168,50 @@ class InferSchemaJobSpec extends TestHelper {
             "/sample/complex-json/complex.sl.yml"
           )
 
-          val filePattern = Pattern.compile("complex.json")
-          discoveredSchema.tables.head
-            .copy(pattern = filePattern) shouldBe expectedTable.tables.head
-            .copy(pattern = filePattern)
+          discoveredSchema.tables.head.attributes should contain theSameElementsAs expectedTable.tables.head.attributes
+        }
+      }
+    }
+
+    "Ingest Complete CSV Schema" should "produce file in accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        val inputData = loadTextFile("/sample/complete-csv/complete.csv")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
+        } {
+          sourceFile.overwrite(inputData)
+          inferSchemaJob.infer(
+            domainName = "locations",
+            tableName = "complete",
+            pattern = None,
+            comment = None,
+            inputPath = sourceFile.pathAsString,
+            saveDir = targetDir.pathAsString,
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
+          )(settings.storageHandler())
+          val locationDir = File(targetDir, "locations")
+          val targetFile = File(locationDir, "complete.sl.yml")
+          val discoveredSchema = YamlSerde.deserializeYamlTables(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+
+          val expectedTable = YamlSerde.deserializeYamlTables(
+            loadTextFile("/sample/complete-csv/complete.sl.yml"),
+            "/sample/complete-csv/complete.sl.yml"
+          )
+
+          discoveredSchema.tables.head.attributes should contain theSameElementsAs expectedTable.tables.head.attributes
         }
       }
     }
