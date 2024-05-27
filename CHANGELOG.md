@@ -64,6 +64,7 @@ __Improvement__:
 - added support for mysql extraction
 - add the ability to rename column during schema and data extraction
 - enhance user error message when defined types is not declared in types
+- Schema inference for DSV files improved in type inference
 
 __Feature__:
 

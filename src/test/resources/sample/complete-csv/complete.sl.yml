@@ -1,0 +1,29 @@
+---
+version: 1
+table:
+  name: "complete"
+  pattern: "complete.csv"
+  attributes:
+  - name: "aBoolean"
+    type: "boolean"
+    array: false
+  - name: "aDate"
+    type: "date"
+    array: false
+  - name: "aDoubleOrFloat"
+    type: "double"
+    array: false
+  - name: "aString"
+    type: "string"
+    array: false
+  - name: "aTimestamp"
+    type: "iso_date_time"
+    array: false
+  - name: "anInteger"
+    type: "int"
+    array: false
+  metadata:
+    format: "DSV"
+    withHeader: true
+    writeStrategy:
+      type: "OVERWRITE"

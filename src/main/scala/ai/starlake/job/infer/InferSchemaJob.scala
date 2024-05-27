@@ -22,12 +22,13 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
+import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
 import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import java.io.BufferedReader
 import java.util.regex.Pattern
@@ -171,7 +172,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     dataPath: String,
     content: String,
     tableName: String,
-    rowTag: Option[String]
+    rowTag: Option[String],
+    inferSchema: Boolean = true
   ): (DataFrame, Option[String]) = {
     val formatFile = getFormatFile(dataPath, lines)
 
@@ -190,13 +192,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         tmpFile.deleteOnExit()
         val df = session.read
           .format("json")
-          .option("inferSchema", value = true)
+          .option("inferSchema", value = inferSchema)
           .load(tmpFile.pathAsString)
         (df, None)
       case "JSON" =>
         val df = session.read
           .format("json")
-          .option("inferSchema", value = true)
+          .option("inferSchema", value = inferSchema)
           .load(dataPath)
         (df, None)
       case "XML" =>
@@ -222,14 +224,14 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         val df = session.read
           .format("com.databricks.spark.xml")
           .option("rowTag", tag)
-          .option("inferSchema", value = true)
+          .option("inferSchema", value = inferSchema)
           .load(dataPath)
         (df, Some(tag))
       case "DSV" =>
         val df = session.read
           .format("com.databricks.spark.csv")
           .option("header", value = true)
-          .option("inferSchema", value = true)
+          .option("inferSchema", value = inferSchema)
           .option("delimiter", getSeparator(lines))
           .option("parserLib", "UNIVOCITY")
           .load(dataPath)
@@ -302,21 +304,22 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             case Some(f) => (f, false)
           }
 
-          val (dataLines, separator) =
+          val dataLines =
             format match {
               case Format.DSV =>
-                val separator = getSeparator(lines)
-                val linesWithoutHeader = lines.drop(1)
-                (
-                  linesWithoutHeader.map(l => Row.fromSeq(l.split(Pattern.quote(separator)))),
-                  Some(separator)
+                val (rawDataframeWithFormat, _) = createDataFrameWithFormat(
+                  lines,
+                  inputPath,
+                  content.mkString("\n"),
+                  tableName,
+                  rowTag,
+                  inferSchema = false
                 )
-              // case Format.JSON | Format.JSON_FLAT => (Nil, None)
+                rawDataframeWithFormat.collect().toList
               case _ =>
-                val linesWithoutHeader = dataframeWithFormat
+                dataframeWithFormat
                   .collect()
                   .toList
-                (linesWithoutHeader, None)
             }
 
           val attributes: List[Attribute] =
@@ -327,7 +330,10 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             format,
             Option(array),
             Some(true),
-            separator,
+            format match {
+              case DSV => Some(getSeparator(lines))
+              case _   => None
+            },
             xmlOptions
           )
 
