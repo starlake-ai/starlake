@@ -16,7 +16,9 @@ class SingleUserRequestHandler extends HttpServlet {
     val env = Option(req.getParameter("ENV"))
     val metadata = Option(req.getParameter("METADATA"))
     val gcpProject =
-      Option(req.getParameter("SL_DATABASE")).orElse(Option(req.getParameter("GCP_PROJECT")))
+      Option(req.getParameter("SL_DATABASE"))
+        .filter(_.nonEmpty)
+        .orElse(Option(req.getParameter("GCP_PROJECT")))
     System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")
     System.out.println(s"METADATA=$metadata")
