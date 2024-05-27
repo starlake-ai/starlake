@@ -138,20 +138,20 @@ object StarlakeTestData {
     }
 
     if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
-      val notExpectedSuccess = outputTableDifferences(
-        conn,
-        targetDomain,
-        targetTable,
-        assertTable,
-        notExpectedPath
-      )
-
       val missingSuccess = outputTableDifferences(
         conn,
         targetDomain,
+        targetTable,
+        assertTable,
+        missingPath
+      )
+
+      val notExpectedSuccess = outputTableDifferences(
+        conn,
+        targetDomain,
         assertTable,
         targetTable,
-        missingPath
+        notExpectedPath
       )
 
       success = notExpectedSuccess && missingSuccess
