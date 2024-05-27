@@ -65,7 +65,6 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       "SL_ENV"  -> "LOCAL"
     ) {
       dropTables
-
       List(localDir / "sample-data", localDir / "sample-data2").foreach { sampleDataDir =>
         copyFilesToIncomingDir(sampleDataDir)
         assert(

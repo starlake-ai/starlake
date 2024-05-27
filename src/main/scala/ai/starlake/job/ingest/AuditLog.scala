@@ -207,7 +207,7 @@ object AuditLog extends StrictLogging {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
-          logToGCP(log)
+          sinkToGcpCloudLogging(log)
           Success(new JobResult {})
         case _ =>
           val selectSql =
@@ -242,13 +242,13 @@ object AuditLog extends StrictLogging {
     }
   }
 
-  private def logToGCP(log: AuditLog)(implicit
+  private def sinkToGcpCloudLogging(log: AuditLog)(implicit
     settings: Settings
   ): Unit = {
     val logName = settings.appConfig.audit.getDomain()
     val logging = LoggingOptions.getDefaultInstance
       .toBuilder()
-      .setProjectId(BigQueryJobBase.projectId(Option(settings.appConfig.database)))
+      .setProjectId(BigQueryJobBase.projectId(settings.appConfig.audit.database))
       .build()
       .getService
     try {
