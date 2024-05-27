@@ -411,10 +411,15 @@ object StarlakeTestData {
       case Some((domainName, taskName, test)) => (domainName, taskName, test)
     }
     val testDir = new File(area.toString)
-    val domains = testDir.listFiles
+    val domains = Option(testDir.listFiles)
+      .getOrElse(Array())
       .filter(dir => dir.isDirectory && (domainName.isEmpty || domainName == dir.getName))
       .toList
-    val rootData = testDir.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
+    val rootData = Option(testDir.listFiles)
+      .getOrElse(Array())
+      .filter(_.isFile)
+      .toList
+      .flatMap(f => loadDataFile("", f))
     val allTests = domains.map { domainPath =>
       val tasks = domainPath
         .listFiles(taskPath =>
@@ -422,14 +427,22 @@ object StarlakeTestData {
         )
         .toList
       val domainData =
-        domainPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
+        Option(domainPath.listFiles)
+          .getOrElse(Array())
+          .filter(_.isFile)
+          .toList
+          .flatMap(f => loadDataFile("", f))
       val domainTests = tasks.map { taskPath =>
         val tests = taskPath
           .listFiles(testDir =>
             testDir.isDirectory && (testName.isEmpty || test == testDir.getName)
           )
           .toList
-        val taskData = taskPath.listFiles.filter(_.isFile).toList.flatMap(f => loadDataFile("", f))
+        val taskData = Option(taskPath.listFiles)
+          .getOrElse(Array())
+          .filter(_.isFile)
+          .toList
+          .flatMap(f => loadDataFile("", f))
         val taskTests = tests.flatMap { testPath =>
           val dataPaths = testPath.listFiles(f => f.isFile && !f.getName.startsWith("_")).toList
           val assertFileCsv = new File(testPath, "_expected.csv")
