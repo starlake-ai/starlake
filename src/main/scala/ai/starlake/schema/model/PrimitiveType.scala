@@ -211,7 +211,7 @@ object PrimitiveType {
     def sparkType(zone: Option[String]): DataType = new StructType(Array.empty[StructField])
   }
 
-  private def instantFromString(str: String, pattern: String, zone: String): Instant = {
+  private def instantFromString(str: String, pattern: String, zoneId: ZoneId): Instant = {
 
     def simpleDateFormat(str: String, pattern: String, zoneId: ZoneId): Instant = {
       if (zoneId.getId != "UTC")
@@ -222,11 +222,6 @@ object PrimitiveType {
       df.setTimeZone(TimeZone.getTimeZone("UTC"))
       val date = df.parse(str.trim)
       Instant.ofEpochMilli(date.getTime)
-    }
-
-    val zoneId = Option(zone) match {
-      case Some(z) => ZoneId.of(z)
-      case None    => ZoneId.of("UTC")
     }
 
     pattern match {
@@ -333,12 +328,24 @@ object PrimitiveType {
   object timestamp extends PrimitiveType("timestamp") {
 
     def fromString(str: String, timeFormat: String, zone: String): Any = {
-      if (str == null || str.isEmpty)
-        null
-      else {
-        val instant = instantFromString(str.trim, timeFormat, zone)
-        Timestamp.from(instant)
+      val res = {
+        if (str == null || str.isEmpty)
+          null
+        else {
+          val zoneId = Option(zone) match {
+            case Some(z) => ZoneId.of(z)
+            case None    => ZoneId.of("UTC")
+          }
+
+          val instant = instantFromString(str.trim, timeFormat, zoneId)
+          val currentTimezoneOffset = zoneId.getRules.getOffset(instant)
+
+          val ldt = LocalDateTime.ofInstant(instant, currentTimezoneOffset)
+          val current = Timestamp.valueOf(ldt)
+          current
+        }
       }
+      res
     }
 
     def sparkType(zone: Option[String]): DataType = TimestampType
