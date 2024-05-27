@@ -37,6 +37,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
     ) {
       new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()
 
+      dropTables
       copyFilesToIncomingDir(sampleDataDir)
       assert(
         new Main().run(

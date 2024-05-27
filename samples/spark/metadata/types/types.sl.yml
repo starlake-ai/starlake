@@ -12,6 +12,7 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000)
+      duckdb: VARCHAR
   - name: "customerid"
     primitiveType: "string"
     pattern: "[A-Z][0-9]{6}"
@@ -23,6 +24,7 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000)
+      duckdb: VARCHAR
   - name: "sellerid"
     primitiveType: "string"
     pattern: "[0-9]{6}"
@@ -34,6 +36,7 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000)
+      duckdb: VARCHAR
   - name: "longstring"
     primitiveType: "string"
     pattern: ".+"
@@ -45,3 +48,4 @@ types:
       snowflake: STRING
       postgres: varchar(8000)
       synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
+      duckdb: VARCHAR
