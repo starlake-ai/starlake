@@ -1194,6 +1194,7 @@ object BigQueryJobBase {
 
   def projectId(outputDatabase: scala.Option[String]): String = {
     outputDatabase
+      .filter(_.nonEmpty)
       .orElse(getPropertyOrEnv("SL_DATABASE"))
       .orElse(getPropertyOrEnv("GCP_PROJECT"))
       .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
