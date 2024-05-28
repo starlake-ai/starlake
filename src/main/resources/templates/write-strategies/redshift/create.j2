@@ -32,3 +32,6 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strateg
 ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
 ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
 {% endif %}
+
+
+DROP VIEW IF EXISTS #SL_INCOMING;

@@ -42,9 +42,8 @@ FROM SL_INCOMING
 LEFT JOIN {{ tableFullName }} ON {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
 WHERE {{ tableFullName }}.{{ strategyTimestamp }} IS NULL;
 
-
-
 {%  endif %}
 
+DROP TABLE IF EXISTS SL_INCOMING;
 
 
