@@ -136,6 +136,8 @@ object InferSchemaHandler {
               val timestamps = currentLines.flatMap(Option(_).map(_.toString))
               if (timestamps.forall(v => datePattern.matcher(v).matches()))
                 "date"
+              else if (timestamps.forall(v => parseIsoInstant(v)))
+                "iso_date_time"
               else
                 "timestamp"
             case _ =>
