@@ -24,7 +24,8 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -51,80 +52,105 @@ object InferSchemaHandler {
     *   List of Attributes
     */
   def createAttributes(
-    lines: List[Array[String]],
+    lines: List[Row],
     schema: StructType,
     format: Format
   )(implicit settings: Settings): List[Attribute] = {
-    val schemaWithIndex: Seq[(StructField, Int)] = schema.zipWithIndex
 
-    schemaWithIndex
-      .map { case (row, index) =>
-        val required = if (!row.nullable) Some(true) else None
-        row.dataType match {
-          // if the datatype is a struct {...} containing one or more other field
-          case st: StructType =>
-            Attribute(
-              row.name,
-              row.dataType.typeName,
-              Some(false),
-              required,
-              attributes = createAttributes(lines, st, format)
+    def createAttribute(
+      currentLines: List[Any],
+      currentSchema: DataType,
+      container: StructField,
+      fieldPath: String
+    ): Attribute = {
+      currentSchema match {
+        case st: StructType =>
+          val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
+          val attributes = schemaWithIndex.map { case (field, index) =>
+            createAttribute(
+              currentLines.flatMap(Option(_)).map {
+                case r: Row => r(index)
+                case other =>
+                  throw new RuntimeException(
+                    "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
+                  )
+              },
+              st(index).dataType,
+              field,
+              fieldPath + "." + field.name
             )
-
-          case dt: ArrayType =>
-            dt.elementType match {
-              case st: StructType =>
-                // if the array contains elements of type struct.
-                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-                Attribute(
-                  row.name,
-                  st.typeName,
-                  Some(true),
-                  required,
-                  attributes = createAttributes(lines, st, format)
-                )
-              case _ =>
-                // if it is a regular array. {ages: [21, 25]}
-                Attribute(
-                  row.name,
-                  PrimitiveType.from(dt.elementType).value,
-                  Some(true),
-                  required
-                )
-            }
-
-          // if the datatype is a simple Attribute
-          case _ =>
-            val cellType =
-              if (row.dataType.typeName == "string") {
-                val timestampCandidates = lines.map(row => row(index)).flatMap(Option(_))
-                if (timestampCandidates.isEmpty)
-                  "string"
-                else if (timestampCandidates.forall(v => parseIsoInstant(v)))
-                  "iso_date_time"
-                else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
-                  "date"
-                else
-                  "string"
-              } else if (
-                row.dataType.typeName == "timestamp" && Set(
+          }.toList
+          Attribute(
+            container.name,
+            st.typeName,
+            required = if (!container.nullable) Some(true) else None,
+            array = Some(false),
+            attributes = attributes
+          )
+        case dt: ArrayType =>
+          dt.elementType match {
+            case _: ArrayType =>
+              throw new RuntimeException(
+                s"Starlake doesn't support array of array. Rejecting field path $fieldPath"
+              )
+            case _ =>
+              // if the array contains elements of type struct.
+              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
+              val stAttributes = createAttribute(
+                currentLines.flatMap(Option(_)).flatMap {
+                  case ar: Seq[_] => ar
+                  case other =>
+                    throw new RuntimeException(
+                      s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
+                    )
+                },
+                dt.elementType,
+                container,
+                fieldPath + "[]"
+              )
+              stAttributes.copy(
+                array = Some(true),
+                required = if (!container.nullable) Some(true) else None
+              )
+          }
+        // if the datatype is a simple Attribute
+        case _ =>
+          val cellType = currentSchema.typeName match {
+            case "string" =>
+              val timestampCandidates = currentLines.flatMap(Option(_).map(_.toString))
+              if (timestampCandidates.isEmpty)
+                "string"
+              else if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                "iso_date_time"
+              else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else
+                "string"
+            case "timestamp"
+                if Set(
                   Format.DSV,
                   Format.POSITION,
                   Format.JSON_FLAT
-                ).contains(format)
-              ) {
-                // We handle here the case when it is a date and not a timestamp
-                val timestamps = lines.map(row => row(index)).flatMap(Option(_))
-                if (timestamps.forall(v => datePattern.matcher(v).matches()))
-                  "date"
-                else
-                  "timestamp"
-              } else
-                PrimitiveType.from(row.dataType).value
-            Attribute(row.name, cellType, Some(false), required)
-        }
+                ).contains(format) =>
+              // We handle here the case when it is a date and not a timestamp
+              val timestamps = currentLines.flatMap(Option(_).map(_.toString))
+              if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else
+                "timestamp"
+            case _ =>
+              PrimitiveType.from(currentSchema).value
+          }
+          Attribute(
+            container.name,
+            cellType,
+            Some(false),
+            if (!container.nullable) Some(true) else None
+          )
       }
-  }.toList
+    }
+    createAttribute(lines, schema, StructField("_ROOT_", StructType(Nil)), "").attributes
+  }
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
     *

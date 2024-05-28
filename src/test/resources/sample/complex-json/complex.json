@@ -1,0 +1,9 @@
+{"aString":  "v"}
+{"aDoubleOrFloat":  1.5}
+{"anInteger":  15}
+{"aDate":  "2024-05-27"}
+{"aTimestamp":  "2024-05-27T21:01:05.545Z"}
+{"aBoolean":  true}
+{"aStruct":  {"aStringInStruct":  "w", "aDoubleOrFloatInStruct":  3.4, "aDateInStruct":  "2024-05-28", "aTimestampInStruct":  "2024-05-28T21:01:05.545Z"}, "anArrayOfStruct": [{"containingAStruct": {"aStringInStruct":  "w", "aDoubleOrFloatInStruct":  3, "aDateInStruct":  "2024-05-28", "aTimestampInStruct":  "2024-05-28T21:01:05.545Z", "anArrayOfInt":  [1,2,3]}}]}
+{"anArrayOfStruct": [{"containingAStruct": {"aStringInStruct":  "w", "aDoubleOrFloatInStruct":  3, "aDateInStruct":  "2024-05-28", "aTimestampInStruct":  "2024-05-28T21:01:05.545Z"}, "anArrayOfString":  ["2024-05-29 is the best day", "This is not true"]}]}
+{"anArrayOfDate":  ["2024-05-29", "2024-06-29"]}

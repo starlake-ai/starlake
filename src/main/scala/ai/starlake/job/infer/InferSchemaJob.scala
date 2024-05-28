@@ -27,7 +27,7 @@ import better.files.File
 import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.io.BufferedReader
 import java.util.regex.Pattern
@@ -307,11 +307,14 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               case Format.DSV =>
                 val separator = getSeparator(lines)
                 val linesWithoutHeader = lines.drop(1)
-                (linesWithoutHeader.map(_.split(Pattern.quote(separator))), Some(separator))
+                (
+                  linesWithoutHeader.map(l => Row.fromSeq(l.split(Pattern.quote(separator)))),
+                  Some(separator)
+                )
+              // case Format.JSON | Format.JSON_FLAT => (Nil, None)
               case _ =>
                 val linesWithoutHeader = dataframeWithFormat
                   .collect()
-                  .map(_.toSeq.map(Option(_).map(_.toString).orNull).toArray)
                   .toList
                 (linesWithoutHeader, None)
             }
