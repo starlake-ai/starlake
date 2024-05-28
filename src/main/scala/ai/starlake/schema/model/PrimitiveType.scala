@@ -338,11 +338,8 @@ object PrimitiveType {
           }
 
           val instant = instantFromString(str.trim, timeFormat, zoneId)
-          val currentTimezoneOffset = zoneId.getRules.getOffset(instant)
-
-          val ldt = LocalDateTime.ofInstant(instant, currentTimezoneOffset)
-          val current = Timestamp.valueOf(ldt)
-          current
+          val tsValue = Timestamp.from(instant)
+          tsValue
         }
       }
       res

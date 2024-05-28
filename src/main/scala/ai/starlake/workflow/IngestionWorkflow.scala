@@ -50,10 +50,11 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
-import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
+import java.sql.Types
 import java.util.Collections
 import java.util.regex.Pattern
 import scala.annotation.nowarn
@@ -65,9 +66,29 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case TimestampType =>
-      Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.BOOLEAN))
+      Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.TIMESTAMP))
     case _ => JdbcDbUtils.getCommonJDBCType(dt)
   }
+}
+
+private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
+  override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:duckdb:")
+  // override def quoteIdentifier(column: String): String = column
+  override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
+    case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
+    case _           => JdbcDbUtils.getCommonJDBCType(dt)
+  }
+  override def getCatalystType(
+    sqlType: Int,
+    typeName: String,
+    size: Int,
+    md: MetadataBuilder
+  ): Option[DataType] = {
+    if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
+      Some(TimestampType)
+    } else None
+  }
+
 }
 
 /** The whole worklfow works as follow :
@@ -94,6 +115,7 @@ class IngestionWorkflow(
   import org.apache.spark.sql.jdbc.JdbcDialects
 
   JdbcDialects.registerDialect(StarlakeSnowflakeDialect)
+  JdbcDialects.registerDialect(StarlakeDuckDbDialect)
 
   private var _domains: Option[List[Domain]] = None
 

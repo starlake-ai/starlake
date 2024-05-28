@@ -8,7 +8,7 @@
 
 {% if strategyOn == 'TARGET' %}
 
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, `{{ strategyStartTs }}`, `{{ strategyEndTs }}`)
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, "{{ strategyStartTs }}", "{{ strategyEndTs }}")
 SELECT {{renderIncomingTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) SL_INCOMING
 LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};

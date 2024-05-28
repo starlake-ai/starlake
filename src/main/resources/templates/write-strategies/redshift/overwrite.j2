@@ -8,3 +8,5 @@ CREATE MATERIALIZED VIEW {{ tableFullName }} AS SELECT {{ tableColumnsCsv }} FRO
 TRUNCATE TABLE {{ tableFullName }};
 INSERT INTO {{ tableFullName }} SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING;
 {% endif %}
+
+DROP VIEW IF EXISTS #SL_INCOMING;
