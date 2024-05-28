@@ -26,6 +26,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
             cloud_run_job_region: str=None,
             options: dict=None,
             cloud_run_async:bool=None,
+            cloud_run_async_poke_interval: float=None,
             retry_on_failure: bool=None,
             retry_delay_in_seconds: float=None,
             separator:str = ' ',
@@ -35,6 +36,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = __class__.get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
         self.cloud_run_async = __class__.get_context_var(var_name='cloud_run_async', default_value="True", options=self.options).lower() == "true" if cloud_run_async is None else cloud_run_async
+        self.cloud_run_async_poke_interval = float(__class__.get_context_var('cloud_run_async_poke_interval', "30", self.options)) if not cloud_run_async_poke_interval else cloud_run_async_poke_interval
         self.separator = separator if separator != ',' else ' '
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
@@ -50,7 +52,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     f"gcloud beta run jobs execute {self.cloud_run_job_name} "
                     f"--args \"{command}\" "
                     f"{self.update_env_vars} "
-                    f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
+                    f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300
                 ),
                 do_xcom_push=True,
                 **kwargs
@@ -63,6 +65,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                 cloud_run_job_region=self.cloud_run_job_region,
                 source_task_id=job_task.task_id,
                 retry_on_failure=self.retry_on_failure,
+                poke_interval=self.cloud_run_async_poke_interval,
                 **kwargs
             )
             if self.retry_on_failure:

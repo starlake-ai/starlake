@@ -53,12 +53,27 @@ class XlsDomainReader(input: Input) extends XlsModel {
         Option(
           row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
+      val dagRefOpt = Option(
+        row.getCell(headerMap("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+      val scheduleOpt =
+        Option(
+          row.getCell(headerMap("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
       nameOpt match {
         case Some(name) =>
           Some(
             Domain(
               name,
-              metadata = Some(Metadata(directory = directoryOpt, ack = ack)),
+              metadata = Some(
+                Metadata(
+                  directory = directoryOpt,
+                  ack = ack,
+                  dagRef = dagRefOpt,
+                  schedule = scheduleOpt
+                )
+              ),
               comment = comment,
               tags = tags,
               rename = renameOpt
@@ -173,6 +188,12 @@ class XlsDomainReader(input: Input) extends XlsModel {
         row.getCell(headerMap("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
 
+      val scheduleOpt =
+        Option(
+          row.getCell(headerMap("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
+
       val writeStrategy = (deltaColOpt, identityKeysOpt, mergeQueryFilter, write) match {
         case (Some(deltaCol), Some(identityKeys), filter, _) =>
           val strategyType =
@@ -261,7 +282,8 @@ class XlsDomainReader(input: Input) extends XlsModel {
             writeStrategy = Some(writeStrategy),
             quote = quoteOpt,
             nullValue = nullValueOpt,
-            dagRef = dagRefOpt
+            dagRef = dagRefOpt,
+            schedule = scheduleOpt
           )
 
           val tablePolicies = policiesOpt
