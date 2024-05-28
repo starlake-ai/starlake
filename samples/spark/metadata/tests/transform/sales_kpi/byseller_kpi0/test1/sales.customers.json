@@ -1,3 +1,5 @@
-{"id":"1", "name": "John"}
-{"id":"2", "name": "Does"}
-{"id":"3", "name": "Tara"}
+[
+  {"id":"1", "name1": "John", "signup":  "2024-05-29T21:36:05.545Z", "contact":  "010203040506", "birthdate":  "1990-01-02", "name2":  null, "id1":  null},
+  {"id":"2", "name1": "Does", "signup":  "2024-05-28T21:36:05.123Z", "contact":  null, "birthdate":  "1991-01-02", "name2":  null, "id1":  null},
+  {"id":"3", "name1": "Tara", "signup":  "2024-05-27T21:36:05.000Z", "contact":  null, "birthdate":  "1992-01-02", "name2":  null, "id1":  null}
+]
