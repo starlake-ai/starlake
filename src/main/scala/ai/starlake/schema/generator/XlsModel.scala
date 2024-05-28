@@ -13,7 +13,9 @@ trait XlsModel {
     "_ack"         -> "Ack",
     "_description" -> "Description",
     "_rename"      -> "Rename",
-    "_tags"        -> "Tags"
+    "_tags"        -> "Tags",
+    "_dagRef"      -> "Dag reference",
+    "_frequency"   -> "Job frenquency"
   )
   val allPolicyHeaders = List(
     "_name"        -> "Name",
@@ -63,7 +65,8 @@ trait XlsModel {
     "_options"    -> "Spark ingestion options",
     "_validator"  -> "Class validator",
     "_null"       -> "Null value",
-    "_dagRef"     -> "Dag reference"
+    "_dagRef"     -> "Dag reference",
+    "_frequency"  -> "Job frenquency"
   )
 
   val allAttributeHeaders = List(

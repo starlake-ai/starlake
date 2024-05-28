@@ -64,11 +64,11 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         self.cluster_config = StarlakeAirflowDataprocClusterConfig(
             cluster_id=None,
             dataproc_name=None,
-            master_config=None, 
-            worker_config=None, 
-            secondary_worker_config=None, 
-            idle_delete_ttl=None, 
-            single_node=None, 
+            master_config=None,
+            worker_config=None,
+            secondary_worker_config=None,
+            idle_delete_ttl=None,
+            single_node=None,
             options=self.options,
             **kwargs
         ) if not cluster_config else cluster_config
@@ -76,17 +76,19 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         self.pool = pool
 
     def create_dataproc_cluster(
-        self,
-        cluster_id: str=None,
-        task_id: str=None,
-        cluster_name: str=None,
-        **kwargs) -> BaseOperator:
+            self,
+            cluster_id: str=None,
+            task_id: str=None,
+            cluster_name: str=None,
+            **kwargs) -> BaseOperator:
         """
         Create the Cloud Dataproc cluster.
         This operator will be flagged a success if the cluster by this name already exists.
         """
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        if cluster_name[-1] == '-':
+            cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"create_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
 
         kwargs.update({
@@ -101,23 +103,25 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
             project_id=self.cluster_config.project_id,
             cluster_name=cluster_name,
             cluster_config=self.cluster_config.__config__(**{
-                    "dataproc:job.history.to-gcs.enabled": "true",
-                    "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
-                    "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+                "dataproc:job.history.to-gcs.enabled": "true",
+                "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+                "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
             }),
             region=self.cluster_config.region,
             **kwargs
         )
 
     def delete_dataproc_cluster(
-        self,
-        cluster_id: str=None,
-        task_id: str=None,
-        cluster_name: str=None,
-        **kwargs) -> BaseOperator:
+            self,
+            cluster_id: str=None,
+            task_id: str=None,
+            cluster_name: str=None,
+            **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        if cluster_name[-1] == '-':
+            cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"delete_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
         kwargs.update({
             'pool': kwargs.get('pool', self.pool),
@@ -143,7 +147,9 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}" if not cluster_name else cluster_name
+        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        if cluster_name[-1] == '-':
+            cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"{cluster_id}_submit" if not task_id else task_id
         arguments = [] if not arguments else arguments
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",") if not jar_list else jar_list
