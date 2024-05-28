@@ -26,4 +26,5 @@ WHERE {{ strategyKeyCsv }} in
 INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING
 WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
 
+DROP VIEW IF EXISTS #SL_INCOMING;
 

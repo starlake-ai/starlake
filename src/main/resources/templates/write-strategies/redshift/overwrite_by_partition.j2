@@ -7,3 +7,4 @@ WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableIncomingColumnsCsv }} FROM #SL_INCOMING;
 
+DROP VIEW IF EXISTS #SL_INCOMING;
