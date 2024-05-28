@@ -796,6 +796,10 @@ class SparkAutoTask(
     result
   }
 
+  ///////////////////////////////////////////////////////////////////////
+  // TODO Everything below this line should be moved to an export package
+  ///////////////////////////////////////////////////////////////////////
+
   /** This function is called only if csvOutput is true This means we are sure that sink is an
     * FsSink
     *
@@ -823,7 +827,7 @@ class SparkAutoTask(
         ".csv"
       }
     val fsSink = sinkConfig.asInstanceOf[FsSink]
-    val finalCsvPath: Path = fsSink.path
+    val finalCsvPath: Path = fsSink.finalPath
       .map { p =>
         val parsed = parseJinja(List(p), allVars).head
         if (parsed.contains("://"))
@@ -833,6 +837,7 @@ class SparkAutoTask(
       }
       .getOrElse(getExportFilePath(domainName, tableName + extension))
     storageHandler.delete(finalCsvPath)
+
     val withHeader = header.isDefined
     val delimiter = separator.getOrElse("µ")
     val headerString =
@@ -861,7 +866,7 @@ class SparkAutoTask(
     result match {
       case Some(df) =>
         // retrieve the domain export root path
-        val domainDir = DatasetArea.export(domainName)
+        val domainDir = DatasetArea.`export`(domainName)
         storageHandler.mkdirs(domainDir)
 
         // retrieve the xls file extension
@@ -881,7 +886,7 @@ class SparkAutoTask(
 
         // define the full path to the xls file
         val finalXlsPath =
-          fsSink.path
+          fsSink.finalPath
             .map { p =>
               val parsed = parseJinja(List(p), allVars).head
               if (parsed.contains("://"))
@@ -1017,7 +1022,7 @@ class SparkAutoTask(
       for ((field, idx) <- fields.zipWithIndex) {
         val cell = Option(sheetRow.getCell(colIndex + idx)) match {
           case Some(cell) => cell
-          case _          => sheetRow.createCell(colIndex + idx)
+          case None       => sheetRow.createCell(colIndex + idx)
         }
         cell.setCellValue(field)
       }
