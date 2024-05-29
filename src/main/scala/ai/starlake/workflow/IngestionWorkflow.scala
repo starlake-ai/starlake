@@ -871,21 +871,26 @@ class IngestionWorkflow(
     }
   }
 
-  def test(config: StarlakeTestConfig): Unit = {
-    def testsLog(transformResults: List[StarlakeTestResult]): Unit = {
+  def test(config: StarlakeTestConfig): JobResult = {
+    def testsLog(transformResults: List[StarlakeTestResult]): JobResult = {
       val (success, failure) = transformResults.partition(_.success)
       println(s"Tests run: ${transformResults.size} ")
       println(s"Tests succeeded: ${success.size}")
       println(s"Tests failed: ${failure.size}")
       if (failure.nonEmpty) {
         println(
-          s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+          s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
         )
       }
       if (success.nonEmpty) {
         println(
-          s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.tableName}.${t.testName}" }.mkString("\n")}"
+          s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
         )
+      }
+      if (failure.size > 0) {
+        FailedJobResult
+      } else {
+        EmptyJobResult
       }
     }
     val loadResults =
