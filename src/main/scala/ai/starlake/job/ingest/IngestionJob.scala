@@ -6,7 +6,7 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.transform.SparkAutoTask
+import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
 import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -752,26 +752,32 @@ trait IngestionJob extends SparkJob {
         tags = schema.tags,
         writeStrategy = Some(strategy)
       )
-      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = test)(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-      if (autoTask.sink(mergedDF)) {
+      val autoTask =
         taskDesc.getSinkConfig() match {
-          case fsSink: FsSink =>
-            if (isCSV(fsSink)) {
-              val separator = mergedMetadata.separator
-              val header =
-                if (mergedMetadata.resolveWithHeader())
-                  Some(mergedDF.columns.toList)
-                else None
-              autoTask.exportToCSV(domain.finalName, schema.finalName, header, separator)
-            }
+          case fsSink: FsSink if isCSV(fsSink) =>
+            new SparkExportTask(taskDesc, Map.empty, None, truncate=false, test=test)(
+              settings,
+              storageHandler,
+              schemaHandler
+            )
           case _ =>
-            false
+            new SparkAutoTask(taskDesc, Map.empty, None, truncate=false, test=test)(
+              settings,
+              storageHandler,
+              schemaHandler
+            )
         }
-
+      if (autoTask.sink(mergedDF)) {
+        autoTask match {
+          case x: SparkExportTask =>
+            val separator = mergedMetadata.separator
+            val header =
+              if (mergedMetadata.isWithHeader())
+                Some(mergedDF.columns.toList)
+              else None
+            x.exportToCSV(domain.finalName, schema.finalName, header, separator)
+          case _ =>
+        }
         Success(0L)
       } else {
         Failure(new Exception("Failed to sink"))
