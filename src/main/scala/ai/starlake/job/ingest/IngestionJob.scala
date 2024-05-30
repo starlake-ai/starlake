@@ -755,13 +755,13 @@ trait IngestionJob extends SparkJob {
       val autoTask =
         taskDesc.getSinkConfig() match {
           case fsSink: FsSink if isCSV(fsSink) =>
-            new SparkExportTask(taskDesc, Map.empty, None, truncate=false, test=test)(
+            new SparkExportTask(taskDesc, Map.empty, None, truncate = false, test = test)(
               settings,
               storageHandler,
               schemaHandler
             )
           case _ =>
-            new SparkAutoTask(taskDesc, Map.empty, None, truncate=false, test=test)(
+            new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = test)(
               settings,
               storageHandler,
               schemaHandler
