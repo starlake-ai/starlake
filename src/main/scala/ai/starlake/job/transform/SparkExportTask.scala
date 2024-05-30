@@ -23,6 +23,8 @@ class SparkExportTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
+  accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkAutoTask(
@@ -30,6 +32,8 @@ class SparkExportTask(
       commandParameters,
       interactive,
       truncate,
+      test,
+      accessToken,
       resultPageSize
     ) {
 

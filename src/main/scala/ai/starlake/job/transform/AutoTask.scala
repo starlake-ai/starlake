@@ -296,6 +296,8 @@ object AutoTask extends StrictLogging {
                 configOptions,
                 interactive,
                 truncate = truncate,
+                test = test,
+                accessToken = accessToken,
                 resultPageSize = resultPageSize
               )
             } else {
