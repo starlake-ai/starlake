@@ -454,7 +454,7 @@ object StarlakeTestData {
           val table = domain.flatMap { d =>
             d.tables.find(_.finalName == taskName)
           }
-          val assertFile =
+          val assertDataFile =
             if (assertFileCsv.exists()) {
               Some(assertFileCsv)
             } else if (assertFileJson.exists()) {
@@ -462,31 +462,14 @@ object StarlakeTestData {
             } else {
               None
             }
-          val expectedCreateTable = (table, assertFile) match {
-            case (Some(table), Some(assertFile)) =>
-              val fields = table.ddlMapping("duckdb", schemaHandler)
-              val cols = fields
-                .map { case field: DDLLeaf =>
-                  s""""${field.name}" ${field.tpe}"""
-                }
-                .mkString(", ")
-              val firstLine =
-                if (assertFile.getName.endsWith("json"))
-                  Files
-                    .readAllLines(Paths.get(assertFile.toString), StandardCharsets.UTF_8)
-                    .get(0)
-                    .trim
-                else
-                  ""
-              val extraArgs =
-                if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
-                else ""
-              s"""CREATE TABLE "$domainName"."sl_expected" ($cols);
-                 |COPY "$domainName"."sl_expected" FROM '${assertFile.toString}' $extraArgs;""".stripMargin
-            case (None, Some(assertFile)) =>
-              s"CREATE TABLE $domainName.sl_expected AS SELECT * FROM '${assertFile.toString}';"
-            case _ => ""
-          }
+          val expectedCreateTable: String =
+            loadTableIntoDuckdb(
+              schemaHandler,
+              domainName,
+              taskName,
+              Some("sl_expected"),
+              assertDataFile
+            )
 
           val assertContent = expectedCreateTable
           val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskName")
@@ -572,7 +555,49 @@ object StarlakeTestData {
     (rootData, allTests)
   }
 
-  private def loadDataFile(testName: String, dataPath: File) = {
+  private def loadTableIntoDuckdb(
+    schemaHandler: SchemaHandler,
+    domainName: String,
+    tableName: String,
+    targetTableName: Option[String],
+    dataFile: Option[File]
+  ): String = {
+    val domain = schemaHandler.domains().find(_.finalName == domainName)
+    val table = domain.flatMap { d =>
+      d.tables.find(_.finalName == tableName)
+    }
+    val finalTableName = targetTableName.getOrElse(tableName)
+    val expectedCreateTable = (table, dataFile) match {
+      case (Some(table), Some(assertFile)) =>
+        val fields = table.ddlMapping("duckdb", schemaHandler)
+        val cols = fields
+          .map { case field: DDLLeaf =>
+            s""""${field.name}" ${field.tpe}"""
+          }
+          .mkString(", ")
+        val firstLine =
+          if (assertFile.getName.endsWith("json"))
+            Files
+              .readAllLines(Paths.get(assertFile.toString), StandardCharsets.UTF_8)
+              .get(0)
+              .trim
+          else
+            ""
+        val extraArgs =
+          if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
+          else ""
+        s"""CREATE TABLE "$domainName"."$finalTableName" ($cols);
+                 |COPY "$domainName"."$finalTableName" FROM '${assertFile.toString}' $extraArgs;""".stripMargin
+      case (None, Some(assertFile)) =>
+        s"CREATE TABLE $domainName.$finalTableName AS SELECT * FROM '${assertFile.toString}';"
+      case _ => ""
+    }
+    expectedCreateTable
+  }
+
+  private def loadDataFile(testName: String, dataPath: File)(implicit
+    settings: Settings
+  ) = {
     val dataName = dataPath.getName()
     val components = dataName.split('.')
     val filterOK = components.length == 3
@@ -585,7 +610,14 @@ object StarlakeTestData {
         val dataContent =
           ext match {
             case "json" | "csv" =>
-              s"CREATE TABLE $testDataDomainName.$testDataTableName AS SELECT * FROM '${dataPath.getPath}';"
+              val schemaHandler = new SchemaHandler(settings.storageHandler())
+              loadTableIntoDuckdb(
+                schemaHandler,
+                testDataDomainName,
+                testDataTableName,
+                None,
+                Some(dataPath)
+              )
             case "sql" =>
               val bufferedSource = Source.fromFile(dataPath.getPath)
               val result = bufferedSource.getLines().mkString("\n")

@@ -59,7 +59,10 @@ object Main extends StrictLogging {
     */
   @nowarn
   def main(args: Array[String]): Unit = {
-    new Main().run(args)
+    if (new Main().run(args))
+      System.exit(0)
+    else
+      System.exit(1)
   }
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
@@ -201,13 +204,20 @@ class Main extends StrictLogging {
           } else {
             throw exception
           }
+        case Success(FailedJobResult) =>
+          val message = s"""Starlake failed to execute command with args $executedCommand"""
+          System.err.print(message)
+          if (settings.appConfig.forceHalt) {
+            Runtime.getRuntime.halt(1)
+          }
         case Success(_) =>
           logger.info(s"Successfully $executedCommand")
           if (settings.appConfig.forceHalt) {
             Runtime.getRuntime.halt(0)
           }
       }
-      result.isSuccess
+      // FailedJobResult are considered as a soft failure so we remove them from success possibility
+      result.filter( _ != FailedJobResult).isSuccess
     }
 
   }
