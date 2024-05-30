@@ -79,6 +79,11 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new DagGenerateJob(schemaHandler).run(Array.empty)
         val dagPath = new Path(new Path(DatasetArea.dags, "generated/load"), "position.py")

@@ -34,6 +34,7 @@ import org.apache.spark.sql.types.{DataType, DataTypes, StructField}
 import org.apache.spark.storage.StorageLevel
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.TryValues
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import java.util.TimeZone
@@ -42,7 +43,7 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
-class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
+class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
   new WithSettings() {
     "Job with no explicit engine toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
@@ -285,39 +286,13 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
       val config = mapperWithEmptyString.writeValueAsString(yamlTableConfig)
       try {
         val deserializedConfig = YamlSerde.deserializeYamlTables(config, "input")
-        deserializedConfig.tables.size shouldBe 1
-        deserializedConfig.tables.head.pattern.toString should equal(
+        deserializedConfig.size shouldBe 1
+        deserializedConfig.head.table.pattern.toString should equal(
           yamlTableConfig.table.pattern.toString
         )
         val substitutedPattern = Pattern.compile("hello")
-        deserializedConfig.tables.map(_.copy(pattern = substitutedPattern)) should equal(
+        deserializedConfig.map(_.table).map(_.copy(pattern = substitutedPattern)) should equal(
           List(yamlTableConfig.table.copy(pattern = substitutedPattern))
-        )
-      } catch {
-        case e: Exception =>
-          logger.info("Generated config\n" + config)
-          throw e
-      }
-    }
-  }
-
-  it should "round-trip any Yaml Tables Config" in {
-    import YamlConfigGenerators._
-    forAll { (yamlTableConfig: TablesDesc) =>
-      val mapperWithEmptyString =
-        Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
-      val config = mapperWithEmptyString.writeValueAsString(yamlTableConfig)
-      try {
-        val deserializedConfig = YamlSerde.deserializeYamlTables(config, "input")
-        deserializedConfig.tables
-          .map(_.pattern)
-          .zip(yamlTableConfig.tables.map(_.pattern))
-          .foreach { case (p1, p2) =>
-            p1.toString should equal(p2.toString)
-          }
-        val substitutedPattern = Pattern.compile("hello")
-        deserializedConfig.tables.map(_.copy(pattern = substitutedPattern)) should equal(
-          yamlTableConfig.tables.map(_.copy(pattern = substitutedPattern))
         )
       } catch {
         case e: Exception =>
@@ -359,6 +334,22 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks {
           throw e
       }
     }
+  }
+
+  it should "fail when tables is defined within load in version 1 schema" in {
+    val config =
+      """
+        |---
+        |version: 1
+        |load:
+        |  name: ""
+        |  tables: []
+        |""".stripMargin
+    val deserResult = YamlSerde
+      .deserializeYamlLoadConfig(config, "input", isForExtract = false)
+    deserResult.failure.exception.getMessage should include(
+      "property 'tables' is not evaluated and the schema does not allow unevaluated properties"
+    )
   }
 }
 
@@ -807,7 +798,6 @@ object YamlConfigGenerators {
     for {
       name     <- arbitrary[String]
       metadata <- Gen.option(arbitrary[Metadata])
-      tables   <- arbitrary[List[Schema]]
       comment  <- Gen.option(arbitrary[String])
       tags     <- arbitrary[List[String]].map(_.toSet)
       rename   <- Gen.option(arbitrary[String])
@@ -815,7 +805,7 @@ object YamlConfigGenerators {
     } yield Domain(
       name = name,
       metadata = metadata,
-      tables = tables,
+      tables = Nil,
       comment = comment,
       tags = tags,
       rename = rename,
@@ -1370,12 +1360,6 @@ object YamlConfigGenerators {
     for {
       table <- arbitrary[Schema]
     } yield TableDesc(latestSchemaVersion, table)
-  }
-
-  implicit val tablesDesc: Arbitrary[TablesDesc] = Arbitrary {
-    for {
-      tables <- arbitrary[List[Schema]].map(_.take(maxElementInCollections))
-    } yield TablesDesc(latestSchemaVersion, tables)
   }
 
   implicit val primitiveType: Arbitrary[PrimitiveType] = Arbitrary {

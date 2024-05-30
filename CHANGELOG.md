@@ -29,6 +29,9 @@ __Improvement__:
 - primary and foreign keys extraction failure are not considered as errors anymore
 - make data extraction in parallel on schema's level
 
+__Deprecations removal__:
+- `tables` attached to domain description or table description in load stage is not authorized starting from 1.2.0 but a config migration is automatically done for prior configs
+
 # 1.1.1:
 __Improvement__:
 - add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.

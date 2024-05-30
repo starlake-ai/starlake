@@ -1,67 +1,47 @@
 ---
 version: 1
-load:
+table:
   name: "locations"
-  metadata:
-    directory: "__SL_TEST_ROOT__"
-    format: "XML"
-    multiline: true
-    array: true
-    withHeader: true
-    separator: ""
-    quote: "\""
-    escape: "\\"
-    writeStrategy:
-      type: "APPEND"
-    options:
-      rowTag: element
-    sink:
-      partition:
-        - year
-        - month
-        - day
-  tables:
-    - name: "locations"
-      pattern: "locations.*"
-      attributes:
-        - name: "_continent"
-          type: "string"
-          required: false
-          privacy: "MD5"
-        - name: "id"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "name"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "seconds"
-          type: "epoch_second"
-          required: true
-          privacy: "NONE"
-        - name: "millis"
-          type: "epoch_milli"
-          required: true
-          privacy: "NONE"
-        - name: "year"
-          type: "long"
-          script: "year(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "month"
-          type: "long"
-          script: "month(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "day"
-          type: "long"
-          script: "day(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
+  pattern: "locations.*"
+  attributes:
+    - name: "_continent"
+      type: "string"
+      required: false
+      privacy: "MD5"
+    - name: "id"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "name"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "seconds"
+      type: "epoch_second"
+      required: true
+      privacy: "NONE"
+    - name: "millis"
+      type: "epoch_milli"
+      required: true
+      privacy: "NONE"
+    - name: "year"
+      type: "long"
+      script: "year(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "month"
+      type: "long"
+      script: "month(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "day"
+      type: "long"
+      script: "day(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
