@@ -772,7 +772,7 @@ trait IngestionJob extends SparkJob {
           case x: SparkExportTask =>
             val separator = mergedMetadata.separator
             val header =
-              if (mergedMetadata.isWithHeader())
+              if (mergedMetadata.resolveWithHeader())
                 Some(mergedDF.columns.toList)
               else None
             x.exportToCSV(domain.finalName, schema.finalName, header, separator)
