@@ -55,6 +55,7 @@ import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.sql.Types
+import java.time.Instant
 import java.util.Collections
 import java.util.regex.Pattern
 import scala.annotation.nowarn
@@ -335,9 +336,13 @@ class IngestionWorkflow(
           schema match {
             case Some(sch) =>
               val paths = config.files.getOrElse(Nil).map(new Path(_)).sortBy(_.getName)
-              ingest(dom, sch, paths, config.options, config.accessToken, config.test).map(_ =>
-                true
-              )
+              val fileInfos = paths.map(p =>
+                FileInfo(p, 0, Instant.now())
+              ) // dummy file infos for calling AdaptiveWriteStrategy
+              val updatedSchema =
+                AdaptiveWriteStrategy.adaptThenGroup(sch, fileInfos).head._1 // get the schema only
+              ingest(dom, updatedSchema, paths, config.options, config.accessToken, config.test)
+                .map(_ => true)
             case None =>
               throw new Exception(s"Schema ${config.tables.head} not found")
           }
