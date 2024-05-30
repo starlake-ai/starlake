@@ -57,8 +57,7 @@ trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
   override def run(config: StarlakeTestConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    workflow(schemaHandler).test(config)
-    Success(JobResult.empty)
+    Success(workflow(schemaHandler).test(config))
   }
 }
 
