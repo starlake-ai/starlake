@@ -1,0 +1,126 @@
+---
+slug: polars-vs-spark
+title: Polars versus Spark
+author: Hayssam Saleh
+author_title: Starlake Core Team
+author_url: https://www.linkedin.com/in/hayssams/
+author_image_url: https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png
+tags: [Polars, Spark, Databricks, Data Engineering, Analytics]
+---
+
+## Introduction
+
+Polars is often compared to Spark. In this post, I will highlight the main differences and the best use cases for each in my data engineering activities.
+
+As a Data Engineer, I primarily focus on the following goals:
+1. Parsing files, validating their input, and loading the data into the target data warehouse.
+2. Once the data is loaded, applying transformations by joining and aggregating the data to build KPIs.
+
+However, on a daily basis, I also need to develop on my laptop and test my work locally before delivering it to the CI pipeline and then to production.
+
+What about my fellow data scientist colleagues? They need to run their workload on production data through their favorite notebook environment.
+
+
+This post addresses the following points:
+
+- How suitable each tool is for loading files into your data warehouse.
+- How easy and powerful each tool is for performing transformations.
+- How easy it is to test your code locally before deploying to the cloud
+
+
+
+## Load tasks
+
+Data loading seems easy at first glance, as almost all databases and APIs offer some sort of single-line command to load a few lines or millions of records quickly. However, this simplicity disappears when you encounter real-world cases such as:
+
+- Fixed-width fields: These files are typically exported from mainframe databases.
+- XML files: I sometimes work in  the finance industry where SWIFT is a common XML file format that will be around for some time.
+- Multi-character CSV: For example, where the separator consists of two characters like ||.
+- File validation: You cannot trust the files you receive and need to check their content thoroughly.
+
+Loading correct CSV or JSON files using Spark or Polars is straightforward. However, it is also straightforward using your favorite database command line utility, making this capabilities somewhat redundant and even slower than the native data warehouse load feature.
+
+However, in real-world scenarios, you want to ensure the incoming file adheres to the expected schema and load a variety of file formats not supported natively. This is where Spark excels compared to Polars, as it allows for the parallel loading of your JSONL or CSV files and offers through map operations local and distributed validation of your incoming file.
+
+As XML and multichar and multiline CSV are only supported by Spark, dealing with file parsing for data loading, Spark is definitely the most suitable solution.
+
+
+## Transform tasks
+
+Three interfaces are provided to transform data: SQL, Dafarames and Datasets.
+
+__SQL__
+
+SQL is the preferred language for most data analysts when it comes to computing aggregations. One of its key benefits is its widespread understanding, which eliminates the learning curve.
+
+You can use SQL with both Spark and Polars, but Polars has significant limitations. It does not support SQL Window functions nor does it support the SQL statements for update, insert, delete, or merge operations.
+
+__Dataframes__
+
+Both Polars and Spark offer excellent support for DataFrames. The main added value of using DataFrames is the ability to reuse portions of code and access features not available in standard SQL, such as lambda functions, JSON handling and array manipulation.
+
+__Datasets__
+
+As a software engineer, I particularly appreciate Datasets. Datasets are typed DataFrames, meaning that syntax, column names, and types are checked at compile time. If you believe that statically typed languages greatly enhance code quality, then you understand the added value of datasets.
+
+Datasets are only supported by Spark, allowing you to write clean, reusable, and statically typed transformations. They are available exclusively to statically typed languages such as Java or Scala.
+
+Spark stands out as the only tool with complete support for SQL, DataFrames, and Datasets. Polars’ limited support for SQL makes it less suitable for my data engineering tasks.
+
+## Cloud Era
+
+At least 60% of the projects I have worked on are cloud-based, primarily targeting Amazon Redshift, Google BigQuery, Databricks, Snowflake, or Azure Synapse. All of these platforms offer serverless support for Spark, making it incredibly easy to run workloads by simply providing your PySpark script and letting the cloud provider handle the rest.
+
+In the cloud environment, Spark is definitely the tool of choice as I see it.
+
+## Single node
+
+There has been much discussion about Spark being slow or too heavy for single-node computers. I was particularly interested in running this test since I currently execute most of my workloads on a single-node Google Cloud Run job with Spark embedded in my Docker image.
+
+I decided to conduct this test on my almost 3-year-old MacBook Pro M1 Max with 64GB of memory. The test involved loading 27GB of CSV data, selecting a few attributes, computing metrics on those selected attributes, and then saving the results to a Parquet file.
+
+I ran Spark with default settings and without any fine-tuning. This means it utilized all 10 cores of my MacBook Pro M1 Max but only 1 gigabyte of memory for execution.
+
+::: note
+I could have optimized my Spark workload, but given the small size of the dataset (27GB of CSV), it didn't make sense. The default settings were sufficient.
+:::
+
+Here are the results after a cold restart  of my laptop before each test  to ensure the test did not benefit from any operating system cache.
+
+- Apache Spark pipeline took: 29 seconds
+
+- Polars pipeline took: 56 seconds
+
+::: note
+Rerunning Polars gave me 23 seconds instead of 56 seconds. This discrepancy is probably due to filesystem caching by the operating system.
+:::
+
+
+Load and Save Test: Load a 27GB CSV file with 193 columns per record and save  the result as parquet.
+
+- Apache Spark pipeline took: 2mn 18s
+
+- Polars pipeline took: 2mn 32s
+
+Load parquet and filter on column value then return count : Load a 74 millions records parquet file with 193 columns, filter on 'model' column and return count.
+
+- Apache Spark pipeline took: 3 seconds
+
+- Polars pipeline took: 28 seconds
+
+The table below summarises the results
+
+| Task | Spark 1GB memory | Polars All the available memory |
+| --- | --- | --- |
+| Load CSV, aggregate and save the aggregation as parquet | 29s | 56s |
+| Load CSV and Save parquet | 2mn 18s | 2mn 32s |
+| Load Parquet, filter and count | 3s | 28s |
+
+
+
+## Conclusion
+
+I don’t think it is time to switch from Spark to Polars, at least for those of us accustomed to the JVM, running workloads in the cloud, or even working on small datasets. However, Polars may be a perfect fit for those familiar with pandas.
+
+As of today, Spark is the only framework I see that can handle both local and distributed workloads, adapt to on-premise and cloud serverless jobs, and provide the complete SQL support required for most of our transformations.
+
