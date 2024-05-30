@@ -750,7 +750,8 @@ trait IngestionJob extends SparkJob {
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
-        writeStrategy = Some(strategy)
+        writeStrategy = Some(strategy),
+        metadata = Some(mergedMetadata)
       )
       val autoTask =
         taskDesc.getSinkConfig() match {
@@ -768,16 +769,6 @@ trait IngestionJob extends SparkJob {
             )
         }
       if (autoTask.sink(mergedDF)) {
-        autoTask match {
-          case x: SparkExportTask =>
-            val separator = mergedMetadata.separator
-            val header =
-              if (mergedMetadata.resolveWithHeader())
-                Some(mergedDF.columns.toList)
-              else None
-            x.exportToCSV(domain.finalName, schema.finalName, header, separator)
-          case _ =>
-        }
         Success(0L)
       } else {
         Failure(new Exception("Failed to sink"))
