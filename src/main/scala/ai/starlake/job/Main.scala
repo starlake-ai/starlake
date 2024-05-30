@@ -217,7 +217,7 @@ class Main extends StrictLogging {
           }
       }
       // FailedJobResult are considered as a soft failure so we remove them from success possibility
-      result.filter( _ != FailedJobResult).isSuccess
+      result.filter(_ != FailedJobResult).isSuccess
     }
 
   }
