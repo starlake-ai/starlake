@@ -91,6 +91,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("/sample/yelp/business.sl.yml")
         loadPending
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")

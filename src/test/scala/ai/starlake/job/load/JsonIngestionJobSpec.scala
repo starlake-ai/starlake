@@ -52,7 +52,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         cleanMetadata
         deliverSourceDomain()
-
+        deliverSourceTable("/sample/json/sample_json.sl.yml")
         loadPending
 
         // Check archive
@@ -115,6 +115,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("/sample/json/sample_json.sl.yml")
         val res = loadPending
         res.getOrElse(false) shouldBe false
       }

@@ -46,6 +46,11 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
 
         logger.info(settings.appConfig.datasets)
         loadPending
@@ -84,6 +89,11 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
         logger.info(settings.appConfig.datasets)
         loadPending.isSuccess shouldBe true
         sparkSession.sql("DROP TABLE IF EXISTS position.account")
@@ -98,6 +108,7 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("/sample/positionWithEncoding/DATA.sl.yml")
         loadPending(new Codec(Charset forName "ISO-8859-1"))
 
         val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
@@ -124,6 +135,10 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/positionWithIgnore/DATAREGEX.sl.yml",
+          "/sample/positionWithIgnore/DATAUDF.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
         // Accepted should contain data formatted correctly
         val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
@@ -148,6 +163,10 @@ class PositionIngestionJobSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/positionWithIgnore/DATAREGEX.sl.yml",
+          "/sample/positionWithIgnore/DATAUDF.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
         // Accepted should contain data formatted correctly
         val acceptedDf = sparkSession.table(s"${datasetDomainName}.DATAUDF")

@@ -10,14 +10,3 @@ load:
     writeStrategy:
       type: "OVERWRITE"
     encoding: "ISO-8859-1"
-  tables:
-    - name: "DATA"
-      pattern: "data.*.dat"
-      attributes:
-        - name: "someData"
-          type: "string"
-          required: true
-          privacy: "NONE"
-          position:
-            first: 0
-            last: 49

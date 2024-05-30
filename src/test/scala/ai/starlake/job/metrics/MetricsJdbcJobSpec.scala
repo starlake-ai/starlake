@@ -377,6 +377,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("yelp", "/sample/yelp/business_jdbc.sl.yml", Some("business.sl.yml"))
         assert(loadPending.isSuccess)
 
         val jdbcConfig = JdbcConnectionLoadCmd.fromComet(

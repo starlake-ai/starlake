@@ -67,7 +67,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         ) {
           cleanMetadata
           deliverSourceDomain()
-
+          deliverSourceTable("/sample/position/account.sl.yml")
           logger.info(settings.appConfig.datasets)
           loadPending
         }
@@ -91,7 +91,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         ) {
           cleanMetadata
           deliverSourceDomain()
-
+          deliverSourceTable("/sample/position/account.sl.yml")
           logger.info(settings.appConfig.datasets)
           secure(LoadConfig(accessToken = None, test = false, files = None))
         }

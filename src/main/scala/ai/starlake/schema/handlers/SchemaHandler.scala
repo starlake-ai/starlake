@@ -734,7 +734,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           schemaPath.toString
         )
       }
-      .flatMap(_.tables)
+      .flatMap(_.map(_.table))
     schemaRefs
   }
 

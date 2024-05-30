@@ -163,7 +163,7 @@ object TableYamlFileMigrator extends YamlFileMigrator {
         storageHandler.read(path),
         path.toString
       )
-      val tableFileNames = migratedYamlEntity.tables.map { t =>
+      val tableFileNames = migratedYamlEntity.map(_.table).map { t =>
         val tableFileName =
           if (t.name.trim.isEmpty) path.getName else s"${t.name}.sl.yml"
         YamlSerde.serializeToPath(new Path(path.getParent, tableFileName), t)
