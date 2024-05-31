@@ -287,30 +287,18 @@ object AutoTask extends StrictLogging {
           sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
         val sinkConnection: Settings.Connection =
           settings.appConfig.connections(sinkConnectionRef)
-        sinkConnection.getType() match {
-          case ConnectionType.FS =>
-            if (sinkConfig.asInstanceOf[FsSink].isExport()) {
-              logger.info("Exporting to the filesystem")
-              new SparkExportTask(
-                taskDesc,
-                configOptions,
-                interactive,
-                truncate = truncate,
-                test = test,
-                accessToken = accessToken,
-                resultPageSize = resultPageSize
-              )
-            } else {
-              new SparkAutoTask(
-                taskDesc,
-                configOptions,
-                interactive,
-                truncate = truncate,
-                test = test,
-                accessToken = accessToken,
-                resultPageSize = resultPageSize
-              )
-            }
+        sinkConfig match {
+          case fs: FsSink if fs.isExport() =>
+            logger.info("Exporting to the filesystem")
+            new SparkExportTask(
+              taskDesc,
+              configOptions,
+              interactive,
+              truncate = truncate,
+              test = test,
+              accessToken = accessToken,
+              resultPageSize = resultPageSize
+            )
 
           case _ =>
             new SparkAutoTask(
