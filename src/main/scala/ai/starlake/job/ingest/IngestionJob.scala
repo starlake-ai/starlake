@@ -755,7 +755,7 @@ trait IngestionJob extends SparkJob {
       )
       val autoTask =
         taskDesc.getSinkConfig() match {
-          case fsSink: FsSink if fsSink.isExport() =>
+          case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
             new SparkExportTask(taskDesc, Map.empty, None, truncate = false, test = test)(
               settings,
               storageHandler,
