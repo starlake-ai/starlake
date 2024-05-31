@@ -37,7 +37,7 @@ class SparkExportTask(
       resultPageSize
     ) {
 
-  override protected def exportTo(dataset: DataFrame): Boolean = {
+  override protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {
     val fsSink = sinkConfig.asInstanceOf[FsSink]
     val location = getExportFilePath(taskDesc.domain, taskDesc.table)
     (isCSV, isXls) match {
@@ -60,6 +60,7 @@ class SparkExportTask(
           s"Unsupported format ${fsSink.format.getOrElse("")} for export ${taskDesc.name}"
         )
     }
+    Success(SparkJobResult(Some(dataset)))
   }
 
   private def isCSV = {
