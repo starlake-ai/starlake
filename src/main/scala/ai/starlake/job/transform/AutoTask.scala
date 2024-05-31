@@ -283,10 +283,6 @@ object AutoTask extends StrictLogging {
         )
       case _ =>
         val sinkConfig = taskDesc.getSinkConfig()
-        val sinkConnectionRef: String =
-          sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
-        val sinkConnection: Settings.Connection =
-          settings.appConfig.connections(sinkConnectionRef)
         sinkConfig match {
           case fs: FsSink if fs.isExport() =>
             logger.info("Exporting to the filesystem")
