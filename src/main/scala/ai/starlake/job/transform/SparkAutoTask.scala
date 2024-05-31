@@ -503,6 +503,7 @@ class SparkAutoTask(
   }
 
   protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {
+    val allAttributes = dataset.schema.fieldNames.mkString(",")
     dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
     runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
   }
@@ -521,12 +522,10 @@ class SparkAutoTask(
       updateSparkTableSchema(incomingSchema)
     }
 
-    val allAttributes = incomingSchema.fieldNames.mkString(",")
     val hasColumns: Boolean = dataset.columns.length > 0
-    if(!hasColumns){
+    if (!hasColumns) {
       Success(SparkJobResult(None))
-    }
-    else{
+    } else {
       effectiveSinkToFile(dataset)
     }
   }

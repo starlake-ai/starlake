@@ -3,6 +3,7 @@ package ai.starlake.job.transform
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AutoTaskDesc, FsSink, WriteStrategyType}
+import ai.starlake.utils.{JobResult, SparkJobResult}
 import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel.{
   Cell,
@@ -16,6 +17,7 @@ import org.apache.poi.ss.util.CellReference
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.annotation.tailrec
+import scala.util.{Success, Try}
 import scala.util.matching.Regex
 
 class SparkExportTask(
