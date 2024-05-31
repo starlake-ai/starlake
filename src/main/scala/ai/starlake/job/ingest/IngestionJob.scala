@@ -755,7 +755,7 @@ trait IngestionJob extends SparkJob {
       )
       val autoTask =
         taskDesc.getSinkConfig() match {
-          case fsSink: FsSink if isCSV(fsSink) =>
+          case fsSink: FsSink if fsSink.isExport() =>
             new SparkExportTask(taskDesc, Map.empty, None, truncate = false, test = test)(
               settings,
               storageHandler,
@@ -775,11 +775,6 @@ trait IngestionJob extends SparkJob {
       }
     }
     result.flatten
-  }
-
-  private def isCSV(fsSink: FsSink) = {
-    (settings.appConfig.csvOutput || fsSink.format.getOrElse("") == "csv") && !strategy
-      .isMerge()
   }
 
   @nowarn
