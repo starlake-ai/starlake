@@ -502,8 +502,9 @@ class SparkAutoTask(
     }
   }
 
-  protected def exportTo(dataset: DataFrame): Boolean = {
-    false
+  protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {
+    dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
+    runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
   }
 
   private def sinkToFile(
@@ -521,19 +522,13 @@ class SparkAutoTask(
     }
 
     val allAttributes = incomingSchema.fieldNames.mkString(",")
-    val isExport: Boolean = fsSink.isExport()
     val hasColumns: Boolean = dataset.columns.length > 0
-    val result = (isExport, hasColumns) match {
-      case (true, true) =>
-        exportTo(dataset)
-        Success(SparkJobResult(Some(dataset)))
-      case (false, true) =>
-        dataset.createOrReplaceTempView("SL_INTERNAL_VIEW")
-        runSparkOnSpark(s"SELECT $allAttributes FROM SL_INTERNAL_VIEW")
-      case _ =>
-        Success(SparkJobResult(None))
+    if(!hasColumns){
+      Success(SparkJobResult(None))
     }
-    result
+    else{
+      effectiveSinkToFile(dataset)
+    }
   }
 
   ///////////////////////////////////////////////////
