@@ -37,20 +37,6 @@ class SparkExportTask(
       resultPageSize
     ) {
 
-  override def sink(df: DataFrame): Boolean = {
-    super.sink(df)
-    this.taskDesc.metadata match {
-      case Some(metadata) =>
-        val separator = metadata.separator
-        val header =
-          if (metadata.resolveWithHeader())
-            Some(df.columns.toList)
-          else None
-        this.exportToCSV(taskDesc.domain, taskDesc.table, header, separator)
-      case _ =>
-        throw new Exception("Should never happen: Metadata is missing")
-    }
-  }
   override protected def exportTo(dataset: DataFrame): Boolean = {
     val fsSink = sinkConfig.asInstanceOf[FsSink]
     val location = getExportFilePath(taskDesc.domain, taskDesc.table)
