@@ -2,8 +2,6 @@ from datetime import datetime
 
 from typing import Union
 
-from ai.starlake.common import sanitize_id
-
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions
 
 from dagster import AssetKey, Failure, Output, In, Out, op, graph
@@ -237,9 +235,8 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.
         """
-        kwargs.update({'asset': AssetKey(sanitize_id(domain))})
+        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(domain, **kwargs))})
         kwargs.update({'description': f"Starlake domain '{domain}' imported"})
-#        kwargs.update({'ins': {"domain": In(str)}})
         return super().sl_import(task_id=task_id, domain=domain, **kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
@@ -254,9 +251,8 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.        
         """
-        kwargs.update({'asset': AssetKey(sanitize_id(f"{domain}.{table}"))})
+        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(f"{domain}.{table}", **kwargs))})
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
-#        kwargs.update({'ins': {"domain": In(str), "table": In(str)}})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> NodeDefinition:
@@ -271,9 +267,8 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.
         """
-        kwargs.update({'asset': AssetKey(sanitize_id(transform_name))})
+        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(transform_name, **kwargs))})
         kwargs.update({'description': f"Starlake transform '{transform_name}' executed"})
-#        kwargs.update({'ins': {"transform_name": In(str)}})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:

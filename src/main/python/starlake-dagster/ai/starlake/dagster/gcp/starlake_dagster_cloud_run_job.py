@@ -50,7 +50,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
         )
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,

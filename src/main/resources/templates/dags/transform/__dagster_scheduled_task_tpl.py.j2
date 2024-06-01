@@ -11,6 +11,8 @@ from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvalua
 
 cron = "{{ context.cron }}"
 
+_cron = None if cron == "None" else cron
+
 task_deps=json.loads("""{{ context.dependencies }}""")
 
 job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
@@ -22,12 +24,24 @@ sensor = None
 
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
 if not load_dependencies:
-    assets: Set[str] = []
+    assets: Set[str] = set()
+
+    cronAssets: dict = dict()
+
+    _filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
 
     def load_assets(task: dict):
         if 'children' in task:
             for child in task['children']:
-                assets.append(sanitize_id(child['data']['name']))
+                asset = sanitize_id(child['data']['name']).lower
+                if asset not in assets and asset not in _filtered_assets:
+                    childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
+                    if childCron :
+                        cronAsset = sl_job.__class__.sl_dataset(asset, cron=childCron)
+                        assets.add(cronAsset)
+                        cronAssets[cronAsset] = childCron
+                    else :
+                        assets.add(asset)
                 load_assets(child)
 
     for task in task_deps:
@@ -79,6 +93,7 @@ def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start"
             transform_name=task_name,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
+            cron=_cron
         )
     else:
         load_domain_and_table = task_name.split(".",1)
@@ -90,6 +105,7 @@ def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start"
             table=table,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
+            cron=_cron
         )
 
 from dagster._core.definitions import NodeDefinition

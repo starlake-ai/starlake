@@ -58,7 +58,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         """Overrides IStarlakeJob.pre_tasks()"""
         task_id = f"create_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
@@ -78,7 +78,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         task_id = f"delete_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
         """Overrides IStarlakeJob.post_tasks()"""
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
@@ -147,7 +147,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             }
         }
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
