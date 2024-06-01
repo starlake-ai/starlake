@@ -74,7 +74,7 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sanitize_id(dag.dag_id), {"source": dag.dag_id})])
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sl_job.__class__.sl_dataset(dag.dag_id, cron=_cron), {"source": dag.dag_id})])
 
         all_load_tasks >> end
 

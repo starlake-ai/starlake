@@ -22,18 +22,18 @@ load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', d
 
 sensor = None
 
+assets: Set[str] = set()
+
+cronAssets: dict = dict()
+
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
 if not load_dependencies:
-    assets: Set[str] = set()
-
-    cronAssets: dict = dict()
-
     _filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
 
     def load_assets(task: dict):
         if 'children' in task:
             for child in task['children']:
-                asset = sanitize_id(child['data']['name']).lower
+                asset = sanitize_id(child['data']['name']).lower()
                 if asset not in assets and asset not in _filtered_assets:
                     childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
                     if childCron :
@@ -167,7 +167,15 @@ def generate_job():
         node = generate_node_for_task(task, dependencies, nodes, snodes)
         ins[node._name] = In(Nothing)
         end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
-    end = sl_job.dummy_op(task_id="end", ins=ins)
+
+    asset_events: List[AssetKey] = [AssetKey(sl_job.__class__.sl_dataset(job_name, cron=_cron))]
+    # we don't want to republish all scheduled assets if there is none unscheduled assets, otherwise the job will be triggered indefinitely
+    if assets.__len__() != cronAssets.__len__():
+      if cronAssets :
+          for cronAsset, _ in cronAssets.items() :
+            # we republish all scheduled assets
+            asset_events.append(AssetKey(cronAsset))
+    end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
@@ -192,8 +200,8 @@ def generate_job():
 
 crons = []
 
-if cron.lower() != 'none':
-    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = cron))
+if _cron:
+    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron))
 
 defs = Definitions(
    jobs=[generate_job()],

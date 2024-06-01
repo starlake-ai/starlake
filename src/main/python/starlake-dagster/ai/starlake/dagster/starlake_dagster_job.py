@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from typing import Union
+from typing import Union, List
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions
 
-from dagster import AssetKey, Failure, Output, In, Out, op, graph
+from dagster import AssetKey, Failure, Output, In, Out, op, graph, AssetMaterialization
 
 from dagster._core.definitions import NodeDefinition
 
@@ -295,6 +295,9 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.
         """
+
+        assets: List[AssetKey] = kwargs.get("assets", [])
+
         @op(
             name=task_id,
             required_resource_keys=set(),
@@ -304,4 +307,6 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         def dummy(**kwargs):
             yield Output(value=task_id, output_name=out)
 
+            for asset in assets:
+                yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Dummy op {task_id} execution succeeded"))
         return dummy

@@ -128,7 +128,7 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
         ins[result] = In(dagster_type=str)
         end_dependencies[result] = DependencyDefinition(node_def._name, 'result')
 
-    end = sl_job.dummy_op(task_id="end", ins=ins)
+    end = sl_job.dummy_op(task_id="end", ins=ins, assets=[AssetKey(sl_job.__class__.sl_dataset(job_name(index), cron=cron))])
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
