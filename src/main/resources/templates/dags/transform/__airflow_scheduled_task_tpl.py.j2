@@ -121,7 +121,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         start >> all_transform_tasks
 
     extra: dict = {"source": dag.dag_id}
-    outlets: List[Dataset] = [Dataset(sanitize_id(dag.dag_id), extra)]
+    outlets: List[Dataset] = [Dataset(sl_job.__class__.sl_dataset(dag.dag_id, cron=_cron), extra)]
     # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
     if datasets.__len__() != cronDatasets.__len__():
       if cronDatasets :
