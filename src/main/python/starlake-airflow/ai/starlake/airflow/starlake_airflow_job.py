@@ -7,7 +7,8 @@ from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSpark
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule
+from airflow import DAG
 
 from airflow.datasets import Dataset
 
@@ -48,6 +49,27 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
 
+    @classmethod
+    def sl_outlets(cls, uri: str, **kwargs) -> List[Dataset]:
+        """Returns a list of Airflow datasets from the specified uri.
+
+        Args:
+            uri (str): The uri of the dataset.
+
+        Returns:
+            List[Dataset]: The list of datasets.
+        """
+        dag: Union[DAG,None] = kwargs.get('dag', None)
+        extra: dict = dict()
+        if dag is not None:
+            extra['source']= dag.dag_id
+
+        dataset = Dataset(__class__.sl_dataset(uri, **kwargs), extra=extra)
+        outlets = kwargs.get('outlets', []) + [dataset]
+        kwargs.update({'outlets': outlets})
+
+        return outlets
+
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()
         Generate the Airflow task that will run the starlake `import` command.
@@ -60,8 +82,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        dataset = Dataset(keep_ascii_only(domain).lower())
-        self.outlets += kwargs.get('outlets', []) + [dataset]
+        self.outlets += self.__class__.sl_outlets(domain, **kwargs)
         return super().sl_import(task_id=task_id, domain=domain, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
@@ -236,7 +257,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         else:
             return self.pre_tasks(**kwargs)
 
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None,**kwargs) -> BaseOperator:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_load()
         Generate the Airflow task that will run the starlake `load` command.
 
@@ -250,8 +271,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        dataset = Dataset(keep_ascii_only(f'{domain}.{table}').lower())
-        self.outlets += kwargs.get('outlets', []) + [dataset]
+        self.outlets += self.__class__.sl_outlets(f'{domain}.{table}', **kwargs)
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
@@ -267,8 +287,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
-        dataset = Dataset(keep_ascii_only(transform_name).lower())
-        self.outlets += kwargs.get('outlets', []) + [dataset]
+        self.outlets += self.__class__.sl_outlets(transform_name, **kwargs)
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 

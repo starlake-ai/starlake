@@ -1,4 +1,4 @@
-from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.common import sanitize_id
 from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
 import os
@@ -51,7 +51,7 @@ for schedule in schedules:
 
         post_tasks = sl_job.post_tasks(dag=dag)
 
-        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"])
+        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"], cron=_cron)
 
         def generate_task_group_for_domain(domain):
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
@@ -63,6 +63,7 @@ for schedule in schedules:
                         domain=domain["name"], 
                         table=table["name"],
                         spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
+                        cron=_cron
                     )
             return domain_load_tasks
 
@@ -73,12 +74,7 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        extra: dict = {"source": dag.dag_id}
-        parameters = dict(_extra_dataset)
-        if _cron is not None :
-          parameters['sl_schedule'] = sl_schedule(_cron)
-
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id), extra)]+list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets)))
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sanitize_id(dag.dag_id), {"source": dag.dag_id})])
 
         all_load_tasks >> end
 

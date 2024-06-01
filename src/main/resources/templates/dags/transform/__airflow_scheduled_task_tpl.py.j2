@@ -1,4 +1,4 @@
-from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.common import sanitize_id
 from ai.starlake.job import StarlakeSparkConfig
 from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
@@ -29,20 +29,16 @@ cronDatasets: dict = dict()
 
 _filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', set())
 
-_extra_dataset: dict = sys.modules[__name__].__dict__.get('extra_dataset', dict())
-
 from typing import List
 
 def _load_datasets(task: dict):
     if 'children' in task:
         for child in task['children']:
-            dataset = keep_ascii_only(child['data']['name']).lower()
+            dataset = sanitize_id(child['data']['name']).lower()
             if dataset not in datasets and dataset not in _filtered_datasets:
                 childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
                 if childCron :
-                    parameters = dict(_extra_dataset)
-                    parameters['sl_schedule'] = sl_schedule(childCron)
-                    cronDataset = dataset + asQueryParameters(parameters)
+                    cronDataset = sl_job.__class__.sl_dataset(dataset, cron=childCron)
                     datasets.add(cronDataset)
                     cronDatasets[cronDataset] = childCron
                 else :
@@ -53,7 +49,7 @@ if load_dependencies.lower() != 'true' :
     if not _cron:
         for task in task_deps:
             _load_datasets(task)
-    schedule = list(map(lambda dataset: Dataset(dataset + asQueryParameters(_extra_dataset)), datasets))
+    schedule = list(map(lambda dataset: Dataset(dataset), datasets))
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
@@ -79,7 +75,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 
                 transform_name=task_name,
-                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {}))
+                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
+                cron=_cron
             )
         else:
             load_domain_and_table = task_name.split(".",1)
@@ -89,7 +86,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 task_id=airflow_task_id, 
                 domain=domain, 
                 table=table,
-                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {}))
+                spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
+                cron=_cron
             )
 
     # build taskgroups recursively
@@ -122,11 +120,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
     else:
         start >> all_transform_tasks
 
-    parameters = dict(_extra_dataset)
     extra: dict = {"source": dag.dag_id}
-    if _cron is not None :
-      parameters['sl_schedule'] = sl_schedule(_cron)
-    outlets: List[Dataset] = [Dataset(keep_ascii_only(dag.dag_id), extra)] + list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets))
+    outlets: List[Dataset] = [Dataset(sanitize_id(dag.dag_id), extra)]
     # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
     if datasets.__len__() != cronDatasets.__len__():
       if cronDatasets :
