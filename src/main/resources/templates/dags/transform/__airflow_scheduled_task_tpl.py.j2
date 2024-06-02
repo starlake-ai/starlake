@@ -43,7 +43,7 @@ def _load_datasets(task: dict):
                     cronDatasets[cronDataset] = childCron
                 else :
                   datasets.add(dataset)
-            _load_datasets(child)
+#            _load_datasets(child)
 
 if load_dependencies.lower() != 'true' :
     if not _cron:
