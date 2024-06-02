@@ -1,6 +1,6 @@
 import os
 
-from dagster import ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op
 
 from dagster._core.definitions.input import InputDefinition
 
@@ -28,6 +28,8 @@ crons = []
 pre_tasks = sl_job.pre_tasks()
 
 start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
+
+from typing import Union
 
 def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
     tables = [table["name"] for table in domain["tables"]]
