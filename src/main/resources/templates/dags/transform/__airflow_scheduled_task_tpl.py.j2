@@ -5,7 +5,7 @@ from ai.starlake.airflow import DEFAULT_DAG_ARGS
 import json
 import os
 import sys
-from typing import Set, Union
+from typing import Set
 
 from airflow import DAG
 
@@ -76,7 +76,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 task_id=airflow_task_id, 
                 transform_name=task_name,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                cron=_cron
+                params={'cron':_cron}
             )
         else:
             load_domain_and_table = task_name.split(".",1)
@@ -87,7 +87,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 domain=domain, 
                 table=table,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                cron=_cron
+                params={'cron':_cron}
             )
 
     # build taskgroups recursively
