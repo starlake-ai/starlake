@@ -6,7 +6,7 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.transform.SparkAutoTask
+import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -741,39 +741,31 @@ trait IngestionJob extends SparkJob {
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
-        writeStrategy = Some(strategy)
+        writeStrategy = Some(strategy),
+        metadata = Some(mergedMetadata)
       )
-      val autoTask = new SparkAutoTask(taskDesc, Map.empty, None, false)(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-      if (autoTask.sink(mergedDF)) {
+      val autoTask =
         taskDesc.getSinkConfig() match {
-          case fsSink: FsSink =>
-            if (isCSV(fsSink)) {
-              val separator = mergedMetadata.separator
-              val header =
-                if (mergedMetadata.isWithHeader())
-                  Some(mergedDF.columns.toList)
-                else None
-              autoTask.exportToCSV(domain.finalName, schema.finalName, header, separator)
-            }
+          case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
+            new SparkExportTask(taskDesc, Map.empty, None, truncate = false)(
+              settings,
+              storageHandler,
+              schemaHandler
+            )
           case _ =>
-            false
+            new SparkAutoTask(taskDesc, Map.empty, None, truncate = false)(
+              settings,
+              storageHandler,
+              schemaHandler
+            )
         }
-
+      if (autoTask.sink(mergedDF)) {
         Success(0L)
       } else {
         Failure(new Exception("Failed to sink"))
       }
     }
     result.flatten
-  }
-
-  private def isCSV(fsSink: FsSink) = {
-    (settings.appConfig.csvOutput || fsSink.format.getOrElse("") == "csv") && !strategy
-      .isMerge()
   }
 
   @nowarn

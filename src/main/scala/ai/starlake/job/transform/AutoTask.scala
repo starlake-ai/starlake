@@ -213,13 +213,28 @@ object AutoTask extends StrictLogging {
           resultPageSize = resultPageSize
         )
       case _ =>
-        new SparkAutoTask(
-          taskDesc,
-          configOptions,
-          interactive,
-          truncate = truncate,
-          resultPageSize = resultPageSize
-        )
+        val sinkConfig = taskDesc.getSinkConfig()
+        sinkConfig match {
+          case fs: FsSink if fs.isExport() =>
+            logger.info("Exporting to the filesystem")
+            new SparkExportTask(
+              taskDesc,
+              configOptions,
+              interactive,
+              truncate = truncate,
+              resultPageSize = resultPageSize
+            )
+
+          case _ =>
+            new SparkAutoTask(
+              taskDesc,
+              configOptions,
+              interactive,
+              truncate = truncate,
+              resultPageSize = resultPageSize
+            )
+
+        }
     }
   }
 }
