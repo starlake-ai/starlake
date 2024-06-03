@@ -37,7 +37,7 @@ if not load_dependencies:
                 if asset not in assets and asset not in _filtered_assets:
                     childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
                     if childCron :
-                        cronAsset = sl_job.__class__.sl_dataset(asset, cron=childCron)
+                        cronAsset = sl_job.sl_dataset(asset, cron=childCron)
                         assets.add(cronAsset)
                         cronAssets[cronAsset] = childCron
                     else :
@@ -168,7 +168,7 @@ def generate_job():
         ins[node._name] = In(Nothing)
         end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
 
-    asset_events: List[AssetKey] = [AssetKey(sl_job.__class__.sl_dataset(job_name, cron=_cron))]
+    asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
     # we don't want to republish all scheduled assets if there is none unscheduled assets, otherwise the job will be triggered indefinitely
     if assets.__len__() != cronAssets.__len__():
       if cronAssets :

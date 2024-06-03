@@ -48,7 +48,7 @@ for schedule in schedules:
 
         post_tasks = sl_job.post_tasks(dag=dag)
 
-        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"], params={'cron':_cron})
+        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"], params={'cron':_cron}, dag=dag)
 
         def generate_task_group_for_domain(domain):
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
@@ -60,7 +60,8 @@ for schedule in schedules:
                         domain=domain["name"], 
                         table=table["name"],
                         spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                        params={'cron':_cron}
+                        params={'cron':_cron},
+                        dag=dag
                     )
             return domain_load_tasks
 
@@ -71,7 +72,7 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sl_job.__class__.sl_dataset(dag.dag_id, cron=_cron), {"source": dag.dag_id})])
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sl_job.sl_dataset(dag.dag_id, cron=_cron), {"source": dag.dag_id})])
 
         all_load_tasks >> end
 

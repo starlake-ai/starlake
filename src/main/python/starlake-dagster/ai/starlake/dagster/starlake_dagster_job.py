@@ -235,7 +235,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.
         """
-        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(domain, **kwargs))})
+        kwargs.update({'asset': AssetKey(self.sl_dataset(domain, **kwargs))})
         kwargs.update({'description': f"Starlake domain '{domain}' imported"})
         return super().sl_import(task_id=task_id, domain=domain, **kwargs)
 
@@ -251,7 +251,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.        
         """
-        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(f"{domain}.{table}", **kwargs))})
+        kwargs.update({'asset': AssetKey(self.sl_dataset(f"{domain}.{table}", **kwargs))})
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
@@ -267,7 +267,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         Returns:
             NodeDefinition: The Dastger node.
         """
-        kwargs.update({'asset': AssetKey(self.__class__.sl_dataset(transform_name, **kwargs))})
+        kwargs.update({'asset': AssetKey(self.sl_dataset(transform_name, **kwargs))})
         kwargs.update({'description': f"Starlake transform '{transform_name}' executed"})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 

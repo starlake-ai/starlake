@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule
+from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule, sl_schedule_format
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
@@ -35,9 +35,18 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         self.sl_env_vars = __class__.get_sl_env_vars(self.options)
         self.sl_root = __class__.get_sl_root(self.options)
         self.sl_datasets = __class__.get_sl_datasets(self.options)
+        self.sl_schedule_parameter_name = __class__.get_context_var(
+            var_name="sl_schedule_parameter_name",
+            default_value="sl_schedule",
+            options=self.options
+        )
+        self.sl_schedule_format = __class__.get_context_var(
+            var_name="sl_schedule_format",
+            default_value=sl_schedule_format,
+            options=self.options
+        )
 
-    @classmethod
-    def sl_dataset(cls, uri: str, **kwargs) -> str:
+    def sl_dataset(self, uri: str, **kwargs) -> str:
         """Returns the dataset from the specified uri.
 
         Args:
@@ -47,10 +56,10 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             str: The dataset.
         """
 
-        cron = kwargs.get('cron', None)
+        cron = kwargs.get('cron', kwargs.get('params', dict()).get('cron', None))
         parameters: dict = dict()
         if cron is not None :
-            parameters['sl_schedule'] = sl_schedule(cron)
+            parameters[self.sl_schedule_parameter_name] = sl_schedule(cron, format=self.sl_schedule_format)
 
         return sanitize_id(uri).lower() + asQueryParameters(parameters)
 
