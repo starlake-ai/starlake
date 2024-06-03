@@ -103,7 +103,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",")
         main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options)

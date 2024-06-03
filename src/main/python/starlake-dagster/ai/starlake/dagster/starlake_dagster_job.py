@@ -233,7 +233,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             domain (str): The required domain to import.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
         kwargs.update({'asset': AssetKey(self.sl_dataset(domain, **kwargs))})
         kwargs.update({'description': f"Starlake domain '{domain}' imported"})
@@ -249,7 +249,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             table (str): The required table to load.
 
         Returns:
-            NodeDefinition: The Dastger node.        
+            NodeDefinition: The Dagster node.        
         """
         kwargs.update({'asset': AssetKey(self.sl_dataset(f"{domain}.{table}", **kwargs))})
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
@@ -265,7 +265,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             transform_options (str, optional): The optional transform options. Defaults to None.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
         kwargs.update({'asset': AssetKey(self.sl_dataset(transform_name, **kwargs))})
         kwargs.update({'description': f"Starlake transform '{transform_name}' executed"})
@@ -281,7 +281,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
         
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
 
     def dummy_op(self, task_id: str, out: str = "result", required: bool = True, **kwargs) -> NodeDefinition:
@@ -293,7 +293,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             required (bool, optional): The optional required flag. Defaults to True.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
 
         assets: List[AssetKey] = kwargs.get("assets", [])

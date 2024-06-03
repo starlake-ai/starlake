@@ -40,7 +40,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
         args = f'^{self.separator}^' + self.separator.join(arguments)
         command = (
