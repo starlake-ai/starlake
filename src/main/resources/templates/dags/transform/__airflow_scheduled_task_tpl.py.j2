@@ -38,7 +38,7 @@ def _load_datasets(task: dict):
             if dataset not in datasets and dataset not in _filtered_datasets:
                 childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
                 if childCron :
-                    cronDataset = sl_job.__class__.sl_dataset(dataset, cron=childCron)
+                    cronDataset = sl_job.sl_dataset(dataset, cron=childCron)
                     datasets.add(cronDataset)
                     cronDatasets[cronDataset] = childCron
                 else :
@@ -76,7 +76,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 task_id=airflow_task_id, 
                 transform_name=task_name,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                params={'cron':_cron}
+                params={'cron':_cron},
+                dag=dag
             )
         else:
             load_domain_and_table = task_name.split(".",1)
@@ -87,7 +88,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
                 domain=domain, 
                 table=table,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                params={'cron':_cron}
+                params={'cron':_cron},
+                dag=dag
             )
 
     # build taskgroups recursively
@@ -121,7 +123,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         start >> all_transform_tasks
 
     extra: dict = {"source": dag.dag_id}
-    outlets: List[Dataset] = [Dataset(sl_job.__class__.sl_dataset(dag.dag_id, cron=_cron), extra)]
+    outlets: List[Dataset] = [Dataset(sl_job.sl_dataset(dag.dag_id, cron=_cron), extra)]
     # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
     if datasets.__len__() != cronDatasets.__len__():
       if cronDatasets :
