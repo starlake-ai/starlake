@@ -81,12 +81,16 @@ class InferSchemaJobSpec extends TestHelper {
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
         for {
           sourceFile <- File.temporaryFile()
@@ -120,7 +124,7 @@ class InferSchemaJobSpec extends TestHelper {
             targetFile.pathAsString
           )
 
-          val discoveredSchema = maybeTable.tables.head
+          val discoveredSchema = maybeTable.head.table
           discoveredSchema.name shouldBe "flat_locations"
           discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
             "id",
@@ -132,12 +136,16 @@ class InferSchemaJobSpec extends TestHelper {
 
     "Ingest Complex JSON Schema" should "produce file in accepted" in {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val inputData = loadTextFile("/sample/complex-json/complex.json")
         for {
           sourceFile <- File.temporaryFile()
@@ -168,19 +176,23 @@ class InferSchemaJobSpec extends TestHelper {
             "/sample/complex-json/complex.sl.yml"
           )
 
-          discoveredSchema.tables.head.attributes should contain theSameElementsAs expectedTable.tables.head.attributes
+          discoveredSchema.head.table.attributes should contain theSameElementsAs expectedTable.head.table.attributes
         }
       }
     }
 
     "Ingest Complete CSV Schema" should "produce file in accepted" in {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val inputData = loadTextFile("/sample/complete-csv/complete.csv")
         for {
           sourceFile <- File.temporaryFile()
@@ -211,7 +223,7 @@ class InferSchemaJobSpec extends TestHelper {
             "/sample/complete-csv/complete.sl.yml"
           )
 
-          discoveredSchema.tables.head.attributes should contain theSameElementsAs expectedTable.tables.head.attributes
+          discoveredSchema.head.table.attributes should contain theSameElementsAs expectedTable.head.table.attributes
         }
       }
     }

@@ -11,26 +11,3 @@ load:
       type: "OVERWRITE"
     encoding: "ISO-8859-1"
     ignore: "IGNORE.*"
-  tables:
-    - name: "DATAREGEX"
-      pattern: "dataregex.*.dat"
-      attributes:
-        - name: "someData"
-          type: "string"
-          required: true
-          privacy: "NONE"
-          position:
-            first: 0
-            last: 37
-    - name: "DATAUDF"
-      metadata:
-        ignore: "udf:isIgnore"
-      pattern: "dataudf.*.dat"
-      attributes:
-        - name: "someData"
-          type: "string"
-          required: true
-          privacy: "NONE"
-          position:
-            first: 0
-            last: 37

@@ -17,7 +17,6 @@ import ai.starlake.schema.model.{
   RefDesc,
   Schema => ModelSchema,
   TableDesc,
-  TablesDesc,
   TaskDesc,
   TransformDesc,
   Type,
@@ -36,12 +35,13 @@ import com.networknt.schema.SpecVersion.VersionFlag
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import ImplicitRichPath._
+import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 
 import java.util.Locale
 import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
 
-object YamlSerde extends LazyLogging {
+object YamlSerde extends LazyLogging with YamlUtils {
   val mapper: ObjectMapper = Utils.newYamlMapper()
 
   def serialize[T](entity: T): String = mapper.writeValueAsString(entity)
@@ -152,6 +152,21 @@ object YamlSerde extends LazyLogging {
     postProcess: Option[YamlMigratorInterface] = None
   ): JsonNode = {
     val rawRootNode: JsonNode = mapper.readTree(content)
+    validateConfigFileFromNode(subPath, rawRootNode, inputFilename, migrationList, postProcess)
+  }
+
+  /** Validate and enrich given config with default values defined in schema.
+    * @throws SchemaValidationException
+    *   If not valid
+    */
+  @throws[SchemaValidationException]
+  def validateConfigFileFromNode(
+    subPath: String,
+    rawRootNode: JsonNode,
+    inputFilename: String,
+    migrationList: List[YamlMigratorInterface],
+    postProcess: Option[YamlMigratorInterface] = None
+  ): JsonNode = {
     val effectiveRootNode = if (migrationList.exists(_.canMigrate(rawRootNode))) {
       logger.warn(s"Migrating config of $inputFilename on-the-fly")
       migrationList.foldLeft(rawRootNode) { case (node, migrator) =>
@@ -246,33 +261,53 @@ object YamlSerde extends LazyLogging {
     validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ApplicationConfig))
   }
 
-  def deserializeYamlTables(content: String, path: String): TablesDesc = {
+  def deserializeYamlTables(content: String, path: String): List[TableDesc] = {
+    deserializeYamlTables(mapper.readTree(content), path)
+  }
+
+  private def deserializeYamlTables(jsonRootNode: JsonNode, path: String): List[TableDesc] = {
     Try {
-      val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
-      val tableSubPath = "table"
-      val tableListSubPath = "tables"
-      if (rootNode.hasNonNull(tableListSubPath)) {
-        val tablesNode =
-          validateConfigFile(tableListSubPath, content, path, List(YamlMigrator.V1.TableConfig))
-        mapper.treeToValue(tablesNode, classOf[TablesDesc])
+      val rootNode = if (YamlMigrator.PreV1.TableConfig.canMigrate(jsonRootNode)) {
+        YamlMigrator.PreV1.TableConfig.migrate(jsonRootNode).asInstanceOf[ObjectNode]
       } else {
+        jsonRootNode.asInstanceOf[ObjectNode]
+      }
+      val tableListSubPath = "tables"
+      val tablesNode = if (rootNode.has(tableListSubPath)) {
+        rootNode.path(tableListSubPath) match {
+          case tableList: ArrayNode =>
+            tableList.asScala.map(wrapToContainer("table"))
+          case n =>
+            throw new RuntimeException(
+              s"Expecting array for tables but found ${n.getNodeType.name()}"
+            )
+        }
+      } else {
+        List(rootNode)
+      }
+      tablesNode.map { rawTableNode =>
         // fallback to table since this is how we should define tables in starlake
         val tableNode =
-          validateConfigFile(tableSubPath, content, path, List(YamlMigrator.V1.TableConfig))
+          validateConfigFileFromNode(
+            "table",
+            rawTableNode,
+            path,
+            List(YamlMigrator.V1.TableConfig)
+          )
         val metadata = tableNode.path("metadata")
         val isJsonArray = if (!metadata.isMissingNode) {
           metadata.path("format").asText().toLowerCase() == "array_json"
         } else
           false
         val ref = mapper.treeToValue(tableNode, classOf[TableDesc])
-        val table =
-          if (isJsonArray)
+        if (isJsonArray)
+          ref.copy(table =
             ref.table
               .copy(metadata = ref.table.metadata.map(m => m.copy(array = Some(true))))
-          else
-            ref.table
-        TablesDesc(ref.version, List(table))
-      }
+          )
+        else
+          ref
+      }.toList
     } match {
       case Success(value) => value
       case Failure(exception) =>
@@ -289,21 +324,38 @@ object YamlSerde extends LazyLogging {
     Try {
       val loadSubPath = "load"
       val filePath = new Path(path)
+      val rawRootNode: JsonNode = mapper.readTree(content)
+      val attachedTables: List[ModelSchema] =
+        if (
+          !rawRootNode.has("version") && (rawRootNode.path("load").has("tables")) || rawRootNode
+            .has("tables")
+        ) {
+          val tablesNode =
+            if (rawRootNode.has("tables")) rawRootNode.path("tables")
+            else rawRootNode.path("load").path("tables")
+          val tables = if (isForExtract) {
+            new TableForExtractConfig(filePath.fileNameWithoutSlExt)
+              .migrate(wrapToContainer("tables")(tablesNode))
+          } else {
+            tablesNode
+          }
+          deserializeYamlTables(wrapToContainer("tables")(tables), path).map(_.table)
+        } else {
+          Nil
+        }
       val domainNode =
-        validateConfigFile(
+        validateConfigFileFromNode(
           loadSubPath,
-          content,
+          rawRootNode,
           path,
           List(
-            new YamlMigrator.V1.LoadConfig(
-              filePath.fileNameWithoutSlExt,
-              isForExtract = isForExtract
-            )
+            YamlMigrator.V1.LoadConfig
           )
         )
-      mapper.treeToValue(domainNode, classOf[LoadDesc])
+      val loadDesc = mapper.treeToValue(domainNode, classOf[LoadDesc])
+      loadDesc.load.copy(tables = attachedTables)
     } match {
-      case Success(value) => Success(value.load)
+      case Success(value) => Success(value)
       case Failure(exception) =>
         logger.error(s"Invalid domain file: $path(${exception.getMessage})", exception)
         Failure(exception)

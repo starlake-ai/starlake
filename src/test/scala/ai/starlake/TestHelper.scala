@@ -405,6 +405,20 @@ trait TestHelper
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }
 
+    def deliverSourceTable(sourceTablePath: String): Unit = {
+      deliverSourceTable(datasetDomainName, sourceTablePath)
+    }
+
+    def deliverSourceTable(
+      datasetDomainName: String,
+      sourceTablePath: String,
+      tableFileName: Option[String] = None
+    ): Unit = {
+      val fileName = tableFileName.getOrElse(new Path(sourceTablePath).getName)
+      val tablePath = new Path(domainMetadataRootPath, s"$datasetDomainName/$fileName")
+      withSettings.deliverTestFile(sourceTablePath, tablePath)
+    }
+
     def deleteSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
       val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
       storageHandler.delete(domainPath)

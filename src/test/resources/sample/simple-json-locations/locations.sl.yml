@@ -1,116 +1,49 @@
 ---
 version: 1
-load:
+table:
   name: "locations"
-  metadata:
-    directory: "__SL_TEST_ROOT__"
-    format: "JSON_FLAT"
-    multiline: true
-    array: true
-    withHeader: true
-    separator: ""
-    quote: "\""
-    escape: "\\"
-    writeStrategy:
-      type: "APPEND"
-    sink:
-      partition:
-        - year
-        - month
-        - day
-  tables:
-    - name: "locations"
-      pattern: "locations.*"
-      attributes:
-        - name: "id"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "name"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "name_upper_case"
-          type: "string"
-          script: "upper(name)"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "source_file_name"
-          type: "string"
-          script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "year"
-          type: "long"
-          script: "year(current_date())"
-          array: false
-          required: false
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "month"
-          type: "long"
-          script: "month(current_date())"
-          array: false
-          required: false
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "day"
-          type: "long"
-          script: "day(current_date())"
-          array: false
-          required: false
-          privacy: "NONE"
-          metricType: "NONE"
-    - name: "flat_locations"
-      pattern: "flat-locations.*"
-      metadata:
-        multiline: false
-        array: false
-      attributes:
-        - name: "id"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "name"
-          type: "string"
-          required: false
-          privacy: "NONE"
-        - name: "name_upper_case"
-          type: "string"
-          script: "upper(name)"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "source_file_name"
-          type: "string"
-          script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "year"
-          type: "long"
-          script: "year(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "month"
-          type: "long"
-          script: "month(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
-        - name: "day"
-          type: "long"
-          script: "day(current_date())"
-          array: false
-          required: true
-          privacy: "NONE"
-          metricType: "NONE"
+  pattern: "locations.*"
+  attributes:
+    - name: "id"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "name"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "name_upper_case"
+      type: "string"
+      script: "upper(name)"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "source_file_name"
+      type: "string"
+      script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "year"
+      type: "long"
+      script: "year(current_date())"
+      array: false
+      required: false
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "month"
+      type: "long"
+      script: "month(current_date())"
+      array: false
+      required: false
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "day"
+      type: "long"
+      script: "day(current_date())"
+      array: false
+      required: false
+      privacy: "NONE"
+      metricType: "NONE"

@@ -16,6 +16,11 @@ class Yml2XlsSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
@@ -39,15 +44,25 @@ class Yml2XlsSpec extends TestHelper {
       sourceDatasetPathName = "/sample/position/XPOSTBL"
     ) {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
-        val yamlPath =
+        val yamlTablePath =
+          File(getClass.getResource("/sample/SCHEMA1.sl.yml"))
+        val yamlTables = YamlSerde
+          .deserializeYamlTables(
+            yamlTablePath.contentAsString,
+            yamlTablePath.pathAsString
+          )
+          .map(_.table)
+        val yamlDomainPath =
           File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
         val yamlDomain = YamlSerde
           .deserializeYamlLoadConfig(
-            yamlPath.contentAsString,
-            yamlPath.pathAsString,
+            yamlDomainPath.contentAsString,
+            yamlDomainPath.pathAsString,
             isForExtract = false
           )
-          .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
+          .getOrElse(throw new Exception(s"Invalid file name $yamlDomainPath"))
+          .copy(tables = yamlTables)
+
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")(settings.storageHandler())
         val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")

@@ -80,9 +80,9 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
                     val tableContent = settings
                       .storageHandler()
                       .read(tableTemplatePath)
-                    val tableDesc: TablesDesc =
+                    val tableDesc: List[TableDesc] =
                       YamlSerde.deserializeYamlTables(tableContent, tableTemplatePath.toString)
-                    domain.copy(tables = tableDesc.tables)
+                    domain.copy(tables = tableDesc.map(_.table))
                   } else {
                     domain
                   }
@@ -194,7 +194,7 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
       }
 
       val content =
-        YamlSerde.serialize(TablesDesc(latestSchemaVersion, List(tableWithPatternAndWrite)))
+        YamlSerde.serialize(TableDesc(latestSchemaVersion, tableWithPatternAndWrite))
       val file =
         new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
       storageHandler.delete(file)

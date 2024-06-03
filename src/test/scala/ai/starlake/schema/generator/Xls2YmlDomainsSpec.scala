@@ -29,13 +29,13 @@ class Xls2YmlDomainsSpec extends TestHelper {
 
     lazy val schema1: Schema = YamlSerde
       .deserializeYamlTables(schema1Path.contentAsString, schema1Path.pathAsString)
-      .tables
       .head
+      .table
 
     lazy val schema2: Schema = YamlSerde
       .deserializeYamlTables(schema2Path.contentAsString, schema2Path.pathAsString)
-      .tables
       .head
+      .table
 
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputPath.exists shouldBe true
@@ -95,17 +95,15 @@ class Xls2YmlDomainsSpec extends TestHelper {
         )
       val xlsTable = complexReader.getDomain().get.tables.head
       val yamlPath =
-        File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
+        File(getClass.getResource("/sample/SCHEMA1.sl.yml"))
 
       val yamlTable = YamlSerde
-        .deserializeYamlLoadConfig(
+        .deserializeYamlTables(
           yamlPath.contentAsString,
-          yamlPath.pathAsString,
-          isForExtract = false
+          yamlPath.pathAsString
         )
-        .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
-        .tables
         .head
+        .table
 
       xlsTable.attributes.length shouldBe yamlTable.attributes.length
 

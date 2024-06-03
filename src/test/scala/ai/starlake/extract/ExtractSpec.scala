@@ -98,8 +98,8 @@ class ExtractSpec extends TestHelper {
       val table =
         YamlSerde
           .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-          .tables
           .head
+          .table
       table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
         "id" -> "long"
       )
@@ -160,8 +160,8 @@ class ExtractSpec extends TestHelper {
       val table =
         YamlSerde
           .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-          .tables
           .head
+          .table
       table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
         "renamed_id" -> "long"
       )
@@ -218,8 +218,8 @@ class ExtractSpec extends TestHelper {
       val table =
         YamlSerde
           .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-          .tables
           .head
+          .table
       table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
         "id"   -> "long",
         "name" -> "string"
@@ -279,8 +279,8 @@ class ExtractSpec extends TestHelper {
     val table =
       YamlSerde
         .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-        .tables
         .head
+        .table
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
       "id"   -> "long",
       "name" -> "string"
@@ -291,8 +291,8 @@ class ExtractSpec extends TestHelper {
     val view =
       YamlSerde
         .deserializeYamlTables(viewFile.contentAsString, viewFile.pathAsString)
-        .tables
         .head
+        .table
     view.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\Qtest_view1\\E.*"
     assertOutput(domain, table, view)
   }
@@ -593,8 +593,8 @@ class ExtractSpec extends TestHelper {
       val table =
         YamlSerde
           .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-          .tables
           .head
+          .table
       table.attributes
         .map(_.name) should contain theSameElementsAs Set("id")
       table.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
@@ -656,8 +656,8 @@ class ExtractSpec extends TestHelper {
       val table =
         YamlSerde
           .deserializeYamlTables(tableFile.contentAsString, tableFile.pathAsString)
-          .tables
           .head
+          .table
       table.attributes
         .find(_.name == "table1_id")
         .get

@@ -782,7 +782,6 @@ object Schema {
   }
 }
 
-case class TablesDesc(version: Int, tables: List[Schema])
 case class TableDesc(version: Int, table: Schema)
 
 object MakesCompîlerHappyCrossCompile {

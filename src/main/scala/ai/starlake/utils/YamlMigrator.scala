@@ -15,19 +15,7 @@ import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
 
 import scala.jdk.CollectionConverters._
 
-trait YamlMigratorInterface extends StrictLogging {
-
-  private val versionFieldName = "version"
-
-  val targetVersion: Int
-
-  def canMigrate(node: JsonNode): Boolean
-
-  def migrate(node: JsonNode): JsonNode = changes.foldLeft(node) { case (newNode, changeFunc) =>
-    changeFunc(newNode)
-  }
-
-  protected def changes: List[JsonNode => JsonNode]
+trait YamlUtils {
 
   /** Syntax for path is :
     *   - nodeName in order to access it
@@ -126,6 +114,26 @@ trait YamlMigratorInterface extends StrictLogging {
       }
   }
 
+  protected def wrapToContainer(containerName: String): JsonNode => JsonNode = {
+    case n if n.has(containerName) => n
+    case n                         => YamlSerde.mapper.createObjectNode().set(containerName, n)
+  }
+}
+
+trait YamlMigratorInterface extends StrictLogging with YamlUtils {
+
+  private val versionFieldName = "version"
+
+  val targetVersion: Int
+
+  def canMigrate(node: JsonNode): Boolean
+
+  def migrate(node: JsonNode): JsonNode = changes.foldLeft(node) { case (newNode, changeFunc) =>
+    changeFunc(newNode)
+  }
+
+  protected def changes: List[JsonNode => JsonNode]
+
   protected def getVersion(node: JsonNode): Option[Int] = {
     Option(node.get(versionFieldName)) match {
       case Some(value: IntNode) => Some(value.intValue())
@@ -143,11 +151,6 @@ trait YamlMigratorInterface extends StrictLogging {
       throw new RuntimeException(
         s"Expecting to set $versionFieldName on object node but found ${node.getClass.getName}"
       )
-  }
-
-  protected def wrapToContainer(containerName: String): JsonNode => JsonNode = {
-    case n if n.has(containerName) => n
-    case n                         => YamlSerde.mapper.createObjectNode().set(containerName, n)
   }
 
   protected def applyMigrationOn(
@@ -210,6 +213,21 @@ trait YamlMigratorInterface extends StrictLogging {
 }
 
 object YamlMigrator extends LazyLogging {
+
+  object PreV1 {
+    trait YamlMigratorInterfacePreV1 extends YamlMigratorInterface {
+
+      override val targetVersion: Int = 0
+      override def canMigrate(node: JsonNode): Boolean = getVersion(node).isEmpty
+    }
+
+    object TableConfig extends YamlMigratorInterfacePreV1 {
+      override val changes: List[JsonNode => JsonNode] = List(
+        renameField("schema", "table"),
+        renameField("schemas", "tables")
+      )
+    }
+  }
   object V1 {
 
     trait WriteMigrator extends YamlMigratorInterface {
@@ -576,16 +594,28 @@ object YamlMigrator extends LazyLogging {
       override protected val isForTable: Boolean = true
 
       override val changes: List[JsonNode => JsonNode] = List(
-        setVersion(targetVersion),
-        renameField("schema", "table"),
-        renameField("schemas", "tables")
-      ) ++ applyMigrationOn(_.path("table"), migrateTableOrTransform) ++ applyMigrationOn(
+        setVersion(targetVersion)
+      ) ++ applyMigrationOn(_.path("table"), migrateTableOrTransform)
+    }
+
+    class TableForExtractConfig(domainFileNameWoExt: String)
+        extends YamlMigratorInterfaceV1
+        with ExtractTableOrTransformMigrator {
+      override protected def changes: List[
+        JsonNode => JsonNode
+      ] = applyMigrationOn(
         _.path("tables"),
-        migrateTableOrTransform
+        migrateExtractTable(domainFileNameWoExt) ++ List(
+          keepFirst(_.path("attributes"))
+        )
+      ) ++ List(
+        keepFirst(
+          _.path("tables")
+        )
       )
     }
 
-    class LoadConfig(domainFileNameWoExt: String, isForExtract: Boolean = false)
+    object LoadConfig
         extends YamlMigratorInterfaceV1
         with TableOrTransformMigrator
         with ExtractTableOrTransformMigrator {
@@ -594,21 +624,7 @@ object YamlMigrator extends LazyLogging {
         List(wrapToContainer("load"), setVersion(targetVersion)) ++ applyMigrationOn(
           _.path("load").path("metadata"),
           migrateMetadata
-        ) ++ (
-          if (isForExtract)
-            applyMigrationOn(
-              _.path("load").path("tables"),
-              migrateExtractTable(domainFileNameWoExt) ++ List(
-                keepFirst(_.path("attributes"))
-              )
-            ) ++ List(
-              keepFirst(
-                _.path("load").path("tables")
-              )
-            )
-          else
-            applyMigrationOn(_.path("load").path("tables"), migrateTableOrTransform)
-        ) ++ List(
+        ) ++ applyMigrationOn(_.path("load"), List(removeField("tables"))) ++ List(
           removeField("load.metadata.write")
         )
     }
