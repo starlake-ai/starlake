@@ -18,6 +18,12 @@ class IngestionWorkflowSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
 
         storageHandler.delete(new Path(landingPath))
         // Make sure unrelated files, even without extensions, are not imported
@@ -43,6 +49,9 @@ class IngestionWorkflowSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("/sample/User.sl.yml")
+        deliverSourceTable("DOMAIN", "/sample/employee_DOMAIN-ACK.sl.yml", Some("employee.sl.yml"))
+        deliverSourceTable("DOMAIN", "/sample/Players_DOMAIN-ACK.sl.yml", Some("Players.sl.yml"))
 
         storageHandler.delete(new Path(landingPath))
 

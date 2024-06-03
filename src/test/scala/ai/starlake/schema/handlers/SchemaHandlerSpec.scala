@@ -102,7 +102,7 @@ class SchemaHandlerSpec extends TestHelper {
       new Directory(new java.io.File(starlakeDatasetsPath)).deleteRecursively()
 
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
@@ -111,6 +111,10 @@ class SchemaHandlerSpec extends TestHelper {
         sparkSessionReset(settings)
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
 
         // Accepted should have the same data as input
@@ -139,12 +143,16 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Locations JSON" should "produce file in accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
 
         readFileContent(
@@ -178,13 +186,13 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Locations XML" should "produce file in accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/xml/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/xml/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xml/locations.xml"
       ) {
         cleanMetadata
         deliverSourceDomain()
-
+        deliverSourceTable("/sample/xml/locations.sl.yml")
         loadPending
 
         readFileContent(
@@ -220,12 +228,13 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Locations XML with XSD" should "produce file in accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/xsd/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/xsd/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xsd/locations.xml"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("/sample/xsd/locations.sl.yml")
 
         withSettings.deliverTestFile(
           "/sample/xsd/locations.xsd",
@@ -268,12 +277,18 @@ class SchemaHandlerSpec extends TestHelper {
       testConfiguration.withValue("grouped", ConfigValueFactory.fromAnyRef("false"))
     ) {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
+        sourceDomainOrJobPathname = "/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
         getDomain("DOMAIN").foreach { domain =>
           val result = domain.tables.map { table =>
             table.finalName -> table.containsArrayOfRecords()
@@ -288,6 +303,11 @@ class SchemaHandlerSpec extends TestHelper {
 
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
+        deliverSourceTable(
+          "DOMAIN",
+          "/sample/merge/PlayersTimestamp.sl.yml",
+          Some("Players.sl.yml")
+        )
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
         validator2.load(LoadConfig(accessToken = None, test = false, files = None))
 
@@ -317,6 +337,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/simple-merge.sl.yml")
+        deliverSourceTable("DOMAIN", "/sample/merge/PlayersSimple.sl.yml", Some("Players.sl.yml"))
 
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
         validator3.load(LoadConfig(accessToken = None, test = false, files = None))
@@ -350,16 +371,18 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest updated schema with merge" should "produce merged results accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.sl.yml",
+        sourceDomainOrJobPathname = "/sample/merge/simple-merge.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        deliverSourceTable("DOMAIN", "/sample/merge/PlayersSimple.sl.yml", Some("Players.sl.yml"))
         loadPending
         cleanMetadata
 
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
+        deliverSourceTable("DOMAIN", "/sample/merge/Players.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
         validator.load(LoadConfig(accessToken = None, test = false, files = None))
 
@@ -395,7 +418,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingesting data" should "adapt write based on file attributes" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/adaptiveWrite/simple-adaptive-write.sl.yml",
+        sourceDomainOrJobPathname = "/sample/adaptiveWrite/simple-adaptive-write.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -403,6 +426,7 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         TestHelper.closeSession()
         deliverSourceDomain()
+        deliverSourceTable("/sample/adaptiveWrite/players.sl.yml")
         loadPending
 
         // We are by  default in ingestion Time strategy
@@ -554,6 +578,12 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending.isSuccess shouldBe true
       }
     }
@@ -572,6 +602,12 @@ class SchemaHandlerSpec extends TestHelper {
         )
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
         load(
           IngestConfig("DOMAIN.sl.yml", "User", List(targetPath), accessToken = None)
         ).isSuccess shouldBe true
@@ -591,6 +627,12 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
         val acceptedDf: DataFrame =
           sparkSession.sql(s"select distinct(name) from $datasetDomainName.employee")
@@ -602,12 +644,15 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/dream/dream.sl.yml",
+        sourceDomainOrJobPathname = "/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
+          deliverSourceTable
+        )
         loadPending
 
         readFileContent(
@@ -654,6 +699,12 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
         loadPending
         println(starlakeDatasetsPath)
 
@@ -680,7 +731,9 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         deliverSourceDomain()
-
+        List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
+          deliverSourceTable
+        )
         loadPending
 
         readFileContent(
@@ -708,7 +761,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Load Business with Transform Tag" should "load an AutoDesc" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -717,6 +770,10 @@ class SchemaHandlerSpec extends TestHelper {
 
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/transform/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -766,7 +823,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Extract Var from Job File" should "find all vars" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -774,6 +831,10 @@ class SchemaHandlerSpec extends TestHelper {
         sparkSession.sql("DROP TABLE IF EXISTS locations.locations").show()
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/transform/business_with_vars/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -787,7 +848,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Load Business with jinja" should "should not run jinja parser" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -796,6 +857,10 @@ class SchemaHandlerSpec extends TestHelper {
 
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val schemaHandler = new SchemaHandler(storageHandler)
         val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
@@ -834,12 +899,16 @@ class SchemaHandlerSpec extends TestHelper {
   "Mapping Schema" should "produce valid template" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val schemaHandler = new SchemaHandler(storageHandler)
 
         val schema: Option[Schema] = schemaHandler
@@ -898,13 +967,16 @@ class SchemaHandlerSpec extends TestHelper {
   "JSON Schema" should "produce valid template" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.sl.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
         cleanMetadata
         deliverSourceDomain()
-
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val schemaHandler = new SchemaHandler(storageHandler)
 
         val ds: URL = getClass.getResource("/sample/mapping/dataset")
@@ -950,13 +1022,16 @@ class SchemaHandlerSpec extends TestHelper {
   "Exporting domain as Dot" should "create a valid dot file" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/dream/dream.sl.yml",
+        sourceDomainOrJobPathname = "/sample/dream/dream.sl.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
         File(starlakeMetadataPath + "/load").delete(swallowIOExceptions = true)
         cleanMetadata
         deliverSourceDomain()
+        List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
+          deliverSourceTable
+        )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         val tempFile = File.newTemporaryFile().pathAsString
@@ -971,16 +1046,6 @@ class SchemaHandlerSpec extends TestHelper {
         println(result)
         result.trim shouldBe
         """
-              |dream_segment [label=<
-              |<table border="0" cellborder="1" cellspacing="0">
-              |<tr>
-              |<td port="0" bgcolor="#008B00"><B><FONT color="white"> segment </FONT></B></td>
-              |</tr>
-              |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
-              |</table>>];
-              |
-              |
-              |
               |dream_client [label=<
               |<table border="0" cellborder="1" cellspacing="0">
               |<tr>
@@ -990,6 +1055,14 @@ class SchemaHandlerSpec extends TestHelper {
               |</table>>];
               |
               |dream_client:dream_id -> dream_segment:0
+              |
+              |dream_segment [label=<
+              |<table border="0" cellborder="1" cellspacing="0">
+              |<tr>
+              |<td port="0" bgcolor="#008B00"><B><FONT color="white"> segment </FONT></B></td>
+              |</tr>
+              |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
+              |</table>>];
               |
               |""".stripMargin.trim
       }
@@ -1005,6 +1078,9 @@ class SchemaHandlerSpec extends TestHelper {
         File(starlakeMetadataPath + "/load").delete(swallowIOExceptions = true)
         cleanMetadata
         deliverSourceDomain()
+        List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
+          deliverSourceTable
+        )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
         new AclDependencies(schemaHandler).run(Array("--all"))
@@ -1026,7 +1102,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Contact CSV with ignore" should "produce file in accepted" in {
     new WithSettings() {
       new SpecTrait(
-        sourceDomainOrJobPathname = s"/sample/dream/dreamignore.sl.yml",
+        sourceDomainOrJobPathname = "/sample/dream/dreamignore.sl.yml",
         datasetDomainName = "dreamignore",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
@@ -1035,6 +1111,9 @@ class SchemaHandlerSpec extends TestHelper {
         TestHelper.closeSession()
         cleanDatasets
         deliverSourceDomain()
+        List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
+          deliverSourceTable
+        )
         loadPending
 
         readFileContent(

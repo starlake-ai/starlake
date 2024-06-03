@@ -124,6 +124,12 @@ class BigQueryUtilsSpec extends TestHelper {
 
         cleanMetadata
         deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
 
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 

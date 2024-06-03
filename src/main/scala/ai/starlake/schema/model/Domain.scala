@@ -24,7 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.generator.AclDependenciesConfig
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.YamlSerde.serializeToPath
@@ -80,10 +80,13 @@ case class LoadDesc(version: Int, load: Domain)
   *   is useful when you want to ingest data in a different database than the default one or the one
   *   specified in the settings. This attribute is optional.
   */
+@JsonIgnoreProperties(
+  Array("tables")
+)
 @nowarn case class Domain(
   name: String,
   metadata: Option[Metadata] = None,
-  tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
+  tables: List[Schema] = Nil, // used internally only
   comment: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None,
@@ -231,6 +234,7 @@ case class LoadDesc(version: Int, load: Domain)
 
   def asDot(includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     tables
+      .sortBy(_.name)
       .map { schema =>
         schema.asDot(name, includeAllAttrs, fkTables)
       }

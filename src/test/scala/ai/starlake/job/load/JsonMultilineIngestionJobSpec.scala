@@ -35,7 +35,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         Thread.sleep(5000)
         cleanMetadata
         deliverSourceDomain()
-
+        deliverSourceTable("/sample/jsonmultiline/sample_json.sl.yml")
         loadPending
 
         val schemaHandler = new SchemaHandler(settings.storageHandler())
