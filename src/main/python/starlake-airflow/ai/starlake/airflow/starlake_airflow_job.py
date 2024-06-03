@@ -65,10 +65,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             extra['source']= dag.dag_id
 
         dataset = Dataset(__class__.sl_dataset(uri, **kwargs), extra=extra)
-        outlets = kwargs.get('outlets', []) + [dataset]
-        kwargs.update({'outlets': outlets})
 
-        return outlets
+        return kwargs.get('outlets', []) + [dataset]
 
     def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()
@@ -82,7 +80,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += self.__class__.sl_outlets(domain, **kwargs)
+        outlets = self.__class__.sl_outlets(domain, **kwargs)
+        self.outlets += outlets
+        kwargs.update({'outlets': outlets})
         return super().sl_import(task_id=task_id, domain=domain, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
@@ -271,7 +271,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        self.outlets += self.__class__.sl_outlets(f'{domain}.{table}', **kwargs)
+        outlets = self.__class__.sl_outlets(f'{domain}.{table}', **kwargs)
+        self.outlets += outlets
+        kwargs.update({'outlets': outlets})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
@@ -287,7 +289,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
-        self.outlets += self.__class__.sl_outlets(transform_name, **kwargs)
+        outlets = self.__class__.sl_outlets(transform_name, **kwargs)
+        self.outlets += outlets
+        kwargs.update({'outlets': outlets})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
