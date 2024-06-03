@@ -15,7 +15,14 @@ import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import better.files.File
 import org.apache.hadoop.fs.Path
-import org.apache.poi.ss.usermodel.{Row => XlsRow, Sheet, Workbook, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{
+  Cell,
+  CellStyle,
+  Row => XlsRow,
+  Sheet,
+  Workbook,
+  WorkbookFactory
+}
 import org.apache.poi.ss.util.CellReference
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -1018,15 +1025,36 @@ class SparkAutoTask(
     if (rows.hasNext) {
       val row = rows.next()
       val sheetRow = Option(sheet.getRow(rowNum)).getOrElse(sheet.createRow(rowNum))
-      val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse("")).toList
+      val fields = row.toSeq.map(Option(_)).toList
       for ((field, idx) <- fields.zipWithIndex) {
         val cell = Option(sheetRow.getCell(colIndex + idx)) match {
           case Some(cell) => cell
           case None       => sheetRow.createCell(colIndex + idx)
         }
-        cell.setCellValue(field)
+        cell.setCellStyle(getPreferredCellStyle(cell))
+        field match {
+          case Some(value) =>
+            value match {
+              case b: Boolean             => cell.setCellValue(b)
+              case d: Double              => cell.setCellValue(d)
+              case f: Float               => cell.setCellValue(f)
+              case t: java.sql.Date       => cell.setCellValue(t)
+              case t: java.sql.Timestamp  => cell.setCellValue(t)
+              case t: java.time.Instant   => cell.setCellValue(java.sql.Timestamp.from(t))
+              case t: java.time.LocalDate => cell.setCellValue(t)
+              case other                  => cell.setCellValue(other.toString)
+            }
+          case None => cell.setCellValue("")
+        }
       }
       writeXlsRow(sheet, rows, rowNum + 1, colIndex)
     }
+  }
+
+  private def getPreferredCellStyle(cell: Cell): CellStyle = {
+    var cellStyle = Option(cell.getCellStyle)
+    if (cellStyle.map(_.getIndex).getOrElse(0) == 0) cellStyle = Option(cell.getRow.getRowStyle)
+    if (cellStyle.isEmpty) cellStyle = Option(cell.getSheet.getColumnStyle(cell.getColumnIndex))
+    cellStyle.getOrElse(cell.getCellStyle)
   }
 }
