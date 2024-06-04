@@ -1085,7 +1085,7 @@ object Settings extends StrictLogging {
       case None =>
         None
     }
-    applicationSettings.map(_.storageHandler(true)) // Reload with the authentication settings
+    applicationSettings.foreach(_.storageHandler(true)) // Reload with the authentication settings
     applicationSettings
   }
 
