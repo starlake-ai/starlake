@@ -101,7 +101,7 @@ launch_starlake() {
 
     if [[ -z "$SL_DEBUG" ]]
     then
-      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/bin/spark/conf/log4j2.properties"
+      SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     else
       SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     fi
