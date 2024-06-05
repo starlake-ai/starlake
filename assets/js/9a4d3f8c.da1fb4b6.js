@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkstarlake=self.webpackChunkstarlake||[]).push([[6575],{56021:a=>{a.exports=JSON.parse('{"label":"Data Engineering","permalink":"/starlake/blog/tags/data-engineering","allTagsPath":"/starlake/blog/tags","count":1}')}}]);
