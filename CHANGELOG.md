@@ -29,6 +29,9 @@ __Improvement__:
 - primary and foreign keys extraction failure are not considered as errors anymore
 - make data extraction in parallel on schema's level
 
+__Miscellaneous__:
+- log level switched to error instead of info. In order to restore previous behavior, set `SL_LOG_LEVEL` to `info`.
+
 __Deprecations removal__:
 - `tables` attached to domain description or table description in load stage is not authorized starting from 1.2.0 but a config migration is automatically done for prior configs
 
