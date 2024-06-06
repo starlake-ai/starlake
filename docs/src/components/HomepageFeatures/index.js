@@ -85,7 +85,7 @@ const SplitSectionList = [
       </p>
     ),
     linkText: 'Read more',
-    linkURL: 'docs/next/user-guide/extract',
+    linkURL: 'docs/category/extract',
     LinkSvg: require('@site/static/img/arrow_right.svg').default,
 },
 {
@@ -105,7 +105,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: 'docs/next/concepts/general',
+      linkURL: 'docs/intro',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -125,7 +125,7 @@ const SplitSectionList = [
       </p>
     ),
     linkText: 'Read more',
-    linkURL: 'docs/next/user-guide/lineage#data-lineage',
+    linkURL: 'docs/guides/orchestrate/tutorial',
     LinkSvg: require('@site/static/img/arrow_right.svg').default,
 },
 {
@@ -146,7 +146,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: 'docs/next/user-guide/infer-schema#table-configuration',
+      linkURL: 'docs/guides/load/autoload',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {
@@ -168,7 +168,7 @@ const SplitSectionList = [
         </p>
       ),
       linkText: 'Read more',
-      linkURL: 'docs/next/user-guide/security',
+      linkURL: 'docs/guides/load/security',
       LinkSvg: require('@site/static/img/arrow_right.svg').default,
   },
   {

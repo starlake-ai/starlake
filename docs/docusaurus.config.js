@@ -11,8 +11,9 @@ const config = {
   favicon: 'img/favicon_starlake.ico',
 
   // Set the production url of your site here
-  url: 'https://starlake-ai.github.io',
-  baseUrl: process.env.BASE_URL || '/',
+  url: 'https://starlake.ai',
+  // baseUrl: process.env.BASE_URL || '/',
+  baseUrl: '/',
 
   organizationName: 'starlake-ai', // Usually your GitHub org/user name.
   projectName: 'starlake', // Usually your repo name.

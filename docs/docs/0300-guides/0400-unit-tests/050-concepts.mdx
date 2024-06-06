@@ -1,0 +1,19 @@
+# Unit tests in Data Engineering
+
+Unit tests are a critical part of the software development process.
+They help ensure that the code works as expected and that changes to the code do not introduce bugs.
+In data engineering, unit tests are used to validate the correctness of data pipelines.
+Unit tests can be used to test the correctness of the data transformations, the data loading process, and the data quality.
+
+The main issues in testing data engineering pipelines on the target datawarehouse are:
+- Data access costs
+- Shared database unsuitable for unit tests
+- Requires a service account for your C.I..
+- Slow feedback loop
+- Hard to test the code in a repeatable way
+
+To address these issues, Starlake transpiles your SQL dialect to the  in-memory datawarehouse DuckDB.
+This allows you to run your unit tests on your local machine without the need for a service account or access to the target datawarehouse.
+This also allows you to run your unit tests in a repeatable way, ensuring that your tests are deterministic.
+
+![](/img/starlake-unit-tests.png)
