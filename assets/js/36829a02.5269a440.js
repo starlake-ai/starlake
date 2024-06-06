@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkstarlake=self.webpackChunkstarlake||[]).push([[1594],{10731:a=>{a.exports=JSON.parse('{"label":"ETL","permalink":"/starlake/blog/tags/etl","allTagsPath":"/starlake/blog/tags","count":2}')}}]);

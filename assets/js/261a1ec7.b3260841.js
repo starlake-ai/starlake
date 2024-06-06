@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkstarlake=self.webpackChunkstarlake||[]).push([[7593],{29871:a=>{a.exports=JSON.parse('{"label":"BigQuery","permalink":"/starlake/blog/tags/big-query","allTagsPath":"/starlake/blog/tags","count":2}')}}]);
