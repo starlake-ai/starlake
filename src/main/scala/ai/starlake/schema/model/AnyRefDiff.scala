@@ -1,6 +1,10 @@
 package ai.starlake.schema.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+
 import java.lang.reflect.Modifier
+import java.util
+import scala.jdk.CollectionConverters._
 
 object AnyRefDiff {
   def extractFieldValues(obj: AnyRef): List[NamedValue] = {
@@ -41,13 +45,13 @@ object AnyRefDiff {
       // diffAny(k, v1, v2).updated
       if (v1.isInstanceOf[NamedValue]) {
         if (v1 != v2)
-          List(v1 -> v2)
+          List((Some(fieldName), v1, v2))
         else
           Nil
       } else {
-        diffAnyRef(k, v1, v2).updated
+        val res = diffAnyRef(k, v1, v2)
+        res.updated
       }
-
     }
     ListDiff(fieldName, added.toList, deleted.toList, updated)
   }
@@ -127,82 +131,211 @@ object AnyRefDiff {
 
 }
 
+case class AttributePropertyChange(key: String, before: String, after: String) {
+  def getKey(): String = key
+  def getBefore(): String = before
+  def getAfter(): String = after
+}
+
+case class AttributeProperty[T](
+  name: String,
+  changes: List[(T, T)]
+) {
+  def getName(): String = name
+  def getChanges(): util.List[AttributePropertyChange] = {
+    changes.map { case (v1: NamedValue, v2: NamedValue) =>
+      AttributePropertyChange(
+        v1.getName(),
+        Option(v1.getValue()).map(_.toString).getOrElse(""),
+        Option(v2.getValue()).map(_.toString).getOrElse("")
+      )
+    }.asJava
+
+  }
+}
+
 case class ListDiff[T](
   field: String,
   added: List[T],
   deleted: List[T],
-  updated: List[(T, T)]
+  updated: List[(Option[String], T, T)]
 ) {
+  @JsonIgnore
   def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.isEmpty
+
+  def asOption(): Option[ListDiff[T]] = if (isEmpty()) None else Some(this)
+
+  def getField(): String = field
+  def getAdded(): java.util.List[T] = added.asJava
+  def getDeleted(): java.util.List[T] = deleted.asJava
+
+  def getUpdated(): util.List[AttributeProperty[T]] = {
+    updated
+      .groupBy(_._1)
+      .map { case (n, kvs) =>
+        val kv2s = kvs.map { case (_, v1, v2) =>
+          (v1, v2)
+        }
+        AttributeProperty(n.getOrElse(""), kv2s)
+      }
+      .toList
+      .asJava
+  }
+
+  def getCountAdded(): Int = added.size
+  def getCountDeleted(): Int = deleted.size
+  def getCountUpdated(): Int = updated.size
 }
 
 case class DomainsDiff(added: List[String], deleted: List[String], updated: List[DomainDiff]) {
+  @JsonIgnore
   def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+
+  def getAdded(): java.util.List[String] = added.asJava
+  def getDeleted(): java.util.List[String] = deleted.asJava
+  def getUpdated(): java.util.List[DomainDiff] = updated.asJava
+
+  def getCountAdded(): Int = added.size
+  def getCountDeleted(): Int = deleted.size
+  def getCountUpdated(): Int = updated.size
 }
 
-case class JobsDiff(added: List[String], deleted: List[String], updated: List[JobDiff]) {
+case class JobsDiff(added: List[String], deleted: List[String], updated: List[TransformsDiff]) {
+  @JsonIgnore
   def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty
 }
 
 case class ProjectDiff(
   project1: String,
   project2: String,
-  domains: DomainsDiff,
-  jobsDiff: JobsDiff
+  load: DomainsDiff,
+  transform: JobsDiff
 ) {
-  def isEmpty(): Boolean = domains.isEmpty()
+  @JsonIgnore
+  def isEmpty(): Boolean = load.isEmpty()
+
+  def getProject1(): String = project1
+  def getProject2(): String = project2
+  def getLoad(): DomainsDiff = load
+  def getTransform(): JobsDiff = transform
+
 }
-case class SchemaDiff(
+case class TableDiff(
   name: String,
-  attributes: ListDiff[Named],
-  pattern: ListDiff[String],
-  metadata: ListDiff[Named],
-  comment: ListDiff[String],
-  presql: ListDiff[String],
-  postsql: ListDiff[String],
-  tags: ListDiff[String],
-  rls: ListDiff[Named],
-  expectations: ListDiff[Named],
-  primaryKey: ListDiff[String],
-  acl: ListDiff[Named],
-  rename: ListDiff[String],
-  sample: ListDiff[String],
-  filter: ListDiff[String]
+  attributes: Option[ListDiff[Named]],
+  pattern: Option[ListDiff[String]],
+  metadata: Option[ListDiff[Named]],
+  comment: Option[ListDiff[String]],
+  presql: Option[ListDiff[String]],
+  postsql: Option[ListDiff[String]],
+  tags: Option[ListDiff[String]],
+  rls: Option[ListDiff[Named]],
+  expectations: Option[ListDiff[Named]],
+  primaryKey: Option[ListDiff[String]],
+  acl: Option[ListDiff[Named]],
+  rename: Option[ListDiff[String]],
+  sample: Option[ListDiff[String]],
+  filter: Option[ListDiff[String]],
+  patternSample: Option[ListDiff[String]]
 ) {
+  @JsonIgnore
   def isEmpty(): Boolean =
-    attributes.isEmpty() &&
-    attributes.isEmpty() &&
-    pattern.isEmpty() &&
-    metadata.isEmpty() &&
-    comment.isEmpty() &&
-    presql.isEmpty() &&
-    postsql.isEmpty() &&
-    tags.isEmpty() &&
-    rls.isEmpty() &&
-    primaryKey.isEmpty() &&
-    acl.isEmpty() &&
-    rename.isEmpty() &&
-    sample.isEmpty() &&
-    filter.isEmpty()
+    attributes.isEmpty &&
+    attributes.isEmpty &&
+    pattern.isEmpty &&
+    metadata.isEmpty &&
+    comment.isEmpty &&
+    presql.isEmpty &&
+    postsql.isEmpty &&
+    tags.isEmpty &&
+    rls.isEmpty &&
+    primaryKey.isEmpty &&
+    acl.isEmpty &&
+    rename.isEmpty &&
+    sample.isEmpty &&
+    filter.isEmpty &&
+    patternSample.isEmpty
+
+  def getName(): String = name
+  def getAttributes(): ListDiff[Named] = attributes.orNull
+  def getPattern(): ListDiff[String] = pattern.orNull
+  def getMetadata(): ListDiff[Named] = metadata.orNull
+  def getComment(): ListDiff[String] = comment.orNull
+  def getPresql(): ListDiff[String] = presql.orNull
+  def getPostsql(): ListDiff[String] = postsql.orNull
+  def getTags(): ListDiff[String] = tags.orNull
+  def getRls(): ListDiff[Named] = rls.orNull
+  def getExpectations(): ListDiff[Named] = expectations.orNull
+  def getPrimaryKey(): ListDiff[String] = primaryKey.orNull
+  def getAcl(): ListDiff[Named] = acl.orNull
+  def getRename(): ListDiff[String] = rename.orNull
+  def getSample(): ListDiff[String] = sample.orNull
+  def getFilter(): ListDiff[String] = filter.orNull
+  def getPatternSample(): ListDiff[String] = patternSample.orNull
+
+  def hasAttributes(): Boolean = attributes.isDefined
+  def hasPattern(): Boolean = pattern.isDefined
+  def hasMetadata(): Boolean = metadata.isDefined
+  def hasComment(): Boolean = comment.isDefined
+  def hasPresql(): Boolean = presql.isDefined
+  def hasPostsql(): Boolean = postsql.isDefined
+  def hasTags(): Boolean = tags.isDefined
+  def hasRls(): Boolean = rls.isDefined
+  def hasExpectations(): Boolean = expectations.isDefined
+  def hasPrimaryKey(): Boolean = primaryKey.isDefined
+  def hasAcl(): Boolean = acl.isDefined
+  def hasRename(): Boolean = rename.isDefined
+  def hasSample(): Boolean = sample.isDefined
+  def hasFilter(): Boolean = filter.isDefined
+  def hasPatternSample(): Boolean = patternSample.isDefined
+
 }
-case class SchemasDiff(added: List[String], deleted: List[String], updated: List[SchemaDiff]) {
+
+case class TablesDiff(added: List[String], deleted: List[String], updated: List[TableDiff]) {
+  @JsonIgnore
   def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+
+  def getAdded(): java.util.List[String] = added.asJava
+  def getDeleted(): java.util.List[String] = deleted.asJava
+  def getUpdated(): java.util.List[TableDiff] = updated.asJava
+
+  def getCountAdded(): Int = added.size
+  def getCountDeleted(): Int = deleted.size
+  def getCountUpdated(): Int = updated.size
 }
 
 case class DomainDiff(
   name: String,
-  tables: SchemasDiff,
-  metadata: ListDiff[Named],
-  comment: ListDiff[String],
-  tags: ListDiff[String],
-  rename: ListDiff[String]
+  tables: TablesDiff,
+  metadata: Option[ListDiff[Named]],
+  comment: Option[ListDiff[String]],
+  tags: Option[ListDiff[String]],
+  rename: Option[ListDiff[String]],
+  database: Option[ListDiff[String]]
 ) {
+  @JsonIgnore
   def isEmpty(): Boolean =
-    tables.isEmpty() &&
-    metadata.isEmpty() &&
-    comment.isEmpty() &&
-    tags.isEmpty() &&
-    rename.isEmpty()
+    tables.isEmpty &&
+    metadata.isEmpty &&
+    comment.isEmpty &&
+    tags.isEmpty &&
+    rename.isEmpty &&
+    database.isEmpty
+
+  def getName(): String = name
+
+  def getTables(): TablesDiff = tables
+  def getMetadata(): ListDiff[Named] = metadata.orNull
+  def getComment(): ListDiff[String] = comment.orNull
+  def getTags(): ListDiff[String] = tags.orNull
+  def getRename(): ListDiff[String] = rename.orNull
+  def getDatabase(): ListDiff[String] = database.orNull
+
+  def hasMetadata(): Boolean = metadata.isDefined
+  def hasComment(): Boolean = comment.isDefined
+  def hasTags(): Boolean = tags.isDefined
+  def hasRename(): Boolean = rename.isDefined
+  def hasDatabase(): Boolean = database.isDefined
 
 }
 
@@ -212,7 +345,7 @@ case class TasksDiff(
   updated: List[ListDiff[Named]]
 )
 
-case class JobDiff(
+case class TransformsDiff(
   name: String,
   tasks: TasksDiff
 )
