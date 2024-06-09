@@ -7,7 +7,7 @@ import org.apache.hadoop.fs.Path
 
 object Project {
   def compare(config: ProjectCompareConfig)(implicit settings: Settings): ProjectDiff =
-    compare(new Path(config.project1), new Path(config.project2))
+    compare(new Path(config.path1), new Path(config.path2))
 
   def compare(project1Path: Path, project2Path: Path)(implicit settings: Settings): ProjectDiff = {
     val settings1 =
@@ -38,18 +38,10 @@ object Project {
     schemaHandler2: SchemaHandler
   ): DomainsDiff = {
     val p1Domains =
-      schemaHandler1
-        .deserializedDomains(new Path(DatasetArea.metadata(settings1), "load"))
-        .flatMap { case (path, tryDomain) =>
-          tryDomain.toOption
-        }
+      schemaHandler1.domains(raw = true, reload = true)
 
     val p2Domains =
-      schemaHandler2
-        .deserializedDomains(new Path(DatasetArea.metadata(settings2), "load"))
-        .flatMap { case (path, tryDomain) =>
-          tryDomain.toOption
-        }
+      schemaHandler2.domains(raw = true, reload = true)
 
     val (addedDomains, deletedDomains, existingCommonDomains) =
       AnyRefDiff.partitionNamed(p1Domains, p2Domains)
@@ -101,7 +93,7 @@ object Project {
       )
     }
 
-    val updatedJobsDiff: List[JobDiff] = commonJobs.flatMap { case (existing, incoming) =>
+    val updatedJobsDiff: List[TransformsDiff] = commonJobs.flatMap { case (existing, incoming) =>
       AutoJobDesc.compare(existing, incoming).toOption
     }
     JobsDiff(addedJobs.map(_.name), deletedJobs.map(_.name), updatedJobsDiff)
