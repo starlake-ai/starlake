@@ -97,6 +97,10 @@ case class AttributeDesc(
   accessPolicy: Option[String] = None
 ) {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
+
+  override def toString: String = {
+    s"AttributeDesc(name=$name, comment=$comment, accessPolicy=$accessPolicy)"
+  }
 }
 
 object AutoJobDesc {

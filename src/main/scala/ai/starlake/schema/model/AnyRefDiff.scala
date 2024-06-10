@@ -20,7 +20,13 @@ object AnyRefDiff {
         Modifier.isPublic(method.getModifiers()) && method.getParameterCount == 0 && !method.getName
           .contains('$')
       ) {
-        Some(NamedValue(method.getName, method.invoke(obj)))
+        val invoked = method.invoke(obj)
+        val result =
+          if (invoked != null && invoked.isInstanceOf[Option[_]])
+            invoked.asInstanceOf[Option[AnyRef]].getOrElse("")
+          else
+            invoked
+        Some(NamedValue(method.getName, result))
       } else None
     }.toList
   }
@@ -182,6 +188,8 @@ case class ListDiff[T](
       .asJava
   }
 
+  def countAll() = added.size + deleted.size + updated.size
+
   def getCountAdded(): Int = added.size
   def getCountDeleted(): Int = deleted.size
   def getCountUpdated(): Int = updated.size
@@ -202,7 +210,8 @@ case class DomainsDiff(added: List[String], deleted: List[String], updated: List
 
 case class JobsDiff(added: List[String], deleted: List[String], updated: List[TransformsDiff]) {
   @JsonIgnore
-  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty
+  def isEmpty(): Boolean =
+    added.isEmpty && deleted.isEmpty && updated.forall(_.tasks.updated.isEmpty)
 }
 
 case class ProjectDiff(
@@ -343,9 +352,28 @@ case class TasksDiff(
   added: List[String],
   deleted: List[String],
   updated: List[ListDiff[Named]]
-)
+) {
+  @JsonIgnore
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+
+  def getAdded(): java.util.List[String] = added.asJava
+  def getDeleted(): java.util.List[String] = deleted.asJava
+  def getUpdated(): java.util.List[ListDiff[Named]] = updated.asJava
+
+  def countAll() = added.size + deleted.size + updated.map(_.countAll()).sum
+  def getCountAdded(): Int = added.size
+  def getCountDeleted(): Int = deleted.size
+  def getCountUpdated(): Int = updated.map(_.getCountUpdated()).sum
+
+}
 
 case class TransformsDiff(
   name: String,
   tasks: TasksDiff
-)
+) {
+  @JsonIgnore
+  def isEmpty(): Boolean = tasks.isEmpty()
+
+  def getName(): String = name
+  def getTasks(): TasksDiff = tasks
+}
