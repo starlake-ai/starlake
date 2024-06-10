@@ -16,6 +16,10 @@ case class RowLevelSecurity(
   description: String = ""
 ) extends Named {
 
+  override def toString: String = {
+    s"RowLevelSecurity(name=$name, predicate=$predicate, grants=$grants, description=$description)"
+  }
+
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   def grantees(): Set[(UserType, String)] = {

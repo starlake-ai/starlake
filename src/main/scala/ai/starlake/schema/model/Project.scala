@@ -1,6 +1,6 @@
 package ai.starlake.schema.model
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.schema.ProjectCompareConfig
 import ai.starlake.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
@@ -26,14 +26,12 @@ object Project {
     ProjectDiff(
       project1Path.toString,
       project2Path.toString,
-      domainsDiff(settings1, settings2, schemaHandler1, schemaHandler2),
-      jobsDiff(settings1, settings2, schemaHandler1, schemaHandler2)
+      domainsDiff(schemaHandler1, schemaHandler2),
+      jobsDiff(schemaHandler1, schemaHandler2)
     )
   }
 
   private def domainsDiff(
-    settings1: Settings,
-    settings2: Settings,
     schemaHandler1: SchemaHandler,
     schemaHandler2: SchemaHandler
   ): DomainsDiff = {
@@ -62,24 +60,12 @@ object Project {
   }
 
   private def jobsDiff(
-    settings1: Settings,
-    settings2: Settings,
     schemaHandler1: SchemaHandler,
     schemaHandler2: SchemaHandler
   ): JobsDiff = {
-    val p1Jobs =
-      schemaHandler1
-        .deserializedJobs(new Path(DatasetArea.metadata(settings1), "transform"))
-        .flatMap { case (path, tryDomain) =>
-          tryDomain.toOption
-        }
 
-    val p2Jobs =
-      schemaHandler2
-        .deserializedJobs(new Path(DatasetArea.metadata(settings2), "transform"))
-        .flatMap { case (path, tryDomain) =>
-          tryDomain.toOption
-        }
+    val p1Jobs = schemaHandler1.jobs(reload = true)
+    val p2Jobs = schemaHandler2.jobs(reload = true)
 
     val (addedJobs, deletedJobs, existingCommonJobs) =
       AnyRefDiff.partitionNamed(p1Jobs, p2Jobs)
