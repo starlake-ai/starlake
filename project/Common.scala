@@ -112,7 +112,7 @@ object Resolvers {
     "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
 
   val allResolvers =
-    Seq(typeSafe, confluent, mulesoft, Resolver.mavenLocal, snapshots) ++ Resolver.sonatypeOssRepos(
+    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots) ++ Resolver.sonatypeOssRepos(
       "snapshots"
     )
 
