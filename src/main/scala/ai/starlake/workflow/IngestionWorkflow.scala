@@ -42,7 +42,12 @@ import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
-import ai.starlake.tests.{StarlakeTestConfig, StarlakeTestData, StarlakeTestResult}
+import ai.starlake.tests.{
+  StarlakeTestConfig,
+  StarlakeTestCoverage,
+  StarlakeTestData,
+  StarlakeTestResult
+}
 import ai.starlake.utils._
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -876,42 +881,43 @@ class IngestionWorkflow(
     }
   }
 
-  def test(config: StarlakeTestConfig): JobResult = {
-    def testsLog(transformResults: List[StarlakeTestResult]): JobResult = {
-      val (success, failure) = transformResults.partition(_.success)
-      println(s"Tests run: ${transformResults.size} ")
-      println(s"Tests succeeded: ${success.size}")
-      println(s"Tests failed: ${failure.size}")
-      if (failure.nonEmpty) {
-        println(
-          s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
-        )
-      }
-      if (success.nonEmpty) {
-        println(
-          s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
-        )
-      }
-      if (failure.size > 0) {
-        FailedJobResult
-      } else {
-        EmptyJobResult
-      }
+  private def testsLog(transformResults: List[StarlakeTestResult]): JobResult = {
+    val (success, failure) = transformResults.partition(_.success)
+    println(s"Tests run: ${transformResults.size} ")
+    println(s"Tests succeeded: ${success.size}")
+    println(s"Tests failed: ${failure.size}")
+    if (failure.nonEmpty) {
+      println(
+        s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
+      )
     }
+    if (success.nonEmpty) {
+      println(
+        s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
+      )
+    }
+    if (failure.size > 0) {
+      FailedJobResult
+    } else {
+      EmptyJobResult
+    }
+  }
+  def test(config: StarlakeTestConfig): JobResult = {
     val loadResults =
       if (config.runLoad()) {
         val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests, config.name)
         StarlakeTestData.runLoads(loadTests, config)
       } else
-        Nil
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
     val transformResults =
       if (config.runTransform()) {
         val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests, config.name)
         StarlakeTestData.runTransforms(transformTests, config)
       } else
-        Nil
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+
     StarlakeTestResult.html(loadResults, transformResults)
-    testsLog(loadResults ++ transformResults)
+    testsLog(loadResults._1 ++ transformResults._1)
   }
 
   def autoJob(config: TransformConfig): Try[String] = {
