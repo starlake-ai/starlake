@@ -30,7 +30,7 @@ object Versions {
   val confluentVersion = "7.6.1"
   val kafkaClients = "7.6.1-ce"
   val testContainers = "0.41.3"
-  val gcpDataCatalog = "1.50.0"
+  val gcpDataCatalog = "1.51.0"
   val gcpCloudLogging = "3.17.2"
   val jinja = "2.7.2" // forces dependency override on guava
   val snowflakeJDBC = "3.16.1"
@@ -39,7 +39,7 @@ object Versions {
   val jSqlParser = "4.10-SNAPSHOT"
   val jSqlTranspiler = "0.6-SNAPSHOT"
   val bigQueue = "0.7.0"
-  val redshiftJDBC = "2.1.0.28"
+  val redshiftJDBC = "2.1.0.29"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion = "10.14.2.0" // last version compatible with Java 8
