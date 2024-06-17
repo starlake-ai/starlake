@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkstarlake=self.webpackChunkstarlake||[]).push([[932],{57132:a=>{a.exports=JSON.parse('{"metadata":{"permalink":"/starlake/blog","page":1,"postsPerPage":10,"totalPages":1,"totalCount":5,"blogDescription":"Blog","blogTitle":"Blog"}}')}}]);
