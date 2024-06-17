@@ -1,7 +1,0 @@
-{
-  "label": "Load",
-  "link": {
-    "type": "generated-index",
-    "description": "Load and validate, in one shot or incrementally, JSON, XML and CSV files into your datawarehouse using different write strategies."
-  }
-}
