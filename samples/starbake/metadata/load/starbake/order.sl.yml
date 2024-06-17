@@ -1,0 +1,24 @@
+---
+version: 1
+table:
+  name: "order"
+  pattern: "order.*.json"
+  attributes:
+  - name: "customer_id"
+    type: "long"
+    array: false
+  - name: "order_id"
+    type: "long"
+    array: false
+  - name: "status"
+    type: "string"
+    array: false
+  - name: "timestamp"
+    type: "iso_date_time"
+    array: false
+  metadata:
+    format: "JSON"
+    array: true
+    withHeader: true
+    writeStrategy:
+      type: "APPEND"

@@ -51,9 +51,21 @@ class KafkaIngestionJob(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   options: Map[String, String],
-  mode: Mode
+  mode: Mode,
+  accessToken: Option[String],
+  test: Boolean
 )(implicit settings: Settings)
-    extends JsonIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends JsonIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken,
+      test
+    ) {
 
   var offsets: List[(Int, Long)] = Nil
 
@@ -66,15 +78,15 @@ class KafkaIngestionJob(
     *   Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
-    val dfIn = mergedMetadata.mode match {
-      case None | Some(Mode.FILE) =>
+    val dfIn = mode match {
+      case Mode.FILE =>
         Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           val (dfIn, offsets) =
             kafkaClient.consumeTopicBatch(schema.name, session, topicConfig)
           this.offsets = offsets
           dfIn
         }
-      case Some(Mode.STREAM) =>
+      case Mode.STREAM =>
         Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
           KafkaClient.consumeTopicStreaming(session, topicConfig)
         }

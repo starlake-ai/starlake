@@ -1,5 +1,0 @@
-task:
-  sql: "select * from table2"
-  domain: "myjob"
-  table: "table2"
-  write: "OVERWRITE"

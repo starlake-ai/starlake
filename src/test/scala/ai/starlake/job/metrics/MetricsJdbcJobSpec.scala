@@ -3,9 +3,9 @@ package ai.starlake.job.metrics
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{ContinuousMetricRecord, DiscreteMetricRecord, FrequencyMetricRecord}
 import ai.starlake.job.metrics.Metrics._
-import ai.starlake.job.sink.jdbc.JdbcConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
+import ai.starlake.schema.model.{WriteStrategy, WriteStrategyType}
 import ai.starlake.{JdbcChecks, TestHelper}
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -32,8 +32,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -46,8 +45,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("jobId", StringType, nullable = true),
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
   val expectedDiscreteMetricsSchema = StructType(
@@ -68,8 +66,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -275,8 +272,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             median = Some(9.0),
             percentile75 = Some(25.0),
             count = 200,
-            cometTime = 1602103587981L,
-            cometStage = "UNIT",
+            timestamp = 1602103587981L,
             cometMetric = "Continuous",
             jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
           ),
@@ -297,12 +293,11 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             median = Some(4.0),
             percentile75 = Some(4.5),
             count = 200,
-            cometTime = 1602103587981L,
-            cometStage = "UNIT",
+            timestamp = 1602103587981L,
             cometMetric = "Continuous",
             jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
           )
-        ).map(x => x.copy(cometTime = 0L, jobId = "")),
+        ).map(x => x.copy(timestamp = 0L, jobId = "")),
         List(
           DiscreteMetricRecord(
             domain = "yelp",
@@ -311,8 +306,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "city",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -323,8 +317,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "is_open",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -335,8 +328,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "postal_code",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           ),
@@ -347,8 +339,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             attribute = "state",
             missingValuesDiscrete = 0,
             count = 200,
-            cometTime = 1602157742857L,
-            cometStage = "UNIT",
+            timestamp = 1602157742857L,
             cometMetric = "Discrete",
             jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
           )
@@ -361,8 +352,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             category = "Tempe",
             frequency = 0,
             count = 200,
-            cometTime = 1602157958121L,
-            cometStage = "UNIT",
+            timestamp = 1602157958121L,
             jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
           ),
           FrequencyMetricRecord(
@@ -372,8 +362,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
             category = "North Las Vegas",
             frequency = 0,
             count = 200,
-            cometTime = 1602157958121L,
-            cometStage = "UNIT",
+            timestamp = 1602157958121L,
             jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
           )
         )
@@ -382,36 +371,43 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
     "Yelp Business Metrics" should "produce correct metrics in JDBC database" in {
       // yelp jdbc ignores struct fields in the yml file
       new SpecTrait(
-        domainOrJobFilename = "yelpjdbc.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/yelp/yelpjdbc.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelpjdbc.sl.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
         cleanMetadata
-        cleanDatasets
-        assert(loadPending)
+        deliverSourceDomain()
+        deliverSourceTable("yelp", "/sample/yelp/business_jdbc.sl.yml", Some("business.sl.yml"))
+        assert(loadPending.isSuccess)
 
-        val jdbcConfig = JdbcConnectionLoadConfig.fromComet(
+        val jdbcConfig = JdbcConnectionLoadCmd.fromComet(
           settings.appConfig.audit.getConnectionRef(),
           settings.appConfig,
           Left("ignore"),
-          settings.appConfig.audit.domain.getOrElse("audit") + ".discrete",
-          CreateDisposition.CREATE_IF_NEEDED,
-          WriteDisposition.WRITE_APPEND
+          settings.appConfig.audit.getDomain() + ".discrete",
+          WriteStrategy(Some(WriteStrategyType.APPEND)),
+          createTableIfAbsent = true
         )
 
         val discreteMetricsDf: DataFrame = sparkSession.read
           .format("jdbc")
           .options(jdbcConfig.options)
-          .option("dbtable", jdbcConfig.outputTable)
+          .option("dbtable", jdbcConfig.outputDomainAndTableName)
           .load()
 
         logger.info(discreteMetricsDf.showString(truncate = 0))
         val upperCaseFields =
           expectedDiscreteMetricsJDBCSchema.fields.map(f => f.copy(name = f.name.toUpperCase))
-        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsJDBCSchema.copy(fields =
-          upperCaseFields
-        )
+
+        val incomingFields =
+          discreteMetricsDf.schema.fields.map(f => (f.name.toUpperCase, f.dataType.typeName))
+
+        val expectedFields =
+          expectedDiscreteMetricsJDBCSchema.fields.map(f =>
+            (f.name.toUpperCase, f.dataType.typeName)
+          )
+
+        incomingFields shouldBe expectedFields
 
         val session = sparkSession
         import session.implicits._
@@ -430,7 +426,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
         )
 
         val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
-        expectingMetrics("test-h2", continuous, discrete, frequencies)
+        expectingMetrics("test-pg", continuous, discrete, frequencies)
       }
     }
   }

@@ -1,0 +1,34 @@
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+{% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+
+{% if strategyOn == 'TARGET' %}
+
+DROP TABLE IF EXISTS SL_INCOMING;
+CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
+
+MERGE INTO  {{ tableFullName }}
+USING SL_INCOMING
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }})
+WHEN MATCHED THEN  UPDATE {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+DROP TABLE IF EXISTS SL_INCOMING;
+CREATE  TEMPORARY TABLE SL_INCOMING AS
+SELECT {{ tableColumnsCsv }}
+FROM ({{ selectStatement }})
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY 0) = 1;
+
+MERGE INTO {{ tableFullName }} 
+USING  SL_INCOMING
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }})
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+
+{% endif %}
+
+DROP TABLE IF EXISTS SL_INCOMING;

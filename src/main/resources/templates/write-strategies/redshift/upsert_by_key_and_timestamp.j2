@@ -1,0 +1,49 @@
+
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+{% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderTableColumns(table, columnNames) %}
+    {% for columnName in columnNames %}{{ table }}."{{ columnName }}"{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+
+
+{% if strategyOn == 'TARGET' %}
+
+DROP TABLE IF EXISTS SL_INCOMING;
+CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
+
+UPDATE {{ tableFullName }} {{ tableUpdateSetExpression }}
+FROM SL_INCOMING
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }} AND SL_INCOMING.{{ strategyTimestamp }} > {{ tableFullName }}.{{ strategyTimestamp }};
+
+INSERT INTO {{ tableFullName }}
+SELECT {{ renderTableColumns("SL_INCOMING", tableColumnNames) }}
+FROM SL_INCOMING
+LEFT JOIN {{ tableFullName }} ON {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+WHERE {{ tableFullName }}.{{ strategyTimestamp }} IS NULL;
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+CREATE TEMPORARY TABLE SL_INCOMING AS
+SELECT  {{ tableColumnsCsv }}
+FROM (
+    SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+    FROM ({{ selectStatement }}) SL_TMP
+) SL_TMP
+WHERE SL_SEQ = 1;
+
+UPDATE {{ tableFullName }} {{ tableUpdateSetExpression }}
+FROM SL_INCOMING
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }} AND SL_INCOMING.{{ strategyTimestamp }} > {{ tableFullName }}.{{ strategyTimestamp }};
+
+INSERT INTO {{ tableFullName }}
+SELECT {{ renderTableColumns("SL_INCOMING", tableColumnNames) }}
+FROM SL_INCOMING
+LEFT JOIN {{ tableFullName }} ON {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+WHERE {{ tableFullName }}.{{ strategyTimestamp }} IS NULL;
+
+{%  endif %}
+
+DROP TABLE IF EXISTS SL_INCOMING;
+
+

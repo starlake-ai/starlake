@@ -1,13 +1,15 @@
 package ai.starlake.extract
 
-import ai.starlake.schema.model.{Trim, WriteMode}
+import ai.starlake.schema.model.Trim
+
+case class ExtractDesc(version: Int, extract: JDBCSchemas)
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
   default: Option[JDBCSchema] = None,
+  output: Option[FileFormat] = None,
   connectionRef: Option[String] = None,
-  connection: Map[String, String] = Map.empty,
-  fetchSize: Option[Int] = None
+  auditConnectionRef: Option[String] = None
 ) {
 
   /** @return
@@ -22,7 +24,7 @@ case class JDBCSchemas(
     *   - write
     *   - pattern
     */
-  def propageGlobalJdbcSchemas(): JDBCSchemas = {
+  def propagateGlobalJdbcSchemas(): JDBCSchemas = {
     if (default.isDefined) {
       this.copy(jdbcSchemas = jdbcSchemas.map(schema => {
         schema
@@ -40,7 +42,6 @@ case class JDBCSchemas(
                   .getOrElse(schema.tableTypes)
               else schema.tableTypes,
             template = schema.template.orElse(default.flatMap(_.template)),
-            write = schema.write.orElse(default.flatMap(_.write)),
             pattern = schema.pattern.orElse(default.flatMap(_.pattern)),
             numericTrim = schema.numericTrim.orElse(default.flatMap(_.numericTrim)),
             partitionColumn = schema.partitionColumn.orElse(default.flatMap(_.partitionColumn)),
@@ -52,7 +53,8 @@ case class JDBCSchemas(
             fetchSize = schema.fetchSize.orElse(default.flatMap(_.fetchSize)),
             stringPartitionFunc =
               schema.stringPartitionFunc.orElse(default.flatMap(_.stringPartitionFunc)),
-            fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport))
+            fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport)),
+            sanitizeName = schema.sanitizeName.orElse(default.flatMap(_.sanitizeName))
           )
           .fillWithDefaultValues()
       }))
@@ -62,9 +64,7 @@ case class JDBCSchemas(
   }
 }
 
-/** @param connectionRef
-  *   : JDBC Configuration to use as defined in the connection section in the application.conf
-  * @param catalog
+/** @param catalog
   *   : Database catalog name, optional.
   * @param schema
   *   : Database schema to use, required.
@@ -80,9 +80,9 @@ case class JDBCSchema(
   tableRemarks: Option[String] = None,
   columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
+  exclude: List[String] = Nil,
   tableTypes: List[String] = Nil,
   template: Option[String] = None,
-  write: Option[WriteMode] = None,
   pattern: Option[String] = None,
   numericTrim: Option[Trim] = None,
   partitionColumn: Option[String] = None,
@@ -90,16 +90,16 @@ case class JDBCSchema(
   connectionOptions: Map[String, String] = Map.empty,
   fetchSize: Option[Int] = None,
   stringPartitionFunc: Option[String] = None,
-  fullExport: Option[Boolean] = None
+  fullExport: Option[Boolean] = None,
+  sanitizeName: Option[Boolean] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
-
-  def writeMode(): WriteMode = this.write.getOrElse(WriteMode.OVERWRITE)
 
   def fillWithDefaultValues(): JDBCSchema = {
     copy(
       tableTypes = if (tableTypes.isEmpty) JDBCSchema.defaultTableTypes else tableTypes,
-      fullExport = Some(false)
+      fullExport = if (fullExport.isEmpty) Some(false) else fullExport,
+      sanitizeName = if (sanitizeName.isEmpty) Some(false) else sanitizeName
     )
   }
 }
@@ -116,6 +116,12 @@ object JDBCSchema {
   )
 }
 
+case class TableColumn(name: String, rename: Option[String] = None) {
+  def this() = {
+    this("", None)
+  }
+}
+
 /** @param name
   *   : Table name (case insensitive)
   * @param columns
@@ -123,16 +129,20 @@ object JDBCSchema {
   */
 case class JDBCTable(
   name: String,
-  columns: List[String],
+  sql: Option[String],
+  columns: List[TableColumn],
   partitionColumn: Option[String],
   numPartitions: Option[Int],
   connectionOptions: Map[String, String],
   fetchSize: Option[Int],
-  fullExport: Option[Boolean]
+  fullExport: Option[Boolean],
+  filter: Option[String] = None,
+  stringPartitionFunc: Option[String] = None
 ) {
   def this() =
     this(
       "",
+      None,
       Nil,
       None,
       None,

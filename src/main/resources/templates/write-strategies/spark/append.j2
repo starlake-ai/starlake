@@ -1,0 +1,8 @@
+
+{% if tableTruncate and tableFormat == 'delta' %}
+DELETE FROM {{ tableFullName }}; 
+{% elif tableTruncate %}
+TRUNCATE TABLE {{ tableFullName }};
+{% endif %}
+
+INSERT INTO {{ tableFullName }} {{ selectStatement }};

@@ -21,54 +21,73 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.generator.AclDependenciesConfig
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import ai.starlake.schema.model.Severity._
+import ai.starlake.utils.YamlSerde.serializeToPath
 
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.Try
 
+/** A domain is a set of tables. A domain is defined by a name and a list of tables and load
+  * metadat.
+  * @param load:
+  *   Domain to load
+  */
+case class LoadDesc(version: Int, load: Domain)
+
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
-  * therefore the domain and customer & order are your datasets. In a DBMS, A Domain would be
+  * therefore the domain and customers & orders are your datasets. In a DBMS, A Domain would be
   * implemented by a DBMS schema and a dataset by a DBMS table. In BigQuery, The domain name would
   * be the Big Query dataset name and the dataset would be implemented by a Big Query table.
   *
-  * @param name
+  * Domains are defined in the _config.sl.yml file located in a directory beneath the domain root
+  * directory. The directory name is the domain name. The _config.sl.yml file contains the domain
+  * definition.
+  *
+  * @param name:
   *   Domain name. Make sure you use a name that may be used as a folder name on the target storage.
-  *   - When using HDFS or Cloud Storage, files once ingested are stored in a sub-directory named
+  *   - When using HDFS or Cloud Storage, files once loaded are stored in a sub-directory named
   *     after the domain name.
   *   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after
-  *     the domain name.
-  * @param directory
-  *   : Folder on the local filesystem where incoming files are stored. Typically, this folder will
-  *   be scanned periodically to move the dataset to the cluster for ingestion. Files located in
-  *   this folder are moved to the pending folder for ingestion by the "import" command.
-  * @param metadata
-  *   : Default Schema metadata. This metadata is applied to the schemas defined in this domain.
+  *     the domain name. This attribute is optional.
+  * @param metadata:
+  *   Default Schema metadata. This metadata is applied to the schemas defined in this domain.
   *   Metadata properties may be redefined at the schema level. See Metadata Entity for more
   *   details.
-  * @param tables
-  *   : List of schemas for each dataset in this domain A domain ususally contains multiple schemas.
+  * @param tables:
+  *   List of schemas for each dataset in this domain A domain usually contains multiple schemas.
   *   Each schema defining how the contents of the input file should be parsed. See Schema for more
   *   details.
-  * @param comment
-  *   : Domain Description (free text)
-  * @param ack
-  *   : Ack extension used for each file. ".ack" if not specified. Files are moved to the pending
-  *   folder only once a file with the same name as the source file and with this extension is
-  *   present. To move a file without requiring an ack file to be present, set explicitly this
-  *   property to the empty string value "".
+  * @param comment:
+  *   Domain Description (free text). This description will end up in the database schema
+  *   description.
+  * @param tags:
+  *   Domain tags. Tags are used to categorize domains. These tags will end up in the database
+  *   schema tags if supported.
+  *   - When using BigQuery, tags are stored in the dataset labels.
+  * @param rename:
+  *   Domain rename. This attribute is used to rename the domain when ingesting data. This is useful
+  *   when you want to rename a domain in the target database. For instance, you may want to rename
+  *   a domain from "sales" to "sales_2020" when ingesting data from 2020. This attribute is
+  *   optional.
+  * @param database:
+  *   Database name. This attribute is used to specify the database name when ingesting data. This
+  *   is useful when you want to ingest data in a different database than the default one or the one
+  *   specified in the settings. This attribute is optional.
   */
+@JsonIgnoreProperties(
+  Array("tables")
+)
 @nowarn case class Domain(
   name: String,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
-  tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
+  tables: List[Schema] = Nil, // used internally only
   comment: Option[String] = None,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None,
   database: Option[String] = None
@@ -132,7 +151,7 @@ import scala.util.Try
       metadata  <- metadata
       directory <- metadata.directory
     } yield directory
-    maybeDirectory.orElse(this.directory)
+    maybeDirectory
   }
 
   @nowarn def resolveAck(): Option[String] = {
@@ -141,10 +160,7 @@ import scala.util.Try
       ack      <- metadata.ack
     } yield ack
 
-    maybeAck match {
-      case Some(ack) => maybeAck
-      case None      => this.ack
-    }
+    maybeAck
   }
 
   /** Ack file should be present for each file to ingest.
@@ -152,6 +168,7 @@ import scala.util.Try
     * @return
     *   the ack attribute or ".ack" by default
     */
+  @JsonIgnore
   def getAck(): String = resolveAck().map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
 
   /** Is this Domain valid ? A domain is valid if :
@@ -167,7 +184,7 @@ import scala.util.Try
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
 
-    val messageList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val messageList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.appConfig.forceDomainPattern.r
@@ -177,7 +194,7 @@ import scala.util.Try
     // and then apply this syntax to all databases even if natively they don't accept that.
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
-    if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
+    if (name != null && !forceDomainPrefixRegex.pattern.matcher(name).matches())
       messageList += ValidationMessage(
         Error,
         "Domain",
@@ -217,21 +234,75 @@ import scala.util.Try
 
   def asDot(includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     tables
+      .sortBy(_.name)
       .map { schema =>
         schema.asDot(name, includeAllAttrs, fkTables)
       }
       .mkString("\n")
   }
 
-  def relatedTables(): List[String] = tables.flatMap(_.relatedTables())
+  def foreignTablesForDot(tableNames: Seq[String]): List[String] = {
+    // get tables included in tableNames
+    val tableSchemas = getTables(tableNames)
+    // get all tables referenced in foreign keys
+    tableSchemas
+      .flatMap(_.foreignTablesForDot(this.finalName))
+  }
 
-  def aclTables(): List[Schema] = tables.filter(_.hasACL())
+  def getTables(tableNames: Seq[String]): List[Schema] = {
+    val filteredTables = tableNames.flatMap { tableName =>
+      this.tables.filter { table =>
+        tableNames
+          .exists(_.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase())
+      }
+    }
+    filteredTables.toList
+  }
 
-  def rlsTables(): Map[String, List[RowLevelSecurity]] =
-    tables
+  def aclTables(config: AclDependenciesConfig): List[Schema] = {
+    val filteredTables = if (config.tables.nonEmpty) {
+      tables.filter { table =>
+        config.tables.exists(
+          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
+        )
+      }
+    } else {
+      tables
+    }
+
+    filteredTables
+      .filter { table =>
+        table.acl.nonEmpty && (config.all || table.containGrantees(config.grantees).nonEmpty)
+      }
+  }
+
+  /** Get all the tables with RLS defined and the RLS grants match the grantees defined in the
+    * config or if config.all is true then return all the tables with RLS defined
+    * @param config
+    * @return
+    */
+  def rlsTables(config: AclDependenciesConfig): Map[String, List[RowLevelSecurity]] = {
+    val filteredTables = if (config.tables.nonEmpty) {
+      tables.filter { table =>
+        config.tables.exists(
+          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
+        )
+      }
+    } else {
+      tables
+    }
+
+    filteredTables
+      .filter { table =>
+        table.rls.nonEmpty && (config.all ||
+        table.rls
+          .flatMap(_.grants)
+          .intersect(config.grantees)
+          .nonEmpty)
+      }
       .map(t => (t.finalName, t.rls))
-      .filter { case (tableName, rls) => rls.nonEmpty }
       .toMap
+  }
 
   def policies(): List[RowLevelSecurity] = {
     tables
@@ -241,6 +312,18 @@ import scala.util.Try
       _.rls
     )
   }
+
+  def writeDomainAsYaml(loadBasePath: Path)(implicit storage: StorageHandler): Unit = {
+
+    val folder = new Path(loadBasePath, this.name)
+    storage.mkdirs(folder)
+    this.tables foreach { schema =>
+      serializeToPath(new Path(folder, s"${schema.name}.sl.yml"), schema)
+    }
+    val domainDataOnly = this.copy(tables = Nil)
+    serializeToPath(new Path(folder, "_config.sl.yml"), domainDataOnly)
+  }
+
 }
 
 object Domain {
@@ -266,10 +349,9 @@ object Domain {
     } else {
       List(Right(true))
     }
-    val allWarnings = domainRootDirectories.flatMap { domainRootDirectory =>
-      val domainName = domainRootDirectory.getName()
-      val domainDirectory = new Path(domainRootDirectory, domainName)
-      val expectedDomainYmlName = s"_config.comet.yml"
+    val allWarnings = domainRootDirectories.flatMap { domainDirectory =>
+      val domainName = domainDirectory.getName()
+      val expectedDomainYmlName = "_config.sl.yml"
       val expectedDomainYmlPath = new Path(domainDirectory, expectedDomainYmlName)
       val domainYmlExists = storage.exists(expectedDomainYmlPath)
       val domainYmlWarnings = if (domainYmlExists) {
@@ -281,7 +363,7 @@ object Domain {
               ValidationMessage(
                 Warning,
                 "Domain",
-                s"Domain directory for $domainName should contain a _config.comet.yml file"
+                s"Domain directory for $domainName does not have a _config.sl.yml file"
               )
             )
           )
@@ -306,27 +388,29 @@ object Domain {
         )
       }
 
-      val updatedTablesDiff: List[SchemaDiff] = commonTables.flatMap { case (existing, incoming) =>
-        Schema.compare(existing, incoming).toOption
+      val updatedTablesDiff: List[TableDiff] = commonTables.flatMap {
+        case (existingTable, incomingTable) =>
+          Schema.compare(existingTable, incomingTable).toOption
       }
-
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
       val commentDiff = AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
       val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
       val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
-
+      val databaseDiff =
+        AnyRefDiff.diffOptionString("database", existing.database, incoming.database)
       DomainDiff(
         name = existing.name,
-        tables = SchemasDiff(
+        tables = TablesDiff(
           added = addedTables.map(_.name),
           deleted = deletedTables.map(_.name),
           updated = updatedTablesDiff
         ),
-        metadataDiff,
-        commentDiff,
-        tagsDiffs,
-        renameDiff
+        metadataDiff.asOption(),
+        commentDiff.asOption(),
+        tagsDiffs.asOption(),
+        renameDiff.asOption(),
+        databaseDiff.asOption()
       )
     }
   }
@@ -346,5 +430,4 @@ object Domain {
         throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
     template -> settings.storageHandler().read(template)
   }
-
 }

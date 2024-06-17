@@ -1,0 +1,94 @@
+-- mise en forme pour l'ecriture dans le fichier
+set feed off
+set echo off
+set verify off
+set heading off
+set termout off
+set concat "#"
+set markup csv on delimiter ","
+-- arret en echec en cas d'erreur sql
+whenever sqlerror exit 1;
+
+-- recuperation du dossier de sortie
+define output_dir = &1;
+
+-- stockage du date time courant en string dans date_time_char
+define date_time_pattern = 'yyyymmddhhmiss';
+column dt_val new_value current_export_date_char;
+select to_char(sysdate, '&date_time_pattern') dt_val from dual;
+
+-- stockage de la date de dernier export dans last_export_date
+column led new_value last_export_date;
+select
+    coalesce(
+        (
+            select
+                last_export_date
+            from
+                export_status
+            where
+                table_name = 'table1'
+        ),
+        to_date('19700101','yyyymmdd') -- si pas d'export date en table, epoch
+    ) led
+from
+    dual;
+
+-- ouverture du fichier
+prompt exporting table1 to &output_dir#/domain1_table1_delta_&current_export_date_char#.csv;
+spool &output_dir#/domain1_table1_delta_&current_export_date_char#.csv replace
+
+select
+    to_char(col1),
+    to_char(col2)
+    from
+    table1
+where
+    updatecol >= '&last_export_date';
+-- fermeture du fichier
+spool off
+
+-- mise à jour de la table reporting
+begin
+    update
+        export_status
+    set
+        schema_name = 'schema1',
+        table_name = 'table1',
+        last_export_date = to_date(&current_export_date_char, '&date_time_pattern'),
+        type_last_export = 'delta',
+        nb_rows_last_export = (
+            select
+                count(*)
+            from
+                table1
+            where
+                updatecol >= '&last_export_date'
+        )
+    where
+        table_name = 'table1';
+    if
+        sql%rowcount = 0
+    then -- pas de ligne updatees
+        insert into
+            export_status (schema_name, table_name, last_export_date, type_last_export, nb_rows_last_export)
+        values
+            (
+                'schema1',
+                'table1',
+                to_date(&current_export_date_char, '&date_time_pattern'),
+                'delta',
+                (
+                    select
+                        count(*)
+                    from
+                        table1
+                    where
+                        updatecol >= '&last_export_date'
+                )
+            );
+    end if;
+end;
+/
+
+exit success

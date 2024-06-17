@@ -1,10 +1,142 @@
 
 # Release notes
 
+# 1.2
+__New Feature__:
+- Custom DDL mapping for JDBC datawarehouses (Postgres, Snowflake, Redshift, Synapse ...)
+- Unit tests for transforms
+- Excel export
+- Custom write strategies using Jinja2
+- The following commands now use HDFS client to interact with files and enables cloud storage support such as S3 or GCS:
+  - extract-schema
+  - extract-data
+  - infer-schema
+  - yml2xls
+- add stringPartitionFunc attribute to table extraction definition
+- Support load unit tests
+- add data and schema extraction from sql query for JDBC connection
+- migrate command added in order to ease migration between version
+- domain template used during schema extraction is now splitted in two files: domain-template and table-template. Table-template are prefixed with `_table_` and domain template may be prefixed with `_domain_` with the config file name. Ex: `_table_config.sl.yml`.
+
+__Bug Fix__:
+- Amazon RedShift write strategy templates
+- Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.
+- Fix incremental next query
+- Fix restricted renamed column and pk renaming
+
+__Improvement__:
+- add log during long extraction around every 30 seconds
+- primary and foreign keys extraction failure are not considered as errors anymore
+- make data extraction in parallel on schema's level
+
+__Miscellaneous__:
+- log level switched to error instead of info. In order to restore previous behavior, set `SL_LOG_LEVEL` to `info`.
+
+__Deprecations removal__:
+- `tables` attached to domain description or table description in load stage is not authorized starting from 1.2.0 but a config migration is automatically done for prior configs
+
+# 1.1.1:
+__Improvement__:
+- add git hash or timestamp if no git info to printed SNAPSHOT version. Requires SBT reload to get new settings.
+
+# 1.1.0:
+**BREAKING CHANGE** 
+- Data extraction didn't fail on table's extraction failure. In order to keep behaviour, use `--ignoreExtractionFailure`
+- Default data extraction output dir is now in 'metadata/extract' instead of 'metadata/load'.
+- Defining yaml config file without specifying explicitly one container root attribute is now prohibited
+- In load files, can't use `schemas` anymore. Use `tables` instead.
+- Default timestamp pattern for data extraction is now the iso format 'yyyy-MM-dd'T'HH:mm:ss.SSSXXX'. To restore previous behavior, set timestamp pattern to 'yyyy-MM-dd HH:mm:ss'
+
+__Bug Fix__:
+- concurrent schema extraction close resource prematurely
+- fix versions.sh file for linux
+- update dockerfile to take environment variable into account
+- Throw expected exception when no connection ref found.
+- turn missing additional columns optional on native bigquery csv data ingestion
+- fix quote on data extraction when no partition is given. Failure occurs when query don't quote with '"'
+- table's metadata merge during schema extraction now takes `sink`, `ignore` and `directory` attribute into account.
+- Use default load format during native ingestion
+- Mysql extraction could fetch wrong table's information
+- Data extraction fresh enough was done on any success state, it now only consider successful extractions
+- Align infered schema primitive's type with the one declared `types.sl.yml`.
+- Fix dockerfile for latest Alpine by adding bash package
+- Fix precedence of data extraction mode
+- Handle null pointer exception on json schema inference
+- Infer schema from complex json with arrays and struct
+
+__Improvement__:
+- added `auditConnectionRef` to jdbc extract schemas to be on pair with connectionRef behavior
+- warn when starlake version is not installed yet and user want to use it
+- added support for mysql extraction
+- add the ability to rename column during schema and data extraction
+- enhance user error message when defined types is not declared in types
+- Schema inference for DSV files improved in type inference
+
+__Feature__:
+
+- generic templating framework for dag generation through the definition of a python library for starlake jobs
+- load gzip compressed files (.gz extension) into bigquery
+- add adaptive load and supports the following strategy: OVERWRITE, APPEND, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, OVERWRITE_BY_PARTITION
+
 # 1.0.0:
+- **BREAKING CHANGE**
+  - STAGE no more used in MetricsJob and Expectations. Existing Metrics Database need to be updated.
+  - Remove deprecated metadata.partition property. Now part of Sink
+  - Remove deprecated metadata.xml property. Now part of metadata.options
 
-__Features__
+__Feature__:
+- CLI now support multiple version of starlake at once and use the correct one based on sl_versions.sh/cmd in SL_ROOT
+- CLI can now upgrade all components except HADOOP extra elements on windows 
+- Support any JDBC compliant database
+- Add archive table support for BigQuery
+- Configure CSV data extraction output format
+- Amazon Redshift support
+- Expectations macro support
 
+__Improvement__:
+  - Count null partition rows as rejected with dynamic partition overwrite
+  - **BREAKING CHANGE** Extract-schema sanitize domain name if sanitizeName is true. Have same value for domain name and its folder. By default sanitizaName is false.
+  - 'directory' is not mandatory in extract template
+  - load individual domain only in extract-schema
+
+__Bug Fix__:
+- Data extraction retrieve last extraction date time but didn't get the right one for partitionned tables.
+
+# 0.8.0:
+- ** DEPRECATED **
+  - All date time related variables are now deprecated aka; sl_date, sl_year ...
+
+- **BREAKING CHANGE** 
+  - extract-schema command line option 'mapping' replaced by 'config' 
+  - kafkaload takes now a connection ref parameter
+  - application.conf replaced with application.sl.yml or application.yml in metadata folder
+  - SL_FS no more used. Set SL_ROOT to an absolute path instead
+  - SL_ENGINE no more used. engine is derived from connection
+  - format renamed to sparkFormat in connections.
+  - COMET_* env vars replaced definitely with SL_* 
+  - Sinks "name" attribute renamed to "connectionRef"
+  - extensions no more used in file detection. Table patterns are directly applied to detect correct extensions 
+  - Default connection ref may be defined in the application.yml file
+  - Sink name in XLs files is now translated to a connection ref name
+  - "domains" and "jobs" folders renamed to "load" and "transform" respectively
+  - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
+  - globalJDBCSchema renamed to default
+  - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
+  - SINK_ACCEPTED and SINK_REJECTED  duration are not logged anymore. Only full time LOAD and TRANSFORM are logged
+  - configuration files have now the .sl.yml extension
+    - On Linux/MacOS, you may have to run the following command to make it work: 
+    ```find . -name "*.comet.yml" -exec rename 's/\.comet.yml$/.sl.yml/' '{}' +``` # On MacOS install first with brew install rename
+    - On Windows, you may have to run the following command to make it work: 
+    ```Get-ChildItem -Path . -Filter "*.comet.yml" -Recurse | Rename-Item -NewName { $_.name -replace '\.comet\.yml$','.sl.yml' }```
+
+__Feature__:
+- Databricks on Azure is now fully documented
+- Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
+- Use Refs file to configure model references
+- Support native loading of data into BigQuery
+- Define JDBC connections and audit connections in metadata/connections.sl.yml
+- schema extraction and features relying on it benefit from parallel fetching
+- use load dataset path as default output dir if not defined for schema inference
 - have same file ingestion behavior as spark with big query native loader. Loader follows the same limit as bq load.
   Don't support the following ingestion phases:
   - line ignore filter
@@ -18,49 +150,15 @@ __Features__
   - distinct on all lines
   - unique input file name with grouped ingestion
 
-__Improvements__
-
 - sink become optional in spark job and can fallback into global connection ref settings
 - add dynamicPartitionOverwrite sink options. Available for bigquery sink and file sink. No need to set
   spark.sql.sources.partitionOverwriteMode.
 
-__Bug Fix__:
-
-- forceDomainPattern renamed in order to be overridable with environment variable
-
-# 0.8.0:
-- Databricks on Azure is now fully documented
-- **BREAKING CHANGE** 
-  - extract-schema command line option 'mapping' replaced by 'config' 
-  - kafkaload takes now a connection ref parameter
-  - application.conf replaced with application.comet.yml or application.yml in metadata folder
-  - SL_FS no more used. Set SL_ROOT to an absolute path instead
-  - SL_ENGINE no more used. engine is derived from connection
-  - format renamed to sparkFormat in connections.
-  - COMET_* env vars replaced definitely with SL_* 
-  - Sinks "name" attribute renamed to "connectionRef"
-  - extensions no more used in file detection. Table patterns are directly applied to detect correct extensions 
-  - Default connection ref may be defined in the application.yml file
-  - Sink name in XLs files is now translated to a connection ref name
-  - "domains" and "jobs" folders renamed to "load" and "transform" respectively
-  - "load" and "watch" commands are now merged into one command. They both watch for new files and load them
-  - globalJDBCSchema renamed to default
-  - SL_DEFAULT_FORMAT renamed to SL_DEFAULT_WRITE_FORMAT
-
-- ** DEPRECATED **
-  - All date time related variables are now deprecated aka; comet_date, comet_year ... 
-
-__Feature__:
-- Auto merge support added at the task level. MERGE INTO is used to merge data into the target table automatically.
-- Use Refs file to configure model references
-- Support native loading of data into BigQuery
-- Define JDBC connections and audit connections in metadata/connections.comet.yml
-- schema extraction and features relying on it benefit from parallel fetching
-- use load dataset path as default output dir if not defined for schema inference
 
 __Bug Fix__:
 - **BREAKING CHANGE** the new database and tenant fields should be added to the audit table.
-
+- forceDomainPattern renamed in order to be overridable with environment variable
+- audit log was not in UTC when loaded from local
   Please run the following SQL to update your audit table on BigQuery:
 ```
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
@@ -454,7 +552,7 @@ __Bug Fix__:
 - Loading empty files when the schema contains script fields
 - Applying default value for an attribute when value in the input data is null
 - Transformation job with BQ engine fails when no views block is defined
-- XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
+- XLS2YML: remove non-breaking spaces from Excel file cells to avoid parsing errors
 - Fix merge using timestamp option
 - Json ingestion fails with complex array of objects
 - Remove duplicates on incoming when existingDF does not exist or is empty
@@ -507,7 +605,7 @@ __New feature__:
 - Improve logging
 - Add column type during for database extraction
 - The name attribute inside a job file should reflect the filename. This attribute will soon be deprecated
-- Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.comet.yml/job.sql code
+- Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.sl.yml/job.sql code
 - Switch from readthedocs to docusaurus
 - Add local and bigquery samples
 - Custom var pattern through sql-pattern-parameter in reference.conf
@@ -572,7 +670,7 @@ __Bug Fix__:
 
 ## 0.1.23
 __New feature__:
-- YML files are now renamed with the suffix .comet.yml
+- YML files are now renamed with the suffix .sl.yml
 - Comet Schema is now published on SchemaStore. This allows Intellisense in VSCode & Intellij
 - Assertions may now be executed as part of the Load and transform processes
 - Shared Assertions UDF may be defined and stored in COMET_ROOT/metadata/assertions

@@ -1,0 +1,30 @@
+
+{% macro makeMD5(columnNames) %}
+{% for columnName in columnNames %}{{ columnName }}{% if not loop.last %} || '-' {% endif %}{%endfor%}
+{% endmacro %}
+
+CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
+
+{% if columnNames|length > 1 %}
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ makeMD5(strategyKey) }} in 
+(
+    SELECT {{ makeMD5(strategyKey) }} FROM #SL_INCOMING
+);
+
+{% else %}
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ strategyKeyCsv }} in 
+(
+    SELECT {{ strategyKeyCsv }} FROM #SL_INCOMING
+);
+
+{% endif%}
+
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING
+WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
+
+DROP VIEW IF EXISTS #SL_INCOMING;
+

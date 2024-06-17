@@ -9,8 +9,13 @@ case class Freshness(
   warn: Option[String] = None,
   error: Option[String] = None
 ) {
+  override def toString: String = {
+    val warnStr = warn.getOrElse("")
+    val errorStr = error.getOrElse("")
+    s"Freshness(warn=$warnStr, error=$errorStr)"
+  }
   def checkValidity(): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     def checkDuration(duration: Option[String]): Unit = {
       Try {

@@ -65,7 +65,7 @@ object Rejection {
     */
   case class RowInfo(
     timestamp: Timestamp,
-    colInfos: List[ColInfo],
+    colInfos: Seq[ColInfo],
     inputFileName: String
   ) {
 
@@ -95,7 +95,7 @@ object Rejection {
     *   Filled only for invalid lines (performance impect otherwise)
     */
   case class RowResult(
-    colResults: List[ColResult],
+    colResults: Seq[ColResult],
     isAccepted: Boolean,
     inputFileName: String,
     inputLine: Option[String]

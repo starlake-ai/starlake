@@ -22,15 +22,16 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.util.Try
 
 case class BigQueryDatasetInfo(
@@ -121,13 +122,14 @@ object BigQueryTableInfo extends StrictLogging {
 
     val jobResult = job.run()
     jobResult match {
-      case scala.util.Success(SparkJobResult(Some(dfDataset))) =>
+      case scala.util.Success(SparkJobResult(Some(dfDataset), _)) =>
         BigQuerySparkWriter.sinkInAudit(
           dfDataset,
           "dataset_info",
           Some("Information related to datasets"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
 
         val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
@@ -137,7 +139,8 @@ object BigQueryTableInfo extends StrictLogging {
           "table_info",
           Some("Information related to tables"),
           Some(BigQuerySchemaConverters.toBigQuerySchema(dfTable.schema)),
-          config.writeMode.getOrElse(WriteMode.APPEND)
+          config.writeMode.getOrElse(WriteMode.APPEND),
+          config.accessToken
         )
       case scala.util.Success(_) =>
         logger.warn("Could not extract BigQuery tables info")
@@ -169,10 +172,9 @@ object BigQueryTableInfo extends StrictLogging {
     selectedInfos
   }
 
-  def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    val config =
-      BigQueryTablesConfig.parse(args).getOrElse(throw new Exception("Could not parse arguments"))
-    sink(config)
+  @nowarn
+  def run(args: Array[String]): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    BigQueryTableInfoCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
   }
 }

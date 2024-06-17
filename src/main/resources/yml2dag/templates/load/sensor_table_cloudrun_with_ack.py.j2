@@ -1,0 +1,184 @@
+# This template executes individual cloud run jobs and requires the following dag generation options set:
+#
+# - cloud_run_job_name: the name of the job to execute
+# - sl_env_var: the airflow variable name where a map in json is specified in order to add them as env var in cloud run job
+# - global_ack_file_path: the path to the ack file to wait for
+# - ack_wait_timeout: the time to wait in seconds
+# - schedule: the schedule airflow variable where value is a cron
+# Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
+
+
+import os
+import re
+from datetime import timedelta
+
+import pendulum
+
+from airflow import DAG
+from airflow.datasets import Dataset
+from airflow.decorators import task
+from airflow.exceptions import AirflowException
+from airflow.models import Variable
+from airflow.operators.bash import BashOperator
+from airflow.providers.google.cloud.operators.gcs import \
+    GCSDeleteObjectsOperator
+from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
+from airflow.sensors.bash import BashSensor
+from airflow.utils import trigger_rule
+from airflow.utils.task_group import TaskGroup
+
+DEFAULT_DAG_ARGS = {
+    'depends_on_past': False,
+    'start_date': pendulum.datetime(2016, 1, 1, tz="Europe/Paris"),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=1)
+}
+PROJECT_ID_IDA = Variable.get("PROJECT_ID_IDA")
+
+options = {
+    {% for option in context.config.options %}'{{ option.name }}': '{{ option.value }}'{% if not loop.last  %},{% endif %}
+    {% endfor %}
+}
+
+class MissingEnvironmentVariable(Exception):
+    pass
+
+def get_context_var(var_name, **kwargs):
+    if hasattr(options, var_name):
+        return getattr(options, var_name)
+    elif Variable.get(var_name, **kwargs) is not None:
+        return Variable.get(var_name)
+    elif os.getenv(var_name) is not None:
+        return os.getenv(var_name)
+    else:
+        raise MissingEnvironmentVariable(f"{var_name} does not exist")
+
+
+# SL_ENV_VARS is a map of env vars to add to the cloud run job
+SL_ENV_VARS = get_context_var(get_context_var("sl_env_var"), default_var={}, deserialize_json=True)
+cloud_run_job_region = get_context_var('cloud_run_job_region')
+
+schedules = [{% for schedule in context.schedules %}
+  {
+    'schedule': '{{ schedule.schedule }}',
+    'cron': '{{ schedule.cron }}',
+    'domains': [{% for domain in schedule.domains %}
+        {
+            'name': '{{ domain.name }}',
+            'final_name': '{{ domain.finalName }}',
+            'tables': [{% for table in domain.tables %}
+                {
+                    'name': '{{ table.name }}',
+                    'final_name': '{{ table.final_name }}'
+                }{% if not loop.last  %},{% endif %}{% endfor %}
+            ],
+        }{% if not loop.last  %},{% endif %}{% endfor %}
+    ]
+  }{% if not loop.last  %},{% endif %}{% endfor %}
+]
+
+
+class StarlakeCloudRunJobAsyncOperator(BashOperator):
+    '''
+
+    This operator executes a cloud run job and does not wait for its completion.
+    '''
+    def __init__(self, *, domain: str, table: str, **kwargs) -> None:
+        update_env_vars = ",".join([("--update-env-vars " if i == 0 else "") + f"{key}='{value}'"
+                                   for i, (key, value) in enumerate(SL_ENV_VARS.items())])
+        cloud_run_job_name = get_context_var('cloud_run_job_name')
+        super().__init__(bash_command=(f"gcloud beta run jobs execute {cloud_run_job_name} "
+                                       f"--args 'load --include {domain} --schemas {table}' "
+                                       f"{update_env_vars} "
+                                       f"--region {cloud_run_job_region} --format='get(metadata.name)'"),
+                         do_xcom_push=True,
+                         **kwargs)
+
+
+class CloudRunJobCompletionSensor(BashSensor):
+    '''
+    This sensor checks the completion of a cloud run job.
+    '''
+    def __init__(self, *, source_task_id: str, **kwargs) -> None:
+        super().__init__(bash_command=(f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --format='value(status.completionTime, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -n \"$value\""),
+                         mode="reschedule",
+                         #retry_exit_code=1, available in 2.6. Implies to combine this sensor and the bottom operator
+                         **kwargs)
+
+
+class CloudRunJobCheckStatusOperator(BashOperator):
+    '''
+    This operator checks the status of a cloud run job and fails if it is not successful.
+    '''
+    def __init__(self, *, source_task_id: str, domain: str, table: str, **kwargs) -> None:
+        super().__init__(bash_command=f"value=`gcloud beta run jobs executions describe {{"{{{{ task_instance.xcom_pull(task_ids='{source_task_id}') }}}}"}}  --region {cloud_run_job_region} --format='value(status.failedCount, status.cancelledCounts)' | sed 's/[[:blank:]]//g'`; test -z \"$value\"",
+                         outlets=[Dataset(keep_ascii_only(f'{PROJECT_ID_IDA}.{domain}.{table}'))],
+                         **kwargs)
+
+def keep_ascii_only(text):
+    '''
+    This function removes non-ascii characters from a string.
+    '''
+    return re.sub(r'[^\x00-\x7F]+', '_', text)
+
+
+def sanitize_id(id: str):
+    '''
+    This function sanitizes a string to be used as an id.
+    '''
+    return keep_ascii_only(re.sub("[^a-zA-Z0-9\-_]", "_", id.replace("$", "S")))
+
+
+@task(trigger_rule=trigger_rule.TriggerRule.ONE_FAILED, retries=0)
+def watcher():
+    raise AirflowException("Failing task because one or more upstream tasks failed.")
+
+
+def generate_dag_name(schedule):
+    '''
+    This function generates the dag name from the filename generated by starlake
+    '''
+    base_dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "")
+    return (f"{base_dag_name}-{schedule['cron']}" if len(schedules) > 1 else base_dag_name)
+
+
+for schedule in schedules:
+    with DAG(generate_dag_name(schedule),
+             schedule_interval=Variable.get(options["schedule"], None),
+             default_args=DEFAULT_DAG_ARGS,
+             catchup=False,
+             description="{{ context.config.comment }}") as dag:
+        ack_wait_timeout = int(options["ack_wait_timeout"])
+        ack_file=options["global_ack_file_path"]
+        wait_for_ack = GCSObjectExistenceSensor(
+            task_id="wait_for_ack",
+            bucket="{{'{{var.json.BUCKET_INCOMING.name}}'}}",
+            object=ack_file,
+            timeout=ack_wait_timeout,
+            mode="reschedule"
+        )
+        delete_ack = GCSDeleteObjectsOperator(
+            task_id="delete_ack",
+            bucket_name="{{'{{var.json.BUCKET_INCOMING.name}}'}}",
+            objects=[ack_file]
+        )
+
+        def generate_task_group_for_domain(domain):
+            with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
+                for table in domain["tables"]:
+                    load_task_id = sanitize_id(f'{domain["name"]}_{table["name"]}')
+                    load_task = StarlakeCloudRunJobAsyncOperator(task_id=load_task_id, domain=domain["name"], table=table["name"])
+                    with TaskGroup(group_id=f'{load_task_id}_wait') as task_completion_sensors:
+                        check_completion_id = load_task_id + '_check_completion'
+                        get_completion_status_id = load_task_id + '_get_completion_status'
+                        completion_sensor = CloudRunJobCompletionSensor(task_id=check_completion_id, source_task_id=load_task.task_id)
+                        job_status = CloudRunJobCheckStatusOperator(task_id=get_completion_status_id, source_task_id=load_task.task_id, domain=domain["final_name"], table=table["name"])
+                        completion_sensor >> job_status
+                    load_task >> task_completion_sensors
+            return domain_load_tasks
+
+        all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule["domains"]]
+
+        wait_for_ack >> delete_ack >> all_load_tasks >> watcher()

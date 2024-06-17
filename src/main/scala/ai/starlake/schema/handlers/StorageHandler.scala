@@ -20,11 +20,14 @@
 
 package ai.starlake.schema.handlers
 
+import ai.starlake.utils.Utils
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.InputStreamReader
+import java.io.{InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.Charset.defaultCharset
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.LocalDateTime
@@ -35,6 +38,15 @@ import scala.util.Try
 /** Interface required by any filesystem manager
   */
 trait StorageHandler extends StrictLogging {
+  val starApiIsActive: Boolean = {
+    Try(Utils.loadInstance("ai.starlake.api.Application")).isSuccess
+
+  }
+  protected def pathSecurityCheck(path: Path): Unit = {
+    if (starApiIsActive && path.toString.contains("..")) {
+      throw new Exception(s"Security check: Path cannot contain '..'. File $path")
+    }
+  }
 
   def move(src: Path, dst: Path): Boolean
 
@@ -53,7 +65,7 @@ trait StorageHandler extends StrictLogging {
   def moveFromLocal(source: Path, dest: Path): Unit
 
   def moveSparkPartFile(sparkFolder: Path, extension: String): Option[Path] = {
-    val files = list(sparkFolder, extension = extension, recursive = false).headOption
+    val files = list(sparkFolder, extension = extension, recursive = false).headOption.map(_.path)
     files.map { f =>
       val tmpFile = new Path(sparkFolder.getParent, sparkFolder.getName + ".tmp")
       move(f, tmpFile)
@@ -69,6 +81,10 @@ trait StorageHandler extends StrictLogging {
     action: InputStreamReader => T
   ): T
 
+  def readAndExecuteIS[T](path: Path)(
+    action: InputStream => T
+  ): T
+
   def write(data: String, path: Path)(implicit charset: Charset = defaultCharset): Unit
 
   def writeBinary(data: Array[Byte], path: Path): Unit
@@ -82,7 +98,11 @@ trait StorageHandler extends StrictLogging {
     recursive: Boolean,
     exclude: Option[Pattern] = None,
     sortByName: Boolean = false // sort by time by default
-  ): List[Path]
+  ): List[FileInfo]
+
+  def stat(
+    path: Path
+  ): FileInfo
 
   def blockSize(path: Path): Long
 
@@ -102,4 +122,25 @@ trait StorageHandler extends StrictLogging {
   def loadExtraConf(): Map[String, String] = Map.empty[String, String]
   // conf passed as env variable
   lazy val extraConf: Map[String, String] = loadExtraConf()
+
+  def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
+
+  def open(path: Path): Option[InputStream]
+
+  def output(path: Path): OutputStream
+}
+
+object StorageHandler {
+  private val HAS_DRIVE_LETTER_SPECIFIER = Pattern.compile("^/?[a-zA-Z]:")
+
+  def localFile(path: Path): File = {
+    val pathAsString = path.toUri.getPath
+    val isWindowsFile =
+      SystemUtils.IS_OS_WINDOWS && HAS_DRIVE_LETTER_SPECIFIER.matcher(pathAsString).find()
+    if (isWindowsFile)
+      File(pathAsString.substring(1))
+    else
+      File(pathAsString)
+  }
+
 }

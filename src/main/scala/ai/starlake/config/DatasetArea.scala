@@ -21,14 +21,9 @@
 package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.Utils
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-
-import java.util.Locale
-import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the SL_DATASETS env var or datasets application property
@@ -62,6 +57,9 @@ object DatasetArea extends StrictLogging {
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
+  def testsResults(domain: String)(implicit settings: Settings): Path =
+    path("_tests_results")
+
   /** datasets waiting to be ingested are stored here
     *
     * @param domain
@@ -69,8 +67,8 @@ object DatasetArea extends StrictLogging {
     * @return
     *   Absolute path to the pending folder of domain
     */
-  def pending(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.pending)
+  def stage(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.appConfig.area.stage)
 
   /** datasets with a file name that could not match any schema file name pattern in the specified
     * domain are marked unresolved by being stored in this folder.
@@ -103,29 +101,19 @@ object DatasetArea extends StrictLogging {
   def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.appConfig.area.ingesting)
 
-  /** Valid records for datasets the specified domain are stored in this folder.
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the ingesting folder of domain
-    */
-  def accepted(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.accepted)
+  def `export`(domain: String)(implicit settings: Settings): Path = {
+    path(domain, "export")
+  }
 
-  /** Invalid records and the reason why they have been rejected for the datasets of the specified
-    * domain are stored in this folder.
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the rejected folder of domain
-    */
-  def rejected(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.rejected)
+  def `export`(domain: String, table: String)(implicit settings: Settings): Path = {
+    new Path(`export`(domain), table)
+  }
 
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
+
+  def audit(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.audit.path)
 
   def expectations(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.expectations.path)
@@ -152,23 +140,13 @@ object DatasetArea extends StrictLogging {
   }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "discrete")
+    DatasetArea.metrics(domain, "discrete")
 
   def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "continuous")
+    DatasetArea.metrics(domain, "continuous")
 
   def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
-    new Path(metrics(domain, schema), "frequencies")
-
-  /** Default target folder for autojobs applied to datasets in this domain
-    *
-    * @param domain
-    *   : Domain name
-    * @return
-    *   Absolute path to the business folder of domain
-    */
-  def business(domain: String)(implicit settings: Settings): Path =
-    path(domain, settings.appConfig.area.business)
+    DatasetArea.metrics(domain, "frequencies")
 
   def metadata(implicit settings: Settings): Path =
     new Path(s"${settings.appConfig.metadata}")
@@ -179,17 +157,29 @@ object DatasetArea extends StrictLogging {
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
 
+  def writeStrategies(implicit settings: Settings): Path =
+    new Path(settings.appConfig.writeStrategies)
+
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
 
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
+  def tests(implicit settings: Settings): Path =
+    new Path(metadata, "tests")
+
+  def loadTests(implicit settings: Settings): Path =
+    new Path(tests, "load")
+
+  def transformTests(implicit settings: Settings): Path =
+    new Path(tests, "transform")
+
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
 
-  def oldLoad(implicit settings: Settings): Path =
-    new Path(metadata, "domains")
+  def cache(implicit settings: Settings): Path =
+    new Path(metadata, ".cache")
 
   def external(implicit settings: Settings): Path =
     new Path(metadata, "external")
@@ -200,44 +190,18 @@ object DatasetArea extends StrictLogging {
   def transform(implicit settings: Settings): Path =
     new Path(metadata, "transform")
 
-  def oldTransform(implicit settings: Settings): Path =
-    new Path(metadata, "jobs")
-
-  def views(implicit settings: Settings): Path =
-    new Path(metadata, "views")
-
-  def views(viewsPath: String)(implicit settings: Settings): Path = {
-    if (viewsPath.startsWith("/"))
-      new Path(views, viewsPath.drop(1))
-    else
-      new Path(views, viewsPath)
-  }
-
   def iamPolicyTags()(implicit settings: Settings): Path =
-    new Path(DatasetArea.metadata, "iam-policy-tags.comet.yml")
+    new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
   /** @param storage
     */
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    def migrateFolder(oldPath: Path, newPath: Path): Unit = {
-      if (storage.exists(oldPath)) {
-        storage.move(oldPath, newPath)
-      }
-      if (storage.exists(oldPath)) {
-        throw new Exception(
-          s"Could not move old folder from ${oldPath} to ${newPath}"
-        )
-      }
-    }
-    val oldDomains = DatasetArea.oldLoad(settings)
-    migrateFolder(oldDomains, DatasetArea.load)
-    val oldJobs = DatasetArea.oldTransform(settings)
-    migrateFolder(oldJobs, DatasetArea.transform)
-    List(metadata, types, load, external, extract, transform, expectations, views, mapping).foreach(
-      storage.mkdirs
-    )
+    List(metadata, types, load, external, extract, transform, expectations, mapping)
+      .foreach(
+        storage.mkdirs
+      )
 
   }
 
@@ -245,174 +209,9 @@ object DatasetArea extends StrictLogging {
     settings: Settings
   ): Unit = {
     domains.foreach { domain =>
-      List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
+      List(stage _, unresolved _, archive _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
     }
   }
-
-  def bootstrap(template: Option[String])(implicit settings: Settings): Unit = {
-    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: File): Unit = {
-      resources.foreach { resource =>
-        logger.info(s"copying $resource")
-        val source = Source.fromResource(s"$resourceFolder/$resource")
-        if (source == null)
-          throw new Exception(s"Resource $resource not found in assembly")
-
-        val lines: Iterator[String] = source.getLines()
-        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
-        targetFile.parent.createDirectories()
-        val contents =
-          lines.mkString("\n").replace("__SL_TEST_ROOT__", metadata.getParent.toString)
-        targetFile.overwrite(contents)
-      }
-    }
-
-    initMetadata(settings.storageHandler())
-    List("out", "diagrams", "diagrams/load", "diagrams/acl", "diagrams/transform").foreach {
-      folder =>
-        val root = File(settings.appConfig.metadata).parent
-        File(root.pathAsString, folder.split('/'): _*).createDirectories()
-    }
-    val metadataFile = File(metadata.toString)
-    metadataFile.createDirectories()
-    val incomingFolder = File(metadataFile.parent, "incoming")
-    incomingFolder.createDirectories()
-    val vscodeFolder = File(metadataFile.parent, ".vscode")
-    vscodeFolder.createDirectories()
-    copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
-
-    template.getOrElse("quickstart") match {
-      case "bigquery" =>
-        val metadataResources = List(
-          "load/hr/_config.comet.yml",
-          "load/hr/sellers.comet.yml",
-          "load/hr/locations.comet.yml",
-          "load/sales/_config.comet.yml",
-          "load/sales/customers.comet.yml",
-          "load/sales/orders.comet.yml",
-          "transform/kpi/kpi.comet.yml",
-          "transform/kpi/kpi.byseller.sql.j2",
-          "types/default.comet.yml",
-          "types/types.comet.yml",
-          "env.comet.yml"
-        )
-        copyToFolder(metadataResources, s"templates/bigquery/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"templates/bigquery", metadataFile.parent)
-      case "userguide" =>
-        val metadataResources = List(
-          "load/hr/_config.comet.yml",
-          "load/hr/sellers.comet.yml",
-          "load/hr/locations.comet.yml",
-          "load/sales/_config.comet.yml",
-          "load/sales/customers.comet.yml",
-          "load/sales/orders.comet.yml",
-          "transform/sales_kpi/_config.comet.yml",
-          "transform/sales_kpi/byseller_kpi.sql",
-          "types/default.comet.yml",
-          "types/types.comet.yml",
-          "application.comet.yml",
-          "env.comet.yml",
-          "env.BQ.comet.yml",
-          "env.FS.comet.yml"
-        )
-        copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
-        val rootResources = List(
-          "incoming/locations-2018-01-01.json",
-          "incoming/sellers-2018-01-01.json",
-          "incoming/customers-2018-01-01.psv",
-          "incoming/orders-2018-01-01.csv"
-        )
-        copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
-
-      case "quickstart" =>
-        val metadataResources = List(
-          "transform/kpi/_config.comet.yml",
-          "transform/kpi/customers_kpi.sql",
-          "types/default.comet.yml",
-          "application.comet.yml",
-          "env.comet.yml",
-          "env.LOCAL.comet.yml",
-          "env.BQ.comet.yml"
-        )
-        copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
-
-        val rootResources = List(
-          "incoming/customers-2018-01-01.psv"
-        )
-        copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
-
-      /*
-      val dagResources = List(
-          "dags/sample.comet.yml"
-        )
-        copyToFolder(dagResources, s"templates/quickstart/metadata", metadataFile.parent)
-
-       */
-      case _ => // do nothing
-    }
-  }
-}
-
-/** After going through the data pipeline a dataset may be referenced through a Hive table in a Hive
-  * Database. For each input domain, 3 Hive databases may be created :
-  *   - The rejected database : contains tables referencing rejected records for each schema in the
-  *     domain
-  *   - The accepted database : contains tables referencing
-  *   - The business database : contains tables where autjob tables are created by default
-  *   - The ciustom database : contains tables where autojob tables are created when a specific area
-  *     is defined
-  */
-object StorageArea {
-
-  def fromString(value: String)(implicit settings: Settings): StorageArea = {
-
-    val lcValue = value.toLowerCase(Locale.ROOT)
-
-    lcValue match {
-      case _ if lcValue == settings.appConfig.area.rejectedFinal => StorageArea.rejected
-      case _ if lcValue == settings.appConfig.area.acceptedFinal => StorageArea.accepted
-      case _ if lcValue == settings.appConfig.area.replayFinal   => StorageArea.replay
-      case _ if lcValue == settings.appConfig.area.businessFinal => StorageArea.business
-      case custom                                                => StorageArea.Custom(custom)
-    }
-  }
-
-  case object rejected extends StorageArea {
-    def value: String = "rejected"
-  }
-
-  case object accepted extends StorageArea {
-    def value: String = "accepted"
-  }
-
-  case object replay extends StorageArea {
-    def value: String = "replay"
-  }
-
-  case object business extends StorageArea {
-    def value: String = "business"
-  }
-
-  final case class Custom(value: String) extends StorageArea
-
-  def area(domain: String, area: Option[StorageArea])(implicit settings: Settings): String =
-    settings.appConfig.area.hiveDatabase.richFormat(
-      Map.empty,
-      Map(
-        "domain" -> domain,
-        "area"   -> area.map(_.toString).getOrElse("")
-      )
-    )
-}
-
-sealed abstract class StorageArea {
-  def value: String
-  override def toString: String = value
 }

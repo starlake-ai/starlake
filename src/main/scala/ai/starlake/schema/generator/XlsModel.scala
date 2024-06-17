@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import org.apache.poi.ss.usermodel.{Cell, DataFormatter, Row, Sheet, Workbook}
 import org.apache.poi.xssf.usermodel.XSSFSheet
 
-import scala.jdk.CollectionConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter}
+import scala.jdk.CollectionConverters._
 
 trait XlsModel {
 
@@ -12,7 +12,10 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_rename"      -> "Rename"
+    "_rename"      -> "Rename",
+    "_tags"        -> "Tags",
+    "_dagRef"      -> "Dag reference",
+    "_frequency"   -> "Job frenquency"
   )
   val allPolicyHeaders = List(
     "_name"        -> "Name",
@@ -39,7 +42,7 @@ trait XlsModel {
     "_merge_keys"         -> "Merge columns",
     "_description"        -> "Description",
     "_encoding"           -> "File encoding (UTF-8 by default)",
-    "_sampling"           -> "Sampling strategy",
+    "_sampling"           -> "Sampling strategy(obsolete)",
     "_partitioning"       -> "partition columns",
     "_sink"               -> "Sink Type",
     "_clustering"         -> "Clustering columns",
@@ -60,7 +63,10 @@ trait XlsModel {
     "_xml"        -> "XML Options",
     "_extensions" -> "Accepted extensions",
     "_options"    -> "Spark ingestion options",
-    "_validator"  -> "Class validator"
+    "_validator"  -> "Class validator",
+    "_null"       -> "Null value",
+    "_dagRef"     -> "Dag reference",
+    "_frequency"  -> "Job frenquency"
   )
 
   val allAttributeHeaders = List(
@@ -83,16 +89,29 @@ trait XlsModel {
   )
 
   val allSchemaJobHeaders = List(
-    "_job"         -> "Job Name",
-    "_domain"      -> "Domain",
-    "_name"        -> "Name",
-    "_source"      -> "Tables sources for job",
-    "_write"       -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
-    "_frequency"   -> "Job frenquency",
-    "_partition"   -> "Partition column",
-    "_description" -> "Description",
-    "_policy"      -> "Access Policy",
-    "_database"    -> "Database"
+    "_job"               -> "Job Name",
+    "_domain"            -> "Domain",
+    "_name"              -> "Name",
+    "_source"            -> "Tables sources for job",
+    "_write"             -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
+    "_frequency"         -> "Job frenquency",
+    "_partition"         -> "Partition column",
+    "_description"       -> "Description",
+    "_policy"            -> "Access Policy",
+    "_database"          -> "Database",
+    "_clustering"        -> "Clustering columns",
+    "_tags"              -> "Tags",
+    "_presql"            -> "Pre SQLs - ###",
+    "_postsql"           -> "Post SQLs - ###",
+    "_sink"              -> "Sink type",
+    "_sinkConnectionRef" -> "Sink connection name",
+    "_options"           -> "Sink Options",
+    "_format"            -> "FS Sink Format",
+    "_extension"         -> "FS Sink Extension",
+    "_coalesce"          -> "FS Sink Coalesce",
+    "_connection"        -> "Run connection type",
+    "_connectionRef"     -> "Run connection name",
+    "_dagRef"            -> "Dag reference"
   )
 
   val allAttributeJobHeaders = List(
@@ -140,6 +159,13 @@ trait XlsModel {
       f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
         case v if v.isEmpty => None
         case v              => Some(v)
+      }
+    }
+
+    def formatCellWithBlankValue(cell: Cell): Option[String] = {
+      formatCellValue(cell) match {
+        case Some(v) if v.toLowerCase == "blank" => Some("")
+        case v                                   => v
       }
     }
   }

@@ -17,8 +17,17 @@ class TemplateParamsSpec extends TestHelper {
           Attribute(name = "col2", `type` = "long"),
           Attribute(name = "col3", script = Some("script"))
         ),
-        metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
-        merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
+        metadata = Option(
+          Metadata(
+            writeStrategy = Some(
+              WriteStrategy(
+                `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
+                key = List("col1", "col2"),
+                timestamp = Some("updateCol")
+              )
+            )
+          )
+        ),
         comment = None,
         presql = Nil,
         postsql = Nil
@@ -28,8 +37,8 @@ class TemplateParamsSpec extends TestHelper {
         domainToExport = "AnyDomain",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None)
         ),
         fullExport = false,
         dsvDelimiter = ",",
@@ -51,8 +60,18 @@ class TemplateParamsSpec extends TestHelper {
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
         List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
-        metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
-        merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
+        metadata = Option(
+          Metadata(
+            separator = Some("|"),
+            writeStrategy = Some(
+              WriteStrategy(
+                `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
+                key = List("col1", "col2"),
+                timestamp = Some("updateCol")
+              )
+            )
+          )
+        ),
         comment = None,
         presql = Nil,
         postsql = Nil
@@ -62,10 +81,10 @@ class TemplateParamsSpec extends TestHelper {
         domainToExport = "AnyDomain",
         tableToExport = "table1",
         columnsToExport = List(
-          ("col1", "string", false, PrivacyLevel.None),
-          ("col2", "long", false, PrivacyLevel.None)
+          ("col1", "string", false, TransformInput.None),
+          ("col2", "long", false, TransformInput.None)
         ),
-        fullExport = true,
+        fullExport = false,
         dsvDelimiter = "|",
         deltaColumn = None,
         auditDB = None,

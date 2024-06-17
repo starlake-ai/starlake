@@ -12,20 +12,25 @@ class IngestionWorkflowSpec extends TestHelper {
 
     private def loadLandingFile(landingFile: String): TestHelper#SpecTrait = {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = "/sample/DOMAIN.comet.yml",
+        sourceDomainOrJobPathname = "/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = landingFile
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
 
         storageHandler.delete(new Path(landingPath))
         // Make sure unrelated files, even without extensions, are not imported
         storageHandler.touchz(new Path(landingPath, "_SUCCESS"))
 
         loadLanding(Codec.default, createAckFile = false)
-        val destFolder: Path = DatasetArea.pending(datasetDomainName)
+        val destFolder: Path = DatasetArea.stage(datasetDomainName)
         assert(
           storageHandler.exists(new Path(destFolder, "SCHEMA-VALID.dsv")),
           "Landing file directly imported"
@@ -38,18 +43,20 @@ class IngestionWorkflowSpec extends TestHelper {
 
       // Test again, but with Domain.ack defined
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = "/sample/DOMAIN-ACK.comet.yml",
+        sourceDomainOrJobPathname = "/sample/DOMAIN-ACK.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = landingFile
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        deliverSourceTable("/sample/User.sl.yml")
+        deliverSourceTable("DOMAIN", "/sample/employee_DOMAIN-ACK.sl.yml", Some("employee.sl.yml"))
+        deliverSourceTable("DOMAIN", "/sample/Players_DOMAIN-ACK.sl.yml", Some("Players.sl.yml"))
 
         storageHandler.delete(new Path(landingPath))
 
         loadLanding
-        val destFolder: Path = DatasetArea.pending(datasetDomainName)
+        val destFolder: Path = DatasetArea.stage(datasetDomainName)
         assert(
           storageHandler.exists(new Path(destFolder, "SCHEMA-VALID.dsv")),
           "Landing file based on extension imported"

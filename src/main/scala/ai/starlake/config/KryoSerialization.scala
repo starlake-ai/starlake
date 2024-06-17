@@ -3,14 +3,14 @@ package ai.starlake.config
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.config.Settings._
 import ai.starlake.job.ingest.RejectedRecord
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.model.{BigQuerySink, EsSink, FsSink, JdbcSink, Mode, Sink}
+import ai.starlake.utils.TransformEngine
 import com.esotericsoftware.kryo.Kryo
 import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.storage.StorageLevel
 
 class KryoSerialization extends KryoRegistrator {
-  override def registerClasses(kryo: Kryo) {
+  override def registerClasses(kryo: Kryo): Unit = {
     kryo.register(classOf[Settings])
     kryo.register(classOf[AppConfig])
     kryo.register(classOf[Metrics])
@@ -20,7 +20,7 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[Connection])
     kryo.register(classOf[AccessPolicies])
     kryo.register(classOf[KafkaConfig])
-    kryo.register(classOf[Expectations])
+    kryo.register(classOf[ExpectationsConfig])
     kryo.register(classOf[Sink])
     kryo.register(classOf[BigQuerySink])
     kryo.register(classOf[EsSink])
@@ -30,7 +30,7 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[KafkaTopicConfig])
     kryo.register(classOf[Mode])
     kryo.register(classOf[StorageLevel])
-    kryo.register(classOf[PrivacyEngine])
+    kryo.register(classOf[TransformEngine])
     kryo.register(classOf[RejectedRecord])
 
   }

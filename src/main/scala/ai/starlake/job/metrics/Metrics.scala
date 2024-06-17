@@ -165,13 +165,13 @@ object Metrics extends StrictLogging {
   private def customMetricUDF(
     e: Column,
     metricName: String,
-    metricFunction: (String, Column*) => Column,
+    metricFunction: (String, Seq[Column]) => Column,
     approxMethod: String,
     approxValue: Double
   ): Column = {
 
     val aliasMetric: String = metricName + "(" + e.toString() + ")"
-    metricFunction(approxMethod, e, lit(approxValue)).as(aliasMetric)
+    metricFunction(approxMethod, Seq(e, lit(approxValue))).as(aliasMetric)
   }
 
   /** Customize percentile of order 0.25 of the column e
@@ -247,10 +247,11 @@ object Metrics extends StrictLogging {
     // Get the whole list of headers that contains the column name
     val listColumns = metricFrame.columns.filter(_.contains(s"($nameCol)")).sorted
     // Select only columns in listColumns
-    val selectedListColumns: DataFrame = metricFrame.select(listColumns.head, listColumns.tail: _*)
+    val selectedListColumns: DataFrame =
+      metricFrame.select(listColumns.head, listColumns.tail.toIndexedSeq: _*)
     // Reduce decimal values to 3
     val broundColumns: DataFrame = selectedListColumns.select(
-      selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)): _*
+      selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)).toIndexedSeq: _*
     )
     // Add column Variables that contains the nameCol
     val addVariablesColumn: DataFrame = broundColumns.withColumn("attribute", lit(nameCol))
@@ -267,7 +268,7 @@ object Metrics extends StrictLogging {
   ): List[String] = {
 
     val datasetAttributes =
-      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType).map(_.name).toList
+      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType()).map(_.name).toList
     logger.info(s"Valid Continuous datasetAttributes Attrs =$datasetAttributes")
     val intersectionAttributes = datasetAttributes.intersect(continuousAttributes)
     logger.info(s"Valid intersectionAttributes Attrs =$intersectionAttributes")
@@ -613,7 +614,7 @@ object Metrics extends StrictLogging {
       case Nil =>
         None
       case _ =>
-        val dataset = dataInit.drop(dropAttributes: _*)
+        val dataset = dataInit.drop(dropAttributes.toIndexedSeq: _*)
         val colRenamed: List[String] = "attribute" :: operations.map(_.name)
         val matrixMetric: DataFrame = attributeChecked
           .map(name => categoryCountFreqDataframe(col(name), dataset))

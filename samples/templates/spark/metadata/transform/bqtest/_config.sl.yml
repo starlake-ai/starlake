@@ -1,0 +1,10 @@
+version: 1
+transform:
+  default:
+    writeStrategy:
+      type: OVERWRITE_BY_PARTITION
+    sink:
+      partition:
+        - due
+
+

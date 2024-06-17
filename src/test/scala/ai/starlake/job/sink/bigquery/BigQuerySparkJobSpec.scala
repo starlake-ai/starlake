@@ -3,8 +3,8 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteMode}
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -14,57 +14,49 @@ import org.scalatest.BeforeAndAfterAll
 class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
   private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    super.beforeAll()
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
     }
   }
   override def afterAll(): Unit = {
-    if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
+    super.afterAll()
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
     }
   }
-  if (sys.env.getOrElse("SL_GCP_TEST", "false").toBoolean) {
-    // TODO
-    // import com.google.cloud.bigquery.TableId
-    /*
-    it should "get table with a dataset name including project" in {
-      val tableMetadata = BigQuerySparkJob.getTable("my-project:my-dataset.my-table")
-      tableMetadata.table.get.getTableId shouldBe TableId.of("my-project", "my-dataset", "my-table")
-    }
-
-    it should "get table with default project id when dataset name doesn't include projectId" in {
-      val tableMetadata = BigQuerySparkJob.getTable("my-dataset.my-table")
-      tableMetadata.table.get.getTableId.getDataset shouldBe "my-dataset"
-      tableMetadata.table.get.getTableId.getTable shouldBe "my-table"
-    }*/
-    it should "overwrite partitions dynamically" in {
-
+  it should "overwrite partitions dynamically" in {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       val bigQueryConfiguration: Config = {
         val config = ConfigFactory.parseString("""
-            |connections.spark {
-            |  sparkFormat = "bigquery"
-            |  type = "bigquery"
-            |  options {
-            |    gcsBucket: starlake-app
-            |    authType: APPLICATION_DEFAULT
-            |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
-            |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
-            |  }
-            |}
-            |""".stripMargin)
+                                                 |connectionRef = "sparkbq"
+                                                 |
+                                                 |connections.sparkbq {
+                                                 |  sparkFormat = "bigquery"
+                                                 |  type = "bigquery"
+                                                 |  options {
+                                                 |    gcsBucket: starlake-app
+                                                 |    writeMethod: indirect
+                                                 |    location: "europe-west1"
+                                                 |    authType: APPLICATION_DEFAULT
+                                                 |    #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+                                                 |    #jsonKeyfile: "/Users/me/.gcloud/keys/my-key.json"
+                                                 |  }
+                                                 |}
+                                                 |
+                                                 |""".stripMargin)
         val result = config.withFallback(super.testConfiguration)
         result
       }
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
-          domainOrJobFilename = "_config.comet.yml",
-          sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.comet.yml",
+          jobFilename = Some("_config.sl.yml"),
+          sourceDomainOrJobPathname = "/sample/tableWithPartitions/_config.sl.yml",
           datasetDomainName = "SL_BQ_TEST_DS",
-          sourceDatasetPathName = "",
-          isDomain = false
+          sourceDatasetPathName = ""
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceDomain()
           private val query: String =
             """
               |        WITH tbl as (
@@ -80,11 +72,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "SL_BQ_TEST_DS",
             "SL_BQ_TEST_TABLE_DYNAMIC",
-            Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
+              BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            merge = None
+            writeStrategy = Some(WriteStrategy.Overwrite)
           )
 
           case class Task(task: AutoTaskDesc)
@@ -96,7 +87,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathTask =
             new Path(
               jobMetadataRootPath,
-              "SL_BQ_TEST_DS/tableWithPartitions.comet.yml"
+              "SL_BQ_TEST_DS/tableWithPartitions.sl.yml"
             )
           val pathTaskSQL =
             new Path(
@@ -122,11 +113,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             None,
             "SL_BQ_TEST_DS",
             "SL_BQ_TEST_TABLE_DYNAMIC",
-            Some(WriteMode.OVERWRITE),
             sink = Some(
-              BigQuerySink(connectionRef = None, timestamp = Some("DOB")).toAllSinks()
+              BigQuerySink(connectionRef = None, partition = Some(List("DOB"))).toAllSinks()
             ),
-            merge = None
+            writeStrategy = Some(WriteStrategy.Overwrite)
           )
           private val businessTaskAddPartDef = mapper
             .writer()
@@ -135,7 +125,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           val pathTaskAdd =
             new Path(
               this.jobMetadataRootPath,
-              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.comet.yml"
+              "SL_BQ_TEST_DS/addPartitionsWithOverwrite.sl.yml"
             )
           val pathTaskSQLAdd =
             new Path(
@@ -150,8 +140,10 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           logger.info(this.jobMetadataRootPath.toString)
 
           schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
-          val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-          validator.autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions")) shouldBe true
+          val validator = new IngestionWorkflow(storageHandler, schemaHandler)
+          validator
+            .autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions"))
+            .isSuccess shouldBe true
           // check that table is created correctly with the right number of lines
           private val createdTable: Table =
             bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
@@ -161,9 +153,11 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .getTimePartitioning
             .getField
             .shouldBe("DOB")
-          validator.autoJob(
-            TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite")
-          ) shouldBe true
+          validator
+            .autoJob(
+              TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite")
+            )
+            .isSuccess shouldBe true
           private val updatedTable: Table =
             bigquery.getTable(TableId.of("SL_BQ_TEST_DS", "SL_BQ_TEST_TABLE_DYNAMIC"))
           // check that table is appended with new partitions

@@ -21,8 +21,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{ExtractUtils, JDBCSchema, JDBCUtils}
-import ai.starlake.extract.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.extract.{ExtractTableAttributes, JDBCSchema, JdbcDbUtils, ParUtils}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -48,7 +47,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
   def name: String = "InferDDL"
 
-  /** Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return
     *   : Spark Session used for the job
@@ -104,23 +103,25 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connectionRef match {
           case Some(connection) =>
-            val connectionOptions = settings.appConfig.connections(connection).options
+            val connectionSettings = settings.appConfig.getConnection(connection)
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-              ExtractUtils.createForkSupport(config.parallelism)
-            JDBCUtils.extractJDBCTables(
+              ParUtils.createForkSupport(config.parallelism)
+            JdbcDbUtils.extractJDBCTables(
               JDBCSchema(
                 config.catalog,
                 domain.finalName,
                 None,
                 None,
                 Nil,
+                Nil,
                 List("TABLE"),
                 None
               ),
-              connectionOptions,
-              skipRemarks = true
+              connectionSettings,
+              skipRemarks = true,
+              keepOriginalName = true
             )
-          case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
+          case None => Map.empty[String, ExtractTableAttributes]
         }
         val toDeleteTables = existingTables.keys.filterNot(table =>
           schemas.map(_.finalName.toLowerCase()).contains(table.toLowerCase())
@@ -175,7 +176,11 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               "tableName"               -> schema.finalName,
               "domain"                  -> domain,
               "table"                   -> schema,
-              "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
+              "partitions" -> mergedMetadata
+                .getSink()
+                .toAllSinks()
+                .partition
+                .getOrElse(Nil),
               "clustered"     -> mergedMetadata.getClustering().getOrElse(Nil),
               "primaryKeys"   -> schema.primaryKey,
               "tableComment"  -> schema.comment.getOrElse(""),
@@ -189,50 +194,50 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             val result = applyTemplate("create", createParamMap)
             sqlString.append(result)
           } else {
-            val (_, existingColumns, _) =
+            val tableAttrs =
               existingTables
                 .iget(schema.finalName)
                 .getOrElse(throw new Exception("Should never happen"))
             val addColumns =
               schema.attributes.filter(attr =>
-                !existingColumns
+                !tableAttrs.columNames
                   .map(_.getFinalName().toLowerCase())
                   .contains(attr.getFinalName().toLowerCase())
               )
             val dropColumns =
-              existingColumns.filter(attr =>
+              tableAttrs.columNames.filter(attr =>
                 !schema.attributes
                   .map(_.getFinalName().toLowerCase())
                   .contains(attr.getFinalName().toLowerCase())
               )
             val alterColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
-                  (existingAttr.required != attr.required ||
+                  (existingAttr.resolveRequired() != attr.resolveRequired() ||
                   !existingAttr.samePrimitiveType(attr)(schemaHandler) ||
                   existingAttr.comment.getOrElse("") != attr.comment.getOrElse(""))
                 )
               }
             val alterDataTypeColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   !existingAttr.samePrimitiveType(attr)(schemaHandler)
                 )
               }
             val alterDescriptionColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
                   existingAttr.comment.getOrElse("") != attr.comment.getOrElse("")
                 )
               }
             val alterRequiredColumns =
               schema.attributes.filter { attr =>
-                existingColumns.exists(existingAttr =>
+                tableAttrs.columNames.exists(existingAttr =>
                   existingAttr.getFinalName().toLowerCase() == attr.getFinalName().toLowerCase() &&
-                  existingAttr.required != attr.required
+                  existingAttr.resolveRequired() != attr.resolveRequired()
                 )
               }
 
@@ -260,6 +265,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               "tableName"     -> schema.finalName,
               "domain"        -> domain,
               "table"         -> schema,
+              "tableName"     -> schema.finalName,
               "partitions"    -> Nil,
               "clustered"     -> Nil,
               "primaryKeys"   -> Nil,
@@ -288,7 +294,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connectionRef.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, settings.appConfig.connections(conn).options)
+          conn => JdbcDbUtils.execute(sqlScript, settings.appConfig.connections(conn).options)
         )
     }
 

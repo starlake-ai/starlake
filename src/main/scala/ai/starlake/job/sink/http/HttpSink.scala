@@ -13,7 +13,7 @@ class HtttpSink(parameters: Map[String, String]) extends Sink with StrictLogging
 
   val client = new HttpSinkClient(parameters)
 
-  override def addBatch(batchId: Long, data: DataFrame) {
+  override def addBatch(batchId: Long, data: DataFrame): Unit = {
     var success = false;
     var retried = 0;
     while (!success && retried < numRetries) {

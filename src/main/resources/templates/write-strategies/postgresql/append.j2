@@ -1,0 +1,6 @@
+
+{% if tableTruncate %}
+TRUNCATE TABLE {{ tableFullName }};
+{% endif %}
+
+INSERT INTO {{ tableFullName }} {{ selectStatement }}

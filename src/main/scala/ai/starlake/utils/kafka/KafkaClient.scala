@@ -3,7 +3,7 @@ package ai.starlake.utils.kafka
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{KafkaConfig, KafkaTopicConfig}
 import ai.starlake.schema.model.Mode
-import ai.starlake.utils.{FileLock, YamlSerializer}
+import ai.starlake.utils.{FileLock, YamlSerde}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 
 import java.time.Duration
 import java.util.Properties
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -99,7 +99,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   private def newConsumer(topicName: String, accessOptions: Map[String, String]) = {
     val props: Properties = buildProps(accessOptions)
     logger.whenInfoEnabled {
-      import scala.collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       logger.info(s"access options for topic $topicName ==>")
       props.asScala.foreach { case (k, v) =>
         logger.info(s"\t$k=$v")
@@ -143,7 +143,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
           settings
             .storageHandler()
             .write(
-              YamlSerializer.serializeObject(offsets.map { case (partition, offset) =>
+              YamlSerde.serialize(offsets.map { case (partition, offset) =>
                 partition.toString + "," + offset.toString
               }),
               cometOffsetsPath
@@ -206,7 +206,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
       if (settings.storageHandler().exists(cometOffsetsPath)) {
         logger.info(s"Loading comet offsets to path $cometOffsetsPath")
-        val res = YamlSerializer.mapper
+        val res = YamlSerde.mapper
           .readValue(
             settings.storageHandler().read(cometOffsetsPath),
             classOf[List[String]]

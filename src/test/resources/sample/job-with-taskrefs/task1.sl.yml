@@ -1,0 +1,11 @@
+version: 1
+task:
+  sql: "select * from table1"
+  name: task1
+  domain: "myjob"
+  table: "table1"
+  writeStrategy:
+    type: "OVERWRITE"
+  partition:
+    - "year"
+    - "month"

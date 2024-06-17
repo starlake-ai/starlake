@@ -1,24 +1,20 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
+import scala.util.Try
+
 class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
-  def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    Yml2XlsConfig.parse(args) match {
-      case Some(config) =>
-        generateXls(config.domains, config.xlsDirectory)
-      case _ =>
-        println(Yml2XlsConfig.usage())
-    }
+  def run(args: Array[String]): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    Yml2XlsCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 
   def generateXls(domainNames: Seq[String], outputDir: String)(implicit
@@ -26,7 +22,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
   ): Unit = {
     val domains =
       domainNames match {
-        case Nil => schemaHandler.domains(true)
+        case Nil => schemaHandler.domains(reload = true)
         case x   => schemaHandler.domains().filter(domain => x.contains(domain.name))
       }
     if (domains.isEmpty) {
@@ -37,7 +33,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     }
 
     domains.foreach { domain =>
-      writeDomainXls(domain, outputDir)
+      writeDomainXls(domain, outputDir)(settings.storageHandler())
     }
 
     schemaHandler
@@ -67,10 +63,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     }
   }
 
-  def writeDomainXls(domain: Domain, folder: String): Unit = {
+  def writeDomainXls(domain: Domain, folder: String)(implicit
+    storageHandler: StorageHandler
+  ): Unit = {
     val workbook = new XSSFWorkbook()
 
-    val xlsOut = File(folder, domain.name + ".xlsx")
+    val xlsOut = new Path(folder, domain.name + ".xlsx")
     val domainSheet = workbook.createSheet("_domain")
     fillHeaders(workbook, allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
@@ -103,14 +101,22 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         if (schema.name.length > 31) schema.name.take(27) + "_" + rowIndex else schema.name
       schemaRow.createCell(0).setCellValue(schemaName)
       schemaRow.createCell(1).setCellValue(schema.pattern.toString)
-      schemaRow.createCell(2).setCellValue(metadata.mode.map(_.toString).getOrElse(""))
-      schemaRow.createCell(3).setCellValue(metadata.write.map(_.toString).getOrElse(""))
+      schemaRow.createCell(2).setCellValue("")
+      if (metadata.getStrategyOptions().getEffectiveType() == WriteStrategyType.SCD2)
+        schemaRow.createCell(3).setCellValue(WriteStrategyType.SCD2.value)
+      else
+        schemaRow
+          .createCell(3)
+          .setCellValue(
+            metadata.writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND).toString
+          )
+
       schemaRow.createCell(4).setCellValue(metadata.format.map(_.toString).getOrElse(""))
       schemaRow.createCell(5).setCellValue(metadata.withHeader.map(_.toString).getOrElse(""))
       schemaRow.getCell(5).setCellType(CellType.BOOLEAN)
-      schemaRow.createCell(6).setCellValue(metadata.getSeparator())
+      schemaRow.createCell(6).setCellValue(metadata.resolveSeparator())
 
-      schema.merge.foreach { mergeOptions =>
+      metadata.writeStrategy.foreach { mergeOptions =>
         schemaRow.createCell(7).setCellValue(mergeOptions.timestamp.getOrElse(""))
         schemaRow.createCell(8).setCellValue(mergeOptions.key.mkString(","))
         schemaRow.createCell(15).setCellValue(mergeOptions.queryFilter.getOrElse(""))
@@ -119,15 +125,10 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       schemaRow.createCell(10).setCellValue(metadata.encoding.getOrElse(""))
       schemaRow
         .createCell(11)
-        .setCellValue(metadata.partition.map(_.getSampling().toString).getOrElse(""))
+        .setCellValue("")
 
-      val partitionColumns = metadata.sink match {
-        case Some(sink) =>
-          sink.timestamp
-            .map(timestamp => Some(Partition(None, List(timestamp))))
-            .getOrElse(metadata.partition)
-        case _ => metadata.partition
-      }
+      val partitionColumns = metadata.sink.flatMap(_.partition)
+
       val clusteringColumns = metadata.sink match {
         case Some(sink) =>
           sink.clustering.getOrElse(Nil)
@@ -135,7 +136,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       }
       schemaRow
         .createCell(12)
-        .setCellValue(partitionColumns.map(_.getAttributes().mkString(",")).getOrElse(""))
+        .setCellValue(partitionColumns.map(_.mkString(",")).getOrElse(""))
       schemaRow
         .createCell(13)
         .setCellValue("FS")
@@ -173,9 +174,9 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         attrRow.createCell(0).setCellValue(finalName)
         attrRow.createCell(1).setCellValue(attr.rename.getOrElse(""))
         attrRow.createCell(2).setCellValue(attr.`type`)
-        attrRow.createCell(3).setCellValue(attr.required)
+        attrRow.createCell(3).setCellValue(attr.resolveRequired())
         attrRow.getCell(3).setCellType(CellType.BOOLEAN)
-        attrRow.createCell(4).setCellValue(attr.getPrivacy().toString)
+        attrRow.createCell(4).setCellValue(attr.resolvePrivacy().toString)
         attrRow.createCell(5).setCellValue(attr.metricType.map(_.toString).getOrElse(""))
         attrRow.createCell(6).setCellValue(attr.default.getOrElse(""))
         attrRow.createCell(7).setCellValue(attr.script.getOrElse(""))
@@ -198,9 +199,12 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
         attributesSheet.autoSizeColumn(i)
 
     }
-
-    xlsOut.delete(swallowIOExceptions = true)
-    workbook.write(xlsOut.newFileOutputStream(false))
+    val outputStream = storageHandler.output(xlsOut)
+    try {
+      workbook.write(outputStream)
+    } finally {
+      outputStream.close()
+    }
   }
 
 }

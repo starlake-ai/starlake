@@ -8,27 +8,27 @@ label = "dream";
 
 dream_segment [label=<
 <table border="0" cellborder="1" cellspacing="0">
-<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+<tr><td port="0" bgcolor="white"><B><FONT color="black"> segment </FONT></B></td></tr>
 
 </table>>];
 
 }
 
 subgraph cluster_users {
-me_me_com[label = "me@me.com"];
-you_you_com[label = "you@you.com"];
-me_you_com[label = "me@you.com"];
-you_me_com[label = "you@me.com"];
+me_you_com[shape=plain label = "me@you.com"];
+you_you_com[shape=plain label = "you@you.com"];
+me_me_com[shape=plain label = "me@me.com"];
+you_me_com[shape=plain label = "you@me.com"];
 
 label = "Users";
 }
 subgraph cluster_groups {
-financegroup_company_com[label = "financegroup@company.com"];
+financegroup_company_com[shape=plain label = "financegroup@company.com"];
 
 label = "Groups";
 }
-dream_segment_acl_viewer [shape=invhouse, label = "viewer"];
-dream_segment_acl_owner [shape=invhouse, label = "owner"];
+dream_segment_acl_viewer [shape=ellipse, label = "viewer"];
+dream_segment_acl_owner [shape=ellipse, label = "owner"];
 dream_segment_acl_viewer -> dream_segment;
 dream_segment_acl_owner -> dream_segment;
 me_me_com -> dream_segment_acl_viewer;

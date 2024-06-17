@@ -28,6 +28,6 @@ object BootstrapConfig extends CliConfig[BootstrapConfig] {
   }
 
   def parse(args: Seq[String]): Option[BootstrapConfig] =
-    OParser.parse(parser, args, BootstrapConfig())
+    OParser.parse(parser, args, BootstrapConfig(), setup)
 
 }

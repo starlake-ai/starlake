@@ -22,12 +22,12 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.Conversions.convertToScalaIterator
-import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{InputStreamReader, OutputStream}
+import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -46,7 +46,6 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       throw new Exception("bucket attribute is required for Google Storage")
     )
     val index = bucket.indexOf("://")
-    val scheme = if (index > 0) bucket.substring(0, index) else "gs"
     val bucketName = if (index > 0) bucket.substring(index + 3) else bucket
     val tempBucketName = connectionOptions.get("temporaryGcsBucket") match {
       case Some(tempBucket) =>
@@ -166,6 +165,15 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   lazy val conf = {
     val conf = new Configuration()
     this.extraConf.foreach { case (k, v) => conf.set(k, v) }
+    sys.env.get("SL_STORAGE_CONF").foreach { value =>
+      value
+        .split(',')
+        .map { x =>
+          val t = x.split('=')
+          t(0).trim -> t(1).trim
+        }
+        .foreach { case (k, v) => conf.set(k, v) }
+    }
     settings.appConfig.hadoop.foreach { case (k, v) =>
       conf.set(k, v)
     }
@@ -201,10 +209,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   conf.set("fs.defaultFS", defaultNormalizedFileSystem)
 
-  private val defaultFS: FileSystem = FileSystem.get(conf)
+  private val defaultFS = FileSystem.get(conf)
   logger.info("defaultFS=" + defaultFS)
-  logger.info("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
-  logger.info("defaultFS.getUri=" + defaultFS.getUri)
+  logger.debug("defaultFS.getHomeDirectory=" + defaultFS.getHomeDirectory)
+  logger.debug("defaultFS.getUri=" + defaultFS.getUri)
 
   def fs(inputPath: Path): FileSystem = {
     val path =
@@ -212,14 +220,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       else new Path(settings.appConfig.fileSystem, inputPath.toString)
     val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toString)
     val fs = scheme match {
-      case "gs" =>
+      case "gs" | "s3" | "s3a" | "s3n" =>
         bucketOpt match {
           case Some(bucket) =>
             conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
             FileSystem.get(conf)
           case None =>
             throw new RuntimeException(
-              "Using gs scheme must be with a bucket name. gs://bucketName"
+              "Using gs/s3 scheme must be with a bucket name. gs://bucketName"
             )
         }
       case _ => defaultFS
@@ -250,8 +258,9 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    pathSecurityCheck(path)
     readAndExecute(path, charset) { is =>
-      IOUtils.toString(is)
+      org.apache.commons.io.IOUtils.toString(is)
     }
   }
 
@@ -265,11 +274,20 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
-    val currentFS = fs(path)
-    val output: T = Using.resource(new InputStreamReader(currentFS.open(path), charset)) { stream =>
-      action(stream)
+    readAndExecuteIS(path) { is =>
+      val currentFS = fs(path)
+      val factory = new CompressionCodecFactory(currentFS.getConf)
+      val decompressedIS = Option(factory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+      action(new InputStreamReader(decompressedIS, charset))
     }
-    output
+  }
+
+  override def readAndExecuteIS[T](path: Path)(
+    action: InputStream => T
+  ): T = {
+    pathSecurityCheck(path)
+    val currentFS = fs(path)
+    Using.resource(currentFS.open(path))(action)
   }
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
@@ -280,6 +298,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute file path
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
+    pathSecurityCheck(path)
     val os: FSDataOutputStream = getOutputStream(path).asInstanceOf[FSDataOutputStream]
     os.write(data.getBytes(charset))
     os.close()
@@ -293,14 +312,23 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute file path
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
+    pathSecurityCheck(path)
     val os: OutputStream = getOutputStream(path)
     os.write(data, 0, data.length)
     os.close()
   }
 
   def listDirectories(path: Path): List[Path] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
+  }
+
+  def stat(path: Path): FileInfo = {
+    pathSecurityCheck(path)
+    val currentFS = fs(path)
+    val fileStatus = currentFS.getFileStatus(path)
+    FileInfo(path, fileStatus.getLen, Instant.ofEpochMilli(fileStatus.getModificationTime))
   }
 
   /** List all files in folder
@@ -324,14 +352,15 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     recursive: Boolean,
     exclude: Option[Pattern],
     sortByName: Boolean = false
-  ): List[Path] = {
+  ): List[FileInfo] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
-    logger.info(s"list($path, $extension, $since)")
+    logger.debug(s"list($path, $extension, $since)")
     Try {
       if (exists(path)) {
         val iterator: RemoteIterator[LocatedFileStatus] = currentFS.listFiles(path, recursive)
         val files = iterator.filter { status =>
-          logger.info(s"found file=$status")
+          logger.debug(s"found file=$status")
           val time = LocalDateTime.ofInstant(
             Instant.ofEpochMilli(status.getModificationTime),
             ZoneId.systemDefault
@@ -340,14 +369,20 @@ class HdfsStorageHandler(fileSystem: String)(implicit
             exclude.exists(_.matcher(status.getPath().getName()).matches())
           !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }.toList
-
+        logger.info(s"Found ${files.size} files")
         val sorted =
           if (sortByName)
             files.sortBy(_.getPath.getName)
           else // sort by time by default
             files
               .sortBy(r => (r.getModificationTime, r.getPath.getName))
-        sorted.map((status: LocatedFileStatus) => status.getPath())
+        sorted.map((status: LocatedFileStatus) =>
+          FileInfo(
+            status.getPath(),
+            status.getLen,
+            Instant.ofEpochMilli(status.getModificationTime)
+          )
+        )
       } else
         Nil
     } match {
@@ -367,6 +402,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @return
     */
   override def copy(src: Path, dst: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dst)
     FileUtil.copy(fs(src), src, fs(dst), dst, false, conf)
   }
 
@@ -379,6 +416,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @return
     */
   def move(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
     val currentFS = fs(src)
     delete(dest)
     mkdirs(dest.getParent)
@@ -391,6 +429,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   : Absolute path of file to delete
     */
   def delete(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.delete(path, true)
   }
@@ -401,6 +440,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   Absolute path of folder to create
     */
   def mkdirs(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.mkdirs(path)
   }
@@ -413,6 +453,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   destination file path
     */
   def copyFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     currentFS.copyFromLocalFile(source, dest)
   }
@@ -425,6 +467,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   Local file path
     */
   def copyToLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     currentFS.copyToLocalFile(source, dest)
   }
@@ -438,6 +482,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   destination file path
     */
   def moveFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     val currentFS = fs(source)
     if (currentFS.getScheme() == "file")
       currentFS.moveFromLocalFile(source, dest)
@@ -446,31 +492,37 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   def exists(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.exists(path)
   }
 
   def blockSize(path: Path): Long = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getDefaultBlockSize(path)
   }
 
   def spaceConsumed(path: Path): Long = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getContentSummary(path).getSpaceConsumed
   }
 
   def lastModified(path: Path): Timestamp = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getFileStatus(path).getModificationTime
   }
 
   def touchz(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     Try(currentFS.create(path, false).close())
   }
 
   def touch(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val currentFS = fs(path)
     Try(currentFS.setTimes(path, System.currentTimeMillis(), -1))
   }
@@ -479,6 +531,63 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     defaultFS.getScheme
   }
 
+  def copyMerge(
+    header: Option[String],
+    srcDir: Path,
+    dstFile: Path,
+    deleteSource: Boolean
+  ): Boolean = {
+    val currentFS = fs(dstFile)
+
+    if (currentFS.exists(dstFile)) {
+      throw new IOException(s"Target $dstFile already exists")
+    }
+
+    // Source path is expected to be a directory:
+    if (currentFS.getFileStatus(srcDir).isDirectory) {
+      val parts = currentFS
+        .listStatus(srcDir)
+        .filter(status => status.isFile)
+        .map(_.getPath)
+      if (parts.nonEmpty || header.nonEmpty) {
+        val outputStream = currentFS.create(dstFile)
+        header.foreach { header =>
+          val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
+          val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
+          try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
+          finally { inputStream.close() }
+        }
+        try {
+          parts
+            .filter(part => part.getName().startsWith("part-"))
+            .sortBy(_.getName)
+            .collect { case part =>
+              val inputStream = currentFS.open(part)
+              try {
+                org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false)
+                if (deleteSource) delete(part)
+              } finally { inputStream.close() }
+            }
+
+        } finally { outputStream.close() }
+      }
+      true
+    } else {
+      false
+    }
+  }
+
+  override def open(path: Path): Option[InputStream] = {
+    pathSecurityCheck(path)
+    Try(fs(path).open(path)) match {
+      case Success(is) => Some(is)
+      case Failure(f) =>
+        logger.error(f.getMessage)
+        None
+    }
+  }
+
+  override def output(path: Path): OutputStream = getOutputStream(path)
 }
 
 object HdfsStorageHandler

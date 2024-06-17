@@ -1,8 +1,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{PrivacyLevels, Settings}
-import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.model._
+import ai.starlake.utils.TransformEngine
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
@@ -49,13 +49,33 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val comment =
         Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
+      val tags =
+        Option(
+          row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
+      val dagRefOpt = Option(
+        row.getCell(headerMap("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+      val scheduleOpt =
+        Option(
+          row.getCell(headerMap("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
       nameOpt match {
         case Some(name) =>
           Some(
             Domain(
               name,
-              metadata = Some(Metadata(directory = directoryOpt, ack = ack)),
+              metadata = Some(
+                Metadata(
+                  directory = directoryOpt,
+                  ack = ack,
+                  dagRef = dagRefOpt,
+                  schedule = scheduleOpt
+                )
+              ),
               comment = comment,
+              tags = tags,
               rename = renameOpt
             )
           )
@@ -78,21 +98,12 @@ class XlsDomainReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_pattern"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(Pattern.compile)
-      val mode: Option[Mode] =
-        Option(row.getCell(headerMap("_mode"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .flatMap(formatter.formatCellValue)
-          .map { x =>
-            if (x == "REF_FIB_FGD")
-              throw new IllegalArgumentException(
-                "REF_FIB_FGD is not a valid mode. Please use REF_FIB_FGD_1 or REF_FIB_FGD_2"
-              )
-            else
-              Mode.fromString(x)
-          }
-      val write =
+      val rawWrite =
         Option(row.getCell(headerMap("_write"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-          .map(WriteMode.fromString)
+      val scd2 = rawWrite.contains("SCD2")
+      val write =
+        rawWrite.map(WriteMode.fromString)
       val format =
         Option(row.getCell(headerMap("_format"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -116,10 +127,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
       val encodingOpt =
         Option(row.getCell(headerMap("_encoding"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val partitionSamplingOpt =
-        Option(row.getCell(headerMap("_sampling"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .flatMap(formatter.formatCellValue)
-          .map(_.toDouble)
       val partitionColumns =
         Option(row.getCell(headerMap("_partitioning"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -169,84 +176,115 @@ class XlsDomainReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_escape"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
 
+      val quoteOpt =
+        Option(row.getCell(headerMap("_quote"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellWithBlankValue)
+
+      val nullValueOpt =
+        Option(row.getCell(headerMap("_null"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
+      val dagRefOpt = Option(
+        row.getCell(headerMap("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val scheduleOpt =
+        Option(
+          row.getCell(headerMap("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
+
+      val writeStrategy = (deltaColOpt, identityKeysOpt, mergeQueryFilter, write) match {
+        case (Some(deltaCol), Some(identityKeys), filter, _) =>
+          val strategyType =
+            if (scd2)
+              WriteStrategyType.SCD2
+            else
+              WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP
+          WriteStrategy(
+            `type` = Some(strategyType),
+            key = identityKeys.split(",").toList.map(_.trim),
+            timestamp = Some(deltaCol),
+            queryFilter = filter
+          )
+        case (None, Some(identityKeys), filter, _) =>
+          val strategyType =
+            if (scd2)
+              WriteStrategyType.SCD2
+            else
+              WriteStrategyType.UPSERT_BY_KEY
+          WriteStrategy(
+            `type` = Some(strategyType),
+            key = identityKeys.split(",").toList.map(_.trim),
+            queryFilter = filter
+          )
+        case (None, None, filter, Some(WriteMode.OVERWRITE)) =>
+          if (partitionColumns.nonEmpty)
+            WriteStrategy(
+              `type` = Some(WriteStrategyType.OVERWRITE_BY_PARTITION),
+              queryFilter = filter
+            )
+          else
+            WriteStrategy(
+              `type` = Some(WriteStrategyType.OVERWRITE),
+              queryFilter = filter
+            )
+        case (_, _, _, Some(write)) =>
+          WriteStrategy(`type` = Some(WriteStrategyType.fromWriteMode(write)))
+        case (_, _, _, _) =>
+          WriteStrategy(`type` = Some(WriteStrategyType.APPEND))
+      }
+
+      val sinkRes = sinkColumnsOpt
+        .map(Sink.xlsfromConnectionType)
+        .map {
+          case fsSink: FsSink =>
+            val clusteredFsSink = clusteringOpt match {
+              case Some(cluster) => fsSink.copy(clustering = Some(cluster.toList))
+              case None          => fsSink
+            }
+            val partition = partitionColumns match {
+              case Nil => None
+              case _ =>
+                Some(partitionColumns)
+            }
+            clusteredFsSink.copy(partition = partition).toAllSinks()
+          case bqSink: BigQuerySink =>
+            val partitionBqSink = partitionColumns match {
+              case ts :: Nil =>
+                bqSink
+                  .copy(partition = Some(List(ts))) // only one column allowed for BigQuery
+              case Nil =>
+                bqSink
+              case _ =>
+                throw new Exception("Only one partitioning column allowed for BigQuery")
+            }
+            val clusteredBqSink = clusteringOpt match {
+              case Some(cluster) =>
+                partitionBqSink.copy(clustering = Some(cluster.toList))
+              case _ => partitionBqSink
+            }
+            clusteredBqSink.toAllSinks()
+          case sink =>
+            sink.toAllSinks()
+        }
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
-            mode,
-            format,
+            format = format,
             encoding = encodingOpt,
             multiline = None,
             array = None,
-            withHeader,
-            separator,
+            withHeader = withHeader,
+            separator = separator,
             escape = escape,
-            write = write,
-            partition = (partitionSamplingOpt, partitionColumns) match {
-              case (None, Nil) => None
-              case _ =>
-                Some(
-                  Partition(
-                    sampling = partitionSamplingOpt,
-                    attributes = partitionColumns
-                  )
-                )
-            },
-            sink = sinkColumnsOpt
-              .map(Sink.xlsfromConnectionType)
-              .map {
-                case bqSink: BigQuerySink =>
-                  val partitionBqSink = partitionColumns match {
-                    case ts :: Nil =>
-                      bqSink.copy(timestamp = Some(ts)) // only one column allowed for BigQuery
-                    case _ => bqSink
-                  }
-                  val clusteredBqSink = clusteringOpt match {
-                    case Some(cluster) =>
-                      partitionBqSink.copy(clustering = Some(cluster))
-                    case _ => partitionBqSink
-                  }
-                  clusteredBqSink.toAllSinks()
-                case fsSink: FsSink =>
-                  val clusteredFsSink = clusteringOpt match {
-                    case Some(cluster) => fsSink.copy(clustering = Some(cluster))
-                    case None          => fsSink
-                  }
-                  clusteredFsSink.toAllSinks()
-                case sink =>
-                  sink.toAllSinks()
-              }
+            sink = sinkRes,
+            writeStrategy = Some(writeStrategy),
+            quote = quoteOpt,
+            nullValue = nullValueOpt,
+            dagRef = dagRefOpt,
+            schedule = scheduleOpt
           )
-
-          val mergeOptions: Option[MergeOptions] =
-            (deltaColOpt, identityKeysOpt, mergeQueryFilter) match {
-              case (Some(deltaCol), Some(identityKeys), Some(filter)) =>
-                Some(
-                  MergeOptions(
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol),
-                    queryFilter = Some(filter)
-                  )
-                )
-              case (Some(deltaCol), Some(identityKeys), _) =>
-                Some(
-                  MergeOptions(
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    timestamp = Some(deltaCol)
-                  )
-                )
-              case (None, Some(identityKeys), Some(filter)) =>
-                Some(
-                  MergeOptions(
-                    key = identityKeys.split(",").toList.map(_.trim),
-                    queryFilter = Some(filter)
-                  )
-                )
-              case (None, Some(identityKeys), _) =>
-                Some(
-                  MergeOptions(key = identityKeys.split(",").toList.map(_.trim))
-                )
-              case _ => None
-            }
 
           val tablePolicies = policiesOpt
             .map { tablePolicies =>
@@ -258,7 +296,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
             .partition(_.predicate.toUpperCase() == "TRUE")
 
           val acl = withoutPredicate.map(rls =>
-            AccessControlEntry("roles/bigquery.dataViewer", rls.grants.toList, rls.name)
+            AccessControlEntry("roles/bigquery.dataViewer", rls.grants, rls.name)
           )
           val rls = withPredicate
 
@@ -267,7 +305,6 @@ class XlsDomainReader(input: Input) extends XlsModel {
             pattern = pattern,
             attributes = Nil,
             metadata = Some(metaData),
-            merge = mergeOptions,
             comment = comment,
             presql = presql,
             postsql = postsql,
@@ -459,11 +496,11 @@ class XlsDomainReader(input: Input) extends XlsModel {
         .map { value =>
           val allPrivacyLevels =
             PrivacyLevels.allPrivacyLevels(settings.appConfig.privacy.options)
-          val ignore: Option[((PrivacyEngine, List[String]), PrivacyLevel)] =
+          val ignore: Option[((TransformEngine, List[String]), TransformInput)] =
             allPrivacyLevels.get(value.toUpperCase)
           ignore.map { case (_, level) => level }.getOrElse {
             if (value.toUpperCase().startsWith("SQL:"))
-              PrivacyLevel(value.substring("SQL:".length), true)
+              TransformInput(value.substring("SQL:".length), true)
             else
               throw new Exception(s"key not found: $value")
           }
@@ -543,8 +580,8 @@ class XlsDomainReader(input: Input) extends XlsModel {
             name = simpleName,
             `type` = semanticType,
             array = isArray,
-            required = required,
-            privacy.getOrElse(PrivacyLevel.None),
+            required = Some(required),
+            privacy,
             comment = commentOpt,
             rename = renameOpt,
             metricType = metricType,

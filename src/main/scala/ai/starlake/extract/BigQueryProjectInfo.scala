@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import com.google.cloud.bigquery.{Dataset, Table}
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object BigQueryInfo {
   def extractInfo(
@@ -12,13 +12,14 @@ object BigQueryInfo {
   )(implicit settings: Settings): List[(Dataset, List[Table])] = {
     val implicitSettings = settings
     val bqJob = new BigQueryJobBase {
-      val settings = implicitSettings
+      val settings: Settings = implicitSettings
       override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
         connectionRef = config.connectionRef,
-        outputDatabase = None
+        outputDatabase = None,
+        accessToken = config.accessToken
       )
     }
-    val bigquery = bqJob.bigquery()
+    val bigquery = bqJob.bigquery(accessToken = config.accessToken)
     val datasets = bigquery.listDatasets()
     datasets
       .iterateAll()

@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.analysis.TypeCoercion.numericPrecedence
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
@@ -32,11 +31,14 @@ import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import JsonParser.NumberType._
+import ai.starlake.config.CometColumns
 import com.fasterxml.jackson.core.JsonParser.Feature
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
 object JsonIngestionUtil {
+  val numericPrecedence: IndexedSeq[NumericType] =
+    IndexedSeq(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
 
   private val structFieldComparator = new Comparator[StructField] {
 
@@ -84,33 +86,33 @@ object JsonIngestionUtil {
       case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
         val fields1 = unsortedFields1.sortBy(_.name)
         val fields2 = unsortedFields2.sortBy(_.name)
-        val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+        val errorList: mutable.ListBuffer[String] = mutable.ListBuffer.empty
         var f1Idx = 0
         var f2Idx = 0
         var typeComp = true
         while (f1Idx < fields1.length && f2Idx < fields2.length && typeComp) {
-          val f1 = fields1(f1Idx)
-          val f2 = fields2(f2Idx)
-          val nameComp = f1.name.compareTo(f2.name)
-          if (nameComp < 0 && f1.nullable) {
+          val schemaField = fields1(f1Idx)
+          val messageField = fields2(f2Idx)
+          val nameComp = schemaField.name.compareTo(messageField.name)
+          if (nameComp < 0 && schemaField.nullable) {
             // Field exists in schema  and is not present in the input record
             // go get the next field in the schema
             f1Idx += 1
           } else if (nameComp == 0) {
             // field is present in the schema and the input record : check that types are equal
-            val f1Type = f1.dataType
-            val f2Type = f2.dataType
+            val f1Type = schemaField.dataType
+            val f2Type = messageField.dataType
             errorList ++= compareTypes(
               context :+ schemaAttrName,
-              (f1.name, f1Type, f1.nullable),
-              (f2.name, f2Type, f2.nullable)
+              (schemaField.name, f1Type, schemaField.nullable),
+              (messageField.name, f2Type, messageField.nullable)
             )
             f1Idx += 1
             f2Idx += 1
             typeComp = typeComp && errorList.isEmpty
           } else {
-            // Field is present in the message but not in the schema.
-            addError(context, errorList, f2)
+            // Required field is present in the schema but not in the message.
+            addError(context, errorList, Some(schemaField), messageField)
             typeComp = false
           }
         }
@@ -118,7 +120,7 @@ object JsonIngestionUtil {
           // Field is present in the message but not in the schema.
           while (f2Idx < fields2.length) {
             val f2 = fields2(f2Idx)
-            addError(context, errorList, f2)
+            addError(context, errorList, None, f2)
             f2Idx += 1
           }
         }
@@ -141,13 +143,21 @@ object JsonIngestionUtil {
 
   private def addError(
     context: List[String],
-    errorList: mutable.MutableList[String],
-    f2: StructField
+    errorList: mutable.ListBuffer[String],
+    expected: Option[StructField],
+    incoming: StructField
   ): Unit = {
-    errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(
-        "."
-      )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
-        .mkString(".")}"""
+    expected match {
+      case Some(expected) =>
+        errorList += s"""${incoming.name}: ${incoming.dataType.typeName}, expected required attribute ${expected.name} : ${expected.dataType.typeName} in context ${context
+            .mkString(".")}"""
+      case None =>
+        errorList +=
+          s"""${incoming.name}, ${incoming.dataType.typeName}, ${context.mkString(
+              "."
+            )}, unknown field ${incoming.name} : ${incoming.dataType.typeName} in context ${context
+              .mkString(".")}"""
+    }
   }
 
 // From Spark TypeCoercion
@@ -378,7 +388,7 @@ object JsonIngestionUtil {
           case Success(datasetType) =>
             val errorList = compareTypes(schemaSparkType, datasetType)
             if (errorList.isEmpty)
-              Right((rowAsString, row.getAs[String]("input_file_name()")))
+              Right((rowAsString, row.getAs[String](CometColumns.cometInputFileNameColumn)))
             else
               Left(errorList)
 

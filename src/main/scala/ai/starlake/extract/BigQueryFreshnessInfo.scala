@@ -7,10 +7,10 @@ import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, Table}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -27,12 +27,11 @@ case class FreshnessStatus(
 
 object BigQueryFreshnessInfo extends StrictLogging {
   def freshness(
-    config: BigQueryTablesConfig
+    config: BigQueryTablesConfig,
+    schemaHandler: SchemaHandler
   )(implicit isettings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
       BigQueryTableInfo.extractTableInfos(config)
-    import isettings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler())
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
       val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
@@ -139,13 +138,14 @@ object BigQueryFreshnessInfo extends StrictLogging {
 
       val jobResult = job.run()
       jobResult match {
-        case scala.util.Success(SparkJobResult(Some(dfDataset))) =>
+        case scala.util.Success(SparkJobResult(Some(dfDataset), _)) =>
           BigQuerySparkWriter.sinkInAudit(
             dfDataset,
             "freshness_info",
             Some("Information related to table freshness"),
             Some(BigQuerySchemaConverters.toBigQuerySchema(dfDataset.schema)),
-            config.writeMode.getOrElse(WriteMode.APPEND)
+            config.writeMode.getOrElse(WriteMode.APPEND),
+            accessToken = config.accessToken
           )
         case scala.util.Success(_) =>
           logger.warn("Could not extract BigQuery tables info")
@@ -190,12 +190,9 @@ object BigQueryFreshnessInfo extends StrictLogging {
     }
   }
 
-  def run(args: Array[String]): List[FreshnessStatus] = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    val config =
-      BigQueryTablesConfig
-        .parse(args)
-        .getOrElse(throw new Exception("Could not parse arguments"))
-    freshness(config)
+  @nowarn
+  def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    BigQueryFreshnessInfoCmd.run(args, schemaHandler).map(_ => ())
   }
 }

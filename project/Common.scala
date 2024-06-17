@@ -25,7 +25,11 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
 import sbtassembly.AssemblyKeys._
-import sbtbuildinfo.BuildInfoPlugin
+import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
+import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoKeys
+
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 object Common {
 
@@ -71,13 +75,6 @@ object Common {
 
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
-      scalacOptions ++= Seq(
-        "-deprecation",
-        "-feature",
-        "-Xmacro-settings:materialize-derivations",
-        "-Ywarn-unused-import",
-        "-Xfatal-warnings"
-      ),
       Test / testOptions ++= Seq(
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),
@@ -86,7 +83,20 @@ object Common {
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
       Test / parallelExecution := false,
-      scalafmtOnCompile := true
+      scalafmtOnCompile := true,
+      buildInfoKeys := Seq[BuildInfoKey](name, scalaVersion, sbtVersion),
+      buildInfoKeys ++= Seq[BuildInfoKey](
+        BuildInfoKey.action("version") {
+          val currentVersion = version.value
+          if (currentVersion.contains("-SNAPSHOT")) {
+            val suffix = git.gitHeadCommit.value
+              .map(_.take(8))
+              .getOrElse("T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+            // val suffix = "T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            currentVersion + " @ " + suffix
+          } else currentVersion
+        }
+      )
     ) ++ gitSettings ++ assemlySettings
 
 }
@@ -98,7 +108,13 @@ object Resolvers {
   val mulesoft =
     "Mulesoft repository" at "https://repository.mulesoft.org/nexus/content/repositories/public/"
 
-  val allResolvers = Seq(typeSafe, confluent, mulesoft)
+  val snapshots =
+    "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+
+  val allResolvers =
+    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots) ++ Resolver.sonatypeOssRepos(
+      "snapshots"
+    )
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 

@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import better.files.File
 import org.fusesource.scalate.TemplateEngine
-import scopt.{OParser, OptionDef}
+import scopt.{DefaultOParserSetup, OParser, OParserSetup, OptionDef}
 
 trait CommandConfig {
   def command: String
@@ -15,6 +15,10 @@ trait CliConfig[T] extends CommandConfig {
   def parse(args: Seq[String]): Option[T]
   val engine: TemplateEngine = new TemplateEngine
   def command: String
+
+  val setup: OParserSetup = new DefaultOParserSetup {
+    override def showUsageOnError: Option[Boolean] = Some(false)
+  }
 
   def markdown(pageIndex: Int): String = {
     val optionDefs = parser.toList
@@ -90,9 +94,9 @@ trait CliConfig[T] extends CommandConfig {
       )
 
     // TODO keep the lines below until we depreciate Scala 2.11
-    //     We'll replace it by --> val template = Source.fromResource("scalate/md-cli.mustache").mkString
+    //     We'll replace it by --> val template = Source.fromResource("templates/cli/md-cli.mustache").mkString
 
-    val stream = getClass.getResourceAsStream("/scalate/md-cli.mustache")
+    val stream = getClass.getResourceAsStream("/templates/cli/md-cli.mustache")
     val template = scala.io.Source.fromInputStream(stream).mkString
 
     engine.layout(

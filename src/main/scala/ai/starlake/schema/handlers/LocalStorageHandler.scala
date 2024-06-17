@@ -23,11 +23,12 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.Settings
 import better.files.File
 import org.apache.commons.io.IOUtils
-import org.apache.commons.lang.SystemUtils
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.{InputStreamReader, OutputStream}
+import java.io.{IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -40,7 +41,7 @@ class LocalStorageHandler(implicit
   settings: Settings
 ) extends StorageHandler {
 
-  import LocalStorageHandler._
+  import StorageHandler._
 
   def lockAcquisitionPollTime: FiniteDuration = settings.appConfig.lock.pollTime
 
@@ -54,6 +55,7 @@ class LocalStorageHandler(implicit
     *   FSDataOutputStream
     */
   private def getOutputStream(path: Path): OutputStream = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.delete(true)
     file.newOutputStream()
@@ -67,6 +69,7 @@ class LocalStorageHandler(implicit
     *   file content as a string
     */
   def read(path: Path, charset: Charset = StandardCharsets.UTF_8): String = {
+    pathSecurityCheck(path)
     readAndExecute(path, charset) { is =>
       IOUtils.toString(is)
     }
@@ -82,11 +85,19 @@ class LocalStorageHandler(implicit
   def readAndExecute[T](path: Path, charset: Charset = StandardCharsets.UTF_8)(
     action: InputStreamReader => T
   ): T = {
+    readAndExecuteIS(path) { is =>
+      val codecFactory = new CompressionCodecFactory(new Configuration())
+      val decompressedIS =
+        Option(codecFactory.getCodec(path)).map(_.createInputStream(is)).getOrElse(is)
+      action(new InputStreamReader(decompressedIS, charset))
+    }
+  }
+
+  override def readAndExecuteIS[T](path: Path)(action: InputStream => T): T = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.fileInputStream
-      .map { is =>
-        action(new InputStreamReader(is, charset))
-      }
+      .map(action)
       .get()
   }
 
@@ -98,6 +109,7 @@ class LocalStorageHandler(implicit
     *   : Absolute file path
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.parent.createDirectories()
     file.overwrite(data)
@@ -111,14 +123,22 @@ class LocalStorageHandler(implicit
     *   : Absolute file path
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.parent.createDirectories()
     file.writeByteArray(data)
   }
 
   def listDirectories(path: Path): List[Path] = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.list.filter(_.isDirectory).map(f => new Path(f.pathAsString)).toList
+  }
+
+  def stat(path: Path): FileInfo = {
+    pathSecurityCheck(path)
+    val file = localFile(path)
+    FileInfo(path, file.size, file.lastModifiedTime)
   }
 
   /** List all files in folder
@@ -142,7 +162,8 @@ class LocalStorageHandler(implicit
     recursive: Boolean,
     exclude: Option[Pattern],
     sortByName: Boolean = false // sort by time by default
-  ): List[Path] = {
+  ): List[FileInfo] = {
+    pathSecurityCheck(path)
     logger.info(s"list($path, $extension, $since)")
     Try {
       if (exists(path)) {
@@ -167,9 +188,7 @@ class LocalStorageHandler(implicit
           else
             files.sortBy(f => (f.lastModifiedTime, f.name))
 
-        sorted.map(f => {
-          new Path(f.pathAsString)
-        })
+        sorted.map(f => FileInfo(new Path(f.pathAsString), f.size, f.lastModifiedTime))
       } else
         Nil
     } match {
@@ -189,6 +208,8 @@ class LocalStorageHandler(implicit
     * @return
     */
   override def copy(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     mkdirs(dest.getParent)
@@ -205,6 +226,8 @@ class LocalStorageHandler(implicit
     * @return
     */
   def move(src: Path, dest: Path): Boolean = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     fdest.delete(true)
@@ -219,6 +242,7 @@ class LocalStorageHandler(implicit
     *   : Absolute path of file to delete
     */
   def delete(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.delete(true)
     true
@@ -230,6 +254,7 @@ class LocalStorageHandler(implicit
     *   Absolute path of folder to create
     */
   def mkdirs(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.createDirectories()
     true
@@ -243,6 +268,8 @@ class LocalStorageHandler(implicit
     *   destination file path
     */
   def copyFromLocal(src: Path, dest: Path): Unit = {
+    pathSecurityCheck(src)
+    pathSecurityCheck(dest)
     val fsrc = localFile(src)
     val fdest = localFile(dest)
     fdest.delete(true)
@@ -269,10 +296,13 @@ class LocalStorageHandler(implicit
     *   destination file path
     */
   def moveFromLocal(source: Path, dest: Path): Unit = {
+    pathSecurityCheck(source)
+    pathSecurityCheck(dest)
     this.move(source, dest)
   }
 
   def exists(path: Path): Boolean = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.exists
   }
@@ -282,38 +312,77 @@ class LocalStorageHandler(implicit
   }
 
   def spaceConsumed(path: Path): Long = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.size()
   }
 
   def lastModified(path: Path): Timestamp = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     file.lastModifiedTime.toEpochMilli
   }
 
   def touchz(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     val file = localFile(path)
     Try(file.touch())
   }
 
   def touch(path: Path): Try[Unit] = {
+    pathSecurityCheck(path)
     touchz(path)
   }
 
   def getScheme(): String = "file"
 
-}
+  override def copyMerge(
+    header: Option[String],
+    srcDir: Path,
+    dstFile: Path,
+    deleteSource: Boolean
+  ): Boolean = {
+    pathSecurityCheck(srcDir)
+    pathSecurityCheck(dstFile)
+    val sourceDir = File(srcDir.toUri.getPath)
+    val destFile = File(dstFile.toUri.getPath)
 
-object LocalStorageHandler {
-  private val HAS_DRIVE_LETTER_SPECIFIER = Pattern.compile("^/?[a-zA-Z]:")
+    if (destFile.exists()) {
+      throw new IOException(s"Target $dstFile already exists")
+    }
 
-  def localFile(path: Path): File = {
-    val pathAsString = path.toUri.getPath
-    val isWindowsFile =
-      SystemUtils.IS_OS_WINDOWS && HAS_DRIVE_LETTER_SPECIFIER.matcher(pathAsString).find()
-    if (isWindowsFile)
-      File(pathAsString.substring(1))
-    else
-      File(pathAsString)
+    // Source path is expected to be a directory:
+    if (sourceDir.isDirectory()) {
+      val parts = sourceDir.list(file => file.isRegularFile).toList
+      header.foreach { header =>
+        val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
+        destFile.append(headerWithNL)
+      }
+      parts
+        .filter(part => part.name.startsWith("part-"))
+        .sortBy(_.name)
+        .collect { case part =>
+          destFile.append(part.contentAsString)
+          if (deleteSource) part.delete(swallowIOExceptions = true)
+        }
+      true
+    } else
+      false
+  }
+
+  override def open(path: Path): Option[InputStream] = {
+    pathSecurityCheck(path)
+    val file = localFile(path)
+    Try(file.fileInputStream.get()) match {
+      case Success(is) => Some(is)
+      case Failure(f) =>
+        logger.error(f.getMessage)
+        None
+    }
+  }
+
+  override def output(path: Path): OutputStream = {
+    pathSecurityCheck(path)
+    localFile(path).newOutputStream
   }
 }

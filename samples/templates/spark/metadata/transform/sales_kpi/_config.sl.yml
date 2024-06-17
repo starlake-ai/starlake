@@ -1,0 +1,6 @@
+version: 1
+transform:
+  default:
+    writeStrategy:
+      type: OVERWRITE
+

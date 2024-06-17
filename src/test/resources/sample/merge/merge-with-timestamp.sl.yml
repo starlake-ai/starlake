@@ -1,0 +1,18 @@
+---
+version: 1
+load:
+  name: "DOMAIN"
+  metadata:
+    directory: "__SL_TEST_ROOT__/DOMAIN"
+    format: "DSV"
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      type: "SCD2"
+    sink:
+      partition:
+        - sl_year
+        - sl_month
+        - sl_day

@@ -16,14 +16,18 @@ class Yml2DDLSpec extends TestHelper {
 
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.comet.yml",
-        sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+        sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
         val schemaHandler = new SchemaHandler(storageHandler)
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
         val config = Yml2DDLConfig("bigquery")
         val result = new Yml2DDLJob(config, schemaHandler).run()
         Utils.logFailure(result, logger) match {

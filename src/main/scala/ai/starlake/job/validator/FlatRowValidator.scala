@@ -22,7 +22,7 @@ object FlatRowValidator extends GenericRowValidator {
       case Format.DSV =>
         // dropRight removes CometInputFileName Column
         row.toSeq.dropRight(1).map(Option(_).getOrElse("").toString).mkString(separator)
-      case Format.SIMPLE_JSON =>
+      case Format.JSON_FLAT =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
         new Gson().toJson(rowAsMap - CometColumns.cometInputFileNameColumn)
       case Format.POSITION =>
@@ -46,23 +46,21 @@ object FlatRowValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     val now = Timestamp.from(Instant.now)
+    val attributesAndTypes = attributes.zip(types).toArray
+    val attributesLen = attributes.length
     val checkedRDD: RDD[RowResult] = dataset.rdd
       .map { row =>
         val rowSeq = row.toSeq
-        val rowValues: Seq[(Option[String], Attribute)] = rowSeq
-          .zip(attributes)
-          .map { case (colValue, colAttribute) =>
-            (Option(colValue).map(_.toString), colAttribute)
-          }
-        lazy val colMap = rowValues.map { case (colValue, colAttr) =>
-          (colAttr.name, colValue)
-        }.toMap
         val validNumberOfColumns = attributes.length <= rowSeq.length
-        val rowCols = rowValues.zip(types)
         if (!validNumberOfColumns) {
-          val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+          val rowValues: Seq[(Option[String], Attribute, Type)] = rowSeq
+            .zip(attributesAndTypes)
+            .map { case (colValue, (colAttribute, colType)) =>
+              (Option(colValue.asInstanceOf[String]), colAttribute, colType)
+            }
+          val colResults = rowValues.map { case (colRawValue, colAttribute, tpe) =>
             ColResult(
               ColInfo(
                 colRawValue,
@@ -73,7 +71,7 @@ object FlatRowValidator extends GenericRowValidator {
               ),
               ""
             )
-          }.toList
+          }
           RowResult(
             colResults,
             false,
@@ -81,17 +79,32 @@ object FlatRowValidator extends GenericRowValidator {
             Some(toOriginalFormat(row, format, separator))
           )
         } else {
-          val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-            IngestionUtil.validateCol(
-              colRawValue,
+          var isRowAccepted = true
+          val colResults = new Array[ColResult](attributesLen)
+          lazy val colMap: Map[String, Option[String]] = {
+            val result = new Array[(String, Option[String])](attributesLen)
+            for (i <- rowSeq.indices) {
+              val colValue = Option(rowSeq(i)).map(_.toString)
+              val (colAttribute, colType) = attributesAndTypes(i)
+              result.update(i, (colAttribute.name, colValue))
+            }
+            result.toMap
+          }
+
+          for (i <- rowSeq.indices) {
+            val colValue = Option(rowSeq(i)).map(_.toString)
+            val (colAttribute, colType) = attributesAndTypes(i)
+            val colResult = IngestionUtil.validateCol(
+              colValue,
               colAttribute,
-              tpe,
+              colType,
               colMap,
               PrivacyLevels.allPrivacyLevels(privacyOptions),
               emptyIsNull
             )
-          }.toList
-          val isRowAccepted = colResults.forall(_.colInfo.success)
+            isRowAccepted = colResult.colInfo.success && isRowAccepted
+            colResults.update(i, colResult)
+          }
           RowResult(
             colResults,
             isRowAccepted,
@@ -100,7 +113,7 @@ object FlatRowValidator extends GenericRowValidator {
             else Some(toOriginalFormat(row, format, separator))
           )
         }
-      } persist cacheStorageLevel
+      } // persist cacheStorageLevel
 
     val rejectedRDD = checkedRDD
       .filter(_.isRejected)
@@ -114,11 +127,11 @@ object FlatRowValidator extends GenericRowValidator {
 
     val rejectedInputLinesRDD = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
 
-    implicit val enc = RowEncoder.apply(sparkType)
+    implicit val enc = RowEncoder.encoderFor(sparkType)
     val acceptedRDD: RDD[Row] = checkedRDD
       .filter(_.isAccepted)
       .map { rowResult =>
-        val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
+        val sparkValues: Seq[Any] = rowResult.colResults.map(_.sparkValue)
         // Row(sparkValues.toArray)
         new GenericRowWithSchema(sparkValues.toArray, sparkType)
 
@@ -130,7 +143,7 @@ object FlatRowValidator extends GenericRowValidator {
     val rejectedDS = rejectedRDD.toDS()
     val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
 
-    ValidationResult(
+    CheckValidityResult(
       rejectedDS.persist(cacheStorageLevel),
       rejectedInputLinesDS.persist(cacheStorageLevel),
       acceptedDS.persist(cacheStorageLevel)

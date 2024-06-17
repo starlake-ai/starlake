@@ -1,0 +1,15 @@
+---
+version: 1
+load:
+  name: "starbake"
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    directory: "{{incoming_path}}/starbake"
+    emptyIsNull: true

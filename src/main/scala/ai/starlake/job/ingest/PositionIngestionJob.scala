@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -51,9 +52,21 @@ class PositionIngestionJob(
   path: List[Path],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  options: Map[String, String]
+  options: Map[String, String],
+  accessToken: Option[String],
+  test: Boolean
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+    extends DsvIngestionJob(
+      domain,
+      schema,
+      types,
+      path,
+      storageHandler,
+      schemaHandler,
+      options,
+      accessToken,
+      test
+    ) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped from the dataset (require datsets with a header)
@@ -61,14 +74,18 @@ class PositionIngestionJob(
     * @return
     *   Spark DataFrame where each row holds a single string
     */
-  override protected def loadDataSet(): Try[DataFrame] = {
+  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val dfIn = mergedMetadata.getEncoding().toUpperCase match {
+      val dfIn = mergedMetadata.resolveEncoding().toUpperCase match {
         case "UTF-8" =>
-          session.read.options(mergedMetadata.getOptions()).text(path.map(_.toString): _*)
+          session.read.options(sparkOptions).text(path.map(_.toString): _*)
         case _ => {
           val rdd =
-            PositionIngestionUtil.loadDfWithEncoding(session, path, mergedMetadata.getEncoding())
+            PositionIngestionUtil.loadDfWithEncoding(
+              session,
+              path,
+              mergedMetadata.resolveEncoding()
+            )
           val schema: StructType = StructType(Array(StructField("value", StringType)))
           session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
         }
@@ -78,7 +95,10 @@ class PositionIngestionJob(
       }
 
       val df = applyIgnore(dfIn)
-      df
+      if (withSchema) {
+        PositionIngestionUtil.prepare(session, df, schema.attributesWithoutScriptedFields)
+      } else
+        df
     }
   }
 
@@ -88,7 +108,7 @@ class PositionIngestionJob(
     * @param input
     *   : Spark Dataset
     */
-  override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row]) = {
+  override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
 
@@ -97,8 +117,8 @@ class PositionIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
@@ -108,14 +128,20 @@ class PositionIngestionJob(
       settings.appConfig.sinkReplayToFile,
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected)(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success(rejectedRecordCount) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (validationResult.errors, validationResult.accepted)
   }
 
 }
@@ -144,7 +170,7 @@ object PositionIngestionUtil {
         val last = positions(i).last + 1
         columnArray(i) = if (last <= inputLen) inputLine.substring(first, last) else ""
       }
-      Row.fromSeq(columnArray)
+      Row.fromSeq(columnArray.toIndexedSeq)
     }
 
     val positions = attributes.flatMap(_.position)

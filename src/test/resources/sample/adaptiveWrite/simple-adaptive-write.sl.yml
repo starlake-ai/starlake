@@ -1,0 +1,23 @@
+---
+version: 1
+load:
+  name: "DOMAIN"
+  metadata:
+    directory: "__SL_TEST_ROOT__/DOMAIN"
+    format: "DSV"
+    withHeader: false
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      types:
+        APPEND: 'group(1) == "DELTA"'
+        OVERWRITE: 'group(1) == "FULL"'
+      type: "UPSERT_BY_KEY"
+      key:
+        - "PK"
+    sink:
+      partition:
+        - sl_year
+        - sl_month
+        - sl_day

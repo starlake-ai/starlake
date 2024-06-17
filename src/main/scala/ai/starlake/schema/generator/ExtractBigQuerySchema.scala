@@ -4,27 +4,31 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
+import scala.util.Try
 
-class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
+class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)
+    extends StrictLogging {
   val implicitSettings = settings
   val bqJob = new BigQueryJobBase {
     val settings = implicitSettings
-    override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
+    override def cliConfig: BigQueryLoadConfig = BigQueryLoadConfig(
       connectionRef = config.connectionRef,
-      outputDatabase = None
+      outputDatabase = config.database,
+      accessToken = config.accessToken
     )
   }
-  val bigquery = bqJob.bigquery()
-  def extractDatasets(): List[Domain] = {
+
+  val bigquery = bqJob.bigquery(accessToken = config.accessToken)
+
+  def extractDatasets(schemaHandler: SchemaHandler): List[Domain] = {
     val datasets = bigquery.listDatasets(DatasetListOption.pageSize(10000))
     val allDatasets = datasets
       .iterateAll()
@@ -38,29 +42,40 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
         allDatasets.filter(ds => datasetsToExtract.contains(ds.getDatasetId.getDataset()))
 
     filteredDatasets.map { dataset =>
-      extractDataset(dataset)
+      extractDataset(dataset, schemaHandler)
     }.toList
   }
 
-  def extractDataset(datasetId: String): Domain = {
-    extractDataset(bigquery.getDataset(datasetId))
+  def extractDataset(datasetId: String, schemaHandler: SchemaHandler): Domain = {
+    extractDataset(bigquery.getDataset(datasetId), schemaHandler: SchemaHandler)
   }
 
-  def extractDataset(dataset: Dataset): Domain = {
+  def extractDataset(dataset: Dataset, schemaHandler: SchemaHandler): Domain = {
     val datasetId = dataset.getDatasetId()
     val bqTables = bigquery.listTables(datasetId, TableListOption.pageSize(10000))
-    val allTables = bqTables.iterateAll.asScala
+    val allDatawareTables =
+      bqTables.iterateAll.asScala.filter(!_.getTableId.getTable().startsWith("zztmp_"))
     val datasetName = dataset.getDatasetId.getDataset()
-    val tables =
+    val allTables =
       config.tables.get(datasetName) match {
+        case None =>
+          allDatawareTables
+        case Some(tables) if tables.contains("*") =>
+          allDatawareTables.toList
         case Some(tables) =>
-          allTables.filter(t =>
-            config.tables(dataset.getDatasetId.getDataset()).contains(t.getTableId.getTable())
-          )
+          allDatawareTables
+            .filter(t => tables.exists(_.equalsIgnoreCase(t.getTableId.getTable())))
+            .toList
+      }
+    val tables =
+      schemaHandler.domains().find(_.finalName == datasetName) match {
+        case Some(domain) =>
+          val tablesToExclude = domain.tables.map(_.finalName)
+          allTables.filterNot(t => tablesToExclude.contains(t.getTableId.getTable()))
         case None => allTables
       }
-
     val schemas = tables.flatMap { bqTable =>
+      logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable()}")
       // We get the Table again below because Tables are returned with a null definition by listTables above.
       val tableWithDefinition = bigquery.getTable(bqTable.getTableId())
       if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
@@ -93,29 +108,19 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
 }
 
 object ExtractBigQuerySchema {
-  def extractDatasets(
-    schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Map[String, List[Domain]] = {
-    val externalSources = schemaHandler.externalSources()
-    externalSources.map { external =>
-      val config =
-        BigQueryTablesConfig(tables = external.toMap())
-      val extractor = new ExtractBigQuerySchema(config)
-      external.project -> extractor.extractDatasets()
-    }.toMap
+  def run(
+    args: Array[String]
+  )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = {
+    ExtractBigQuerySchemaCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
-  def run(args: Array[String])(implicit settings: Settings): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    val config =
-      BigQueryTablesConfig
-        .parse(args.toSeq)
-        .getOrElse(throw new Exception("Could not parse arguments"))
-    val domains = new ExtractBigQuerySchema(config).extractDatasets()
+
+  def extractAndSaveAsDomains(
+    config: BigQueryTablesConfig,
+    schemaHandler: SchemaHandler
+  )(implicit settings: Settings): Unit = {
+    val domains = new ExtractBigQuerySchema(config).extractDatasets(schemaHandler)
     domains.foreach { domain =>
-      val domainYaml = YamlSerializer.serialize(domain)
-      if (settings.storageHandler().exists(DatasetArea.external))
-        settings.storageHandler().delete(DatasetArea.external)
-      settings.storageHandler().write(domainYaml, DatasetArea.external)
+      domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
     }
   }
 }

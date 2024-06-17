@@ -18,7 +18,7 @@ object Conversions {
     case class wrapper(underlying: RemoteIterator[T]) extends Iterator[T] {
       override def hasNext = underlying.hasNext
 
-      override def next = underlying.next
+      override def next(): T = underlying.next
     }
     wrapper(underlying)
   }

@@ -22,15 +22,27 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer
-import better.files.File
-import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
+import ai.starlake.utils.YamlSerde
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import scala.util.Try
 
 object InferSchemaHandler {
   val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
+
+  def parseIsoInstant(str: String): Boolean = {
+    try {
+      ZonedDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME)
+      true
+    } catch {
+      case e: java.time.format.DateTimeParseException => false
+    }
+  }
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -40,64 +52,107 @@ object InferSchemaHandler {
     *   List of Attributes
     */
   def createAttributes(
-    lines: List[Array[String]],
+    lines: List[Row],
     schema: StructType,
     format: Format
   )(implicit settings: Settings): List[Attribute] = {
-    val schemaWithIndex: Seq[(StructField, Int)] = schema.zipWithIndex
 
-    schemaWithIndex
-      .map { case (row, index) =>
-        row.dataType.typeName match {
-
-          // if the datatype is a struct {...} containing one or more other field
-          case "struct" =>
-            Attribute(
-              row.name,
-              row.dataType.typeName,
-              Some(false),
-              !row.nullable,
-              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType], format)
+    def createAttribute(
+      currentLines: List[Any],
+      currentSchema: DataType,
+      container: StructField,
+      fieldPath: String
+    ): Attribute = {
+      currentSchema match {
+        case st: StructType =>
+          val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
+          val attributes = schemaWithIndex.map { case (field, index) =>
+            createAttribute(
+              currentLines.flatMap(Option(_)).map {
+                case r: Row => r(index)
+                case other =>
+                  throw new RuntimeException(
+                    "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
+                  )
+              },
+              st(index).dataType,
+              field,
+              fieldPath + "." + field.name
             )
-
-          case "array" =>
-            val elemType = row.dataType.asInstanceOf[ArrayType].elementType
-            if (elemType.typeName.equals("struct"))
+          }.toList
+          Attribute(
+            container.name,
+            st.typeName,
+            required = if (!container.nullable) Some(true) else None,
+            array = Some(false),
+            attributes = attributes
+          )
+        case dt: ArrayType =>
+          dt.elementType match {
+            case _: ArrayType =>
+              throw new RuntimeException(
+                s"Starlake doesn't support array of array. Rejecting field path $fieldPath"
+              )
+            case _ =>
               // if the array contains elements of type struct.
               // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-              Attribute(
-                row.name,
-                elemType.typeName,
-                Some(true),
-                !row.nullable,
-                attributes = createAttributes(lines, elemType.asInstanceOf[StructType], format)
+              val stAttributes = createAttribute(
+                currentLines.flatMap(Option(_)).flatMap {
+                  case ar: Seq[_] => ar
+                  case other =>
+                    throw new RuntimeException(
+                      s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
+                    )
+                },
+                dt.elementType,
+                container,
+                fieldPath + "[]"
               )
-            else
-              // if it is a regular array. {ages: [21, 25]}
-              Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
-
-          // if the datatype is a simple Attribute
-          case _ =>
-            val cellType =
-              if (
-                row.dataType.typeName == "timestamp" && Set(
+              stAttributes.copy(
+                array = Some(true),
+                required = if (!container.nullable) Some(true) else None
+              )
+          }
+        // if the datatype is a simple Attribute
+        case _ =>
+          val cellType = currentSchema.typeName match {
+            case "string" =>
+              val timestampCandidates = currentLines.flatMap(Option(_).map(_.toString))
+              if (timestampCandidates.isEmpty)
+                "string"
+              else if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                "iso_date_time"
+              else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else
+                "string"
+            case "timestamp"
+                if Set(
                   Format.DSV,
                   Format.POSITION,
-                  Format.SIMPLE_JSON
-                ).contains(format)
-              ) {
-                // We handle here the case when it is a date and not a timestamp
-                val timestamps = lines.map(row => row(index)).flatMap(Option(_))
-                if (timestamps.forall(v => datePattern.matcher(v).matches()))
-                  "date"
-                else
-                  "timestamp"
-              } else
-                row.dataType.typeName
-            Attribute(row.name, cellType, Some(false), !row.nullable)
-        }
+                  Format.JSON_FLAT
+                ).contains(format) =>
+              // We handle here the case when it is a date and not a timestamp
+              val timestamps = currentLines.flatMap(Option(_).map(_.toString))
+              if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else if (timestamps.forall(v => parseIsoInstant(v)))
+                "iso_date_time"
+              else
+                "timestamp"
+            case _ =>
+              PrimitiveType.from(currentSchema).value
+          }
+          Attribute(
+            container.name,
+            cellType,
+            Some(false),
+            if (!container.nullable) Some(true) else None
+          )
       }
-  }.toList
+    }
+    createAttribute(lines, schema, StructField("_ROOT_", StructType(Nil)), "").attributes
+  }
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
     *
@@ -116,16 +171,17 @@ object InferSchemaHandler {
     format: Format,
     array: Option[Boolean] = None,
     withHeader: Option[Boolean] = None,
-    separator: Option[String] = None
+    separator: Option[String] = None,
+    options: Option[Map[String, String]] = None
   ): Metadata =
     Metadata(
-      mode = Some(Mode.fromString("FILE")),
       format = Some(format),
       encoding = None,
       multiline = None,
-      array = array,
+      array = if (array.contains(true)) array else None,
       withHeader = withHeader,
-      separator = separator
+      separator = separator,
+      options = options
     )
 
   /** * builds the Schema case class
@@ -153,8 +209,7 @@ object InferSchemaHandler {
       pattern = pattern,
       attributes = attributes,
       metadata = metadata,
-      comment = comment,
-      merge = None
+      comment = comment
     )
 
   /** * Builds the Domain case class
@@ -185,35 +240,27 @@ object InferSchemaHandler {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, saveDir: String)(implicit
+  def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
     settings: Settings
-  ): Try[File] = Try {
+  ): Try[Path] = Try {
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
 
-    /** load: metadata: directory: "{{root_path}}/incoming"
+    /** load: metadata: directory: "{{incoming_path}}"
       */
-    val domainFolder = File(saveDir, domain.name)
-    domainFolder.createDirectories()
-    val configPath = File(domainFolder, "_config.comet.yml")
-    if (!configPath.exists) {
-      val config = Domain(
-        name = domain.name,
-        metadata = Some(
-          Metadata(
-            directory = Some(s"{{root_path}}/incoming")
-          )
-        )
-      )
-      YamlSerializer.serializeToFile(configPath, config)
+    val domainFolder = new Path(saveDir, domain.name)
+    storageHandler.mkdirs(domainFolder)
+    val configPath = new Path(domainFolder, "_config.sl.yml")
+    if (!storageHandler.exists(configPath)) {
+      YamlSerde.serializeToPath(configPath, domain.copy(tables = Nil))
     }
     val table = domain.tables.head
-    val tablePath = File(domainFolder, s"${table.name}.comet.yml")
-    if (tablePath.exists) {
+    val tablePath = new Path(domainFolder, s"${table.name}.sl.yml")
+    if (storageHandler.exists(tablePath) && !clean) {
       throw new Exception(
-        s"Table ${domain.tables.head.name} already defined in file $tablePath"
+        s"Could not write table ${domain.tables.head.name} already defined in file $tablePath"
       )
-    } else {
-      YamlSerializer.serializeToFile(tablePath, table)
     }
+    YamlSerde.serializeToPath(tablePath, table)
     tablePath
   }
 }

@@ -1,0 +1,18 @@
+---
+version: 1
+load:
+  name: "bqtest"
+  tags: ["datasetkey=value", "datasetkeynovalue"]
+  metadata:
+    directory: "__SL_TEST_ROOT__/position"
+    format: "POSITION"
+    withHeader: false
+    separator: "|"
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      type: "OVERWRITE"
+    sink:
+      connectionRef: bqtest
+      partition:
+        - date

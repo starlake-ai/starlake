@@ -117,14 +117,19 @@ class BigQueryUtilsSpec extends TestHelper {
     "Schema" should "return the right bq schema" in {
 
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
 
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
 
         val schemaHandler = new SchemaHandler(settings.storageHandler())
 
@@ -132,7 +137,7 @@ class BigQueryUtilsSpec extends TestHelper {
           .domains()
           .flatMap(_.tables)
           .find(_.name == "complexUser")
-          .map(_.bqSchemaFinal(schemaHandler))
+          .map(_.bqSchemaWithoutIgnore(schemaHandler))
 
         val bqSchemaExpected = BQSchema.of(
           Field

@@ -22,27 +22,81 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.model._
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
+import better.files.{File => BetterFile}
 
+import java.time.Instant
 import java.util.regex.Pattern
 
 class StorageHandlerSpec extends TestHelper {
 
-  lazy val pathDomain = new Path(starlakeTestRoot + "/domain.comet.yml")
+  lazy val pathDomain = new Path(starlakeTestRoot + "/domain.sl.yml")
 
-  lazy val pathType = new Path(starlakeTestRoot + "/types.comet.yml")
+  lazy val pathType = new Path(starlakeTestRoot + "/types.sl.yml")
 
-  lazy val pathBusiness = new Path(starlakeTestRoot + "/business.comet.yml")
-  lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.comet.yml")
+  lazy val pathBusiness = new Path(starlakeTestRoot + "/business.sl.yml")
+  lazy val pathConfigBusiness = new Path(starlakeTestRoot + "/_config.sl.yml")
+
+  val localStorageSettings: Config = ConfigFactory
+    .parseString("""
+      |useLocalFileSystem: true
+      |""".stripMargin)
+    .withFallback(super.testConfiguration)
+
+  def testStatFile(storageHandler: StorageHandler): Unit = {
+    val tmpFilePath = starlakeTestRoot + "/tmp.txt"
+    val tmpFile = BetterFile(tmpFilePath)
+    Thread.sleep(1000) // test may be too fast
+    tmpFile.write("This is a text")
+    val tmpHadoopFilePath = new Path(tmpFilePath)
+    storageHandler.stat(tmpHadoopFilePath) should matchPattern {
+      case FileInfo(`tmpHadoopFilePath`, size, _) if size > 0 =>
+    }
+  }
+
+  def testListFile(storageHandler: StorageHandler): Unit = {
+    val fileExtension = "test_file"
+    val startInstant = Instant.now()
+    (1 to 2).foreach { i =>
+      val tmpFilePath = starlakeTestRoot + s"/$i.$fileExtension"
+      val tmpFile = BetterFile(tmpFilePath)
+      tmpFile.write("This is a text")
+    }
+    val fileList =
+      storageHandler.list(new Path(starlakeTestRoot), extension = fileExtension, recursive = false)
+    fileList should have length 2
+    fileList.foreach(_ should matchPattern {
+      case FileInfo(file, size, _) if size > 0 && file.getName.endsWith(fileExtension) =>
+    })
+  }
+
+  new WithSettings(localStorageSettings) {
+    "LocalStorageHandler" should "stat file" in {
+      testStatFile(storageHandler)
+    }
+
+    it should "list file" in {
+      testListFile(storageHandler)
+    }
+  }
 
   new WithSettings() {
+    "StorageHandler" should "stat file" in {
+      testStatFile(storageHandler)
+    }
+
+    it should "list file" in {
+      testListFile(storageHandler)
+    }
+
     "Domain Case Class" should "be written as yaml and read correctly" in {
       val domain = Domain(
         name = "DOMAIN",
         metadata = Some(
           Metadata(
-            mode = Some(Mode.FILE),
             format = Some(Format.DSV),
             encoding = None,
             multiline = Some(false),
@@ -51,7 +105,7 @@ class StorageHandlerSpec extends TestHelper {
             separator = Some(";"),
             quote = Some("\""),
             escape = Some("\\"),
-            write = Some(WriteMode.APPEND),
+            writeStrategy = Some(WriteStrategy(`type` = Some(WriteStrategyType.APPEND))),
             directory = Some(s"${starlakeTestRoot}/incoming/DOMAIN")
           )
         ),
@@ -64,26 +118,25 @@ class StorageHandlerSpec extends TestHelper {
                 "firstname",
                 "string",
                 Some(false),
-                required = false,
-                PrivacyLevel.None
+                required = Some(false),
+                Some(TransformInput.None)
               ),
               Attribute(
                 "lastname",
                 "string",
                 Some(false),
-                required = false,
-                PrivacyLevel("SHA1", false)
+                required = Some(false),
+                Some(TransformInput("SHA1", sql = false))
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
-                required = false,
-                PrivacyLevel("HIDE", false)
+                required = Some(false),
+                Some(TransformInput("HIDE", sql = false))
               )
             ),
             Some(Metadata(withHeader = Some(true))),
-            None,
             Some("Schema Comment"),
             List("SQL1", "SQL2"),
             Nil
@@ -108,7 +161,8 @@ class StorageHandlerSpec extends TestHelper {
     }
 
     "Types Case Class" should "be written as yaml and read correctly" in {
-      val types = Types(
+      val types = TypesDesc(
+        latestSchemaVersion,
         List(
           Type("string", ".+", PrimitiveType.string),
           Type("time", "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"),
@@ -131,9 +185,9 @@ class StorageHandlerSpec extends TestHelper {
 
       storageHandler.write(mapper.writeValueAsString(types), pathType)
       val fileContent = readFileContent(pathType)
-      val expectedFileContent = loadTextFile(s"/expected/yml/types.comet.yml")
+      val expectedFileContent = loadTextFile(s"/expected/yml/types.sl.yml")
       fileContent shouldBe expectedFileContent
-      val resultType: Types = mapper.readValue[Types](storageHandler.read(pathType))
+      val resultType: TypesDesc = mapper.readValue[TypesDesc](storageHandler.read(pathType))
       resultType shouldBe types
 
     }
@@ -145,14 +199,12 @@ class StorageHandlerSpec extends TestHelper {
         database = None,
         domain = "DOMAIN",
         table = "ANALYSE",
-        write = Some(WriteMode.OVERWRITE),
-        partition = List("comet_year", "comet_month"),
         presql = Nil,
         postsql = Nil,
         sink = None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
         python = None,
-        merge = None
+        writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJobDef = mapper
         .writer()
@@ -173,7 +225,7 @@ class StorageHandlerSpec extends TestHelper {
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val expected = mapper
-        .readValue(loadTextFile("/expected/yml/business.comet.yml"), classOf[AutoJobDesc])
+        .readValue(loadTextFile("/expected/yml/business.sl.yml"), classOf[AutoJobDesc])
       logger.info(readFileContent(pathBusiness))
       val actual = mapper
         .readValue(readFileContent(pathBusiness), classOf[AutoJobDesc])
