@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.{Domain, WriteStrategy}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
@@ -111,8 +111,9 @@ object TaskViewDependency extends StrictLogging {
       logger.info(
         s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
       )
+      val task = jobs(jobName).head
       if (parentRefs.isEmpty)
-        List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, ""))
+        List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, "", task.taskDesc.writeStrategy))
       else {
         parentRefs.map { parentSQLRef =>
           val parts = parentSQLRef.split('.')
@@ -169,7 +170,14 @@ object TaskViewDependency extends StrictLogging {
           parentJobName match {
             case Some(parentJobName) =>
               val result =
-                generator.TaskViewDependency(jobName, typ, parentJobName, TASK_TYPE, parentSQLRef)
+                generator.TaskViewDependency(
+                  jobName,
+                  typ,
+                  parentJobName,
+                  TASK_TYPE,
+                  parentSQLRef,
+                  task.taskDesc.writeStrategy
+                )
               if (typ == TASK_TYPE) {
                 // TODO We just handle one task per job which is always the case till now.
                 val task = jobs(jobName).head
@@ -213,10 +221,18 @@ object TaskViewDependency extends StrictLogging {
                     typ,
                     parentDomainName + "." + parentTableName,
                     TABLE_TYPE,
-                    parentSQLRef
+                    parentSQLRef,
+                    task.taskDesc.writeStrategy
                   )
                 case None =>
-                  TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
+                  TaskViewDependency(
+                    jobName,
+                    typ,
+                    "",
+                    UNKNOWN_TYPE,
+                    parentSQLRef,
+                    task.taskDesc.writeStrategy
+                  )
               }
           }
 
@@ -224,17 +240,31 @@ object TaskViewDependency extends StrictLogging {
       }
     }
     val tableNames = jobAndViewDeps.filter(_.parentTyp == TABLE_TYPE).groupBy(_.parent).keys
-    val tableDeps = tableNames.map(tableName => {
-      val schedule = tableSchedule(tableName)
-      val cron =
-        Some(
-          settings.appConfig.schedulePresets.getOrElse(
-            schedule.getOrElse("None"),
-            schedule.getOrElse("None")
+    val tableDeps = tableNames.map { tableName =>
+      {
+        val schedule = tableSchedule(tableName)
+        val cron =
+          Some(
+            settings.appConfig.schedulePresets.getOrElse(
+              schedule.getOrElse("None"),
+              schedule.getOrElse("None")
+            )
           )
-        )
-      TaskViewDependency(tableName, TABLE_TYPE, "", UNKNOWN_TYPE, "", None, cron)
-    })
+        val tableComponents = tableName.split('.')
+        val tableNameOnly = tableComponents.last
+        val domainNameOnly = tableComponents.dropRight(1).last
+        val domain =
+          schemaHandler.domains().find(_.finalName.toLowerCase() == domainNameOnly.toLowerCase())
+        val writeStrategy =
+          for {
+            d <- domain
+            t <- d.tables.find(_.finalName.toLowerCase() == tableNameOnly.toLowerCase())
+            m <- t.metadata
+            w <- m.writeStrategy
+          } yield w
+        TaskViewDependency(tableName, TABLE_TYPE, "", UNKNOWN_TYPE, "", writeStrategy, None, cron)
+      }
+    }
     val jobAndViewDepsWithSink = jobAndViewDeps.map { dep =>
       if (dep.typ == TASK_TYPE) {
         // TODO We just handle one task per job which is always the case till now.
@@ -262,6 +292,7 @@ case class TaskViewDependency(
   parent: String,
   parentTyp: String,
   parentRef: String,
+  writeStrategy: Option[WriteStrategy],
   sink: Option[String] = None,
   cron: Option[String] = None
 ) {
@@ -296,10 +327,26 @@ case class TaskViewDependency(
 
   }
 
-  def entityAsDot(): String = {
+  def entityAsDot(verbose: Boolean): String = {
     val depId = name.replaceAll("\\.", "_")
     val (bgColor, fontColor, text) = dotColor()
-    s"""
+    if (verbose) {
+      s"""
+         |$depId [label=<
+         |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
+         |<tr>
+         |<td rowspan="2" bgcolor="$bgColor" ><font color="$fontColor" face="Arial">$text</font></td>
+         |<td port="0" ><font face="Arial">$name&nbsp;&nbsp;</font>
+         |</td></tr>
+         |<tr>
+         |<td port="0" ><font face="Arial">
+         |${writeStrategy.flatMap(_.`type`).getOrElse("")}
+         |&nbsp;&nbsp;</font>
+         |</td></tr>
+         |         |</table>>];""".stripMargin
+
+    } else {
+      s"""
        |$depId [label=<
        |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
        |<tr>
@@ -307,5 +354,6 @@ case class TaskViewDependency(
        |<td port="0" ><font face="Arial">$name&nbsp;&nbsp;</font>
        |</td></tr>
        |</table>>];""".stripMargin
+    }
   }
 }

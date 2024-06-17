@@ -177,7 +177,8 @@ class AutoTaskDependencies(
         )
     }
 
-    val entitiesAsDot = dedupDependencies.entities.map(dep => dep.entityAsDot()).mkString("\n")
+    val entitiesAsDot =
+      dedupDependencies.entities.map(dep => dep.entityAsDot(config.verbose)).mkString("\n")
     val relationsAsDot = dedupDependencies.relations
       .flatMap(dep => dep.relationAsDot())
       .distinct

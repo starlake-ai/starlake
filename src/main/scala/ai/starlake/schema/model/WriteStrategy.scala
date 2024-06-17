@@ -17,6 +17,17 @@ case class WriteStrategy(
   endTs: Option[String] = None
 ) {
 
+  override def toString: String = {
+    val keyStr = key.mkString(",")
+    val typeStr = `type`.map(_.toString).getOrElse("")
+    val timestampStr = timestamp.getOrElse("")
+    val queryFilterStr = queryFilter.getOrElse("")
+    val onStr = on.map(_.toString).getOrElse("")
+    val startTsStr = startTs.getOrElse("")
+    val endTsStr = endTs.getOrElse("")
+    s"WriteStrategy(type=$typeStr, key=$keyStr, timestamp=$timestampStr, queryFilter=$queryFilterStr, on=$onStr, startTs=$startTsStr, endTs=$endTsStr)"
+  }
+
   @JsonIgnore
   def getEffectiveType(): WriteStrategyType =
     `type`.getOrElse(WriteStrategyType.APPEND)
