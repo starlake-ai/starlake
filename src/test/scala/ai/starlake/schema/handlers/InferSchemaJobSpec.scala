@@ -97,18 +97,19 @@ class InferSchemaJobSpec extends TestHelper {
           targetDir  <- File.temporaryDirectory()
         } {
           sourceFile.overwrite(inputData)
-          inferSchemaJob.infer(
-            domainName = "locations",
-            tableName = "flat_locations",
-            pattern = None,
-            comment = None,
-            inputPath = sourceFile.pathAsString,
-            saveDir = targetDir.pathAsString,
-            forceFormat = None,
-            writeMode = WriteMode.OVERWRITE,
-            rowTag = None,
-            clean = false
-          )(settings.storageHandler())
+          val resultPath =
+            inferSchemaJob.infer(
+              domainName = "locations",
+              tableName = "flat_locations",
+              pattern = None,
+              comment = None,
+              inputPath = sourceFile.pathAsString,
+              saveDir = targetDir.pathAsString,
+              forceFormat = None,
+              writeMode = WriteMode.OVERWRITE,
+              rowTag = None,
+              clean = false
+            )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
           val targetConfig = File(locationDir, "_config.sl.yml")
           val maybeDomain =

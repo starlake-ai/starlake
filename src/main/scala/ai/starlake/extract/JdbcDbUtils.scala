@@ -15,11 +15,13 @@ import java.sql.{
   Connection => SQLConnection,
   DatabaseMetaData,
   Date,
+  DriverManager,
   PreparedStatement,
   ResultSet,
   Timestamp
 }
 import java.util.regex.Pattern
+import javax.sql.DataSource
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
@@ -31,30 +33,40 @@ object JdbcDbUtils extends LazyLogging {
   type Columns = List[Attribute]
   type PrimaryKeys = List[String]
 
-  object HikariConnectionPool {
-    private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
+  object StarlakeConnectionPool {
+    private val hikariPools = scala.collection.concurrent.TrieMap[String, DataSource]()
 
-    def apply(connectionOptions: Map[String, String]): HikariDataSource = {
+    def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
       assert(
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
-      hikariPools.getOrElseUpdate(
-        url, {
-          val config = new HikariConfig()
-          (connectionOptions - "url" - "driver").foreach { case (key, value) =>
-            config.addDataSourceProperty(key, value)
-          }
-          config.setJdbcUrl(url)
-          config.setDriverClassName(driver)
-          config.setMinimumIdle(1)
-          config.setMaximumPoolSize(100) // dummy value since we are limited by the ForJoinPool size
-          logger.info(s"Creating connection pool for $url")
-          new HikariDataSource(config)
-        }
-      )
+      if (url.startsWith("jdbc:duckdb")) {
+        // No connection pool for duckdb. This is a single user database on write.
+        // We need to release the connection asap
+        DriverManager.getConnection(url)
+      } else {
+        hikariPools
+          .getOrElseUpdate(
+            url, {
+              val config = new HikariConfig()
+              (connectionOptions - "url" - "driver").foreach { case (key, value) =>
+                config.addDataSourceProperty(key, value)
+              }
+              config.setJdbcUrl(url)
+              config.setDriverClassName(driver)
+              config.setMinimumIdle(1)
+              config.setMaximumPoolSize(
+                100
+              ) // dummy value since we are limited by the ForJoinPool size
+              logger.info(s"Creating connection pool for $url")
+              new HikariDataSource(config)
+            }
+          )
+          .getConnection()
+      }
     }
   }
   val lastExportTableName = "SL_LAST_EXPORT"
@@ -71,7 +83,7 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    Try(HikariConnectionPool(connectionOptions).getConnection()) match {
+    Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
         logger.error(s"Error creating connection", exception)
         throw exception
@@ -155,6 +167,16 @@ object JdbcDbUtils extends LazyLogging {
       statement.close()
       connection.setAutoCommit(isAutoCommit)
     }
+  }
+
+  def executeQuery[T](
+    stmt: PreparedStatement
+  )(apply: ResultSet => T): T = {
+    val rs = stmt.executeQuery()
+    val result = apply(rs)
+    rs.close()
+    stmt.close()
+    result
   }
 
   def execute(script: String, connection: java.sql.Connection): Try[Boolean] = {
@@ -269,6 +291,24 @@ object JdbcDbUtils extends LazyLogging {
           }
           result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
         }
+    }
+  }
+
+  def extractJDBCSchemas(connectionSettings: Connection)(implicit
+    settings: Settings
+  ): Try[List[String]] = {
+    withJDBCConnection(connectionSettings.options) { connection =>
+      val url = connectionSettings.options("url")
+      val databaseMetaData = connection.getMetaData()
+
+      Using(databaseMetaData.getSchemas()) { resultSet =>
+        new Iterator[String] {
+          override def hasNext: Boolean = resultSet.next()
+
+          override def next(): String =
+            resultSet.getString("TABLE_SCHEM")
+        }.toList.distinct.sorted
+      }
     }
   }
 
@@ -724,7 +764,7 @@ object LastExportUtils extends LazyLogging {
             )
         internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setLong(1, lastExport.getOrElse(Long.MinValue))
-          executeQuery(statement) { rs =>
+          JdbcDbUtils.executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
             val (min, max) = {
@@ -769,7 +809,7 @@ object LastExportUtils extends LazyLogging {
             )
         internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
-          executeQuery(statement) { rs =>
+          JdbcDbUtils.executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
             val min = Option(rs.getBigDecimal(2)).getOrElse(MIN_DECIMAL)
@@ -811,7 +851,7 @@ object LastExportUtils extends LazyLogging {
             )
         internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setDate(1, lastExport.getOrElse(MIN_DATE))
-          executeQuery(statement) { rs =>
+          JdbcDbUtils.executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
             val min = Option(rs.getDate(2)).getOrElse(MIN_DATE)
@@ -851,7 +891,7 @@ object LastExportUtils extends LazyLogging {
             )
         internalBoundaries(conn, extractConfig, tableExtractDataConfig, None) { statement =>
           statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
-          executeQuery(statement) { rs =>
+          JdbcDbUtils.executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
             val min = Option(rs.getTimestamp(2)).getOrElse(MIN_TS)
@@ -900,7 +940,7 @@ object LastExportUtils extends LazyLogging {
           val (count, min, max) = statement.getParameterMetaData.getParameterType(1) match {
             case java.sql.Types.BIGINT =>
               statement.setLong(1, Long.MinValue)
-              executeQuery(statement) { rs =>
+              JdbcDbUtils.executeQuery(statement) { rs =>
                 rs.next()
                 val count = rs.getLong(1)
                 // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
@@ -910,7 +950,7 @@ object LastExportUtils extends LazyLogging {
               }
             case java.sql.Types.INTEGER =>
               statement.setInt(1, Int.MinValue)
-              executeQuery(statement) { rs =>
+              JdbcDbUtils.executeQuery(statement) { rs =>
                 rs.next()
                 val count = rs.getLong(1)
                 // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
@@ -920,7 +960,7 @@ object LastExportUtils extends LazyLogging {
               }
             case java.sql.Types.SMALLINT =>
               statement.setShort(1, Short.MinValue)
-              executeQuery(statement) { rs =>
+              JdbcDbUtils.executeQuery(statement) { rs =>
                 rs.next()
                 val count = rs.getLong(1)
                 // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
@@ -1167,16 +1207,6 @@ object LastExportUtils extends LazyLogging {
         }
     }
     preparedStatement.executeUpdate()
-  }
-
-  private def executeQuery[T](
-    stmt: PreparedStatement
-  )(apply: ResultSet => T): T = {
-    val rs = stmt.executeQuery()
-    val result = apply(rs)
-    rs.close()
-    stmt.close()
-    result
   }
 
   private def getCaseInsensitiveColumnName(

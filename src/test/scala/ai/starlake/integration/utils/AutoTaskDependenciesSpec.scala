@@ -45,6 +45,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
       }
     }
   }
+
   "Lineage" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
@@ -87,7 +88,8 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
               "--print",
               "--viz",
               "--task",
-              "kpi.order_summary"
+              "kpi.order_summary",
+              "--verbose"
             )
           )
         )
