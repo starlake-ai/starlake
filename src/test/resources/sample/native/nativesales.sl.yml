@@ -1,0 +1,52 @@
+load:
+  name: "nativesales"
+  metadata:
+    directory: "{{TEMPORARY_GCS_BUCKET}}/test/sales"
+    loader: "native"
+    mode: "FILE"
+    format: "DSV"
+    withHeader: true
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    sink:
+      timestamp: signup
+  tables:
+    - name: "nativecustomers"
+      pattern: "nativecustomers.psv"
+      merge:
+        key:
+          - id
+      metadata:
+        separator: "|"
+        sink:
+          partition:
+            - signup
+      primaryKey:
+        - id
+      attributes:
+        - name: "id"
+          type: "string"
+          required: true
+        - name: "signup"
+          type: "timestamp"
+          required: false
+        - name: "contact"
+          type: "email"
+          required: false
+        - name: "birthdate"
+          type: "date"
+          required: false
+        - name: "name1"
+          type: "string"
+          required: false
+          rename: "firstname"
+        - name: "name2"
+          type: "string"
+          required: false
+          rename: "lastname"
+        - name: "now"
+          script: "current_timestamp()"
+          type: "timestamp"
+          required: false
+

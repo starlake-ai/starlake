@@ -1,0 +1,12 @@
+version: 1
+load:
+  name: "positionWithEncoding"
+  metadata:
+    directory: "__SL_TEST_ROOT__/position"
+    format: "POSITION"
+    withHeader: false
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      type: "OVERWRITE"
+    encoding: "ISO-8859-1"

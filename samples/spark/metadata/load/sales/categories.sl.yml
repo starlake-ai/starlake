@@ -1,0 +1,29 @@
+version: 1
+table:
+  name: "categories"
+  pattern: "categories-.*.csv"
+  primaryKey:
+    - id
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ","
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      type: "SCD2"
+      key: [id]
+      timestamp: "last_update"
+  attributes:
+    - name: "id"
+      type: "longstring"
+      required: true
+    - name: "name"
+      type: "string"
+    - name: "last_update"
+      type: "timestamp"
+
+

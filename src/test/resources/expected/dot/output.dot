@@ -1,4 +1,3 @@
-
 digraph {
 graph [pad="0.5", nodesep="0.5", ranksep="2"];
 node [shape=plain]
@@ -6,21 +5,11 @@ rankdir=LR;
 
 
 
-dream_segment [label=<
-<table border="0" cellborder="1" cellspacing="0">
-<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
-<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
-<tr><td port="segmentation_label"> segmentation_label:string </td></tr>
-<tr><td port="segment_label"> segment_label:string </td></tr>
-<tr><td port="sub_segment_label"> sub_segment_label:string </td></tr>
-<tr><td port="client_profile_label"> client_profile_label:string </td></tr>
-</table>>];
-
-
-
 dream_client [label=<
 <table border="0" cellborder="1" cellspacing="0">
-<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> client </FONT></B></td></tr>
+<tr>
+<td port="0" bgcolor="#008B00"><B><FONT color="white"> client </FONT></B></td>
+</tr>
 <tr><td port="dream_id"><I> dream_id:long </I></td></tr>
 <tr><td port="gender"> gender:string </td></tr>
 <tr><td port="birthdate_day"> birthdate_day:long </td></tr>
@@ -105,7 +94,27 @@ dream_client [label=<
 <tr><td port="id_client_profile_label"> id_client_profile_label:string </td></tr>
 <tr><td port="truncated_zip_code"> truncated_zip_code:string </td></tr>
 <tr><td port="source_file_name"> source_file_name:string </td></tr>
+<tr><td port="year"> year:long </td></tr>
+<tr><td port="month"> month:long </td></tr>
+<tr><td port="day"> day:long </td></tr>
 </table>>];
 
 dream_client:dream_id -> dream_segment:0
+
+dream_segment [label=<
+<table border="0" cellborder="1" cellspacing="0">
+<tr>
+<td port="0" bgcolor="#008B00"><B><FONT color="white"> segment </FONT></B></td>
+</tr>
+<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
+<tr><td port="segmentation_label"> segmentation_label:string </td></tr>
+<tr><td port="segment_label"> segment_label:string </td></tr>
+<tr><td port="sub_segment_label"> sub_segment_label:string </td></tr>
+<tr><td port="client_profile_label"> client_profile_label:string </td></tr>
+<tr><td port="year"> year:long </td></tr>
+<tr><td port="month"> month:long </td></tr>
+<tr><td port="day"> day:long </td></tr>
+</table>>];
+
+
 }

@@ -2,28 +2,33 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.YamlSerializer
+import ai.starlake.schema.model.Domain
+import ai.starlake.utils.YamlSerde
 import better.files.File
 
 class Yml2XlsSpec extends TestHelper {
   "Yml2XLS" should "should generated all domain / schema in XLS files" in {
     new WithSettings() {
       new SpecTrait(
-        domainOrJobFilename = "position.comet.yml",
-        sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+        sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        deliverSourceTable(
+          "position",
+          "/sample/position/account_position.sl.yml",
+          Some("account.sl.yml")
+        )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
-        val domain = reader.getDomain()
+        val domain: Option[Domain] = reader.getDomain()
         assert(domain.isDefined)
         domain.foreach { domain =>
           assert(domain.name == "position")
-          assert(domain.tables.size == 2)
+          assert(domain.tables.size == 1)
           val accountSchema = domain.tables.filter(_.name == "account")
           assert(accountSchema.size == 1)
           accountSchema.head.attributes.size == 10
@@ -34,19 +39,32 @@ class Yml2XlsSpec extends TestHelper {
 
   new WithSettings() {
     new SpecTrait(
-      domainOrJobFilename = "position.comet.yml",
-      sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+      sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
       datasetDomainName = "position",
       sourceDatasetPathName = "/sample/position/XPOSTBL"
     ) {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
-        val yamlPath =
-          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
-        val yamlDomain = YamlSerializer
-          .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
-          .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
+        val yamlTablePath =
+          File(getClass.getResource("/sample/SCHEMA1.sl.yml"))
+        val yamlTables = YamlSerde
+          .deserializeYamlTables(
+            yamlTablePath.contentAsString,
+            yamlTablePath.pathAsString
+          )
+          .map(_.table)
+        val yamlDomainPath =
+          File(getClass.getResource("/sample/SomeComplexDomainTemplate.sl.yml"))
+        val yamlDomain = YamlSerde
+          .deserializeYamlLoadConfig(
+            yamlDomainPath.contentAsString,
+            yamlDomainPath.pathAsString,
+            isForExtract = false
+          )
+          .getOrElse(throw new Exception(s"Invalid file name $yamlDomainPath"))
+          .copy(tables = yamlTables)
+
         val schemaHandler = new SchemaHandler(settings.storageHandler())
-        new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
+        new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")(settings.storageHandler())
         val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")
         val complexReader =
           new XlsDomainReader(InputPath(xlsOut.pathAsString))
@@ -60,7 +78,7 @@ class Yml2XlsSpec extends TestHelper {
   }
 
   "All SchemaGen Config" should "be known and taken  into account" in {
-    val rendered = Yml2XlsConfig.usage()
+    val rendered = Yml2XlsCmd.usage()
     println(rendered)
 
     val expected =

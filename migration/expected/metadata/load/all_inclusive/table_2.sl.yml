@@ -1,0 +1,19 @@
+---
+version: 1
+table:
+  name: "table_2"
+  pattern: "^\\Qtable_2\\E\\d{14}(?<mode>T|D|A|)\\..*"
+  attributes:
+    - name: "attr1"
+      type: "string"
+      comment: "attr1"
+    - name: "_partition"
+      type: "date"
+      script: "CURRENT_DATE()"
+  rename: "renamed_table2"
+  metadata:
+    writeStrategy:
+      key:
+        - "key1"
+        - "key2"
+      type: "DELETE_THEN_INSERT"

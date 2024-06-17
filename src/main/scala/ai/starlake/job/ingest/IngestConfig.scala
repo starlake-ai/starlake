@@ -20,9 +20,7 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.utils.CliConfig
 import org.apache.hadoop.fs.Path
-import scopt.OParser
 
 /** @param domain
   *   domain name of the dataset
@@ -35,42 +33,6 @@ case class IngestConfig(
   domain: String = "",
   schema: String = "",
   paths: List[Path] = Nil,
-  options: Map[String, String] = Map.empty
+  options: Map[String, String] = Map.empty,
+  accessToken: Option[String]
 )
-
-object IngestConfig extends CliConfig[IngestConfig] {
-  val command = "load"
-  val parser: OParser[Unit, IngestConfig] = {
-    val builder = OParser.builder[IngestConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(""),
-      arg[String]("domain")
-        .optional()
-        .action((x, c) => c.copy(domain = x))
-        .text("Domain name"),
-      arg[String]("schema")
-        .optional()
-        .action((x, c) => c.copy(schema = x))
-        .text("Schema name"),
-      arg[String]("paths")
-        .optional() // Some Ingestion Engine are not based on paths.$ eq. JdbcIngestionJob
-        .action((x, c) => c.copy(paths = x.split(',').map(new Path(_)).toList))
-        .text("list of comma separated paths"),
-      arg[Map[String, String]]("options")
-        .optional()
-        .action((x, c) => c.copy(options = x))
-        .text("arguments to be used as substitutions")
-    )
-  }
-
-  def parse(args: Seq[String]): Option[IngestConfig] = {
-    OParser.parse(parser, args, IngestConfig())
-  }
-
-  def main(args: Array[String]): Unit = {
-    println(IngestConfig.usage())
-  }
-}

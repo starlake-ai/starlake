@@ -1,0 +1,48 @@
+{% macro renderIncomingTableColumns(columnNames) %}
+{% for columnName in columnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+
+BEGIN TRANSACTION;
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}, `{{ strategyStartTs }}`, `{{ strategyEndTs }}`)
+SELECT {{renderIncomingTableColumns(quotedTableColumnNames)}}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM ({{ selectStatement }}) AS SL_INCOMING
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
+WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
+
+{% if strategyOn == 'TARGET' %}
+
+
+MERGE INTO {{ tableFullName }} SL_EXISTING USING (
+    SELECT SL_INCOMING.* FROM ({{ selectStatement }}) SL_INCOMING, {{ tableFullName }} SL_EXISTING
+    WHERE   {{strategyKeyJoinCondition}} AND 
+            SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
+            SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
+) SL_INCOMING 
+ON ({{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+
+COMMIT TRANSACTION;
+   
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+
+MERGE INTO {{ tableFullName }} SL_EXISTING USING (
+    SELECT {% for columnName in quotedTableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
+    FROM
+        (   SELECT {{ tableColumnsCsv }}
+            FROM ({{ selectStatement }}) AS SL_INCOMING
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1
+        ) AS SL_INCOMING, 
+        {{ tableFullName }} SL_EXISTING
+    WHERE   {{strategyKeyJoinCondition}} AND 
+        SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
+        SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
+) SL_INCOMING 
+ON ({{ strategyKeyJoinCondition }})
+WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
+
+COMMIT TRANSACTION;
+   
+
+
+{%  endif %}

@@ -1,0 +1,8 @@
+metadata:
+  writeStrategy:
+    types:
+      OVERWRITE: 'group("mode") == "T" || group("mode") == ""'
+      APPEND: 'group("mode") == "D"'
+      UPSERT_BY_KEY: 'group("mode") == "A"'
+rename: "target_all_inclusive"
+database: "{{project_id}}"

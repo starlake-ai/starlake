@@ -1,0 +1,11 @@
+# This template executes individual cloud run jobs and requires the following dag generation options set:
+#
+# - cloud_run_project_id: the project id where the job is located (if not set, the project id of the composer environment will be used) [OPTIONAL]
+# - cloud_run_job_region: the region where the job is located (if not set, europe-west1 will be used) [OPTIONAL]
+# - cloud_run_job_name: the name of the job to execute [REQUIRED]
+# - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
+# - load_dependencies: whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies are not added) [OPTIONAL]
+# - tags: a list of tags to be applied to the dag [OPTIONAL]
+# Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
+{% include 'templates/dags/__starlake_dagster_cloud_run_job.py.j2' %}
+{% include 'templates/dags/transform/__dagster_scheduled_task_tpl.py.j2' %}

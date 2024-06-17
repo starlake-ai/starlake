@@ -1,7 +1,8 @@
 package ai.starlake.job.transform
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.config.DatasetArea
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
 
@@ -9,21 +10,26 @@ class AutoTaskSpec extends TestHelper {
   new WithSettings() {
     "File Sink Spark Options in SQL job description " should "be applied to resulting file" in {
       new SpecTrait(
-        domainOrJobFilename = "_config.comet.yml",
-        sourceDomainOrJobPathname = "/sample/job/sql/_config.comet.yml",
-        datasetDomainName = "file",
-        sourceDatasetPathName = "",
-        isDomain = false
+        jobFilename = Some("_config.sl.yml"),
+        sourceDomainOrJobPathname = "/sample/job/sql/_config.sl.yml",
+        datasetDomainName = "result",
+        sourceDatasetPathName = ""
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceJob()
         val schemaHandler = new SchemaHandler(settings.storageHandler())
-        val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+        val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
+        println(starlakeDatasetsPath)
+
         workflow.autoJob(TransformConfig(name = "result.file"))
 
-        readFileContent(
-          new Path(starlakeDatasetsPath + "/business/result/file/file.csv")
-        ) shouldBe "  Name|Last Name   |"
+        // val location = getTablePath("result", "file")
+        val csvLocation = DatasetArea.export("result", "file" + ".csv")
+
+        val content = readFileContent(
+          new Path(s"$csvLocation")
+        )
+        content shouldBe "  Name|Last Name   |"
       }
     }
     "File Sink Spark Options in Python job description " should "be applied to resulting file" in {
@@ -31,20 +37,19 @@ class AutoTaskSpec extends TestHelper {
       // This test is currently run locally as part of the local sample.
       if (false) {
         new SpecTrait(
-          domainOrJobFilename = "piJob.comet.yml",
-          sourceDomainOrJobPathname = "/sample/job/python/piJob.comet.yml",
+          jobFilename = Some("piJob.sl.yml"),
+          sourceDomainOrJobPathname = "/sample/job/python/piJob.sl.yml",
           datasetDomainName = "file",
-          sourceDatasetPathName = "",
-          isDomain = false
+          sourceDatasetPathName = ""
         ) {
           cleanMetadata
-          cleanDatasets
+          deliverSourceJob()
           deliverTestFile(
             "/sample/job/python/piJob.pi.py",
             new Path(this.jobMetadataRootPath, "piJob.pi.py")
           )
           val schemaHandler = new SchemaHandler(settings.storageHandler())
-          val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+          val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
           workflow.autoJob(TransformConfig(name = "piJob"))
 
           readFileContent(

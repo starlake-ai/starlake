@@ -4,11 +4,11 @@ import ai.starlake.config.DatasetArea
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
 class MetricsJobSpec extends TestHelper with JdbcChecks {
-  val expectedContinuousMetricsSchema = StructType(
+  val expectedContinuousMetricsSchema: StructType = StructType(
     Array(
       StructField("attribute", StringType, nullable = true),
       StructField("min", DoubleType, nullable = true),
@@ -28,12 +28,11 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
-  val expectedFreqMetricsSchema = StructType(
+  val expectedFreqMetricsSchema: StructType = StructType(
     Array(
       StructField("attribute", StringType, nullable = true),
       StructField("category", StringType, nullable = true),
@@ -42,11 +41,10 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("jobId", StringType, nullable = true),
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
-  val expectedDiscreteMetricsSchema = StructType(
+  val expectedDiscreteMetricsSchema: StructType = StructType(
     Array(
       StructField(
         "attribute",
@@ -64,8 +62,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
-      StructField("cometTime", LongType, nullable = true),
-      StructField("cometStage", StringType, nullable = true)
+      StructField("timestamp", LongType, nullable = true)
     )
   )
 
@@ -86,31 +83,37 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   }
 
   new WithSettings(sparkConfiguration) {
-    "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
+    "Yelp Business Metrics" should "produce correct metrics in  file" in {
       new SpecTrait(
-        domainOrJobFilename = "yelp.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/yelp/yelp.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelp.sl.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        deliverSourceTable("/sample/yelp/business.sl.yml")
         loadPending
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
-        val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
+        val discreteMetricsDf: DataFrame = sparkSession.table("audit.discrete")
         logger.info(discreteMetricsDf.showString(truncate = 0))
-        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
+        val discreteMetricsFields =
+          discreteMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedDiscreteMetricsFields =
+          expectedDiscreteMetricsSchema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
 
-        val session = sparkSession
+        discreteMetricsFields shouldBe expectedDiscreteMetricsFields
+
+        val session: SparkSession = sparkSession
 
         import session.implicits._
 
-        val discreteMetricsSelectedColumns =
+        val discreteMetricsSelectedColumns: Array[(String, String, String)] =
           discreteMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
+            .distinct()
+            .collect()
         discreteMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "city"),
           ("yelp", "business", "is_open"),
@@ -119,46 +122,58 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           ("yelp", "business", "is_open")
         )
 
-        val continuousPath: Path = DatasetArea.continuousMetrics("yelp", "business")
-        val continuousMetricsDf: DataFrame = sparkSession.read.parquet(continuousPath.toString)
+        val continuousMetricsDf: DataFrame = sparkSession.table("audit.continuous")
         logger.info(continuousMetricsDf.showString(truncate = 0))
-        continuousMetricsDf.schema shouldBe expectedContinuousMetricsSchema
+
+        val continuousMetricsFields =
+          continuousMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedContinuousMetricsFields =
+          expectedContinuousMetricsSchema.fields.map(f =>
+            (f.name.toLowerCase(), f.dataType.typeName)
+          )
+        continuousMetricsFields shouldBe expectedContinuousMetricsFields
+
         val continuousMetricsSelectedColumns: Array[(String, String, String)] =
           continuousMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
+            .distinct()
+            .collect()
 
         continuousMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "review_count"),
           ("yelp", "business", "stars")
         )
 
-        val freqPath: Path = DatasetArea.frequenciesMetrics("yelp", "business")
-        val freqMetricsDf: DataFrame = sparkSession.read.parquet(freqPath.toString)
+        val freqMetricsDf: DataFrame = sparkSession.table("audit.frequencies")
         logger.info(freqMetricsDf.showString(truncate = 0))
-        freqMetricsDf.schema shouldBe expectedFreqMetricsSchema
+
+        val freqMetricsFields =
+          freqMetricsDf.schema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        val expectedFreqMetricsFields =
+          expectedFreqMetricsSchema.fields.map(f => (f.name.toLowerCase(), f.dataType.typeName))
+        freqMetricsFields shouldBe expectedFreqMetricsFields
 
         val freqMetricsSelectedColumns: Array[(String, String, String)] =
           freqMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
-            .take(7)
-
+            .distinct()
+            .collect()
+        freqMetricsDf.show(false)
         freqMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "city")
         )
       }
     }
     "All Metrics Config" should "be known and taken  into account" in {
-      val rendered = MetricsConfig.usage()
+      val rendered = MetricsCmd.usage()
       val expected =
         """
           |Usage: starlake metrics [options]
           |  --domain <value>   Domain Name
           |  --schema <value>   Schema Name
           |  --authInfo <value> Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey
-          |  --stage <value>    Stage (UNIT or GLOBAL)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

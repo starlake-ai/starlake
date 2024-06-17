@@ -16,7 +16,7 @@ BigQueryLoadConfig(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
                   settings.comet.audit.database,
-                  settings.comet.audit.domain.getOrElse("audit"),
+                  settings.comet.audit.getDomain(),
                   "rejected"
                 )
             ),
@@ -27,7 +27,8 @@ object BigQuerySparkWriter extends StrictLogging {
     tableName: String,
     maybeTableDescription: Option[String],
     maybeSchema: Option[BQSchema],
-    writeMode: WriteMode
+    writeMode: WriteMode,
+    accessToken: Option[String]
   )(implicit
     settings: Settings
   ): Try[Unit] = {
@@ -36,7 +37,7 @@ object BigQuerySparkWriter extends StrictLogging {
         case sink: BigQuerySink =>
           val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
           val (createDisposition, writeDisposition) = {
-            Utils.getDBDisposition(writeMode, hasMergeKeyDefined = false)
+            Utils.getDBDisposition(writeMode)
           }
           val bqLoadConfig =
             BigQueryLoadConfig(
@@ -46,24 +47,25 @@ object BigQuerySparkWriter extends StrictLogging {
                 BigQueryJobBase
                   .extractProjectDatasetAndTable(
                     settings.appConfig.audit.getDatabase(),
-                    settings.appConfig.audit.domain.getOrElse("audit"),
+                    settings.appConfig.audit.getDomain(),
                     tableName
                   )
               ),
-              sourceFormat = settings.appConfig.defaultFormat,
+              sourceFormat = settings.appConfig.defaultWriteFormat,
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              outputPartition = sink.timestamp,
+              outputPartition = sink.getPartitionColumn(),
               outputClustering = sink.clustering.getOrElse(Nil),
               days = sink.days,
               requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
               rls = Nil,
               acl = Nil,
-              outputDatabase = settings.appConfig.audit.getDatabase()
+              outputDatabase = settings.appConfig.audit.getDatabase(),
+              accessToken = accessToken
             )
           val result = new BigQuerySparkJob(
             bqLoadConfig,
-            maybeSchema = maybeSchema,
+            maybeBqSchema = maybeSchema,
             maybeTableDescription = maybeTableDescription
           ).run()
           result match {

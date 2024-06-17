@@ -1,13 +1,12 @@
 package ai.starlake.job.convert
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.WriteMode.ERROR_IF_EXISTS
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
-import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** Convert parquet files to CSV. The folder hierarchy should be in the form
   * /input_folder/domain/schema/part*.parquet Once converted the csv files is put in the folder
@@ -42,19 +41,22 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case Some(folder) => folder
     }
     allPaths.flatMap { path: Path =>
-      val successPath = new Path(path, "_SUCCESS")
-      storageHandler.exists(successPath) match {
-        case true =>
+      val fileFound = Try {
+        storageHandler.list(path, recursive = false).nonEmpty ||
+        storageHandler.listDirectories(path).nonEmpty
+      }.getOrElse(false)
+      if (fileFound) {
+        Try {
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
           val writer = session.read
-            .format(settings.appConfig.defaultFormat)
+            .format(settings.appConfig.defaultWriteFormat)
             .load(path.toString)
             .repartition(config.partitions)
             .write
-            .mode(config.writeMode.getOrElse(ERROR_IF_EXISTS).toSaveMode)
+            .mode(config.writeMode.getOrElse(APPEND).toSaveMode)
           writer
-            .options(config.options.toMap)
+            .options(config.options)
             .option("ignoreLeadingWhiteSpace", false)
             .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)
@@ -64,8 +66,16 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           if (config.deleteSource)
             storageHandler.delete(path)
           Some(csvPath)
-        case false =>
-          None
+        } match {
+          case Success(result) =>
+            Option(result)
+          case Failure(e) =>
+            e.printStackTrace()
+            None
+
+        }
+      } else {
+        None
       }
     }
     Success(SparkJobResult(None))
@@ -75,14 +85,9 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 object Parquet2CSV {
 
   def main(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
 
     import settings.storageHandler
-    Parquet2CSVConfig.parse(args) match {
-      case Some(config) =>
-        new Parquet2CSV(config, storageHandler()).run()
-      case _ =>
-        println(Parquet2CSVConfig.usage())
-    }
+    Parquet2CSVCmd.run(args.toIndexedSeq, new SchemaHandler(storageHandler()))
   }
 }

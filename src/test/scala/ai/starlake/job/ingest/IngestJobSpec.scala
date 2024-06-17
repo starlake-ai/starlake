@@ -5,10 +5,10 @@ import ai.starlake.TestHelper
 class IngestJobSpec extends TestHelper {
   new WithSettings() {
     "All Ingest Config" should "be known and taken  into account" in {
-      val rendered = IngestConfig.usage()
+      val rendered = IngestCmd.usage()
       val expected =
         """
-          |Usage: starlake load [domain] [schema] [paths] [options]
+          |Usage: starlake ingest [domain] [schema] [paths] [options]
           |
           |  domain  Domain name
           |  schema  Schema name

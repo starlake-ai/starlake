@@ -68,8 +68,8 @@ case class Attribute(
   name: String,
   `type`: String = "string",
   array: Option[Boolean] = None,
-  required: Boolean = true,
-  privacy: PrivacyLevel = PrivacyLevel.None,
+  required: Option[Boolean] = None,
+  privacy: Option[TransformInput] = None,
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
@@ -84,12 +84,11 @@ case class Attribute(
   accessPolicy: Option[String] = None
 ) extends Named
     with LazyLogging {
-
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   override def toString: String =
     // we pretend the "settings" field does not exist
-    s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
+    s"Attribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
   @JsonIgnore
   def isNestedOrRepeatedField(): Boolean = {
@@ -105,7 +104,7 @@ case class Attribute(
     *   true if attribute is valid
     */
   def checkValidity(schemaHandler: SchemaHandler): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     if (`type` == null)
       errorList +=
         ValidationMessage(Error, "Attribute.type", s"$this : unspecified type")
@@ -146,7 +145,7 @@ case class Attribute(
     }
 
     default.foreach { default =>
-      if (required)
+      if (resolveRequired())
         errorList += ValidationMessage(
           Error,
           "Attribute.default",
@@ -181,7 +180,7 @@ case class Attribute(
       }
     }
 
-    (script, required) match {
+    (script, resolveRequired()) match {
       case (Some(_), true) =>
         ValidationMessage(
           Warning,
@@ -217,8 +216,8 @@ case class Attribute(
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
     `type`(schemaHandler)
       .map { tpe =>
-        if (isArray())
-          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !required)
+        if (resolveArray())
+          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !resolveRequired())
         else
           tpe.primitiveType.sparkType(tpe.zone)
       }
@@ -233,9 +232,12 @@ case class Attribute(
   def sparkType(schemaHandler: SchemaHandler): DataType = {
     def buildStruct(): List[StructField] = {
       if (attributes.isEmpty)
-        throw new Exception("Should never happen: empty list of attributes")
+        throw new Exception(
+          s"Attribute `$name` of type ${`type`} is considered as struct but doesn't have any attributes. Please check the types you defined or add attributes to it."
+        )
       val fields = attributes.map { attr =>
-        val structField = StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        val structField =
+          StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
         attr.comment.map(structField.withComment).getOrElse(structField)
       }
       fields
@@ -264,8 +266,8 @@ case class Attribute(
         DDLNode(
           this.getFinalName(),
           attributes.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
-          required,
-          isArray(),
+          resolveRequired(),
+          resolveArray(),
           comment,
           Utils.labels(tags)
         )
@@ -277,7 +279,7 @@ case class Attribute(
               DDLLeaf(
                 this.getFinalName(),
                 mapping(datawarehouse),
-                this.required,
+                this.resolveRequired(),
                 this.comment,
                 isPrimaryKey,
                 Utils.labels(tags)
@@ -286,6 +288,7 @@ case class Attribute(
         } getOrElse (throw new Exception(s"Unknown type ${`type`}"))
     }
   }
+
   def indexMapping(schemaHandler: SchemaHandler): String = {
     attributes match {
       case attr :: head =>
@@ -344,16 +347,16 @@ case class Attribute(
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  def isIgnore(): Boolean = ignore.getOrElse(false)
+  def resolveIgnore(): Boolean = ignore.getOrElse(false)
 
-  def getPrivacy(): PrivacyLevel = Option(privacy).getOrElse(PrivacyLevel.None)
+  def resolvePrivacy(): TransformInput = privacy.getOrElse(TransformInput.None)
 
-  def isArray(): Boolean = array.getOrElse(false)
+  def resolveArray(): Boolean = array.getOrElse(false)
 
-  def isRequired(): Boolean = Option(required).getOrElse(false)
+  def resolveRequired(): Boolean = required.getOrElse(false)
 
   @JsonIgnore
-  val transform: Option[String] = Option(privacy).filter(_.sql).map(_.value)
+  val transform: Option[String] = privacy.filter(_.sql).map(_.value)
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
@@ -386,18 +389,25 @@ case class Attribute(
       attributes.exists(_.containsArrayOfRecords())
     }
   }
+
+  def deepForeignKeyForDot(): Option[String] = {
+    this.foreignKey match {
+      case Some(_) => this.foreignKey
+      case None =>
+        attributes.flatMap(_.deepForeignKeyForDot()).headOption
+    }
+  }
 }
 
 object Attribute {
   def apply(sparkField: StructField): Attribute = {
     val sparkType = sparkField.dataType
     val fieldName = sparkField.name
-    val required = !sparkField.nullable
+    val required = if (!sparkField.nullable) Some(true) else None
     val isArray = sparkType.isInstanceOf[ArrayType]
     sparkType match {
-      case _: StructType =>
-        val struct = sparkType.asInstanceOf[StructType]
-        val subFields = struct.fields.map(field => apply(field))
+      case st: StructType =>
+        val subFields = st.fields.map(field => apply(field))
         new Attribute(
           fieldName,
           PrimitiveType.struct.toString,
@@ -405,6 +415,28 @@ object Attribute {
           required,
           attributes = subFields.toList
         )
+      case at: ArrayType =>
+        at.elementType match {
+          case _: ArrayType =>
+            throw new RuntimeException("Don't support array of array")
+          case nestedSt: StructType =>
+            val subFields = nestedSt.fields.map(field => apply(field))
+            new Attribute(
+              fieldName,
+              PrimitiveType.struct.toString,
+              Some(isArray),
+              required,
+              attributes = subFields.toList
+            )
+          case nestedDt =>
+            val tpe = PrimitiveType.from(nestedDt)
+            new Attribute(
+              fieldName,
+              tpe.toString,
+              Some(isArray),
+              required
+            )
+        }
       case _ =>
         val tpe = PrimitiveType.from(sparkType)
         new Attribute(fieldName, tpe.toString, Some(isArray), required)
@@ -483,7 +515,10 @@ object Attribute {
       }
     refAttr.copy(
       privacy =
-        if (referenceSource.privacy != PrivacyLevel.None) referenceSource.privacy
+        if (
+          referenceSource.privacy.isDefined && !referenceSource.privacy
+            .contains(TransformInput.None)
+        ) referenceSource.privacy
         else fallbackSource.privacy, // We currently have no way to
       comment = referenceSource.comment.orElse(fallbackSource.comment),
       rename = referenceSource.rename.orElse(fallbackSource.rename),

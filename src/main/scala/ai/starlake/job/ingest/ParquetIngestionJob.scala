@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -51,7 +52,9 @@ class ParquetIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -71,11 +74,11 @@ class ParquetIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
       val format = mergedMetadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read
-        .options(mergedMetadata.getOptions())
+        .options(sparkOptions)
         .format(format)
         .load(path.map(_.toString): _*)
 
@@ -117,7 +120,7 @@ class ParquetIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
 
     val orderedAttributes = reorderAttributes(dataset)
 
@@ -125,8 +128,8 @@ class ParquetIngestionJob(
 
     val validationResult = treeRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
@@ -137,13 +140,19 @@ class ParquetIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected)(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success(rejectedRecordCount) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (validationResult.errors, validationResult.accepted)
   }
 }

@@ -2,7 +2,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.schema.model.WriteMode
+import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 
 import scala.io.Source
@@ -52,42 +53,101 @@ class InferSchemaJobSpec extends TestHelper {
     lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
 
     "GetSeparatorSemiColon" should "succeed" in {
-      inferSchemaJob.getSeparator(csvLines, false) shouldBe ";"
+      inferSchemaJob.getSeparator(csvLines) shouldBe ";"
     }
 
     "GetSeparatorPipe" should "succeed" in {
-      inferSchemaJob.getSeparator(psvLines, true) shouldBe "|"
+      inferSchemaJob.getSeparator(psvLines) shouldBe "|"
     }
 
     "GetFormatCSV" should "succeed" in {
-      inferSchemaJob.getFormatFile(csvLines) shouldBe "DSV"
+      inferSchemaJob.getFormatFile("ignore", csvLines) shouldBe "DSV"
     }
 
     "GetFormatJson" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonLines) shouldBe "JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonLines) shouldBe "JSON"
     }
 
     "GetFormatXML" should "succeed" in {
-      inferSchemaJob.getFormatFile(xmlLines) shouldBe "XML"
+      inferSchemaJob.getFormatFile("ignore", xmlLines) shouldBe "XML"
     }
 
     "GetFormatArrayJson" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonArrayLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "JSON_ARRAY"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-      inferSchemaJob.getFormatFile(jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
+      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "JSON_ARRAY"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
-        cleanDatasets
+        deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
+        } {
+          sourceFile.overwrite(inputData)
+          val resultPath =
+            inferSchemaJob.infer(
+              domainName = "locations",
+              tableName = "flat_locations",
+              pattern = None,
+              comment = None,
+              inputPath = sourceFile.pathAsString,
+              saveDir = targetDir.pathAsString,
+              forceFormat = None,
+              writeMode = WriteMode.OVERWRITE,
+              rowTag = None,
+              clean = false
+            )(settings.storageHandler())
+          val locationDir = File(targetDir, "locations")
+          val targetConfig = File(locationDir, "_config.sl.yml")
+          val maybeDomain =
+            YamlSerde.deserializeYamlLoadConfig(
+              targetConfig.contentAsString,
+              targetConfig.pathAsString,
+              isForExtract = false
+            )
+          maybeDomain.isSuccess shouldBe true
+          val targetFile = File(locationDir, "flat_locations.sl.yml")
+          val maybeTable = YamlSerde.deserializeYamlTables(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+
+          val discoveredSchema = maybeTable.head.table
+          discoveredSchema.name shouldBe "flat_locations"
+          discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
+            "id",
+            "name"
+          )
+        }
+      }
+    }
+
+    "Ingest Complex JSON Schema" should "produce file in accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
+        val inputData = loadTextFile("/sample/complex-json/complex.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
@@ -95,34 +155,76 @@ class InferSchemaJobSpec extends TestHelper {
           sourceFile.overwrite(inputData)
           inferSchemaJob.infer(
             domainName = "locations",
-            schemaName = "flat_locations",
+            tableName = "complex",
             pattern = None,
             comment = None,
-            dataPath = sourceFile.pathAsString,
+            inputPath = sourceFile.pathAsString,
             saveDir = targetDir.pathAsString,
-            withHeader = true,
-            forceFormat = None
-          )
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
+          )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
-          val targetConfig = File(locationDir, "_config.comet.yml")
-          val maybeDomain =
-            YamlSerializer.deserializeDomain(
-              targetConfig.contentAsString,
-              targetConfig.pathAsString
-            )
-          maybeDomain.isSuccess shouldBe true
-          val targetFile = File(locationDir, "flat_locations.comet.yml")
-          val maybeTable = YamlSerializer.deserializeSchema(
+          val targetFile = File(locationDir, "complex.sl.yml")
+          val discoveredSchema = YamlSerde.deserializeYamlTables(
             targetFile.contentAsString,
             targetFile.pathAsString
           )
 
-          val discoveredSchema = maybeTable.get
-          discoveredSchema.name shouldBe "flat_locations"
-          discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
-            "id",
-            "name"
+          val expectedTable = YamlSerde.deserializeYamlTables(
+            loadTextFile("/sample/complex-json/complex.sl.yml"),
+            "/sample/complex-json/complex.sl.yml"
           )
+
+          discoveredSchema.head.table.attributes should contain theSameElementsAs expectedTable.head.table.attributes
+        }
+      }
+    }
+
+    "Ingest Complete CSV Schema" should "produce file in accepted" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
+        val inputData = loadTextFile("/sample/complete-csv/complete.csv")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
+        } {
+          sourceFile.overwrite(inputData)
+          inferSchemaJob.infer(
+            domainName = "locations",
+            tableName = "complete",
+            pattern = None,
+            comment = None,
+            inputPath = sourceFile.pathAsString,
+            saveDir = targetDir.pathAsString,
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
+          )(settings.storageHandler())
+          val locationDir = File(targetDir, "locations")
+          val targetFile = File(locationDir, "complete.sl.yml")
+          val discoveredSchema = YamlSerde.deserializeYamlTables(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+
+          val expectedTable = YamlSerde.deserializeYamlTables(
+            loadTextFile("/sample/complete-csv/complete.sl.yml"),
+            "/sample/complete-csv/complete.sl.yml"
+          )
+
+          discoveredSchema.head.table.attributes should contain theSameElementsAs expectedTable.head.table.attributes
         }
       }
     }

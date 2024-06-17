@@ -1,0 +1,54 @@
+<%@ val table: ai.starlake.schema.model.Schema %>
+<%@ val schemaHandler: ai.starlake.schema.handlers.SchemaHandler %>
+<%@ val relationsSVG: String %>
+<%@ val aclSVG: String %>
+
+
+#{
+val samplePattern: String = table.patternSample.map(it => "(" + it + ")").getOrElse("")
+def oneLiner(str: Option[String]) = str.getOrElse("").replaceAll("\\|", " ").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "<br />")
+}#
+
+# ${ table.finalName }
+
+${ table.comment.getOrElse("No description provided") }
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+<Tabs groupId="table">
+<TabItem value="general" label="General">
+
+| Property | Value |
+| --- | ----------- |
+| Name | ${ table.name } |
+| Pattern | ${ table.pattern.pattern()}  ${samplePattern} |
+| Tags | ${ table.tags.toList.sorted.mkString(",") } |
+| Primary Key | ${ table.primaryKey.mkString(",") } |
+
+
+
+</TabItem>
+
+<TabItem value="attributes" label="Attributes">
+
+| Name | Rename | Type | Description | Reference | Required | Default | Tags | Script | Position | Metric |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+#for (attr <- table.attributes)
+| ${attr.name} | ${attr.rename.getOrElse("")} | ${attr.`type`} | <%=unescape(oneLiner(attr.comment))%> | ${attr.foreignKey.getOrElse("")} | ${attr.required} | ${attr.default.getOrElse("")} | ${attr.tags.toList.sorted.mkString(",")} | <%=unescape(oneLiner(attr.script))%> | ${attr.position.map(p => p.first+","+p.last)} | ${attr.metricType.map(_.value).getOrElse("")} |
+#end
+
+</TabItem>
+
+<TabItem value="relations" label="Relations">
+
+![Table relations](./${relationsSVG})
+
+</TabItem>
+
+<TabItem value="acl" label="Access Control">
+
+![Access Control](./${aclSVG})
+</TabItem>
+</Tabs>

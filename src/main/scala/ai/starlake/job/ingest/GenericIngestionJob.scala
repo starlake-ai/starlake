@@ -20,13 +20,13 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
-
 import java.sql._
 import java.time.LocalDateTime
 import java.util.Properties
@@ -54,7 +54,9 @@ class GenericIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -103,7 +105,7 @@ class GenericIngestionJob(
 
   class LastExportDateRequest(domainName: String, schemaName: String)
       extends SQlRequest[java.sql.Timestamp] {
-    val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
+    val auditSchema = settings.appConfig.audit.getDomain()
     val queryString =
       s"SELECT max(timestamp) FROM $auditSchema.SL_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
     def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
@@ -150,7 +152,7 @@ class GenericIngestionJob(
     row: DeltaRow
   ): Try[PreparedStatement] = {
     Try {
-      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
+      val auditSchema = settings.appConfig.audit.getDomain()
       val sqlInsert =
         s"insert into $auditSchema.SL_LAST_EXPORT(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
       val preparedStatement = conn.prepareStatement(sqlInsert)
@@ -173,9 +175,9 @@ class GenericIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val options = mergedMetadata.getOptions()
+      val options = sparkOptions
       val timestampColumn = options.get("_timestamp")
       val startTime = Timestamp.valueOf(LocalDateTime.now())
       for {
@@ -291,13 +293,13 @@ class GenericIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val orderedAttributes = reorderAttributes(dataset)
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
@@ -308,14 +310,20 @@ class GenericIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+    saveRejected(validationResult.errors, validationResult.rejected)(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
       saveAccepted(validationResult)
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors, validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success(rejectedRecordCount) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
     }
-    (validationResult.errors, validationResult.accepted)
   }
 }
 

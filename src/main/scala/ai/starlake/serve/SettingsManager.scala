@@ -1,8 +1,8 @@
 package ai.starlake.serve
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{PrivacyLevels, Settings}
+import ai.starlake.utils.Utils
 import better.files.File
-import com.typesafe.config.ConfigFactory
 
 class SettingsWatcherThread(
   settingsMap: scala.collection.mutable.Map[String, Settings],
@@ -10,15 +10,14 @@ class SettingsWatcherThread(
 ) extends Thread {
   private val ONE_MINUTE = 1000 * 60
   private val TEN_MINUTES = ONE_MINUTE * 10
-  override def run() {
+  override def run(): Unit = {
     while (true) {
       Thread.sleep(ONE_MINUTE)
       val currentTime = System.currentTimeMillis()
-      for ((key, time) <- settingsTimeMap) {
+      for ((key, time) <- settingsTimeMap.toSet) {
         if (currentTime - time > TEN_MINUTES) {
-          settingsMap.synchronized {
-            settingsMap.remove(key)
-          }
+          settingsTimeMap.remove(key)
+          settingsMap.remove(key)
         }
       }
     }
@@ -26,14 +25,24 @@ class SettingsWatcherThread(
 }
 
 object SettingsManager {
-  private val settingsMap: scala.collection.mutable.Map[String, Settings] =
-    scala.collection.mutable.Map.empty
+  private val settingsMap: scala.collection.concurrent.TrieMap[String, Settings] =
+    scala.collection.concurrent.TrieMap.empty
 
-  private val settingsTimeMap: scala.collection.mutable.Map[String, Long] =
-    scala.collection.mutable.Map.empty
+  private val settingsTimeMap: scala.collection.concurrent.TrieMap[String, Long] =
+    scala.collection.concurrent.TrieMap.empty
 
   private val watcherThread = new SettingsWatcherThread(settingsMap, settingsTimeMap)
   watcherThread.start()
+
+  def reset(): Boolean = {
+    lastSettingsId = ""
+    settingsTimeMap.clear()
+    settingsMap.clear()
+    true
+  }
+
+  // Used in vscode plugin only
+  var lastSettingsId: String = ""
 
   private def uniqueId(
     root: String,
@@ -47,38 +56,50 @@ object SettingsManager {
     root: String,
     metadata: Option[String],
     env: Option[String],
-    gcpProject: Option[String]
-  ): Settings = {
+    gcpProject: Option[String],
+    refresh: Boolean = false
+  ): (Settings, Boolean) = {
     val sessionId = uniqueId(root, metadata, env)
+    Utils.resetJinjaClassLoader()
+    PrivacyLevels.resetAllPrivacy()
 
     val sysProps = System.getProperties()
     val outFile = File(root, "out")
     outFile.createDirectoryIfNotExists()
+    val extensionFile = File(root, "extension.log")
+    if (extensionFile.exists) {
+      extensionFile.delete(swallowIOExceptions = true)
+    }
 
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("database", gcpProject)
     }
-    val currentSettings = settingsMap.getOrElse(
+    if (refresh) {
+      settingsMap.remove(sessionId)
+    }
+    val updatedSession = settingsMap.getOrElseUpdate(
       sessionId, {
-        settingsMap.synchronized {
-          sysProps.setProperty("root-serve", outFile.pathAsString)
-          sysProps.setProperty("root", root)
-          sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
+        sysProps.setProperty("rootServe", outFile.pathAsString)
+        sysProps.setProperty("root", root)
+        sysProps.setProperty("SL_ROOT", root)
+        sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
 
-          env match {
-            case Some(env) if env.nonEmpty && env != "None" =>
-              sysProps.setProperty("env", env)
-            case _ =>
-              sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
-          }
-          ConfigFactory.invalidateCaches()
-          val settings = Settings(ConfigFactory.load())
-          settingsMap.put(sessionId, settings)
-          settings
+        env match {
+          case None =>
+            sysProps.setProperty("env", "None")
+          case Some(env) if env.isEmpty || env == "None" =>
+            sysProps.setProperty("env", "None")
+          case Some(env) =>
+            sysProps.setProperty("env", env) // prod is the default value in reference.conf
         }
+        Settings.invalidateCaches()
+        println("new settings")
+        Settings(Settings.referenceConfig)
       }
     )
     settingsTimeMap.put(sessionId, System.currentTimeMillis())
-    currentSettings
+    val isNew = sessionId != lastSettingsId
+    lastSettingsId = sessionId
+    (updatedSession, isNew)
   }
 }

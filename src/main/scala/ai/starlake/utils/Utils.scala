@@ -24,23 +24,33 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.{Attribute, ValidationMessage, WriteMode}
 import ai.starlake.utils.Formatter._
+import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.hubspot.jinjava.Jinjava
+import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
 
-import java.io.{PrintWriter, StringWriter}
-import scala.collection.JavaConverters._
+import java.io.{ByteArrayOutputStream, PrintWriter, StringWriter}
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe
+import scala.sys.process.{Process, ProcessLogger, _}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object Utils extends StrictLogging {
+  case class CommandOutput(exit: Int, output: String, error: String)
 
   type Closeable = { def close(): Unit }
 
@@ -98,9 +108,11 @@ object Utils extends StrictLogging {
     * contained exception as a side effect and carry on
     *
     * @param attempt
+    *   the result of the attempt
     * @param logger
     *   the logger onto which to log results
     * @tparam T
+    *   the type of the resulting attempt
     * @return
     *   the original `attempt` with no alteration (everything happens as a side effect)
     */
@@ -114,16 +126,17 @@ object Utils extends StrictLogging {
         failure
     }
 
+  def throwFailure[T](attempt: Try[T], logger: Logger): Boolean =
+    attempt match {
+      case Success(_) =>
+        true
+      case Failure(exception) =>
+        logException(logger, exception)
+        throw exception
+    }
+
   def logException(logger: Logger, exception: Throwable): Unit = {
     logger.error(exceptionAsString(exception))
-  }
-
-  def logIfFailure[T](logger: Logger, res: Try[T]): Try[T] = {
-    res match {
-      case Failure(e) => logException(logger, e)
-      case _          =>
-    }
-    res
   }
 
   def exceptionAsString(exception: Throwable): String = {
@@ -132,21 +145,18 @@ object Utils extends StrictLogging {
     sw.toString
   }
 
-  def getDBDisposition(writeMode: WriteMode, hasMergeKeyDefined: Boolean): (String, String) = {
-    val (createDisposition, writeDisposition) = (hasMergeKeyDefined, writeMode) match {
-      case (true, wm) if wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND =>
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-      case (_, WriteMode.OVERWRITE) =>
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-      case (_, WriteMode.APPEND) =>
-        ("CREATE_IF_NEEDED", "WRITE_APPEND")
-      case (_, WriteMode.ERROR_IF_EXISTS) =>
-        ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-      case (_, WriteMode.IGNORE) =>
-        ("CREATE_NEVER", "WRITE_EMPTY")
-      case _ =>
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-    }
+  def getDBDisposition(
+    writeMode: WriteMode
+  ): (String, String) = {
+    val (createDisposition, writeDisposition) =
+      writeMode match {
+        case WriteMode.OVERWRITE =>
+          ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+        case WriteMode.APPEND =>
+          ("CREATE_IF_NEEDED", "WRITE_APPEND")
+        case _ =>
+          ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+      }
     (createDisposition, writeDisposition)
   }
 
@@ -188,7 +198,7 @@ object Utils extends StrictLogging {
     values: List[String],
     errorMessage: String
   ): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
       size > 1
     }
@@ -249,9 +259,20 @@ object Utils extends StrictLogging {
         (labelValue(0), labelValue(1))
     }.toMap
 
-  def jinjava(implicit settings: Settings) = {
+  def jinjava(implicit settings: Settings): Jinjava = {
     if (_jinjava == null) {
-      val res = new Jinjava()
+      val curClassLoader = Thread.currentThread.getContextClassLoader
+      val res =
+        try {
+          Thread.currentThread.setContextClassLoader(this.getClass.getClassLoader)
+          val config = JinjavaConfig
+            .newBuilder()
+            .withFailOnUnknownTokens(false)
+            .withNestedInterpretationEnabled(false)
+            .build()
+
+          new Jinjava(config)
+        } finally Thread.currentThread.setContextClassLoader(curClassLoader)
       res.setResourceLocator(new JinjaResourceHandler())
       _jinjava = res
     }
@@ -260,7 +281,13 @@ object Utils extends StrictLogging {
 
   private var _jinjava: Jinjava = null
 
-  def parseJinja(str: String, params: Map[String, Any])(implicit settings: Settings): String =
+  def resetJinjaClassLoader(): Unit = {
+    _jinjava = null
+  }
+
+  def parseJinja(str: String, params: Map[String, Any])(implicit
+    settings: Settings
+  ): String =
     parseJinja(
       List(str),
       params
@@ -278,9 +305,18 @@ object Utils extends StrictLogging {
     result
   }
 
-  def parseJinjaTpl(templateContent: String, params: Map[String, Object]): String = {
-    val jinjava = new Jinjava()
-    jinjava.render(templateContent, params.asJava);
+  def parseJinjaTpl(
+    templateContent: String,
+    params: Map[String, Object]
+  )(implicit
+    settings: Settings
+  ): String = {
+    parseJinja(templateContent, params)
+  }
+
+  def newYamlMapper(): ObjectMapper = {
+    val mapper = new ObjectMapper(new YAMLFactory())
+    setMapperProperties(mapper)
   }
 
   def newJsonMapper(): ObjectMapper = {
@@ -289,8 +325,10 @@ object Utils extends StrictLogging {
   }
 
   def setMapperProperties(mapper: ObjectMapper): ObjectMapper = {
-    mapper.registerModule(DefaultScalaModule)
     mapper
+      .registerModule(DefaultScalaModule)
+      .registerModule(new HadoopModule())
+      .registerModule(new StorageLevelModule())
       .setSerializationInclusion(Include.NON_EMPTY)
       .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -318,4 +356,141 @@ object Utils extends StrictLogging {
   def keepAlphaNum(domain: String): String = {
     domain.replaceAll("[^\\p{Alnum}]", "_")
   }
+
+  def dot2Svg(outputFile: Option[File], str: String): Unit = {
+    dot2Format(outputFile, str, "svg")
+  }
+
+  def dot2Png(outputFile: Option[File], str: String): Unit = {
+    dot2Format(outputFile, str, "png")
+  }
+
+  def save(outputFile: Option[File], result: String): Unit = {
+    outputFile match {
+      case None => println(result)
+      case Some(outputFile) =>
+        outputFile.parent.createDirectories()
+        outputFile.overwrite(result)
+    }
+  }
+
+  private def dot2Format(outputFile: Option[File], str: String, format: String): Unit = {
+    Try {
+      val dotFile = File.newTemporaryFile("graph_", ".dot.tmp")
+      dotFile.write(str)
+      val svgFile =
+        outputFile match {
+          case Some(outputFile) =>
+            outputFile.parent.createDirectories()
+            outputFile
+          case None =>
+            File.newTemporaryFile("graph_", ".svg.tmp")
+        }
+      val stdout = new StringBuilder
+      val stderr = new StringBuilder
+      val logger = ProcessLogger(stdout append _, stderr append _)
+      val p = Process(s"dot -T$format ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
+      val exitCode = p.run(logger).exitValue()
+      if (exitCode != 0) {
+        throw new Exception(
+          s"""
+          ${stdout.toString()}
+          ${stderr.toString()}
+          Exited with status code $exitCode.
+          --> Please make sure that GraphViz is installed and available in your PATH
+          """
+        )
+      }
+      dotFile.delete(swallowIOExceptions = false)
+      outputFile match {
+        case None =>
+          println(svgFile.contentAsString)
+          svgFile.delete(swallowIOExceptions = false)
+        case Some(_) =>
+      }
+    }
+  } match {
+    case Success(_) =>
+    case Failure(e) =>
+      logger.error(
+        s"Error while converting dot to $format. Please make sure you installed the GraphViz tool.",
+        Utils.exceptionAsString(e)
+      )
+  }
+
+  def redact(options: Map[String, String]): Map[String, String] = {
+    options.map { case (key, value) =>
+      if (key.toLowerCase.contains("password")) {
+        key -> "********"
+      } else {
+        key -> value
+      }
+    }
+  }
+
+  def runCommand(cmd: Seq[String]): Try[CommandOutput] = Try {
+    logger.info(cmd.mkString(" "))
+    val stdoutStream = new ByteArrayOutputStream
+    val stderrStream = new ByteArrayOutputStream
+    val stdoutWriter = new PrintWriter(stdoutStream)
+    val stderrWriter = new PrintWriter(stderrStream)
+    val exitValue = cmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
+    stdoutWriter.close()
+    stderrWriter.close()
+    logger.info("exitValue: " + exitValue)
+    val output = stdoutStream.toString
+    val error = stderrStream.toString
+    logger.info(output)
+    if (exitValue != 0)
+      logger.error(error)
+    CommandOutput(exitValue, output, error)
+  }
+
+}
+
+class HadoopModule extends SimpleModule {
+  class HadoopPathSerializer(pathClass: Class[Path]) extends StdSerializer[Path](pathClass) {
+    def this() = {
+      this(classOf[Path])
+    }
+
+    override def serialize(value: Path, jGen: JsonGenerator, provider: SerializerProvider): Unit = {
+      jGen.writeString(value.toString)
+    }
+  }
+  this.addSerializer(new HadoopPathSerializer())
+}
+
+class StorageLevelModule extends SimpleModule {
+  class StorageLevelSerializer(storageLevelClass: Class[StorageLevel])
+      extends StdSerializer[StorageLevel](storageLevelClass) {
+    def this() = {
+      this(classOf[StorageLevel])
+    }
+
+    override def serialize(
+      value: StorageLevel,
+      jGen: JsonGenerator,
+      provider: SerializerProvider
+    ): Unit = {
+      def toString(s: StorageLevel): String = s match {
+        case NONE                  => "NONE"
+        case DISK_ONLY             => "DISK_ONLY"
+        case DISK_ONLY_2           => "DISK_ONLY_2"
+        case DISK_ONLY_3           => "DISK_ONLY_3"
+        case MEMORY_ONLY           => "MEMORY_ONLY"
+        case MEMORY_ONLY_2         => "MEMORY_ONLY_2"
+        case MEMORY_ONLY_SER       => "MEMORY_ONLY_SER"
+        case MEMORY_ONLY_SER_2     => "MEMORY_ONLY_SER_2"
+        case MEMORY_AND_DISK       => "MEMORY_AND_DISK"
+        case MEMORY_AND_DISK_2     => "MEMORY_AND_DISK_2"
+        case MEMORY_AND_DISK_SER   => "MEMORY_AND_DISK_SER"
+        case MEMORY_AND_DISK_SER_2 => "MEMORY_AND_DISK_SER_2"
+        case OFF_HEAP              => "OFF_HEAP"
+        case _ => throw new IllegalArgumentException(s"Invalid StorageLevel: $s")
+      }
+      jGen.writeString(toString(value))
+    }
+  }
+  this.addSerializer(new StorageLevelSerializer())
 }

@@ -19,21 +19,53 @@
  */
 package ai.starlake.extract
 
-import ai.starlake.utils.CliConfig
-import org.joda.time.DateTime
-import scopt.OParser
+import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.model.{Attribute, PrimitiveType}
+import org.apache.hadoop.fs.Path
 
-case class ExtractDataConfig(
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneId}
+
+/** This class defined the configuration provided by the end user from CLI
+  *
+  * @param extractConfig
+  *   the extract configuration file name in the extract folder used for data extraction.
+  * @param outputDir
+  *   the base output directory of fetched data
+  * @param limit
+  *   the maximum number of elements retrieved in a table
+  * @param numPartitions
+  *   the number of partitions to use when fetching a table in parallel. Can be overrided in table
+  *   definition or jdbc schema
+  * @param parallelism
+  *   the number of tables to process in parallel
+  * @param fullExport
+  *   indicates wether we should export the table in full or not. By default, it is true
+  * @param ifExtractedBefore
+  *   datetime to compare with. If last succesful extraction datetime is more recent than given
+  *   datetime, extraction is skipped.
+  * @param ignoreExtractionFailure
+  *   specify the behavior on any failures occurring during extraction.
+  * @param cleanOnExtract
+  *   clean all files related to the table if the table is extracted
+  * @param includeSchemas
+  *   schemas to include. Any schema not matching this list are excluded.
+  * @param excludeSchemas
+  *   schemas to exclude. Any schema not matching this list are included.
+  * @param includeTables
+  *   tables to include. Any table not matching this list are excluded.
+  * @param excludeTables
+  *   tables to exclude. Any table not matching this list are included.
+  */
+case class UserExtractDataConfig(
   extractConfig: String = "",
   outputDir: Option[String] = None,
   limit: Int = 0,
-  separator: Char = ';',
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
-  fullExport: Boolean = false,
-  datePattern: String = "yyyy-MM-dd",
-  timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
+  fullExport: Option[Boolean] = None,
   ifExtractedBefore: Option[Long] = None,
+  ignoreExtractionFailure: Boolean = false,
   cleanOnExtract: Boolean = false,
   includeSchemas: Seq[String] = Seq.empty,
   excludeSchemas: Seq[String] = Seq.empty,
@@ -41,144 +73,84 @@ case class ExtractDataConfig(
   excludeTables: Seq[String] = Seq.empty
 )
 
-object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
-  val command = "extract-data"
-  val parser: OParser[Unit, ExtractDataConfig] = {
-    val builder = OParser.builder[ExtractDataConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(
-        """
-          |Extract data from any database defined in mapping file.
-          |
-          |Extraction is done in parallel by default and use all the available processors. It can be changed using `parallelism` CLI config.
-          |Extraction of a table can be divided in smaller chunk and fetched in parallel by defining partitionColumn and its numPartitions.
-          |
-          |Examples
-          |========
-          |
-          |Objective: Extract data and customize timestamp to have higher precision.
-          |
-          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
-          |
-          |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
-          |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
-          |         --clean
-          |
-          |""".stripMargin
-      ),
-      opt[String]("mapping")
-        .action((x, c) => c.copy(extractConfig = x))
-        .optional()
-        .text("Deprecated. Use config instead"),
-      opt[String]("config")
-        .action((x, c) => c.copy(extractConfig = x))
-        .required()
-        .text("Database tables & connection info"),
-      opt[Int]("limit")
-        .action((x, c) => c.copy(limit = x))
-        .optional()
-        .text("Limit number of records"),
-      opt[Int]("numPartitions")
-        .action((x, c) => c.copy(numPartitions = x))
-        .optional()
-        .text("parallelism level regarding partitionned tables"),
-      opt[Int]("parallelism")
-        .action((x, c) => c.copy(parallelism = Some(x)))
-        .optional()
-        .text(
-          s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
-        ),
-      opt[Char]("separator")
-        .action((x, c) => c.copy(separator = x))
-        .optional()
-        .text("Column separator"),
-      opt[Unit]("clean")
-        .action((x, c) => c.copy(cleanOnExtract = true))
-        .optional()
-        .text("Clean all files of table only when it is extracted."),
-      opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = Some(x)))
-        .required()
-        .text("Where to output csv files"),
-      opt[Unit]("fullExport")
-        .action((x, c) => c.copy(fullExport = true))
-        .optional()
-        .text("Force full export to all tables"),
-      opt[String]("datePattern")
-        .action((x, c) => c.copy(datePattern = x))
-        .optional()
-        .text("Pattern used to format date during CSV writing"),
-      opt[String]("timestampPattern")
-        .action((x, c) => c.copy(timestampPattern = x))
-        .optional()
-        .text("Pattern used to format timestamp during CSV writing"),
-      opt[String]("ifExtractedBefore")
-        .action((x, c) => c.copy(ifExtractedBefore = Some(DateTime.parse(x).getMillis)))
-        .optional()
-        .text(
-          "DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped."
-        ),
-      opt[Unit]("cleanOnExtract")
-        .action((x, c) => c.copy(cleanOnExtract = true))
-        .optional()
-        .text(
-          "Deprecated. Use --clean instead."
-        ),
-      opt[Seq[String]]("includeSchemas")
-        .action((x, c) => c.copy(includeSchemas = x.map(_.trim)))
-        .valueName("schema1,schema2")
-        .optional()
-        .text("Domains to include during extraction."),
-      opt[Seq[String]]("excludeSchemas")
-        .valueName("schema1,schema2...")
-        .optional()
-        .action((x, c) => c.copy(excludeSchemas = x.map(_.trim)))
-        .text(
-          "Domains to exclude during extraction. if `include-domains` is defined, this config is ignored."
-        ),
-      opt[Seq[String]]("includeTables")
-        .valueName("table1,table2,table3...")
-        .optional()
-        .action((x, c) => c.copy(includeTables = x.map(_.trim)))
-        .text("Schemas to include during extraction."),
-      opt[Seq[String]]("excludeTables")
-        .valueName("table1,table2,table3...")
-        .optional()
-        .action((x, c) => c.copy(excludeTables = x.map(_.trim)))
-        .text(
-          "Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored."
-        ),
-      checkConfig { c =>
-        val domainChecks = (c.excludeSchemas, c.includeSchemas) match {
-          case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil
-          case _ => List("You can't specify includeSchemas and excludeSchemas at the same time.")
-        }
-        val schemaChecks = (c.excludeTables, c.includeTables) match {
-          case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil
-          case _ => List("You can't specify includeTables and excludeTables at the same time.")
-        }
-        val allErrors = domainChecks ++ schemaChecks
-        if (allErrors.isEmpty) {
-          success
-        } else {
-          failure(allErrors.mkString("\n"))
-        }
+/** Class used during data extraction process
+  */
+case class ExtractDataConfig(
+  jdbcSchema: JDBCSchema,
+  baseOutputDir: Path,
+  limit: Int,
+  numPartitions: Int,
+  parallelism: Option[Int],
+  cliFullExport: Option[Boolean],
+  extractionPredicate: Option[Long => Boolean],
+  ignoreExtractionFailure: Boolean,
+  cleanOnExtract: Boolean,
+  includeTables: Seq[String],
+  excludeTables: Seq[String],
+  outputFormat: FileFormat,
+  data: Connection,
+  audit: Connection
+)
+
+/** Information related to how the table should be extracted. We've got partitionned table and
+  * unpartitionned table.
+  */
+case class TableExtractDataConfig(
+  domain: String,
+  table: String,
+  sql: Option[String],
+  columnsProjection: List[Attribute],
+  fullExport: Boolean,
+  fetchSize: Option[Int],
+  tableOutputDir: Path,
+  filterOpt: Option[String],
+  partitionConfig: Option[PartitionConfig]
+) {
+
+  val extractionDateTime: String = {
+    val formatter = DateTimeFormatter
+      .ofPattern("yyyyMMddHHmmss")
+      .withZone(ZoneId.systemDefault())
+    formatter.format(Instant.now())
+  }
+
+  def columnsProjectionQuery(connectionSettings: Connection): String = columnsProjection
+    .map(c =>
+      c.name -> c.rename match {
+        case (name, Some(newName)) =>
+          connectionSettings.quoteIdentifier(name) + " as " + connectionSettings.quoteIdentifier(
+            newName
+          )
+        case (name, _) => connectionSettings.quoteIdentifier(name)
       }
     )
-  }
+    .mkString(",")
 
-  /** @param args
-    *   args list passed from command line
-    * @return
-    *   Option of case class JDBC2YmlConfig.
-    */
-  def parse(args: Seq[String]): Option[ExtractDataConfig] = {
-    args.foreach(println)
-    OParser.parse(parser, args, ExtractDataConfig())
-  }
+  lazy val partitionColumn: String = partitionConfig
+    .map(_.partitionColumn)
+    .getOrElse(throw new RuntimeException("Partition column not defined"))
 
+  lazy val partitionColumnType: PrimitiveType = partitionConfig
+    .map(_.partitionColumnType)
+    .getOrElse(throw new RuntimeException("Partition column type not defined"))
+
+  val hashFunc: Option[String] = partitionConfig.flatMap(_.hashFunc)
+
+  lazy val nbPartitions: Int = partitionConfig
+    .map(_.nbPartitions)
+    .getOrElse(throw new RuntimeException("Partition column type not defined"))
 }
+
+case class PartitionConfig(
+  partitionColumn: String,
+  partitionColumnType: PrimitiveType,
+  hashFunc: Option[String],
+  nbPartitions: Int
+)
+
+case class ExtractTableAttributes(
+  tableRemarks: Option[String],
+  columNames: List[Attribute],
+  primaryKeys: List[String],
+  filterOpt: Option[String]
+)

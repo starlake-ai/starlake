@@ -13,16 +13,16 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.avro.SchemaConverters
 import org.apache.spark.sql.streaming.Trigger
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class KafkaJob(
-  val kafkaJobConfig: KafkaJobConfig
+  kafkaJobConfig: KafkaJobConfig,
+  schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
   import settings.storageHandler
   DatasetArea.initMetadata(storageHandler())
-  val schemaHandler = new SchemaHandler(storageHandler())
 
   private val topicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.topicConfigName.map(settings.appConfig.kafka.topics)
@@ -95,7 +95,7 @@ class KafkaJob(
       .getConfig(configValue)
       .entrySet()
       .asScala
-      .to[Vector]
+      .toVector
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .toMap
   }
@@ -146,7 +146,8 @@ class KafkaJob(
               .load(
                 finalLoadPath
                   .getOrElse(throw new Exception("Load path should be set in config"))
-                  .split(','): _*
+                  .split(',')
+                  .toIndexedSeq: _*
               )
             val transformedDF: DataFrame = transform(df)
             (kafkaJobConfig.writeFormat, writeTopicConfig) match {
@@ -203,6 +204,7 @@ class KafkaJob(
             targetPath,
             recursive = false
           )
+          .map(_.path)
           .filter(_.getName.startsWith("part-"))
           .head
         val tmpPath = new Path(targetPath.toString + ".tmp")

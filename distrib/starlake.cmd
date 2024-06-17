@@ -1,256 +1,160 @@
-@echo off && setlocal EnableDelayedExpansion
+@echo off
+setlocal enabledelayedexpansion
 
-SET SCRIPT_DIR=%~dp0
-SET SCRIPT_DIR=%SCRIPT_DIR:~0,-1%
+set "SCRIPT_DIR=%~dp0"
 
-SET SCALA_VERSION=2.12
-SET SL_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%
-SET SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_%SCALA_VERSION%
-SET HADOOP_DEFAULT_VERSION=3.2.2
-SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/hadoop.dll
-SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/winutils.exe
-SET SPARK_TARGET_FOLDER=%SCRIPT_DIR%\bin\spark
-SET SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd
-REM SET SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
-
-SET HADOOP_DOWNLOADED=FALSE
-SET HADOOP_DLL_DOWNLOADED=FALSE
-SET HADOOP_WINUTILS_DOWNLOADED=FALSE
-SET SPARK_DOWNLOADED=FALSE
-SET SL_DOWNLOADED=FALSE
-SET SKIP_INSTALL=TRUE
-
-ECHO -------------------
-ECHO    Current state
-ECHO -------------------
-
-if "x%HADOOP_HOME%"=="x" (
-    SET HADOOP_HOME=%SCRIPT_DIR%\bin\hadoop
+if "%SL_ROOT%"=="" (
+    SET "SL_ROOT=%cd%"
 )
 
-if exist %HADOOP_HOME% (
-    ECHO - hadoop: OK
-    SET HADOOP_DOWNLOADED=TRUE
+IF EXIST "%SCRIPT_DIR%versions.cmd" (
+    call "%SCRIPT_DIR%versions.cmd"
+)
+
+
+:: Internal variables
+set "SL_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%"
+set "SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_MAJOR_VERSION%"
+set "SPARK_TARGET_FOLDER=%SCRIPT_DIR%bin\spark"
+set "DEPS_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin\deps"
+set "STARLAKE_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin\sl"
+if "%SPARK_DRIVER_MEMORY%"=="" set "SPARK_DRIVER_MEMORY=4G"
+set "SL_MAIN=ai.starlake.job.Main"
+set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
+:: set "SL_VALIDATE_ON_LOAD=false"
+if not "%SL_VERSION%"=="" SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar
+:: End of internal variables
+
+:: Check if Java is installed using JAVA_HOME env variable
+
+if "%JAVA_HOME%"=="" (
+    set "RUNNER=java"
 ) else (
-    SET SKIP_INSTALL=FALSE
-    ECHO - hadoop: KO
+    set "RUNNER=%JAVA_HOME%\bin\java"
 )
 
-if exist %HADOOP_HOME%\bin\hadoop.dll (
-    ECHO - hadoop dll: OK
-    SET HADOOP_DLL_DOWNLOADED=TRUE
+IF /i "%language%"=="de" goto languageDE
+
+SET SL_HTTP_HOST=127.0.0.1
+if "%SL_HTTP_HOST%"=="" SET SL_HTTP_HOST=127.0.0.1
+SET SL_SERVE_URI=http://%SL_HTTP_HOST%:%SL_HTTP_PORT%
+if "%~1"=="install" (
+    call :launch_setup %*
+    echo Installation done. You're ready to enjoy Starlake!
+    echo If any errors happen during installation. Please try to install again or open an issue.
 ) else (
-    SET SKIP_INSTALL=FALSE
-    ECHO - hadoop dll: KO
-)
-
-if exist %HADOOP_HOME%\bin\winutils.exe (
-    ECHO - hadoop winutils: OK
-    SET HADOOP_WINUTILS_DOWNLOADED=TRUE
-) else (
-    SET SKIP_INSTALL=FALSE
-    ECHO - hadoop winutils: KO
-)
-
-if exist %SPARK_TARGET_FOLDER%\jars (
-    ECHO - spark: OK
-    SET SPARK_DOWNLOADED=TRUE
-    GOTO :FIND_SL_STAGE
-) else (
-    SET SKIP_INSTALL=FALSE
-    ECHO - spark: KO
-    ECHO - starlake: KO
-    ECHO - spark bq: KO
-    GOTO :SKIP_ARTIFACTS_SEARCH_STAGE
-)
-
-:FIND_SL_STAGE
-for /f "tokens=*" %%f in ('dir %%SPARK_TARGET_FOLDER%%\jars /b /o-n /a-d') do (
-    SET CURRENT_ARTIFACT=%%f
-    Echo %%f | findstr /C:%SL_ARTIFACT_NAME%>nul && (
-        ECHO - starlake: OK
-        SET SL_DOWNLOADED=TRUE
-        GOTO :SET_SL_JAR_FULL_NAME_STAGE
-    )
-)
-SET SKIP_INSTALL=FALSE
-ECHO - starlake: KO
-GOTO :SKIP_SL_SEARCH_STAGE
-
-:SET_SL_JAR_FULL_NAME_STAGE
-SET SL_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%CURRENT_ARTIFACT%
-
-:SKIP_SL_SEARCH_STAGE
-
-:FIND_SPARK_BQ_STAGE
-for /f "tokens=*" %%f in ('dir %%SPARK_TARGET_FOLDER%%\jars /b /o-n /a-d') do (
-    SET CURRENT_ARTIFACT=%%f
-    Echo %%f | findstr /C:%SPARK_BQ_ARTIFACT_NAME%>nul && (
-        ECHO - spark bq: OK
-        SET SPARK_BQ_DOWNLOADED=TRUE
-        GOTO :SKIP_SPARKBQ_SEARCH_STAGE
-    )
-)
-SET SKIP_INSTALL=FALSE
-ECHO - spark bq: KO
-
-:SKIP_SPARKBQ_SEARCH_STAGE
-:SKIP_ARTIFACTS_SEARCH_STAGE
-
-if "%SKIP_INSTALL%"=="TRUE" (
-    goto :SKIP_INSTALL
-)
-
-ECHO.
-ECHO -------------------
-ECHO       Install
-ECHO -------------------
-
-if "x%HADOOP_VERSION%"=="x" (
-    set HADOOP_VERSION=3
-)
-
-if "%HADOOP_DOWNLOADED%"=="TRUE" (
-    echo - hadoop: skipped
-    GOTO :SKIP_HADOOP_HOME
-)
-
-md %HADOOP_HOME%\bin
-echo - hadoop: OK
-
-:SKIP_HADOOP_HOME
-if "%HADOOP_DLL_DOWNLOADED%" == "FALSE" (
-    echo - hadoop dll: downloading from %HADOOP_DLL%
-    powershell -command "Start-BitsTransfer -Source %HADOOP_DLL% -Destination %HADOOP_HOME%\bin\hadoop.dll"
-    echo Hadoop dll version: %HADOOP_DEFAULT_VERSION% >> %SCRIPT_DIR%/version.info
-    echo - hadoop dll: OK
-) else (
-    echo - hadoop dll: skipped
-)
-
-if "%HADOOP_WINUTILS_DOWNLOADED%" == "FALSE" (
-    echo - hadoop winutils: downloading from %WINUTILS_EXE%
-    powershell -command "Start-BitsTransfer -Source %WINUTILS_EXE% -Destination %HADOOP_HOME%\bin\winutils.exe"
-    echo Hadoop winutils version: %HADOOP_DEFAULT_VERSION% >> %SCRIPT_DIR%/version.info
-    echo - hadoop winutils: OK
-) else (
-    echo - hadoop winutils: skipped
-)
-
-if "x%SPARK_VERSION%"=="x" (
-    set SPARK_VERSION=3.3.1
-)
-
-if "x%SPARK_BQ_VERSION%"=="x" (
-    set SPARK_BQ_VERSION=0.27.1
-)
-
-if "%SPARK_DOWNLOADED%" == "TRUE" (
-    echo - spark: skipped
-    GOTO :SKIP_SPARK
-)
-
-SET SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%
-SET SPARK_TGZ_NAME=%SPARK_DIR_NAME%.tgz
-SET SPARK_TGZ_URL=https://archive.apache.org/dist/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%
-SET SPARK_DIR=%SCRIPT_DIR%\%SPARK_DIR_NAME%
-
-if not exist %SPARK_TGZ_NAME% (
-    echo - spark: downloading from %SPARK_TGZ_URL%
-    powershell -command "Start-BitsTransfer -Source %SPARK_TGZ_URL% -Destination ./%SPARK_TGZ_NAME%"
-)
-
-tar zxf .\%SPARK_TGZ_NAME% -C .
-copy %SPARK_DIR_NAME%\conf\log4j2.properties.template %SPARK_DIR_NAME%\conf\log4j2.properties > nul
-md %SPARK_TARGET_FOLDER%
-xcopy /e /v %SPARK_DIR_NAME% %SPARK_TARGET_FOLDER% > nul
-del /F /S /Q %SPARK_DIR_NAME% > nul
-rmdir /S /Q %SPARK_DIR_NAME%
-del /F /Q %SPARK_TGZ_NAME%
-echo Spark version: %SPARK_VERSION% >> %SCRIPT_DIR%/version.info
-echo - spark: OK
-
-:SKIP_SPARK
-
-if "%SL_DOWNLOADED%" == "TRUE" (
-    echo - starlake: skipped
-    GOTO :SKIP_SL_DOWNLOAD
-)
-
-if "x%SL_VERSION%"=="x" (
-    for /f "usebackq delims=" %%a in (`powershell -Command "((((Invoke-WebRequest 'https://search.maven.org/solrsearch/select?q=g:ai.starlake AND a:%SL_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').content) | ConvertFrom-Json).response.docs.v | sort {[version] $_} -Descending)[0]"`) do (
-        set SL_VERSION=%%a
+    if "%~1"=="serve" (
+        call :launch_starlake %*
+    ) else (
+        if "%SL_HTTP_PORT%"=="" (
+            call :launch_starlake %*
+        ) else (
+            FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
+            curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
+            FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+        )
     )
 )
 
-SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar
-SET SL_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%SL_JAR_NAME%
-SET SL_JAR_URL=https://repo1.maven.org/maven2/ai/starlake/%SL_ARTIFACT_NAME%/%SL_VERSION%/%SL_JAR_NAME%
+goto :eof
 
-if not x%SL_VERSION:SNAPSHOT=%==x%SL_VERSION% (
-    SET SL_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/%SL_ARTIFACT_NAME%/%SL_VERSION%/%SL_JAR_NAME%
+:launch_setup
+for /f tokens^=2-5^ delims^=.-_+^" %%j in ('"%RUNNER%" -fullversion 2^>^&1') do set "javaVersion=%%j%%k%%l%%m"
+
+:: Check if Java is installed
+if "%javaVersion%"=="" (
+    echo Java is not installed. Please install Java 11 or above.
+    exit /b 1
 )
 
-echo - starlake: downloading from %SL_JAR_URL%
-powershell -command "Start-BitsTransfer -Source %SL_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%SL_JAR_NAME%"
-echo Starlake version: %SL_VERSION% >> %SCRIPT_DIR%/version.info
-echo - starlake: OK
+:: Check if Java version is less than 11
+if "%javaVersion%" LSS "11000" (
+    echo Java version %javaVersion% is not supported. Please install Java 11 or above.
+    exit /b 1
 
-:SKIP_SL_DOWNLOAD
-
-if "%SPARK_BQ_DOWNLOADED%" == "TRUE" (
-    echo - spark bq: skipped
-    GOTO :SKIP_SPARK_BQ_DOWNLOAD
 )
 
-SET SPARK_BQ_JAR_NAME=%SPARK_BQ_ARTIFACT_NAME%-%SPARK_BQ_VERSION%.jar
-SET SPARK_BQ_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_JAR_NAME%
-SET SPARK_BQ_JAR_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/%SPARK_BQ_ARTIFACT_NAME%/%SPARK_BQ_VERSION%/%SPARK_BQ_JAR_NAME%
-
-echo - spark bq: downloading from %SPARK_BQ_JAR_URL%
-powershell -command "Start-BitsTransfer -Source %SPARK_BQ_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%SPARK_BQ_JAR_NAME%"
-echo Spark bq version: %SPARK_BQ_VERSION% >> %SCRIPT_DIR%/version.info
-echo - spark bq: OK
-
-:SKIP_SPARK_BQ_DOWNLOAD
-
-:SKIP_INSTALL
-if "x%SL_ROOT%"=="x" (
-    set SL_ROOT=%cd%
+set setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
+if defined https_proxy (
+    set "PROXY=%https_proxy%"
+) else if defined http_proxy (
+    set "PROXY=%http_proxy%"
+) else (
+    set "PROXY="
 )
 
-if "x%SL_ENV%"=="x" (
-    set SL_ENV=FS
+if not "%PROXY%"=="" if defined SL_INSECURE (
+    set "CURL_EXTRA=--insecure"
+) else (
+    set "CURL_EXTRA="
 )
 
-if "x%SL_FS%"=="x" (
-    set SL_FS=file://
-)
+curl %CURL_EXTRA%  %PROXY% -s -o %SCRIPT_DIR%setup.jar %setup_url%
 
-if "x%SL_MAIN%"=="x" (
-    set SL_MAIN=ai.starlake.job.Main
-)
+"%RUNNER%" -cp %SCRIPT_DIR%setup.jar Setup %SCRIPT_DIR%
+goto :eof
 
-if "x%SL_VALIDATE_ON_LOAD%"=="x" (
-    set SL_VALIDATE_ON_LOAD=false
-)
 
-if "x%SPARK_DRIVER_MEMORY%"=="x" (
-    set SPARK_DRIVER_MEMORY=4G
-)
 
-ECHO.
-ECHO Launching starlake.
-ECHO - HADOOP_HOME=%HADOOP_HOME%
-ECHO - JAVA_HOME=%JAVA_HOME%
-ECHO - SL_ROOT=%SL_ROOT%
-ECHO - SL_ENV=%SL_ENV%
-ECHO - SL_FS=%SL_FS%
-ECHO - SL_MAIN=%SL_MAIN%
-ECHO - SL_VALIDATE_ON_LOAD=%SL_VALIDATE_ON_LOAD%
-ECHO - SPARK_DRIVER_MEMORY=%SPARK_DRIVER_MEMORY%
-ECHO Make sure your java home path does not contain space
-
+:launch_starlake
 PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
+if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
+    @REM Transform windows path to unix path for java
+    set SL_ROOT=!SL_ROOT:\=/!
+    set SCRIPT_DIR=%SCRIPT_DIR:\=/%
+    set UNIX_SPARK_TARGET_FOLDER=%SPARK_TARGET_FOLDER:\=/%
+    set UNIX_DEPS_EXTRA_LIB_FOLDER=%DEPS_EXTRA_LIB_FOLDER:\=/%
+    set UNIX_STARLAKE_EXTRA_LIB_FOLDER=%STARLAKE_EXTRA_LIB_FOLDER:\=/%
+    echo.
+    echo Launching starlake.
+    echo - HADOOP_HOME=%HADOOP_HOME%
+    echo - JAVA_HOME=%JAVA_HOME%
+    echo - SL_ROOT=%SL_ROOT%
+    echo - SL_ENV=%SL_ENV%
+    echo - SL_ROOT=%SL_ROOT%
 
-CALL %SPARK_SUBMIT% %SPARK_EXTRA_PACKAGES% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %SL_JAR_FULL_NAME% %*
+
+    if "%SL_DEBUG%" == "" (
+        set SPARK_DRIVER_OPTIONS=-Dlog4j.configurationFile=file:///%SCRIPT_DIR%bin/spark/conf/log4j2.properties
+        set SPARK_OPTIONS=-Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%\conf\log4j2.properties"
+    ) else (
+        set SPARK_DRIVER_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile=file:///%SPARK_DIR%/conf/log4j2.properties
+        set SPARK_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%\conf\log4j2.properties"
+    )
+
+    if "%SL_DEFAULT_LOADER%" == "native" (
+        set JAVA_OPTIONS=^
+            --add-opens=java.base/java.lang=ALL-UNNAMED ^
+            --add-opens=java.base/java.lang.invoke=ALL-UNNAMED ^
+            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED ^
+            --add-opens=java.base/java.io=ALL-UNNAMED ^
+            --add-opens=java.base/java.net=ALL-UNNAMED ^
+            --add-opens=java.base/java.nio=ALL-UNNAMED ^
+            --add-opens=java.base/java.util=ALL-UNNAMED ^
+            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED ^
+            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED ^
+            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED ^
+            --add-opens=java.base/sun.nio.cs=ALL-UNNAMED ^
+            --add-opens=java.base/sun.security.action=ALL-UNNAMED ^
+            --add-opens=java.base/sun.util.calendar=ALL-UNNAMED ^
+            --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+
+        rem Add any additional options you need for your Java application here
+        set JAVA_OPTIONS=!JAVA_OPTS! !JAVA_OPTIONS! !SPARK_OPTIONS!
+
+    ) else (
+        set EXTRA_CLASSPATH=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
+        set extra_jars=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%
+
+        for %%F in ("%DEPS_EXTRA_LIB_FOLDER%\"*.jar) do (
+            set "EXTRA_CLASSPATH=!EXTRA_CLASSPATH!;%%F"
+            set "EXTRA_JARS=!EXTRA_JARS!,%%F"
+        )
+        set SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd
+        @REM spark-submit cmd handles windows path
+        !SPARK_SUBMIT! %SPARK_EXTRA_PACKAGES% --driver-java-options "%JAVA_OPTS% %SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "!EXTRA_CLASSPATH!" --class %SL_MAIN% --jars "!EXTRA_JARS!" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
+    )
+) else (
+    echo Starlake jar %SL_JAR_NAME% do not exists. Please install it.
+    EXIT /B 1
+)

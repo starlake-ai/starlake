@@ -1,0 +1,22 @@
+---
+version: 1
+load:
+  name: "locations"
+  metadata:
+    directory: "__SL_TEST_ROOT__"
+    format: "XML"
+    multiline: true
+    array: true
+    withHeader: true
+    separator: ""
+    quote: "\""
+    escape: "\\"
+    writeStrategy:
+      type: "APPEND"
+    options:
+      rowTag: element
+    sink:
+      partition:
+        - year
+        - month
+        - day

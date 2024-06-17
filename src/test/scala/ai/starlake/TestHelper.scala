@@ -21,56 +21,56 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.{ImportConfig, IngestConfig, WatchConfig}
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
+import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
 import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
-import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
+import com.dimafeng.testcontainers._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.FileUtils
-import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, BeforeAndAfterAll}
+import org.scalatest.{Assertion, BeforeAndAfterAll, BeforeAndAfterEach}
 import org.testcontainers.utility.DockerImageName
 
 import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
-import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
+import scala.reflect.io.Directory
 import scala.util.Try
 
 trait TestHelper
     extends AnyFlatSpec
     with Matchers
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with StrictLogging
-    with DatasetLogging {
+    with DatasetLogging
+    with PgContainerHelper {
+
+  override protected def beforeEach(): Unit = {}
+
+  override protected def afterEach(): Unit = {}
 
   override protected def afterAll(): Unit = {
-    sparkSessionInterest.close()
-    super.afterAll()
+    TestHelper.stopSession()
+    BetterFile(starlakeTestRoot).delete(swallowIOExceptions = true)
   }
 
-  def setEnv(key: String, value: String): Unit = {
-    val field = System.getenv().getClass.getDeclaredField("m")
-    field.setAccessible(true)
-    val map =
-      field.get(System.getenv()).asInstanceOf[java.util.Map[java.lang.String, java.lang.String]]
-    map.put(key, value)
+  override protected def beforeAll(): Unit = {
+    Settings.invalidateCaches()
   }
 
   private lazy val starlakeTestPrefix: String = s"starlake-test-${TestHelper.runtimeId}"
@@ -80,36 +80,77 @@ trait TestHelper
 
   def starlakeTestId: String = s"${starlakeTestPrefix}-${starlakeTestInstanceId}"
 
+  lazy val tempDir = Files.createTempDirectory(starlakeTestId)
+
   lazy val starlakeTestRoot: String =
-    Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
-      case Some(true) =>
-        BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString.replace("\\", "/")
-      case _ => BetterFile(Files.createTempDirectory(starlakeTestId)).pathAsString
+    if (sys.env.getOrElse("SL_INTERNAL_WITH_ENVS_SET", "false").toBoolean) {
+      sys.env.getOrElse("SL_ROOT", tempDir.toString)
+    } else {
+      Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
+        case Some(true) =>
+          BetterFile(tempDir).pathAsString
+            .replace("\\", "/")
+        case _ => BetterFile(tempDir).pathAsString
+      }
     }
   lazy val starlakeDatasetsPath: String = starlakeTestRoot + "/datasets"
   lazy val starlakeMetadataPath: String = starlakeTestRoot + "/metadata"
+  lazy val starlakeLoadPath: String = starlakeMetadataPath + "/load"
 
   def baseConfigString =
     s"""
+       |SL_VALIDATE_ON_LOAD=true
        |SL_ASSERTIONS_ACTIVE=true
+       |SL_DEFAULT_WRITE_FORMAT=delta
        |SL_ROOT="${starlakeTestRoot}"
        |SL_TEST_ID="${starlakeTestId}"
-       |SL_DATASETS="${starlakeDatasetsPath}"
-       |SL_METADATA="${starlakeMetadataPath}"
        |SL_LOCK_PATH="${starlakeTestRoot}/locks"
-       |SL_METRICS_PATH="${starlakeTestRoot}/metrics/{{domain}}/{{schema}}"
+       |SL_METRICS_PATH="${starlakeTestRoot}/audit/metrics/{{schema}}"
        |SL_AUDIT_PATH="${starlakeTestRoot}/audit"
        |SL_UDFS="ai.starlake.udf.TestUdf"
        |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
-       |SL_ACCESS_POLICIES_LOCATION="eu"
-       |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
+       |SL_ACCESS_POLICIES_LOCATION="europe-west1"
+       |SL_ACCESS_POLICIES_TAXONOMY="GDPR"
        |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
         .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
        |include required("application-test.conf")
+       |connections.test-pg {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${pgContainer.jdbcUrl}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.postgresql.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |connections.test-mariadb {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${TestHelper.mariadbContainer.jdbcUrl}"
+       |      "user": "test"
+       |      "password": "test"
+       |      "driver": "org.mariadb.jdbc.Driver"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |connections.audit {
+       |    type = "jdbc"
+       |    options {
+       |      "url": "${pgContainer.jdbcUrl}"
+       |      "driver": "org.postgresql.Driver"
+       |      "user": "test"
+       |      "password": "test"
+       |      "quoteIdentifiers": false
+       |    }
+       |  }
+       |
+       |
        |
        |""".stripMargin
 
   def testConfiguration: Config = {
+    Settings.invalidateCaches()
     val rootConfig = ConfigFactory.parseString(
       baseConfigString,
       ConfigParseOptions.defaults().setAllowMissing(false)
@@ -121,22 +162,22 @@ trait TestHelper
           "lock.poll-time",
           ConfigValueFactory.fromAnyRef("5 ms")
         ) // in local mode we don't need to wait quite as much as we do on a real cluster
-
     testConfig
+
   }
 
   val allTypes: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/default.comet.yml"
+      "default.sl.yml",
+      "/sample/default.sl.yml"
     ),
     FileToImport(
-      "types.comet.yml",
-      "/sample/types.comet.yml"
+      "types.sl.yml",
+      "/sample/types.sl.yml"
     )
   )
 
-  val allMappings: List[FileToImport] = List(
+  val allExtracts: List[FileToImport] = List(
     FileToImport(
       "create.ssp",
       "/sample/ddl/bigquery/create.ssp",
@@ -146,41 +187,26 @@ trait TestHelper
 
   val allExpectations: List[FileToImport] = List(
     FileToImport(
-      "default.comet.yml",
-      "/sample/expectations/default.comet.yml"
-    ),
-    FileToImport(
-      "types.comet.yml",
-      "/sample/expectations/assertions.comet.yml"
-    )
-  )
-
-  val allViews: List[FileToImport] = List(
-    FileToImport(
-      "default.comet.yml",
-      "/sample/views/default.comet.yml"
-    ),
-    FileToImport(
-      "types.comet.yml",
-      "/sample/views/views.comet.yml"
+      "default.j2",
+      "/sample/expectations/default.j2"
     )
   )
 
   val allDags: List[FileToImport] = List(
     FileToImport(
-      "sample.comet.yml",
-      "/yml2dag//sample.comet.yml"
+      "sample.sl.yml",
+      "/dag/sample.sl.yml"
     ),
     FileToImport(
       "sample.py.j2",
-      "/yml2dag/templates/sample.py.j2"
+      "/templates/dags/sample.py.j2"
     )
   )
 
   val applicationYmlConfig: List[FileToImport] = List(
     FileToImport(
-      "application.comet.yml",
-      "/config//application.comet.yml"
+      "application.sl.yml",
+      "/config/application.sl.yml"
     )
   )
 
@@ -189,6 +215,7 @@ trait TestHelper
   }
 
   def loadTextFile(filename: String)(implicit codec: Codec): String = {
+    logger.info("loading resource " + filename)
     val stream: InputStream = getClass.getResourceAsStream(filename)
     Utils.withResources(Source.fromInputStream(stream))(readSourceContentAsString)
   }
@@ -211,8 +238,20 @@ trait TestHelper
     fileContent.replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
   }
 
-  def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
-    op(Settings(configuration))
+  def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {
+    try {
+      implicit val settings = Settings(configuration)
+      op(settings)
+    } catch {
+      case e: Throwable =>
+        logger.error("Error in test", e)
+        throw e
+    } finally {
+      // SparkSession.clearActiveSession()
+      // SparkSession.clearDefaultSession()
+    }
+  }
+
   def withSettings(op: Settings => Assertion): Assertion = withSettings(testConfiguration)(op)
 
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
@@ -220,19 +259,22 @@ trait TestHelper
   def prepareSchema(schema: StructType): StructType =
     StructType(schema.fields.filterNot(f => List("year", "month", "day").contains(f.name)))
 
-  def getTodayPartitionPath: String = {
+  def getTodayCondition: String = {
     val now = LocalDate.now
-    s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
+    s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
+  }
+
+  def getTodayPartitionCondition: String = {
+    val now = LocalDate.now
+    s"year=${now.getYear} and month=${now.getMonthValue} and day=${now.getDayOfMonth}"
   }
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
     implicit val settings = Settings(configuration)
     settings.appConfig.connections.values.foreach(_.checkValidity())
-
     implicit def withSettings: WithSettings = this
-
     def storageHandler = settings.storageHandler()
-
+    // TestHelper.sparkSessionReset
     @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new StarlakeObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
@@ -241,7 +283,7 @@ trait TestHelper
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
       val testContent = applyTestFileSubstitutions(content)
-
+      storageHandler.mkdirs(targetPath.getParent)
       storageHandler.write(testContent, targetPath)(codec.charSet)
 
       logger.whenTraceEnabled {
@@ -258,19 +300,14 @@ trait TestHelper
       storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
 
-    def cleanMetadata: Try[Unit] =
+    def cleanMetadata(implicit settings: Settings): Try[Unit] =
       Try {
-        val allMetadataFiles = FileUtils
-          .listFiles(
-            new File(starlakeMetadataPath),
-            TrueFileFilter.INSTANCE,
-            TrueFileFilter.INSTANCE
-          )
-          .asScala
+        val fload = new File(starlakeLoadPath)
+        val dir = new Directory(fload)
+        dir.deleteRecursively()
+        fload.mkdirs()
 
-        allMetadataFiles
-          .foreach(_.delete())
-
+        DatasetArea.initMetadata(storageHandler)
         deliverTypesFiles()
       }
 
@@ -283,29 +320,21 @@ trait TestHelper
         val expectationPath = new Path(DatasetArea.expectations, assertionToImport.name)
         deliverTestFile(assertionToImport.path, expectationPath)
       }
-      allViews.foreach { viewToImport =>
-        val viewPath = new Path(DatasetArea.views, viewToImport.name)
-        deliverTestFile(viewToImport.path, viewPath)
-      }
-      allMappings.foreach { mappingToImport =>
-        val path = mappingToImport.folder match {
+      allExtracts.foreach { extractToImport =>
+        val path = extractToImport.folder match {
           case None =>
-            DatasetArea.mapping.toString
+            DatasetArea.extract.toString
           case Some(folder) =>
-            DatasetArea.mapping.toString + "/" + folder
+            DatasetArea.extract.toString + "/" + folder
         }
         storageHandler.mkdirs(new Path(path))
-        val mappingPath = new Path(path, mappingToImport.name)
-        deliverTestFile(mappingToImport.path, mappingPath)
+        val extractPath = new Path(path, extractToImport.name)
+        deliverTestFile(extractToImport.path, extractPath)
       }
       allDags.foreach { dagImport =>
         val dagPath = new Path(DatasetArea.dags, dagImport.name)
         deliverTestFile(dagImport.path, dagPath)
       }
-      /*applicationYmlConfig.foreach { appImport =>
-        val configPath = new Path(DatasetArea.metadata, appImport.name)
-        deliverTestFile(appImport.path, configPath)
-      }*/
     }
 
     // Init
@@ -323,21 +352,30 @@ trait TestHelper
 
   }
 
-  private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
+  // private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
-  def sparkSession(implicit settings: Settings) = sparkSessionInterest.get(settings)
+  /*
+  def sparkSession(implicit settings: Settings) = {
+    sparkSessionInterest.get(settings)
+  }
+   */
+  private val _testId: String = UUID.randomUUID().toString
 
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
+  def sparkSession(implicit isettings: Settings): SparkSession = {
+    TestHelper.sparkSession(isettings, _testId)
+  }
+
+  def sparkSessionReset(implicit isettings: Settings): SparkSession = {
+    TestHelper.sparkSession(isettings, _testId, forceReset = true)
   }
 
   abstract class SpecTrait(
-    val domainOrJobFilename: String,
     val sourceDomainOrJobPathname: String,
     val datasetDomainName: String,
     val sourceDatasetPathName: String,
-    isDomain: Boolean = true // TODO refactor. false if delivering a job
+    val jobFilename: Option[String] = None
   )(implicit withSettings: WithSettings) {
+
     implicit def settings: Settings = withSettings.settings
     def storageHandler: StorageHandler = settings.storageHandler()
     val domainMetadataRootPath: Path = DatasetArea.load
@@ -345,63 +383,112 @@ trait TestHelper
 
     def cleanDatasets: Try[Unit] =
       Try {
-        val deletedFiles = FileUtils
-          .listFiles(
-            new File(starlakeDatasetsPath),
-            TrueFileFilter.INSTANCE,
-            TrueFileFilter.INSTANCE
-          )
-          .asScala
-
-        deletedFiles
-          .foreach(_.delete())
-        if (isDomain)
-          deliverSourceDomain()
-        else
-          deliverSourceJob()
+        val fDatasets = new File(starlakeDatasetsPath)
+        val dir = new Directory(fDatasets)
+        dir.deleteRecursively()
+        new File(starlakeDatasetsPath).mkdir()
+        jobFilename match {
+          case Some(_) =>
+            deliverSourceJob()
+          case None =>
+            deliverSourceDomain()
+        }
       }
 
     def deliverSourceDomain(): Unit = {
-      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.comet.yml")
+      deliverSourceDomain(datasetDomainName, sourceDomainOrJobPathname)
+    }
+
+    def deliverSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
+      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
 
       withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
     }
 
+    def deliverSourceTable(sourceTablePath: String): Unit = {
+      deliverSourceTable(datasetDomainName, sourceTablePath)
+    }
+
+    def deliverSourceTable(
+      datasetDomainName: String,
+      sourceTablePath: String,
+      tableFileName: Option[String] = None
+    ): Unit = {
+      val fileName = tableFileName.getOrElse(new Path(sourceTablePath).getName)
+      val tablePath = new Path(domainMetadataRootPath, s"$datasetDomainName/$fileName")
+      withSettings.deliverTestFile(sourceTablePath, tablePath)
+    }
+
+    def deleteSourceDomain(datasetDomainName: String, sourceDomainOrJobPathname: String): Unit = {
+      val domainPath = new Path(domainMetadataRootPath, s"$datasetDomainName/_config.sl.yml")
+      storageHandler.delete(domainPath)
+    }
+
+    def getTablePath(domain: String, table: String): String = {
+      val tblMetadata = sparkSession.sessionState.catalog.getTableMetadata(
+        new TableIdentifier(table, Some(domain))
+      )
+      tblMetadata.location.getPath
+
+    }
+
+    def deleteSourceDomains(): Unit = {
+      val fload = new File(starlakeLoadPath)
+      new Directory(fload).deleteRecursively()
+      fload.mkdirs()
+    }
+
     def deliverSourceJob(): Unit = {
+      jobFilename.foreach(
+        deliverSourceJob(sourceDomainOrJobPathname, datasetDomainName, _)
+      )
+    }
+
+    def deliverSourceJob(
+      sourceDomainOrJobPathname: String,
+      datasetDomainName: String,
+      domainOrJobFilename: String
+    ): Unit = {
       val jobPath = new Path(jobMetadataRootPath, s"$datasetDomainName/$domainOrJobFilename")
       withSettings.deliverTestFile(sourceDomainOrJobPathname, jobPath)
 
     }
 
     protected def loadWorkflow()(implicit codec: Codec): IngestionWorkflow = {
+      loadWorkflow(datasetDomainName, sourceDatasetPathName)
+    }
+
+    protected def loadWorkflow(datasetDomainName: String, sourceDatasetPathName: String)(implicit
+      codec: Codec
+    ): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
-        DatasetArea.pending(datasetDomainName),
+        DatasetArea.stage(datasetDomainName),
         new Path(sourceDatasetPathName).getName
       )
 
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
       val schemaHandler = new SchemaHandler(settings.storageHandler())
-      schemaHandler.fullValidation()
+      schemaHandler.checkValidity()
 
       DatasetArea.initMetadata(storageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler)
       validator
     }
 
-    def loadPending(implicit codec: Codec): Boolean = {
+    def loadPending(implicit codec: Codec): Try[Boolean] = {
       val validator = loadWorkflow()
-      validator.loadPending()
+      validator.load(LoadConfig(accessToken = None, test = false, files = None))
     }
 
-    def secure(config: WatchConfig): Boolean = {
+    def secure(config: LoadConfig): Try[Boolean] = {
       val validator = loadWorkflow()
       validator.secure(config)
     }
 
-    def load(config: IngestConfig): Boolean = {
+    def load(config: IngestConfig): Try[Boolean] = {
       val validator = loadWorkflow()
       validator.load(config)
     }
@@ -446,8 +533,8 @@ trait TestHelper
       }
 
       // Load landing file
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      validator.loadLanding(ImportConfig())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler)
+      validator.stage(StageConfig())
     }
   }
 
@@ -475,6 +562,7 @@ trait TestHelper
     val esDockerImageName = DockerImageName.parse(s"$esDockerImage:$esDockerTag")
     ElasticsearchContainer.Def(esDockerImageName).start()
   }
+
   def deepEquals(l1: List[Attribute], l2: List[Attribute]): Boolean = {
     l1.zip(l2).foreach { case (a1, a2) =>
       a1.name should equal(a2.name)
@@ -486,147 +574,109 @@ trait TestHelper
   }
 }
 
-object TestHelper {
-
-  /** This class manages an interest into having an access to the (effectively global) Test
-    * SparkSession
-    */
-  private case class TestSparkSessionInterest() extends AutoCloseable {
-    private val closed = new AtomicBoolean(false)
-
-    TestSparkSession.acquire()
-
-    def get(settings: Settings): SparkSession = TestSparkSession.get(settings)
-
-    def close(): Unit =
-      if (!closed.getAndSet(true)) TestSparkSession.release()
+object TestHelper extends StrictLogging {
+  lazy val mariadbContainer: MariaDBContainer = {
+    val dockerImage = "mariadb"
+    val dockerTag = "latest"
+    val dockerImageName = DockerImageName.parse(s"$dockerImage:$dockerTag")
+    val initScriptParam =
+      JdbcDatabaseContainer.CommonParams()
+    val container = MariaDBContainer
+      .Def(
+        dockerImageName,
+        dbName = "starlake",
+        dbUsername = "test",
+        dbPassword = "test",
+        commonJdbcParams = initScriptParam
+      )
+      .createContainer()
+    container.start()
+    container
   }
 
-  /** This class manages the lifetime of the SparkSession that is shared among various Suites
-    * (instances of TestHelper) that may be running concurrently.
-    *
-    * @note
-    *   certain scenarios (such as single-core test execution) can create a window where no
-    *   TestSparkSessionInterest() instances exist. In which case, SparkSessions will be closed,
-    *   destroyed and rebuilt for each Suite.
-    */
-  private object TestSparkSession extends StrictLogging {
+  private var _session: SparkSession = null
+  private var _testId: String = null
 
-    /** This state machine manages the lifetime of the (effectively global) [[SparkSession]]
-      * instance shared between the Suites that inherit from [[TestHelper]].
-      *
-      * The allowed transitions allow for:
-      *   - registration of interest into having access to the SparkSession
-      *   - deferred creation of the SparkSession until there is an actual use
-      *   - closure of the SparkSession when there is no longer any expressed interest
-      *   - re-start of a fresh SparkSession in case additional Suites spin up after closure of the
-      *     SparkSession
-      */
-    sealed abstract class State {
-      def references: Int
-      def acquire: State
-      def get(settings: Settings): (SparkSession, State)
-      def release: State
+  def stopSession() = {
+    if (_session != null) {
+
+      _session.stop()
+      _session = null
     }
 
-    object State {
+  }
 
-      case object Empty extends State {
-        def references: Int = 0
+  def cleanMetastore(path: String): Try[Unit] =
+    Try {
+      val fMetastore = new File(path + "/metastore_db")
+      new Directory(fMetastore).deleteRecursively()
+      val fDerby = new File(path + "/derby.log")
+      fDerby.delete()
+    }
 
-        def acquire: State = Latent(1)
-
-        def release: State =
-          throw new IllegalStateException(
-            "cannot release a Global Spark Session that was never started"
-          )
-
-        override def get(settings: Settings): (SparkSession, State) =
-          throw new IllegalStateException(
-            "cannot get global SparkSession without first acquiring a lease to it"
-          ) // can we avoid this?
-      }
-
-      final case class Latent(references: Int) extends State {
-        def acquire: Latent = Latent(references + 1)
-        def release: State = if (references > 1) Latent(references - 1) else Empty
-
-        def get(isettings: Settings): (SparkSession, Running) = {
-          val job = new SparkJob {
-            override def name: String = s"test-${UUID.randomUUID()}"
-
-            override implicit def settings: Settings = isettings
-
-            override def run(): Try[JobResult] =
-              ??? // we just create a dummy job to get a valid Spark session
+  def cleanDatasets(path: String): Try[Unit] =
+    Try {
+      val fDatasets = new File(path)
+      val dir = new Directory(fDatasets)
+      dir.list.foreach { f =>
+        if (f.isDirectory) {
+          if (f.name != "metastore_db") {
+            f.deleteRecursively()
           }
-          val session = job.session
-          (session, Running(references, session))
+        } else if (f.name != "derby.log") {
+          f.delete()
         }
-      }
-
-      final case class Running(references: Int, session: SparkSession) extends State {
-        override def get(settings: Settings): (SparkSession, State) = (session, this)
-
-        override def acquire: State = Running(references + 1, session)
-
-        override def release: State =
-          if (references > 1) {
-            Running(references - 1, session)
-          } else {
-            session.close()
-            Terminated
-          }
-      }
-
-      case object Terminated extends State {
-        override def references: Int = 0
-
-        override def get(settings: Settings): (SparkSession, State) =
-          throw new IllegalStateException(
-            "cannot get new global SparkSession after one was created then closed"
-          )
-
-        override def acquire: State = {
-          logger.debug(
-            "Terminated SparkInterest sees new acquisition — clearing up old closed SparkSession"
-          )
-          SparkSession.clearActiveSession()
-          SparkSession.clearDefaultSession()
-
-          Empty.acquire
-        }
-
-        override def release: State =
-          throw new IllegalStateException(
-            "cannot release again a Global Spark Session after it was already closed"
-          )
       }
     }
 
-    private var state: State = State.Empty
+  def closeSession(): Unit = {
+    if (_session != null) {
+      _session.stop()
+      _session = null
+    }
+  }
 
-    def get(settings: Settings): SparkSession =
-      this.synchronized {
-        val (session, nstate) = state.get(settings)
-        state = nstate
-        logger.trace(s"handing out SparkSession instance, now state=${nstate}")
-        session
-      }
+  def sparkSession(implicit
+    isettings: Settings,
+    testId: String,
+    forceReset: Boolean = false
+  ): SparkSession = {
+    if (forceReset || _session == null) {
+      closeSession()
+      logger.info(s"Creating new Spark session for test $testId")
+      // BetterFile("metastore_db").delete(swallowIOExceptions = true)
+      // val settings: Settings = Settings(Settings.referenceConfig)
+      // cleanDatasets(isettings.appConfig.datasets)
+      val job = new SparkJob {
+        override def name: String = s"test-${UUID.randomUUID()}"
 
-    def acquire(): Unit =
-      this.synchronized {
-        val nstate = state.acquire
-        logger.trace(s"acquired new interest into SparkSession instance, now state=${nstate}")
-        state = nstate
-      }
+        override implicit def settings: Settings = isettings
 
-    def release(): Unit =
-      this.synchronized {
-        val nstate = state.release
-        logger.trace(s"released interest from SparkSession instances, now state=${nstate}")
-        state = nstate
+        override def run(): Try[JobResult] =
+          ??? // we just create a dummy job to get a valid Spark session
       }
+      _session = job.session
+      _testId = testId
+    } else {
+      logger.info(s"Reusing Spark session for test $testId")
+    }
+    _session
+  }
+
+  def sparkSessionReset(implicit isettings: Settings): SparkSession = {
+    if (_session != null) {
+      _session.stop()
+      _session = null
+      // BetterFile("metastore_db").delete(swallowIOExceptions = true)
+    }
+    val job = new SparkJob {
+      override def name: String = s"test-${UUID.randomUUID()}"
+      override implicit def settings: Settings = isettings
+      override def run(): Try[JobResult] =
+        ??? // we just create a dummy job to get a valid Spark session
+    }
+    _session = job.session
+    _session
   }
 
   private val runtimeId: String = UUID.randomUUID().toString

@@ -19,99 +19,10 @@
  */
 package ai.starlake.schema.generator
 
-import ai.starlake.utils.CliConfig
-import better.files.File
-import scopt.OParser
-
-/** @param files
-  *   List of Excel files
-  * @param encryption
-  *   Should pre & post encryption YAML be generated ?
-  * @param delimiter
-  *   : Delimiter to use on generated CSV file after pre-encryption.
-  * @param privacy
-  *   What privacy policies are to be applied at the pre-encrypt step ? All by default.
-  */
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,
-  encryption: Boolean = false,
   iamPolicyTagsFile: Option[String] = None,
-  delimiter: Option[String] = None,
-  privacy: Seq[String] = Nil,
   outputPath: Option[String] = None,
   policyFile: Option[String] = None,
   job: Boolean = false
 )
-
-object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
-  val command = "xls2yml"
-
-  val parser: OParser[Unit, Xls2YmlConfig] = {
-    val builder = OParser.builder[Xls2YmlConfig]
-    import builder._
-    OParser.sequence(
-      programName(s"starlake $command"),
-      head("starlake", command, "[options]"),
-      note(""),
-      opt[Seq[String]]("files")
-        .action { (x, c) =>
-          val allFiles = x.flatMap { f =>
-            val file = File(f)
-            if (file.isDirectory()) {
-              file.collectChildren(_.name.endsWith(".xlsx")).toList
-            } else if (file.exists) {
-              List(file)
-            } else {
-              throw new IllegalArgumentException(s"File $file does not exist")
-            }
-          }
-
-          c.copy(files = allFiles.map(_.pathAsString))
-        }
-        .required()
-        .text("List of Excel files describing domains & schemas or jobs"),
-      opt[Boolean]("encryption")
-        .action((x, c) => c.copy(encryption = x))
-        .optional()
-        .text("If true generate pre and post encryption YML"),
-      opt[String]("iamPolicyTagsFile")
-        .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
-        .optional()
-        .text("If true generate IAM PolicyTags YML"),
-      opt[String]("delimiter")
-        .action((x, c) => c.copy(delimiter = Some(x)))
-        .optional()
-        .text("CSV delimiter to use in post-encrypt YML."),
-      opt[Seq[String]]("privacy")
-        .action((x, c) => c.copy(privacy = x map (_.toUpperCase)))
-        .optional()
-        .text(
-          """What privacy policies should be applied in the pre-encryption phase ? All privacy policies are applied by default.""".stripMargin
-        ),
-      opt[Option[String]]("outputPath")
-        .action((x, c) => c.copy(outputPath = x))
-        .optional()
-        .text(
-          """Path for saving the resulting YAML file(s). Starlake domains path is used by default.""".stripMargin
-        ),
-      opt[Option[String]]("policyFile")
-        .action((x, c) => c.copy(policyFile = x))
-        .optional()
-        .text(
-          """Optional File for centralising ACL & RLS definition.""".stripMargin
-        ),
-      opt[Boolean]("job")
-        .action((x, c) => c.copy(job = x))
-        .optional()
-        .text("If true generate YML for a Job.")
-    )
-  }
-
-  /** @param args
-    *   args list passed from command line
-    * @return
-    *   Option of case class SchemaGenConfig.
-    */
-  def parse(args: Seq[String]): Option[Xls2YmlConfig] =
-    OParser.parse(parser, args, Xls2YmlConfig())
-}

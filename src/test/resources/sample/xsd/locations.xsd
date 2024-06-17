@@ -8,6 +8,9 @@
                             <xs:element name="name" type="xs:string" />
                             <xs:element name="seconds" type="xs:unsignedInt" />
                             <xs:element name="millis" type="xs:unsignedInt" />
+                            <xs:element name="year" type="xs:unsignedInt" minOccurs="0"/>
+                            <xs:element name="month" type="xs:unsignedInt"  minOccurs="0"/>
+                            <xs:element name="day" type="xs:unsignedInt"  minOccurs="0"/>
                         </xs:sequence>
                         <xs:attribute name="continent" type="xs:string" use="required" />
                     </xs:complexType>

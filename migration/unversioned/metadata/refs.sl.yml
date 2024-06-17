@@ -1,0 +1,15 @@
+---
+- input:
+    table: ".*"
+    domain: "DATASOURCE_.*"
+  output:
+    database: "datatarget"
+    domain: "domaintarget"
+    table: "tabletarget"
+- input:
+    table: ".*"
+    domain: "DATASOURCE2_.*"
+  output:
+    database: "datatarget2"
+    domain: "domaintarget2"
+    table: "tabletarget2"

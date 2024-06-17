@@ -1,48 +1,88 @@
-import Dependencies._
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import Dependencies.*
+import sbt.Tests.{Group, SubProcess}
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
-import xerial.sbt.Sonatype._
+import xerial.sbt.Sonatype.*
 
-javacOptions ++= Seq("-source", "11", "-target", "11", "-Xlint")
+lazy val javacCompilerVersion = "11"
+
+javacOptions ++= Seq(
+  "-source", javacCompilerVersion,
+  "-target", javacCompilerVersion,
+  "-Xlint"
+)
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
+val testJavaOptions = {
+  val heapSize = sys.env.get("HEAP_SIZE").getOrElse("4g")
+  val extraTestJavaArgs = Seq("-XX:+IgnoreUnrecognizedVMOptions",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/java.net=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+    "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+    "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+    "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED").mkString(" ")
+  s"-Xmx$heapSize -Xss4m -XX:ReservedCodeCacheSize=128m -Dfile.encoding=UTF-8 $extraTestJavaArgs"
+    .split(" ").toSeq
+}
+
+Test / javaOptions ++= testJavaOptions
+
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.17"
+lazy val scala212 = "2.12.19"
 
-ThisBuild / crossScalaVersions := List(scala212)
+lazy val scala213 = "2.13.14"
+
+lazy val supportedScalaVersions = List(scala212, scala213)
+
+ ThisBuild / crossScalaVersions := supportedScalaVersions
 
 organization := "ai.starlake"
 
 organizationName := "starlake"
 
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala212 // scala213 scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 resolvers ++= Resolvers.allResolvers
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark, pureConfigs) = {
+  val versionSpecificLibs = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
+      case Some((2, 12)) => Seq()
+      case Some((2, 13)) => scalaCompat
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark_3d0_forScala_2d12 ++
+    jackson212ForSpark3 ++ esSpark212 ++
+    pureConfig212 ++ scalaReflection(scalaVersion.value) ++
+    versionSpecificLibs
 }
 
 dependencyOverrides := Seq(
   "org.scala-lang"         % "scala-library"             % scalaVersion.value,
   "org.scala-lang"         % "scala-reflect"             % scalaVersion.value,
-  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value
+  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value,
+  "com.google.guava"       %  "guava"                    % "31.1-jre" // required by jinjava 2.7.2
 )
 
 name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => "3"
+      case Some((2, 13)) => "3"
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
@@ -55,6 +95,25 @@ Common.enableStarlakeAliases
 
 enablePlugins(Common.starlakePlugins: _*)
 
+
+scalacOptions ++= {
+  val extractOptions = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => Seq("-Xfatal-warnings")
+      case Some((2, 13)) =>  Seq()
+      case _ => throw new Exception(s"Invalid Scala Version")
+    }
+  }
+  Seq(
+    "-deprecation",
+    "-feature",
+    "-Xmacro-settings:materialize-derivations",
+    "-Ywarn-unused:imports"
+  ) ++ extractOptions
+
+}
+
+
 Common.customSettings
 
 // Builds a far JAR with embedded spark libraries and other provided libs.
@@ -63,16 +122,13 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
-// Assembly
-Test / fork := true
-
-Test / parallelExecution := false
 
 Compile / assembly / artifact := {
   val art: Artifact = (Compile / assembly / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
+// Assembly
 addArtifact(Compile / assembly / artifact, assembly)
 
 assembly / assemblyMergeStrategy := {
@@ -99,7 +155,7 @@ assembly / assemblyExcludedJars := {
       "arrow-format-",
       "arrow-vector-",
       "commons-codec-",
-      // "commons-compress-", // Because POI needs it
+      //"commons-compress-", // Because POI needs it
       "commons-logging-",
       "commons-math3-",
       "flatbuffers-java-",
@@ -110,7 +166,7 @@ assembly / assemblyExcludedJars := {
       "httpclient-",
       "httpcore-",
       "jackson-datatype-jsr310-",
-      "json-",
+      "json-2",
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
@@ -145,8 +201,11 @@ assembly / assemblyShadeRules := Seq(
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll,
   ShadeRule.rename("pureconfig.**" -> "shadepureconfig.@0").inAll,
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.12" % "2.3.3"),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.13" % "2.3.3"),
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.12" % Versions.pureConfig212ForSpark3),
-  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig212ForSpark3)
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.13" % Versions.pureConfig212ForSpark3),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig212ForSpark3),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.13" % Versions.pureConfig212ForSpark3)
   .inProject
 )
 
@@ -276,4 +335,39 @@ developers := List(
 
 //assembly / logLevel := Level.Debug
 
-// addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
+val packageSetup = Def.taskKey[Unit]("Package Setup.class")
+packageSetup := {
+  import java.nio.file.Paths
+  def zipFile(from: List[java.nio.file.Path], to: java.nio.file.Path): Unit = {
+    import java.util.jar.Manifest
+    val manifest = new Manifest()
+    manifest.getMainAttributes().putValue("Manifest-Version", "1.0")
+    manifest.getMainAttributes().putValue("Implementation-Version", version.value)
+    manifest.getMainAttributes().putValue("Implementation-Vendor", "starlake")
+    manifest.getMainAttributes().putValue("Implementation-Vendor", "starlake")
+    manifest.getMainAttributes().putValue("Compiler-Version", javacCompilerVersion)
+
+    IO.jar(from.map(f => f.toFile -> f.toFile.getName()), to.toFile, manifest)
+
+  }
+  val scalaMajorVersion = scalaVersion.value.split('.').take(2).mkString(".")
+  val setupClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup.class")
+  val setupAuthenticatorClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$UserPwdAuth.class")
+  val setupJarDependencyClass = Paths.get(s"target/scala-$scalaMajorVersion/classes/Setup$$JarDependency.class")
+  val to = Paths.get("distrib/setup.jar")
+  zipFile(
+    List(setupClass, setupAuthenticatorClass, setupJarDependencyClass),
+    to
+  )
+}
+
+Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
+
+
+Test / parallelExecution := false
+
+// We want each test to run using its own spark context
+Test / testGrouping :=  (Test / definedTests).value.map { suite =>
+  Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
+}
+

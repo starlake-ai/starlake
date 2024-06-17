@@ -1,30 +1,97 @@
 package ai.starlake.job.metrics
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.lit
 
+import java.sql.Timestamp
+import java.time.Instant
+import java.util.regex.Pattern
 import scala.util.{Failure, Success, Try}
 
 case class ExpectationReport(
+  jobId: String,
+  database: Option[String],
+  domain: String,
+  schema: String,
+  timestamp: Timestamp,
   name: String,
   params: String,
   sql: Option[String],
   count: Option[Long],
-  message: Option[String],
+  exception: Option[String],
   success: Boolean
 ) {
 
   override def toString: String = {
     s"""name: $name, params:$params, count:${count.getOrElse(
         0
-      )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
+      )}, success:$success, message: ${exception.getOrElse("")}, sql:$sql""".stripMargin
   }
+
+  def asSelect(engineName: Engine)(implicit settings: Settings): String = {
+    import ai.starlake.utils.Formatter._
+    timestamp.setNanos(0)
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString)
+      .flatMap(_.tables("expectations").selectSql)
+      .getOrElse("""
+         |SELECT
+         |'{{jobid}}' as JOBID,
+         |'{{database}}' as DATABASE,
+         |'{{domain}}' as DOMAIN,
+         |'{{schema}}' as SCHEMA,
+         |TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
+         |'{{name}}' as NAME,
+         |'{{params}}' as PARAMS,
+         |'{{sql}}' as SQL,
+         |{{count}} as COUNT,
+         |'{{exception}}' as EXCEPTION,
+         |{{success}} as SUCCESS
+         """.stripMargin)
+    val selectStatement = template.richFormat(
+      Map(
+        "jobid"     -> jobId,
+        "database"  -> database.getOrElse(""),
+        "domain"    -> domain,
+        "schema"    -> schema,
+        "timestamp" -> timestamp.toString(),
+        "name"      -> name,
+        "params"    -> params.replaceAll("'", "-").replaceAll("\n", " "),
+        "sql"       -> sql.getOrElse("").replaceAll("'", "-").replaceAll("\n", " "),
+        "count"     -> count.getOrElse(0L).toString,
+        "exception" -> exception.getOrElse("").replaceAll("'", "-").replaceAll("\n", " "),
+        "success"   -> success.toString
+      ),
+      Map.empty
+    )
+    selectStatement
+  }
+}
+
+object ExpectationReport {
+  val starlakeSchema = Schema(
+    name = "expectations",
+    pattern = Pattern.compile("ignore"),
+    attributes = List(
+      Attribute("jobid", "string"),
+      Attribute("database", "string"),
+      Attribute("domain", "string"),
+      Attribute("schema", "string"),
+      Attribute("timestamp", "timestamp"),
+      Attribute("query", "string"),
+      Attribute("expect", "string"),
+      Attribute("sql", "string"),
+      Attribute("count", "long"),
+      Attribute("exception", "string"),
+      Attribute("success", "boolean")
+    ),
+    None,
+    None
+  )
 }
 
 /** Record expectation execution
@@ -40,15 +107,13 @@ case class ExpectationReport(
   *   : Storage Handler
   */
 class ExpectationJob(
+  database: Option[String],
   domainName: String,
   schemaName: String,
-  expectations: Map[String, String],
-  stage: Stage,
+  expectations: List[ExpectationItem],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  dataset: Option[DataFrame],
-  engine: Engine,
-  sqlRunner: String => Long
+  sqlRunner: ExpectationAssertionHandler
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -66,87 +131,113 @@ class ExpectationJob(
   }
 
   override def run(): Try[JobResult] = {
-    val count = dataset.map { dataset =>
-      dataset.createOrReplaceTempView("comet_table")
-      dataset.count()
-    } getOrElse 0
+    var bqSlThisCTE = ""
+    val fullTableName = database match {
+      case Some(db) => s"$db.$domainName.$schemaName"
+      case None     => s"$domainName.$schemaName"
+    }
+    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
-    val expectationLibrary = schemaHandler.expectations(domainName)
-    val calls = ExpectationCalls(expectations).expectationCalls
-    val expectationReports = calls.map { case (_, expectation) =>
-      val sql = expectationLibrary
-        .get(expectation.name)
-        .map { ad =>
-          logger.info(s"Applying substitution ${ad.name} -> ${ad.sql}")
-          val paramsMap =
-            schemaHandler.activeEnvVars() ++ ad.params.zip(expectation.paramValues).toMap
-          // Apply substitution defined with {{ }} and overload options in env by option in command line
-          Utils
-            .subst(
-              Utils
-                .parseJinja(ad.sql, schemaHandler.activeEnvVars() ++ paramsMap)
-                .richFormat(schemaHandler.activeEnvVars(), paramsMap),
-              paramsMap
-            )
-        }
-        .getOrElse(expectation.sql)
-      logger.info(s"Applying expectation ${expectation.name} with request $sql")
+    val macros = schemaHandler.jinjavaMacros
+    val expectationReports = expectations.map { expectation =>
+      val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
+      val sql = bqSlThisCTE +
+        Utils.parseJinja(
+          expectationWithMacroDefinitions,
+          schemaHandler.activeEnvVars()
+        )
+      val assertion = Utils.parseJinja(expectation.expect, schemaHandler.activeEnvVars())
+      logger.info(
+        s"Applying expectation: ${expectation.query} with request $sql"
+      )
       Try {
-        val expectationCount = sqlRunner(sql)
+        val expectationResult = sqlRunner.handle(sql, assertion)
         ExpectationReport(
-          expectation.name,
-          expectation.paramValues.toString(),
+          applicationId(),
+          database,
+          domainName,
+          schemaName,
+          Timestamp.from(Instant.now()),
+          "",
+          expectation.query,
           Some(sql),
-          Some(expectationCount),
+          Some(expectationResult("count").asInstanceOf[Long]),
           None,
-          success = true
+          success = expectationResult("assertion").asInstanceOf[Boolean]
         )
       } match {
         case Failure(e: IllegalArgumentException) =>
+          e.printStackTrace()
           ExpectationReport(
-            expectation.name,
-            expectation.paramValues.toString(),
+            applicationId(),
+            database,
+            domainName,
+            schemaName,
+            Timestamp.from(Instant.now()),
+            "",
+            expectation.query,
             None,
             None,
             Some(Utils.exceptionAsString(e)),
             success = false
           )
         case Failure(e) =>
+          e.printStackTrace()
           ExpectationReport(
-            expectation.name,
-            expectation.paramValues.toString(),
+            applicationId(),
+            database,
+            domainName,
+            schemaName,
+            Timestamp.from(Instant.now()),
+            "",
+            expectation.query,
             Some(sql),
             None,
             Some(Utils.exceptionAsString(e)),
             success = false
           )
+          throw new Exception(e)
         case Success(value) => value
       }
-    }.toList
-    if (expectationReports.nonEmpty) {
+    }
+    val result = if (expectationReports.nonEmpty) {
       expectationReports.foreach(r => logger.info(r.toString))
 
-      val expectationsDF = session
-        .createDataFrame(expectationReports)
-        .withColumn("jobId", lit(applicationId()))
-        .withColumn("domain", lit(domainName))
-        .withColumn("schema", lit(schemaName))
-        .withColumn("count", lit(count))
-        .withColumn("cometTime", lit(System.currentTimeMillis()))
-        .withColumn("cometStage", lit(Stage.UNIT.value))
-
-      new SinkUtils().sinkInAudit(
-        settings.appConfig.audit.sink.getSink().getConnectionType(),
-        expectationsDF,
-        "expectations",
-        Some("Expectation results"),
-        DatasetArea.expectations(domainName, schemaName),
-        lockPath(settings.appConfig.expectations.path),
-        storageHandler,
-        engine,
-        session
+      val sqls = expectationReports
+        .map(
+          _.asSelect(settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName())
+        )
+        .mkString("", " UNION ", "")
+      val taskDesc = AutoTaskDesc(
+        name = s"audit-${applicationId()}",
+        sql = Some(sqls),
+        database = settings.appConfig.audit.getDatabase(),
+        domain = settings.appConfig.audit.getDomain(),
+        table = "expectations",
+        presql = Nil,
+        postsql = Nil,
+        sink = Some(settings.appConfig.audit.sink),
+        parseSQL = Some(true),
+        _auditTableName = Some("expectations")
       )
+      val task = AutoTask
+        .task(
+          taskDesc,
+          Map.empty,
+          None,
+          truncate = false,
+          engine = taskDesc.getSinkConnection().getEngine(),
+          test = false
+        )(settings, storageHandler, schemaHandler)
+      val res = task.run()
+      Utils.logFailure(res, logger)
+    } else
+      Success(SparkJobResult(None))
+    val failed = expectationReports.count(!_.success)
+    if (settings.appConfig.expectations.failOnError && failed > 0) {
+      Failure(new Exception(s"$failed Expectations failed"))
+    } else {
+      result
     }
-    Success(SparkJobResult(None))
   }
 }

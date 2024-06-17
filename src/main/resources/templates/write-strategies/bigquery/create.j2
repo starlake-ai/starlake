@@ -1,0 +1,90 @@
+
+{#
+
+{{ sinkConnectionRef }}
+{{ sinkClustering }}
+{{ sinkDays }}
+{{ sinkRequirePartitionFilter }}
+{{ sinkMaterializedView }}
+{{ sinkEnableRefresh }}
+{{ sinkRefreshIntervalMs }}
+{{ sinkId }}
+{{ sinkFormat }}
+{{ sinkExtension }}
+{{ sinkPartition }}
+{{ sinkCoalesce }}
+{{ sinkOptions }}
+{{ sinkTableOptionsClause }}
+{{ sinkTablePartitionClause }}
+{{ sinkTableClusteringClause }}
+
+{{ tableDatabase }}
+{{ tableDomain }}
+{{ tableName }}
+{{ tableColumnNames }}
+{{ quotedTableColumnNames }}
+{{ tableFullName }}
+{{ selectStatement }}
+{{ tableExists }}
+{{ tableTruncate }}
+{{ tableParamsForInsertSql }}
+{{ tableParamsForUpdateSql }}
+{{ tableInsert }}
+UPDATE {{ tableUpdateSetExpression }}
+{{ tableColumnsCsv }}
+{{ tableIncomingColumnsCsv }}
+{{ materializedView }}
+
+{{ engineQuote }}
+{{ engineCanMerge }}
+{{ engineViewPrefix }}
+{{ enginePreActions }}
+{{ engineStrategyBuilder }}
+
+{{ strategyType }}
+{{ strategyTypes }}
+{{ strategyKey }}
+{{ strategyTimestamp }}
+{{ strategyQueryFilter }}
+{{ strategyOn }}
+{{ strategyStartTs }}
+{{ strategyEndTs }}
+{{ strategyKeyCsv }}
+{{ strategyKeyJoinCondition }}
+
+#}
+
+{% if materializedView %}
+{% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
+{% else %}
+{% set createPrefix = 'CREATE TABLE' %}
+{% endif %}
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createPrefix }} {{ tableFullName }} AS {{ selectStatement }};
+
+{% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
+
+{{ createPrefix }} {{ tableFullName }} AS
+WITH SL_INCOMING AS ({{selectStatement }})
+SELECT {{ tableColumnsCsv }}
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) = 1;
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
+
+{{ createPrefix }} {{ tableFullName }} AS
+WITH SL_INCOMING AS ({{ selectStatement }})
+SELECT  {{ tableColumnsCsv }},
+FROM SL_INCOMING
+QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
+
+{%  endif %}
+
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
+{% endif %}
+

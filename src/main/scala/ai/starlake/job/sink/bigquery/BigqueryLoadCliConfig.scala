@@ -24,7 +24,8 @@ case class BigQueryLoadCliConfig(
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
-  materializedView: Boolean = false
+  materializedView: Boolean = false,
+  accessToken: Option[String]
 ) {
   def asBigqueryLoadConfig() = BigQueryLoadConfig(
     connectionRef = connectionRef,
@@ -51,6 +52,7 @@ case class BigQueryLoadCliConfig(
     domainTags = domainTags,
     domainDescription = domainDescription,
     materializedView = materializedView,
-    outputDatabase = outputDatabase
+    outputDatabase = outputDatabase,
+    accessToken = accessToken
   )
 }

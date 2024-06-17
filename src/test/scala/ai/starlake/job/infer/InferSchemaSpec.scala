@@ -5,7 +5,7 @@ import ai.starlake.TestHelper
 class InferSchemaSpec extends TestHelper {
   new WithSettings() {
     "All InferSchema Config" should "be known and taken  into account" in {
-      val rendered = InferSchemaConfig.usage()
+      val rendered = InferSchemaCmd.usage()
       val expected =
         """
           |Usage: starlake infer-schema [options]
@@ -13,9 +13,11 @@ class InferSchemaSpec extends TestHelper {
           |  --domain <value>       Domain Name
           |  --table <value>        Table Name
           |  --input <value>        Dataset Input Path
-          |  --output-dir <value>   Domain YAML Output Path
+          |  --outputDir <value>    Domain YAML Output Path
+          |  --write <value>        One of Set(OVERWRITE,APPEND)
           |  --format <value>       Force input file format
-          |  --with-header          Does the file contain a header (For CSV files only)
+          |  --rowTag <value>       row tag to use if detected format is XML
+          |  --clean                Delete previous YML before writing
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

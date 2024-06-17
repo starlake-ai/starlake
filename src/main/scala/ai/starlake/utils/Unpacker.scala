@@ -7,7 +7,6 @@ import org.apache.commons.compress.archivers.{
   ArchiveStreamFactory
 }
 import org.apache.commons.compress.compressors.{CompressorInputStream, CompressorStreamFactory}
-import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.input.CloseShieldInputStream
 
 import java.io.{BufferedInputStream, InputStream}
@@ -30,7 +29,7 @@ object Unpacker {
         val targetFile = File(directory, entry.getName)
         val o = Files.newOutputStream(targetFile.path)
         try {
-          IOUtils.copy(is, o)
+          org.apache.commons.io.IOUtils.copy(is, o)
         } finally {
           if (o != null) o.close()
         }
@@ -64,7 +63,7 @@ object Unpacker {
 
   private def createArchiveStream(
     uncompressedInputStream: CompressorInputStream
-  ): Try[ArchiveInputStream] =
+  ): Try[ArchiveInputStream[ArchiveEntry]] =
     Try {
       new ArchiveStreamFactory()
         .createArchiveInputStream(
@@ -73,7 +72,7 @@ object Unpacker {
     }
 
   private def createIterator(
-    archiveInputStream: ArchiveInputStream
+    archiveInputStream: ArchiveInputStream[ArchiveEntry]
   ): Iterator[(ArchiveEntry, InputStream)] =
     new Iterator[(ArchiveEntry, InputStream)] {
       var latestEntry: ArchiveEntry = _

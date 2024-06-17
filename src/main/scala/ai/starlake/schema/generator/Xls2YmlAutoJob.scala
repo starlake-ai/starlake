@@ -1,11 +1,13 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.YamlSerializer._
-import better.files.File
-import com.typesafe.config.ConfigFactory
+import ai.starlake.utils.YamlSerde._
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
+
+import scala.util.Try
 
 object Xls2YmlAutoJob extends LazyLogging {
 
@@ -17,40 +19,41 @@ object Xls2YmlAutoJob extends LazyLogging {
     settings: Settings
   ): Unit = {
     val basePath = outputPath.getOrElse(DatasetArea.transform.toString)
-    val reader = new XlsAutoJobReader(InputPath(inputPath), policyPath.map(InputPath))
+    val reader = new XlsAutoJobReader(
+      InputPath(inputPath),
+      policyPath.map(InputPath),
+      settings.storageHandler()
+    )
     reader.autoTasksDesc
-      .foreach { autotask =>
-        val taskPath = File(basePath, autotask.domain)
-        logger.info(s"Generating autoJob schema for ${autotask.name} in $taskPath")
+      .foreach { autoTask =>
+        val taskPath = new Path(basePath, autoTask.domain)
+        logger.info(s"Generating autoJob schema for ${autoTask.name} in $taskPath")
         writeAutoTaskYaml(
-          autotask,
+          autoTask,
           taskPath,
-          autotask.name
-        )
+          autoTask.name
+        )(settings.storageHandler())
       }
   }
 
-  def writeAutoTaskYaml(autotask: AutoTaskDesc, outputPath: File, fileName: String): Unit = {
-    outputPath.createIfNotExists(asDirectory = true, createParents = true)
+  def writeAutoTaskYaml(autoTask: AutoTaskDesc, outputPath: Path, fileName: String)(implicit
+    storageHandler: StorageHandler
+  ): Unit = {
+    storageHandler.mkdirs(outputPath)
     logger.info(s"""Generated autoJob schemas:
-                   |${serialize(autotask)}""".stripMargin)
-    serializeToFile(File(outputPath, s"$fileName.comet.yml"), autotask)
+                   |${serialize(autoTask)}""".stripMargin)
+    serializeToPath(new Path(outputPath, s"$fileName.sl.yml"), autoTask)
   }
 
-  def run(args: Array[String]): Boolean = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    Xls2YmlConfig.parse(args) match {
-      case Some(config) =>
-        config.files.foreach(generateSchema(_, config.policyFile, config.outputPath))
-        true
-      case _ =>
-        println(Xls2YmlConfig.usage())
-        false
-    }
+  def run(args: Array[String]): Try[Unit] = {
+    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    Xls2YmlAutoJobCmd
+      .run(args.toIndexedSeq, new SchemaHandler(settings.storageHandler()))
+      .map(_ => ())
   }
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2YmlAutoJob.run(args)
-    System.exit(if (result) 0 else 1)
+    Xls2YmlAutoJob.run(args)
+    System.exit(0)
   }
 }

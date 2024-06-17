@@ -36,16 +36,17 @@ trait Formatter {
     }
 
     def extractVars()(implicit settings: Settings): Set[String] = {
-      val oldPattern = Pattern.compile("\\{\\{\\s*([a-zA-Z_0-9]+)\\s*\\}\\}").matcher(str)
-      val newPattern = Pattern.compile("\\$\\{\\s*([a-zA-Z_0-9]+)\\s*\\}").matcher(str)
+      val pattern = Pattern.compile("\\{\\{\\s*([a-zA-Z_0-9]+)\\s*}}").matcher(str)
 
       val result = ListBuffer[String]()
-      while (oldPattern.find())
-        result.append(oldPattern.group(1))
-      while (newPattern.find())
-        result.append(newPattern.group(1))
+      while (pattern.find())
+        result.append(pattern.group(1))
 
       result.toSet
+    }
+
+    def splitSql(separator: String = ";\n"): List[String] = {
+      str.split(separator).filter(_.trim.nonEmpty).toList
     }
   }
 }

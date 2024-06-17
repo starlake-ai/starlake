@@ -1,0 +1,474 @@
+package ai.starlake.job.transform
+
+import ai.starlake.TestHelper
+import ai.starlake.config.Settings
+import ai.starlake.config.Settings.latestSchemaVersion
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.schema.generator.TaskViewDependency
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model._
+import ai.starlake.workflow.IngestionWorkflow
+import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.hadoop.fs.Path
+import org.scalatest.BeforeAndAfterAll
+
+class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
+
+  lazy val pathBusiness = new Path(starlakeMetadataPath + "/transform/user/user.sl.yml")
+
+  lazy val pathConfigBusiness = new Path(
+    starlakeMetadataPath + "/transform/user/_config.sl.yml"
+  )
+
+  lazy val pathGraduateProgramBusiness = new Path(
+    starlakeMetadataPath + "/transform/user/graduateProgram.sl.yml"
+  )
+
+  lazy val pathGraduateDatasetProgramBusiness = new Path(
+    starlakeDatasetsPath + "/business/graduateProgram/output"
+  )
+
+  val tmpPath = new Path(starlakeTestRoot + "/tmp").toString
+  lazy val pathUserAccepted = new Path(tmpPath + "/accepted/user")
+
+  lazy val pathGraduateProgramAccepted = new Path(
+    tmpPath + "/accepted/graduateProgram"
+  )
+
+  lazy val metadataPath = new Path(starlakeMetadataPath)
+
+  override def beforeAll(): Unit = {
+    new WithSettings() {
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathUserAccepted.toString)
+
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/graduateProgram.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathGraduateProgramAccepted.toString)
+    }
+    super.beforeAll()
+  }
+
+  "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
+      sparkSessionReset(settings)
+      val userView = pathUserAccepted.toString
+      val businessTask1 = AutoTaskDesc(
+        name = "",
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}}"
+        ),
+        database = None,
+        domain = "user",
+        table = "user",
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
+        sink = Some(FsSink().toAllSinks())
+      )
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val schemaHandler =
+        new SchemaHandler(storageHandler, Map("age" -> "40"))
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler)
+
+      workflow.autoJob(TransformConfig("user.user"))
+
+      val result = sparkSession
+        .table("user.user")
+        .select("firstname", "lastname", "age")
+        .take(2)
+
+      result.length shouldBe 2
+
+      result
+        .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
+        .toList should contain allElementsOf List(
+        ("test3", "test4", 40),
+        ("Elon", "Musk", 40)
+      )
+    }
+  }
+  "Extract file and view dependencies" should "work" in {
+    new WithSettings() {
+
+      val userView = pathUserAccepted.toString
+      logger.info("************userView:" + userView)
+      val businessTask1 = AutoTaskDesc(
+        name = "user",
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+        ),
+        database = None,
+        domain = "user",
+        table = "user",
+        expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite)
+      )
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
+      val deps = TaskViewDependency.dependencies(tasks)(settings, schemaHandler)
+      deps.map(_.parentRef) should contain theSameElementsAs List(
+        "parquet." + userView,
+        "user_view"
+      )
+    }
+  }
+
+  "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
+
+      val userView = pathUserAccepted.toString
+      val businessTask1 = AutoTaskDesc(
+        name = "user",
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+        ),
+        database = None,
+        domain = "user",
+        table = "user",
+        expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
+        sink = Some(FsSink().toAllSinks())
+      )
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val schemaHandler = new SchemaHandler(
+        storageHandler,
+        Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
+      )
+
+      sparkSession.sql("DROP TABLE IF EXISTS user.user")
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler)
+      workflow.autoJob(TransformConfig("user.user"))
+
+      val result = sparkSession
+        .table("user.user")
+        .select("firstname", "lastname", "age")
+        .take(2)
+
+      result.length shouldBe 1
+      result
+        .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
+        .toList should contain allElementsOf List(
+        ("John", "Doe", 25)
+      )
+      sparkSession.sql("DROP TABLE IF EXISTS user.user")
+
+    }
+  }
+
+  "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
+    new WithSettings() {
+      TestHelper.sparkSessionReset(settings)
+      val userView = pathUserAccepted.toString
+      val businessTask1 = AutoTaskDesc(
+        name = "user",
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view"
+        ),
+        database = None,
+        domain = "user",
+        table = "user",
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
+        sink = Some(FsSink().toAllSinks())
+      )
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler)
+
+      workflow.autoJob(TransformConfig("user.user"))
+
+      sparkSession
+        .table("user.user")
+        .select("firstname", "lastname", "age")
+        .take(6)
+        .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
+        .toList should contain allElementsOf List(
+        ("John", "Doe", 25),
+        ("fred", "abruzzi", 25),
+        ("test3", "test4", 40)
+      )
+      sparkSession
+        .sql(
+          "DROP TABLE IF EXISTS user.user"
+        )
+    }
+  }
+  "trigger AutoJob using an UDF" should "generate a dataset in business" in {
+    new WithSettings() {
+      // because we are having a different schema for user in this test
+      val userView = pathUserAccepted.toString
+      val businessTask1 = AutoTaskDesc(
+        name = "user",
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select concatWithSpace(firstname, lastname) as fullName from user_View"
+        ),
+        database = None,
+        domain = "user",
+        table = "user",
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
+        sink = Some(FsSink().toAllSinks())
+      )
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler)
+
+      workflow.autoJob(TransformConfig("user.user"))
+
+      sparkSession
+        .table("user.user")
+        .select("fullName")
+        .take(7)
+        .map(r => r.getString(0))
+        .toList should contain allElementsOf List(
+        "John Doe",
+        "fred abruzzi",
+        "test3 test4"
+      )
+    }
+  }
+  "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
+    new WithSettings() {
+      val businessTask1 = AutoTaskDesc(
+        name = "graduateProgram",
+        sql = Some(
+          s"SELECT * FROM graduate_agg_view"
+        ),
+        database = None,
+        domain = "graduateProgram",
+        table = "output",
+        presql = List(
+          s"""
+               |create or replace temporary view graduate_agg_view as
+               |      select degree, department,
+               |      school
+               |      from parquet.`${pathGraduateProgramAccepted.toString}`
+               |      where school={{school}}
+               |""".stripMargin
+        ),
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite),
+        sink = Some(FsSink().toAllSinks())
+      )
+      val configJob =
+        AutoJobDesc(
+          "",
+          Nil
+        )
+
+      val configJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
+      storageHandler.write(configJobDef, pathConfigBusiness)
+
+      val businessTaskDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
+      storageHandler.write(businessTaskDef, pathGraduateProgramBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler)
+
+      workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
+
+      val result = sparkSession
+        .table("graduateProgram.output")
+        .select("*")
+
+      result
+        .take(7)
+        .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+        .toList should contain allElementsOf List(
+        ("Masters", "School_of_Information", "UC_Berkeley"),
+        ("Masters", "EECS", "UC_Berkeley"),
+        ("Ph.D.", "EECS", "UC_Berkeley")
+      )
+    }
+  }
+
+  "BQ Business Job Definition" should "Prepare correctly against BQ" in {
+    val bqConfiguration: Config = {
+      val config = ConfigFactory
+        .parseString("""
+            |connectionRef = "bigquery"
+            |""".stripMargin)
+      val result = config.withFallback(super.testConfiguration)
+      result
+    }
+
+    new WithSettings(bqConfiguration) {
+      val businessTask1 = AutoTaskDesc(
+        name = "",
+        sql = Some("select * from domain"),
+        database = None,
+        domain = "DOMAIN",
+        table = "TABLE",
+        presql = Nil,
+        postsql = Nil,
+        None,
+        rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
+        python = None,
+        writeStrategy = Some(WriteStrategy.Overwrite)
+      )
+
+      val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
+
+      val config = BigQueryLoadConfig(
+        connectionRef = None,
+        outputTableId = Some(
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            businessTask1.database,
+            businessTask1.domain,
+            businessTask1.table
+          )
+        ),
+        sourceFormat = "parquet",
+        createDisposition = "CREATE_IF_NEEDED",
+        writeDisposition = "WRITE_TRUNCATE",
+        outputPartition = sink.flatMap(_.getPartitionColumn()),
+        outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+        days = sink.flatMap(_.days),
+        requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
+        rls = businessTask1.rls,
+        outputDatabase = None,
+        accessToken = None
+      )
+      val job = new BigQuerySparkJob(config)
+      val conf = job.prepareConf()
+
+      conf.get(
+        BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION.getKey()
+      ) shouldEqual "WRITE_TRUNCATE"
+      conf.get(
+        BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey()
+      ) shouldEqual "CREATE_IF_NEEDED"
+
+      val delStatement = "DROP ALL ROW ACCESS POLICIES ON `DOMAIN.TABLE`"
+      val createStatement =
+        """
+          | CREATE ROW ACCESS POLICY
+          |  myrls
+          | ON
+          |  `DOMAIN.TABLE`
+          | GRANT TO
+          |  ("user:hayssam.saleh@ebiznext.com")
+          | FILTER USING
+          |  (TRUE)
+          |""".stripMargin
+      val result = job
+        .prepareRLS()
+        .map(_.replaceAll("`.*`", "`DOMAIN.TABLE`")) // we remove the computed project id
+      result should contain theSameElementsInOrderAs List(delStatement, createStatement)
+    }
+  }
+}

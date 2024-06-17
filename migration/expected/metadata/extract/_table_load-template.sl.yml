@@ -1,0 +1,8 @@
+---
+version: 1
+table:
+  name: "load-template"
+  pattern: ".*"
+  attributes:
+  - name: "*"
+    trim: "BOTH"

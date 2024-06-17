@@ -1,0 +1,22 @@
+version: 1
+table:
+  name: "products"
+  pattern: "products-.*.csv"
+  metadata:
+    separator: ","
+    writeStrategy:
+      type: OVERWRITE_BY_PARTITION
+    sink:
+      partition:
+        - "stock_date"
+  attributes:
+    - name: "product_id"
+      type: "string"
+      required: true
+      rename: "id"
+    - name: "stock"
+      type: "integer"
+      required: true
+    - name: "stock_date"
+      type: "date"
+      required: true

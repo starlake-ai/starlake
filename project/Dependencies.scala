@@ -61,12 +61,11 @@ object Dependencies {
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0,
     "org.apache.spark" %% "spark-avro" % Versions.spark3d0,
-    "io.delta" %% "delta-core" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "io.delta" % "delta-storage" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
+    "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.3.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
@@ -78,8 +77,18 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
+  val snowflake = Seq(
+    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test,
+    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test
+  )
+
+  val redshift = Seq(
+    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test
+  )
+
   val scalaTest = Seq(
-    "org.scalatest" %% "scalatest" % Versions.scalatest % Test
+    "org.scalatest" %% "scalatest" % Versions.scalatest % Test,
+    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test
   )
 
   val h2 = Seq(
@@ -88,7 +97,9 @@ object Dependencies {
 
   // Included
 
-  val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
+  val betterfiles = Seq(
+    "com.github.pathikrit" %% "better-files" % Versions.betterFiles
+  )
 
   val logging = Seq(
     "com.typesafe" % "config" % Versions.typesafeConfig,
@@ -114,7 +125,7 @@ object Dependencies {
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-dataplex" % Versions.gcpDataplex excludeAll (jacksonExclusions: _*)
+    "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging
   )
 
   val esSpark212 = Seq(
@@ -142,19 +153,51 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
-  val bigQueue = Seq("com.leansoft" % "bigqueue" % Versions.bigQueue)
-
   val jna_apple_arm_testcontainers = Seq(
     "net.java.dev.jna" % "jna" % "5.12.1"
+  )
+
+  val pgGcp = Seq(
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.19.0" % Test,
+    "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "org.postgresql" % "postgresql" % "42.7.3" % Test
+  )
+
+  val mariadb = Seq(
+    "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0" % Test,
+    "com.mysql" % "mysql-connector-j" % "8.4.0" % Test
   )
 
   val jinja = Seq(
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
 
-  val sqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.sqlParser)
+  val jSqlTranspiler = Seq(
+    "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
+    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io"),
+    "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
+  )
+
+  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
+
+  val jsonSchemaValidator = Seq(
+    "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
+  )
+
+  val scalaCompat = Seq(
+    "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
+    "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
+  )
+
+  val derbyTestServer = Seq(
+    "org.apache.derby" % "derby" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbyclient" % Versions.derbyVersion % Test,
+    "org.apache.derby" % "derbynet" % Versions.derbyVersion % Test
+  )
 
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ sqlParser // ++ bigQueue
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
+    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler
 }

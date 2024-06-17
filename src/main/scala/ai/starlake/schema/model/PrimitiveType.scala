@@ -177,7 +177,9 @@ object PrimitiveType {
     }
 
     def fromString(str: String, pattern: String, zone: String): Any = {
-      if (pattern.indexOf("<-TF->") >= 0) {
+      if (str == null || str.isEmpty)
+        null
+      else if (pattern.indexOf("<-TF->") >= 0) {
         val tf = pattern.split("<-TF->")
         if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str.trim).matches())
           true
@@ -209,7 +211,7 @@ object PrimitiveType {
     def sparkType(zone: Option[String]): DataType = new StructType(Array.empty[StructField])
   }
 
-  private def instantFromString(str: String, pattern: String, zone: String): Instant = {
+  private def instantFromString(str: String, pattern: String, zoneId: ZoneId): Instant = {
 
     def simpleDateFormat(str: String, pattern: String, zoneId: ZoneId): Instant = {
       if (zoneId.getId != "UTC")
@@ -220,11 +222,6 @@ object PrimitiveType {
       df.setTimeZone(TimeZone.getTimeZone("UTC"))
       val date = df.parse(str.trim)
       Instant.ofEpochMilli(date.getTime)
-    }
-
-    val zoneId = Option(zone) match {
-      case Some(z) => ZoneId.of(z)
-      case None    => ZoneId.of("UTC")
     }
 
     pattern match {
@@ -331,19 +328,28 @@ object PrimitiveType {
   object timestamp extends PrimitiveType("timestamp") {
 
     def fromString(str: String, timeFormat: String, zone: String): Any = {
-      if (str == null || str.isEmpty)
-        null
-      else {
-        val instant = instantFromString(str.trim, timeFormat, zone)
-        Timestamp.from(instant)
+      val res = {
+        if (str == null || str.isEmpty)
+          null
+        else {
+          val zoneId = Option(zone) match {
+            case Some(z) => ZoneId.of(z)
+            case None    => ZoneId.of("UTC")
+          }
+
+          val instant = instantFromString(str.trim, timeFormat, zoneId)
+          val tsValue = Timestamp.from(instant)
+          tsValue
+        }
       }
+      res
     }
 
     def sparkType(zone: Option[String]): DataType = TimestampType
   }
 
   val primitiveTypes: Set[PrimitiveType] =
-    Set(string, long, int, double, decimal, boolean, byte, date, timestamp, struct)
+    Set(string, long, int, double, short, decimal, boolean, byte, date, timestamp, struct)
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
     // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date

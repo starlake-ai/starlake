@@ -1,0 +1,27 @@
+---
+version: 1
+types:
+  - name: "email"
+    primitiveType: "string"
+    pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}"
+    sample: "me@company.com"
+    comment: "Valid email only"
+    ddlMapping:
+      sql:
+      bigquery: STRING
+      snowflake: STRING
+      postgres: varchar(8000)
+      synapse: Varchar(8000)
+      duckdb: VARCHAR
+  - name: "longstring"
+    primitiveType: "string"
+    pattern: ".+"
+    sample: "Hello World"
+    comment: "Any set of chars"
+    ddlMapping:
+      redshift: VARCHAR(max)
+      bigquery: STRING
+      snowflake: STRING
+      postgres: varchar(8000)
+      synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
+      duckdb: VARCHAR

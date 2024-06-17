@@ -43,22 +43,43 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
+    val sysProps = System.getProperties()
+
+    if (!settings.appConfig.isHiveCompatible() || settings.appConfig.hiveInTest) {
+      if (settings.getWarehouseDir().isEmpty) {
+        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
+        config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
+      }
+    }
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-      config.set(
-        "spark.sql.catalog.spark_catalog",
-        "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-      )
+      if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
+        config.set(
+          "spark.sql.catalog.spark_catalog",
+          "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
     }
     val session =
-      if (settings.appConfig.isHiveCompatible())
-        SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
-      else {
-        SparkSession.builder.config(config).getOrCreate()
-      }
+      if (
+        settings.appConfig.isHiveCompatible() || Utils
+          .isRunningInDatabricks()
+      )
+        SparkSession
+          .builder()
+          .config(config)
+          .enableHiveSupport()
+          .getOrCreate()
+      else
+        SparkSession
+          .builder()
+          .config(config)
+          .getOrCreate()
+
+    // hive support on databricks, spark local, hive metastore
 
     logger.info("Spark Version -> " + session.version)
-    logger.info(session.conf.getAll.mkString("\n"))
+    logger.debug(session.conf.getAll.mkString("\n"))
+
     session
   }
 }

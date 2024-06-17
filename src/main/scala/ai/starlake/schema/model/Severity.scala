@@ -1,6 +1,9 @@
 package ai.starlake.schema.model
 
-sealed abstract class Severity(value: String)
+sealed abstract class Severity(value: String) {
+  override def toString: String = String.format("%1$-8s", value)
+
+}
 
 object Severity {
   def fromString(value: String): Severity = {

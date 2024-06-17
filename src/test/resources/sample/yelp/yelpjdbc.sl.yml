@@ -1,0 +1,7 @@
+---
+version: 1
+load:
+  name: "yelp"
+  metadata:
+    format: JSON
+    directory: "__SL_TEST_ROOT__/yelp"

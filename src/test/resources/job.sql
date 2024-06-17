@@ -1,9 +1,9 @@
-/* comet_presql */
+-- presql
 (((select * from `starlake-325712`.hr.locations)))
 
-/* comet_sql */
+-- sql
 
 
-/* comet_postsql */
+-- postsql
 
 

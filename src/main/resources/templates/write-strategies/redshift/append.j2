@@ -1,0 +1,10 @@
+
+{% if tableTruncate %}
+TRUNCATE TABLE {{ tableFullName }};
+{% endif %}
+
+CREATE OR REPLACE VIEW #SL_INCOMING AS {{selectStatement }};
+
+INSERT INTO {{ tableFullName }} SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING;
+
+DROP VIEW IF EXISTS #SL_INCOMING;

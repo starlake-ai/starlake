@@ -1,0 +1,25 @@
+---
+version: 1
+table:
+  name: "employee"
+  pattern: "employee.*.csv"
+  attributes:
+    - name: "name"
+      type: "string"
+      privacy: "None"
+      required: false
+    - name: "age"
+      type: "int"
+      privacy: "None"
+      required: false
+    - name: "fileName"
+      type: "string"
+      script: "comet_input_file_name"
+      privacy: None
+      required: false
+  postsql:
+    - "Select name from COMET_TABLE"
+  metadata:
+    format: "DSV"
+    withHeader: false
+    separator: ","

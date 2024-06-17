@@ -1,0 +1,31 @@
+---
+version: 1
+table:
+  name: "product"
+  pattern: "product.*.xml"
+  attributes:
+  - name: "category"
+    type: "string"
+    array: false
+  - name: "cost"
+    type: "double"
+    array: false
+  - name: "description"
+    type: "string"
+    array: false
+  - name: "name"
+    type: "string"
+    array: false
+  - name: "price"
+    type: "double"
+    array: false
+  - name: "product_id"
+    type: "long"
+    array: false
+  metadata:
+    format: "XML"
+    withHeader: true
+    options:
+      rowTag: "record"
+    writeStrategy:
+      type: "OVERWRITE"

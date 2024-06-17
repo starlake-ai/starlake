@@ -51,7 +51,9 @@ class DsvIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -91,21 +93,27 @@ class DsvIngestionJob(
     * @return
     *   Spark Dataset
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     Try {
-      val dfIn = session.read
-        .option("header", mergedMetadata.isWithHeader().toString)
+      val dfInReader = session.read
+        .option("header", mergedMetadata.resolveWithHeader().toString)
         .option("inferSchema", value = false)
-        .option("delimiter", mergedMetadata.getSeparator())
-        .option("multiLine", mergedMetadata.getMultiline())
-        .option("quote", mergedMetadata.getQuote())
-        .option("escape", mergedMetadata.getEscape())
-        .option("nullValue", mergedMetadata.getNullValue())
+        .option("delimiter", mergedMetadata.resolveSeparator())
+        .option("multiLine", mergedMetadata.resolveMultiline())
+        .option("quote", mergedMetadata.resolveQuote())
+        .option("escape", mergedMetadata.resolveEscape())
+        .option("nullValue", mergedMetadata.resolveNullValue())
         .option("parserLib", "UNIVOCITY")
-        .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .option("encoding", mergedMetadata.resolveEncoding())
+        .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
-        .csv(path.map(_.toString): _*)
+
+      val dfInReaderWithSchema = if (withSchema) {
+        dfInReader.schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
+      } else {
+        dfInReader
+      }
+      val dfIn = dfInReaderWithSchema.csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
       if (dfIn.isEmpty) {
@@ -121,7 +129,7 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val resDF = if (mergedMetadata.isWithHeader()) {
+        val resDF = if (mergedMetadata.resolveWithHeader()) {
           val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
           val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
           if (datasetHeaders.length == drop.length) {
@@ -153,12 +161,15 @@ class DsvIngestionJob(
             case c if c > 0 =>
               val countMissing =
                 attributesWithoutScriptedFields.length - df.columns.length
-              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+              throw new Exception(
+                s"$countMissing MISSING columns in the input DataFrame ${attributesWithoutScriptedFields
+                    .map(_.name)} != ${df.columns.toList}"
+              )
             case _ => // compare < 0
               val cols = df.columns
               df.select(
                 cols.head,
-                cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
+                cols.tail.take(attributesWithoutScriptedFields.length - 1).toIndexedSeq: _*
               ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
           }
         }
@@ -177,13 +188,13 @@ class DsvIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val orderedAttributes = reorderAttributes(dataset)
     def reorderTypes(): (List[Type], StructType) = {
       val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
       val (tpes, sparkFields) = orderedAttributes.map { attribute =>
         val tpe = typeMap(attribute.`type`)
-        (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+        (tpe, tpe.sparkType(attribute.name, !attribute.resolveRequired(), attribute.comment))
       }.unzip
       (tpes, StructType(sparkFields))
     }
@@ -192,8 +203,8 @@ class DsvIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      mergedMetadata.getFormat(),
-      mergedMetadata.getSeparator(),
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
@@ -204,13 +215,23 @@ class DsvIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
-      saveAccepted(validationResult)
-    } match {
+    val rejectedResult =
+      saveRejected(validationResult.errors, validationResult.rejected)(
+        settings,
+        storageHandler,
+        schemaHandler
+      )
+    rejectedResult match {
+      case Success(_) =>
+        val acceptedResult = saveAccepted(validationResult)
+        acceptedResult match {
+          case Success(rejectedRecordCount) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+          case Failure(exception) =>
+            throw exception
+        }
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
     }
-    (validationResult.errors, validationResult.accepted)
   }
 }

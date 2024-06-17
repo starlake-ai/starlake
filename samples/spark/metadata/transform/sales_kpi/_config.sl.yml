@@ -1,0 +1,17 @@
+version: 1
+transform:
+  default:
+    writeStrategy:
+      type: APPEND
+  tasks:
+    - name: byseller_kpi
+      parseSQL: true
+      sink:
+        partition:
+          - timestamp
+    - name: byseller_kpi0
+      table: byseller_kpi
+      sink:
+        partition:
+          - timestamp
+

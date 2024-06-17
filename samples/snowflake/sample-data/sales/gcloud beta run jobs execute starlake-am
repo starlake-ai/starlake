@@ -1,0 +1,2 @@
+gcloud beta run jobs execute starlake-amd64 --args 'load,--include,sales,--schemas,customers' --update-env-vars SL_ROOT='gs://starlake-app/mnt/starlake-app/quickstart',SL_CONNECTION=bigquery
+gcloud beta run jobs execute starlake-amd64 --args 'load,--include,sales,--schemas,orders' --update-env-vars SL_ROOT='gs://starlake-app/mnt/starlake-app/quickstart',SL_CONNECTION=bigquery

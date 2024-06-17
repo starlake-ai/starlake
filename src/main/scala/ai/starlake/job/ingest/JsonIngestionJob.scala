@@ -21,18 +21,19 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{StringType, StructField}
 
 import scala.util.{Failure, Success, Try}
 
 /** Main class to complex json delimiter separated values file If your json contains only one level
-  * simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way
+  * simple attribute aka. kind of dsv but in json format please use JSON_FLAT instead. It's way
   * faster
   *
   * @param domain
@@ -53,12 +54,14 @@ class JsonIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 
   protected def loadJsonData(): Dataset[String] = {
-    if (mergedMetadata.isArray()) {
+    if (mergedMetadata.resolveArray()) {
       val jsonRDD =
         session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
           case (_, content) => content
@@ -68,8 +71,8 @@ class JsonIngestionJob(
     } else {
       session.read
         .option("inferSchema", value = false)
-        .option("encoding", mergedMetadata.getEncoding())
-        .options(mergedMetadata.getOptions())
+        .option("encoding", mergedMetadata.resolveEncoding())
+        .options(sparkOptions)
         .textFile(path.map(_.toString): _*)
     }
 
@@ -80,12 +83,14 @@ class JsonIngestionJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
 
     Try {
       val dfIn = loadJsonData()
       val dfInWithInputFilename = dfIn.select(
-        org.apache.spark.sql.functions.input_file_name(),
+        org.apache.spark.sql.functions
+          .input_file_name()
+          .alias(CometColumns.cometInputFileNameColumn),
         org.apache.spark.sql.functions.col("value")
       )
       logger.whenDebugEnabled {
@@ -96,18 +101,16 @@ class JsonIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sourceSparkSchema(schemaHandler)
-
   /** Where the magic happen
     *
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     val rdd: RDD[Row] = dataset.rdd
-
+    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
-      .parseRDD(rdd, schemaSparkType)
+      .parseRDD(rdd, validationSchema)
       .persist(settings.appConfig.cacheStorageLevel)
 
     val withValidSchema: RDD[String] =
@@ -135,8 +138,6 @@ class JsonIngestionJob(
       .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
 
-    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
-
     val toValidate = session.read
       .schema(loadSchema)
       .json(session.createDataset(withValidSchema)(Encoders.STRING))
@@ -144,8 +145,8 @@ class JsonIngestionJob(
     val validationResult =
       treeRowValidator.validate(
         session,
-        mergedMetadata.getFormat(),
-        mergedMetadata.getSeparator(),
+        mergedMetadata.resolveFormat(),
+        mergedMetadata.resolveSeparator(),
         toValidate,
         schema.attributes,
         types,
@@ -158,15 +159,22 @@ class JsonIngestionJob(
 
     import session.implicits._
     val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
+    rejectedDS.cache()
 
-    saveRejected(rejectedDS, validationResult.rejected).map { _ =>
+    saveRejected(rejectedDS, validationResult.rejected)(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
       saveAccepted(validationResult) // prefer to let Spark compute the final schema
     } match {
+      case Failure(exception: NullValueFoundException) =>
+        (validationResult.errors.union(rejectedDS), validationResult.accepted, exception.nbRecord)
       case Failure(exception) =>
         throw exception
-      case Success(_) => ;
+      case Success(rejectedRecordCount) =>
+        (validationResult.errors.union(rejectedDS), validationResult.accepted, rejectedRecordCount);
     }
-    (rejectedDS, validationResult.accepted)
   }
 
   override def name: String = "JsonJob"

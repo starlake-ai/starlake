@@ -1,0 +1,20 @@
+---
+version: 1
+application:
+  connectionRef: "localFilesystem"
+  connections:
+    localFilesystem:
+      type: "fs"
+    localPostgres:
+      type: "jdbc"
+      options:
+        url: "jdbc:postgresql://localhost:5432/postgres"
+        driver: "org.postgresql.Driver"
+        user: "postgres"
+        password: "mysecretpassword"
+    bigquery:
+      type: bigquery
+      options:
+        authType: APPLICATION_DEFAULT
+        location: "EU"
+  loader: "native"

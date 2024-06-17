@@ -21,25 +21,25 @@
 package ai.starlake.schema.model
 
 import ai.starlake.TestHelper
-import ai.starlake.utils.{Utils, YamlSerializer}
+import ai.starlake.utils.{Utils, YamlSerde}
 import org.scalatest.BeforeAndAfterAll
 
 import java.io.InputStream
 
 class RefSpec extends TestHelper with BeforeAndAfterAll {
-  var refs: Refs = _
+  var refs: RefDesc = _
 
   override def beforeAll(): Unit = {
     new WithSettings() {
       val stream: InputStream =
-        getClass.getResourceAsStream("/refs/refs.comet.yml")
+        getClass.getResourceAsStream("/refs/refs.sl.yml")
       val lines = scala.io.Source
         .fromInputStream(stream)
         .getLines()
         .mkString("\n")
       val content = Utils.parseJinja(lines, Map("PROJECT_ID" -> "starlake-dev"))
       println(content)
-      refs = YamlSerializer.mapper.readValue(content, classOf[Refs])
+      refs = YamlSerde.mapper.readValue(content, classOf[RefDesc])
     }
   }
   new WithSettings() {

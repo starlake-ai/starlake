@@ -2,16 +2,16 @@ package ai.starlake.job.metrics
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
+import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.SPARK
-import ai.starlake.schema.model.{Domain, Schema, Stage}
+import ai.starlake.schema.model.{AutoTaskDesc, Domain, Schema}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** To record statistics with other information during ingestion.
   */
@@ -28,7 +28,6 @@ import scala.util.{Success, Try}
 class MetricsJob(
   domain: Domain,
   schema: Schema,
-  stage: Stage,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
@@ -82,8 +81,7 @@ class MetricsJob(
     domain: Domain,
     schema: Schema,
     count: Long,
-    ingestionTime: Timestamp,
-    stageState: Stage
+    ingestionTime: Timestamp
   ): MetricsDatasets = {
     def computeFrequenciesDF(discreteDataset: DataFrame) = {
       Some(
@@ -133,8 +131,7 @@ class MetricsJob(
           .withColumn("domain", lit(domain.name))
           .withColumn("schema", lit(schema.name))
           .withColumn("count", lit(count))
-          .withColumn("cometTime", lit(ingestionTime))
-          .withColumn("cometStage", lit(stageState.toString))
+          .withColumn("timestamp", lit(ingestionTime))
         logger.whenDebugEnabled {
           logger.debug(res.showString())
         }
@@ -145,16 +142,15 @@ class MetricsJob(
     MetricsDatasets(allDF(0), allDF(1), allDF(2))
   }
 
-  /** Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
-    val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    val dataUse: DataFrame =
-      session.read.format(settings.appConfig.defaultFormat).load(datasetPath.toString)
-    run(dataUse, storageHandler.lastModified(datasetPath))
+    val dataUse: DataFrame = session.sql(s"SELECT * FROM ${domain.name}.${schema.name}")
+    val now = System.currentTimeMillis()
+    run(dataUse, now)
   }
 
   def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkJobResult] = {
@@ -164,7 +160,6 @@ class MetricsJob(
     logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
-    val savePath: Path = DatasetArea.metrics(domain.name, schema.name)
     val count = dataUse.count()
     val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
@@ -175,8 +170,7 @@ class MetricsJob(
         domain,
         schema,
         count,
-        timestamp,
-        stage
+        timestamp
       )
 
     val metricsToSave = List(
@@ -188,21 +182,40 @@ class MetricsJob(
       df match {
         case Some(df) =>
           settings.appConfig.internal.foreach(in => df.persist(in.cacheStorageLevel))
-          new SinkUtils().sinkInAudit(
-            settings.appConfig.audit.sink.getSink().getConnectionType(),
-            df,
-            table.toString,
-            Some("Metrics on tables"),
-            new Path(savePath, table.toString),
-            lockPath(settings.appConfig.metrics.path),
+          val taskDesc =
+            AutoTaskDesc(
+              name = s"metrics-${applicationId()}-$table",
+              sql = None,
+              database = settings.appConfig.audit.getDatabase(),
+              domain = settings.appConfig.audit.getDomain(),
+              table = table.toString,
+              presql = Nil,
+              postsql = Nil,
+              sink = Some(settings.appConfig.audit.sink),
+              parseSQL = Some(true),
+              _auditTableName = Some(table.toString)
+            )
+          val autoTask = new SparkAutoTask(
+            taskDesc,
+            Map.empty,
+            None,
+            truncate = false,
+            test = false
+          )(
+            settings,
             storageHandler,
-            SPARK,
-            session
+            schemaHandler
           )
+          autoTask.sink(df)
         case None =>
-          Success(None)
+          true
       }
     }
-    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(_ => SparkJobResult(None))
+    val success = combinedResult.find(_ == false).getOrElse(true)
+    if (success) {
+      Success(SparkJobResult(None))
+    } else {
+      Failure(new Exception("Failed to save metrics"))
+    }
   }
 }

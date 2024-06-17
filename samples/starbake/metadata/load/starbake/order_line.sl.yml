@@ -1,0 +1,24 @@
+---
+version: 1
+table:
+  name: "order_line"
+  pattern: "order_line.*.csv"
+  attributes:
+  - name: "order_id"
+    type: "int"
+    array: false
+  - name: "product_id"
+    type: "int"
+    array: false
+  - name: "quantity"
+    type: "int"
+    array: false
+  - name: "sale_price"
+    type: "double"
+    array: false
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"

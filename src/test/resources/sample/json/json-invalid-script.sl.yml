@@ -1,0 +1,15 @@
+---
+version: 1
+load:
+  name: "json"
+  metadata:
+    directory: "__SL_TEST_ROOT__/json"
+    format: "JSON"
+    separator: "|"
+    writeStrategy:
+      type: "APPEND"
+    sink:
+      partition:
+        - sl_year
+        - sl_month
+        - sl_day

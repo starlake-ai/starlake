@@ -2,9 +2,8 @@ package ai.starlake.job.validator
 
 import ai.starlake.config.{CometColumns, PrivacyLevels}
 import ai.starlake.job.ingest.IngestionUtil
-import ai.starlake.privacy.PrivacyEngine
-import ai.starlake.schema.model.{Attribute, Format, PrivacyLevel, Type}
-import ai.starlake.utils.Utils
+import ai.starlake.schema.model.{Attribute, Format, TransformInput, Type}
+import ai.starlake.utils.{TransformEngine, Utils}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
@@ -50,7 +49,7 @@ object TreeRowValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD =
       validateDataset(
@@ -63,20 +62,20 @@ object TreeRowValidator extends GenericRowValidator {
       )
     val successRDD: RDD[Row] =
       successErrorRDD
-        .filter(row => row.getAs[Boolean](CometColumns.cometSuccessColumn))
+        .filter(row => row.getAs[Boolean](CometColumns.slSuccessColumn))
         .map(row => new GenericRowWithSchema(row.toSeq.dropRight(2).toArray, schemaSparkType))
 
     val errorRDD =
       successErrorRDD
-        .filter(row => !row.getAs[Boolean](CometColumns.cometSuccessColumn))
-        .map(row => row.getAs[String](CometColumns.cometErrorMessageColumn))
+        .filter(row => !row.getAs[Boolean](CometColumns.slSuccessColumn))
+        .map(row => row.getAs[String](CometColumns.slErrorMessageColumn))
 
     val successDS = session.createDataFrame(successRDD, schemaSparkType)
     import session.implicits._
     val errorDS = errorRDD.toDS()
     // TODO add here input lines to be rejected
     val rejectedInputDS = session.emptyDataset[String]
-    ValidationResult(errorDS, rejectedInputDS, successDS)
+    CheckValidityResult(errorDS, rejectedInputDS, successDS)
   }
 
   private def validateDataset(
@@ -91,8 +90,8 @@ object TreeRowValidator extends GenericRowValidator {
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
         schemaSparkType.fields ++ Array(
-          StructField(CometColumns.cometSuccessColumn, BooleanType, nullable = false),
-          StructField(CometColumns.cometErrorMessageColumn, StringType, nullable = false)
+          StructField(CometColumns.slSuccessColumn, BooleanType, nullable = false),
+          StructField(CometColumns.slErrorMessageColumn, StringType, nullable = false)
         )
       )
     dataset.rdd.map { row =>
@@ -117,11 +116,11 @@ object TreeRowValidator extends GenericRowValidator {
     schemaSparkType: StructType,
     types: Map[String, Type],
     schemaSparkTypeWithSuccessErrorMessage: StructType,
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
     topLevel: Boolean,
     emptyIsNull: Boolean
-  ): (GenericRowWithSchema, mutable.MutableList[String]) = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  ): (GenericRowWithSchema, mutable.ListBuffer[String]) = {
+    val errorList: mutable.ListBuffer[String] = mutable.ListBuffer.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
         Option(item).map(_.toString),

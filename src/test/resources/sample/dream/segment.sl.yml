@@ -1,0 +1,68 @@
+---
+version: 1
+table:
+  name: "segment"
+  pattern: "OneClient_Segmentation.*.*"
+  rls:
+    - name: "my-rls"
+      predicate: "category like 'Food'"
+      description: "couc"
+      grants:
+        - "user:me@me.com"
+        - "group:financegroup@company.com"
+        - "user:you@me.com"
+  acl:
+    - role: viewer
+      grants:
+        - "user:me@me.com"
+        - "user:you@me.com"
+    - role: owner
+      grants:
+        - "user:me@you.com"
+        - "user:you@you.com"
+  primaryKey:
+    - dreamkey
+  attributes:
+    - name: "dream_id"
+      type: "long"
+      required: false
+      privacy: "NONE"
+      rename: "dreamkey"
+      comment: ""
+    - name: "segmentation_label"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "segment_label"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "sub_segment_label"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "client_profile_label"
+      type: "string"
+      required: false
+      privacy: "NONE"
+    - name: "year"
+      type: "long"
+      script: "year(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "month"
+      type: "long"
+      script: "month(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"
+    - name: "day"
+      type: "long"
+      script: "day(current_date())"
+      array: false
+      required: true
+      privacy: "NONE"
+      metricType: "NONE"

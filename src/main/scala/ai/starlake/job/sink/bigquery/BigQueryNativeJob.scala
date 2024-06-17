@@ -1,9 +1,8 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.ingest.BqLoadInfo
 import ai.starlake.schema.model.{
-  BigQuerySink,
   ClusteringInfo,
   FieldPartitionInfo,
   Format,
@@ -12,6 +11,8 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
+import com.google.cloud.RetryOption
+import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -20,21 +21,24 @@ import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
 import java.net.URI
 import java.nio.channels.Channels
 import java.nio.file.Files
-import java.sql.Timestamp
-import java.time.Instant
 import java.util.UUID
-import scala.collection.JavaConverters._
-import scala.util.{Try, Using}
+import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try, Using}
 
-class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)(implicit
+class BigQueryNativeJob(
+  override val cliConfig: BigQueryLoadConfig,
+  sql: String,
+  resultPageSize: Long = 1,
+  jobTimeoutMs: scala.Option[Long] = None
+)(implicit
   val settings: Settings
 ) extends JobBase
     with BigQueryJobBase {
   override def name: String = s"bqload-${bqNativeTable}"
 
-  logger.info(s"BigQuery Config $cliConfig")
+  logger.debug(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BigQueryJobResult] = {
+  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BqLoadInfo] = {
     getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
       Try {
         val bqSchema =
@@ -47,69 +51,86 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
 
             // We upload local files first.
             val localFiles = uri.startsWith("file:")
-            val job =
-              if (localFiles) {
-                val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
-                val jobName = "jobId_" + UUID.randomUUID().toString();
-                val jobId = JobId.newBuilder().setJob(jobName).build();
-                Using(bigquery.writer(jobId, loadConfig)) { writer =>
-                  val outputStream = Channels.newOutputStream(writer)
-                  sourceURIs
-                    .split(",")
-                    .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
+            recoverBigqueryException {
+              val job = {
+                if (localFiles) {
+                  loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIs.split(","))
+                } else {
+                  val loadConfig: LoadJobConfiguration =
+                    bqLoadConfig(bqSchema, formatOptions, sourceURIs)
+                  // Load data from a GCS CSV file into the table
+                  val jobId = newJobIdWithLocation()
+                  bigquery(accessToken = cliConfig.accessToken).create(
+                    JobInfo.newBuilder(loadConfig).setJobId(jobId).build()
+                  )
                 }
-                bigquery().getJob(jobId)
-              } else {
-                val loadConfig: LoadJobConfiguration =
-                  bqLoadConfig(bqSchema, formatOptions, sourceURIs)
-                // Load data from a GCS CSV file into the table
-                bigquery().create(JobInfo.of(loadConfig))
               }
-            // Blocks until this load table job completes its execution, either failing or succeeding.
-            val jobResult = job.waitFor()
-            if (jobResult.isDone) {
-              val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
-              applyRLSAndCLS().recover { case e =>
-                Utils.logException(logger, e)
-                throw e
-              }
-              logger.info(
-                s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
+              logger.info(s"Waiting for job ${job.getJobId}")
+              // Blocks until this load table job completes its execution, either failing or succeeding.
+              job.waitFor(
+                RetryOption.totalTimeout(
+                  org.threeten.bp.Duration.ofMillis(
+                    jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs)
+                  )
+                )
               )
-              val success = !settings.appConfig.rejectAllOnError || stats.getBadRecords == 0
-              val log = AuditLog(
-                jobResult.getJobId.getJob,
-                sourceURIs,
-                BigQueryJobBase.getBqDatasetForNative(tableId),
-                tableId.getTable,
-                success = success,
-                stats.getOutputRows + stats.getBadRecords,
-                stats.getOutputRows,
-                stats.getBadRecords,
-                Timestamp.from(Instant.ofEpochMilli(stats.getStartTime)),
-                stats.getEndTime - stats.getStartTime,
-                if (success) "success" else s"${stats.getBadRecords} invalid records",
-                Step.LOAD.toString,
-                cliConfig.outputDatabase,
-                settings.appConfig.tenant
-              )
-              settings.appConfig.audit.sink.getSink() match {
-                case sink: BigQuerySink =>
-                  AuditLog.sinkToBigQuery(log, sink)
-                case _ =>
-                  throw new Exception("Not Supported")
-              }
-              BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
-            } else
-              throw new Exception(
-                "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus.getError
-              )
+            }.map { jobResult =>
+              if (scala.Option(jobResult.getStatus.getError()).isEmpty) {
+                val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
+                applyRLSAndCLS().recover { case e =>
+                  Utils.logException(logger, e)
+                  throw e
+                }
+                logger.info(
+                  s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
+                )
+                BqLoadInfo(
+                  stats.getOutputRows,
+                  stats.getBadRecords,
+                  BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
+                )
+              } else
+                throw new Exception(
+                  "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus
+                    .getError()
+                )
+            }
           case Right(_) =>
             throw new Exception("Should never happen")
-
         }
-      }
+      }.flatten
     }
+  }
+
+  private def loadLocalFilePathsToBQ(
+    bqSchema: BQSchema,
+    formatOptions: FormatOptions,
+    sourceURIs: Iterable[String]
+  ): Job = {
+    val loadConfig = bqLoadLocaFileConfig(bqSchema, formatOptions)
+    val jobId: JobId = newJobIdWithLocation()
+    Using(bigquery(accessToken = cliConfig.accessToken).writer(jobId, loadConfig)) { writer =>
+      val outputStream = Channels.newOutputStream(writer)
+      sourceURIs
+        .foreach(uri => Files.copy(File(new URI(uri)).path, outputStream))
+    }
+    bigquery(accessToken = cliConfig.accessToken).getJob(jobId)
+  }
+
+  private def newJobIdWithLocation(): JobId = {
+    val jobName = UUID.randomUUID().toString();
+    val jobIdBuilder = JobId.newBuilder().setJob(jobName);
+    jobIdBuilder.setProject(BigQueryJobBase.projectId(cliConfig.outputDatabase))
+    jobIdBuilder.setLocation(
+      connectionOptions.getOrElse(
+        "location",
+        throw new Exception(
+          s"location is required but not present in connection $connectionName"
+        )
+      )
+    )
+    val jobId = jobIdBuilder.build()
+    jobId
   }
 
   def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
@@ -165,9 +186,9 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           SchemaUpdateOption.ALLOW_FIELD_RELAXATION
         ).asJava
       )
-      if (!settings.appConfig.rejectAllOnError)
-        loadConfig.setMaxBadRecords(settings.appConfig.rejectMaxRecords)
     }
+    if (!settings.appConfig.rejectAllOnError)
+      loadConfig.setMaxBadRecords(settings.appConfig.rejectMaxRecords)
 
     cliConfig.outputPartition match {
       case Some(partitionField) =>
@@ -186,7 +207,7 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     }
     cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
-        metadata.getFormat() match {
+        metadata.resolveFormat() match {
           case Format.DSV =>
             metadata.nullValue.foreach(loadConfig.setNullMarker)
           case _ =>
@@ -199,25 +220,21 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
   private def bqLoadFormatOptions(): FormatOptions = {
     val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
-        metadata.getFormat() match {
+        metadata.resolveFormat() match {
           case Format.DSV =>
             val formatOptions =
               CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
-            if (metadata.isWithHeader())
+            if (metadata.resolveWithHeader())
               formatOptions.setSkipLeadingRows(1).build
-            metadata.encoding match {
-              case Some(encoding) =>
-                formatOptions.setEncoding(encoding)
-              case None =>
-            }
-            formatOptions.setFieldDelimiter(metadata.getSeparator())
+            formatOptions.setEncoding(metadata.resolveEncoding())
+            formatOptions.setFieldDelimiter(metadata.resolveSeparator())
             metadata.quote.map(quote => formatOptions.setQuote(quote))
             formatOptions.setAllowJaggedRows(true)
             formatOptions.build()
-          case Format.JSON | Format.SIMPLE_JSON =>
+          case Format.JSON | Format.JSON_FLAT =>
             FormatOptions.json()
           case _ =>
-            throw new Exception(s"Should never happen: ${metadata.getFormat()}")
+            throw new Exception(s"Should never happen: ${metadata.resolveFormat()}")
         }
       case None =>
         throw new Exception("Should never happen")
@@ -225,38 +242,59 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     formatOptions
   }
 
-  def runInteractiveQuery(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
+  def runInteractiveQuery(
+    thisSql: scala.Option[String] = None,
+    pageSize: scala.Option[Long] = None,
+    queryJobTimeoutMs: scala.Option[Long] = None
+  ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       Try {
-        val targetSQL = thisSql.getOrElse(sql)
+        val targetSQL = thisSql.getOrElse(sql).trim()
         val queryConfig: QueryJobConfiguration.Builder =
           QueryJobConfiguration
             .newBuilder(targetSQL)
             .setAllowLargeResults(true)
-            .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
-            )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
 
         logger.info(s"Running interactive BQ Query $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
-        val queryJob = bigquery().create(JobInfo.of(finalConfiguration))
-        val totalBytesProcessed = queryJob
-          .getStatistics()
-          .asInstanceOf[QueryStatistics]
-          .getTotalBytesProcessed
+        recoverBigqueryException {
+          val jobId = newJobIdWithLocation()
+          val queryJob =
+            bigquery(accessToken = cliConfig.accessToken).create(
+              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
+            )
+          logger.info(s"Waiting for job $jobId")
+          queryJob.waitFor(
+            RetryOption.maxAttempts(0),
+            RetryOption.totalTimeout(
+              org.threeten.bp.Duration.ofMinutes(
+                queryJobTimeoutMs
+                  .orElse(jobTimeoutMs)
+                  .getOrElse(settings.appConfig.longJobTimeoutMs)
+              )
+            )
+          )
+        }.map { jobResult =>
+          val totalBytesProcessed = jobResult
+            .getStatistics()
+            .asInstanceOf[QueryStatistics]
+            .getTotalBytesProcessed
 
-        val results = queryJob.getQueryResults()
-        logger.info(
-          s"Query large results performed successfully: ${results.getTotalRows} rows returned."
-        )
+          val results = jobResult.getQueryResults(
+            QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+          )
+          logger.info(
+            s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+          )
 
-        BigQueryJobResult(Some(results), totalBytesProcessed, Some(queryJob))
-      }
+          BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+        }
+      }.flatten
     }
   }
 
@@ -264,27 +302,36 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
     queryConfig: QueryJobConfiguration.Builder
   ): QueryJobConfiguration.Builder = {
     settings.appConfig
-      .getUdfs()
+      .getEffectiveUdfs()
       .foreach { udf =>
-        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
+        if (udf.contains("://")) // make sure it's a URI
+          queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
       }
     queryConfig
   }
 
-  /** Just to force any spark job to implement its entry point within the "run" method
+  /** Just to force any job to implement its entry point within the "run" method
     *
     * @return
-    *   : Spark Session used for the job
+    *   : job result
     */
   override def run(): Try[JobResult] = {
-    if (cliConfig.materializedView) {
-      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
+    // The very first time we update a audit table, we run it interactively to make sure there is not
+    // risk running it in batch mode (batch mode cannot catch errors such as schema incompatibility).
+    if (this.datasetId.getDataset() == settings.appConfig.audit.getDomain()) {
+      if (settings.appConfig.internal.forall(_.bqAuditSaveInBatchMode)) {
+        runBatchQuery().map(_ => BigQueryJobResult(None, 0L, None))
+      } else {
+        runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+      }
+    } else if (cliConfig.materializedView) {
+      runAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
-      RunAndSinkAsTable()
+      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
     }
   }
 
-  def RunAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
+  def runAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
         val materializedViewDefinitionBuilder =
@@ -314,14 +361,19 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
           case None    =>
         }
         val table =
-          bigquery().create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
         setTagsOnTable(table)
         table
       }
     }
   }
 
-  def RunAndSinkAsTable(thisSql: scala.Option[String] = None): Try[BigQueryJobResult] = {
+  def runAndSinkAsTable(
+    thisSql: scala.Option[String] = None,
+    targetTableSchema: scala.Option[BQSchema] = None,
+    queryJobTimeoutMs: scala.Option[Long] = None
+  ): Try[BigQueryJobResult] = {
     getOrCreateDataset(None).flatMap { targetDataset =>
       Try {
         val queryConfig: QueryJobConfiguration.Builder =
@@ -331,11 +383,8 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
             .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
             .setDefaultDataset(targetDataset.getDatasetId)
             .setPriority(Priority.INTERACTIVE)
-            .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
-            )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
             .setUseLegacySql(false)
             .setAllowLargeResults(true)
@@ -347,132 +396,149 @@ class BigQueryNativeJob(override val cliConfig: BigQueryLoadConfig, sql: String)
             val partitioning =
               timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
                 .build()
-
-            // Allow Field relaxation / addition in native job when appending to existing partitioned table
-            val tableExists = Try(
-              bigquery()
-                .getTable(tableId)
-                .exists()
-            ).toOption.getOrElse(false)
-
-            if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString && tableExists)
-              queryConfig
-                .setTimePartitioning(partitioning)
-                .setSchemaUpdateOptions(
-                  List(
-                    SchemaUpdateOption.ALLOW_FIELD_ADDITION,
-                    SchemaUpdateOption.ALLOW_FIELD_RELAXATION
-                  ).asJava
-                )
-            else
-              queryConfig.setTimePartitioning(partitioning)
+            queryConfig.setTimePartitioning(partitioning)
           case None =>
             queryConfig
         }
+        // Allow Field relaxation / addition in native job when appending to existing partitioned table
+        val tableExists = Try(
+          bigquery(accessToken = cliConfig.accessToken)
+            .getTable(tableId)
+            .exists()
+        ).toOption.getOrElse(false)
+
+        logger.info("Schema update options")
+        val queryConfigWithPartitioningAndSchemaUpdate =
+          if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString && tableExists)
+            queryConfigWithPartition
+              .setSchemaUpdateOptions(
+                List(
+                  SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                  SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+                ).asJava
+              )
+          else
+            queryConfigWithPartition
 
         logger.info("Computing clustering")
         val queryConfigWithClustering = cliConfig.outputClustering match {
           case Nil =>
-            queryConfigWithPartition
+            queryConfigWithPartitioningAndSchemaUpdate
           case fields =>
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
-            queryConfigWithPartition.setClustering(clustering)
+            queryConfigWithPartitioningAndSchemaUpdate.setClustering(clustering)
         }
         logger.info("Add user defined functions")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
         logger.info(s"Executing BQ Query $sql")
         val finalConfiguration = queryConfigWithUDF.setDestinationTable(tableId).build()
-        val jobInfo = bigquery().create(JobInfo.of(finalConfiguration))
-        val totalBytesProcessed = jobInfo
-          .getStatistics()
-          .asInstanceOf[QueryStatistics]
-          .getTotalBytesProcessed
-
-        val results = jobInfo.getQueryResults()
-        logger.info(
-          s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-        )
-
-        val table = bigquery().getTable(tableId)
-        setTagsOnTable(table)
-
-        applyRLSAndCLS().recover { case e =>
-          Utils.logException(logger, e)
-          throw new Exception(e)
-        }
-        updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
-        updateColumnsDescription(getFieldsDescriptionSource(sql))
-        BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobInfo))
-      }
-    }
-  }
-
-  def runBatchQuery(wait: Boolean): Try[Job] = {
-    getOrCreateDataset(None).flatMap { _ =>
-      Try {
-        val jobId = JobId
-          .newBuilder()
-          .setJob(
-            UUID.randomUUID.toString
-          ) // Run at batch priority, which won't count toward concurrent rate limit.
-          .setLocation(
-            connectionOptions.getOrElse(
-              "location",
-              throw new Exception(
-                s"location is required but not present in connection $connectionName"
+        recoverBigqueryException {
+          val jobId = newJobIdWithLocation()
+          val jobInfo =
+            bigquery(accessToken = cliConfig.accessToken).create(
+              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
+            )
+          logger.info(s"Waiting for job $jobId")
+          jobInfo.waitFor(
+            RetryOption.totalTimeout(
+              org.threeten.bp.Duration.ofMinutes(
+                queryJobTimeoutMs
+                  .orElse(jobTimeoutMs)
+                  .getOrElse(settings.appConfig.longJobTimeoutMs)
               )
             )
           )
-          .build()
+        }.map { jobResult =>
+          val totalBytesProcessed = jobResult
+            .getStatistics()
+            .asInstanceOf[QueryStatistics]
+            .getTotalBytesProcessed
+          val results = jobResult.getQueryResults(QueryResultsOption.pageSize(this.resultPageSize))
+          logger.info(
+            s"Query large results performed successfully: ${results.getTotalRows} rows inserted and processed ${totalBytesProcessed} bytes."
+          )
+          val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
+          setTagsOnTable(table)
+
+          applyRLSAndCLS().recover { case e =>
+            Utils.logException(logger, e)
+            throw new Exception(e)
+          }
+          updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
+          targetTableSchema
+            .map(updateColumnsDescription)
+            .getOrElse(
+              updateColumnsDescription(
+                BigQueryJobBase.dictToBQSchema(getFieldsDescriptionSource(sql))
+              )
+            )
+          BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+        }
+      }.flatten
+    }
+  }
+
+  def getTable(tableId: TableId): Try[Table] = {
+    Try {
+      bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
+    }
+  }
+  // run batch query use only (for auditing only)
+  def runBatchQuery(
+    thisSql: scala.Option[String] = None,
+    wait: Boolean = false
+  ): Try[Job] = {
+    getOrCreateDataset(None).flatMap { targetDataset =>
+      Try {
+        val jobId = newJobIdWithLocation()
         val queryConfig =
           QueryJobConfiguration
-            .newBuilder(sql)
+            .newBuilder(thisSql.getOrElse(sql))
+            .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
+            .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
+            .setDefaultDataset(targetDataset.getDatasetId)
+            .setDestinationTable(tableId)
             .setPriority(Priority.BATCH)
             .setUseLegacySql(false)
-            .setJobTimeoutMs(
-              connectionOptions.get("job-timeout-ms").map(java.lang.Long.valueOf).orNull
+            .setSchemaUpdateOptions(
+              List(
+                SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+              ).asJava
             )
             .setMaximumBytesBilled(
-              connectionOptions.get("maximum-bytes-billed").map(java.lang.Long.valueOf).orNull
+              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
             .build()
-        logger.info(s"Executing BQ Query $sql")
+        logger.info(s"Executing batch BQ Query $sql")
         val job =
-          bigquery().create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
         logger.info(
           s"Batch query wth jobId $jobId sent to BigQuery "
         )
         if (job == null)
-          throw new Exception("Job not executed since it no longer exists.")
+          throw new Exception(s"Job for $sql not executed since it no longer exists.")
         else {
           if (wait) {
-            job.waitFor()
+            logger.info(s"Waiting for job $jobId")
+            job.waitFor(
+              RetryOption.totalTimeout(
+                org.threeten.bp.Duration
+                  .ofMinutes(jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs))
+              )
+            )
+          } else {
+            logger.info(s"${job.getJobId()} is running in background")
           }
           job
         }
-      }
-    }
-  }
-
-  @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
-  def createViews(views: Map[String, String], udf: scala.Option[String]): Unit = {
-    views.foreach { case (key, value) =>
-      val viewQuery: ViewDefinition.Builder =
-        ViewDefinition.newBuilder(value).setUseLegacySql(false)
-      val viewDefinition = udf
-        .map { udf =>
-          viewQuery
-            .setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
-        }
-        .getOrElse(viewQuery)
-      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-      val viewRef = scala.Option(bigquery().getTable(tableId))
-      if (viewRef.isEmpty) {
-        logger.info(s"View $tableId does not exist, creating it!")
-        bigquery().create(TableInfo.of(tableId, viewDefinition.build()))
-        logger.info(s"View $tableId created")
-      } else {
-        logger.info(s"View $tableId already exist")
+      } match {
+        case Failure(e) =>
+          logger.error(s"Error while running batch query $sql", e)
+          Failure(e)
+        case Success(job) =>
+          Success(job)
       }
     }
   }

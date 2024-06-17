@@ -1,0 +1,359 @@
+package ai.starlake.schema.generator
+
+import ai.starlake.config.Settings
+import ai.starlake.job.transform.AutoTask
+import ai.starlake.schema.generator
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.{Domain, WriteStrategy}
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.typesafe.scalalogging.StrictLogging
+
+import scala.collection.mutable.ListBuffer
+
+/*
+https://medium.com/hibob-engineering/from-list-to-immutable-hierarchy-tree-with-scala-c9e16a63cb89
+ */
+
+object TaskViewDependency extends StrictLogging {
+  // TODO migrate to enum once scala 3 is here
+  val TASK_TYPE: String = "task"
+  val CTE_TYPE: String = "cte"
+  val TASKVIEW_TYPE: String = "taskview"
+  val TABLE_TYPE: String = "table"
+  val VIEW_TYPE: String = "view"
+  val UNKNOWN_TYPE: String = "unknown"
+
+  def typLabel(typ: String): String = typ match {
+    case TASK_TYPE     => "Transform"
+    case CTE_TYPE      => "CTE"
+    case TASKVIEW_TYPE => "Taskview"
+    case TABLE_TYPE    => "Table"
+    case VIEW_TYPE     => "View"
+    case _             => "Unknown"
+  }
+  case class SimpleEntry(name: String, typ: String, parentRefs: List[String])
+  def taskDependencies(taskName: String, tasks: List[AutoTask])(implicit
+    settings: Settings,
+    schemaHandler: SchemaHandler
+  ): List[TaskViewDependency] = {
+    val deps = dependencies(tasks)
+    var result = scala.collection.mutable.ListBuffer[TaskViewDependency]()
+    val roots = deps.filter(t => t.name == taskName && t.typ == TASK_TYPE)
+    result ++= roots
+    getHierarchy(roots, deps, result)
+    result.toList.distinct
+  }
+
+  private def getHierarchy(
+    roots: List[TaskViewDependency],
+    allDeps: List[TaskViewDependency],
+    result: ListBuffer[TaskViewDependency]
+  ): Unit = {
+    roots.foreach { root =>
+      val subRoots = allDeps.filter(t =>
+        t.typ == root.parentTyp && t.name.toLowerCase() == root.parent.toLowerCase()
+      )
+      val nocyclicRoots = subRoots.filter { subRoot =>
+        val cycle = roots.exists(_.name.toLowerCase() == subRoot.name.toLowerCase())
+        !cycle
+      }
+      result ++= nocyclicRoots
+      getHierarchy(nocyclicRoots, allDeps, result)
+    }
+  }
+
+  def dependencies(
+    tasks: List[AutoTask]
+  )(implicit settings: Settings, schemaHandler: SchemaHandler): List[TaskViewDependency] = {
+    val jobs: Map[String, List[AutoTask]] = tasks.groupBy(_.name)
+    val jobDependencies: List[SimpleEntry] =
+      jobs.mapValues(_.flatMap(_.dependencies())).toList.map { case (jobName, dependencies) =>
+        SimpleEntry(jobName, TASK_TYPE, dependencies)
+      }
+
+    val allTasks = schemaHandler.tasks()
+
+    def tableSchedule(tableName: String): Option[String] = {
+      val domains = schemaHandler.domains()
+      val parts = tableName.split('.')
+      parts.length match {
+        case 1 =>
+          val tablePart = parts.last // == 0
+          val theDomain =
+            domains
+              .find(domain =>
+                domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
+              )
+          val theTable = theDomain.flatMap(
+            _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
+          )
+          theTable
+            .flatMap(_.metadata)
+            .flatMap(_.schedule)
+            .orElse(theDomain.flatMap(_.metadata).flatMap(_.schedule))
+        case 2 | 3 =>
+          val domainPart = parts.dropRight(1).last
+          val tablePart = parts.last
+          val theDomain: Option[Domain] = domains
+            .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
+          val theTable = theDomain.flatMap(
+            _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
+          )
+          theTable
+            .flatMap(_.metadata)
+            .flatMap(_.schedule)
+            .orElse(theDomain.flatMap(_.metadata).flatMap(_.schedule))
+        case _ =>
+          None
+      }
+    }
+    val jobAndViewDeps = jobDependencies.flatMap { case SimpleEntry(jobName, typ, parentRefs) =>
+      logger.info(
+        s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
+      )
+      val task = jobs(jobName).head
+      if (parentRefs.isEmpty)
+        List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, "", task.taskDesc.writeStrategy))
+      else {
+        parentRefs.map { parentSQLRef =>
+          val parts = parentSQLRef.split('.')
+          // is it a job ?
+          val parentJobName = parts.length match {
+            case 1 =>
+              val tablePart = parts.last // == 0
+              val refs =
+                allTasks.filter(task =>
+                  task.name.endsWith(s".$tablePart") ||
+                  task.table.toLowerCase() == tablePart.toLowerCase()
+                )
+              if (refs.size > 1) {
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
+                      .map(_.name)
+                      .mkString(",")}.
+                     |Make sure references in your SQL are unambiguous or fully qualified.
+                     |""".stripMargin
+                )
+
+              } else
+                refs.headOption.map(_.name)
+
+            case 2 | 3 =>
+              val domainPart = parts.dropRight(1).last
+              val tablePart = parts.last
+              allTasks
+                .find(task =>
+                  task.name.toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
+                  (task.table.toLowerCase() == tablePart.toLowerCase() &&
+                  task.domain.toLowerCase() == domainPart.toLowerCase())
+                )
+                .map(_.name)
+            case _ =>
+              val errors = schemaHandler.checkJobsVars().mkString("\n")
+
+              // Strange. This should never happen as far as I know. Let's make it clear
+              if (parts.length == 0)
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': No part found.
+                     |Make sure variables defined in your job have a default value in the selected env profile.
+                     |$errors""".stripMargin
+                )
+              else
+                // Strange. This should never happen as far as I know. Let's make it clear
+                throw new Exception(
+                  s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName'. Too many parts.
+                     |Make sure variables defined in your job have a default value in the selected env profile.
+                     |$errors""".stripMargin
+                )
+
+          }
+          parentJobName match {
+            case Some(parentJobName) =>
+              val result =
+                generator.TaskViewDependency(
+                  jobName,
+                  typ,
+                  parentJobName,
+                  TASK_TYPE,
+                  parentSQLRef,
+                  task.taskDesc.writeStrategy
+                )
+              if (typ == TASK_TYPE) {
+                // TODO We just handle one task per job which is always the case till now.
+                val task = jobs(jobName).head
+                val sink = task.taskDesc.domain + "." + task.taskDesc.table
+                result.copy(sink = Some(sink))
+              } else result
+            case None =>
+              // is it a table ?
+              val domains = schemaHandler.domains()
+              val parentTable = parts.length match {
+                case 1 =>
+                  val tablePart = parts.last // == 0
+                  val parentDomain: Option[Domain] = domains
+                    .find(domain =>
+                      domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
+                    )
+                  parentDomain.map(domain => (domain.finalName, tablePart))
+
+                case 2 | 3 =>
+                  val domainPart = parts.dropRight(1).last
+                  val tablePart = parts.last
+                  val theDomain: Option[Domain] = domains
+                    .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
+                  val parentDomainFound = theDomain.exists(
+                    _.tables.exists(table =>
+                      table.finalName.toLowerCase() == tablePart.toLowerCase()
+                    )
+                  )
+                  if (parentDomainFound)
+                    Some((domainPart, tablePart))
+                  else
+                    None
+                case _ =>
+                  // Strange. This should never happen as far as I know. Let's log it
+                  throw new Exception(s"unknown $parentSQLRef syntax. Too many parts")
+              }
+              parentTable match {
+                case Some((parentDomainName, parentTableName)) =>
+                  TaskViewDependency(
+                    jobName,
+                    typ,
+                    parentDomainName + "." + parentTableName,
+                    TABLE_TYPE,
+                    parentSQLRef,
+                    task.taskDesc.writeStrategy
+                  )
+                case None =>
+                  TaskViewDependency(
+                    jobName,
+                    typ,
+                    "",
+                    UNKNOWN_TYPE,
+                    parentSQLRef,
+                    task.taskDesc.writeStrategy
+                  )
+              }
+          }
+
+        }
+      }
+    }
+    val tableNames = jobAndViewDeps.filter(_.parentTyp == TABLE_TYPE).groupBy(_.parent).keys
+    val tableDeps = tableNames.map { tableName =>
+      {
+        val schedule = tableSchedule(tableName)
+        val cron =
+          Some(
+            settings.appConfig.schedulePresets.getOrElse(
+              schedule.getOrElse("None"),
+              schedule.getOrElse("None")
+            )
+          )
+        val tableComponents = tableName.split('.')
+        val tableNameOnly = tableComponents.last
+        val domainNameOnly = tableComponents.dropRight(1).last
+        val domain =
+          schemaHandler.domains().find(_.finalName.toLowerCase() == domainNameOnly.toLowerCase())
+        val writeStrategy =
+          for {
+            d <- domain
+            t <- d.tables.find(_.finalName.toLowerCase() == tableNameOnly.toLowerCase())
+            m <- t.metadata
+            w <- m.writeStrategy
+          } yield w
+        TaskViewDependency(tableName, TABLE_TYPE, "", UNKNOWN_TYPE, "", writeStrategy, None, cron)
+      }
+    }
+    val jobAndViewDepsWithSink = jobAndViewDeps.map { dep =>
+      if (dep.typ == TASK_TYPE) {
+        // TODO We just handle one task per job which is always the case till now.
+        val task = jobs(dep.name).head
+        val sink = task.taskDesc.domain + "." + task.taskDesc.table
+        val schedule = allTasks.find(_.name.toLowerCase == dep.name.toLowerCase).flatMap(_.schedule)
+        val cron =
+          Some(
+            settings.appConfig.schedulePresets.getOrElse(
+              schedule.getOrElse("None"),
+              schedule.getOrElse("None")
+            )
+          )
+        dep.copy(sink = Some(sink), cron = cron)
+      } else dep
+
+    }
+    jobAndViewDepsWithSink ++ tableDeps
+  }
+}
+
+case class TaskViewDependency(
+  name: String,
+  typ: String,
+  parent: String,
+  parentTyp: String,
+  parentRef: String,
+  writeStrategy: Option[WriteStrategy],
+  sink: Option[String] = None,
+  cron: Option[String] = None
+) {
+
+  @JsonIgnore
+  def hasParent(): Boolean = parent.nonEmpty
+
+  /** @return
+    *   (bgColor, fontColor)
+    */
+  private def dotColor(): (String, String, String) = {
+    import TaskViewDependency._
+    typ match {
+      case TASK_TYPE     => ("#00008B", "white", "Task") // darkblue
+      case TASKVIEW_TYPE => ("darkcyan", "white", "TaskView")
+      case VIEW_TYPE     => ("darkgrey", "white", "View")
+      case TABLE_TYPE    => ("#008B00", "white", "Table")
+      case CTE_TYPE      => ("darkorange", "white", "CTE")
+      case UNKNOWN_TYPE  => ("black", "white", "???")
+      case _             => throw new Exception(s"Unknown type $typ")
+    }
+  }
+
+  def relationAsDot(): Option[String] = {
+    val depId = name.replaceAll("\\.", "_")
+    val dotParent: String = if (parent.isEmpty) parentRef else parent
+    val dotParentId = dotParent.replaceAll("\\.", "_")
+    if (dotParent.nonEmpty)
+      Some(s"$dotParentId -> $depId")
+    else
+      None
+
+  }
+
+  def entityAsDot(verbose: Boolean): String = {
+    val depId = name.replaceAll("\\.", "_")
+    val (bgColor, fontColor, text) = dotColor()
+    if (verbose) {
+      s"""
+         |$depId [label=<
+         |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
+         |<tr>
+         |<td rowspan="2" bgcolor="$bgColor" ><font color="$fontColor" face="Arial">$text</font></td>
+         |<td port="0" ><font face="Arial">$name&nbsp;&nbsp;</font>
+         |</td></tr>
+         |<tr>
+         |<td port="0" ><font face="Arial">
+         |${writeStrategy.flatMap(_.`type`).getOrElse("")}
+         |&nbsp;&nbsp;</font>
+         |</td></tr>
+         |         |</table>>];""".stripMargin
+
+    } else {
+      s"""
+       |$depId [label=<
+       |<table border="0" cellborder="1" cellspacing="0" cellpadding="10">
+       |<tr>
+       |<td bgcolor="$bgColor" ><font color="$fontColor" face="Arial">$text</font></td>
+       |<td port="0" ><font face="Arial">$name&nbsp;&nbsp;</font>
+       |</td></tr>
+       |</table>>];""".stripMargin
+    }
+  }
+}

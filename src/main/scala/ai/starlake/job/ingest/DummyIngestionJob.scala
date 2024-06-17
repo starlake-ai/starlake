@@ -15,16 +15,18 @@ class DummyIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
-  override protected def loadDataSet(): Try[DataFrame] = ???
+  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = ???
 
   /** ingestion algorithm
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) =
+  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) =
     throw new Exception("Should never be called. User for applying security only")
 
   override def name: String = s"""${domain.name}-${schema.name}"""

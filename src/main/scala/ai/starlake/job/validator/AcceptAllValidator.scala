@@ -18,11 +18,11 @@ object AcceptAllValidator extends GenericRowValidator {
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
     emptyIsNull: Boolean
-  ): ValidationResult = {
+  ): CheckValidityResult = {
     import session.implicits._
     val rejectedDS = session.emptyDataset[String]
     val rejectedInputDS = session.emptyDataset[String]
     val acceptedDS = dataset
-    ValidationResult(rejectedDS, rejectedInputDS, acceptedDS)
+    CheckValidityResult(rejectedDS, rejectedInputDS, acceptedDS)
   }
 }

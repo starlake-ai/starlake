@@ -1,0 +1,79 @@
+version: 1
+application:
+  dagRef:
+    load: "{{ dag_ref }}"
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
+  accessPolicies:
+    apply: true
+    location: europe-west1
+    taxonomy: GDPR
+  connections:
+    postgresql:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
+        driver: "org.postgresql.Driver"
+        user: "{{POSTGRES_USER}}"
+        password: "{{POSTGRES_PASSWORD}}"
+        quoteIdentifiers: false
+    duckdb:
+      type: "jdbc" # Connection to DuckDB
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
+    redshift:
+      type: jdbc
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.jdbc42.Driver"
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
+    redshift_spark:
+      type: jdbc
+      sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.Driver"
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
+        tempdir: "s3a://starlake-app/data"
+        aws_iam_role: "{{REDSHIFT_ROLE}}"
+    snowflake:
+      type: jdbc
+      options:
+        url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
+        driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        user: "{{SNOWFLAKE_USER}}"
+        password: "{{SNOWFLAKE_PASSWORD}}"
+        warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
+        db: "{{SNOWFLAKE_DB}}"
+        keep_column_case: "off"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+    bigquery:
+      type: "bigquery"
+      options:
+        writeMethod: "indirect" # direct or indirect
+        location: "europe-west1" # EU or US
+        gcsBucket: "starlake-app" # required in indirect mode only
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        # materializationDataset: "BQ_TEST_DS" # Put this option here if only applicable to this connection or
+        #                                        in the spark.datasource.bigquery below section
+        #                                        if applicable to all BigQuery connections
+        #authType: SERVICE_ACCOUNT_JSON_KEYFILE
+        #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
+        #jobTimeoutMs: 3600000
+        #maximumBytesBilled: 100000000000
+    sparkLocal:
+      type: "fs"
+  spark:
+    delta:
+      logStore:
+        class: org.apache.spark.sql.delta.storage.LocalLogStore
+    datasource:
+      bigquery:
+        materializationDataset: "BQ_TEST_DS"
+
+  connectionRef: "{{ myConnectionRef }}"

@@ -1,0 +1,36 @@
+extract:
+  connectionRef: databaseConn
+  auditConnectionRef: auditConn
+  output:
+    quote: "\""
+    escape: "\""
+  globalJdbcSchema:
+    columnRemarks: >
+      column
+      remarks
+      query
+    tableRemarks: >
+      table
+      remarks
+      query
+    tableTypes: # One or many of the types below
+      - "TABLE"
+    pattern: "{{table}}-{{schema}}.*"
+    fullExport: true
+    fetchSize: 1000
+    numPartitions: 128
+    template: "load-template.sl.yml"
+  jdbcSchemas:
+    - schema: "db_schema"
+      tables:
+        - name: "table1"
+          partitionColumn: "pc"
+          numPartitions: 6
+        - name: "table2"
+          columns:
+            - name: "[special column]"
+              rename: "special column"
+    - schema: "db_other_schema"
+    - schema: "db_another_schema"
+      exclude:
+        - "ignore_this_table"

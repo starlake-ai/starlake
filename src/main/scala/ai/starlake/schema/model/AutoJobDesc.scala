@@ -27,6 +27,8 @@ import scala.collection.mutable
 import scala.util.Try
 import ai.starlake.schema.model.Severity._
 
+case class TransformDesc(version: Int, transform: AutoJobDesc)
+
 /** A job is a set of transform tasks executed using the specified engine.
   *
   * @param name:
@@ -50,6 +52,7 @@ import ai.starlake.schema.model.Severity._
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
+  comment: Option[String] = None,
   default: Option[AutoTaskDesc] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
@@ -57,7 +60,7 @@ case class AutoJobDesc(
   def checkValidity(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
-    val errorList: mutable.MutableList[ValidationMessage] = mutable.MutableList.empty
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     // Check Domain name validity
     val forceJobPrefixRegex = settings.appConfig.forceJobPattern.r
@@ -94,6 +97,10 @@ case class AttributeDesc(
   accessPolicy: Option[String] = None
 ) {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
+
+  override def toString: String = {
+    s"AttributeDesc(name=$name, comment=$comment, accessPolicy=$accessPolicy)"
+  }
 }
 
 object AutoJobDesc {
@@ -112,7 +119,7 @@ object AutoJobDesc {
     (addedTasks, deletedTasks, commonTasks)
   }
 
-  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[JobDiff] = {
+  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[TransformsDiff] = {
     Try {
       val (addedTasks, deletedTasks, existingCommonTasks) =
         diffTasks(existing.tasks, incoming.tasks)
@@ -129,7 +136,7 @@ object AutoJobDesc {
       val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
         AutoTaskDesc.compare(existing, incoming)
       }
-      JobDiff(
+      TransformsDiff(
         existing.name,
         TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff)
       )

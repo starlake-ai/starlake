@@ -20,8 +20,9 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.job.validator.ValidationResult
+import ai.starlake.job.validator.CheckValidityResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
@@ -33,7 +34,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import scala.util.{Failure, Success, Try}
 
 /** Main class to XML file If your json contains only one level simple attribute aka. kind of dsv
-  * but in json format please use SIMPLE_JSON instead. It's way faster
+  * but in json format please use JSON_FLAT instead. It's way faster
   *
   * @param domain
   *   : Input Dataset Domain
@@ -53,7 +54,9 @@ class XmlIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val accessToken: Option[String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -62,7 +65,7 @@ class XmlIngestionJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  protected def loadDataSet(): Try[DataFrame] = {
+  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
     val xmlOptions = mergedMetadata.getXmlOptions()
     Try {
       val rowTag = xmlOptions.get("rowTag")
@@ -73,8 +76,8 @@ class XmlIngestionJob(
               .format("com.databricks.spark.xml")
               .options(xmlOptions)
               .option("inferSchema", value = false)
-              .option("encoding", mergedMetadata.getEncoding())
-              .options(mergedMetadata.getOptions())
+              .option("encoding", mergedMetadata.resolveEncoding())
+              .options(sparkOptions)
               .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }
@@ -96,28 +99,33 @@ class XmlIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
     import session.implicits._
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
-    val rejectedDS = errorList.toDS
+    val rejectedDS = errorList.toDS()
     mergedMetadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
-        saveRejected(rejectedDS, session.emptyDataset[String]).map { _ =>
+        saveRejected(rejectedDS, session.emptyDataset[String])(
+          settings,
+          storageHandler,
+          schemaHandler
+        ).flatMap { _ =>
           saveAccepted(
-            ValidationResult(
+            CheckValidityResult(
               session.emptyDataset[String],
               session.emptyDataset[String],
               dataset
             )
           )
         } match {
+          case Failure(exception: NullValueFoundException) =>
+            (rejectedDS, dataset, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success(_) => ;
+          case Success(rejectedRecordCount) => (rejectedDS, dataset, rejectedRecordCount);
         }
-        (rejectedDS, dataset)
       case None =>
         val withInputFileNameDS =
           dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
@@ -128,8 +136,8 @@ class XmlIngestionJob(
         val validationResult =
           treeRowValidator.validate(
             session,
-            mergedMetadata.getFormat(),
-            mergedMetadata.getSeparator(),
+            mergedMetadata.resolveFormat(),
+            mergedMetadata.resolveSeparator(),
             withInputFileNameDS,
             schema.attributes,
             types,
@@ -141,14 +149,20 @@ class XmlIngestionJob(
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
-        saveRejected(allRejected, validationResult.rejected).map { _ =>
+        saveRejected(allRejected, validationResult.rejected)(
+          settings,
+          storageHandler,
+          schemaHandler
+        ).flatMap { _ =>
           saveAccepted(validationResult)
         } match {
+          case Failure(exception: NullValueFoundException) =>
+            (validationResult.errors, validationResult.accepted, exception.nbRecord)
           case Failure(exception) =>
             throw exception
-          case Success(_) => ;
+          case Success(rejectedRecordCount) =>
+            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
         }
-        (allRejected, validationResult.accepted)
     }
   }
 
