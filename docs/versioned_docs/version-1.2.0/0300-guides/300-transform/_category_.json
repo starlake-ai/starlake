@@ -1,7 +1,0 @@
-{
-  "label": "Transform",
-  "link": {
-    "type": "generated-index",
-    "description": "Run SQL (or Python) scripts to transform data from source to target and store the results using different write strategies."
-  }
-}

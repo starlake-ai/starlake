@@ -3,18 +3,37 @@ package ai.starlake.schema
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Project, ProjectDiff}
+import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
-import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
+import java.nio.charset.StandardCharsets
+import java.time.format.DateTimeFormatter
+import java.util
 import scala.util.Try
 
 object ProjectCompare {
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
     ProjectCompareCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
 
+  private def applyJ2AndSave(
+    outputDir: Path,
+    templateContent: String,
+    context: util.HashMap[String, Object],
+    filename: String
+  )(implicit settings: Settings): Unit = {
+    val paramMap = Map(
+      "context" -> context
+    )
+    val jinjaOutput = Utils.parseJinjaTpl(templateContent, paramMap)
+    val path = new Path(outputDir, filename)
+    settings.storageHandler().write(jinjaOutput, path)(StandardCharsets.UTF_8)
+  }
+
   def compare(config: ProjectCompareConfig)(implicit settings: Settings): Unit = {
-    val diff = Project.compare(config)
+    val diff: ProjectDiff = Project.compare(config)
+    println(Utils.newJsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(diff))
     val result = applyTemplate(diff, config.template)
+
     config.output match {
       case None =>
         println(result)
@@ -27,19 +46,21 @@ object ProjectCompare {
     diff: ProjectDiff,
     templatePath: Option[String]
   )(implicit settings: Settings): String = {
-    val engine: TemplateEngine = new TemplateEngine
-    val (path, content) = templatePath match {
+    val content = templatePath match {
       case None =>
-        val stream = getClass.getResourceAsStream("/templates/project-compare.ssp")
+        val stream = getClass.getResourceAsStream("/templates/compare/index.html.j2")
         val templateContent = scala.io.Source.fromInputStream(stream).mkString
-        ("/templates/project-compare.ssp", templateContent)
+        templateContent
       case Some(path) =>
         val templateContent = settings.storageHandler().read(new Path(path))
-        (path, templateContent)
+        templateContent
     }
-    engine.layout(
-      TemplateSource.fromText(path, content),
-      Map("diff" -> diff)
+    Utils.parseJinjaTpl(
+      content,
+      Map[String, Object](
+        "diff"      -> diff,
+        "timestamp" -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+      )
     )
   }
 

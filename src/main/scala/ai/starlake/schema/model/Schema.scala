@@ -703,7 +703,7 @@ object Schema {
     )
   }
 
-  def compare(existing: Schema, incoming: Schema): Try[SchemaDiff] = {
+  def compare(existing: Schema, incoming: Schema): Try[TableDiff] = {
     Try {
       if (!existing.isFlat() || !incoming.isFlat())
         throw new Exception("Only flat schemas are supported")
@@ -714,7 +714,7 @@ object Schema {
             "pattern",
             Nil,
             Nil,
-            List((existing.pattern.toString, incoming.pattern.toString))
+            List((None, existing.pattern.toString, incoming.pattern.toString))
           )
         else {
           ListDiff(
@@ -761,22 +761,26 @@ object Schema {
       val filter: ListDiff[String] =
         AnyRefDiff.diffOptionString("filter", existing.filter, incoming.filter)
 
-      SchemaDiff(
+      val patternSample: ListDiff[String] =
+        AnyRefDiff.diffOptionString("patternSample", existing.patternSample, incoming.patternSample)
+
+      TableDiff(
         existing.name,
-        attributesDiff,
-        patternDiff,
-        metadataDiff,
-        commentDiff,
-        presqlDiff,
-        postsqlDiff,
-        tagsDiff,
-        rlsDiff,
-        expectationsDiff,
-        primaryKeyDiff,
-        aclDiff,
-        renameDiff,
-        sampleDiff,
-        filter
+        attributesDiff.asOption(),
+        patternDiff.asOption(),
+        metadataDiff.asOption(),
+        commentDiff.asOption(),
+        presqlDiff.asOption(),
+        postsqlDiff.asOption(),
+        tagsDiff.asOption(),
+        rlsDiff.asOption(),
+        expectationsDiff.asOption(),
+        primaryKeyDiff.asOption(),
+        aclDiff.asOption(),
+        renameDiff.asOption(),
+        sampleDiff.asOption(),
+        filter.asOption(),
+        patternSample.asOption()
       )
     }
   }
