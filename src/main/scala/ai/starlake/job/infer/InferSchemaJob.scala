@@ -271,7 +271,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             val fieldIndex = line.indexOf(":")
             if (fieldIndex == -1)
               throw new IllegalArgumentException(
-                s"""Positional format schem inference requires a colon (:) to separate the field name from in line $index.
+                s"""Positional format schema inference requires a colon (:) to separate the field name from its value in line $index.
                    |Example
                    |-------
                    |order_id:00001
@@ -279,7 +279,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
                    |""".stripMargin
               )
             val fieldName = line.substring(0, fieldIndex).trim
-            val field = line.substring(fieldIndex + 1).trim
+            val field =
+              line.substring(fieldIndex + 1) // no trim to keep leading and trailing spaces
             val startPosition = lastIndex + 1
             val endPosition = startPosition + field.length
             lastIndex = endPosition
