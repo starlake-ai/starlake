@@ -827,6 +827,7 @@ trait IngestionJob extends SparkJob {
     }
 
     IngestionUtil.sinkRejected(
+      applicationId(),
       session,
       errMessagesDS,
       domainName,

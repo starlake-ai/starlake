@@ -53,12 +53,12 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     }
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-      config.set(
-        "spark.sql.catalog.spark_catalog",
-        "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-      )
+      if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
+        config.set(
+          "spark.sql.catalog.spark_catalog",
+          "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
     }
-
     val session =
       if (
         settings.appConfig.isHiveCompatible() || Utils
@@ -79,6 +79,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
 
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))
+
     session
   }
 }

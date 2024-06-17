@@ -61,6 +61,7 @@ case class StarlakeTestResult(
   tableName: String,
   taskName: String,
   testName: String,
+  expectationName: String,
   missingColumns: List[String],
   notExpectedColumns: List[String],
   missingRecords: File,
@@ -90,6 +91,8 @@ case class StarlakeTestResult(
   def getTableName(): String = tableName
   def getTaskName(): String = taskName
   def getTestName(): String = testName
+  def getExpectationName(): String =
+    if (expectationName.isEmpty) "default" else expectationName.substring(1)
   def getMissingColumns(): java.util.List[String] = missingColumns.asJava
   def getMissingColumnsCount(): Int = missingColumns.size
   def getNotExpectedColumns(): java.util.List[String] = notExpectedColumns.asJava
@@ -189,15 +192,18 @@ object StarlakeTestResult {
   }
 
   def html(
-    loadResults: List[StarlakeTestResult],
-    transformResults: List[StarlakeTestResult]
+    loadAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
+    transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage)
   ): Unit = {
     implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
     val rootFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
     copyCssAndJs(rootFolder)
 
+    val (loadResults, loadCoverage) = loadAndCoverageResults
     val loadSummaries = StarlakeTestsDomainSummary.summaries(loadResults)
     val loadIndex = StarlakeTestsSummary.summaryIndex(loadSummaries)
+
+    val (transformResults, transformCoverage) = transformAndCoverageResults
     val transformSummaries = StarlakeTestsDomainSummary.summaries(transformResults)
     val transformIndex = StarlakeTestsSummary.summaryIndex(transformSummaries)
     val j2Params = Map(
@@ -205,7 +211,9 @@ object StarlakeTestResult {
       "loadSummaries"      -> loadSummaries.asJava,
       "transformIndex"     -> transformIndex,
       "transformSummaries" -> transformSummaries.asJava,
-      "timestamp"          -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+      "timestamp"          -> DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now()),
+      "loadCoverage"       -> loadCoverage,
+      "transformCoverage"  -> transformCoverage
     )
     val indexJ2 = loader.loadTemplate("root.html.j2")
     val indexContent = Utils.parseJinja(indexJ2, j2Params)
@@ -220,11 +228,16 @@ object StarlakeTestResult {
     junitXml(loadResults, transformResults)
   }
 
-  def html(results: List[StarlakeTestResult], testsFolder: Directory, loadOrTransform: String)(
-    implicit originalSettings: Settings
+  def html(
+    results: List[StarlakeTestResult],
+    testsFolder: Directory,
+    loadOrTransform: String
+  )(implicit
+    originalSettings: Settings
   ): Unit = {
     val domainSummaries = StarlakeTestsDomainSummary.summaries(results)
     val summaryIndex = StarlakeTestsSummary.summaryIndex(domainSummaries)
+
     val j2Params = Map(
       "summaryIndex"    -> summaryIndex,
       "domainSummaries" -> domainSummaries.asJava,
@@ -281,7 +294,10 @@ object StarlakeTestResult {
           result.domainName + File.separator + result.taskName + File.separator + result.testName
         )
       val resultContent = Utils.parseJinja(indexJ2, j2Params)
-      Files.write(new File(testFolder, "index.html").toPath, resultContent.getBytes())
+      Files.write(
+        new File(testFolder, s"${result.getExpectationName()}.html").toPath,
+        resultContent.getBytes()
+      )
     }
 
   }

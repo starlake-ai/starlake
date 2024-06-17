@@ -388,27 +388,29 @@ object Domain {
         )
       }
 
-      val updatedTablesDiff: List[SchemaDiff] = commonTables.flatMap { case (existing, incoming) =>
-        Schema.compare(existing, incoming).toOption
+      val updatedTablesDiff: List[TableDiff] = commonTables.flatMap {
+        case (existingTable, incomingTable) =>
+          Schema.compare(existingTable, incomingTable).toOption
       }
-
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
       val commentDiff = AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
       val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
       val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
-
+      val databaseDiff =
+        AnyRefDiff.diffOptionString("database", existing.database, incoming.database)
       DomainDiff(
         name = existing.name,
-        tables = SchemasDiff(
+        tables = TablesDiff(
           added = addedTables.map(_.name),
           deleted = deletedTables.map(_.name),
           updated = updatedTablesDiff
         ),
-        metadataDiff,
-        commentDiff,
-        tagsDiffs,
-        renameDiff
+        metadataDiff.asOption(),
+        commentDiff.asOption(),
+        tagsDiffs.asOption(),
+        renameDiff.asOption(),
+        databaseDiff.asOption()
       )
     }
   }

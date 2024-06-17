@@ -11,5 +11,6 @@ case class AutoTaskDependenciesConfig(
   print: Boolean = false,
   svg: Boolean = false,
   png: Boolean = false,
-  all: Boolean = false
+  all: Boolean = false,
+  verbose: Boolean = false
 )

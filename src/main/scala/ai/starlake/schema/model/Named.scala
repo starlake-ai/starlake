@@ -1,7 +1,9 @@
 package ai.starlake.schema.model
 
 trait Named {
-  def name: String
+  val name: String
+
+  def getName(): String = name
 }
 
 object Named {
@@ -10,4 +12,6 @@ object Named {
 
 }
 
-case class NamedValue(name: String, value: AnyRef) extends Named
+case class NamedValue(name: String, value: AnyRef) extends Named {
+  def getValue(): AnyRef = value
+}

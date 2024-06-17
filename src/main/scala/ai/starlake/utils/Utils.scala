@@ -41,15 +41,16 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
-import java.io.{PrintWriter, StringWriter}
-import scala.jdk.CollectionConverters._
+import java.io.{ByteArrayOutputStream, PrintWriter, StringWriter}
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe
-import scala.sys.process.{Process, ProcessLogger}
+import scala.sys.process.{Process, ProcessLogger, _}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object Utils extends StrictLogging {
+  case class CommandOutput(exit: Int, output: String, error: String)
 
   type Closeable = { def close(): Unit }
 
@@ -426,6 +427,25 @@ object Utils extends StrictLogging {
       }
     }
   }
+
+  def runCommand(cmd: Seq[String]): Try[CommandOutput] = Try {
+    logger.info(cmd.mkString(" "))
+    val stdoutStream = new ByteArrayOutputStream
+    val stderrStream = new ByteArrayOutputStream
+    val stdoutWriter = new PrintWriter(stdoutStream)
+    val stderrWriter = new PrintWriter(stderrStream)
+    val exitValue = cmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
+    stdoutWriter.close()
+    stderrWriter.close()
+    logger.info("exitValue: " + exitValue)
+    val output = stdoutStream.toString
+    val error = stderrStream.toString
+    logger.info(output)
+    if (exitValue != 0)
+      logger.error(error)
+    CommandOutput(exitValue, output, error)
+  }
+
 }
 
 class HadoopModule extends SimpleModule {

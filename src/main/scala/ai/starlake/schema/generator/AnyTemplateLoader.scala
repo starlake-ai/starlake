@@ -9,7 +9,6 @@ import scala.util.{Failure, Success, Try}
 
 abstract class AnyTemplateLoader extends LazyLogging {
 
-  protected val JINJA_EXTENSION = ".j2"
   protected val TEMPLATE_FOLDER = "templates"
   protected def RESOURCE_TEMPLATE_FOLDER: String
   protected def EXTERNAL_TEMPLATE_BASE_PATH(implicit settings: Settings): Path
@@ -21,10 +20,6 @@ abstract class AnyTemplateLoader extends LazyLogging {
     )
   }
   def loadTemplate(templatePathname: String)(implicit settings: Settings): String = {
-    assert(
-      templatePathname.endsWith(JINJA_EXTENSION),
-      s"Template $templatePathname must end with .j2"
-    )
     loadTemplateFromAbsolutePath(templatePathname)
       .orElse(loadTemplateFromAppPath(templatePathname))
       .orElse(loadTemplateFromResources(templatePathname))

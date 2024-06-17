@@ -65,6 +65,14 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .optional()
         .text(
           "Include all tasks  in the dot file ? None by default"
+        ),
+      opt[Unit]("verbose")
+        .action { (_, c) =>
+          c.copy(verbose = true)
+        }
+        .optional()
+        .text(
+          "Add extra table properties"
         )
     )
   }
