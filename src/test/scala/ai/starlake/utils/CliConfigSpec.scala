@@ -20,9 +20,14 @@ class CliConfigSpec extends TestHelper {
         command -> config.markdown(index + 1)
       }
       val mdPath =
-        (File(getClass.getResource("/")) / "../../../docs/docs/0800-cli").pathAsString
+        File(
+          getClass.getResource("/")
+        ) / "../../../../starlake-docs/docs/docs/0800-cli"
+
+      mdPath.createDirectories()
+      val pathAsString = mdPath.pathAsString
       mdMap.foreach { case (k, v) =>
-        reflect.io.File(s"$mdPath/$k.md").writeAll(v)
+        reflect.io.File(s"$pathAsString/$k.md").writeAll(v)
       }
     }
   }

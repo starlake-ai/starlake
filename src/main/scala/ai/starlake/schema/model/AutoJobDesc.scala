@@ -97,6 +97,10 @@ case class AttributeDesc(
   accessPolicy: Option[String] = None
 ) {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
+
+  override def toString: String = {
+    s"AttributeDesc(name=$name, comment=$comment, accessPolicy=$accessPolicy)"
+  }
 }
 
 object AutoJobDesc {
@@ -115,7 +119,7 @@ object AutoJobDesc {
     (addedTasks, deletedTasks, commonTasks)
   }
 
-  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[JobDiff] = {
+  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[TransformsDiff] = {
     Try {
       val (addedTasks, deletedTasks, existingCommonTasks) =
         diffTasks(existing.tasks, incoming.tasks)
@@ -132,7 +136,7 @@ object AutoJobDesc {
       val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
         AutoTaskDesc.compare(existing, incoming)
       }
-      JobDiff(
+      TransformsDiff(
         existing.name,
         TasksDiff(addedTasks.map(_.name), deletedTasks.map(_.name), updatedTasksDiff)
       )

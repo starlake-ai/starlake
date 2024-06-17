@@ -38,6 +38,7 @@ object IngestionUtil {
   }
 
   def sinkRejected(
+    applicationId: String,
     session: SparkSession,
     rejectedDS: Dataset[String],
     domainName: String,
@@ -53,7 +54,6 @@ object IngestionUtil {
     val rejectedPathName = paths.map(_.toString).mkString(",")
     // We need to save first the application ID
     // referencing it inside the worker (rdd.map) below would fail.
-    val applicationId = session.sparkContext.applicationId
     val rejectedTypedDS = rejectedDS.map { err =>
       RejectedRecord(
         applicationId,
