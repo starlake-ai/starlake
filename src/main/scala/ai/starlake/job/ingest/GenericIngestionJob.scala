@@ -60,12 +60,6 @@ class GenericIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /** @return
-    *   Spark Job name
-    */
-  override def name: String =
-    s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
-
   /** dataset Header names as defined by the schema
     */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)

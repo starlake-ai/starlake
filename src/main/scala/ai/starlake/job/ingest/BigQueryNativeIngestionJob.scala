@@ -181,6 +181,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
       )
 
       val autoTask = AutoTask.task(
+        Option(ingestionJob.applicationId()),
         taskDesc,
         Map.empty,
         None,
@@ -367,7 +368,14 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
       parseSQL = Some(true)
     )
     val job =
-      new BigQueryAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
+      new BigQueryAutoTask(
+        Option(ingestionJob.applicationId()),
+        taskDesc,
+        Map.empty,
+        None,
+        truncate = false,
+        test = false
+      )(
         settings,
         storageHandler,
         schemaHandler
