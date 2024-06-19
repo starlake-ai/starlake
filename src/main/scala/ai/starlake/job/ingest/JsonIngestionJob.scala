@@ -176,6 +176,4 @@ class JsonIngestionJob(
         (validationResult.errors.union(rejectedDS), validationResult.accepted, rejectedRecordCount);
     }
   }
-
-  override def name: String = "JsonJob"
 }

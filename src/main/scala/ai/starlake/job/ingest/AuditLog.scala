@@ -227,6 +227,7 @@ object AuditLog extends StrictLogging {
           )
           val task = AutoTask
             .task(
+              Option(log.jobid),
               auditTaskDesc,
               Map.empty,
               None,

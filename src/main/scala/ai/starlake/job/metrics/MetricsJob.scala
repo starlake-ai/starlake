@@ -26,6 +26,7 @@ import scala.util.{Failure, Success, Try}
   *   : Storage Handler
   */
 class MetricsJob(
+  appId: Option[String],
   domain: Domain,
   schema: Schema,
   storageHandler: StorageHandler,
@@ -34,6 +35,8 @@ class MetricsJob(
     extends SparkJob {
 
   override def name: String = "Compute metrics job"
+
+  override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   /** Function to build the metrics save path
     *
@@ -184,7 +187,7 @@ class MetricsJob(
           settings.appConfig.internal.foreach(in => df.persist(in.cacheStorageLevel))
           val taskDesc =
             AutoTaskDesc(
-              name = s"metrics-${applicationId()}-$table",
+              name = applicationId(),
               sql = None,
               database = settings.appConfig.audit.getDatabase(),
               domain = settings.appConfig.audit.getDomain(),
@@ -196,6 +199,7 @@ class MetricsJob(
               _auditTableName = Some(table.toString)
             )
           val autoTask = new SparkAutoTask(
+            Option(applicationId()),
             taskDesc,
             Map.empty,
             None,

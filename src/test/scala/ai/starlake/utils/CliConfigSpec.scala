@@ -22,7 +22,7 @@ class CliConfigSpec extends TestHelper {
       val mdPath =
         File(
           getClass.getResource("/")
-        ) / "../../../../starlake-docs/docs/docs/0800-cli"
+        ) / "../../../../starlake-docs/docs/0800-cli"
 
       mdPath.createDirectories()
       val pathAsString = mdPath.pathAsString

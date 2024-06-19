@@ -1,5 +1,6 @@
 package ai.starlake.serve
 
+import ai.starlake.schema.handlers.MetadataFileChangeHandler
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -18,6 +19,7 @@ object SingleUserMainServer {
     server.setHandler(handler)
     handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/")
     server.start()
+    MetadataFileChangeHandler.startListening()
     println(s"Server started at $host:$port")
   }
 

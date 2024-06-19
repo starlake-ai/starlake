@@ -822,6 +822,7 @@ class IngestionWorkflow(
         .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
     logger.debug(taskDesc.toString)
     AutoTask.task(
+      None,
       taskDesc,
       config.options,
       config.interactive,
@@ -1046,6 +1047,7 @@ class IngestionWorkflow(
     cmdArgs match {
       case Some((domain: Domain, schema: Schema)) =>
         val result = new MetricsJob(
+          None,
           domain,
           schema,
           storageHandler,

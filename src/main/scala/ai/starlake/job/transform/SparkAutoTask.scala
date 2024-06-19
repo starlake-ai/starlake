@@ -24,6 +24,7 @@ import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
 class SparkAutoTask(
+  appId: Option[String],
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
   interactive: Option[String],
@@ -33,6 +34,7 @@ class SparkAutoTask(
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
+      appId,
       taskDesc,
       commandParameters,
       interactive,
@@ -287,6 +289,7 @@ class SparkAutoTask(
           }
           if (settings.appConfig.expectations.active) {
             new ExpectationJob(
+              Option(applicationId()),
               taskDesc.database,
               taskDesc.domain,
               taskDesc.table,
@@ -384,18 +387,33 @@ class SparkAutoTask(
 
           case _: BigQuerySink =>
             val bqJob =
-              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false, test)(
+              new BigQueryAutoTask(
+                Option(applicationId()),
+                this.taskDesc,
+                Map.empty,
+                None,
+                truncate = false,
+                test
+              )(
                 settings,
                 storageHandler,
                 schemaHandler
               )
             bqJob.tableExists
           case _: JdbcSink =>
-            val jdbcJob = new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false, test)(
-              settings,
-              storageHandler,
-              schemaHandler
-            )
+            val jdbcJob =
+              new JdbcAutoTask(
+                Option(applicationId()),
+                this.taskDesc,
+                Map.empty,
+                None,
+                truncate = false,
+                test
+              )(
+                settings,
+                storageHandler,
+                schemaHandler
+              )
             jdbcJob.tableExists
           case other =>
             throw new Exception(
@@ -572,6 +590,7 @@ class SparkAutoTask(
           val attributesSelectAsString = allAttributeNames.mkString(",")
 
           val secondStepTask = new BigQueryAutoTask(
+            Option(applicationId()),
             taskDesc.copy(
               name = fullTableName,
               sql = Some(
@@ -600,6 +619,7 @@ class SparkAutoTask(
       // Update table schema
       val secondSTepTask =
         new BigQueryAutoTask(
+          Option(applicationId()),
           secondStepDesc,
           commandParameters,
           interactive,
@@ -676,7 +696,14 @@ class SparkAutoTask(
           )
 
         val secondStepAutoTask =
-          new JdbcAutoTask(secondStepTaskDesc, Map.empty, None, truncate = false, test)(
+          new JdbcAutoTask(
+            Option(applicationId()),
+            secondStepTaskDesc,
+            Map.empty,
+            None,
+            truncate = false,
+            test
+          )(
             settings,
             storageHandler,
             schemaHandler
@@ -697,7 +724,14 @@ class SparkAutoTask(
           sql = None
         )
         val secondAutoStepTask =
-          new JdbcAutoTask(secondStepDesc, Map.empty, None, truncate = false, test)
+          new JdbcAutoTask(
+            Option(applicationId()),
+            secondStepDesc,
+            Map.empty,
+            None,
+            truncate = false,
+            test
+          )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
         jobResult
