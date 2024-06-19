@@ -70,6 +70,9 @@ trait IngestionJob extends SparkJob {
 
   def options: Map[String, String]
 
+  def name: String =
+    s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
+
   lazy val strategy: WriteStrategy = {
     val s = mergedMetadata.getStrategyOptions()
     val startTs = s.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
@@ -528,6 +531,7 @@ trait IngestionJob extends SparkJob {
     if (settings.appConfig.expectations.active) {
 
       new ExpectationJob(
+        Option(applicationId()),
         schemaHandler.getDatabase(this.domain),
         this.domain.finalName,
         this.schema.finalName,
@@ -544,6 +548,7 @@ trait IngestionJob extends SparkJob {
   private def runExpectations(session: SparkSession): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
+        Option(applicationId()),
         schemaHandler.getDatabase(this.domain),
         this.domain.finalName,
         this.schema.finalName,
@@ -562,6 +567,7 @@ trait IngestionJob extends SparkJob {
   ): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
+        Option(applicationId()),
         schemaHandler.getDatabase(this.domain),
         this.domain.finalName,
         this.schema.finalName,
@@ -578,6 +584,7 @@ trait IngestionJob extends SparkJob {
   private def runMetrics(acceptedDF: DataFrame) = {
     if (settings.appConfig.metrics.active) {
       new MetricsJob(
+        Option(applicationId()),
         this.domain,
         this.schema,
         this.storageHandler,
@@ -756,13 +763,27 @@ trait IngestionJob extends SparkJob {
       val autoTask =
         taskDesc.getSinkConfig() match {
           case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
-            new SparkExportTask(taskDesc, Map.empty, None, truncate = false, test = test)(
+            new SparkExportTask(
+              Option(applicationId()),
+              taskDesc,
+              Map.empty,
+              None,
+              truncate = false,
+              test = test
+            )(
               settings,
               storageHandler,
               schemaHandler
             )
           case _ =>
-            new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = test)(
+            new SparkAutoTask(
+              Option(applicationId()),
+              taskDesc,
+              Map.empty,
+              None,
+              truncate = false,
+              test = test
+            )(
               settings,
               storageHandler,
               schemaHandler

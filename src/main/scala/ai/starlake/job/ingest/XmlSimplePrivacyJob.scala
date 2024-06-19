@@ -82,7 +82,7 @@ class XmlSimplePrivacyJob(
     }
   }
 
-  override def name: String = "XML-SimplePrivacyJob"
+  override def name: String = "privacy-" + super.name
 }
 
 object XmlSimplePrivacyJob {

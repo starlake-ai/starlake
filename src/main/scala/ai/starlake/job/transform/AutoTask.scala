@@ -46,6 +46,7 @@ import scala.util.Try
   *   : Sql Parameters to pass to SQL statements
   */
 abstract class AutoTask(
+  val appId: Option[String],
   val taskDesc: AutoTaskDesc,
   val commandParameters: Map[String, String],
   val interactive: Option[String],
@@ -54,6 +55,8 @@ abstract class AutoTask(
   val resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
+
+  override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   def attDdl(): Map[String, Map[String, String]] =
     schemaHandler
@@ -243,10 +246,11 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
+      .map(task(None, _, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
   }
 
   def task(
+    appId: Option[String],
     taskDesc: AutoTaskDesc,
     configOptions: Map[String, String],
     interactive: Option[String],
@@ -263,6 +267,7 @@ object AutoTask extends StrictLogging {
     engine match {
       case Engine.BQ =>
         new BigQueryAutoTask(
+          appId,
           taskDesc,
           configOptions,
           interactive,
@@ -273,6 +278,7 @@ object AutoTask extends StrictLogging {
         )
       case Engine.JDBC =>
         new JdbcAutoTask(
+          appId,
           taskDesc,
           configOptions,
           interactive,
@@ -287,6 +293,7 @@ object AutoTask extends StrictLogging {
           case fs: FsSink if fs.isExport() =>
             logger.info("Exporting to the filesystem")
             new SparkExportTask(
+              appId,
               taskDesc,
               configOptions,
               interactive,
@@ -298,6 +305,7 @@ object AutoTask extends StrictLogging {
 
           case _ =>
             new SparkAutoTask(
+              appId,
               taskDesc,
               configOptions,
               interactive,

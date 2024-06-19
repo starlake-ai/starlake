@@ -90,6 +90,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
     new StarlakeObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
+  def listen(): Unit = {
+    MetadataFileChangeHandler.start(this)
+  }
+  listen()
   @throws[Exception]
   private def checkTypeDomainsJobsValidity(
     domainNames: List[String] = Nil,
@@ -1246,13 +1250,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def onTableDelete(domain: String, table: String): Unit = {
     _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
-        logger.info(s"Domain $domain not found")
+        logger.warn(s"Domain $domain not found")
       case Some(domain) =>
-        val tables = domain.tables.filterNot(_.name.toLowerCase() == table.toLowerCase())
-        val newDomain = domain.copy(tables = tables)
+        val tablesToKeep = domain.tables.filterNot(_.name.toLowerCase() == table.toLowerCase())
+        val updatedDomain = domain.copy(tables = tablesToKeep)
         _domains = _domains
-          .map(_.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ newDomain)
-          .orElse(Some(List(newDomain)))
+          .map(_.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ updatedDomain)
+          .orElse(Some(List(updatedDomain)))
     }
   }
 
@@ -1285,28 +1289,32 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
      */
   }
 
-  def onTableChange(domain: String, table: String, file: File): Unit = {
-    val domainPath = new Path(DatasetArea.load, domain)
-    val tablePath = new Path(domainPath, table + ".sl.yml")
-    if (storage.exists(tablePath)) {
-      val loadedTable = Try(loadTableRefs(List(table), raw = false, folder = domainPath).head)
-      loadedTable match {
-        case Success(table) =>
-          _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+  def onTableChange(updatedDomain: String, updatedTable: String, file: File): Unit = {
+    val updatedDomainPath = new Path(DatasetArea.load, updatedDomain)
+    val updatedTablePath = new Path(updatedDomainPath, updatedTable + ".sl.yml")
+    if (storage.exists(updatedTablePath)) {
+      val updatedTableReloaded = Try(
+        loadTableRefs(List(updatedTable), raw = false, folder = updatedDomainPath).head
+      )
+      updatedTableReloaded match {
+        case Success(updatedTable) =>
+          _domains.getOrElse(Nil).find(_.name.toLowerCase() == updatedDomain.toLowerCase()) match {
             case None =>
-              logger.info(s"Domain $domain not found")
+              logger.warn(s"Domain $updatedDomain not found")
               val (validDomainsFile, invalidDomainsFiles) =
-                this.loadDomains(DatasetArea.load, List(domain), Nil, raw = false)
+                this.loadDomains(DatasetArea.load, List(updatedDomain), Nil, raw = false)
               val newDomains = validDomainsFile.collect { case Success(domain) => domain }
               _domains = Some(_domains.getOrElse(Nil) ++ newDomains)
             case Some(domain) =>
-              val tables =
-                domain.tables.filterNot(_.name.toLowerCase() == table.name.toLowerCase()) :+ table
-              val newDomain = domain.copy(tables = tables)
+              val unchangedTables =
+                domain.tables.filterNot(
+                  _.name.toLowerCase() == updatedTable.name.toLowerCase()
+                )
+              val newDomain = domain.copy(tables = unchangedTables :+ updatedTable)
               _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ newDomain)
           }
         case Failure(err) =>
-          logger.error(s"Failed to load table $tablePath")
+          logger.error(s"Failed to load table $updatedTablePath")
           Utils.logException(logger, err)
       }
     }

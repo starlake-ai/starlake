@@ -27,6 +27,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class BigQueryAutoTask(
+  appId: Option[String],
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
   interactive: Option[String],
@@ -36,6 +37,7 @@ class BigQueryAutoTask(
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
+      appId,
       taskDesc,
       commandParameters,
       interactive,
@@ -246,6 +248,7 @@ class BigQueryAutoTask(
                 // We execute assertions only on success
                 if (settings.appConfig.expectations.active) {
                   new ExpectationJob(
+                    Option(applicationId()),
                     taskDesc.database,
                     taskDesc.domain,
                     taskDesc.table,

@@ -81,6 +81,7 @@ object IngestionUtil {
         _auditTableName = Some("rejected")
       )
     val autoTask = new SparkAutoTask(
+      Option(applicationId),
       taskDesc,
       Map.empty,
       None,

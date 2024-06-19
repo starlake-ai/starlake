@@ -21,6 +21,7 @@ import scala.util.{Success, Try}
 import scala.util.matching.Regex
 
 class SparkExportTask(
+  appId: Option[String],
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
   interactive: Option[String],
@@ -30,6 +31,7 @@ class SparkExportTask(
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkAutoTask(
+      appId,
       taskDesc,
       commandParameters,
       interactive,
