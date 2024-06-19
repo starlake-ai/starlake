@@ -1,30 +1,38 @@
-
-{% macro makeMD5(columnNames) %}
-{% for columnName in columnNames %}{{ columnName }}{% if not loop.last %} || '-' {% endif %}{%endfor%}
+{% macro renderCondition(table1, table2, columnNames) %}
+    {% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
 {% endmacro %}
 
-CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 
-{% if columnNames|length > 1 %}
+CREATE OR REPLACE VIEW SL_INCOMING AS {{ selectStatement }};
 
-DELETE FROM {{ tableFullName }}
-WHERE {{ makeMD5(quotedStrategyKey) }} in
-(
-    SELECT {{ makeMD5(quotedStrategyKey) }} FROM SL_INCOMING
+{% if strategyOn == 'TARGET' %}
+
+
+    DELETE FROM {{ tableFullName }}
+    WHERE EXISTS
+    (
+    SELECT 1 FROM SL_INCOMING
+    WHERE {{ renderCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+    );
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+CREATE OR REPLACE VIEW SL_VIEW_WITH_ROWNUM AS (
+SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+FROM #SL_INCOMING
 );
 
-{% else %}
-
-
 DELETE FROM {{ tableFullName }}
-WHERE {{ strategyKeyCsv }} in 
-(
-    SELECT {{ strategyKeyCsv }} FROM SL_INCOMING
+WHERE EXISTS (
+SELECT 1 FROM SL_VIEW_WITH_ROWNUM
+WHERE {{ renderCondition(tableFullName, 'SL_VIEW_WITH_ROWNUM', strategyKey) }}
 );
 
-{% endif%}
+{% endif %}
 
-INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }}
-FROM ({{ selectStatement }})
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM SL_INCOMING
 WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
+
+DROP VIEW IF EXISTS SL_VIEW_WITH_ROWNUM;
+DROP VIEW IF EXISTS SL_INCOMING;
 

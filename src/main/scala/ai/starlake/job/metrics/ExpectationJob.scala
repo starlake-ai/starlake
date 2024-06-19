@@ -107,6 +107,7 @@ object ExpectationReport {
   *   : Storage Handler
   */
 class ExpectationJob(
+  appId: Option[String],
   database: Option[String],
   domainName: String,
   schemaName: String,
@@ -118,6 +119,8 @@ class ExpectationJob(
     extends SparkJob {
 
   override def name: String = "Check Expectations"
+
+  override def applicationId(): String = this.appId.getOrElse(this.applicationId())
 
   def lockPath(path: String): Path = {
     new Path(
@@ -209,7 +212,7 @@ class ExpectationJob(
         )
         .mkString("", " UNION ", "")
       val taskDesc = AutoTaskDesc(
-        name = s"audit-${applicationId()}",
+        name = applicationId(),
         sql = Some(sqls),
         database = settings.appConfig.audit.getDatabase(),
         domain = settings.appConfig.audit.getDomain(),
@@ -222,6 +225,7 @@ class ExpectationJob(
       )
       val task = AutoTask
         .task(
+          Option(applicationId()),
           taskDesc,
           Map.empty,
           None,

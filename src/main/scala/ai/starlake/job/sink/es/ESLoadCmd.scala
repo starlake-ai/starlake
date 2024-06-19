@@ -23,7 +23,7 @@ trait ESLoadCmd extends Cmd[ESLoadConfig] {
         .opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))
         .optional()
-        .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
+        .text("Elasticsearch index timestamp suffix as in `{@timestamp\\|yyyy.MM.dd}`"),
       builder
         .opt[String]("id")
         .action((x, c) => c.copy(id = Some(x)))

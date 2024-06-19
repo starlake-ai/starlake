@@ -2,6 +2,7 @@ package ai.starlake.console
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
+import ai.starlake.schema.handlers.{MetadataFileChangeHandler, SchemaHandler}
 import ai.starlake.serve.{SingleUserMainServer, SingleUserServices}
 import jline.console.history.FileHistory
 import org.apache.hadoop.fs.Path
@@ -26,8 +27,10 @@ class Console(implicit isettings: Settings) {
   }
 
   private var envValue: Option[String] = None
-  def console(): Unit = {
 
+  def console(schemaHandler: SchemaHandler): Unit = {
+    MetadataFileChangeHandler.startListening()
+    schemaHandler.listen()
     val consoleReader = new jline.console.ConsoleReader()
     consoleReader.setBellEnabled(false)
     consoleReader.setExpandEvents(false)
@@ -36,8 +39,8 @@ class Console(implicit isettings: Settings) {
     var finished = false
     var currentInput = ""
     while (!finished) {
-      val line = consoleReader.readLine("> ")
-      currentInput += line + "\n"
+      val line = Option(consoleReader.readLine("> ")).map(_.trim).orNull
+      currentInput += line
       if (line == null) {
         finished = handler(EOF)
       } else if (line.isEmpty) {
@@ -51,7 +54,7 @@ class Console(implicit isettings: Settings) {
           new Main().printUsage(line.split(" ").head)
         } else
           finished = handler(InputLine(line))
-      } else if (line.trim().endsWith(";")) {
+      } else {
         finished = handler(InputLine(currentInput))
         currentInput = ""
       }
@@ -60,51 +63,55 @@ class Console(implicit isettings: Settings) {
   }
 
   private def handler(event: Input)(implicit isettings: Settings): Boolean = {
-    event match {
-      case EOF =>
-        println("CTRL-D")
-        true
-      case Blank =>
-        println("CTRL-D to quit")
-        false
+    val start = System.currentTimeMillis()
+    val result =
+      event match {
+        case EOF =>
+          println("CTRL-D")
+          System.exit(0)
+          true
+        case Blank =>
+          println("CTRL-D to quit")
+          false
 
-      case InputLine("help") =>
-        new Main().printUsage()
-        false
-      case InputLine(s) if s.startsWith("help") =>
-        new Main().printUsage(s.substring("help".length).trim)
-        false
-      case InputLine("q") =>
-        true
-      case InputLine("reload") =>
-        SingleUserServices.reset(reload = true)
-        false
-      case InputLine(s) if s.replaceAll("\\s+", "").startsWith("env=") =>
-        val envValue = s.replaceAll("\\s+", "").substring("env=".length)
-        this.envValue = if (envValue.isEmpty) None else Some(envValue)
-        val exists =
-          this.envValue
-            .map(e => new Path(DatasetArea.metadata(isettings), s"env.$e.sl.yml"))
-            .forall(isettings.storageHandler().exists)
-        if (exists) {
-          println(s"Setting env to $envValue")
+        case InputLine("help") =>
+          new Main().printUsage()
+          false
+        case InputLine(s) if s.startsWith("help") =>
+          new Main().printUsage(s.substring("help".length).trim)
+          false
+        case InputLine("q") | InputLine("quit") | InputLine("exit") =>
+          System.exit(0)
+          true
+        case InputLine("reload") =>
           SingleUserServices.reset(reload = true)
-        } else {
-          println(s"Env $envValue does not exist")
-        }
-        false
-      case InputLine(s) =>
-        try {
-          val params = s.split(" ")
-          val response =
-            SingleUserMainServer.run(isettings.appConfig.root, None, params, this.envValue, None)
-          println(response)
-        } catch {
-          case e: Throwable =>
-            e.printStackTrace()
-        }
-        false
-      /*
+          false
+        case InputLine(s) if s.replaceAll("\\s+", "").startsWith("env=") =>
+          val envValue = s.replaceAll("\\s+", "").substring("env=".length)
+          this.envValue = if (envValue.isEmpty) None else Some(envValue)
+          val exists =
+            this.envValue
+              .map(e => new Path(DatasetArea.metadata(isettings), s"env.$e.sl.yml"))
+              .forall(isettings.storageHandler().exists)
+          if (exists) {
+            println(s"Setting env to $envValue")
+            SingleUserServices.reset(reload = true)
+          } else {
+            println(s"Env $envValue does not exist")
+          }
+          false
+        case InputLine(s) =>
+          try {
+            val params = s.split(" ")
+            val response =
+              SingleUserMainServer.run(isettings.appConfig.root, None, params, this.envValue, None)
+            println(response)
+          } catch {
+            case e: Throwable =>
+              e.printStackTrace()
+          }
+          false
+        /*
       case InputLine(sql) if 1 == 2 =>
         new SparkJob {
           override def name: String = "console-job"
@@ -126,9 +133,12 @@ class Console(implicit isettings: Settings) {
         }.run()
         false
 
-       */
-      case _ =>
-        false
-    }
+         */
+        case _ =>
+          false
+      }
+    val end = System.currentTimeMillis()
+    println(s"Time: ${end - start}ms")
+    result
   }
 }
