@@ -414,7 +414,8 @@ object StrategiesBuilder {
         "strategyTypes" -> asJavaMap(writeStrategy.types.getOrElse(Map.empty[String, String])),
         "strategyKey"   -> asJavaList(writeStrategy.key),
         "quotedStrategyKey" -> asJavaList(
-          writeStrategy.key.map(col => s"${jdbcEngine.quote}$col${jdbcEngine.quote}")
+          SQLUtils
+            .quoteCols(SQLUtils.unquoteCols(writeStrategy.key, jdbcEngine.quote), jdbcEngine.quote)
         ),
         "strategyTimestamp"   -> writeStrategy.timestamp.getOrElse(""),
         "strategyQueryFilter" -> writeStrategy.queryFilter.getOrElse(""),

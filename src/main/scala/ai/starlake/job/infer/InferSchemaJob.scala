@@ -196,7 +196,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           .load(tmpFile.pathAsString)
         (df, None)
       case "JSON" =>
+        val isJsonL =
+          lines.map(_.trim).filter(_.nonEmpty).forall { line =>
+            line.length >= 2 && line.startsWith("{") && line.endsWith("}")
+          }
         val df = session.read
+          .option("multiLine", !isJsonL)
+          .option("mode", "PERMISSIVE")
           .format("json")
           .option("inferSchema", value = inferSchema)
           .load(dataPath)
@@ -284,7 +290,11 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             val startPosition = lastIndex + 1
             val endPosition = startPosition + field.length
             lastIndex = endPosition
-            Attribute(name = fieldName, position = Some(Position(startPosition, endPosition)))
+            Attribute(
+              name = fieldName,
+              position = Some(Position(startPosition, endPosition)),
+              sample = Option(field)
+            )
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
           InferSchemaHandler.createSchema(
@@ -296,7 +306,13 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           )
         case forceFormat =>
           val (dataframeWithFormat, xmlTag) =
-            createDataFrameWithFormat(lines, inputPath, content.mkString("\n"), tableName, rowTag)
+            createDataFrameWithFormat(
+              lines,
+              inputPath,
+              content.map(_.trim).mkString("\n"),
+              tableName,
+              rowTag
+            )
 
           val (format, array) = forceFormat match {
             case None =>
@@ -308,14 +324,15 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val dataLines =
             format match {
               case Format.DSV =>
-                val (rawDataframeWithFormat, _) = createDataFrameWithFormat(
-                  lines,
-                  inputPath,
-                  content.mkString("\n"),
-                  tableName,
-                  rowTag,
-                  inferSchema = false
-                )
+                val (rawDataframeWithFormat, _) =
+                  createDataFrameWithFormat(
+                    lines,
+                    inputPath,
+                    content.mkString("\n"),
+                    tableName,
+                    rowTag,
+                    inferSchema = false
+                  )
                 rawDataframeWithFormat.collect().toList
               case _ =>
                 dataframeWithFormat
@@ -326,9 +343,15 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val attributes: List[Attribute] =
             InferSchemaHandler.createAttributes(dataLines, dataframeWithFormat.schema, format)
 
+          val preciseFormat =
+            format match {
+              case Format.JSON =>
+                if (attributes.exists(_.attributes.nonEmpty)) Format.JSON else Format.JSON_FLAT
+              case _ => format
+            }
           val xmlOptions = xmlTag.map(tag => Map("rowTag" -> tag))
           val metadata = InferSchemaHandler.createMetaData(
-            format,
+            preciseFormat,
             Option(array),
             Some(true),
             format match {

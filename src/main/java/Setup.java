@@ -119,12 +119,13 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     // ENV VARS
-    public static boolean ENABLE_BIGQUERY = envIsTrue("ENABLE_BIGQUERY");
-    public static boolean ENABLE_AZURE = envIsTrue("ENABLE_AZURE");
-    public static boolean ENABLE_SNOWFLAKE = envIsTrue("ENABLE_SNOWFLAKE");
-    public static boolean ENABLE_REDSHIFT = envIsTrue("ENABLE_REDSHIFT");
-    public static boolean ENABLE_POSTGRESQL = envIsTrue("ENABLE_POSTGRESQL");
-    public static boolean ENABLE_DUCKDB = envIsTrue("ENABLE_DUCKDB");
+    public static boolean ENABLE_ALL = envIsTrue("ENABLE_ALL");
+    public static boolean ENABLE_BIGQUERY = ENABLE_ALL || envIsTrue("ENABLE_BIGQUERY");
+    public static boolean ENABLE_AZURE = ENABLE_ALL || envIsTrue("ENABLE_AZURE");
+    public static boolean ENABLE_SNOWFLAKE = ENABLE_ALL || envIsTrue("ENABLE_SNOWFLAKE");
+    public static boolean ENABLE_REDSHIFT = ENABLE_ALL || envIsTrue("ENABLE_REDSHIFT");
+    public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrue("ENABLE_POSTGRESQL");
+    public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrue("ENABLE_DUCKDB");
 
     private static final boolean[] ALL_ENABLERS = new boolean[] {
             ENABLE_BIGQUERY,
@@ -433,6 +434,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_SNOWFLAKE = true;
                     ENABLE_REDSHIFT = true;
                     ENABLE_POSTGRESQL = true;
+                    ENABLE_DUCKDB = true;
                 } else {
                     System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
                     System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC");
@@ -467,6 +469,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 ENABLE_SNOWFLAKE = true;
                 ENABLE_REDSHIFT = true;
                 ENABLE_POSTGRESQL = true;
+                ENABLE_DUCKDB = true;
             }
             final File binDir = new File(targetDir, "bin");
 

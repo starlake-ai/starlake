@@ -67,25 +67,30 @@ object InferSchemaHandler {
         case st: StructType =>
           val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
           val attributes = schemaWithIndex.map { case (field, index) =>
-            createAttribute(
+            val structLines =
               currentLines.flatMap(Option(_)).map {
-                case r: Row => r(index)
+                case r: Row => r.get(index)
                 case other =>
                   throw new RuntimeException(
                     "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
                   )
-              },
+              }
+
+            createAttribute(
+              structLines,
               st(index).dataType,
               field,
               fieldPath + "." + field.name
             )
           }.toList
+
           Attribute(
             container.name,
             st.typeName,
             required = if (!container.nullable) Some(true) else None,
             array = Some(false),
-            attributes = attributes
+            attributes = attributes,
+            sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
           )
         case dt: ArrayType =>
           dt.elementType match {
@@ -96,21 +101,25 @@ object InferSchemaHandler {
             case _ =>
               // if the array contains elements of type struct.
               // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-              val stAttributes = createAttribute(
+              val arrayLines =
                 currentLines.flatMap(Option(_)).flatMap {
                   case ar: Seq[_] => ar
                   case other =>
                     throw new RuntimeException(
                       s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
                     )
-                },
+                }
+
+              val stAttributes = createAttribute(
+                arrayLines,
                 dt.elementType,
                 container,
                 fieldPath + "[]"
               )
               stAttributes.copy(
                 array = Some(true),
-                required = if (!container.nullable) Some(true) else None
+                required = if (!container.nullable) Some(true) else None,
+                sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
               )
           }
         // if the datatype is a simple Attribute
@@ -144,10 +153,11 @@ object InferSchemaHandler {
               PrimitiveType.from(currentSchema).value
           }
           Attribute(
-            container.name,
-            cellType,
-            Some(false),
-            if (!container.nullable) Some(true) else None
+            name = container.name,
+            `type` = cellType,
+            array = Some(false),
+            required = if (!container.nullable) Some(true) else None,
+            sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
           )
       }
     }

@@ -76,6 +76,8 @@ object Format {
 
   val formats: Set[Format] =
     Set(DSV, POSITION, JSON_FLAT, JSON, XML, TEXT_XML, KAFKA, KAFKASTREAM, GENERIC, PARQUET)
+
+  val inferrableFormats: Set[Format] = Set(DSV, POSITION, JSON_FLAT, JSON, XML)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {

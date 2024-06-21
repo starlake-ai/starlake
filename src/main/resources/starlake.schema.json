@@ -1010,6 +1010,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "If present, the attribute is renamed with this name"
         },
+        "sample": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Sample data for this attribute"
+        },
         "metricType": {
           "$ref": "#/definitions/MetricTypeV1",
           "description": "If present, what kind of stat should be computed for this field"

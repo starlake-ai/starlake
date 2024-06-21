@@ -2,7 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
-import ai.starlake.schema.model.WriteMode
+import ai.starlake.schema.model.{Attribute, WriteMode}
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 
@@ -177,11 +177,24 @@ class InferSchemaJobSpec extends TestHelper {
             "/sample/complex-json/complex.sl.yml"
           )
 
-          discoveredSchema.head.table.attributes should contain theSameElementsAs expectedTable.head.table.attributes
+          // restrit to name & type because sample
+          removeSampleField(
+            discoveredSchema.head.table.attributes
+          ) should contain theSameElementsAs removeSampleField(expectedTable.head.table.attributes)
         }
       }
     }
 
+    private def removeSampleField(attributes: List[Attribute]): List[Attribute] = {
+      attributes.map { attr =>
+        if (attr.attributes.nonEmpty) {
+          attr.copy(attributes = removeSampleField(attr.attributes), sample = None)
+        } else {
+          attr.copy(sample = None)
+        }
+      }
+
+    }
     "Ingest Complete CSV Schema" should "produce file in accepted" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
