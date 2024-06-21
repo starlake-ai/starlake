@@ -486,6 +486,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
     } else {
       s"""
          |BEGIN TRANSACTION;
+         |CREATE TABLE $targetTableFullName($targetColumns) AS SELECT $targetColumns FROM ($selectStatement);
          |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
          |COMMIT TRANSACTION;
          |""".stripMargin
