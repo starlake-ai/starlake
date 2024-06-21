@@ -81,7 +81,8 @@ case class Attribute(
   script: Option[String] = None,
   foreignKey: Option[String] = None, // [domain.]table.attribute
   ignore: Option[Boolean] = None,
-  accessPolicy: Option[String] = None
+  accessPolicy: Option[String] = None,
+  sample: Option[String] = None
 ) extends Named
     with LazyLogging {
   def this() = this("") // Should never be called. Here for Jackson deserialization only

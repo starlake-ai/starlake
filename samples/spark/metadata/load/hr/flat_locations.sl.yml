@@ -31,3 +31,4 @@ table:
         required: true
     expectations:
       - "is_col_value_not_unique('id') => count == 0"
+
