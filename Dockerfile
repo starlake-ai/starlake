@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21 as build
+FROM eclipse-temurin:21 AS build
 
 ARG SL_VERSION
 ARG SPARK_VERSION
@@ -43,8 +43,9 @@ RUN apt-get update \
 
 COPY starlake.s[h] /app/
 
-RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi && chmod +x starlake.sh && \
-      SL_VERSION="$SL_VERSION" \
+RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh; fi && chmod +x starlake.sh
+
+RUN   SL_VERSION="$SL_VERSION" \
       SPARK_VERSION="$SPARK_VERSION" \
       HADOOP_VERSION="$HADOOP_VERSION" \
       ENABLE_BIGQUERY=$ENABLE_BIGQUERY \
@@ -65,6 +66,7 @@ RUN if [ ! -f starlake.sh ]; then curl -O https://raw.githubusercontent.com/star
       HADOOP_AWS_VERSION="$HADOOP_AWS_VERSION" \
       REDSHIFT_JDBC_VERSION="$REDSHIFT_JDBC_VERSION" \
       SPARK_REDSHIFT_VERSION="$SPARK_REDSHIFT_VERSION" \
+      ENABLE_ALL=true \
       ./starlake.sh install
 
 FROM eclipse-temurin:21-jre-alpine
