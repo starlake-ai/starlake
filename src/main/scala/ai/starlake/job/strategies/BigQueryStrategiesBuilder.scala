@@ -476,11 +476,19 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
       SQLUtils.incomingColumnsForSelectSql("SL_INCOMING", targetTableColumns, quote)
     s"""($targetColumns) VALUES ($sourceColumns)"""
 
-    s"""
-       |BEGIN TRANSACTION;
-       |DELETE FROM $targetTableFullName WHERE $partitionColumn IN (SELECT DISTINCT $partitionColumn FROM ($selectStatement));
-       |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
-       |COMMIT TRANSACTION;
-       |""".stripMargin
+    if (targetTableExists) {
+      s"""
+         |BEGIN TRANSACTION;
+         |DELETE FROM $targetTableFullName WHERE $partitionColumn IN (SELECT DISTINCT $partitionColumn FROM ($selectStatement));
+         |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
+         |COMMIT TRANSACTION;
+         |""".stripMargin
+    } else {
+      s"""
+         |BEGIN TRANSACTION;
+         |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
+         |COMMIT TRANSACTION;
+         |""".stripMargin
+    }
   }
 }
