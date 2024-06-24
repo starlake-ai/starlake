@@ -273,13 +273,39 @@ case class Attribute(
           Utils.labels(tags)
         )
       case Nil =>
-        `type`(schemaHandler).map { tpe =>
-          tpe.ddlMapping match {
-            case None => throw new Exception(s"No mapping found for type $tpe")
+        val tpe = `type`(schemaHandler)
+        tpe.map { tpe =>
+          val ddlMapping = tpe.ddlMapping.flatMap { mapping => mapping.get(datawarehouse) }
+          ddlMapping match {
+            case None =>
+              schemaHandler.types().find(_.primitiveType == tpe.primitiveType) match {
+                case None =>
+                  throw new Exception(
+                    s"No mapping found for ${tpe.name} with primitive type " +
+                    s"${tpe.primitiveType} for datawarehouse $datawarehouse"
+                  )
+                case Some(defaultType) =>
+                  DDLLeaf(
+                    this.getFinalName(),
+                    defaultType.ddlMapping
+                      .flatMap { mapping => mapping.get(datawarehouse) }
+                      .getOrElse(
+                        throw new Exception(
+                          s"No mapping found for ${tpe.name} with primitive type " +
+                          s"${tpe.primitiveType} for datawarehouse $datawarehouse"
+                        )
+                      ),
+                    this.resolveRequired(),
+                    this.comment,
+                    isPrimaryKey,
+                    Utils.labels(tags)
+                  )
+
+              }
             case Some(mapping) =>
               DDLLeaf(
                 this.getFinalName(),
-                mapping(datawarehouse),
+                mapping,
                 this.resolveRequired(),
                 this.comment,
                 isPrimaryKey,
