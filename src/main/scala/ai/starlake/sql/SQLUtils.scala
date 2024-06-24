@@ -363,7 +363,7 @@ object SQLUtils extends StrictLogging {
 
   def unquoteCols(cols: List[String], quote: String): List[String] = {
     cols.map { col =>
-      if (col.startsWith(quote) && col.endsWith(quote))
+      if (quote.nonEmpty && col.startsWith(quote) && col.endsWith(quote))
         col.substring(1, col.length - 1)
       else
         col
