@@ -52,7 +52,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
 
       val customers =
         sparkSession.sql("select name2 from sales.customers").collect().map(_.getString(0))
-      val customersCount = customers.size
+      val customersCount = customers.length
       assert(customersCount == 25)
       assert(customers.contains("RemoveLater"))
       val locationsCount = sparkSession.sql("select * from hr.flat_locations").count
