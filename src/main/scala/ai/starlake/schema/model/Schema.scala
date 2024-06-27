@@ -572,10 +572,19 @@ case class Schema(
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
       s"$script AS ${scriptField.getFinalName()}"
     }
+
+    val sqlScriptsFinalName: List[String] = scriptAttributes.map { scriptField =>
+      s"${scriptField.getFinalName()}"
+    }
+
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
       val transform =
         transformField.transform.getOrElse(throw new Exception("Should never happen"))
       s"$transform AS ${transformField.getFinalName()}"
+    }
+
+    val sqlTransformsFinalName: List[String] = transformAttributes.map { transformField =>
+      s"${transformField.getFinalName()}"
     }
 
     val sqlSimple = simpleAttributes.map { field =>
@@ -586,7 +595,8 @@ case class Schema(
       s"${field.getFinalName()}"
     }
 
-    val allFinalAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms).mkString(", ")
+    val allFinalAttributes =
+      (sqlSimple ++ sqlScriptsFinalName ++ sqlTransformsFinalName).mkString(", ")
     val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
 
     val sourceTableFilterSQL = this.filter match {
