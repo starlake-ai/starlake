@@ -17,7 +17,7 @@ trait Formatter {
   implicit class RichFormatter(str: String) {
     def richFormat(
       activeEnv: Map[String, Any],
-      extraEnvVars: Map[String, Any] = Map.empty
+      extraEnvVars: Map[String, Any]
     )(implicit settings: Settings): String = {
       if (settings.appConfig.internal.forall(_.substituteVars))
         (activeEnv ++ extraEnvVars).foldLeft(str) { case (res, (key, value)) =>
