@@ -548,21 +548,8 @@ case class Schema(
     *   query
     */
   def buildSqlSelectOnLoad(
-    table: String,
-    sourceUris: Option[String]
+    table: String
   ): String = {
-    val tableWithInputFileName = {
-      sourceUris match {
-        case None => table
-        case Some(sourceUris) =>
-          s"""
-         |(
-         | SELECT *, '${sourceUris}' as ${CometColumns.cometInputFileNameColumn} FROM $table
-         |)
-         |""".stripMargin
-      }
-    }
-
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -608,7 +595,7 @@ case class Schema(
        |SELECT $allFinalAttributes
        |  FROM (
        |    SELECT $allAttributes
-       |    FROM $tableWithInputFileName
+       |    FROM $table
        |  ) AS SL_INTERNAL_FROM_SELECT
        |  $sourceTableFilterSQL
        |""".stripMargin
