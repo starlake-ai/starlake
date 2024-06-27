@@ -126,12 +126,24 @@ abstract class AutoTask(
   def buildAllSQLQueries(sql: Option[String]): String = {
     if (taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-
       val runConnection = this.taskDesc.getRunConnection()
       val sqlWithParametersTranspiledIfInTest =
-        if (this.test)
-          SQLUtils.transpile(sqlWithParameters, runConnection)
-        else
+        if (this.test || runConnection._transpileDialect.isDefined) {
+          val envVars = schemaHandler.activeEnvVars()
+          val timestamps =
+            if (this.test) {
+              List(
+                "SL_CURRENT_TIMESTAMP",
+                "SL_CURRENT_DATE",
+                "SL_CURRENT_TIME"
+              ).flatMap { e =>
+                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
+                value.map { v => e -> v }
+              }.toMap
+            } else
+              Map.empty[String, String]
+          SQLUtils.transpile(sqlWithParameters, runConnection, timestamps)
+        } else
           sqlWithParameters
 
       val tableComponents = StrategiesBuilder.TableComponents(
