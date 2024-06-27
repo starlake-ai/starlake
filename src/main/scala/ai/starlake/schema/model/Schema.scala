@@ -549,8 +549,9 @@ case class Schema(
     */
   def buildSqlSelectOnLoad(
     table: String,
-    sourceUris: Option[String]
-  ): String = {
+    sourceUris: Option[String],
+    sqlVariables: Map[String, Any]
+  )(implicit settings: Settings): String = {
     val tableWithInputFileName = {
       sourceUris match {
         case None => table
@@ -569,7 +570,9 @@ case class Schema(
     val simpleAttributes = exceptIgnoreScriptAndTransformAttributes()
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
-      val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
+      val script = scriptField.script
+        .getOrElse(throw new Exception("Should never happen"))
+        .richFormat(sqlVariables)
       s"$script AS ${scriptField.getFinalName()}"
     }
 
