@@ -23,6 +23,7 @@ __Bug Fix__:
 - Add support for Int and Short result in stringHashFunc. Some database don't support implicit cast.
 - Fix incremental next query
 - Fix restricted renamed column and pk renaming
+- Fix comet_input_file_name usage in native bigquery load
 
 __Improvement__:
 - add log during long extraction around every 30 seconds
