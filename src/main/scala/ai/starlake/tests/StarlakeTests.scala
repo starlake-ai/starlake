@@ -495,6 +495,7 @@ object StarlakeTestData {
       case Some((domainName, taskName, test)) => (domainName, taskName, test)
     }
     val testDir = new File(area.toString)
+
     // Domain names we are willing to test
     val domains = Option(testDir.listFiles)
       .getOrElse(Array())

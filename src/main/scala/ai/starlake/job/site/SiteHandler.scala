@@ -7,6 +7,7 @@ import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Domain, Schema}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
 import better.files.File
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
@@ -244,7 +245,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     val aclSVG = buildACLSVG(aclSVGFile, List(s"${jobDesc.name}.${taskDesc.name}"))
     val sql = taskDesc.sql.getOrElse("")
     val trySql =
-      SQLUtils.format(sql, "PLAIN")
+      SQLUtils.format(sql, JSQLFormatter.OutputFormat.PLAIN)
     val paramMap = Map(
       "task"          -> taskDesc,
       "schemaHandler" -> schemaHandler,

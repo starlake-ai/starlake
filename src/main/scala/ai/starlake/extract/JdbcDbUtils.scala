@@ -20,6 +20,7 @@ import java.sql.{
   ResultSet,
   Timestamp
 }
+import java.util.Properties
 import java.util.regex.Pattern
 import javax.sql.DataSource
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -41,12 +42,17 @@ object JdbcDbUtils extends LazyLogging {
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
+      println(s"--> connectionOptions: $connectionOptions")
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
       if (url.startsWith("jdbc:duckdb")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
-        DriverManager.getConnection(url)
+        val properties = new Properties()
+        (connectionOptions - "url" - "driver").foreach { case (k, v) =>
+          properties.setProperty(k, v)
+        }
+        DriverManager.getConnection(url, properties)
       } else {
         hikariPools
           .getOrElseUpdate(
@@ -83,6 +89,7 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
+    println(s"connectionOptions: $connectionOptions")
     Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
         logger.error(s"Error creating connection", exception)
@@ -466,7 +473,9 @@ object JdbcDbUtils extends LazyLogging {
               .makeParallel(selectedTables.toList)
               .map { case (tableName, tableRemarks) =>
                 ExtractUtils.timeIt(s"Table's schema extraction of $tableName") {
-                  logger.info(s"Extracting table's schema $tableName: $tableRemarks")
+                  logger.info(
+                    s"Extracting table's schema '$tableName' with remarks '$tableRemarks'"
+                  )
                   withJDBCConnection(connectionSettings.options) { tableExtractConnection =>
                     val jdbcColumnMetadata: JdbcColumnMetadata =
                       jdbcSchema.tables
