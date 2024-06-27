@@ -340,7 +340,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
   def applyBigQuerySecondStepSQL(
     firstStepTempTableId: TableId,
     starlakeSchema: Schema
-  )(implicit settings: Settings): Try[JobResult] = {
+  ): Try[JobResult] = {
     val incomingSparkSchema = starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler)
 
     val tempTable = BigQueryUtils.tableIdToTableName(firstStepTempTableId)
@@ -348,11 +348,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
     val targetTableName = s"${domain.finalName}.${schema.finalName}"
 
     val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(
-        tempTable,
-        Some(sourceUris),
-        schemaHandler.activeEnvVars() ++ options
-      )
+      starlakeSchema.buildSqlSelectOnLoad(tempTable, Some(sourceUris))
 
     val taskDesc = AutoTaskDesc(
       name = targetTableName,
