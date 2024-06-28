@@ -154,7 +154,8 @@ object Settings extends StrictLogging {
     sparkFormat: Option[String] = None,
     quote: Option[String] = None,
     separator: Option[String] = None,
-    options: Map[String, String] = Map.empty
+    options: Map[String, String] = Map.empty,
+    _transpileDialect: Option[String] = None
   ) {
     override def toString: String = {
       val redactOptions = Utils.redact(options)

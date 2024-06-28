@@ -42,6 +42,7 @@ import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.{
   StarlakeTestConfig,
   StarlakeTestCoverage,
@@ -842,7 +843,13 @@ class IngestionWorkflow(
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val mainSQL = action.buildAllSQLQueries(None)
-    val formattedSql = if (config.format) JSQLFormatter.format(mainSQL) else mainSQL
+
+    val formattedSql =
+      if (config.format)
+        SQLUtils.format(mainSQL, JSQLFormatter.OutputFormat.PLAIN).getOrElse(mainSQL)
+      else
+        mainSQL
+
     val output =
       settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
     output.foreach(_.overwrite(s"""$formattedSql"""))

@@ -401,42 +401,64 @@ object SQLUtils extends StrictLogging {
       .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
       .mkString(" AND ")
 
-  def format(sql: String, outputFormat: String): Try[String] = Try {
+  def format(input: String, outputFormat: JSQLFormatter.OutputFormat): Try[String] = Try {
+    val sql = input.trim
+
     val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
-    val formatted = JSQLFormatter.format(preformat, s"outputFormat=$outputFormat")
+    val formatted = JSQLFormatter.format(
+      preformat,
+      s"outputFormat=${outputFormat.name()}",
+      "statementTerminator=NONE"
+    )
     val postFormat = formatted.replaceAll("______", "}}").replaceAll("___", "{{")
-    if (outputFormat.equalsIgnoreCase("HTML")) {
-      val startIndex = postFormat.indexOf("<body>") + "<body>".length
-      val endIndex = postFormat.indexOf("</body>")
-      if (startIndex > 0 && endIndex > 0) {
-        postFormat.substring(startIndex, endIndex)
+    val result =
+      if (outputFormat == JSQLFormatter.OutputFormat.HTML) {
+        val startIndex = postFormat.indexOf("<body>") + "<body>".length
+        val endIndex = postFormat.indexOf("</body>")
+        if (startIndex > 0 && endIndex > 0) {
+          postFormat.substring(startIndex, endIndex)
+        } else {
+          postFormat
+        }
       } else {
         postFormat
       }
+    // remove extra ';' added by JSQLFormatter
+    val trimmedResult = result.trim
+    if (!sql.endsWith(";") && trimmedResult.endsWith(";")) {
+      trimmedResult.substring(0, trimmedResult.length - 1)
     } else {
-      postFormat
+      result
     }
   }
 
-  def transpile(sql: String, conn: Connection): String = {
-    def transpilerDialect: JSQLTranspiler.Dialect = {
-      if (conn.isSpark())
-        JSQLTranspiler.Dialect.DATABRICKS
-      if (conn.isBigQuery())
-        JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY
-      else if (conn.isSnowflake())
-        JSQLTranspiler.Dialect.SNOWFLAKE
-      else if (conn.isRedshift())
-        JSQLTranspiler.Dialect.AMAZON_REDSHIFT
-      else if (conn.isPostgreSql())
-        JSQLTranspiler.Dialect.ANY
-      else if (conn.isMySQLOrMariaDb())
-        JSQLTranspiler.Dialect.ANY
-      else if (conn.isJdbcUrl())
-        JSQLTranspiler.Dialect.ANY
-      else
-        JSQLTranspiler.Dialect.ANY
-    } // Should not happen
-    JSQLTranspiler.transpileQuery(sql, transpilerDialect)
+  def transpilerDialect(conn: Connection): JSQLTranspiler.Dialect =
+    conn._transpileDialect match {
+      case Some(dialect) => JSQLTranspiler.Dialect.valueOf(dialect)
+      case None =>
+        if (conn.isSpark())
+          JSQLTranspiler.Dialect.DATABRICKS
+        if (conn.isBigQuery())
+          JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY
+        else if (conn.isSnowflake())
+          JSQLTranspiler.Dialect.SNOWFLAKE
+        else if (conn.isRedshift())
+          JSQLTranspiler.Dialect.AMAZON_REDSHIFT
+        else if (conn.isDuckDb())
+          JSQLTranspiler.Dialect.DUCK_DB
+        else if (conn.isPostgreSql())
+          JSQLTranspiler.Dialect.ANY
+        else if (conn.isMySQLOrMariaDb())
+          JSQLTranspiler.Dialect.ANY
+        else if (conn.isJdbcUrl())
+          JSQLTranspiler.Dialect.ANY
+        else
+          JSQLTranspiler.Dialect.ANY // Should not happen
+    }
+
+  def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
+    if (timestamps.nonEmpty)
+      logger.info(s"Transpiling SQL with timestamps: $timestamps")
+    JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)
   }
 }
