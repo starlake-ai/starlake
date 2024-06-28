@@ -38,8 +38,16 @@ class BigQueryNativeJob(
 
   logger.debug(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BqLoadInfo] = {
-    getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
+  def loadPathsToBQ(
+    tableInfo: SLTableInfo,
+    tableInfoWithDefaultColumn: scala.Option[SLTableInfo] = None
+  ): Try[BqLoadInfo] = {
+    // have default column in another tableInfo otherwise load doesn't fill with default value. Column in load schema are then null if they doesn't exist.
+    getOrCreateTable(
+      cliConfig.domainDescription,
+      tableInfoWithDefaultColumn.getOrElse(tableInfo),
+      None
+    ).flatMap { _ =>
       Try {
         val bqSchema =
           tableInfo.maybeSchema.getOrElse(throw new RuntimeException("Should never happen"))
