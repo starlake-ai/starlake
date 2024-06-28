@@ -149,6 +149,27 @@ class IngestionWorkflow(
     }
   }
 
+  /** Find all the domains that have a filename pattern that matches the given filename
+    *
+    * @param filename
+    *   : filename to match
+    * @return
+    *   list of domain name and table name
+    */
+  def findAllFilenameMatchers(filename: String): List[(String, String)] = {
+    val domains = schemaHandler.domains(reload = true)
+    domains.flatMap { domain =>
+      domain.tables.flatMap { table =>
+        val pattern = table.pattern
+        if (pattern.matcher(filename).matches()) {
+          Some((domain.name, table.name))
+        } else {
+          None
+        }
+      }
+    }
+  }
+
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
     * time each domain has its own directory and is specified in the "directory" key of Domain YML
     * file compressed files are uncompressed if a corresponding ack file exist. Compressed files are
@@ -792,7 +813,6 @@ class IngestionWorkflow(
         name
       else
         config.schemaName
-
     val result = (new InferSchemaJob).infer(
       domainName = domainName,
       tableName = tableName,

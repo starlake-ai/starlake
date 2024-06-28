@@ -17,6 +17,7 @@ __New Feature__:
 - add data and schema extraction from sql query for JDBC connection
 - migrate command added in order to ease migration between version
 - domain template used during schema extraction is now splitted in two files: domain-template and table-template. Table-template are prefixed with `_table_` and domain template may be prefixed with `_domain_` with the config file name. Ex: `_table_config.sl.yml`.
+- CURRENT_DATE, CURRENT_TIME and CURRENT_TIMESTAMP are now supported on a per call level during tests
 
 __Bug Fix__:
 - Amazon RedShift write strategy templates

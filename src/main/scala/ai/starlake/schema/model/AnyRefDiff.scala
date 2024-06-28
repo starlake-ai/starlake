@@ -302,7 +302,7 @@ case class TableDiff(
 
 case class TablesDiff(added: List[String], deleted: List[String], updated: List[TableDiff]) {
   @JsonIgnore
-  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+  def isEmpty: Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
 
   def getAdded(): java.util.List[String] = added.asJava
   def getDeleted(): java.util.List[String] = deleted.asJava

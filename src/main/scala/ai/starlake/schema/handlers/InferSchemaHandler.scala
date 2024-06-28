@@ -212,14 +212,16 @@ object InferSchemaHandler {
     pattern: Pattern,
     comment: Option[String],
     attributes: List[Attribute],
-    metadata: Option[Metadata]
+    metadata: Option[Metadata],
+    sample: Option[String]
   ): Schema =
     Schema(
       name = name,
       pattern = pattern,
       attributes = attributes,
       metadata = metadata,
-      comment = comment
+      comment = comment,
+      sample = sample
     )
 
   /** * Builds the Domain case class

@@ -297,13 +297,16 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             )
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
+
           InferSchemaHandler.createSchema(
             tableName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
             comment,
             attributes,
-            Some(metadata)
+            Some(metadata),
+            None
           )
+
         case forceFormat =>
           val (dataframeWithFormat, xmlTag) =
             createDataFrameWithFormat(
@@ -342,7 +345,6 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
           val attributes: List[Attribute] =
             InferSchemaHandler.createAttributes(dataLines, dataframeWithFormat.schema, format)
-
           val preciseFormat =
             format match {
               case Format.JSON =>
@@ -365,12 +367,14 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             `type` = Some(WriteStrategyType.fromWriteMode(writeMode))
           )
 
+          val sample = dataframeWithFormat.toJSON.collect().take(20).mkString("[", ",", "]")
           InferSchemaHandler.createSchema(
             tableName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
             comment,
             attributes,
-            Some(metadata.copy(writeStrategy = Some(strategy)))
+            Some(metadata.copy(writeStrategy = Some(strategy))),
+            sample = Some(sample)
           )
       }
 
