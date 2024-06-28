@@ -183,6 +183,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // DUCKDB
     private static final JarDependency SPARK_JAR = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
+    private static final JarDependency SPARK_JAR_213 = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
     private static final JarDependency SPARK_BQ_JAR = new JarDependency("spark-bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
@@ -544,8 +545,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     public static void downloadSpark(File binDir) throws IOException, InterruptedException {
-        downloadAndDisplayProgress(new JarDependency[]{SPARK_JAR}, binDir, false);
-        String tgzName = SPARK_JAR.getUrlName();
+        JarDependency sparkJar = SPARK_JAR;
+        if (!SCALA_VERSION.equals("2.12")) {
+            sparkJar = SPARK_JAR_213;
+        }
+        downloadAndDisplayProgress(new JarDependency[]{sparkJar}, binDir, false);
+        String tgzName = sparkJar.getUrlName();
         final File sparkFile = new File(binDir, tgzName);
         ProcessBuilder builder = new ProcessBuilder("tar", "-xzf", sparkFile.getAbsolutePath(), "-C", binDir.getAbsolutePath()).inheritIO();
         Process process = builder.start();
@@ -621,7 +626,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             output.write(data, 0, count);
             loop++;
             if (loop % 1000 == 0) {
-                StringBuilder sb = new StringBuilder("Progress: " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
+                StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
                 if (lengthOfFile > 0) {
                     sb.append(" (");
                     sb.append(total * 100 / lengthOfFile);
