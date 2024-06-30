@@ -11,6 +11,8 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
+case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
+
 trait JobResult {
   def prettyPrint(
     format: String,
@@ -53,7 +55,10 @@ trait JobResult {
   }
 }
 
-case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
+case class SparkJobResult(
+  dataframe: Option[DataFrame],
+  counters: Option[IngestionCounters]
+) extends JobResult
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
   def prettyPrint(format: String): String = prettyPrint(format, headers, rows)
 

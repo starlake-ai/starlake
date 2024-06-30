@@ -78,7 +78,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
         None
       }
     }
-    Success(SparkJobResult(None))
+    Success(SparkJobResult(None, None))
   }
 }
 

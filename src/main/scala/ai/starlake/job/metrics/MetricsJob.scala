@@ -217,7 +217,7 @@ class MetricsJob(
     }
     val success = combinedResult.find(_ == false).getOrElse(true)
     if (success) {
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     } else {
       Failure(new Exception("Failed to save metrics"))
     }

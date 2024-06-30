@@ -194,7 +194,7 @@ class SparkAutoTask(
         sink(df)
       }
     }
-    SparkJobResult(dataFrameToSink)
+    SparkJobResult(dataFrameToSink, None)
   }
 
   def buildDataframeFromFS(): Option[DataFrame] = {
@@ -247,7 +247,7 @@ class SparkAutoTask(
         case Some(_) =>
           // just run the request and return the dataframe
           val df = SparkUtils.sql(session, sqlNoRefs)
-          SparkJobResult(Some(df))
+          SparkJobResult(Some(df), None)
         case None =>
           runSqls(preSql, "Pre")
           val jobResult =
@@ -300,7 +300,7 @@ class SparkAutoTask(
             ).run()
           }
           applyHiveTableAcl()
-          SparkJobResult(jobResult)
+          SparkJobResult(jobResult, None)
       }
       val end = Timestamp.from(Instant.now())
       logAuditSuccess(start, end, -1, test)
@@ -542,7 +542,7 @@ class SparkAutoTask(
 
     val hasColumns: Boolean = dataset.columns.length > 0
     if (!hasColumns) {
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     } else {
       effectiveSinkToFile(dataset)
     }

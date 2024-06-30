@@ -8,7 +8,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.{JobResult, Utils}
+import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}

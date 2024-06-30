@@ -64,7 +64,7 @@ class SparkExportTask(
           s"Unsupported format ${fsSink.format.getOrElse("")} for export ${taskDesc.name}"
         )
     }
-    Success(SparkJobResult(Some(dataset)))
+    Success(SparkJobResult(Some(dataset), None))
   }
 
   private def isCSV = {

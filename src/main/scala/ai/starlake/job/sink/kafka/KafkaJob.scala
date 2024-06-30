@@ -111,7 +111,7 @@ class KafkaJob(
             )
             val transformedDF = transform(df)
             writeStreaming(transformedDF)
-            SparkJobResult(None)
+            SparkJobResult(None, None)
           } else {
             Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
               val (df, offsets) = kafkaClient
@@ -129,7 +129,7 @@ class KafkaJob(
                 topicConfig.allAccessOptions(),
                 offsets
               )
-              SparkJobResult(Some(savedDF))
+              SparkJobResult(Some(savedDF), None)
             }
           }
         case None =>
@@ -138,7 +138,7 @@ class KafkaJob(
             val df = session.readStream.format(kafkaJobConfig.format).options(options).load()
             val transformedDF = transform(df)
             writeStreaming(transformedDF)
-            SparkJobResult(None)
+            SparkJobResult(None, None)
           } else {
             assert(kafkaJobConfig.path.isDefined)
             val df = session.read
@@ -161,7 +161,7 @@ class KafkaJob(
               case _ =>
                 batchSave(transformedDF)
             }
-            SparkJobResult(Some(transformedDF))
+            SparkJobResult(Some(transformedDF), None)
           }
       }
     }

@@ -236,7 +236,7 @@ class ExpectationJob(
       val res = task.run()
       Utils.logFailure(res, logger)
     } else
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     val failed = expectationReports.count(!_.success)
     if (settings.appConfig.expectations.failOnError && failed > 0) {
       Failure(new Exception(s"$failed Expectations failed"))

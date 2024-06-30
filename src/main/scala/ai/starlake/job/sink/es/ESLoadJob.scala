@@ -168,7 +168,7 @@ class ESLoadJob(
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
       writer.save(getResource())
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     } else {
       Failure(throw new Exception("Failed to create template"))
     }

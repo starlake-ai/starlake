@@ -132,7 +132,7 @@ object BigQueryFreshnessInfo extends StrictLogging {
           */
         override def run(): Try[JobResult] = Try {
           val dfDataset = session.createDataFrame(statuses)
-          SparkJobResult(Option(dfDataset))
+          SparkJobResult(Option(dfDataset), None)
         }
       }
 
