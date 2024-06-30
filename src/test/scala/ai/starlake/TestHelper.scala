@@ -24,7 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
-import ai.starlake.utils.{JobResult, SparkJob, StarlakeObjectMapper, Utils}
+import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, StarlakeObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers._
@@ -478,7 +478,7 @@ trait TestHelper
       validator
     }
 
-    def loadPending(implicit codec: Codec): Try[Boolean] = {
+    def loadPending(implicit codec: Codec): Try[SparkJobResult] = {
       val validator = loadWorkflow()
       validator.load(LoadConfig(accessToken = None, test = false, files = None))
     }
@@ -488,7 +488,7 @@ trait TestHelper
       validator.secure(config)
     }
 
-    def load(config: IngestConfig): Try[Boolean] = {
+    def load(config: IngestConfig): Try[JobResult] = {
       val validator = loadWorkflow()
       validator.load(config)
     }

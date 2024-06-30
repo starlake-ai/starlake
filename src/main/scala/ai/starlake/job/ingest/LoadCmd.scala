@@ -3,7 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, JsonSerializer, SparkJobResult}
 import scopt.OParser
 
 import scala.util.Try
@@ -71,8 +71,18 @@ trait LoadCmd extends Cmd[LoadConfig] {
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] =
-    workflow(schemaHandler).load(config).map(_ => JobResult.empty)
+  ): Try[JobResult] = {
+    val result = workflow(schemaHandler).load(config)
+    result match {
+      case scala.util.Success(sparkResult: SparkJobResult) =>
+        if (settings.appConfig.duckdbMode)
+          System.out.println(
+            "IngestionCounters:" + JsonSerializer.mapper.writeValueAsString(sparkResult.counters)
+          )
+      case _ =>
+    }
+    result
+  }
 }
 
 object LoadCmd extends LoadCmd

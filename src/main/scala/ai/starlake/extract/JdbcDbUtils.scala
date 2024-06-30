@@ -42,7 +42,6 @@ object JdbcDbUtils extends LazyLogging {
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
-      println(s"--> connectionOptions: $connectionOptions")
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
       if (url.startsWith("jdbc:duckdb")) {
@@ -89,7 +88,6 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    println(s"connectionOptions: $connectionOptions")
     Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
         logger.error(s"Error creating connection", exception)
