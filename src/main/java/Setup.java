@@ -136,8 +136,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_DUCKDB
     };
 
-    // SCALA
-    private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
+    // SCALA 2.12 by default until spark redshift is available for 2.13
+    private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
 
     // STARLAKE
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.2.0-SNAPSHOT");
