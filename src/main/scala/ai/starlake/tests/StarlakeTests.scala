@@ -738,7 +738,8 @@ object StarlakeTestData {
             ""
         val extraArgs =
           if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
-          else if (dataFile.getName.endsWith("csv")) "(FORMAT CSV, nullstr 'null')"
+          else if (dataFile.getName.endsWith("csv"))
+            s"(FORMAT CSV, nullstr '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
           else ""
         s"""CREATE TABLE "$domainName"."$tableName" ($cols);
                  |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
@@ -746,7 +747,7 @@ object StarlakeTestData {
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =
           if (dataFile.getName.endsWith("csv"))
-            s"read_csv('${dataFile.toString}', nullstr = 'null')"
+            s"read_csv('${dataFile.toString}', nullstr = '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
           else s"'${dataFile.toString}'"
         s"CREATE TABLE $domainName.$tableName AS SELECT * FROM $source;"
     }
