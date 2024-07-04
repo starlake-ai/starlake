@@ -3,6 +3,7 @@ package ai.starlake.sql
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model._
+import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
@@ -18,7 +19,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder
 import java.util.UUID
 import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.{asScalaBufferConverter, asScalaSetConverter}
+import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -361,15 +362,30 @@ object SQLUtils extends StrictLogging {
     sql2.trim
   }
 
+  def quoteCols(cols: List[String], quote: String): List[String] = {
+    unquoteCols(cols, quote).map(col => s"${quote}$col${quote}")
+  }
+
+  def unquoteCols(cols: List[String], quote: String): List[String] = {
+    cols.map { col =>
+      if (quote.nonEmpty && col.startsWith(quote) && col.endsWith(quote))
+        col.substring(1, col.length - 1)
+      else
+        col
+    }
+  }
+
   def targetColumnsForSelectSql(targetTableColumns: List[String], quote: String): String =
-    targetTableColumns.map(col => s"$quote$col$quote").mkString(",")
+    quoteCols(unquoteCols(targetTableColumns, quote), quote).mkString(",")
 
   def incomingColumnsForSelectSql(
     incomingTable: String,
     targetTableColumns: List[String],
     quote: String
   ): String =
-    targetTableColumns.map(col => s"$incomingTable.$quote$col$quote").mkString(",")
+    unquoteCols(targetTableColumns, quote)
+      .map(col => s"$incomingTable.$quote$col$quote")
+      .mkString(",")
 
   def setForUpdateSql(
     incomingTable: String,
@@ -386,8 +402,37 @@ object SQLUtils extends StrictLogging {
     columns: List[String],
     quote: String
   ): String =
-    columns
+    unquoteCols(columns, quote)
       .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
       .mkString(" AND ")
 
+  def transpilerDialect(conn: Connection): JSQLTranspiler.Dialect =
+    conn._transpileDialect match {
+      case Some(dialect) => JSQLTranspiler.Dialect.valueOf(dialect)
+      case None =>
+        if (conn.isSpark())
+          JSQLTranspiler.Dialect.DATABRICKS
+        if (conn.isBigQuery())
+          JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY
+        else if (conn.isSnowflake())
+          JSQLTranspiler.Dialect.SNOWFLAKE
+        else if (conn.isRedshift())
+          JSQLTranspiler.Dialect.AMAZON_REDSHIFT
+        else if (conn.isDuckDb())
+          JSQLTranspiler.Dialect.DUCK_DB
+        else if (conn.isPostgreSql())
+          JSQLTranspiler.Dialect.ANY
+        else if (conn.isMySQLOrMariaDb())
+          JSQLTranspiler.Dialect.ANY
+        else if (conn.isJdbcUrl())
+          JSQLTranspiler.Dialect.ANY
+        else
+          JSQLTranspiler.Dialect.ANY // Should not happen
+    }
+
+  def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
+    if (timestamps.nonEmpty)
+      logger.info(s"Transpiling SQL with timestamps: $timestamps")
+    JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)
+  }
 }
