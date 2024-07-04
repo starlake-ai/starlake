@@ -195,6 +195,15 @@ object DatasetArea extends StrictLogging {
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
+  def tests(implicit settings: Settings): Path =
+    new Path(settings.appConfig.tests)
+
+  def loadTests(implicit settings: Settings): Path =
+    new Path(tests, "load")
+
+  def transformTests(implicit settings: Settings): Path =
+    new Path(tests, "transform")
+
   def load(implicit settings: Settings): Path =
     new Path(metadata, "load")
 
