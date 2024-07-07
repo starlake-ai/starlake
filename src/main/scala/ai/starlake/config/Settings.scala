@@ -1169,10 +1169,11 @@ object Settings extends StrictLogging {
       }
       .updated("duckdb", duckDBConnection)
 
+    val audit = settings.appConfig.audit.copy(database = None)
     val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
     val configWithDuckDB =
       if (updatedAppConfig.connectionRef.isEmpty)
-        updatedAppConfig.copy(connectionRef = "duckdb")
+        updatedAppConfig.copy(connectionRef = "duckdb", database = "", audit = audit)
       else
         updatedAppConfig
 
