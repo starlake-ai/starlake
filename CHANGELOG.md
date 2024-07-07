@@ -18,6 +18,7 @@ __New Feature__:
 - migrate command added in order to ease migration between version
 - domain template used during schema extraction is now splitted in two files: domain-template and table-template. Table-template are prefixed with `_table_` and domain template may be prefixed with `_domain_` with the config file name. Ex: `_table_config.sl.yml`.
 - CURRENT_DATE, CURRENT_TIME and CURRENT_TIMESTAMP are now supported on a per call level during tests
+- make comet_input_file_name in bigquery native load as precise as in spark when files are grouped
 
 __Bug Fix__:
 - Amazon RedShift write strategy templates
