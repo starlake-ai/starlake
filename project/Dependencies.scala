@@ -85,8 +85,8 @@ object Dependencies {
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test,
     "io.github.spark-redshift-community" %% "spark-redshift" % "6.2.0-spark_3.5" % Test,
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.753" % Test,
-    "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % Test
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.756" % Test,
+    "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % Test
   )
 
   val scalaTest = Seq(
@@ -169,7 +169,7 @@ object Dependencies {
   val mariadb = Seq(
     "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0" % Test,
-    "com.mysql" % "mysql-connector-j" % "8.4.0" % Test
+    "com.mysql" % "mysql-connector-j" % "9.0.0" % Test
   )
 
   val jinja = Seq(

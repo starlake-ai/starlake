@@ -139,7 +139,13 @@ object SQLUtils extends StrictLogging {
         t.withTimeOut(60 * 1000)
       }
     }
-    CCJSqlParserUtil.parse(parseable, features)
+    try {
+      CCJSqlParserUtil.parse(parseable, features)
+    } catch {
+      case exception: Exception =>
+        logger.error(s"Failed to parse $sql")
+        throw exception
+    }
   }
 
   def substituteRefInSQLSelect(
