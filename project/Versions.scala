@@ -16,7 +16,7 @@ object Versions {
   val betterFiles = "3.9.2"
   val jackson212ForSpark3 = "2.15.2"
   val pureConfig212ForSpark3 = "0.14.0"
-  val esSpark212 = "8.14.1"
+  val esSpark212 = "8.14.2"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
   val bigquery = "2.41.0"
@@ -36,12 +36,12 @@ object Versions {
   val snowflakeJDBC = "3.16.1"
   val snowflakeSpark: String = "2.16.0-spark_3.4"
   val duckdb = "1.0.0"
-  val jSqlParser = "4.10-SNAPSHOT"
+  val jSqlParser = "5.0"
   val jSqlTranspiler = "0.7-SNAPSHOT"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.29"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion = "10.14.2.0" // last version compatible with Java 8
-  val jSqlFormatter = "4.10-SNAPSHOT"
+  val jSqlFormatter = "5.0"
 }
