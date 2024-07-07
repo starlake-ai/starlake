@@ -42,7 +42,7 @@ class EnvDescSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   new WithSettings() {
-    "Load connections.sl.yml" should "succeed" in {
+    "Load connections" should "succeed" in {
       assert(settings.appConfig.connections.size == 6)
     }
   }
