@@ -10,7 +10,7 @@ class ESLoadJobSpec extends TestHelper {
         """
           |Usage: starlake esload [options]
           |
-          |  --timestamp <value>      Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}
+          |  --timestamp <value>      Elasticsearch index timestamp suffix as in `{@timestamp\|yyyy.MM.dd}`
           |  --id <value>             Elasticsearch Document Id
           |  --mapping <value>        Path to Elasticsearch Mapping File
           |  --domain <value>         Domain Name
