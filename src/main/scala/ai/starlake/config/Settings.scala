@@ -673,7 +673,8 @@ object Settings extends StrictLogging {
     http: Http,
     timezone: TimeZone,
     hiveInTest: Boolean,
-    duckdbMode: Boolean
+    duckdbMode: Boolean,
+    testCsvNullString: String
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 

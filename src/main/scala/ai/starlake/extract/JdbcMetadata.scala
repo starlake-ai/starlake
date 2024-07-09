@@ -275,10 +275,7 @@ final class JdbcColumnDatabaseMetadata(
       }
     } match {
       case Failure(exception) =>
-        logger.warn(
-          s"Could not extract foreign keys for table $tableName",
-          exception
-        )
+        logger.warn(s"Could not extract foreign keys for table $tableName")
         Map.empty[String, String]
       case Success(value) => value
     }
