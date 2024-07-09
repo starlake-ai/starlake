@@ -91,13 +91,13 @@ object SQLUtils extends StrictLogging {
         extractColumnsFromPlainSelect(plainSelect)
       }
       override def visit(setOpList: SetOperationList): Unit = {
-        val plainSelect = setOpList.getSelect(0).getPlainSelect()
+        val plainSelect = setOpList.getSelect(0).getPlainSelect
         extractColumnsFromPlainSelect(plainSelect)
       }
     }
     val statementVisitor = new StatementVisitorAdapter() {
       override def visit(select: Select): Unit = {
-        select.accept(selectVisitorAdapter)
+        select.accept(selectVisitorAdapter, null)
       }
     }
     val select = jsqlParse(sql)

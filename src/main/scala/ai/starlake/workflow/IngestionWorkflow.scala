@@ -973,13 +973,13 @@ class IngestionWorkflow(
   def test(config: StarlakeTestConfig): JobResult = {
     val loadResults =
       if (config.runLoad()) {
-        val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests, config.name)
+        val loadTests = StarlakeTestData.loadTests(load = true, config.name)
         StarlakeTestData.runLoads(loadTests, config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
     val transformResults =
       if (config.runTransform()) {
-        val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests, config.name)
+        val transformTests = StarlakeTestData.loadTests(load = false, config.name)
         StarlakeTestData.runTransforms(transformTests, config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
