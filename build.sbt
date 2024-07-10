@@ -72,6 +72,7 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
+ "com.google.protobuf"     % "protobuf-java"             % "3.25.3",
   "org.scala-lang"         % "scala-library"             % scalaVersion.value,
   "org.scala-lang"         % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"         % "scala-compiler"            % scalaVersion.value,
@@ -190,6 +191,7 @@ assembly / assemblyExcludedJars := {
       false
   }
 }
+
 
 assembly / assemblyShadeRules := Seq(
   // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark 2.4.X

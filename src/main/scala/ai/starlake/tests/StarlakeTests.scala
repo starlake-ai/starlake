@@ -72,7 +72,8 @@ case class StarlakeTestData(
   table: String,
   createTableExpression: String,
   expectationAsSql: Option[String],
-  expectationName: String
+  expectationName: String,
+  filename: String
 ) {
   def load(conn: java.sql.Connection): Unit = {
     if (createTableExpression.nonEmpty) {
@@ -92,6 +93,29 @@ case class StarlakeTestData(
 }
 
 object StarlakeTestData {
+
+  def getFile(
+    load: Boolean,
+    domainName: Option[String],
+    tableName: Option[String],
+    testName: Option[String],
+    filename: String
+  )(implicit settings: Settings): File = {
+    val path = if (load) DatasetArea.loadTests else DatasetArea.transformTests
+    (domainName, tableName, testName) match {
+      case (Some(domain), Some(table), Some(test)) =>
+        new File(path.toString, s"$domain/$table/$test/$filename")
+      case (Some(domain), Some(table), None) =>
+        new File(path.toString, s"$domain/$table/$filename")
+      case (Some(domain), None, None) =>
+        new File(path.toString, s"$domain/$filename")
+      case (None, None, None) =>
+        new File(path.toString, filename)
+      case _ =>
+        throw new IllegalArgumentException("Invalid arguments")
+    }
+  }
+
   def createSchema(domainName: String, conn: java.sql.Connection): Unit = {
     execute(conn, s"""CREATE SCHEMA IF NOT EXISTS "$domainName"""")
   }
@@ -757,15 +781,15 @@ object StarlakeTestData {
   def expectationsTestData(
     schemaHandler: SchemaHandler,
     testFolder: File
-  )(implicit settings: Settings) = {
+  )(implicit settings: Settings): Array[StarlakeTestData] = {
     val domainName = testFolder.getParentFile.getParentFile.getName
     testFolder.listFiles().flatMap { f =>
       val filename = f.getName
-      val isDataFile =
+      val isExpectationDataFile =
         f.isFile &&
         filename.startsWith("_expected") &&
         (filename.endsWith(".json") || f.getName.endsWith(".csv"))
-      if (isDataFile) {
+      if (isExpectationDataFile) {
         val expectationName =
           filename.substring("_expected".length, filename.lastIndexOf('.'))
         // SELECT * FROM "$targetDomain"."$assertTable" EXCEPT SELECT * FROM "$targetDomain"."$targetTable"
@@ -783,13 +807,14 @@ object StarlakeTestData {
               "sl_expected",
               expectedCreateTable,
               Some("*"),
-              expectationName
+              expectationName,
+              filename
             )
           )
         } else {
-          val expectationFile = new File(testFolder, s"$expectationName.sql")
-          if (expectationFile.exists()) {
-            val source = Source.fromFile(expectationFile)
+          val expectationSqlFile = new File(testFolder, s"$expectationName.sql")
+          if (expectationSqlFile.exists()) {
+            val source = Source.fromFile(expectationSqlFile)
             val sql = source.mkString
             source.close()
             Some(
@@ -798,7 +823,8 @@ object StarlakeTestData {
                 "sl_expected" + expectationName,
                 expectedCreateTable,
                 Some(sql),
-                expectationName
+                expectationName,
+                filename
               )
             )
           } else {
@@ -899,7 +925,8 @@ object StarlakeTestData {
             testDataTableName, // Table name in DuckDB
             dataAsCreateTableExpression, // csv/json content
             None,
-            expectationName
+            expectationName,
+            dataPath.getName
           )
         )
       } else {
