@@ -547,16 +547,36 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val objects = getObjectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
-      val domainName = tableComponents(0)
-      val tableName = tableComponents(1)
-      val table = objects
-        .find { domain =>
-          domain.name.toLowerCase() == domainName.toLowerCase()
-        }
-        .flatMap(_.tables.find(_.name.toLowerCase() == tableName.toLowerCase()))
-      table.map { t =>
-        (domainName, t)
+      val (domainName, tableName) = tableComponents match {
+        case Array(dbName, domainName, tableName) => (domainName, tableName)
+        case Array(domainName, tableName)         => (domainName, tableName)
+        case Array(tableName)                     => (null, tableName)
+        case _ => throw new Exception(s"Invalid table name $tableFullName")
       }
+      val domainNameAndTable =
+        domainName match {
+          case null =>
+            objects
+              .flatMap(_.tables)
+              .find {
+                _.name.toLowerCase() == tableName.toLowerCase()
+              }
+              .map {
+                ("", _)
+              }
+          case _ =>
+            objects
+              .find { d =>
+                d.name.toLowerCase() == domainName.toLowerCase()
+              }
+              .flatMap { d =>
+                d.tables.find(_.name.toLowerCase() == tableName.toLowerCase())
+              }
+              .map { t =>
+                (domainName, t)
+              }
+        }
+      domainNameAndTable
     }
   }
 

@@ -203,11 +203,12 @@ class AutoTaskDependencies(
     val task = schemaHandler.task(taskName)
     task.flatMap(_.sql).foreach { sql =>
       val tables = SQLUtils.extractTableNames(sql)
-      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(tables)
-      val jdbcMetadata = new JdbcMetaData("", "")
+      val quoteFreeTables = tables.map(SQLUtils.quoteFreeTableName)
+      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
+      var jdbcMetadata = new JdbcMetaData("", "")
       tablesWithColumnNames.foreach { case (domainName, table) =>
         val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
-        jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
+        jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
       }
       val resolver = new JSQLColumResolver(jdbcMetadata)
       val resultset = resolver.getResultSetMetaData(sql)
