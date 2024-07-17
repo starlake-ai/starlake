@@ -254,10 +254,8 @@ object SQLUtils extends StrictLogging {
       // This is a file in the form of parquet.`/path/to/file`
       tableName
     } else {
-      val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
-        tableName.replaceAll(quote, "")
-      }
-      val tableTuple = quoteFreeTableName.split("\\.").toList
+      val quoteFreeTName: String = quoteFreeTableName(tableName)
+      val tableTuple = quoteFreeTName.split("\\.").toList
 
       // We need to find it in the refs
       val activeEnvRefs = refs
@@ -278,6 +276,13 @@ object SQLUtils extends StrictLogging {
       }
       resolvedTableName
     }
+  }
+
+  def quoteFreeTableName(tableName: String) = {
+    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+      tableName.replaceAll(quote, "")
+    }
+    quoteFreeTableName
   }
 
   private def resolveTableRefInDomainsAndJobs(
