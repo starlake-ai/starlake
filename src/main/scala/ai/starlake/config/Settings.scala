@@ -913,16 +913,12 @@ object Settings extends StrictLogging {
       dagRef.foreach { dagRef =>
         val dagConfigRef = if (dagRef.endsWith(".yml")) dagRef else dagRef + ".sl.yml"
         val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
-
-        Try(dagTemplateLoader.loadTemplate(dagConfigRef)(settings)) match {
-          case Failure(exception) =>
-            exception.printStackTrace()
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"dagConfigRef $dagConfigRef not found in ${dagTemplateLoader.allPaths(settings).mkString("[", ",", "]")}"
-            )
-          case _ =>
+        if (!storageHandler.exists(dagConfigPath)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.getParent}"
+          )
         }
       }
       errors

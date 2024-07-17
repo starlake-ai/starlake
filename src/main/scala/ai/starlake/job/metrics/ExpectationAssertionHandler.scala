@@ -1,8 +1,8 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.job.sink.bigquery.BigQueryNativeJob
-import ai.starlake.utils.{CompilerUtils, SparkUtils}
 import ai.starlake.utils.conversion.BigQueryUtils
+import ai.starlake.utils.{CompilerUtils, SparkUtils}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.SparkSession
 
@@ -18,7 +18,8 @@ trait ExpectationAssertionHandler extends StrictLogging {
     result: Seq[Any],
     results: Seq[Seq[Any]]
   ): Map[String, Any] = {
-    val context = Map("count" -> count, "result" -> result, "results" -> results)
+    val context =
+      Map("count" -> count, "result" -> result, "results" -> results)
     logger.info(s"Submitting expectation: $assertion with context $context")
     val assertionCode = assertion
     val assertionFunction = CompilerUtils.compileExpectation(assertionCode)
