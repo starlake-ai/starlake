@@ -2013,6 +2013,14 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
         },
+        "duckdbMode": {
+          "type": "boolean",
+          "description": "is duckdb mode active"
+        },
+        "testCsvNullString": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "null string value in tests"
+        },
         "hiveInTest": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Internal use only"
