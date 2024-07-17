@@ -507,6 +507,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def taskNames(): List[String] = {
+    jobs().flatMap { j =>
+      j.tasks.map { t =>
+        s"${j.getName()}.${t.getTableName()}"
+      }
+    }
+  }
+
   def findTableNames(domainName: Option[String]): List[String] = {
     val tablesFromDomain = {
       domainName match {
@@ -533,6 +541,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         tablesFromDomain
 
     tablesFromDomainOrTasks
+  }
+
+  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
+    val objects = getObjectNames()
+    tableNames.flatMap { tableFullName =>
+      val tableComponents = tableFullName.split('.')
+      val domainName = tableComponents(0)
+      val tableName = tableComponents(1)
+      val table = objects
+        .find { domain =>
+          domain.name.toLowerCase() == domainName.toLowerCase()
+        }
+        .flatMap(_.tables.find(_.name.toLowerCase() == tableName.toLowerCase()))
+      table.map { t =>
+        (domainName, t)
+      }
+    }
   }
 
   def domains(
@@ -1004,7 +1029,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def jobs(reload: Boolean = false): List[AutoJobDesc] = {
-    if (reload) {
+    if (_jobs.isEmpty || reload) {
       val (errors, validJobs) = loadJobs()
       this._jobs = validJobs
       this._jobErrors = errors
@@ -1034,7 +1059,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allTasks.find(t => t.name == taskName)
   }
 
-  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = loadJobs()
+  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = (Nil, Nil)
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
@@ -1319,5 +1344,4 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     }
   }
-
 }

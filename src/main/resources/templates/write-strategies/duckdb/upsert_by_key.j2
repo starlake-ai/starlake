@@ -1,0 +1,34 @@
+{% macro joinOnKey(columnNames, incoming, existing) %}
+    {% for columnName in columnNames %}{{ incoming }}.{{ columnName }} = {{ existing }}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+
+CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
+
+{% if strategyOn == 'TARGET' %}
+
+DELETE FROM {{ tableFullName }}
+WHERE EXISTS
+(
+    SELECT 1 FROM SL_INCOMING
+    WHERE {{ joinOnKey(strategyKey, 'SL_INCOMING', tableFullName)}}
+);
+
+INSERT INTO {{ tableFullName }} {{ selectStatement }}
+
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+CREATE TEMPORARY VIEW SL_DEDUP AS SELECT  {{ tableColumnsCsv }}
+FROM (
+    SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
+    FROM SL_INCOMING SL_TMP1
+) SL_TMP2
+WHERE SL_SEQ = 1);
+
+DELETE FROM {{ tableFullName }}
+WHERE EXISTS (SELECT 1 FROM SL_INCOMING WHERE {{ joinOnKey(strategyKey, 'SL_DEDUP', tableFullName)}});
+
+INSERT INTO {{ tableFullName }} SELECT {{ tableColumnsCsv }} FROM SL_DEDUP;
+
+{%  endif %}

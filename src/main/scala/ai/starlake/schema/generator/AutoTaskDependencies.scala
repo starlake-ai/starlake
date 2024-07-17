@@ -3,9 +3,13 @@ package ai.starlake.schema.generator
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLColumResolver
+import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 case class DependencyContext(
@@ -191,5 +195,35 @@ class AutoTaskDependencies(
       Utils.dot2Png(config.outputFile, dotContent)
     else
       Utils.save(config.outputFile, dotContent)
+  }
+
+  def colLinage(
+    taskName: String
+  ) = {
+    val task = schemaHandler.task(taskName)
+    task.flatMap(_.sql).foreach { sql =>
+      val tables = SQLUtils.extractTableNames(sql)
+      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(tables)
+      val jdbcMetadata = new JdbcMetaData("", "")
+      tablesWithColumnNames.foreach { case (domainName, table) =>
+        val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
+        jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
+      }
+      val resolver = new JSQLColumResolver(jdbcMetadata)
+      val resultset = resolver.getResultSetMetaData(sql)
+      for (i <- 1 until resultset.getColumnCount) {
+        val tableName = resultset.getTableName(i)
+        val col: JdbcColumn = resultset.getColumns().get(0)
+        // col is a treenode with children eventually
+        // What object is treenode ? JdbcColumn only
+        // Attribute col.getExpression
+        //
+
+        val colName = resultset.getColumnName(i)
+        println {
+          s"$tableName.$colName"
+        }
+      }
+    }
   }
 }
