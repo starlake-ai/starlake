@@ -1265,6 +1265,12 @@
         "domain": {
           "$ref": "#/definitions/ConvertibleToString"
         },
+        "domainExpectation": {
+          "$ref": "#/definitions/ConvertibleToString"
+        },
+        "domainRejected": {
+          "$ref": "#/definitions/ConvertibleToString"
+        },
         "active": {
           "type": "boolean",
           "description": "Output table description"
