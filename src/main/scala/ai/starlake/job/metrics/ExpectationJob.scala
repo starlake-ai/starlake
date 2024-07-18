@@ -1,15 +1,21 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
+import com.google.cloud.MonitoredResource
+import com.google.cloud.logging.Payload.JsonPayload
+import com.google.cloud.logging.{LogEntry, LoggingOptions}
 import org.apache.hadoop.fs.Path
 
 import java.sql.Timestamp
 import java.time.Instant
+import java.util.Collections
 import java.util.regex.Pattern
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class ExpectationReport(
@@ -25,6 +31,22 @@ case class ExpectationReport(
   exception: Option[String],
   success: Boolean
 ) {
+
+  def asMap(): Map[String, Any] = {
+    Map(
+      "jobid"     -> jobId,
+      "database"  -> database.getOrElse(""),
+      "domain"    -> domain,
+      "schema"    -> schema,
+      "timestamp" -> timestamp,
+      "name"      -> name,
+      "params"    -> params,
+      "sql"       -> sql.getOrElse(""),
+      "count"     -> count.getOrElse(0),
+      "exception" -> exception.getOrElse(""),
+      "success"   -> success
+    )
+  }
 
   override def toString: String = {
     s"""name: $name, params:$params, count:${count.getOrElse(
@@ -203,45 +225,78 @@ class ExpectationJob(
         case Success(value) => value
       }
     }
-    val result = if (expectationReports.nonEmpty) {
-      expectationReports.foreach(r => logger.info(r.toString))
-
-      val sqls = expectationReports
-        .map(
-          _.asSelect(settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName())
-        )
-        .mkString("", " UNION ", "")
-      val taskDesc = AutoTaskDesc(
-        name = applicationId(),
-        sql = Some(sqls),
-        database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.getDomain(),
-        table = "expectations",
-        presql = Nil,
-        postsql = Nil,
-        sink = Some(settings.appConfig.audit.sink),
-        parseSQL = Some(true),
-        _auditTableName = Some("expectations")
-      )
-      val task = AutoTask
-        .task(
-          Option(applicationId()),
-          taskDesc,
-          Map.empty,
-          None,
-          truncate = false,
-          engine = taskDesc.getSinkConnection().getEngine(),
-          test = false
-        )(settings, storageHandler, schemaHandler)
-      val res = task.run()
-      Utils.logFailure(res, logger)
-    } else
-      Success(SparkJobResult(None, None))
+    val result =
+      if (expectationReports.nonEmpty) {
+        expectationReports.foreach(r => logger.info(r.toString))
+        val auditSink = settings.appConfig.audit.getSink()
+        auditSink.getConnectionType() match {
+          case ConnectionType.GCPLOG =>
+            expectationReports.foreach(sinkToGcpCloudLogging)
+            Success(new JobResult {})
+          case _ =>
+            val sqls = expectationReports
+              .map(
+                _.asSelect(
+                  settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName()
+                )
+              )
+              .mkString("", " UNION ", "")
+            val taskDesc = AutoTaskDesc(
+              name = applicationId(),
+              sql = Some(sqls),
+              database = settings.appConfig.audit.getDatabase(),
+              domain = settings.appConfig.audit.getDomain(),
+              table = "expectations",
+              presql = Nil,
+              postsql = Nil,
+              sink = Some(settings.appConfig.audit.sink),
+              parseSQL = Some(true),
+              _auditTableName = Some("expectations")
+            )
+            val task = AutoTask
+              .task(
+                Option(applicationId()),
+                taskDesc,
+                Map.empty,
+                None,
+                truncate = false,
+                engine = taskDesc.getSinkConnection().getEngine(),
+                test = false
+              )(settings, storageHandler, schemaHandler)
+            val res = task.run()
+            Utils.logFailure(res, logger)
+        }
+      } else
+        Success(SparkJobResult(None, None))
     val failed = expectationReports.count(!_.success)
     if (settings.appConfig.expectations.failOnError && failed > 0) {
       Failure(new Exception(s"$failed Expectations failed"))
     } else {
       result
     }
+  }
+
+  private def sinkToGcpCloudLogging(log: ExpectationReport)(implicit
+    settings: Settings
+  ): Unit = {
+    val logName = settings.appConfig.audit.getDomainExpectation()
+    val logging = LoggingOptions.getDefaultInstance
+      .toBuilder()
+      .setProjectId(BigQueryJobBase.projectId(settings.appConfig.audit.database))
+      .build()
+      .getService
+    try {
+      val entry = LogEntry
+        .newBuilder(JsonPayload.of(log.asMap().asJava))
+        .setSeverity(com.google.cloud.logging.Severity.INFO)
+        .addLabel("type", "expectation")
+        .setLogName(logName)
+        .setResource(MonitoredResource.newBuilder("global").build)
+        .build
+      // Writes the log entry asynchronously
+      logging.write(Collections.singleton(entry))
+      // Optional - flush any pending log entries just before Logging is closed
+      logging.flush()
+    } finally if (logging != null) logging.close()
   }
 }
