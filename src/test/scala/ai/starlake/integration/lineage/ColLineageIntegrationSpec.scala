@@ -11,7 +11,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
   override def sampleDataDir: File = localDir / "sample-data"
 
   "Lineage" should "succeed" in {
-    // pending
+    pending
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       new Main().run(
         Array("col-lineage", "--task", "sales_kpi.byseller_kpi0")
