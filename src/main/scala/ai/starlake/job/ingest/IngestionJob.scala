@@ -755,8 +755,7 @@ trait IngestionJob extends SparkJob {
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
-        writeStrategy = Some(strategy),
-        metadata = Some(mergedMetadata)
+        writeStrategy = Some(strategy)
       )
       val autoTask =
         taskDesc.getSinkConfig() match {
