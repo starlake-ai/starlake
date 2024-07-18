@@ -1,21 +1,15 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
-import com.google.cloud.MonitoredResource
-import com.google.cloud.logging.Payload.JsonPayload
-import com.google.cloud.logging.{LogEntry, LoggingOptions}
 import org.apache.hadoop.fs.Path
 
 import java.sql.Timestamp
 import java.time.Instant
-import java.util.Collections
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class ExpectationReport(
@@ -231,7 +225,10 @@ class ExpectationJob(
         val auditSink = settings.appConfig.audit.getSink()
         auditSink.getConnectionType() match {
           case ConnectionType.GCPLOG =>
-            expectationReports.foreach(sinkToGcpCloudLogging)
+            val logName = settings.appConfig.audit.getDomainExpectation()
+            expectationReports.foreach { log =>
+              GcpUtils.sinkToGcpCloudLogging(log.asMap(), "expectation", logName)
+            }
             Success(new JobResult {})
           case _ =>
             val sqls = expectationReports
@@ -274,29 +271,5 @@ class ExpectationJob(
     } else {
       result
     }
-  }
-
-  private def sinkToGcpCloudLogging(log: ExpectationReport)(implicit
-    settings: Settings
-  ): Unit = {
-    val logName = settings.appConfig.audit.getDomainExpectation()
-    val logging = LoggingOptions.getDefaultInstance
-      .toBuilder()
-      .setProjectId(BigQueryJobBase.projectId(settings.appConfig.audit.database))
-      .build()
-      .getService
-    try {
-      val entry = LogEntry
-        .newBuilder(JsonPayload.of(log.asMap().asJava))
-        .setSeverity(com.google.cloud.logging.Severity.INFO)
-        .addLabel("type", "expectation")
-        .setLogName(logName)
-        .setResource(MonitoredResource.newBuilder("global").build)
-        .build
-      // Writes the log entry asynchronously
-      logging.write(Collections.singleton(entry))
-      // Optional - flush any pending log entries just before Logging is closed
-      logging.flush()
-    } finally if (logging != null) logging.close()
   }
 }
