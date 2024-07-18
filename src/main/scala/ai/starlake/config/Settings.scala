@@ -123,7 +123,9 @@ object Settings extends StrictLogging {
     database: Option[String],
     domain: Option[String],
     active: Option[Boolean],
-    sql: Option[String]
+    sql: Option[String],
+    domainExpectation: Option[String],
+    domainRejected: Option[String]
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
@@ -141,6 +143,12 @@ object Settings extends StrictLogging {
 
     def getDomain()(implicit settings: Settings): String =
       this.domain.getOrElse("audit")
+
+    def getDomainExpectation()(implicit settings: Settings): String =
+      this.domainExpectation.getOrElse("audit")
+
+    def getDomainRejected()(implicit settings: Settings): String =
+      this.domainRejected.getOrElse("audit")
   }
 
   /** Describes a connection to a JDBC-accessible database engine

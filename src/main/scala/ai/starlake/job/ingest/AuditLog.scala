@@ -256,6 +256,7 @@ object AuditLog extends StrictLogging {
       val entry = LogEntry
         .newBuilder(JsonPayload.of(log.asMap().asJava))
         .setSeverity(com.google.cloud.logging.Severity.INFO)
+        .addLabel("type", log.step)
         .setLogName(logName)
         .setResource(MonitoredResource.newBuilder("global").build)
         .build
