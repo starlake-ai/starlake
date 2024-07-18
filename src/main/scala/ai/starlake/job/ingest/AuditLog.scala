@@ -21,23 +21,17 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.utils.{JobResult, Utils}
-import com.google.cloud.MonitoredResource
+import ai.starlake.utils.{GcpUtils, JobResult, Utils}
 import com.google.cloud.bigquery.StandardSQLTypeName
-import com.google.cloud.logging.Payload.JsonPayload
-import com.google.cloud.logging.{LogEntry, LoggingOptions}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
-import java.util.Collections
 import java.util.regex.Pattern
 import scala.util.{Success, Try}
-import scala.jdk.CollectionConverters._
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -207,7 +201,8 @@ object AuditLog extends StrictLogging {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
-          sinkToGcpCloudLogging(log)
+          val logName = settings.appConfig.audit.getDomain()
+          GcpUtils.sinkToGcpCloudLogging(log.asMap(), "audit", logName)
           Success(new JobResult {})
         case _ =>
           val selectSql =
@@ -241,29 +236,5 @@ object AuditLog extends StrictLogging {
     } else {
       Success(new JobResult {})
     }
-  }
-
-  private def sinkToGcpCloudLogging(log: AuditLog)(implicit
-    settings: Settings
-  ): Unit = {
-    val logName = settings.appConfig.audit.getDomain()
-    val logging = LoggingOptions.getDefaultInstance
-      .toBuilder()
-      .setProjectId(BigQueryJobBase.projectId(settings.appConfig.audit.database))
-      .build()
-      .getService
-    try {
-      val entry = LogEntry
-        .newBuilder(JsonPayload.of(log.asMap().asJava))
-        .setSeverity(com.google.cloud.logging.Severity.INFO)
-        .addLabel("type", log.step)
-        .setLogName(logName)
-        .setResource(MonitoredResource.newBuilder("global").build)
-        .build
-      // Writes the log entry asynchronously
-      logging.write(Collections.singleton(entry))
-      // Optional - flush any pending log entries just before Logging is closed
-      logging.flush()
-    } finally if (logging != null) logging.close()
   }
 }
