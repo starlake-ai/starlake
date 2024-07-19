@@ -28,6 +28,15 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
 
   val bigquery = bqJob.bigquery(accessToken = config.accessToken)
 
+  def extractSchemasAndTables(schemaHandler: SchemaHandler): Try[List[(String, List[String])]] = {
+    val domains = extractDatasets(schemaHandler)
+    Try {
+      domains.map { domain =>
+        domain.name -> domain.tables.map(_.name)
+      }
+    }
+  }
+
   def extractDatasets(schemaHandler: SchemaHandler): List[Domain] = {
     val datasets = bigquery.listDatasets(DatasetListOption.pageSize(10000))
     val allDatasets = datasets
