@@ -26,6 +26,22 @@ case class ExpectationReport(
   success: Boolean
 ) {
 
+  def asMap(): Map[String, Any] = {
+    Map(
+      "jobid"     -> jobId,
+      "database"  -> database.getOrElse(""),
+      "domain"    -> domain,
+      "schema"    -> schema,
+      "timestamp" -> timestamp,
+      "name"      -> name,
+      "params"    -> params,
+      "sql"       -> sql.getOrElse(""),
+      "count"     -> count.getOrElse(0),
+      "exception" -> exception.getOrElse(""),
+      "success"   -> success
+    )
+  }
+
   override def toString: String = {
     s"""name: $name, params:$params, count:${count.getOrElse(
         0
@@ -203,40 +219,52 @@ class ExpectationJob(
         case Success(value) => value
       }
     }
-    val result = if (expectationReports.nonEmpty) {
-      expectationReports.foreach(r => logger.info(r.toString))
-
-      val sqls = expectationReports
-        .map(
-          _.asSelect(settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName())
-        )
-        .mkString("", " UNION ", "")
-      val taskDesc = AutoTaskDesc(
-        name = applicationId(),
-        sql = Some(sqls),
-        database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.getDomain(),
-        table = "expectations",
-        presql = Nil,
-        postsql = Nil,
-        sink = Some(settings.appConfig.audit.sink),
-        parseSQL = Some(true),
-        _auditTableName = Some("expectations")
-      )
-      val task = AutoTask
-        .task(
-          Option(applicationId()),
-          taskDesc,
-          Map.empty,
-          None,
-          truncate = false,
-          engine = taskDesc.getSinkConnection().getEngine(),
-          test = false
-        )(settings, storageHandler, schemaHandler)
-      val res = task.run()
-      Utils.logFailure(res, logger)
-    } else
-      Success(SparkJobResult(None, None))
+    val result =
+      if (expectationReports.nonEmpty) {
+        expectationReports.foreach(r => logger.info(r.toString))
+        val auditSink = settings.appConfig.audit.getSink()
+        auditSink.getConnectionType() match {
+          case ConnectionType.GCPLOG =>
+            val logName = settings.appConfig.audit.getDomainExpectation()
+            expectationReports.foreach { log =>
+              GcpUtils.sinkToGcpCloudLogging(log.asMap(), "expectation", logName)
+            }
+            Success(new JobResult {})
+          case _ =>
+            val sqls = expectationReports
+              .map(
+                _.asSelect(
+                  settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName()
+                )
+              )
+              .mkString("", " UNION ", "")
+            val taskDesc = AutoTaskDesc(
+              name = applicationId(),
+              sql = Some(sqls),
+              database = settings.appConfig.audit.getDatabase(),
+              domain = settings.appConfig.audit.getDomain(),
+              table = "expectations",
+              presql = Nil,
+              postsql = Nil,
+              sink = Some(settings.appConfig.audit.sink),
+              parseSQL = Some(true),
+              _auditTableName = Some("expectations")
+            )
+            val task = AutoTask
+              .task(
+                Option(applicationId()),
+                taskDesc,
+                Map.empty,
+                None,
+                truncate = false,
+                engine = taskDesc.getSinkConnection().getEngine(),
+                test = false
+              )(settings, storageHandler, schemaHandler)
+            val res = task.run()
+            Utils.logFailure(res, logger)
+        }
+      } else
+        Success(SparkJobResult(None, None))
     val failed = expectationReports.count(!_.success)
     if (settings.appConfig.expectations.failOnError && failed > 0) {
       Failure(new Exception(s"$failed Expectations failed"))
