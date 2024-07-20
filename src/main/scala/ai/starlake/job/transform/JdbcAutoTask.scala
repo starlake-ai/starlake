@@ -1,6 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.{Connection => StarlakeConnection}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -103,10 +104,30 @@ class JdbcAutoTask(
       case _ =>
     }
   }
+  private def readOnlyConnection(
+    connection: StarlakeConnection
+  ): StarlakeConnection = {
+    val options =
+      if (connection.isDuckDb()) {
+        connection.options.updated("duckdb.read_only", "true").updated("access_mode", "READ_ONLY")
+      } else {
+        connection.options
+      }
+    connection.copy(options = options)
+  }
+
+  override protected lazy val sinkConnection: Settings.Connection = {
+    if (interactive.isDefined) {
+      readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
+    } else {
+      settings.appConfig.connections(sinkConnectionRef)
+    }
+  }
+
   def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 
-    if (settings.appConfig.createSchemaIfNotExists) {
+    if (interactive.isEmpty && settings.appConfig.createSchemaIfNotExists) {
       // Creating a schema requires its own connection if called before a Spark save
       JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
         JdbcDbUtils.createSchema(conn, fullDomainName)
@@ -119,7 +140,8 @@ class JdbcAutoTask(
           if (interactive.isEmpty && df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
             buildAllSQLQueries(None)
           } else {
-            taskDesc.getSql()
+            val sql = taskDesc.getSql()
+            Utils.parseJinja(sql, allVars)
           }
         interactive match {
           case Some(_) =>
@@ -212,7 +234,7 @@ class JdbcAutoTask(
         val rowAsSeq = new ListBuffer[String]
         var i = 1
         while (i <= rs.getMetaData.getColumnCount) {
-          rowAsSeq.append(Option(rs.getObject(i)).map(_.toString).getOrElse(""))
+          rowAsSeq.append(Option(rs.getObject(i)).map(_.toString).getOrElse("NULL"))
           i += 1
         }
         result.append(rowAsSeq.toList)
