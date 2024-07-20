@@ -14,6 +14,8 @@ import scala.util.Try
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
 
 trait JobResult {
+  def asMap(): List[Map[String, String]] = Nil
+  def prettyPrint(format: String): String = ""
   def prettyPrint(
     format: String,
     headers: List[String],
@@ -58,9 +60,46 @@ trait JobResult {
 case class SparkJobResult(
   dataframe: Option[DataFrame],
   counters: Option[IngestionCounters]
-) extends JobResult
+) extends JobResult {
+  override def asMap(): List[Map[String, String]] = {
+    dataframe
+      .map { dataFrame =>
+        val headers = dataFrame.schema.fields.map(_.name).toList
+        val dataAsList = dataFrame
+          .collect()
+          .map { row =>
+            val values = row.toSeq.map(Option(_).map(_.toString).getOrElse("NULL")).toList
+            headers.zip(values).toMap
+          }
+          .toList
+        dataAsList
+      }
+      .getOrElse(Nil)
+  }
+  override def prettyPrint(format: String): String = {
+    dataframe
+      .map { dataFrame =>
+        val dataAsList = dataFrame
+          .collect()
+          .map(_.toSeq.map(Option(_).map(_.toString).getOrElse("NULL")).toList)
+          .toList
+        val headers = dataFrame.schema.fields.map(_.name).toList
+        prettyPrint(format, headers, dataAsList)
+      }
+      .getOrElse("")
+  }
+
+}
+
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
-  def prettyPrint(format: String): String = prettyPrint(format, headers, rows)
+  override def prettyPrint(format: String): String = {
+    prettyPrint(format, headers, rows)
+  }
+
+  override def asMap(): List[Map[String, String]] = {
+    rows.map { value => headers.zip(value).toMap }
+
+  }
 
   def show(format: String, rootServe: scala.Option[String]): Unit = {
     val output = rootServe.map(File(_, "extension.log"))

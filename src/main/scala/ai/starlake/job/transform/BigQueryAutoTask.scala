@@ -154,11 +154,10 @@ class BigQueryAutoTask(
       if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
         buildAllSQLQueries(None)
       } else {
-        taskDesc.getSql()
+        val sql = taskDesc.getSql()
+        Utils.parseJinja(sql, allVars)
       }
 
-    val output = settings.appConfig.rootServe.map(File(_, "extension.log"))
-    output.foreach(_.appendLine(s"$mainSql"))
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>

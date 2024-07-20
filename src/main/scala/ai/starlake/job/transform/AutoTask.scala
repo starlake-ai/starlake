@@ -31,7 +31,7 @@ import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
   * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
@@ -77,10 +77,10 @@ abstract class AutoTask(
 
   override def name: String = taskDesc.name
 
-  protected val sinkConnectionRef: String =
+  protected lazy val sinkConnectionRef: String =
     sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-  protected val sinkConnection: Settings.Connection =
+  protected lazy val sinkConnection: Settings.Connection =
     settings.appConfig.connections(sinkConnectionRef)
 
   protected def strategy: WriteStrategy = taskDesc.getStrategy()
@@ -103,8 +103,8 @@ abstract class AutoTask(
   }
   protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 
-  val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
-  val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
+  lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
+  lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
   def substituteRefTaskMainSQL(sql: String): String = {
     if (sql.trim.isEmpty)
@@ -326,8 +326,67 @@ object AutoTask extends StrictLogging {
               accessToken = accessToken,
               resultPageSize = resultPageSize
             )
-
         }
+    }
+  }
+
+  def query(
+    domain: String,
+    table: String,
+    sql: String,
+    summarizeOnly: Boolean,
+    connectionName: String
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Try[List[Map[String, String]]] = Try {
+    val connection = settings.appConfig
+      .connection(connectionName)
+      .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+
+    val finalSql =
+      if (summarizeOnly)
+        if (connection.isDuckDb())
+          "SUMMARIZE " + sql
+        else
+          s"DESCRIBE TABLE $domain.$table"
+      else
+        sql
+
+    val autoTaskDesc = AutoTaskDesc(
+      name = s"$domain.$table",
+      sql = Some(finalSql),
+      domain = domain,
+      table = table,
+      database = None,
+      connectionRef = Some(connectionName)
+    )
+    val engine =
+      connection.getType() match {
+        case ConnectionType.BQ   => Engine.BQ
+        case ConnectionType.JDBC => Engine.JDBC
+        case ConnectionType.FS =>
+          Engine.SPARK
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Unsupported connection type: ${connection.getType()}"
+          )
+      }
+    val t = task(
+      None,
+      autoTaskDesc,
+      Map.empty,
+      Some("json-array"),
+      truncate = false,
+      test = true,
+      engine = engine
+    )
+    t.run() match {
+      case Success(jobResult) =>
+        jobResult.asMap()
+      case Failure(e) =>
+        throw e
     }
   }
 }
