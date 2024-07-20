@@ -399,3 +399,16 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       Utils.save(configWithFinalTables.outputFile, dotStr)
   }
 }
+
+object AclDependencies {
+  case class Relation(source: String, target: String, label: Option[String] = None)
+  case class Column(
+    id: String,
+    name: String,
+    `type`: String,
+    comment: Option[String],
+    primaryKey: Boolean
+  )
+  case class Item(id: String, label: String, `displayType`: String, columns: List[Column] = Nil)
+  case class Diagram(items: List[Item], relations: List[Relation], `diagramType`: String)
+}

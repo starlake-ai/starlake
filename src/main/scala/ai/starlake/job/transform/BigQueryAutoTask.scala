@@ -11,7 +11,6 @@ import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, Utils}
-import better.files.File
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
@@ -154,11 +153,10 @@ class BigQueryAutoTask(
       if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
         buildAllSQLQueries(None)
       } else {
-        taskDesc.getSql()
+        val sql = taskDesc.getSql()
+        Utils.parseJinja(sql, allVars)
       }
 
-    val output = settings.appConfig.rootServe.map(File(_, "extension.log"))
-    output.foreach(_.appendLine(s"$mainSql"))
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
