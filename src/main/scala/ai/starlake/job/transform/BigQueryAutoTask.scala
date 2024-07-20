@@ -11,7 +11,6 @@ import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, Utils}
-import better.files.File
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,

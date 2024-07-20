@@ -15,18 +15,19 @@ case class BigQueryJobResult(
   private def flatten(fieldList: List[Field], level: Int = 0): List[Map[String, String]] = {
     fieldList.flatMap { field =>
       val space = " " * 4 * level
-      val hasSubFields = Option(field.getSubFields).isDefined && !field.getSubFields.isEmpty
+      val hasSubFields = scala.Option(field.getSubFields).isDefined && !field.getSubFields.isEmpty
       val fieldName = space + field.getName
       val fieldMap =
         Map(
           "Field name"    -> fieldName,
           "Type"          -> field.getType.toString,
           "Mode"          -> field.getMode.toString,
-          "Default Value" -> Option(field.getDefaultValueExpression).getOrElse(""),
-          "Policy Tags" -> Option(field.getPolicyTags)
+          "Default Value" -> scala.Option(field.getDefaultValueExpression).getOrElse(""),
+          "Policy Tags" -> scala
+            .Option(field.getPolicyTags)
             .map(_.getNames.asScala.mkString(","))
             .getOrElse(""),
-          "Description" -> Option(field.getDescription).getOrElse("")
+          "Description" -> scala.Option(field.getDescription).getOrElse("")
         )
       if (!hasSubFields) {
         List(fieldMap)
