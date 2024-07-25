@@ -846,10 +846,10 @@ object StarlakeTestData {
 
     val domain = schemaHandler.domains().find(_.finalName == domainName)
     val table = domain.flatMap { d =>
-      d.tables.find(_.finalName == tableName)
+      d.tables.find(t => t.finalName == tableName)
     }
     val expectedCreateTable = table match {
-      case (Some(table)) =>
+      case Some(table) if table.isFlat() =>
         // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
         val fields = table.ddlMapping("duckdb", schemaHandler)
         val cols = fields
@@ -872,6 +872,9 @@ object StarlakeTestData {
           else ""
         s"""CREATE TABLE "$domainName"."$tableName" ($cols);
                  |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
+      case Some(table) if !table.isFlat() =>
+        // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
+        s"""ERROR: Nested tables are not supported in tests"""
       case None =>
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =

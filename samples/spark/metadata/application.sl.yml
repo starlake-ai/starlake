@@ -67,7 +67,7 @@ application:
         #jobTimeoutMs: 3600000
         #maximumBytesBilled: 100000000000
     sparkLocal:
-      type: "fs"
+      type: "spark"
   spark:
     delta:
       logStore:

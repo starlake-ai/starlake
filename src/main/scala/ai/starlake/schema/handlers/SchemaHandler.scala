@@ -516,7 +516,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def findTableNames(domainName: Option[String]): List[String] = {
-    val tablesFromDomain = {
+    val tablesFromDomain =
       domainName match {
         case Some(domainName) => {
           domains()
@@ -527,7 +527,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case None =>
           domains().flatMap(d => d.tables.map(d.finalName + "." + _.finalName))
       }
-    }
 
     val tablesFromDomainOrTasks =
       if (tablesFromDomain.isEmpty) {
@@ -539,6 +538,36 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         }
       } else
         tablesFromDomain
+
+    tablesFromDomainOrTasks
+  }
+
+  def findTables(
+    domainName: Option[String]
+  ): Either[Map[String, List[Schema]], Map[String, List[AutoTaskDesc]]] = {
+    val tablesFromDomain =
+      domainName match {
+        case Some(domainName) =>
+          val tables = domains()
+            .find(_.finalName.toLowerCase() == domainName.toLowerCase())
+            .map { d => d.tables }
+            .getOrElse(Nil)
+          Map(domainName -> tables)
+
+        case None =>
+          domains().map(d => d.finalName -> d.tables).toMap
+      }
+
+    val tablesFromDomainOrTasks =
+      if (tablesFromDomain.isEmpty) {
+        domainName match {
+          case Some(domainName) =>
+            Right(tasksMap().filterKeys(_.toLowerCase() == domainName.toLowerCase()))
+          case None =>
+            Right(tasksMap())
+        }
+      } else
+        Left(tablesFromDomain)
 
     tablesFromDomainOrTasks
   }
@@ -1064,6 +1093,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       this._jobErrors = errors
     }
     jobs().flatMap(_.tasks)
+  }
+
+  def tasksMap(reload: Boolean = false): Map[String, List[AutoTaskDesc]] = {
+    if (reload) {
+      val (errors, validJobs) = loadJobs()
+      this._jobs = validJobs
+      this._jobErrors = errors
+    }
+    jobs().map(j => j.getName() -> j.tasks).toMap
   }
 
   def iamPolicyTags(): Option[IamPolicyTags] = {

@@ -61,6 +61,21 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
     }
   }
 
+  "Lineage JSON" should "succeed" in {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
+      withEnvs(
+        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ENV"  -> "DUCKDB"
+      ) {
+        assert(
+          new Main().run(
+            Array("lineage", "--json", "--print", "--all")
+          )
+        )
+      }
+    }
+  }
+
   "Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
@@ -70,6 +85,21 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
         assert(
           new Main().run(
             Array("table-dependencies")
+          )
+        )
+      }
+    }
+  }
+
+  "JSON Relations Generation" should "succeed" in {
+    if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
+      withEnvs(
+        "SL_ROOT" -> (starlakeDir / "samples" / "spark").pathAsString,
+        "SL_ENV"  -> "DUCKDB"
+      ) {
+        assert(
+          new Main().run(
+            Array("table-dependencies", "--json")
           )
         )
       }

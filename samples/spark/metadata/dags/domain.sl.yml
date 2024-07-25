@@ -1,6 +1,6 @@
 dag:
-    comment: "sample dag configuration"
     template: "sample.py.j2"
+    comment: "sample dag configuration"
     filename: "{{domain}}.py"
     options:
         profileVar: "DATAPROC_MEDIUM"

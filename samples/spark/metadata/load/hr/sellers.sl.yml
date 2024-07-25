@@ -21,3 +21,4 @@ table:
     - name: "location_id"
       type: "long"
       required: true
+      foreignKey: "flat_locations.id"
