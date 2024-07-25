@@ -9,5 +9,6 @@ case class AclDependenciesConfig(
   reload: Boolean = false,
   svg: Boolean = false,
   png: Boolean = false,
+  json: Boolean = false,
   all: Boolean = false
 )

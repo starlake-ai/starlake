@@ -12,27 +12,30 @@ case class BigQueryJobResult(
   job: scala.Option[Job]
 ) extends JobResult {
 
-  private def flatten(fieldList: List[Field], level: Int = 0): List[Map[String, String]] = {
+  private def flatten(fieldList: List[Field], parentPath: String): List[Map[String, String]] = {
     fieldList.flatMap { field =>
+      val level = parentPath.count(_ == '/')
       val space = " " * 4 * level
       val hasSubFields = scala.Option(field.getSubFields).isDefined && !field.getSubFields.isEmpty
       val fieldName = space + field.getName
+      val path = if (parentPath.isEmpty) fieldName else parentPath + "/" + fieldName
       val fieldMap =
         Map(
-          "Field name"    -> fieldName,
-          "Type"          -> field.getType.toString,
-          "Mode"          -> field.getMode.toString,
-          "Default Value" -> scala.Option(field.getDefaultValueExpression).getOrElse(""),
-          "Policy Tags" -> scala
+          "path"       -> path,
+          "field_name" -> fieldName,
+          "type"       -> field.getType.toString,
+          "mode"       -> field.getMode.toString,
+          "default"    -> scala.Option(field.getDefaultValueExpression).getOrElse(""),
+          "policy_tags" -> scala
             .Option(field.getPolicyTags)
             .map(_.getNames.asScala.mkString(","))
             .getOrElse(""),
-          "Description" -> scala.Option(field.getDescription).getOrElse("")
+          "description" -> scala.Option(field.getDescription).getOrElse("")
         )
       if (!hasSubFields) {
         List(fieldMap)
       } else {
-        List(fieldMap) ++ flatten(field.getSubFields.asScala.toList, level + 1)
+        List(fieldMap) ++ flatten(field.getSubFields.asScala.toList, path)
       }
     }
   }
@@ -43,7 +46,7 @@ case class BigQueryJobResult(
       tableResult
         .map { tableResult =>
           val fieldList = tableResult.getSchema.getFields.iterator().asScala.toList
-          flatten(fieldList, 0)
+          flatten(fieldList, "")
         }
         .getOrElse(Nil)
     } else {

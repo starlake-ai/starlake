@@ -1,7 +1,6 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.{Connection => StarlakeConnection}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -104,21 +103,9 @@ class JdbcAutoTask(
       case _ =>
     }
   }
-  private def readOnlyConnection(
-    connection: StarlakeConnection
-  ): StarlakeConnection = {
-    val options =
-      if (connection.isDuckDb()) {
-        connection.options.updated("duckdb.read_only", "true").updated("access_mode", "READ_ONLY")
-      } else {
-        connection.options
-      }
-    connection.copy(options = options)
-  }
-
   override protected lazy val sinkConnection: Settings.Connection = {
     if (interactive.isDefined) {
-      readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
+      JdbcDbUtils.readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
     } else {
       settings.appConfig.connections(sinkConnectionRef)
     }
@@ -137,7 +124,7 @@ class JdbcAutoTask(
     val res = Try {
       JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
         val mainSql =
-          if (interactive.isEmpty && df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+          if (df.isEmpty) {
             buildAllSQLQueries(None)
           } else {
             val sql = taskDesc.getSql()

@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
+import ai.starlake.schema.generator.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
 import ai.starlake.schema.model.Severity._
@@ -413,13 +414,48 @@ case class Schema(
     }
   }
 
+  private def relationAsRelation(
+    attr: Attribute,
+    domain: String,
+    tableNames: Set[String]
+  ): Option[Relation] = {
+    val tableLabel = s"${domain}.$name"
+    attr.deepForeignKey() match {
+      case None => None
+      case Some(ref) =>
+        val tab = ref.split('.')
+        val (refDomain, refSchema, refAttr) = tab.length match {
+          case 3 =>
+            (tab(0), tab(1), if (tab(2).isEmpty) "0" else tab(2)) // ref to domain.table.column
+          case 2 =>
+            (domain, tab(0), if (tab(1).isEmpty) "0" else tab(1)) // ref to table.column
+          case 1 => (domain, tab(0), "0") // ref to table
+          case _ =>
+            throw new Exception(
+              s"Invalid number of parts in relation $ref in domain $domain and table $name"
+            )
+        }
+        val fullRefName = refDomain + "." + refSchema
+        if (tableNames.contains(fullRefName.toLowerCase()))
+          Some(
+            Relation(
+              s"$tableLabel.${attr.getFinalName()}",
+              s"${refDomain}.$refSchema.$refAttr",
+              "pk"
+            )
+          )
+        else
+          None
+    }
+  }
+
   private def relationAsDot(
     attr: Attribute,
     domain: String,
     tableNames: Set[String]
   ): Option[String] = {
     val tableLabel = s"${domain}_$name"
-    attr.deepForeignKeyForDot() match {
+    attr.deepForeignKey() match {
       case None => None
       case Some(ref) =>
         val tab = ref.split('.')
@@ -467,7 +503,7 @@ case class Schema(
   }
 
   def foreignTablesForDot(domainNamePrefix: String): List[String] = {
-    val fkTables = attributes.flatMap(_.deepForeignKeyForDot()).map { fk =>
+    val fkTables = attributes.flatMap(_.deepForeignKey()).map { fk =>
       val tab = fk.split('.')
       tab.length match {
         case 3 => tab(1) + "." + tab(1) // reference to domain.table.column
@@ -479,6 +515,38 @@ case class Schema(
       fkTables :+ finalName
     else
       fkTables
+  }
+
+  def asItem(domainName: String, tableNames: Set[String]) = {
+    val fullName = domainName + "." + this.finalName
+    val includeTable = tableNames.contains(fullName.toLowerCase)
+    if (includeTable) {
+      val relations = attributes
+        .flatMap { attr => relationAsRelation(attr, domainName, tableNames) }
+
+      val columns =
+        attributes.map { attr =>
+          val isPK = isPrimaryKey(attr.getFinalName())
+          val isFK = attr.deepForeignKey().isDefined
+          Column(
+            s"$fullName.${attr.getFinalName()}",
+            attr.getFinalName(),
+            attr.`type`,
+            attr.comment,
+            isPK,
+            isFK
+          )
+        }
+      val item = Item(
+        fullName,
+        this.finalName,
+        "table",
+        columns
+      )
+      Some((item, relations))
+    } else {
+      None
+    }
   }
 
   def asDot(domainName: String, includeAllAttrs: Boolean, tableNames: Set[String]): String = {
@@ -497,7 +565,7 @@ case class Schema(
       val rows =
         attributes.flatMap { attr =>
           val isPK = isPrimaryKey(attr.getFinalName())
-          val isFK = attr.deepForeignKeyForDot().isDefined
+          val isFK = attr.deepForeignKey().isDefined
           dotRow(attr, isPK, isFK, includeAllAttrs)
         } mkString "\n"
 

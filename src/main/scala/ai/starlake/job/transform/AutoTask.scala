@@ -124,7 +124,7 @@ abstract class AutoTask(
   }
 
   def buildAllSQLQueries(sql: Option[String]): String = {
-    if (taskDesc.parseSQL.getOrElse(true)) {
+    if (interactive.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
       val runConnection = this.taskDesc.getRunConnection()
       val sqlWithParametersTranspiledIfInTest =
@@ -258,7 +258,17 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(None, _, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
+      .map(
+        task(
+          None,
+          _,
+          Map.empty,
+          None,
+          engine = Engine.SPARK,
+          truncate = false,
+          test = false
+        )
+      )
   }
 
   def task(

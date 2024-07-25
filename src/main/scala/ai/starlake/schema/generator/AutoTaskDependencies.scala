@@ -2,11 +2,12 @@ package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
+import ai.starlake.schema.generator.AutoTaskDependencies.Diagram
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLColumResolver
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.jdk.CollectionConverters._
@@ -156,8 +157,46 @@ class AutoTaskDependencies(
       |}
       |""".stripMargin
 
+  def jobAsJson(
+    config: AutoTaskDependenciesConfig
+  ): Diagram = {
+    jobAsJson(tasks(config), config)
+  }
   def jobAsDot(config: AutoTaskDependenciesConfig): Unit = {
     jobAsDot(tasks(config), config)
+  }
+
+  def jobAsJson(
+    allDependencies: List[DependencyContext],
+    config: AutoTaskDependenciesConfig
+  ): Diagram = {
+    def distinctBy[A, B](xs: List[A])(f: A => B): List[A] =
+      scala.reflect.internal.util.Collections.distinctBy(xs)(f)
+
+    val dedupDependencies = allDependencies.foldLeft(DependencyContext("all", Nil, Nil)) {
+      (acc, dep) =>
+        DependencyContext(
+          dep.jobName,
+          distinctBy(acc.entities ++ dep.entities)(_.name),
+          acc.relations ++ dep.relations
+        )
+    }
+
+    val entitiesAsJson = dedupDependencies.entities.map(dep => dep.entityAsJson()).distinct
+    val relationsAsJson = dedupDependencies.relations
+      .flatMap(dep => dep.relationAsJson())
+      .distinct
+
+    val diagram = Diagram(entitiesAsJson, relationsAsJson, "task")
+    if (config.outputFile.isDefined) {
+      val data =
+        JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
+      if (config.outputFile.isDefined)
+        Utils.save(config.outputFile, data)
+    }
+
+    diagram
+
   }
 
   /** @param allDependencies
@@ -227,4 +266,30 @@ class AutoTaskDependencies(
       }
     }
   }
+}
+
+object AutoTaskDependencies {
+  case class Relation(
+    source: String,
+    target: String,
+    relationType: String, // acl, rls
+    label: Option[String] = None
+  )
+  case class Column(
+    id: String,
+    name: String,
+    columnType: String,
+    comment: Option[String],
+    primaryKey: Boolean,
+    foreignKey: Boolean = false
+  )
+  case class Item(
+    id: String,
+    label: String,
+    displayType: String, // table, user, group, sa, domain, role, rls-role
+    columns: List[Column] = Nil,
+    options: Map[String, String] = Map.empty
+  )
+
+  case class Diagram(items: List[Item], relations: List[Relation], diagramType: String)
 }

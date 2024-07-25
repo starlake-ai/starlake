@@ -417,11 +417,11 @@ case class Attribute(
     }
   }
 
-  def deepForeignKeyForDot(): Option[String] = {
+  def deepForeignKey(): Option[String] = {
     this.foreignKey match {
       case Some(_) => this.foreignKey
       case None =>
-        attributes.flatMap(_.deepForeignKeyForDot()).headOption
+        attributes.flatMap(_.deepForeignKey()).headOption
     }
   }
 }
