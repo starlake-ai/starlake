@@ -7,21 +7,27 @@ table:
   - name: "category"
     type: "string"
     array: false
+    sample: "Cakes"
   - name: "cost"
     type: "double"
     array: false
+    sample: "14.55"
   - name: "description"
     type: "string"
     array: false
+    sample: "Description for Chocolate Cake"
   - name: "name"
     type: "string"
     array: false
+    sample: "Chocolate Cake"
   - name: "price"
     type: "double"
     array: false
+    sample: "17.12"
   - name: "product_id"
     type: "long"
     array: false
+    sample: "1"
   metadata:
     format: "XML"
     withHeader: true
@@ -29,3 +35,26 @@ table:
       rowTag: "record"
     writeStrategy:
       type: "OVERWRITE"
+  sample: "[{\"category\":\"Cakes\",\"cost\":14.55,\"description\":\"Description for\
+    \ Chocolate Cake\",\"name\":\"Chocolate Cake\",\"price\":17.12,\"product_id\"\
+    :1},{\"category\":\"Cakes\",\"cost\":12.5,\"description\":\"Description for Vanilla\
+    \ Cake\",\"name\":\"Vanilla Cake\",\"price\":14.71,\"product_id\":2},{\"category\"\
+    :\"Cakes\",\"cost\":24.57,\"description\":\"Description for Carrot Cake\",\"name\"\
+    :\"Carrot Cake\",\"price\":28.91,\"product_id\":3},{\"category\":\"Cookies\",\"\
+    cost\":17.89,\"description\":\"Description for Chocolate Chip Cookies\",\"name\"\
+    :\"Chocolate Chip Cookies\",\"price\":21.05,\"product_id\":4},{\"category\":\"\
+    Cookies\",\"cost\":7.38,\"description\":\"Description for Gingerbread Cookies\"\
+    ,\"name\":\"Gingerbread Cookies\",\"price\":8.68,\"product_id\":5},{\"category\"\
+    :\"Cookies\",\"cost\":23.64,\"description\":\"Description for Sugar Cookies\"\
+    ,\"name\":\"Sugar Cookies\",\"price\":27.81,\"product_id\":6},{\"category\":\"\
+    Breads\",\"cost\":14.5,\"description\":\"Description for Baguette\",\"name\":\"\
+    Baguette\",\"price\":17.06,\"product_id\":7},{\"category\":\"Breads\",\"cost\"\
+    :12.75,\"description\":\"Description for Whole Wheat Bread\",\"name\":\"Whole\
+    \ Wheat Bread\",\"price\":15.0,\"product_id\":8},{\"category\":\"Breads\",\"cost\"\
+    :9.66,\"description\":\"Description for Croissant\",\"name\":\"Croissant\",\"\
+    price\":11.36,\"product_id\":9},{\"category\":\"Pies\",\"cost\":15.45,\"description\"\
+    :\"Description for Apple Pie\",\"name\":\"Apple Pie\",\"price\":18.18,\"product_id\"\
+    :10},{\"category\":\"Pies\",\"cost\":9.11,\"description\":\"Description for Blueberry\
+    \ Pie\",\"name\":\"Blueberry Pie\",\"price\":10.72,\"product_id\":11},{\"category\"\
+    :\"Pies\",\"cost\":14.31,\"description\":\"Description for Pecan Pie\",\"name\"\
+    :\"Pecan Pie\",\"price\":16.84,\"product_id\":12}]"

@@ -75,7 +75,7 @@ trait LoadCmd extends Cmd[LoadConfig] {
     val result = workflow(schemaHandler).load(config)
     result match {
       case scala.util.Success(sparkResult: SparkJobResult) =>
-        if (settings.appConfig.duckdbMode)
+        if (sys.env.contains("SL_API"))
           System.out.println(
             "IngestionCounters:" + JsonSerializer.mapper.writeValueAsString(sparkResult.counters)
           )

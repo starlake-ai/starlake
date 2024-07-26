@@ -286,8 +286,10 @@ object AutoTask extends StrictLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): AutoTask = {
+    val sinkConfig = taskDesc.getSinkConfig()
+    val runConnectionRef = taskDesc.getRunConnectionRef()
     engine match {
-      case Engine.BQ =>
+      case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] =>
         new BigQueryAutoTask(
           appId,
           taskDesc,
@@ -298,7 +300,9 @@ object AutoTask extends StrictLogging {
           accessToken = accessToken,
           resultPageSize = resultPageSize
         )
-      case Engine.JDBC =>
+      case Engine.JDBC
+          if sinkConfig
+            .isInstanceOf[JdbcSink] && sinkConfig.getConnectionRef() == runConnectionRef =>
         new JdbcAutoTask(
           appId,
           taskDesc,
@@ -310,7 +314,6 @@ object AutoTask extends StrictLogging {
           resultPageSize = resultPageSize
         )
       case _ =>
-        val sinkConfig = taskDesc.getSinkConfig()
         sinkConfig match {
           case fs: FsSink if fs.isExport() =>
             logger.info("Exporting to the filesystem")
