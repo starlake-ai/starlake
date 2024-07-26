@@ -179,7 +179,7 @@ class SparkAutoTask(
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
       .format(
-        runConnection.sparkFormat.getOrElse(throw new Exception("Should never happen"))
+        runConnection.sparkDatasource().getOrElse(throw new Exception("Should never happen"))
       )
       .option("query", sqlWithParameters)
       .options(runConnection.options)
@@ -677,7 +677,7 @@ class SparkAutoTask(
           )
         }
         loadedDF.write
-          .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
+          .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
           .option("dbtable", firstStepTempTable)
           .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
           .options(sinkConnectionRefOptions)

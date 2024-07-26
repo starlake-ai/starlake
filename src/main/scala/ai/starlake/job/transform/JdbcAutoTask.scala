@@ -156,7 +156,7 @@ class JdbcAutoTask(
                     }
                   }
                   loadedDF.write
-                    .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
+                    .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
                     .option("dbtable", fullTableName)
                     .mode(SaveMode.Append) // truncate done above if requested
                     .options(sinkConnection.options)

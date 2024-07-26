@@ -180,6 +180,34 @@ object Settings extends StrictLogging {
          |)""".stripMargin
     }
 
+    def useSparkOnLoad: Boolean =
+      sparkFormat.map(List("LOAD", "LOAD_AND_TRANSFORM").contains).getOrElse(false)
+
+    def useSparkOnTransform: Boolean =
+      sparkFormat.map(List("TRANSFORM", "LOAD_AND_TRANSFORM").contains).getOrElse(false)
+
+    def useSpark: Boolean = sparkFormat.isDefined
+
+    def sparkDatasource(): Option[String] = {
+      this.getType() match {
+        case ConnectionType.JDBC =>
+          val engineName = options("url").split(':')(1).toLowerCase()
+          this.sparkFormat match {
+            case Some(_) =>
+              engineName match {
+                case "snowflake"                                 => Some("snowflake")
+                case "redshift" if Utils.isRunningInDatabricks() => Some("redshift")
+                case "redshift" => Some("io.github.spark_redshift_community.spark.redshift")
+                case _          => Some("jdbc")
+              }
+            case None => None
+          }
+        case ConnectionType.BQ => Some("bigquery")
+        case _                 => None
+      }
+
+    }
+
     def this() = this(ConnectionType.JDBC.value, None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
@@ -210,9 +238,9 @@ object Settings extends StrictLogging {
               s"Connection type $tpe requires a url"
             )
           }
-          sparkFormat match {
-            case Some(format) =>
-              if (format.contains("redshift")) {
+          sparkDatasource() match {
+            case Some(datasource) =>
+              if (datasource.contains("redshift")) {
                 if (options.get("aws_iam_role").isEmpty) {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,
@@ -228,7 +256,7 @@ object Settings extends StrictLogging {
                   )
                 }
               }
-              if (format.contains("snowflake")) {
+              if (datasource.contains("snowflake")) {
                 if (options.get("warehouse").isEmpty) {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,

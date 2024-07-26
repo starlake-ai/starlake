@@ -90,6 +90,10 @@
           "description": "Any floating value that match the '-?\\d*\\.{0,1}\\d+' regex"
         },
         {
+          "const": "variant",
+          "description": "Semi structured data type eq. JSON / XML"
+        },
+        {
           "const": "struct",
           "description": "Any attribute that has children. Set the array to true if this attribute is made of a list of attributes"
         }

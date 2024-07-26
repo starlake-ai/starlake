@@ -94,6 +94,9 @@ sealed abstract class Sink {
     getConnection().getType()
   }
 
+  def getConnectionRef()(implicit settings: Settings): String =
+    connectionRef.getOrElse(settings.appConfig.connectionRef)
+
   def getConnection()(implicit
     settings: Settings
   ): Connection = {

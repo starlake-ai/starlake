@@ -542,7 +542,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tablesFromDomainOrTasks
   }
 
-  def findTables(
+  /*  def findTables(
     domainName: Option[String]
   ): Either[Map[String, List[Schema]], Map[String, List[AutoTaskDesc]]] = {
     val tablesFromDomain =
@@ -571,6 +571,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     tablesFromDomainOrTasks
   }
+   */
 
   def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
     val objects = getObjectNames()
@@ -834,12 +835,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] = {
-    val jobDesc = loadJobDesc(jobPath)
-    logger.info(s"Successfully loaded job  in $jobPath")
-    val jobParentPath = jobPath.getParent()
-    loadJobTasks(jobDesc, jobParentPath)
-  }
+  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] =
+    for {
+      jobDesc   <- loadJobDesc(jobPath)
+      taskDescs <- loadJobTasks(jobDesc, jobPath.getParent)
+    } yield taskDescs
 
   def loadJobTasks(
     jobDesc: AutoJobDesc,
@@ -944,7 +944,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private def loadJobDesc(jobPath: Path): AutoJobDesc = {
+  private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] = Try {
     logger.info("Loading job " + jobPath)
     val fileContent = storage.read(jobPath)
     val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
