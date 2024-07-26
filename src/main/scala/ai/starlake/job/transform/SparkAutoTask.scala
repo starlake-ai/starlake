@@ -345,8 +345,9 @@ class SparkAutoTask(
 
   def runSqls(sqls: List[String], typ: String): Option[DataFrame] = {
     if (sqls.nonEmpty) {
-      logger.info(s"Running Spark $typ SQL")
+      logger.info(s"Running Spark $typ FINAL SQL ==>")
       val df = sqls.map { sql =>
+        logger.info(sql)
         SparkUtils.sql(session, sql)
       }.lastOption
       df

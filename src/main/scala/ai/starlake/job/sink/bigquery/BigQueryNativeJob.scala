@@ -285,7 +285,7 @@ class BigQueryNativeJob(
               connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
 
-        logger.info(s"Running interactive BQ Query $targetSQL")
+        logger.info(s"Running BQ FINAL SQL ==> $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 

@@ -246,7 +246,7 @@ class JdbcAutoTask(
   @throws[Exception]
   private def runSqls(conn: Connection, sqls: List[String], typ: String): Unit = {
     if (sqls.nonEmpty) {
-      logger.info(s"running $typ SQL")
+      logger.info(s"running $typ FINAL SQL ==>")
       sqls.foreach { req =>
         JdbcDbUtils.executeUpdate(req, conn) match {
           case Success(_) =>
@@ -255,7 +255,7 @@ class JdbcAutoTask(
             throw e
         }
       }
-      logger.info(s"end running $typ SQL")
+      logger.info(s"end running $typ FINAL SQL")
     }
   }
 
