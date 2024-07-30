@@ -220,8 +220,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             )
           ) // we found the primitive type and it has a ddlMapping
-        case None       => None // we did not find the primitive type (should never happen)
-        case Some(None) => None // we found the primitive type but it has no ddlMapping
+        case None =>
+          throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found")
+          None // we did not find the primitive type (should never happen)
+        case Some(None) =>
+          throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found (None)")
+          None // we found the primitive type but it has no ddlMapping
       }
     }.toMap
   }

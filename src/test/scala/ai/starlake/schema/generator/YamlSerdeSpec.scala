@@ -1160,6 +1160,7 @@ object YamlConfigGenerators {
       hiveInTest              <- arbitrary[Boolean]
       duckdbMode              <- arbitrary[Boolean]
       testCsvNullString       <- arbitrary[String]
+      maxInteractiveRecords   <- arbitrary[Int]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1233,7 +1234,8 @@ object YamlConfigGenerators {
       timezone = timezone,
       hiveInTest = hiveInTest,
       duckdbMode = duckdbMode,
-      testCsvNullString = testCsvNullString
+      testCsvNullString = testCsvNullString,
+      maxInteractiveRecords = maxInteractiveRecords
     )
   }
 
