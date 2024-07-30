@@ -217,7 +217,8 @@ class JdbcAutoTask(
         headerAsSeq.append(rs.getMetaData.getColumnName(i))
         i += 1
       }
-      while (rs.next) {
+      var rowCount = 0
+      while (rs.next && rowCount < settings.appConfig.maxInteractiveRecords) {
         val rowAsSeq = new ListBuffer[String]
         var i = 1
         while (i <= rs.getMetaData.getColumnCount) {
@@ -225,6 +226,7 @@ class JdbcAutoTask(
           i += 1
         }
         result.append(rowAsSeq.toList)
+        rowCount += 1
       }
       JdbcJobResult(headerAsSeq.toList, result.toList)
     } finally {

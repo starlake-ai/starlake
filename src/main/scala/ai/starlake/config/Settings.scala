@@ -373,6 +373,7 @@ object Settings extends StrictLogging {
       }
     }
 
+    @JsonIgnore
     def getDbName() = {
       this.getType() match {
         case ConnectionType.BQ => "bigquery"
@@ -719,7 +720,8 @@ object Settings extends StrictLogging {
     timezone: TimeZone,
     hiveInTest: Boolean,
     duckdbMode: Boolean,
-    testCsvNullString: String
+    testCsvNullString: String,
+    maxInteractiveRecords: Int
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
