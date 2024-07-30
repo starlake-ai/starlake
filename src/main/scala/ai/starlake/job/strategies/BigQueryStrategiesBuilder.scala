@@ -485,10 +485,7 @@ class BigQueryStrategiesBuilder extends StrategiesBuilder {
          |""".stripMargin
     } else {
       s"""
-         |BEGIN TRANSACTION;
-         |CREATE TABLE $targetTableFullName($targetColumns) AS SELECT $targetColumns FROM ($selectStatement);
-         |INSERT INTO $targetTableFullName($targetColumns) SELECT $targetColumns FROM ($selectStatement);
-         |COMMIT TRANSACTION;
+         |CREATE TABLE $targetTableFullName AS SELECT $targetColumns FROM ($selectStatement);
          |""".stripMargin
     }
   }
