@@ -373,6 +373,16 @@ object Settings extends StrictLogging {
       }
     }
 
+    def getDbName() = {
+      this.getType() match {
+        case ConnectionType.BQ => "bigquery"
+        case ConnectionType.JDBC =>
+          val engineName = options("url").split(':')(1).toLowerCase()
+          engineName
+        case _ => "spark"
+      }
+    }
+
     def getType(): ConnectionType = ConnectionType.fromString(`type`)
 
     @nowarn
@@ -682,7 +692,6 @@ object Settings extends StrictLogging {
     maxParCopy: Int,
     kafka: KafkaConfig,
     dsvOptions: Map[String, String],
-    rootServe: Option[String],
     forceViewPattern: String,
     forceDomainPattern: String,
     forceTablePattern: String,

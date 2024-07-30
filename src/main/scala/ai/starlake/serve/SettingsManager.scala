@@ -64,7 +64,7 @@ object SettingsManager {
     PrivacyLevels.resetAllPrivacy()
 
     val sysProps = System.getProperties()
-    val outFile = File(root, "out")
+    val outFile = File(root, "output")
     outFile.createDirectoryIfNotExists()
     val extensionFile = File(root, "extension.log")
     if (extensionFile.exists) {
@@ -79,7 +79,6 @@ object SettingsManager {
     }
     val updatedSession = settingsMap.getOrElseUpdate(
       sessionId, {
-        sysProps.setProperty("rootServe", outFile.pathAsString)
         sysProps.setProperty("root", root)
         sysProps.setProperty("SL_ROOT", root)
         sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))

@@ -1,0 +1,10 @@
+version: 1
+application:
+  loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
+  connections:
+    duckdb:
+      type: "jdbc" # Connection to DuckDB
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
+        driver: "org.duckdb.DuckDBDriver"
+  connectionRef: "{{ myConnectionRef }}"

@@ -890,7 +890,8 @@ class IngestionWorkflow(
       config.test,
       taskDesc.getRunEngine(),
       config.accessToken,
-      resultPageSize = 1000
+      resultPageSize = 1000,
+      dryRun = config.dryRun
     )(
       settings,
       storageHandler,
@@ -909,9 +910,6 @@ class IngestionWorkflow(
       else
         mainSQL
 
-    val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-    output.foreach(_.overwrite(s"""$formattedSql"""))
     logger.info(s"""$formattedSql""")
     formattedSql
   }
@@ -1020,15 +1018,12 @@ class IngestionWorkflow(
             transformConfig.interactive match {
               case Some(format) =>
                 val bqJobResult = res.asInstanceOf[BigQueryJobResult]
-                val pretty = bqJobResult.prettyPrint(format)
+                val pretty = bqJobResult.prettyPrint(format, transformConfig.dryRun)
                 Success(pretty)
               case None =>
                 Success("")
             }
           case Failure(e) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(e)))
             Failure(e)
         }
       case Engine.JDBC =>
@@ -1039,9 +1034,6 @@ class IngestionWorkflow(
           case (Success(_), _) =>
             Success("")
           case (Failure(exception), _) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(exception)))
             exception.printStackTrace()
             Failure(exception)
         }
@@ -1053,9 +1045,6 @@ class IngestionWorkflow(
           case (Success(_), None) =>
             Success("")
           case (Failure(exception), _) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(exception)))
             exception.printStackTrace()
             Failure(exception)
           case (Success(_), _) =>

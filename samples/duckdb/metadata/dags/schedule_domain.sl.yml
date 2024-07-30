@@ -1,0 +1,9 @@
+dag:
+    comment: "sample dag configuration"
+    template: "sample.py.j2"
+    filename: "{{schedule}}-{{domain}}.py"
+    options:
+        profileVar: "DATAPROC_MEDIUM"
+        region: "europe-west1"
+        envVar: "SL_ENV"
+        jarFileUrisVar: "SL_JARS"

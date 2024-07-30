@@ -12,8 +12,6 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase with PgContainerHelper
     */
   override protected def copyFilesToIncomingDir(dir: File): Unit = {
     super.copyFilesToIncomingDir(dir)
-    val hrDir = incomingDir / "hr"
-//    hrDir.list(_.name.startsWith("locations")).foreach(_.delete())
   }
 
   /** We delete the table before running the test to ensure that the test is run in a clean

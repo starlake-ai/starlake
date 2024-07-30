@@ -95,6 +95,7 @@ class IntegrationTestBase
     }
   }
   protected def copyFilesToIncomingDir(dir: File): Unit = {
+    incomingDir.createDirectoryIfNotExists(createParents = true)
     dir.copyTo(incomingDir)
   }
 }
