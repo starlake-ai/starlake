@@ -493,7 +493,7 @@ object StarlakeTestData {
   }
 
   def taskOrTableFolders(domainFolder: File): List[File] =
-    domainFolder.listFiles(_.isDirectory).toList
+    Option(domainFolder.listFiles(_.isDirectory)).map(_.toList).getOrElse(Nil)
 
   def taskOrTableNames(load: Boolean, domainName: String)(implicit
     settings: Settings
@@ -505,7 +505,7 @@ object StarlakeTestData {
   }
 
   def testFolders(taskOrTableFolder: File): List[File] =
-    taskOrTableFolder.listFiles(_.isDirectory).toList
+    Option(taskOrTableFolder.listFiles(_.isDirectory)).map(_.toList).getOrElse(Nil)
 
   def testFolders(load: Boolean, domainName: String, taskOrTableName: String)(implicit
     settings: Settings
@@ -671,9 +671,12 @@ object StarlakeTestData {
     // Al files that do not start with an 'sl_' are considered data files
     // files that end with ".sql" will soon be considered as tests to run against
     // the output and compared against the expected output in the "_expected_filename" file
-    val testDataFiles = testFolder
-      .listFiles(f => f.isFile && !f.getName.startsWith("_") && !f.getName.endsWith(".sql"))
-      .toList
+    val testDataFiles = Option(
+      testFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && !f.getName.endsWith(".sql"))
+    )
+      .map(_.toList)
+      .getOrElse(Nil)
 
     // assert files start with an '_expected' prefix (for now we supports only one assert file)
 
@@ -783,7 +786,7 @@ object StarlakeTestData {
     testFolder: File
   )(implicit settings: Settings): Array[StarlakeTestData] = {
     val domainName = testFolder.getParentFile.getParentFile.getName
-    testFolder.listFiles().flatMap { f =>
+    Option(testFolder.listFiles()).getOrElse(Array.empty).flatMap { f =>
       val filename = f.getName
       val isExpectationDataFile =
         f.isFile &&

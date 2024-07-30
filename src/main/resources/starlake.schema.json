@@ -1916,10 +1916,6 @@
           "$ref": "#/definitions/MapString",
           "description": "DSV ingestion extra options"
         },
-        "rootServe": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "reserved"
-        },
         "forceViewPattern": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"

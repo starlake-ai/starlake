@@ -33,7 +33,8 @@ class BigQueryAutoTask(
   truncate: Boolean,
   test: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1
+  resultPageSize: Int = 1,
+  dryRun: Boolean = false
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -212,7 +213,7 @@ class BigQueryAutoTask(
                   config,
                   mainSql
                 )
-                val result = bqJob.runInteractiveQuery()
+                val result = bqJob.runInteractiveQuery(dryRun = dryRun)
                 result.map { job =>
                   bqJob.applyRLSAndCLS() match {
                     case Success(_) =>
@@ -299,7 +300,7 @@ class BigQueryAutoTask(
           val res = bqNativeJob(
             config,
             mainSql
-          ).runInteractiveQuery()
+          ).runInteractiveQuery(dryRun = dryRun)
           res
       }
 

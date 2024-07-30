@@ -1132,7 +1132,6 @@ object YamlConfigGenerators {
       maxParCopy              <- arbitrary[Int]
       kafka                   <- arbitrary[KafkaConfig]
       dsvOptions              <- arbitrary[Map[String, String]]
-      rootServe               <- Gen.option(arbitrary[String])
       forceViewPattern        <- arbitrary[String]
       forceDomainPattern      <- arbitrary[String]
       forceTablePattern       <- arbitrary[String]
@@ -1207,7 +1206,6 @@ object YamlConfigGenerators {
       maxParCopy = maxParCopy,
       kafka = kafka,
       dsvOptions = dsvOptions,
-      rootServe = rootServe,
       forceViewPattern = forceViewPattern,
       forceDomainPattern = forceDomainPattern,
       forceTablePattern = forceTablePattern,

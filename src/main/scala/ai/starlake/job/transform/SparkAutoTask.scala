@@ -483,7 +483,7 @@ class SparkAutoTask(
                 .getOrElse("")}" """
           )
           .mkString(",")
-        SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD columns ($colsAsString)")
+        SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD COLUMNS ($colsAsString)")
       }
       Some(StructType(existingTableSchema.fields ++ newFields))
     } else {
@@ -713,7 +713,7 @@ class SparkAutoTask(
         val jobResult = secondStepAutoTask.runJDBC(None)
 
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-          JdbcDbUtils.dropTable(firstStepTempTable, conn)
+          JdbcDbUtils.dropTable(conn, firstStepTempTable)
         }
         jobResult
       } else {

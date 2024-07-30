@@ -152,7 +152,7 @@ class JdbcAutoTask(
                     val dialect = SparkUtils.dialect(jdbcUrl)
                     // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
                     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-                      SparkUtils.truncateTable(conn, fullTableName)
+                      JdbcDbUtils.truncateTable(conn, fullTableName)
                     }
                   }
                   loadedDF.write
@@ -309,7 +309,7 @@ class JdbcAutoTask(
         }
 
         val alterTableAddColumns =
-          SparkUtils.alterTableAddColumnsString(addedSchema, tableName)
+          SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
         if (alterTableAddColumns.nonEmpty) {
           logger.info(
             s"alter table $tableName with ${alterTableAddColumns.size} columns to add"
@@ -327,6 +327,7 @@ class JdbcAutoTask(
         logger.info(
           s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
         )
+
         SparkUtils.createTable(
           conn,
           tableName,

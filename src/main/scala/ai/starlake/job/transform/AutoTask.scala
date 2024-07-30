@@ -280,7 +280,8 @@ object AutoTask extends StrictLogging {
     test: Boolean,
     engine: Engine,
     accessToken: Option[String] = None,
-    resultPageSize: Int = 1
+    resultPageSize: Int = 1,
+    dryRun: Boolean = false
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -298,7 +299,8 @@ object AutoTask extends StrictLogging {
           truncate = truncate,
           test = test,
           accessToken = accessToken,
-          resultPageSize = resultPageSize
+          resultPageSize = resultPageSize,
+          dryRun = dryRun
         )
       case Engine.JDBC
           if sinkConfig

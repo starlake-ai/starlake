@@ -141,7 +141,7 @@ class BigQueryNativeJob(
     jobId
   }
 
-  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
+  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema): SLTableInfo = {
     SLTableInfo(
       tableId,
       cliConfig.outputTableDesc,
@@ -253,7 +253,8 @@ class BigQueryNativeJob(
   def runInteractiveQuery(
     thisSql: scala.Option[String] = None,
     pageSize: scala.Option[Long] = None,
-    queryJobTimeoutMs: scala.Option[Long] = None
+    queryJobTimeoutMs: scala.Option[Long] = None,
+    dryRun: Boolean = false
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       val targetSQL = thisSql.getOrElse(sql).trim()
@@ -287,7 +288,8 @@ class BigQueryNativeJob(
 
         logger.info(s"Running BQ FINAL SQL ==> $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-        val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
+        val finalConfiguration =
+          queryConfigWithUDF.setPriority(Priority.INTERACTIVE).setDryRun(dryRun).build()
 
         val result =
           recoverBigqueryException {
@@ -296,31 +298,38 @@ class BigQueryNativeJob(
               bigquery(accessToken = cliConfig.accessToken).create(
                 JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
               )
-            logger.info(s"Waiting for job $jobId")
-            queryJob.waitFor(
-              RetryOption.maxAttempts(0),
-              RetryOption.totalTimeout(
-                org.threeten.bp.Duration.ofMinutes(
-                  queryJobTimeoutMs
-                    .orElse(jobTimeoutMs)
-                    .getOrElse(settings.appConfig.longJobTimeoutMs)
+            if (!dryRun) {
+              logger.info(s"Waiting for job $jobId")
+              queryJob.waitFor(
+                RetryOption.maxAttempts(0),
+                RetryOption.totalTimeout(
+                  org.threeten.bp.Duration.ofMinutes(
+                    queryJobTimeoutMs
+                      .orElse(jobTimeoutMs)
+                      .getOrElse(settings.appConfig.longJobTimeoutMs)
+                  )
                 )
               )
-            )
+            } else {
+              logger.info(s"Dry run $jobId")
+              queryJob
+            }
           }.map { jobResult =>
             val totalBytesProcessed = jobResult
               .getStatistics()
               .asInstanceOf[QueryStatistics]
               .getTotalBytesProcessed
-
-            val results = jobResult.getQueryResults(
-              QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
-            )
-            logger.info(
-              s"Query large results performed successfully: ${results.getTotalRows} rows returned."
-            )
-
-            BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+            if (!dryRun) {
+              val results = jobResult.getQueryResults(
+                QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+              )
+              logger.info(
+                s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+              )
+              BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+            } else {
+              BigQueryJobResult(None, totalBytesProcessed, Some(jobResult))
+            }
           }
         result
       }

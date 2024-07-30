@@ -191,21 +191,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val errorCount = errors.length
     val warningCount = warnings.length
 
-    val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-    output.foreach(_.overwrite(""))
-
-    if (errorCount + warningCount > 0) {
-      output.foreach(
-        _.appendLine(
-          s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
-        )
-      )
-      allErrorsAndWarnings.foreach { err =>
-        output.foreach(_.appendLine(err.message))
-      }
-      output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-    }
     (allErrorsAndWarnings, errorCount, warningCount)
   }
 
@@ -216,6 +201,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       ddlMapping match {
         case Some(Some(mapping)) =>
           Some(attr.name -> mapping) // we found the primitive type and it has a ddlMapping
+        case None       => None // we did not find the primitive type (should never happen)
+        case Some(None) => None // we found the primitive type but it has no ddlMapping
+      }
+    }.toMap
+  }
+
+  def getAttributesWithDDLType(schema: Schema, dbName: String): Map[String, String] = {
+    schema.attributes.flatMap { attr =>
+      val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
+      ddlMapping match {
+        case Some(Some(mapping)) =>
+          Some(
+            attr.name -> mapping.getOrElse(
+              dbName,
+              throw new Exception(
+                s"${attr.name}: ${attr.`type`} DDL mapping not found for $dbName"
+              )
+            )
+          ) // we found the primitive type and it has a ddlMapping
         case None       => None // we did not find the primitive type (should never happen)
         case Some(None) => None // we found the primitive type but it has no ddlMapping
       }

@@ -113,9 +113,11 @@ case class Schema(
   }
 
   @JsonIgnore
-  def isFlat(): Boolean = {
-    !attributes.exists(_.attributes.nonEmpty)
-  }
+  def isFlat(): Boolean = !attributes.exists(attr => Set("variant", "struct").contains(attr.`type`))
+
+  @JsonIgnore
+  def isVariant(): Boolean =
+    attributes.exists(attr => "variant" == attr.`type`)
 
   /** @return
     *   renamed column if defined, source name otherwise
@@ -216,25 +218,24 @@ case class Schema(
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
   }
 
-  def sparkSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore() && attr.script.isEmpty)
+  def sparkSchemaWithoutIgnoreScriptAndTransform(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(
+      schemaHandler,
+      attr => !attr.resolveIgnore() && attr.script.isEmpty && attr.transform.isEmpty
+    )
 
   def sparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
 
-  def sparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
+  def sparkSchema(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
-
-  def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkSchemaWithoutIgnoreAndScript(schemaHandler))
-  }
 
   def bqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkSchemaWithoutIgnore(schemaHandler))
   }
 
   def bqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkSchemaWithIgnoreAndScript(schemaHandler))
+    BigQueryUtils.bqSchema(sparkSchema(schemaHandler))
   }
 
   /** return the list of renamed attributes

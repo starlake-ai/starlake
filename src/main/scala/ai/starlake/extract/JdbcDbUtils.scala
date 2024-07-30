@@ -127,6 +127,15 @@ object JdbcDbUtils extends LazyLogging {
     connection.copy(options = options)
   }
 
+  def truncateTable(conn: java.sql.Connection, tableName: String): Unit = {
+    val statement = conn.createStatement
+    try {
+      statement.executeUpdate(s"TRUNCATE TABLE $tableName")
+    } finally {
+      statement.close()
+    }
+  }
+
   @throws[Exception]
   def createSchema(conn: SQLConnection, domainName: String): Unit = {
     executeUpdate(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
@@ -138,7 +147,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def dropTable(tableName: String, conn: SQLConnection): Unit = {
+  def dropTable(conn: SQLConnection, tableName: String): Unit = {
     executeUpdate(s"DROP TABLE IF EXISTS $tableName", conn) match {
       case Success(_) =>
       case Failure(e) =>

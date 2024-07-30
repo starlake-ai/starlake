@@ -3,13 +3,13 @@ package ai.starlake.utils
 import ai.starlake.extract.JdbcDbUtils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import org.apache.spark.sql.types.{StructField, StructType, TimestampNTZType}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.sql.{Connection, SQLException}
 import java.util.regex.Pattern
@@ -36,17 +36,71 @@ object SparkUtils extends StrictLogging {
     dropFields.map(dropColumn => s"ALTER TABLE $tableName DROP COLUMN $dropColumn")
   }
 
-  def alterTableAddColumnsString(allFields: StructType, tableName: String): Seq[String] = {
-    allFields.fields.flatMap(alterTableAddColumnString(_, tableName)).toIndexedSeq
+  def alterTableAddColumnsString(
+    allFields: StructType,
+    tableName: String,
+    attributesWithDDLType: Map[String, String]
+  ): Seq[String] = {
+    allFields.fields
+      .flatMap(alterTableAddColumnString(_, tableName, attributesWithDDLType))
+      .toIndexedSeq
   }
 
-  def alterTableAddColumnString(field: StructField, tableName: String): Option[String] = {
+  def alterTableAddColumnString(
+    field: StructField,
+    tableName: String,
+    attributesWithDDLType: Map[String, String]
+  ): Option[String] = {
     val addField = field.name
     val addFieldType = field.dataType
-    val addJdbcType = JdbcDbUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition)
+
+    val addJdbcType =
+      attributesWithDDLType
+        .get(addField)
+        .orElse(JdbcDbUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition))
+
     val nullable =
-      "" // Always nummable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
+      "" // Always nullable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
+
     addJdbcType.map(jdbcType => s"ALTER TABLE $tableName ADD COLUMN $addField $jdbcType $nullable")
+  }
+
+  def updateJdbcTableSchema(
+    conn: Connection,
+    jdbcOptions: Map[String, String],
+    domainAndTableName: String,
+    sparkSchema: StructType,
+    attributesWithDDLType: Map[String, String]
+  ) = {
+    val url = jdbcOptions("url")
+    if (isFlat(sparkSchema)) {
+      val existingSchema = getSchemaOption(conn, jdbcOptions, domainAndTableName)
+      val addedSchema = SparkUtils.added(sparkSchema, existingSchema.getOrElse(sparkSchema))
+      val deletedSchema = SparkUtils.dropped(sparkSchema, existingSchema.getOrElse(sparkSchema))
+      val alterTableDropColumns =
+        SparkUtils.alterTableDropColumnsString(deletedSchema, domainAndTableName)
+      if (alterTableDropColumns.nonEmpty) {
+        logger.info(
+          s"alter table ${domainAndTableName} with ${alterTableDropColumns.size} columns to drop"
+        )
+        logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
+      }
+      val alterTableAddColumns =
+        SparkUtils.alterTableAddColumnsString(
+          addedSchema,
+          domainAndTableName,
+          attributesWithDDLType
+        )
+
+      if (alterTableAddColumns.nonEmpty) {
+        logger.info(
+          s"alter table ${domainAndTableName} with ${alterTableAddColumns.size} columns to add"
+        )
+        logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
+      }
+      alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+      alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
+    }
   }
 
   /** Creates a table with a given schema. Updated from Spark 3.0.1
@@ -92,20 +146,11 @@ object SparkUtils extends StrictLogging {
     SparkUtils.sql(session, s"TRUNCATE TABLE $tableName")
   }
 
-  def truncateTable(conn: Connection, tableName: String): Unit = {
-    val statement = conn.createStatement
-    try {
-      statement.executeUpdate(s"TRUNCATE TABLE $tableName")
-    } finally {
-      statement.close()
-    }
-  }
-
   /** Creates a table with a given schema. Updated from Spark 3.0.1
     */
   def createTable(
     conn: Connection,
-    tableName: String,
+    domainAndTableName: String,
     schema: StructType,
     caseSensitive: Boolean,
     options: JdbcOptionsInWrite,
@@ -129,17 +174,20 @@ object SparkUtils extends StrictLogging {
         else
           strSchema.replaceAll("\"", "")
 
-      val domainName = tableName.split('.').head
+      val domainName = domainAndTableName.split('.').head
       statement.executeUpdate(
         s"CREATE SCHEMA IF NOT EXISTS $domainName"
       )
       logger.info(
-        s"Creating table $tableName with schema $finalStrSchema and options $createTableOptions"
+        s"Creating table $domainAndTableName with schema $finalStrSchema and options $createTableOptions"
       )
-      statement.executeUpdate(s"CREATE TABLE $tableName ($finalStrSchema) $createTableOptions")
+      statement.executeUpdate(
+        s"CREATE TABLE $domainAndTableName ($finalStrSchema) $createTableOptions"
+      )
       if (options.tableComment.nonEmpty) {
         try {
-          val tableCommentQuery = jdbcDialect.getTableCommentQuery(tableName, options.tableComment)
+          val tableCommentQuery =
+            jdbcDialect.getTableCommentQuery(domainAndTableName, options.tableComment)
           statement.executeUpdate(tableCommentQuery)
         } catch {
           case e: Exception =>
