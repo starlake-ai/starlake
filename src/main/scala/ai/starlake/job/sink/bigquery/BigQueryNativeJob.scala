@@ -246,51 +246,49 @@ class BigQueryNativeJob(
     queryJobTimeoutMs: scala.Option[Long] = None
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
-      Try {
-        val targetSQL = thisSql.getOrElse(sql).trim()
-        val queryConfig: QueryJobConfiguration.Builder =
-          QueryJobConfiguration
-            .newBuilder(targetSQL)
-            .setAllowLargeResults(true)
-            .setMaximumBytesBilled(
-              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
-            )
+      val targetSQL = thisSql.getOrElse(sql).trim()
+      val queryConfig: QueryJobConfiguration.Builder =
+        QueryJobConfiguration
+          .newBuilder(targetSQL)
+          .setAllowLargeResults(true)
+          .setMaximumBytesBilled(
+            connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
+          )
 
-        logger.info(s"Running interactive BQ Query $targetSQL")
-        val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-        val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
+      logger.info(s"Running interactive BQ Query $targetSQL")
+      val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+      val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
-        recoverBigqueryException {
-          val jobId = newJobIdWithLocation()
-          val queryJob =
-            bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
-          logger.info(s"Waiting for job $jobId")
-          queryJob.waitFor(
-            RetryOption.maxAttempts(0),
-            RetryOption.totalTimeout(
-              org.threeten.bp.Duration.ofMinutes(
-                queryJobTimeoutMs
-                  .orElse(jobTimeoutMs)
-                  .getOrElse(settings.appConfig.longJobTimeoutMs)
-              )
+      recoverBigqueryException {
+        val jobId = newJobIdWithLocation()
+        val queryJob =
+          bigquery().create(JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build())
+        logger.info(s"Waiting for job $jobId")
+        queryJob.waitFor(
+          RetryOption.maxAttempts(0),
+          RetryOption.totalTimeout(
+            org.threeten.bp.Duration.ofMinutes(
+              queryJobTimeoutMs
+                .orElse(jobTimeoutMs)
+                .getOrElse(settings.appConfig.longJobTimeoutMs)
             )
           )
-        }.map { jobResult =>
-          val totalBytesProcessed = jobResult
-            .getStatistics()
-            .asInstanceOf[QueryStatistics]
-            .getTotalBytesProcessed
+        )
+      }.map { jobResult =>
+        val totalBytesProcessed = jobResult
+          .getStatistics()
+          .asInstanceOf[QueryStatistics]
+          .getTotalBytesProcessed
 
-          val results = jobResult.getQueryResults(
-            QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
-          )
-          logger.info(
-            s"Query large results performed successfully: ${results.getTotalRows} rows returned."
-          )
+        val results = jobResult.getQueryResults(
+          QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+        )
+        logger.info(
+          s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+        )
 
-          BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
-        }
-      }.flatten
+        BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+      }
     }
   }
 
