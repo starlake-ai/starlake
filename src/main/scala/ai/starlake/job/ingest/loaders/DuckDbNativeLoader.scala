@@ -1,16 +1,14 @@
 package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.{BqLoadInfo, IngestionJob}
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
-import ai.starlake.job.transform.{AutoTask, BigQueryAutoTask, JdbcAutoTask}
+import ai.starlake.job.ingest.IngestionJob
+import ai.starlake.job.transform.{BigQueryAutoTask, JdbcAutoTask}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.{IngestionCounters, JobResult, SparkUtils, Utils}
+import ai.starlake.utils.{IngestionCounters, JobResult, SparkUtils}
 import com.google.cloud.bigquery.TableId
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
@@ -18,8 +16,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
-import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.{Try, Using}
 
 class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
   val settings: Settings
@@ -290,7 +287,35 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           }
           .mkString(", ")
       val paths =
-        path.map { p => s"'${StorageHandler.localFile(p).pathAsString}'" }.mkString("[", ",", "]")
+        path
+          .map { p =>
+            val ps = p.toString
+            if (ps.startsWith("file:"))
+              StorageHandler.localFile(p).pathAsString
+            else if (ps.contains { "://" }) {
+              val defaultEndpoint =
+                ps.substring(2) match {
+                  case "gs" => "storage.googleapis.com"
+                  case "s3" => "s3.amazonaws.com"
+                  case _    => "s3.amazonaws.com"
+                }
+              val endpoint =
+                sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
+              val keyid =
+                sinkConnection.options("s3_access_key_id")
+              val secret =
+                sinkConnection.options("s3_secret_access_key")
+              JdbcDbUtils.execute("INSTALL httpfs;", conn)
+              JdbcDbUtils.execute("LOAD httpfs;", conn)
+              JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
+              JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
+              JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
+              ps
+            } else {
+              ps
+            }
+          }
+          .mkString("['", "','", "']")
       mergedMetadata.resolveFormat() match {
         case Format.DSV =>
           val nullstr =

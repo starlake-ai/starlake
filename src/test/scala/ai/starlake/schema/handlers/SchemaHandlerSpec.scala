@@ -1156,4 +1156,38 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
   }
+  "Filename Matcher" should "succeed" in {
+    new WithSettings() {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/DOMAIN.sl.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        List(
+          "/sample/User.sl.yml",
+          "/sample/Players.sl.yml",
+          "/sample/employee.sl.yml",
+          "/sample/complexUser.sl.yml"
+        ).foreach(deliverSourceTable)
+        getDomain("DOMAIN").foreach { domain =>
+          val result = domain.tables.map { table =>
+            table.finalName -> table.containsArrayOfRecords()
+          }
+          val expected =
+            List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
+          result should contain theSameElementsAs expected
+        }
+
+        private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
+        val ok =
+          validator.findAllFilenameMatchers("Players-123.csv", Some("DOMAIN"), Some("Players"))
+        assert(ok == List(("DOMAIN", "Players")))
+        val ko =
+          validator.findAllFilenameMatchers("Player-123.csv", Some("DOMAIN"), Some("Players"))
+        assert(ko.isEmpty)
+      }
+    }
+  }
 }

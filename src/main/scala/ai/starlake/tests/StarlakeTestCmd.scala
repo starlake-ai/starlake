@@ -9,7 +9,7 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
-trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
+trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"
 
@@ -61,4 +61,4 @@ trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
   }
 }
 
-object TransformTestCmd extends TransformTestCmd
+object StarlakeTestCmd extends StarlakeTestCmd
