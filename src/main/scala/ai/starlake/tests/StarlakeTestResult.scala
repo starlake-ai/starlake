@@ -67,7 +67,7 @@ case class StarlakeTestResult(
   missingRecords: File,
   notExpectedRecords: File,
   success: Boolean,
-  exception: Option[Throwable],
+  exception: Option[String],
   duration: Long
 ) {
   def junitErrMessage(): Option[String] = {
@@ -119,7 +119,7 @@ case class StarlakeTestResult(
 
   def getSuccess(): Boolean = success
   def getExceptionHead(): String =
-    exception.map(Utils.exceptionAsString).getOrElse("None").split("\n").head
+    exception.getOrElse("None").split("\n").head
   def getDuration(): String = {
     val d: Double = duration.toDouble / 1000
     s"$d"

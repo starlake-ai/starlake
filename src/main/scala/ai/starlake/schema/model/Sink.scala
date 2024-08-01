@@ -137,7 +137,7 @@ case class AllSinks(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  materializedView: Option[Boolean] = None,
+  materializedView: Option[Materialization] = None,
   enableRefresh: Option[Boolean] = None, // only if materializedView is true
   refreshIntervalMs: Option[Long] = None, // only if enable refresh is true
   // partition: Option[List[String]] = None,  // only one column allowed
@@ -289,7 +289,7 @@ final case class BigQuerySink(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  materializedView: Option[Boolean] = None,
+  materialization: Option[Materialization] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None
 ) extends Sink {
@@ -299,7 +299,7 @@ final case class BigQuerySink(
       clustering,
       days,
       requirePartitionFilter,
-      materializedView,
+      materialization,
       enableRefresh,
       refreshIntervalMs,
       partition = partition
@@ -318,7 +318,7 @@ object BigQuerySink {
       clustering = allSinks.clustering,
       days = allSinks.days,
       requirePartitionFilter = allSinks.requirePartitionFilter,
-      materializedView = allSinks.materializedView,
+      materialization = allSinks.materializedView,
       enableRefresh = allSinks.enableRefresh,
       refreshIntervalMs = allSinks.refreshIntervalMs
     )

@@ -107,9 +107,9 @@ class BigQueryAutoTask(
       rls = taskDesc.rls,
       engine = Engine.BQ,
       acl = taskDesc.acl,
-      materializedView = taskDesc.sink
-        .map(_.getSink())
-        .exists(sink => sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)),
+      materialization = taskDesc.sink
+        .flatMap(_.getSink().asInstanceOf[BigQuerySink].materialization)
+        .getOrElse(Materialization.TABLE),
       enableRefresh = bqSink.enableRefresh,
       refreshIntervalMs = bqSink.refreshIntervalMs,
       attributesDesc = taskDesc.attributesDesc,

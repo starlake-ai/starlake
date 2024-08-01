@@ -246,7 +246,9 @@ abstract class AutoTask(
     )
 
   def isMaterializedView(): Boolean = {
-    taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
+    taskDesc.sink
+      .flatMap(_.materializedView)
+      .getOrElse(Materialization.TABLE) == Materialization.MATERIALIZED_VIEW
   }
 }
 

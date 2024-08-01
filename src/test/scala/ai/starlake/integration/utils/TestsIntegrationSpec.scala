@@ -13,7 +13,7 @@ class TestsIntegrationSpec extends IntegrationTestBase {
     withEnvs(
       "SL_ROOT" -> localDir.pathAsString
     ) {
-      new Main().run(Array("test"))
+      new Main().run(Array("test", "--load"))
     }
   }
 }

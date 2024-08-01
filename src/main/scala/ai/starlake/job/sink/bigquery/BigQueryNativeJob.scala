@@ -6,6 +6,7 @@ import ai.starlake.schema.model.{
   ClusteringInfo,
   FieldPartitionInfo,
   Format,
+  Materialization,
   Schema,
   TableInfo => SLTableInfo
 }
@@ -362,13 +363,27 @@ class BigQueryNativeJob(
       } else {
         runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
       }
-    } else if (cliConfig.materializedView) {
+    } else if (cliConfig.materialization == Materialization.TABLE) {
+      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+    } else if (cliConfig.materialization == Materialization.MATERIALIZED_VIEW) {
       runAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
-      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+      runAndSinkAsView().map(table => BigQueryJobResult(None, 0L, None))
     }
   }
 
+  def runAndSinkAsView(thisSql: scala.Option[String] = None): Try[Table] = {
+    getOrCreateDataset(None).flatMap { _ =>
+      Try {
+        val viewDefinitionBuilder =
+          ViewDefinition.newBuilder(thisSql.getOrElse(sql))
+        val table =
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(TableInfo.of(tableId, viewDefinitionBuilder.build()))
+        table
+      }
+    }
+  }
   def runAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {

@@ -414,6 +414,10 @@ object YamlConfigGenerators {
     Gen.oneOf(Trim.modes)
   }
 
+  implicit val mat: Arbitrary[Materialization] = Arbitrary {
+    Gen.oneOf(Materialization.mats)
+  }
+
   implicit val jdbcSchema: Arbitrary[JDBCSchema] = Arbitrary {
     for {
       catalog             <- Gen.option(arbitrary[String])
@@ -534,7 +538,7 @@ object YamlConfigGenerators {
       clustering             <- Gen.option(arbitrary[List[String]])
       days                   <- Gen.option(arbitrary[Int])
       requirePartitionFilter <- Gen.option(arbitrary[Boolean])
-      materializedView       <- Gen.option(arbitrary[Boolean])
+      materializedView       <- Gen.option(arbitrary[Materialization])
       enableRefresh          <- Gen.option(arbitrary[Boolean])
       refreshIntervalMs      <- Gen.option(arbitrary[Long])
       id                     <- Gen.option(arbitrary[String])
