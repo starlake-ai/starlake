@@ -180,14 +180,6 @@ object Settings extends StrictLogging {
          |)""".stripMargin
     }
 
-    def useSparkOnLoad: Boolean =
-      sparkFormat.map(List("LOAD", "LOAD_AND_TRANSFORM").contains).getOrElse(false)
-
-    def useSparkOnTransform: Boolean =
-      sparkFormat.map(List("TRANSFORM", "LOAD_AND_TRANSFORM").contains).getOrElse(false)
-
-    def useSpark: Boolean = sparkFormat.isDefined
-
     def sparkDatasource(): Option[String] = {
       this.getType() match {
         case ConnectionType.JDBC =>
