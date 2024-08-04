@@ -157,16 +157,16 @@ class AutoTaskDependencies(
       |}
       |""".stripMargin
 
-  def jobAsJson(
+  def jobAsDiagram(
     config: AutoTaskDependenciesConfig
   ): Diagram = {
-    jobAsJson(tasks(config), config)
+    jobAsDiagram(tasks(config), config)
   }
   def jobAsDot(config: AutoTaskDependenciesConfig): Unit = {
     jobAsDot(tasks(config), config)
   }
 
-  def jobAsJson(
+  def jobAsDiagram(
     allDependencies: List[DependencyContext],
     config: AutoTaskDependenciesConfig
   ): Diagram = {
@@ -182,21 +182,19 @@ class AutoTaskDependencies(
         )
     }
 
-    val entitiesAsJson = dedupDependencies.entities.map(dep => dep.entityAsJson()).distinct
-    val relationsAsJson = dedupDependencies.relations
-      .flatMap(dep => dep.relationAsJson())
+    val entitiesAsItems = dedupDependencies.entities.map(dep => dep.entityAsItem()).distinct
+    val relationsAsRelations = dedupDependencies.relations
+      .flatMap(dep => dep.relationAsRelation())
       .distinct
 
-    val diagram = Diagram(entitiesAsJson, relationsAsJson, "task")
+    val diagram = Diagram(entitiesAsItems, relationsAsRelations, "task")
     if (config.outputFile.isDefined) {
       val data =
         JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
       if (config.outputFile.isDefined)
         Utils.save(config.outputFile, data)
     }
-
     diagram
-
   }
 
   /** @param allDependencies

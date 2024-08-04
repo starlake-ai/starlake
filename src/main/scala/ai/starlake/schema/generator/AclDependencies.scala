@@ -619,14 +619,14 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
 
     val dotRlsRelations = allRlsRelations.map { case (userName, name, predicate, schema, domain) =>
-      Item(
-        id = s"${domain}.${schema}.rls_$name",
-        label = predicate,
-        displayType = "rls-role"
+      Relation(
+        source = userName,
+        target = s"${domain}.${schema}.rls_$name",
+        relationType = "rls"
       )
     }
 
-    (dotRlsRoles ++ dotRlsRelations, dotRlsRolesRelations)
+    (dotRlsRoles, dotRlsRolesRelations ++ dotRlsRelations)
   }
 
   private def rlsRelationsAsDot(config: AclDependenciesConfig) = {

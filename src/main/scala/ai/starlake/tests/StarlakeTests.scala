@@ -80,6 +80,7 @@ case class StarlakeTestData(
     if (!incoming && createTableExpression.nonEmpty) {
       val stmt = conn.createStatement()
       stmt.execute(s"""CREATE SCHEMA IF NOT EXISTS "$domain"""")
+      println(createTableExpression)
       stmt.execute(createTableExpression)
       stmt.close()
     }
@@ -258,6 +259,7 @@ object StarlakeTestData {
 
   private def execute(conn: Connection, sql: String): Unit = {
     val stmt = conn.createStatement()
+    println(sql)
     stmt.execute(sql)
     stmt.close()
   }
@@ -950,18 +952,18 @@ object StarlakeTestData {
           else if (dataFile.getName.endsWith("csv"))
             s"(FORMAT CSV, nullstr '${settings.appConfig.testCsvNullString}')"
           else ""
-        s"""CREATE TABLE "$domainName"."$tableName" ($cols);
+        s"""CREATE OR REPLACE TABLE "$domainName"."$tableName" ($cols);
                  |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
       case Some(table) if !table.isFlat() =>
         // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
-        s"""ERROR: Nested tables are not supported in tests"""
+        s"""ERROR: Nested tables are not supported in tests => table $domainName.$table"""
       case None =>
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =
           if (dataFile.getName.endsWith("csv"))
             s"read_csv('${dataFile.toString}', nullstr = '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
           else s"'${dataFile.toString}'"
-        s"CREATE TABLE $domainName.$tableName AS SELECT * FROM $source;"
+        s"CREATE OR REPLACE TABLE $domainName.$tableName AS SELECT * FROM $source;"
     }
     expectedCreateTable
   }

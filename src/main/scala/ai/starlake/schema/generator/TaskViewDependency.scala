@@ -317,7 +317,7 @@ case class TaskViewDependency(
     }
   }
 
-  def relationAsJson(): Option[Relation] = {
+  def relationAsRelation(): Option[Relation] = {
     val depId = name
     val dotParent: String = if (parent.isEmpty) parentRef else parent
     if (dotParent.nonEmpty) {
@@ -338,7 +338,7 @@ case class TaskViewDependency(
 
   }
 
-  def entityAsJson(): Item = {
+  def entityAsItem(): Item = {
     val depId = name
     Item(
       id = depId,

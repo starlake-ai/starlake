@@ -119,6 +119,10 @@ case class Schema(
   def isVariant(): Boolean =
     attributes.exists(attr => "variant" == attr.`type`)
 
+  @JsonIgnore
+  def isDeep(): Boolean =
+    attributes.exists(attr => "struct" == attr.`type`)
+
   /** @return
     *   renamed column if defined, source name otherwise
     */
