@@ -99,7 +99,7 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
       val allDependencies: List[DependencyContext] = autoTaskDependencies.tasks(config)
       if (config.json) {
-        val diagram = autoTaskDependencies.jobAsJson(allDependencies, config)
+        val diagram = autoTaskDependencies.jobAsDiagram(allDependencies, config)
         if (config.print) {
           val data =
             JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)

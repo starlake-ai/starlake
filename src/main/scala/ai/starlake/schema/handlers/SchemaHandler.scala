@@ -791,7 +791,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (validDomainsFile, invalidDomainsFiles)
   }
 
-  private def loadTableRefs(
+  def loadTableRefs(
     tableNames: List[String] = Nil,
     raw: Boolean,
     folder: Path
@@ -808,21 +808,30 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       else {
         tableRefNames.filter(tableNames.map(_ + ".sl.yml").contains(_))
       }
+
     val schemaRefs = requestedTables
-      .map { tableRefName =>
-        val schemaPath = new Path(folder, tableRefName)
-        logger.debug(s"Loading schema from $schemaPath")
-        YamlSerde.deserializeYamlTables(
-          if (raw)
-            storage.read(schemaPath)
-          else
-            Utils
-              .parseJinja(storage.read(schemaPath), activeEnvVars()),
-          schemaPath.toString
-        )
-      }
-      .flatMap(_.map(_.table))
+      .map { tableRefName => loadTableRef(tableRefName, raw, folder) }
+      .map(_.table)
     schemaRefs
+  }
+
+  def loadTableRef(
+    tableRefName: String,
+    raw: Boolean,
+    folder: Path
+  ): TableDesc = {
+    val schemaPath = new Path(folder, tableRefName)
+    logger.debug(s"Loading schema from $schemaPath")
+    YamlSerde
+      .deserializeYamlTables(
+        if (raw)
+          storage.read(schemaPath)
+        else
+          Utils
+            .parseJinja(storage.read(schemaPath), activeEnvVars()),
+        schemaPath.toString
+      )
+      .head
   }
 
   private def checkVarsAreDefined(path: Path): Set[ValidationMessage] = {

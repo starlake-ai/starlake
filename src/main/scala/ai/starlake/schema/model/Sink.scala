@@ -138,7 +138,7 @@ case class AllSinks(
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
   materializedView: Option[Materialization] = None,
-  enableRefresh: Option[Boolean] = None, // only if materializedView is true
+  enableRefresh: Option[Boolean] = None, // only if materializedView is MATERIALIZED_VIEW
   refreshIntervalMs: Option[Long] = None, // only if enable refresh is true
   // partition: Option[List[String]] = None,  // only one column allowed
 
