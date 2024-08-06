@@ -21,6 +21,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             project_id: str=None,
             cloud_run_job_name: str=None,
             cloud_run_job_region: str=None,
+            cloud_run_service_account: str = None,
             options: dict=None,
             separator:str = ' ',
             **kwargs) -> None:
@@ -28,6 +29,11 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
         self.project_id = __class__.get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = __class__.get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
+        self.cloud_run_service_account = __class__.get_context_var(var_name='cloud_run_service_account', default_value="", options=self.options) if not cloud_run_service_account else cloud_run_service_account
+        if self.cloud_run_service_account:
+            self.impersonate_service_account = f"--impersonate-service-account {self.cloud_run_service_account}"
+        else:
+            self.impersonate_service_account = ""
         self.separator = separator if separator != ',' else ' '
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
 
@@ -47,7 +53,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gcloud beta run jobs execute {self.cloud_run_job_name} "
             f"--args \"{args}\" "
             f"{self.update_env_vars} "
-            f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)'" #--task-timeout 300 
+            f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
         )
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
