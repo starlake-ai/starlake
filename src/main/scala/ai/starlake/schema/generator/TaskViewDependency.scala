@@ -3,6 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator
+import ai.starlake.schema.generator.AutoTaskDependencies.{Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, WriteStrategy}
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -316,6 +317,16 @@ case class TaskViewDependency(
     }
   }
 
+  def relationAsRelation(): Option[Relation] = {
+    val depId = name
+    val dotParent: String = if (parent.isEmpty) parentRef else parent
+    if (dotParent.nonEmpty) {
+      Some(Relation(dotParent, depId, typ))
+    } else
+      None
+
+  }
+
   def relationAsDot(): Option[String] = {
     val depId = name.replaceAll("\\.", "_")
     val dotParent: String = if (parent.isEmpty) parentRef else parent
@@ -327,6 +338,16 @@ case class TaskViewDependency(
 
   }
 
+  def entityAsItem(): Item = {
+    val depId = name
+    Item(
+      id = depId,
+      label = name,
+      displayType = typ,
+      options =
+        Map("writeStrategy" -> writeStrategy.flatMap(_.`type`).map(_.toString).getOrElse(""))
+    )
+  }
   def entityAsDot(verbose: Boolean): String = {
     val depId = name.replaceAll("\\.", "_")
     val (bgColor, fontColor, text) = dotColor()

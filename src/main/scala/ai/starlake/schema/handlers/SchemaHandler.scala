@@ -191,21 +191,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val errorCount = errors.length
     val warningCount = warnings.length
 
-    val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-    output.foreach(_.overwrite(""))
-
-    if (errorCount + warningCount > 0) {
-      output.foreach(
-        _.appendLine(
-          s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
-        )
-      )
-      allErrorsAndWarnings.foreach { err =>
-        output.foreach(_.appendLine(err.message))
-      }
-      output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-    }
     (allErrorsAndWarnings, errorCount, warningCount)
   }
 
@@ -218,6 +203,29 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           Some(attr.name -> mapping) // we found the primitive type and it has a ddlMapping
         case None       => None // we did not find the primitive type (should never happen)
         case Some(None) => None // we found the primitive type but it has no ddlMapping
+      }
+    }.toMap
+  }
+
+  def getAttributesWithDDLType(schema: Schema, dbName: String): Map[String, String] = {
+    schema.attributes.flatMap { attr =>
+      val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
+      ddlMapping match {
+        case Some(Some(mapping)) =>
+          Some(
+            attr.name -> mapping.getOrElse(
+              dbName,
+              throw new Exception(
+                s"${attr.name}: ${attr.`type`} DDL mapping not found for $dbName"
+              )
+            )
+          ) // we found the primitive type and it has a ddlMapping
+        case None =>
+          throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found")
+          None // we did not find the primitive type (should never happen)
+        case Some(None) =>
+          throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found (None)")
+          None // we found the primitive type but it has no ddlMapping
       }
     }.toMap
   }
@@ -516,7 +524,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def findTableNames(domainName: Option[String]): List[String] = {
-    val tablesFromDomain = {
+    val tablesFromDomain =
       domainName match {
         case Some(domainName) => {
           domains()
@@ -527,7 +535,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case None =>
           domains().flatMap(d => d.tables.map(d.finalName + "." + _.finalName))
       }
-    }
 
     val tablesFromDomainOrTasks =
       if (tablesFromDomain.isEmpty) {
@@ -542,6 +549,37 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     tablesFromDomainOrTasks
   }
+
+  /*  def findTables(
+    domainName: Option[String]
+  ): Either[Map[String, List[Schema]], Map[String, List[AutoTaskDesc]]] = {
+    val tablesFromDomain =
+      domainName match {
+        case Some(domainName) =>
+          val tables = domains()
+            .find(_.finalName.toLowerCase() == domainName.toLowerCase())
+            .map { d => d.tables }
+            .getOrElse(Nil)
+          Map(domainName -> tables)
+
+        case None =>
+          domains().map(d => d.finalName -> d.tables).toMap
+      }
+
+    val tablesFromDomainOrTasks =
+      if (tablesFromDomain.isEmpty) {
+        domainName match {
+          case Some(domainName) =>
+            Right(tasksMap().filterKeys(_.toLowerCase() == domainName.toLowerCase()))
+          case None =>
+            Right(tasksMap())
+        }
+      } else
+        Left(tablesFromDomain)
+
+    tablesFromDomainOrTasks
+  }
+   */
 
   def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
     val objects = getObjectNames()
@@ -753,7 +791,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (validDomainsFile, invalidDomainsFiles)
   }
 
-  private def loadTableRefs(
+  def loadTableRefs(
     tableNames: List[String] = Nil,
     raw: Boolean,
     folder: Path
@@ -770,21 +808,30 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       else {
         tableRefNames.filter(tableNames.map(_ + ".sl.yml").contains(_))
       }
+
     val schemaRefs = requestedTables
-      .map { tableRefName =>
-        val schemaPath = new Path(folder, tableRefName)
-        logger.debug(s"Loading schema from $schemaPath")
-        YamlSerde.deserializeYamlTables(
-          if (raw)
-            storage.read(schemaPath)
-          else
-            Utils
-              .parseJinja(storage.read(schemaPath), activeEnvVars()),
-          schemaPath.toString
-        )
-      }
-      .flatMap(_.map(_.table))
+      .map { tableRefName => loadTableRef(tableRefName, raw, folder) }
+      .map(_.table)
     schemaRefs
+  }
+
+  def loadTableRef(
+    tableRefName: String,
+    raw: Boolean,
+    folder: Path
+  ): TableDesc = {
+    val schemaPath = new Path(folder, tableRefName)
+    logger.debug(s"Loading schema from $schemaPath")
+    YamlSerde
+      .deserializeYamlTables(
+        if (raw)
+          storage.read(schemaPath)
+        else
+          Utils
+            .parseJinja(storage.read(schemaPath), activeEnvVars()),
+        schemaPath.toString
+      )
+      .head
   }
 
   private def checkVarsAreDefined(path: Path): Set[ValidationMessage] = {
@@ -805,12 +852,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] = {
-    val jobDesc = loadJobDesc(jobPath)
-    logger.info(s"Successfully loaded job  in $jobPath")
-    val jobParentPath = jobPath.getParent()
-    loadJobTasks(jobDesc, jobParentPath)
-  }
+  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] =
+    for {
+      jobDesc   <- loadJobDesc(jobPath)
+      taskDescs <- loadJobTasks(jobDesc, jobPath.getParent)
+    } yield taskDescs
 
   def loadJobTasks(
     jobDesc: AutoJobDesc,
@@ -915,7 +961,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private def loadJobDesc(jobPath: Path): AutoJobDesc = {
+  private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] = Try {
     logger.info("Loading job " + jobPath)
     val fileContent = storage.read(jobPath)
     val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
@@ -1064,6 +1110,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       this._jobErrors = errors
     }
     jobs().flatMap(_.tasks)
+  }
+
+  def tasksMap(reload: Boolean = false): Map[String, List[AutoTaskDesc]] = {
+    if (reload) {
+      val (errors, validJobs) = loadJobs()
+      this._jobs = validJobs
+      this._jobErrors = errors
+    }
+    jobs().map(j => j.getName() -> j.tasks).toMap
   }
 
   def iamPolicyTags(): Option[IamPolicyTags] = {

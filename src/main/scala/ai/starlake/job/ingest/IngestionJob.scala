@@ -14,6 +14,9 @@ import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
+import ai.starlake.job.ingest.loaders.BigQueryNativeLoader
+import ai.starlake.job.ingest.loaders.DuckDbNativeLoader
+
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
@@ -215,33 +218,58 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def selectLoadEngine(): Engine = {
-    val nativeCandidate: Boolean = isNativeCandidate()
+  private def selectLoader(): String = {
+    val sinkConn = mergedMetadata.getSinkConnection()
+    val dbName = sinkConn.getDbName()
+    val nativeCandidate: Boolean = isNativeCandidate(dbName)
 
-    val engine = mergedMetadata.getEngine()
-
-    if (nativeCandidate && engine == Engine.BQ) {
-      logger.info("Using BQ as ingestion engine")
-      Engine.BQ
-    } else if (engine == Engine.JDBC) {
-      logger.info("Using Spark for JDBC as ingestion engine")
-      Engine.SPARK
-    } else {
-      logger.info("Using Spark as ingestion engine")
-      Engine.SPARK
-    }
+    val loader =
+      if (nativeCandidate) {
+        val loaders = Set("bigquery", "duckdb", "spark")
+        if (loaders.contains(dbName))
+          dbName
+        else
+          "spark"
+      } else {
+        "spark"
+      }
+    logger.info(s"Using $loader as ingestion engine")
+    loader
   }
 
-  private def isNativeCandidate(): Boolean = {
-    val csvOrJsonLines =
-      !mergedMetadata.resolveArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT).contains(
-        mergedMetadata.resolveFormat()
-      )
-
+  private def isNativeCandidate(dbType: String): Boolean = {
     val nativeValidator =
       mergedMetadata.loader.getOrElse(settings.appConfig.loader).toLowerCase().equals("native")
-    // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
-    csvOrJsonLines && nativeValidator
+    if (!nativeValidator) {
+      false
+    } else {
+      dbType match {
+        case "bigquery" =>
+          val csvOrJsonLines =
+            !mergedMetadata.resolveArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+              .contains(
+                mergedMetadata.resolveFormat()
+              )
+          // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
+          csvOrJsonLines
+        case "duckdb" =>
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+            .contains(
+              mergedMetadata.resolveFormat()
+            )
+        case "snowflake" =>
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+            .contains(
+              mergedMetadata.resolveFormat()
+            )
+        case "redshift" =>
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+            .contains(
+              mergedMetadata.resolveFormat()
+            )
+        case _ => false
+      }
+    }
   }
 
   def logLoadFailureInAudit(start: Timestamp, exception: Throwable): Failure[Nothing] = {
@@ -319,11 +347,14 @@ trait IngestionJob extends SparkJob {
     checkDomainValidity()
 
     // Run selected ingestion engine
-    val jobResult = selectLoadEngine() match {
-      case Engine.BQ =>
-        val ingestionCounters = new BigQueryNativeIngestionJob(this, accessToken).run()
+    val jobResult = selectLoader() match {
+      case "bigquery" =>
+        val ingestionCounters = new BigQueryNativeLoader(this, accessToken).run()
         ingestionCounters
-      case Engine.SPARK =>
+      case "duckdb" =>
+        val ingestionCounters = new DuckDbNativeLoader(this).run()
+        ingestionCounters
+      case "spark" =>
         val result = ingestWithSpark()
         result
       case other =>
@@ -515,7 +546,7 @@ trait IngestionJob extends SparkJob {
         )
         runExpectations(bqNativeJob(tableId, ""))
       case _: JdbcSink =>
-        val options = mergedMetadata.getSinkConnectionRefOptions()
+        val options = mergedMetadata.getSinkConnection().options
         JdbcDbUtils.withJDBCConnection(options) { conn =>
           runExpectations(conn)
         }

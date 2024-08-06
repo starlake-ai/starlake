@@ -1,7 +1,6 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
-import better.files.File
 import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
@@ -15,7 +14,7 @@ case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCoun
 
 trait JobResult {
   def asMap(): List[Map[String, String]] = Nil
-  def prettyPrint(format: String): String = ""
+  def prettyPrint(format: String, dryRun: Boolean = false): String = ""
   def prettyPrint(
     format: String,
     headers: List[String],
@@ -76,7 +75,7 @@ case class SparkJobResult(
       }
       .getOrElse(Nil)
   }
-  override def prettyPrint(format: String): String = {
+  override def prettyPrint(format: String, dryRun: Boolean = false): String = {
     dataframe
       .map { dataFrame =>
         val dataAsList = dataFrame
@@ -92,7 +91,7 @@ case class SparkJobResult(
 }
 
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
-  override def prettyPrint(format: String): String = {
+  override def prettyPrint(format: String, dryRun: Boolean = false): String = {
     prettyPrint(format, headers, rows)
   }
 
@@ -101,13 +100,10 @@ case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) 
 
   }
 
-  def show(format: String, rootServe: scala.Option[String]): Unit = {
-    val output = rootServe.map(File(_, "extension.log"))
-    output.foreach(_.append(s""))
+  def show(format: String): Unit = {
     val result = prettyPrint(format, headers, rows)
     println(result)
   }
-
 }
 object JobResult {
   def empty: JobResult = EmptyJobResult

@@ -48,6 +48,13 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
           "Should we generate SVG files ?"
         ),
       builder
+        .opt[Unit]("json")
+        .action((_, c) => c.copy(json = true))
+        .optional()
+        .text(
+          "Should we generate JSON files ?"
+        ),
+      builder
         .opt[Unit]("png")
         .action((_, c) => c.copy(png = true))
         .optional()
@@ -86,5 +93,11 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
   override def run(config: AclDependenciesConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    Try(new AclDependencies(schemaHandler).aclsAsDotFile(config)).map(_ => JobResult.empty)
+    Try {
+      val aclDeps = new AclDependencies(schemaHandler)
+      if (config.json)
+        aclDeps.aclsAsDiagramFile(config)
+      else
+        aclDeps.aclsAsDotFile(config)
+    }.map(_ => JobResult.empty)
 }

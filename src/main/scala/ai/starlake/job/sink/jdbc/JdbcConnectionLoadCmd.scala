@@ -90,7 +90,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
       sourceFile = dfWithUppercaseColumns,
       outputDomainAndTableName = outputTable.toUpperCase(),
       strategy = strategy,
-      starlakeConnection.sparkFormat.getOrElse("jdbc"),
+      starlakeConnection.sparkDatasource().getOrElse("jdbc"),
       starlakeConnection.options
     )
   }

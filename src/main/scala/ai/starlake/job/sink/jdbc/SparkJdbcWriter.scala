@@ -61,7 +61,11 @@ class SparkJdbcWriter(
             logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
           }
           val alterTableAddColumns =
-            SparkUtils.alterTableAddColumnsString(addedSchema, cliConfig.outputDomainAndTableName)
+            SparkUtils.alterTableAddColumnsString(
+              addedSchema,
+              cliConfig.outputDomainAndTableName,
+              Map.empty
+            )
 
           if (alterTableAddColumns.nonEmpty) {
             logger.info(
@@ -97,7 +101,7 @@ class SparkJdbcWriter(
 
       // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
       JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
-        SparkUtils.truncateTable(conn, cliConfig.outputDomainAndTableName)
+        JdbcDbUtils.truncateTable(conn, cliConfig.outputDomainAndTableName)
       }
       dfw
         .mode(SaveMode.Append)

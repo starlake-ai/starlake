@@ -10,5 +10,6 @@ case class TransformConfig(
   truncate: Boolean = false,
   recursive: Boolean = false,
   test: Boolean = false,
-  accessToken: Option[String] = None
+  accessToken: Option[String] = None,
+  dryRun: Boolean = false
 )

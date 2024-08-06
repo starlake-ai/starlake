@@ -74,6 +74,15 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
         .optional()
         .text(
           "Include all tables in the dot file ? All by default"
+        ),
+      builder
+        .opt[Unit]("json")
+        .action { (_, c) =>
+          c.copy(json = true)
+        }
+        .optional()
+        .text(
+          "JSON output ?"
         )
     )
   }
@@ -89,5 +98,11 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
   override def run(config: TableDependenciesConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
-    Try(new TableDependencies(schemaHandler).relationsAsDotFile(config)).map(_ => JobResult.empty)
+    Try {
+      if (config.json)
+        new TableDependencies(schemaHandler).relationsAsDiagram(config)
+      else
+        new TableDependencies(schemaHandler).relationsAsDotFile(config)
+
+    }.map(_ => JobResult.empty)
 }

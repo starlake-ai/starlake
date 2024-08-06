@@ -10,5 +10,6 @@ case class TableDependenciesConfig(
   reload: Boolean = false,
   svg: Boolean = false,
   png: Boolean = false,
-  all: Boolean = true
+  all: Boolean = true,
+  json: Boolean = false
 )
