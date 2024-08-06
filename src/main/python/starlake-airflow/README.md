@@ -612,6 +612,7 @@ Additional options may be specified to configure the **Cloud Run job**.
 | **cloud_run_project_id**     | str  | the optional cloud run project id (the project id on which the composer has been instantiated by default) |
 | **cloud_run_job_name**       | str  | the required name of the cloud run job                                       |
 | **cloud_run_region**         | str  | the optional region (`europe-west1` by default)                              |
+| **cloud_run_service_account**         | str  | the optional service account                               |
 | **cloud_run_async**          | bool | the optional flag to run the cloud run job asynchronously (`True` by default)|
 | **retry_on_failure**         | bool | the optional flag to retry the cloud run job on failure (`False` by default) |
 | **retry_delay_in_seconds**   | int  | the optional delay in seconds to wait before retrying the cloud run job (`10` by default) |
