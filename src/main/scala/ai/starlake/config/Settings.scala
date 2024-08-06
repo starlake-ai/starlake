@@ -27,7 +27,10 @@ import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils._
+import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -46,6 +49,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.ObjectStreamException
 import java.net.URI
+import java.sql.DriverManager
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
@@ -119,7 +123,9 @@ object Settings extends StrictLogging {
     database: Option[String],
     domain: Option[String],
     active: Option[Boolean],
-    sql: Option[String]
+    sql: Option[String],
+    domainExpectation: Option[String],
+    domainRejected: Option[String]
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
@@ -137,6 +143,12 @@ object Settings extends StrictLogging {
 
     def getDomain()(implicit settings: Settings): String =
       this.domain.getOrElse("audit")
+
+    def getDomainExpectation()(implicit settings: Settings): String =
+      this.domainExpectation.getOrElse("audit")
+
+    def getDomainRejected()(implicit settings: Settings): String =
+      this.domainRejected.getOrElse("audit")
   }
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -668,7 +680,9 @@ object Settings extends StrictLogging {
     createSchemaIfNotExists: Boolean,
     http: Http,
     timezone: TimeZone,
-    hiveInTest: Boolean
+    hiveInTest: Boolean,
+    duckdbMode: Boolean,
+    testCsvNullString: String
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -907,16 +921,12 @@ object Settings extends StrictLogging {
       dagRef.foreach { dagRef =>
         val dagConfigRef = if (dagRef.endsWith(".yml")) dagRef else dagRef + ".sl.yml"
         val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
-
-        Try(dagTemplateLoader.loadTemplate(dagConfigRef)(settings)) match {
-          case Failure(exception) =>
-            exception.printStackTrace()
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"dagConfigRef $dagConfigRef not found in ${dagTemplateLoader.allPaths(settings).mkString("[", ",", "]")}"
-            )
-          case _ =>
+        if (!storageHandler.exists(dagConfigPath)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.getParent}"
+          )
         }
       }
       errors
@@ -980,12 +990,16 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     // Load application.conf / application.sl.yml
-    val applicationConfSettings =
+    val loadedSettings =
       loadApplicationYaml(effectiveConfig, settings)
         .orElse(loadApplicationConf(effectiveConfig, settings))
         .getOrElse(settings)
 
-    applicationConfSettings.storageHandler(true) // Reload with the authentication settings
+    val applicationConfSettings =
+      if (settings.appConfig.duckdbMode) duckDBMode(loadedSettings) else loadedSettings
+
+    // Reload Storage Handler with the authentication settings
+    applicationConfSettings.storageHandler(reload = true)
 
     // Load fairscheduler.xml
     val jobConf = initSparkConfig(applicationConfSettings)
@@ -1129,6 +1143,48 @@ object Settings extends StrictLogging {
     } else
       Some(new Path(file))
   }
+
+  def duckDBMode(settings: Settings): Settings = {
+    val duckdbPath = DatasetArea.path("duckdb.db")(settings)
+    val pathAsString = duckdbPath.toUri.getPath
+    val duckDBConnection = Connection(
+      `type` = "jdbc",
+      sparkFormat = None,
+      options = Map(
+        "url"    -> s"jdbc:duckdb:$pathAsString",
+        "driver" -> "org.duckdb.DuckDBDriver"
+      )
+    )
+    val duckdbFile = File(pathAsString)
+    if (!duckdbFile.exists) {
+      if (!duckdbFile.parent.exists)
+        duckdbFile.parent.createDirectories()
+      Utils.withResources(DriverManager.getConnection(duckDBConnection.jdbcUrl)) { _ => }
+    }
+    val updatedConnections = settings.appConfig.connections
+      .map { case (k, v) =>
+        val duckDBConnectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
+          case JSQLTranspiler.Dialect.DUCK_DB =>
+            duckDBConnection.copy(_transpileDialect = None)
+          case dialect =>
+            duckDBConnection.copy(_transpileDialect = Some(dialect.name()))
+        }
+
+        k -> duckDBConnectionWithTranspileInfo
+      }
+      .updated("duckdb", duckDBConnection)
+
+    val audit = settings.appConfig.audit.copy(database = None)
+    val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
+    val configWithDuckDB =
+      if (updatedAppConfig.connectionRef.isEmpty)
+        updatedAppConfig.copy(connectionRef = "duckdb", database = "", audit = audit)
+      else
+        updatedAppConfig
+
+    settings.copy(appConfig = configWithDuckDB)
+
+  }
 }
 
 object CometColumns {
@@ -1229,6 +1285,7 @@ object PrivacyLevels {
       }
     }
   }
+
   def main(args: Array[String]): Unit = {
     val config = Settings.loadConf()
     traverse(config)

@@ -41,11 +41,11 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
-import java.io.{ByteArrayOutputStream, PrintWriter, StringWriter}
+import java.io.{ByteArrayOutputStream, OutputStream, PrintWriter, StringWriter}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe
-import scala.sys.process.{Process, ProcessLogger, _}
+import scala.sys.process.{Process, ProcessLogger}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -428,24 +428,62 @@ object Utils extends StrictLogging {
     }
   }
 
-  def runCommand(cmd: Seq[String]): Try[CommandOutput] = Try {
+  def runCommand(cmd: Seq[String], extraEnv: Map[String, String] = Map.empty): Try[CommandOutput] =
+    Try {
+      logger.info(cmd.mkString(" "))
+      val stdoutStream = new ByteArrayOutputStream
+      val stderrStream = new ByteArrayOutputStream
+      val exitValue = runCommand(cmd, extraEnv, stdoutStream, stderrStream)
+      val output = stdoutStream.toString
+      val error = stderrStream.toString
+      logger.info(output)
+      if (exitValue != 0)
+        logger.error(error)
+      CommandOutput(exitValue, output, error)
+    }
+
+  def runCommand(
+    cmd: Seq[String],
+    extraEnv: Map[String, String],
+    outFile: File,
+    errFile: File
+  ): Try[CommandOutput] =
+    Try {
+      logger.info(cmd.mkString(" "))
+      val stdoutStream = outFile.newOutputStream
+      val stderrStream = errFile.newOutputStream
+
+      try {
+        val exitValue = runCommand(cmd, extraEnv, stdoutStream, stderrStream)
+        CommandOutput(exitValue, outFile.name, errFile.name)
+      } catch {
+        case e: Exception =>
+          logger.error("Error while running command", e)
+          CommandOutput(1, "", Utils.exceptionAsString(e))
+      } finally {
+        stdoutStream.close()
+        stderrStream.close()
+      }
+
+    }
+
+  private def runCommand(
+    cmd: Seq[String],
+    extraEnv: Map[String, String],
+    outStream: OutputStream,
+    errStream: OutputStream
+  ): Int = {
     logger.info(cmd.mkString(" "))
-    val stdoutStream = new ByteArrayOutputStream
-    val stderrStream = new ByteArrayOutputStream
-    val stdoutWriter = new PrintWriter(stdoutStream)
-    val stderrWriter = new PrintWriter(stderrStream)
-    val exitValue = cmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
+    val stdoutWriter = new PrintWriter(outStream)
+    val stderrWriter = new PrintWriter(errStream)
+    val exitValue =
+      Process(cmd, None, extraEnv.toSeq: _*)
+        .!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
     stdoutWriter.close()
     stderrWriter.close()
     logger.info("exitValue: " + exitValue)
-    val output = stdoutStream.toString
-    val error = stderrStream.toString
-    logger.info(output)
-    if (exitValue != 0)
-      logger.error(error)
-    CommandOutput(exitValue, output, error)
+    exitValue
   }
-
 }
 
 class HadoopModule extends SimpleModule {

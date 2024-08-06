@@ -181,14 +181,12 @@ object YamlSerde extends LazyLogging with YamlUtils {
     val validationResult: ValidationResult =
       forceLocaleIn(Locale.ROOT) { // Use root instead of ENGLISH otherwise it fallbacks to local language if it exists. ROOT messages are in ENGLISH.
         val factory = JsonSchemaFactory.getInstance(VersionFlag.V201909)
-        val config =
-          SchemaValidatorsConfig
-            .builder()
-            .pathType(PathType.JSON_PATH)
-            .formatAssertionsEnabled(true)
-            .javaSemantics(true)
-            .applyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
-            .build()
+        val config = new SchemaValidatorsConfig()
+        config.setPathType(PathType.JSON_PATH)
+        config.setFormatAssertionsEnabled(true)
+        config.setJavaSemantics(true)
+        config.setApplyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
+
         val starlakeSchema = adaptSchemaV7ToStrictV201909(
           mapper.readTree(getClass.getResourceAsStream("/starlake.schema.json"))
         )

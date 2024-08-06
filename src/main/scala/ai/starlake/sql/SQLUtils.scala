@@ -86,22 +86,22 @@ object SQLUtils extends StrictLogging {
         selectItem.getASTNode.jjtGetLastToken().image
       }.toList
     }
-    val selectVisitorAdapter = new SelectVisitorAdapter() {
-      override def visit(plainSelect: PlainSelect): Unit = {
+    val selectVisitorAdapter = new SelectVisitorAdapter[Any]() {
+      override def visit[T](plainSelect: PlainSelect, context: T): Any = {
         extractColumnsFromPlainSelect(plainSelect)
       }
-      override def visit(setOpList: SetOperationList): Unit = {
-        val plainSelect = setOpList.getSelect(0).getPlainSelect()
+      override def visit[T](setOpList: SetOperationList, context: T): Any = {
+        val plainSelect = setOpList.getSelect(0).getPlainSelect
         extractColumnsFromPlainSelect(plainSelect)
       }
     }
-    val statementVisitor = new StatementVisitorAdapter() {
-      override def visit(select: Select): Unit = {
-        select.accept(selectVisitorAdapter)
+    val statementVisitor = new StatementVisitorAdapter[Any]() {
+      override def visit[T](select: Select, context: T): Any = {
+        select.accept(selectVisitorAdapter, null)
       }
     }
     val select = jsqlParse(sql)
-    select.accept(statementVisitor)
+    select.accept(statementVisitor, null)
     result
   }
 
@@ -114,18 +114,19 @@ object SQLUtils extends StrictLogging {
 
   def extractCTENames(sql: String): List[String] = {
     var result: ListBuffer[String] = ListBuffer()
-    val statementVisitor = new StatementVisitorAdapter() {
-      override def visit(select: Select): Unit = {
+    val statementVisitor = new StatementVisitorAdapter[Any]() {
+      override def visit[T](select: Select, context: T): Any = {
         val ctes = Option(select.getWithItemsList()).map(_.asScala).getOrElse(Nil)
         ctes.foreach { withItem =>
           val alias = Option(withItem.getAlias).map(_.getName).getOrElse("")
           if (alias.nonEmpty)
             result += alias
         }
+        null
       }
     }
     val select = jsqlParse(sql)
-    select.accept(statementVisitor)
+    select.accept(statementVisitor, null)
     result.toList
   }
 
@@ -139,7 +140,13 @@ object SQLUtils extends StrictLogging {
         t.withTimeOut(60 * 1000)
       }
     }
-    CCJSqlParserUtil.parse(parseable, features)
+    try {
+      CCJSqlParserUtil.parse(parseable, features)
+    } catch {
+      case exception: Exception =>
+        logger.error(s"Failed to parse $sql")
+        throw exception
+    }
   }
 
   def substituteRefInSQLSelect(
@@ -247,10 +254,8 @@ object SQLUtils extends StrictLogging {
       // This is a file in the form of parquet.`/path/to/file`
       tableName
     } else {
-      val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
-        tableName.replaceAll(quote, "")
-      }
-      val tableTuple = quoteFreeTableName.split("\\.").toList
+      val quoteFreeTName: String = quoteFreeTableName(tableName)
+      val tableTuple = quoteFreeTName.split("\\.").toList
 
       // We need to find it in the refs
       val activeEnvRefs = refs
@@ -271,6 +276,13 @@ object SQLUtils extends StrictLogging {
       }
       resolvedTableName
     }
+  }
+
+  def quoteFreeTableName(tableName: String) = {
+    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+      tableName.replaceAll(quote, "")
+    }
+    quoteFreeTableName
   }
 
   private def resolveTableRefInDomainsAndJobs(

@@ -107,7 +107,7 @@ class SparkJdbcWriter(
       logger.info(
         s"JDBC save done to table ${cliConfig.outputDomainAndTableName} at ${cliConfig.options}"
       )
-      SparkJobResult(None)
+      SparkJobResult(None, None)
     }
   }
 

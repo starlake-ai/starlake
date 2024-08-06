@@ -4,4 +4,4 @@
 TRUNCATE TABLE {{ tableFullName }};
 {% endif %}
 
-INSERT INTO {{ tableFullName }} {{ selectStatement }}
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) {{ selectStatement }}

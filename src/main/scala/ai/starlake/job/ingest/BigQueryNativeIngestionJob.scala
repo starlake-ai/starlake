@@ -1,15 +1,21 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.exceptions.NullValueFoundException
-import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.bigquery.{
+  BigQueryJobBase,
+  BigQueryJobResult,
+  BigQueryLoadConfig,
+  BigQueryNativeJob
+}
 import ai.starlake.job.transform.{AutoTask, BigQueryAutoTask}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.{JobResult, Utils}
-import com.google.cloud.bigquery.{Schema => BQSchema, TableId}
+import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
+import com.google.cloud.bigquery
+import com.google.cloud.bigquery.{Field, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
@@ -85,40 +91,79 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
         )
       val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
       if (twoSteps) {
-        val firstStepTempTable =
-          BigQueryJobBase.extractProjectDatasetAndTable(
-            schemaHandler.getDatabase(domain),
-            domain.finalName,
-            SQLUtils.temporaryTableName(effectiveSchema.finalName)
-          )
-        val firstStepConfig =
-          targetConfig
-            .copy(
-              outputTableId = Some(firstStepTempTable),
-              outputTableDesc = Some("Temporary table created during data ingestion."),
-              days = Some(1)
+        val (loadResults, tempTableIds, tableInfos) =
+          path
+            .map(_.toString)
+            .foldLeft[(List[Try[BqLoadInfo]], List[TableId], List[TableInfo])]((Nil, Nil, Nil)) {
+              case ((loadResultList, tempTableIdList, tableInfoList), sourceUri) =>
+                val firstStepTempTable =
+                  BigQueryJobBase.extractProjectDatasetAndTable(
+                    schemaHandler.getDatabase(domain),
+                    domain.finalName,
+                    SQLUtils.temporaryTableName(effectiveSchema.finalName)
+                  )
+                val firstStepConfig =
+                  targetConfig
+                    .copy(
+                      source = Left(sourceUri),
+                      outputTableId = Some(firstStepTempTable),
+                      outputTableDesc = Some("Temporary table created during data ingestion."),
+                      days = Some(1)
+                    )
+
+                val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
+                val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
+                  firstStepTempTable,
+                  _.bqSchemaWithIgnoreAndScript(schemaHandler)
+                )
+
+                val enrichedTableInfo = firstStepTableInfo.copy(maybeSchema =
+                  firstStepTableInfo.maybeSchema.map((schema: bigquery.Schema) =>
+                    bigquery.Schema.of(
+                      (schema.getFields.asScala :+
+                      Field
+                        .newBuilder(
+                          CometColumns.cometInputFileNameColumn,
+                          StandardSQLTypeName.STRING
+                        )
+                        .setDefaultValueExpression(s"'$sourceUri'")
+                        .build()).asJava
+                    )
+                  )
+                )
+
+                // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
+                val firstStepResult =
+                  firstStepBigqueryJob.loadPathsToBQ(firstStepTableInfo, Some(enrichedTableInfo))
+                (
+                  loadResultList :+ firstStepResult,
+                  tempTableIdList :+ firstStepTempTable,
+                  tableInfoList :+ enrichedTableInfo
+                )
+            }
+        def combineStats(bqLoadInfo1: BqLoadInfo, bqLoadInfo2: BqLoadInfo): BqLoadInfo = {
+          BqLoadInfo(
+            bqLoadInfo1.totalAcceptedRows + bqLoadInfo2.totalAcceptedRows,
+            bqLoadInfo1.totalRejectedRows + bqLoadInfo2.totalRejectedRows,
+            jobResult = BigQueryJobResult(
+              None,
+              bqLoadInfo1.jobResult.totalBytesProcessed + bqLoadInfo2.jobResult.totalBytesProcessed,
+              None
             )
+          )
+        }
+        val globalLoadResult: Try[BqLoadInfo] = loadResults.reduce { (result1, result2) =>
+          result1.flatMap(r => result2.map(combineStats(_, r)))
+        }
 
-        val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
-        val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
-          firstStepTempTable,
-          _.bqSchemaWithIgnoreAndScript(schemaHandler)
-        )
-
-        // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
-        val firstStepResult =
-          firstStepBigqueryJob.loadPathsToBQ(firstStepTableInfo)
-
-        val targetTableSchema: BQSchema = effectiveSchema.bqSchemaWithoutIgnore(schemaHandler)
         val output: Try[BqLoadInfo] =
           applyBigQuerySecondStep(
-            targetTableSchema,
             targetConfig,
-            firstStepTempTable,
-            firstStepResult
+            tempTableIds,
+            globalLoadResult
           )
-        archiveTable(firstStepTempTable, firstStepTableInfo)
-        Try(firstStepBigqueryJob.dropTable(firstStepTempTable))
+        tempTableIds.zip(tableInfos).foreach { case (id, info) => archiveTable(id, info) }
+        Try(tempTableIds.foreach(new BigQueryNativeJob(targetConfig, "").dropTable))
           .flatMap(_ => output)
           .recoverWith { case exception =>
             Utils.logException(logger, exception)
@@ -198,9 +243,8 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
   }
 
   private def applyBigQuerySecondStep(
-    targetTableSchema: BQSchema,
     targetConfig: BigQueryLoadConfig,
-    firstStepTempTable: TableId,
+    firstStepTempTable: List[TableId],
     firstStepResult: Try[BqLoadInfo]
   ): Try[BqLoadInfo] = {
     firstStepResult match {
@@ -338,17 +382,19 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
   }
 
   def applyBigQuerySecondStepSQL(
-    firstStepTempTableId: TableId,
+    firstStepTempTableId: List[TableId],
     starlakeSchema: Schema
   ): Try[JobResult] = {
     val incomingSparkSchema = starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler)
 
-    val tempTable = BigQueryUtils.tableIdToTableName(firstStepTempTableId)
-    val sourceUris = path.map(_.toString).mkString(",").replace("'", "\\'")
+    val tempTable = firstStepTempTableId
+      .map(BigQueryUtils.tableIdToTableName)
+      .map("SELECT * FROM " + _)
+      .mkString("(", " UNION ALL ", ")")
     val targetTableName = s"${domain.finalName}.${schema.finalName}"
 
     val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(tempTable, Some(sourceUris))
+      starlakeSchema.buildSqlSelectOnLoad(tempTable)
 
     val taskDesc = AutoTaskDesc(
       name = targetTableName,

@@ -116,7 +116,7 @@ object BigQueryTableInfo extends StrictLogging {
       override def run(): Try[JobResult] = Try {
         val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime)(settings))
         val df = session.createDataFrame(datasetInfos)
-        SparkJobResult(Option(df))
+        SparkJobResult(Option(df), None)
       }
     }
 

@@ -4,6 +4,7 @@ import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.schema.model._
+import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -42,7 +43,6 @@ object JdbcDbUtils extends LazyLogging {
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
-      println(s"--> connectionOptions: $connectionOptions")
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
       if (url.startsWith("jdbc:duckdb")) {
@@ -89,7 +89,6 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    println(s"connectionOptions: $connectionOptions")
     Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
         logger.error(s"Error creating connection", exception)
@@ -299,6 +298,30 @@ object JdbcDbUtils extends LazyLogging {
           result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
         }
     }
+  }
+
+  def extractSchemasAndTables(connectionSettings: Connection)(implicit
+    settings: Settings
+  ): Try[List[(DomainName, List[TableName])]] = {
+    val schemas = extractJDBCSchemas(connectionSettings)
+    val result =
+      schemas.map { schemas =>
+        val result =
+          schemas.map { schema =>
+            val jdbcSchema = JDBCSchema(schema = schema)
+            implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+              ParUtils.createForkSupport(None)
+            val tables = extractJDBCTables(
+              jdbcSchema,
+              connectionSettings,
+              skipRemarks = true,
+              keepOriginalName = true
+            )
+            schema -> tables.keys.toList.sorted
+          }
+        result.sortBy(_._1)
+      }
+    result
   }
 
   def extractJDBCSchemas(connectionSettings: Connection)(implicit

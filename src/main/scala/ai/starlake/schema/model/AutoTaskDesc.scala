@@ -57,8 +57,7 @@ case class AutoTaskDesc(
   _auditTableName: Option[String] = None,
   taskTimeoutMs: Option[Long] = None,
   _dbComment: Option[String] = None,
-  connectionRef: Option[String] = None,
-  metadata: Option[Metadata] = None
+  connectionRef: Option[String] = None
 ) extends Named {
 
   @JsonIgnore

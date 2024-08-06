@@ -32,8 +32,6 @@ import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
-
 trait IngestionJob extends SparkJob {
   val accessToken: Option[String]
   val test: Boolean
@@ -323,8 +321,8 @@ trait IngestionJob extends SparkJob {
     // Run selected ingestion engine
     val jobResult = selectLoadEngine() match {
       case Engine.BQ =>
-        val result = new BigQueryNativeIngestionJob(this, accessToken).run()
-        result
+        val ingestionCounters = new BigQueryNativeIngestionJob(this, accessToken).run()
+        ingestionCounters
       case Engine.SPARK =>
         val result = ingestWithSpark()
         result
@@ -346,7 +344,7 @@ trait IngestionJob extends SparkJob {
               val expectationsResult = runExpectations()
               if (expectationsResult.isFailure && settings.appConfig.expectations.failOnError)
                 throw new Exception("Expectations failed")
-              SparkJobResult(None)
+              SparkJobResult(None, Some(counters))
             } else throw new DisallowRejectRecordException()
         }
       }
@@ -541,7 +539,7 @@ trait IngestionJob extends SparkJob {
         new JdbcExpectationAssertionHandler(connection)
       ).run()
     } else {
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     }
   }
 
@@ -558,7 +556,7 @@ trait IngestionJob extends SparkJob {
         new SparkExpectationAssertionHandler(session)
       ).run()
     } else {
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     }
   }
 
@@ -577,7 +575,7 @@ trait IngestionJob extends SparkJob {
         new BigQueryExpectationAssertionHandler(job)
       ).run()
     } else {
-      Success(SparkJobResult(None))
+      Success(SparkJobResult(None, None))
     }
   }
 
@@ -757,8 +755,7 @@ trait IngestionJob extends SparkJob {
         acl = schema.acl,
         comment = schema.comment,
         tags = schema.tags,
-        writeStrategy = Some(strategy),
-        metadata = Some(mergedMetadata)
+        writeStrategy = Some(strategy)
       )
       val autoTask =
         taskDesc.getSinkConfig() match {

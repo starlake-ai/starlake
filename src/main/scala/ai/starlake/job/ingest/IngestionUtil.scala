@@ -7,7 +7,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
-import ai.starlake.utils.TransformEngine
+import ai.starlake.utils.{GcpUtils, TransformEngine}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{StringType, TimestampType}
@@ -64,36 +64,47 @@ object IngestionUtil {
         rejectedPathName
       )
     }
-    val rejectedDF = rejectedTypedDS
-      .limit(settings.appConfig.audit.maxErrors)
-      .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
+    val limitedRejectedTypedDS = rejectedTypedDS.limit(settings.appConfig.audit.maxErrors)
+    val rejectedDF =
+      limitedRejectedTypedDS.toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
 
-    val taskDesc =
-      AutoTaskDesc(
-        name = s"rejected-$applicationId-$domainName-$schemaName",
-        sql = None,
-        database = settings.appConfig.audit.getDatabase(),
-        domain = settings.appConfig.audit.getDomain(),
-        table = "rejected",
-        presql = Nil,
-        postsql = Nil,
-        sink = Some(settings.appConfig.audit.sink),
-        _auditTableName = Some("rejected")
-      )
+    val auditSink = settings.appConfig.audit.getSink()
+    auditSink.getConnectionType() match {
+      case ConnectionType.GCPLOG =>
+        val logName = settings.appConfig.audit.getDomainExpectation()
+        limitedRejectedTypedDS.collect().map { rejectedRecord =>
+          GcpUtils.sinkToGcpCloudLogging(rejectedRecord.asMap(), "rejected", logName)
+        }
+        Success(rejectedDF, paths.head)
 
-    val autoTask = new SparkAutoTask(
-      Option(applicationId),
-      taskDesc,
-      Map.empty,
-      None,
-      truncate = false,
-      test = false
-    )
-    val res = autoTask.sink(rejectedDF)
-    if (res) {
-      Success(rejectedDF, paths.head)
-    } else {
-      Failure(new Exception("Failed to save rejected"))
+      case _ =>
+        val taskDesc =
+          AutoTaskDesc(
+            name = s"rejected-$applicationId-$domainName-$schemaName",
+            sql = None,
+            database = settings.appConfig.audit.getDatabase(),
+            domain = settings.appConfig.audit.getDomain(),
+            table = "rejected",
+            presql = Nil,
+            postsql = Nil,
+            sink = Some(settings.appConfig.audit.sink),
+            _auditTableName = Some("rejected")
+          )
+
+        val autoTask = new SparkAutoTask(
+          Option(applicationId),
+          taskDesc,
+          Map.empty,
+          None,
+          truncate = false,
+          test = false
+        )
+        val res = autoTask.sink(rejectedDF)
+        if (res) {
+          Success(rejectedDF, paths.head)
+        } else {
+          Failure(new Exception("Failed to save rejected"))
+        }
     }
   }
 

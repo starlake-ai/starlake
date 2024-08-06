@@ -850,13 +850,15 @@ object YamlConfigGenerators {
 
   implicit val audit: Arbitrary[Audit] = Arbitrary {
     for {
-      path      <- arbitrary[String]
-      sink      <- arbitrary[AllSinks]
-      maxErrors <- arbitrary[Int]
-      database  <- Gen.option(arbitrary[String])
-      domain    <- Gen.option(arbitrary[String])
-      active    <- Gen.option(arbitrary[Boolean])
-      sql       <- Gen.option(arbitrary[String])
+      path              <- arbitrary[String]
+      sink              <- arbitrary[AllSinks]
+      maxErrors         <- arbitrary[Int]
+      database          <- Gen.option(arbitrary[String])
+      domain            <- Gen.option(arbitrary[String])
+      active            <- Gen.option(arbitrary[Boolean])
+      sql               <- Gen.option(arbitrary[String])
+      domainExpectation <- Gen.option(arbitrary[String])
+      domainRejected    <- Gen.option(arbitrary[String])
     } yield Audit(
       path = path,
       sink = sink,
@@ -864,7 +866,9 @@ object YamlConfigGenerators {
       database = database,
       domain = domain,
       active = active,
-      sql = sql
+      sql = sql,
+      domainExpectation = domainExpectation,
+      domainRejected = domainRejected
     )
   }
 
@@ -1155,6 +1159,8 @@ object YamlConfigGenerators {
       http                    <- arbitrary[Http]
       timezone                <- arbitrary[TimeZone]
       hiveInTest              <- arbitrary[Boolean]
+      duckdbMode              <- arbitrary[Boolean]
+      testCsvNullString       <- arbitrary[String]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1227,7 +1233,9 @@ object YamlConfigGenerators {
       createSchemaIfNotExists = createSchemaIfNotExists,
       http = http,
       timezone = timezone,
-      hiveInTest = hiveInTest
+      hiveInTest = hiveInTest,
+      duckdbMode = duckdbMode,
+      testCsvNullString = testCsvNullString
     )
   }
 

@@ -11,7 +11,7 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
-import com.google.cloud.RetryOption
+import com.google.cloud.{PageImpl, RetryOption}
 import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
@@ -38,8 +38,16 @@ class BigQueryNativeJob(
 
   logger.debug(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(tableInfo: SLTableInfo): Try[BqLoadInfo] = {
-    getOrCreateTable(cliConfig.domainDescription, tableInfo, None).flatMap { _ =>
+  def loadPathsToBQ(
+    tableInfo: SLTableInfo,
+    tableInfoWithDefaultColumn: scala.Option[SLTableInfo] = None
+  ): Try[BqLoadInfo] = {
+    // have default column in another tableInfo otherwise load doesn't fill with default value. Column in load schema are then null if they doesn't exist.
+    getOrCreateTable(
+      cliConfig.domainDescription,
+      tableInfoWithDefaultColumn.getOrElse(tableInfo),
+      None
+    ).flatMap { _ =>
       Try {
         val bqSchema =
           tableInfo.maybeSchema.getOrElse(throw new RuntimeException("Should never happen"))
@@ -248,8 +256,27 @@ class BigQueryNativeJob(
     queryJobTimeoutMs: scala.Option[Long] = None
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
-      Try {
-        val targetSQL = thisSql.getOrElse(sql).trim()
+      val targetSQL = thisSql.getOrElse(sql).trim()
+      if (targetSQL.startsWith("DESCRIBE")) {
+        val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
+        val bqSchema = table.getDefinition[StandardTableDefinition].getSchema
+        Success(
+          BigQueryJobResult(
+            Some(
+              TableResult
+                .newBuilder()
+                .setTotalRows(0)
+                .setPageNoSchema(
+                  new PageImpl[FieldValueList](null, null, null)
+                )
+                .setSchema(bqSchema)
+                .build()
+            ),
+            -1,
+            None
+          )
+        )
+      } else {
         val queryConfig: QueryJobConfiguration.Builder =
           QueryJobConfiguration
             .newBuilder(targetSQL)
@@ -262,39 +289,41 @@ class BigQueryNativeJob(
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
-        recoverBigqueryException {
-          val jobId = newJobIdWithLocation()
-          val queryJob =
-            bigquery(accessToken = cliConfig.accessToken).create(
-              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
-            )
-          logger.info(s"Waiting for job $jobId")
-          queryJob.waitFor(
-            RetryOption.maxAttempts(0),
-            RetryOption.totalTimeout(
-              org.threeten.bp.Duration.ofMinutes(
-                queryJobTimeoutMs
-                  .orElse(jobTimeoutMs)
-                  .getOrElse(settings.appConfig.longJobTimeoutMs)
+        val result =
+          recoverBigqueryException {
+            val jobId = newJobIdWithLocation()
+            val queryJob =
+              bigquery(accessToken = cliConfig.accessToken).create(
+                JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
+              )
+            logger.info(s"Waiting for job $jobId")
+            queryJob.waitFor(
+              RetryOption.maxAttempts(0),
+              RetryOption.totalTimeout(
+                org.threeten.bp.Duration.ofMinutes(
+                  queryJobTimeoutMs
+                    .orElse(jobTimeoutMs)
+                    .getOrElse(settings.appConfig.longJobTimeoutMs)
+                )
               )
             )
-          )
-        }.map { jobResult =>
-          val totalBytesProcessed = jobResult
-            .getStatistics()
-            .asInstanceOf[QueryStatistics]
-            .getTotalBytesProcessed
+          }.map { jobResult =>
+            val totalBytesProcessed = jobResult
+              .getStatistics()
+              .asInstanceOf[QueryStatistics]
+              .getTotalBytesProcessed
 
-          val results = jobResult.getQueryResults(
-            QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
-          )
-          logger.info(
-            s"Query large results performed successfully: ${results.getTotalRows} rows returned."
-          )
+            val results = jobResult.getQueryResults(
+              QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+            )
+            logger.info(
+              s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+            )
 
-          BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
-        }
-      }.flatten
+            BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+          }
+        result
+      }
     }
   }
 

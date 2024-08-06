@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.job.infer.{InferSchemaCmd, InferSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{JobResult, SparkJobResult, Utils}
+import ai.starlake.utils.JobResult
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
@@ -98,16 +98,12 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
               test = false,
               files = None
             )
-          ) match {
-            case Success(true) =>
-              logger.info("Loaded successfully")
-              SparkJobResult(None)
-            case Success(false) =>
-              throw new Exception("Failed to load")
-            case Failure(exception) =>
-              Utils.logException(logger, exception)
-              throw exception
-          }
+          )
+        } match {
+          case Success(result) => result
+          case Failure(exception) =>
+            logger.error("Could not stage", exception)
+            Failure(exception)
         }
       } else {
         throw new Exception("Some schemas failed to be inferred")
