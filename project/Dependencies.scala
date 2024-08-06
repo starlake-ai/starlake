@@ -85,7 +85,7 @@ object Dependencies {
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test,
     // "io.github.spark-redshift-community" %% "spark-redshift" % "6.2.0-spark_3.5" % Test,
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.756" % Test,
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.767" % Test,
     "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % Test
   )
 
