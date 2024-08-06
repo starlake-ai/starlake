@@ -98,7 +98,12 @@ class CompilerUtilsSpec extends TestHelper {
 
   "compileExpectation" should "validate strategy code" in {
     val context =
-      Map("count" -> 1L, "result" -> List(1, 2, 3), "results" -> List(List(1, 2), List(3, 4)))
+      Map(
+        "count"   -> 1L,
+        "result"  -> List(1, 2, 3),
+        "results" -> List(List(1, 2), List(3, 4))
+      )
+    CompilerUtils.compileExpectation("result.getIntValue(1) == 2L")(context) should be(true)
     CompilerUtils.compileExpectation("count == 1L")(context) should be(true)
     CompilerUtils.compileExpectation("count == 2L")(context) should be(false)
     CompilerUtils.compileExpectation("count == 1L && result.contains(3)")(context) should be(true)

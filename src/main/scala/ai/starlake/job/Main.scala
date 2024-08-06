@@ -101,7 +101,8 @@ object Main extends StrictLogging {
     DagGenerateCmd,
     ConsoleCmd,
     TransformTestCmd,
-    MigrateCmd
+    MigrateCmd,
+    ColLineageCmd
   )
 }
 

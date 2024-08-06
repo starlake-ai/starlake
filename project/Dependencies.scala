@@ -84,9 +84,10 @@ object Dependencies {
 
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test,
-    "io.github.spark-redshift-community" %% "spark-redshift" % "6.2.0-spark_3.5" % Test,
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.756" % Test,
     "org.apache.hadoop" % "hadoop-aws" % "3.4.0" % Test
+    // "io.github.spark-redshift-community" %% "spark-redshift" % "6.2.0-spark_3.5" % Test,
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.767" % Test,
+    "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % Test
   )
 
   val scalaTest = Seq(
@@ -161,14 +162,14 @@ object Dependencies {
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.19.0" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.19.1" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.postgresql" % "postgresql" % "42.7.3" % Test
   )
 
   val mariadb = Seq(
     "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.0" % Test,
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.4.1" % Test,
     "com.mysql" % "mysql-connector-j" % "9.0.0" % Test
   )
 

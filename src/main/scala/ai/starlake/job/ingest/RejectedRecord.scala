@@ -12,7 +12,18 @@ case class RejectedRecord(
   schema: String,
   error: String,
   path: String
-)
+) {
+  def asMap(): Map[String, Any] = {
+    Map(
+      "jobid"     -> jobid,
+      "timestamp" -> timestamp,
+      "domain"    -> domain,
+      "schema"    -> schema,
+      "error"     -> error,
+      "path"      -> path
+    )
+  }
+}
 
 object RejectedRecord {
   val starlakeSchema = Schema(

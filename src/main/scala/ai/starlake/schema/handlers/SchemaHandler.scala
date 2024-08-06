@@ -507,6 +507,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def taskNames(): List[String] = {
+    jobs().flatMap { j =>
+      j.tasks.map { t =>
+        s"${j.getName()}.${t.getTableName()}"
+      }
+    }
+  }
+
   def findTableNames(domainName: Option[String]): List[String] = {
     val tablesFromDomain = {
       domainName match {
@@ -533,6 +541,43 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         tablesFromDomain
 
     tablesFromDomainOrTasks
+  }
+
+  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
+    val objects = getObjectNames()
+    tableNames.flatMap { tableFullName =>
+      val tableComponents = tableFullName.split('.')
+      val (domainName, tableName) = tableComponents match {
+        case Array(dbName, domainName, tableName) => (domainName, tableName)
+        case Array(domainName, tableName)         => (domainName, tableName)
+        case Array(tableName)                     => (null, tableName)
+        case _ => throw new Exception(s"Invalid table name $tableFullName")
+      }
+      val domainNameAndTable =
+        domainName match {
+          case null =>
+            objects
+              .flatMap(_.tables)
+              .find {
+                _.name.toLowerCase() == tableName.toLowerCase()
+              }
+              .map {
+                ("", _)
+              }
+          case _ =>
+            objects
+              .find { d =>
+                d.name.toLowerCase() == domainName.toLowerCase()
+              }
+              .flatMap { d =>
+                d.tables.find(_.name.toLowerCase() == tableName.toLowerCase())
+              }
+              .map { t =>
+                (domainName, t)
+              }
+        }
+      domainNameAndTable
+    }
   }
 
   def domains(
@@ -1004,7 +1049,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def jobs(reload: Boolean = false): List[AutoJobDesc] = {
-    if (reload) {
+    if (_jobs.isEmpty || reload) {
       val (errors, validJobs) = loadJobs()
       this._jobs = validJobs
       this._jobErrors = errors
@@ -1034,7 +1079,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allTasks.find(t => t.name == taskName)
   }
 
-  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = loadJobs()
+  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = (Nil, Nil)
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
@@ -1319,5 +1364,4 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     }
   }
-
 }
