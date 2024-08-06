@@ -155,17 +155,40 @@ class IngestionWorkflow(
     * @return
     *   list of domain name and table name
     */
-  def findAllFilenameMatchers(filename: String): List[(String, String)] = {
-    val domains = schemaHandler.domains(reload = true)
-    domains.flatMap { domain =>
-      domain.tables.flatMap { table =>
-        val pattern = table.pattern
-        if (pattern.matcher(filename).matches()) {
-          Some((domain.name, table.name))
+  def findAllFilenameMatchers(
+    filename: String,
+    domain: Option[String],
+    table: Option[String]
+  ): List[(String, String)] = {
+    (domain, table) match {
+      case (Some(domain), Some(table)) =>
+        val path = new Path(new Path(DatasetArea.load, domain), table + ".sl.yml")
+        val exists = settings.storageHandler().exists(path)
+        if (exists) {
+          val tableContent = settings
+            .storageHandler()
+            .read(path)
+          val rootNode = YamlSerde.deserializeYamlTables(tableContent, path.toString).head
+          if (rootNode.table.pattern.matcher(filename).matches()) {
+            List((domain, table))
+          } else {
+            Nil
+          }
         } else {
-          None
+          Nil
         }
-      }
+      case (_, _) =>
+        val domains = schemaHandler.domains(reload = true)
+        domains.flatMap { domain =>
+          domain.tables.flatMap { table =>
+            val pattern = table.pattern
+            if (pattern.matcher(filename).matches()) {
+              Some((domain.name, table.name))
+            } else {
+              None
+            }
+          }
+        }
     }
   }
 
@@ -890,7 +913,8 @@ class IngestionWorkflow(
       config.test,
       taskDesc.getRunEngine(),
       config.accessToken,
-      resultPageSize = 1000
+      resultPageSize = 1000,
+      dryRun = config.dryRun
     )(
       settings,
       storageHandler,
@@ -909,9 +933,6 @@ class IngestionWorkflow(
       else
         mainSQL
 
-    val output =
-      settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-    output.foreach(_.overwrite(s"""$formattedSql"""))
     logger.info(s"""$formattedSql""")
     formattedSql
   }
@@ -969,17 +990,28 @@ class IngestionWorkflow(
       EmptyJobResult
     }
   }
+
+  def testLoad(config: StarlakeTestConfig): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val loadTests = StarlakeTestData.loadTests(load = true, config.name, "", "")
+    StarlakeTestData.runLoads(loadTests, config)
+  }
+
+  def testTransform(
+    config: StarlakeTestConfig
+  ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val transformTests = StarlakeTestData.loadTests(load = false, config.name, "", "")
+    StarlakeTestData.runTransforms(transformTests, config)
+  }
+
   def test(config: StarlakeTestConfig): JobResult = {
     val loadResults =
       if (config.runLoad()) {
-        val loadTests = StarlakeTestData.loadTests(load = true, config.name)
-        StarlakeTestData.runLoads(loadTests, config)
+        testLoad(config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
     val transformResults =
       if (config.runTransform()) {
-        val transformTests = StarlakeTestData.loadTests(load = false, config.name)
-        StarlakeTestData.runTransforms(transformTests, config)
+        testTransform(config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
 
@@ -1020,15 +1052,12 @@ class IngestionWorkflow(
             transformConfig.interactive match {
               case Some(format) =>
                 val bqJobResult = res.asInstanceOf[BigQueryJobResult]
-                val pretty = bqJobResult.prettyPrint(format)
+                val pretty = bqJobResult.prettyPrint(format, transformConfig.dryRun)
                 Success(pretty)
               case None =>
                 Success("")
             }
           case Failure(e) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(e)))
             Failure(e)
         }
       case Engine.JDBC =>
@@ -1039,9 +1068,6 @@ class IngestionWorkflow(
           case (Success(_), _) =>
             Success("")
           case (Failure(exception), _) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(exception)))
             exception.printStackTrace()
             Failure(exception)
         }
@@ -1053,9 +1079,6 @@ class IngestionWorkflow(
           case (Success(_), None) =>
             Success("")
           case (Failure(exception), _) =>
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            output.foreach(_.append(Utils.exceptionAsString(exception)))
             exception.printStackTrace()
             Failure(exception)
           case (Success(_), _) =>

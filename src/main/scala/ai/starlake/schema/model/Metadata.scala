@@ -218,14 +218,8 @@ case class Metadata(
     getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   @JsonIgnore
-  def getSinkConnectionRefOptions()(implicit settings: Settings): Map[String, String] =
-    settings.appConfig.connections(this.getSinkConnectionRef()).options
-
-  @JsonIgnore
-  def getEngine()(implicit settings: Settings): Engine = {
-    val connection = settings.appConfig.connections(getSinkConnectionRef())
-    connection.getEngine()
-  }
+  def getSinkConnection()(implicit settings: Settings): Settings.Connection =
+    settings.appConfig.connections(this.getSinkConnectionRef())
 
   private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {
     if (fillWithDefaultValue)

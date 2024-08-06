@@ -414,6 +414,10 @@ object YamlConfigGenerators {
     Gen.oneOf(Trim.modes)
   }
 
+  implicit val mat: Arbitrary[Materialization] = Arbitrary {
+    Gen.oneOf(Materialization.mats)
+  }
+
   implicit val jdbcSchema: Arbitrary[JDBCSchema] = Arbitrary {
     for {
       catalog             <- Gen.option(arbitrary[String])
@@ -534,7 +538,7 @@ object YamlConfigGenerators {
       clustering             <- Gen.option(arbitrary[List[String]])
       days                   <- Gen.option(arbitrary[Int])
       requirePartitionFilter <- Gen.option(arbitrary[Boolean])
-      materializedView       <- Gen.option(arbitrary[Boolean])
+      materializedView       <- Gen.option(arbitrary[Materialization])
       enableRefresh          <- Gen.option(arbitrary[Boolean])
       refreshIntervalMs      <- Gen.option(arbitrary[Long])
       id                     <- Gen.option(arbitrary[String])
@@ -1132,7 +1136,6 @@ object YamlConfigGenerators {
       maxParCopy              <- arbitrary[Int]
       kafka                   <- arbitrary[KafkaConfig]
       dsvOptions              <- arbitrary[Map[String, String]]
-      rootServe               <- Gen.option(arbitrary[String])
       forceViewPattern        <- arbitrary[String]
       forceDomainPattern      <- arbitrary[String]
       forceTablePattern       <- arbitrary[String]
@@ -1161,6 +1164,7 @@ object YamlConfigGenerators {
       hiveInTest              <- arbitrary[Boolean]
       duckdbMode              <- arbitrary[Boolean]
       testCsvNullString       <- arbitrary[String]
+      maxInteractiveRecords   <- arbitrary[Int]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1207,7 +1211,6 @@ object YamlConfigGenerators {
       maxParCopy = maxParCopy,
       kafka = kafka,
       dsvOptions = dsvOptions,
-      rootServe = rootServe,
       forceViewPattern = forceViewPattern,
       forceDomainPattern = forceDomainPattern,
       forceTablePattern = forceTablePattern,
@@ -1235,7 +1238,8 @@ object YamlConfigGenerators {
       timezone = timezone,
       hiveInTest = hiveInTest,
       duckdbMode = duckdbMode,
-      testCsvNullString = testCsvNullString
+      testCsvNullString = testCsvNullString,
+      maxInteractiveRecords = maxInteractiveRecords
     )
   }
 

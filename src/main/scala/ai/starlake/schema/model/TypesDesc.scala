@@ -207,6 +207,23 @@ case class Type(
         "Type.sample",
         s"Type $name - sample $sample does not match pattern $pattern"
       )
+
+    val notLowerCaseOnlyMapping =
+      this.ddlMapping
+        .getOrElse(Map.empty)
+        .keys
+        .find(mapping => !mapping.equals(mapping.toLowerCase()))
+
+    notLowerCaseOnlyMapping match {
+      case Some(mapping) =>
+        errorList += ValidationMessage(
+          Error,
+          "Type.ddlMapping",
+          s"Type $name - ddlMapping key $mapping must be lowercase"
+        )
+      case None =>
+    }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else

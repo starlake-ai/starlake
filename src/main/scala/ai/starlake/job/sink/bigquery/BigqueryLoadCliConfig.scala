@@ -1,6 +1,12 @@
 package ai.starlake.job.sink.bigquery
 
-import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
+import ai.starlake.schema.model.{
+  AccessControlEntry,
+  Engine,
+  Materialization,
+  RowLevelSecurity,
+  Schema
+}
 import org.apache.spark.sql.DataFrame
 
 case class BigQueryLoadCliConfig(
@@ -24,7 +30,7 @@ case class BigQueryLoadCliConfig(
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
-  materializedView: Boolean = false,
+  materialization: Materialization = Materialization.TABLE,
   accessToken: Option[String]
 ) {
   def asBigqueryLoadConfig() = BigQueryLoadConfig(
@@ -51,7 +57,7 @@ case class BigQueryLoadCliConfig(
     starlakeSchema = starlakeSchema,
     domainTags = domainTags,
     domainDescription = domainDescription,
-    materializedView = materializedView,
+    materialization = materialization,
     outputDatabase = outputDatabase,
     accessToken = accessToken
   )

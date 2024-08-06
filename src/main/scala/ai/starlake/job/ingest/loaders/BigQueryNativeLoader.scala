@@ -1,7 +1,8 @@
-package ai.starlake.job.ingest
+package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.exceptions.NullValueFoundException
+import ai.starlake.job.ingest.{BqLoadInfo, IngestionJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryJobResult,
@@ -24,7 +25,7 @@ import java.nio.charset.Charset
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try, Using}
 
-class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
+class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
 ) extends StrictLogging {
 
@@ -44,7 +45,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
-  private def requireTwoSteps(schema: Schema, sink: BigQuerySink): Boolean = {
+  private def requireTwoSteps(schema: Schema): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
@@ -89,7 +90,7 @@ class BigQueryNativeIngestionJob(ingestionJob: IngestionJob, accessToken: Option
           outputDatabase = schemaHandler.getDatabase(domain),
           accessToken = accessToken
         )
-      val twoSteps = requireTwoSteps(effectiveSchema, bqSink)
+      val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
         val (loadResults, tempTableIds, tableInfos) =
           path

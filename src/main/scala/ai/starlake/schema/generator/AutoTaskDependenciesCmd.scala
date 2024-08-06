@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, JsonSerializer}
 import better.files.File
 import scopt.OParser
 
@@ -43,6 +43,12 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .optional()
         .text(
           "Should we generate SVG files ?"
+        ),
+      opt[Unit]("json")
+        .action((_, c) => c.copy(json = true))
+        .optional()
+        .text(
+          "Should we generate JSON files ?"
         ),
       opt[Unit]("png")
         .action((_, c) => c.copy(png = true, viz = true))
@@ -92,8 +98,17 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
       val autoTaskDependencies =
         new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
       val allDependencies: List[DependencyContext] = autoTaskDependencies.tasks(config)
-      if (config.print) autoTaskDependencies.jobsDependencyTree(allDependencies, config)
-      if (config.viz) autoTaskDependencies.jobAsDot(allDependencies, config)
+      if (config.json) {
+        val diagram = autoTaskDependencies.jobAsDiagram(allDependencies, config)
+        if (config.print) {
+          val data =
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
+          println(data)
+        }
+      } else {
+        if (config.print) autoTaskDependencies.jobsDependencyTree(allDependencies, config)
+        if (config.viz) autoTaskDependencies.jobAsDot(allDependencies, config)
+      }
     }.map(_ => JobResult.empty)
   }
 }

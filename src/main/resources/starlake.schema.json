@@ -12,14 +12,7 @@
   },
   "allOf": [
     {
-      "if": {
-        "properties": {
-          "version": {"const":  1}
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/StarlakeV1Base"
-      }
+      "$ref": "#/definitions/StarlakeV1Base"
     }
   ],
   "required": ["version"],
@@ -90,6 +83,10 @@
           "description": "Any floating value that match the '-?\\d*\\.{0,1}\\d+' regex"
         },
         {
+          "const": "variant",
+          "description": "Semi structured data type eq. JSON / XML"
+        },
+        {
           "const": "struct",
           "description": "Any attribute that has children. Set the array to true if this attribute is made of a list of attributes"
         }
@@ -135,6 +132,24 @@
         }
       },
       "required": ["createSql"]
+    },
+    "Materialization": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Table types supported by the Sink option",
+      "oneOf": [
+        {
+          "const": "TABLE",
+          "description": "SQL Table"
+        },
+        {
+          "const": "VIEW",
+          "description": "SQL View"
+        },
+        {
+          "const": "MATERIALIZED_VIEW",
+          "description": "SQL Materialized View"
+        }
+      ]
     },
     "TableTypeBase": {
       "$ref": "#/definitions/ConvertibleToString",
@@ -585,8 +600,8 @@
           "description": "BQ: Should be require a partition filter on every request ? No by default."
         },
         "materializedView": {
-          "type": "boolean",
-          "description": "BQ: Should we materialize as a table or as a view when saving the results ? false by default."
+          "$ref": "#/definitions/Materialization",
+          "description": "Should we materialize as a table or as a view when saving the results ? TABLE by default."
         },
         "enableRefresh": {
           "type": "boolean",
@@ -1912,10 +1927,6 @@
           "$ref": "#/definitions/MapString",
           "description": "DSV ingestion extra options"
         },
-        "rootServe": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "reserved"
-        },
         "forceViewPattern": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "reserved"
@@ -2017,6 +2028,10 @@
         },
         "timezone": {
           "$ref": "#/definitions/ConvertibleToString",
+          "description": "TODO"
+        },
+        "maxInteractiveRecords": {
+          "type": "integer",
           "description": "TODO"
         },
         "duckdbMode": {

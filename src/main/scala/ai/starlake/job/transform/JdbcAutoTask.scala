@@ -1,7 +1,6 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.{Connection => StarlakeConnection}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -104,21 +103,9 @@ class JdbcAutoTask(
       case _ =>
     }
   }
-  private def readOnlyConnection(
-    connection: StarlakeConnection
-  ): StarlakeConnection = {
-    val options =
-      if (connection.isDuckDb()) {
-        connection.options.updated("duckdb.read_only", "true").updated("access_mode", "READ_ONLY")
-      } else {
-        connection.options
-      }
-    connection.copy(options = options)
-  }
-
   override protected lazy val sinkConnection: Settings.Connection = {
     if (interactive.isDefined) {
-      readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
+      JdbcDbUtils.readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
     } else {
       settings.appConfig.connections(sinkConnectionRef)
     }
@@ -137,7 +124,7 @@ class JdbcAutoTask(
     val res = Try {
       JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
         val mainSql =
-          if (interactive.isEmpty && df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+          if (df.isEmpty) {
             buildAllSQLQueries(None)
           } else {
             val sql = taskDesc.getSql()
@@ -165,11 +152,11 @@ class JdbcAutoTask(
                     val dialect = SparkUtils.dialect(jdbcUrl)
                     // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
                     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-                      SparkUtils.truncateTable(conn, fullTableName)
+                      JdbcDbUtils.truncateTable(conn, fullTableName)
                     }
                   }
                   loadedDF.write
-                    .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
+                    .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
                     .option("dbtable", fullTableName)
                     .mode(SaveMode.Append) // truncate done above if requested
                     .options(sinkConnection.options)
@@ -230,7 +217,8 @@ class JdbcAutoTask(
         headerAsSeq.append(rs.getMetaData.getColumnName(i))
         i += 1
       }
-      while (rs.next) {
+      var rowCount = 0
+      while (rs.next && rowCount < settings.appConfig.maxInteractiveRecords) {
         val rowAsSeq = new ListBuffer[String]
         var i = 1
         while (i <= rs.getMetaData.getColumnCount) {
@@ -238,6 +226,7 @@ class JdbcAutoTask(
           i += 1
         }
         result.append(rowAsSeq.toList)
+        rowCount += 1
       }
       JdbcJobResult(headerAsSeq.toList, result.toList)
     } finally {
@@ -259,7 +248,7 @@ class JdbcAutoTask(
   @throws[Exception]
   private def runSqls(conn: Connection, sqls: List[String], typ: String): Unit = {
     if (sqls.nonEmpty) {
-      logger.info(s"running $typ SQL")
+      logger.info(s"running $typ FINAL SQL ==>")
       sqls.foreach { req =>
         JdbcDbUtils.executeUpdate(req, conn) match {
           case Success(_) =>
@@ -268,7 +257,7 @@ class JdbcAutoTask(
             throw e
         }
       }
-      logger.info(s"end running $typ SQL")
+      logger.info(s"end running $typ FINAL SQL")
     }
   }
 
@@ -322,7 +311,7 @@ class JdbcAutoTask(
         }
 
         val alterTableAddColumns =
-          SparkUtils.alterTableAddColumnsString(addedSchema, tableName)
+          SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
         if (alterTableAddColumns.nonEmpty) {
           logger.info(
             s"alter table $tableName with ${alterTableAddColumns.size} columns to add"
@@ -340,6 +329,7 @@ class JdbcAutoTask(
         logger.info(
           s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
         )
+
         SparkUtils.createTable(
           conn,
           tableName,

@@ -47,7 +47,7 @@ object SingleUserMainServer {
         if (args.last == "unset") {
           autoReload = false
           SingleUserMainServer.mapper.writeValueAsString(
-            Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
+            Response("""{"serve":"Auto reload is unset"}""")
           )
         } else {
           if (args.last == "set") {
@@ -83,7 +83,7 @@ object SingleUserMainServer {
               )
             case Success(_) =>
               SingleUserMainServer.mapper.writeValueAsString(
-                Response(settings.appConfig.rootServe.getOrElse("Should never happen"))
+                Response("Serving")
               )
           }
         }

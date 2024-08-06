@@ -94,6 +94,9 @@ sealed abstract class Sink {
     getConnection().getType()
   }
 
+  def getConnectionRef()(implicit settings: Settings): String =
+    connectionRef.getOrElse(settings.appConfig.connectionRef)
+
   def getConnection()(implicit
     settings: Settings
   ): Connection = {
@@ -134,8 +137,8 @@ case class AllSinks(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  materializedView: Option[Boolean] = None,
-  enableRefresh: Option[Boolean] = None, // only if materializedView is true
+  materializedView: Option[Materialization] = None,
+  enableRefresh: Option[Boolean] = None, // only if materializedView is MATERIALIZED_VIEW
   refreshIntervalMs: Option[Long] = None, // only if enable refresh is true
   // partition: Option[List[String]] = None,  // only one column allowed
 
@@ -286,7 +289,7 @@ final case class BigQuerySink(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  materializedView: Option[Boolean] = None,
+  materialization: Option[Materialization] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None
 ) extends Sink {
@@ -296,7 +299,7 @@ final case class BigQuerySink(
       clustering,
       days,
       requirePartitionFilter,
-      materializedView,
+      materialization,
       enableRefresh,
       refreshIntervalMs,
       partition = partition
@@ -315,7 +318,7 @@ object BigQuerySink {
       clustering = allSinks.clustering,
       days = allSinks.days,
       requirePartitionFilter = allSinks.requirePartitionFilter,
-      materializedView = allSinks.materializedView,
+      materialization = allSinks.materializedView,
       enableRefresh = allSinks.enableRefresh,
       refreshIntervalMs = allSinks.refreshIntervalMs
     )

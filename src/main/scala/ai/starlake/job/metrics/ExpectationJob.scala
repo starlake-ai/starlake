@@ -246,6 +246,7 @@ class ExpectationJob(
               table = "expectations",
               presql = Nil,
               postsql = Nil,
+              connectionRef = settings.appConfig.audit.sink.connectionRef,
               sink = Some(settings.appConfig.audit.sink),
               parseSQL = Some(true),
               _auditTableName = Some("expectations")

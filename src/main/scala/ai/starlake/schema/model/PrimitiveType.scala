@@ -68,6 +68,7 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
       case "timestamp" => PrimitiveType.timestamp
       case "decimal"   => PrimitiveType.decimal
       case "struct"    => PrimitiveType.struct
+      case "variant"   => PrimitiveType.variant
       case _ =>
         throw new Exception(
           s"Invalid primitive type: $value not in ${PrimitiveType.primitiveTypes}"
@@ -87,6 +88,12 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any = str
 
     def sparkType(zone: Option[String]): DataType = StringType
+  }
+
+  object variant extends PrimitiveType("variant") {
+    def fromString(str: String, pattern: String, zone: String): Any = str
+
+    def sparkType(zone: Option[String]): DataType = VarcharType(Int.MaxValue)
   }
 
   object long extends PrimitiveType("long") {
@@ -382,6 +389,7 @@ object PrimitiveType {
       case _: StringType    => PrimitiveType.string
       case _: TimestampType => PrimitiveType.timestamp
       case _: DateType      => PrimitiveType.date
+      case _: VarcharType   => PrimitiveType.variant
       case _ =>
         throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString)
     }

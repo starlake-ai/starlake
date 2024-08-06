@@ -1,0 +1,11 @@
+table:
+    name: "locations"
+    pattern: "locations-.*.json"
+    metadata:
+      array: false
+      format: "JSON"
+      write: "OVERWRITE"
+      schedule: "0 0 * * *"
+    attributes:
+      - name: "v"
+        type: "variant"

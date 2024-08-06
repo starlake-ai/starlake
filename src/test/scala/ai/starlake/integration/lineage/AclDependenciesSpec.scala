@@ -9,7 +9,7 @@ class AclDependenciesSpec extends IntegrationTestBase {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       assert(
         new Main().run(
-          Array("acl-dependencies")
+          Array("acl-dependencies", "--all")
         )
       )
     }
@@ -20,6 +20,16 @@ class AclDependenciesSpec extends IntegrationTestBase {
       assert(
         new Main().run(
           Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
+        )
+      )
+    }
+  }
+
+  "JSON ACL Generation" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+      assert(
+        new Main().run(
+          Array("acl-dependencies", "--all", "--json")
         )
       )
     }

@@ -6,6 +6,7 @@ import ai.starlake.schema.model.{
   ClusteringInfo,
   FieldPartitionInfo,
   Format,
+  Materialization,
   Schema,
   TableInfo => SLTableInfo
 }
@@ -141,7 +142,7 @@ class BigQueryNativeJob(
     jobId
   }
 
-  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema) = {
+  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema): SLTableInfo = {
     SLTableInfo(
       tableId,
       cliConfig.outputTableDesc,
@@ -253,7 +254,8 @@ class BigQueryNativeJob(
   def runInteractiveQuery(
     thisSql: scala.Option[String] = None,
     pageSize: scala.Option[Long] = None,
-    queryJobTimeoutMs: scala.Option[Long] = None
+    queryJobTimeoutMs: scala.Option[Long] = None,
+    dryRun: Boolean = false
   ): Try[BigQueryJobResult] = {
     getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
       val targetSQL = thisSql.getOrElse(sql).trim()
@@ -285,9 +287,10 @@ class BigQueryNativeJob(
               connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
 
-        logger.info(s"Running interactive BQ Query $targetSQL")
+        logger.info(s"Running BQ FINAL SQL ==> $targetSQL")
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-        val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
+        val finalConfiguration =
+          queryConfigWithUDF.setPriority(Priority.INTERACTIVE).setDryRun(dryRun).build()
 
         val result =
           recoverBigqueryException {
@@ -296,31 +299,38 @@ class BigQueryNativeJob(
               bigquery(accessToken = cliConfig.accessToken).create(
                 JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
               )
-            logger.info(s"Waiting for job $jobId")
-            queryJob.waitFor(
-              RetryOption.maxAttempts(0),
-              RetryOption.totalTimeout(
-                org.threeten.bp.Duration.ofMinutes(
-                  queryJobTimeoutMs
-                    .orElse(jobTimeoutMs)
-                    .getOrElse(settings.appConfig.longJobTimeoutMs)
+            if (!dryRun) {
+              logger.info(s"Waiting for job $jobId")
+              queryJob.waitFor(
+                RetryOption.maxAttempts(0),
+                RetryOption.totalTimeout(
+                  org.threeten.bp.Duration.ofMinutes(
+                    queryJobTimeoutMs
+                      .orElse(jobTimeoutMs)
+                      .getOrElse(settings.appConfig.longJobTimeoutMs)
+                  )
                 )
               )
-            )
+            } else {
+              logger.info(s"Dry run $jobId")
+              queryJob
+            }
           }.map { jobResult =>
             val totalBytesProcessed = jobResult
               .getStatistics()
               .asInstanceOf[QueryStatistics]
               .getTotalBytesProcessed
-
-            val results = jobResult.getQueryResults(
-              QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
-            )
-            logger.info(
-              s"Query large results performed successfully: ${results.getTotalRows} rows returned."
-            )
-
-            BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+            if (!dryRun) {
+              val results = jobResult.getQueryResults(
+                QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+              )
+              logger.info(
+                s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+              )
+              BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+            } else {
+              BigQueryJobResult(None, totalBytesProcessed, Some(jobResult))
+            }
           }
         result
       }
@@ -353,13 +363,27 @@ class BigQueryNativeJob(
       } else {
         runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
       }
-    } else if (cliConfig.materializedView) {
+    } else if (cliConfig.materialization == Materialization.TABLE) {
+      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+    } else if (cliConfig.materialization == Materialization.MATERIALIZED_VIEW) {
       runAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
-      runAndSinkAsTable(queryJobTimeoutMs = jobTimeoutMs)
+      runAndSinkAsView().map(table => BigQueryJobResult(None, 0L, None))
     }
   }
 
+  def runAndSinkAsView(thisSql: scala.Option[String] = None): Try[Table] = {
+    getOrCreateDataset(None).flatMap { _ =>
+      Try {
+        val viewDefinitionBuilder =
+          ViewDefinition.newBuilder(thisSql.getOrElse(sql))
+        val table =
+          bigquery(accessToken = cliConfig.accessToken)
+            .create(TableInfo.of(tableId, viewDefinitionBuilder.build()))
+        table
+      }
+    }
+  }
   def runAndSinkAsMaterializedView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {

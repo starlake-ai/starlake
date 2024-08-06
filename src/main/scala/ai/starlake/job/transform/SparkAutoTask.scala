@@ -179,7 +179,7 @@ class SparkAutoTask(
     val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
     val res = session.read
       .format(
-        runConnection.sparkFormat.getOrElse(throw new Exception("Should never happen"))
+        runConnection.sparkDatasource().getOrElse(throw new Exception("Should never happen"))
       )
       .option("query", sqlWithParameters)
       .options(runConnection.options)
@@ -345,8 +345,9 @@ class SparkAutoTask(
 
   def runSqls(sqls: List[String], typ: String): Option[DataFrame] = {
     if (sqls.nonEmpty) {
-      logger.info(s"Running Spark $typ SQL")
+      logger.info(s"Running Spark $typ FINAL SQL ==>")
       val df = sqls.map { sql =>
+        logger.info(sql)
         SparkUtils.sql(session, sql)
       }.lastOption
       df
@@ -482,7 +483,7 @@ class SparkAutoTask(
                 .getOrElse("")}" """
           )
           .mkString(",")
-        SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD columns ($colsAsString)")
+        SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD COLUMNS ($colsAsString)")
       }
       Some(StructType(existingTableSchema.fields ++ newFields))
     } else {
@@ -677,7 +678,7 @@ class SparkAutoTask(
           )
         }
         loadedDF.write
-          .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
+          .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
           .option("dbtable", firstStepTempTable)
           .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
           .options(sinkConnectionRefOptions)
@@ -712,7 +713,7 @@ class SparkAutoTask(
         val jobResult = secondStepAutoTask.runJDBC(None)
 
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-          JdbcDbUtils.dropTable(firstStepTempTable, conn)
+          JdbcDbUtils.dropTable(conn, firstStepTempTable)
         }
         jobResult
       } else {

@@ -124,7 +124,7 @@ abstract class AutoTask(
   }
 
   def buildAllSQLQueries(sql: Option[String]): String = {
-    if (taskDesc.parseSQL.getOrElse(true)) {
+    if (interactive.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
       val runConnection = this.taskDesc.getRunConnection()
       val sqlWithParametersTranspiledIfInTest =
@@ -246,7 +246,9 @@ abstract class AutoTask(
     )
 
   def isMaterializedView(): Boolean = {
-    taskDesc.sink.flatMap(_.materializedView).getOrElse(false)
+    taskDesc.sink
+      .flatMap(_.materializedView)
+      .getOrElse(Materialization.TABLE) == Materialization.MATERIALIZED_VIEW
   }
 }
 
@@ -258,7 +260,17 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(None, _, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
+      .map(
+        task(
+          None,
+          _,
+          Map.empty,
+          None,
+          engine = Engine.SPARK,
+          truncate = false,
+          test = false
+        )
+      )
   }
 
   def task(
@@ -270,14 +282,17 @@ object AutoTask extends StrictLogging {
     test: Boolean,
     engine: Engine,
     accessToken: Option[String] = None,
-    resultPageSize: Int = 1
+    resultPageSize: Int = 1,
+    dryRun: Boolean = false
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): AutoTask = {
+    val sinkConfig = taskDesc.getSinkConfig()
+    val runConnectionRef = taskDesc.getRunConnectionRef()
     engine match {
-      case Engine.BQ =>
+      case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] =>
         new BigQueryAutoTask(
           appId,
           taskDesc,
@@ -286,9 +301,12 @@ object AutoTask extends StrictLogging {
           truncate = truncate,
           test = test,
           accessToken = accessToken,
-          resultPageSize = resultPageSize
+          resultPageSize = resultPageSize,
+          dryRun = dryRun
         )
-      case Engine.JDBC =>
+      case Engine.JDBC
+          if sinkConfig
+            .isInstanceOf[JdbcSink] && sinkConfig.getConnectionRef() == runConnectionRef =>
         new JdbcAutoTask(
           appId,
           taskDesc,
@@ -300,7 +318,6 @@ object AutoTask extends StrictLogging {
           resultPageSize = resultPageSize
         )
       case _ =>
-        val sinkConfig = taskDesc.getSinkConfig()
         sinkConfig match {
           case fs: FsSink if fs.isExport() =>
             logger.info("Exporting to the filesystem")

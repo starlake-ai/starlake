@@ -1,9 +1,10 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.generator.AutoTaskDependencies.{Column, Diagram, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{RowLevelSecurity, Schema}
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
@@ -28,6 +29,59 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig)
     AclDependenciesCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
+  }
+
+  private def granteesAsItems(config: AclDependenciesConfig): Set[Item] = {
+    val aclTables = schemaHandler
+      .domains()
+      .map(d => d.finalName -> d.aclTables(config).toSet)
+      .toMap
+      .filter(_._2.nonEmpty)
+    val aclTableGrants = aclTables.values.flatten
+      .flatMap(_.acl)
+      .flatMap(_.grants)
+      .map(_.toLowerCase())
+      .toSet
+
+    val rlsTableGrants =
+      rlsTables(config).values.flatten.flatMap(_._2).flatMap(_.grants).map(_.toLowerCase()).toSet
+
+    val aclTasks = schemaHandler.tasks().filter { task =>
+      val taskToInclude = config.tables.exists(
+        _.toLowerCase() == task.name.toLowerCase()
+      )
+
+      taskToInclude && task.acl.nonEmpty && (config.all || config.grantees
+        .intersect(task.acl.flatMap(_.grants))
+        .nonEmpty)
+    }
+    val rlsTasks = schemaHandler.tasks().filter { task =>
+      val taskToInclude = config.tables.exists(
+        _.toLowerCase() == task.name.toLowerCase()
+      )
+
+      taskToInclude && task.rls.nonEmpty &&
+      (config.all || config.grantees.intersect(task.acl.flatMap(_.grants)).nonEmpty)
+    }
+    val aclTaskGrants =
+      aclTasks
+        .map(_.acl)
+        .flatMap(_.map(_.grants))
+        .flatten
+        .toSet
+
+    val rlsTaskGrants =
+      rlsTasks
+        .map(_.rls)
+        .flatMap(_.map(_.grants))
+        .flatten
+        .toSet
+
+    val allGrants = rlsTableGrants ++ aclTableGrants ++ rlsTaskGrants ++ aclTaskGrants
+    val filteredGrants = allGrants.filter { grant =>
+      config.all || config.grantees.contains(grant)
+    }
+    usersAsItems(filteredGrants)
   }
 
   private def granteesAsDot(config: AclDependenciesConfig) = {
@@ -81,6 +135,35 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       config.all || config.grantees.contains(grant)
     }
     usersAsDot(filteredGrants)
+  }
+  private def usersAsItems(allGrants: Set[String]): Set[Item] = {
+    val notPrefixedUsers = allGrants.filterNot(_.contains(":"))
+    val allUsers = notPrefixedUsers.union(
+      allGrants.filter(_.startsWith("user:")).map(_.substring("user:".length))
+    )
+    val allGroups = allGrants.filter(_.startsWith("group:")).map(_.substring("group:".length))
+    val allDomains = allGrants.filter(_.startsWith("domain:")).map(_.substring("domain:".length))
+    val allSa =
+      allGrants
+        .map(_.replace("sa:", "serviceAccount:"))
+        .filter(_.startsWith("serviceAccount:"))
+        .map(_.substring("serviceAccount:".length))
+
+    val formattedUsers = allUsers.map { user =>
+      Item(id = s"user:$user", label = user, `displayType` = "user")
+    }
+    val formattedGroups = allGroups.map { group =>
+      Item(id = s"group:$group", label = group, `displayType` = "group")
+    }
+    val formattedSa = allSa.map { sa =>
+      Item(id = s"serviceAccount:$sa", label = sa, `displayType` = "sa")
+    }
+    val formattedDomains = allDomains.map { domain =>
+      Item(id = s"domain:$domain", label = domain, `displayType` = "domain")
+    }
+
+    val items = formattedUsers ++ formattedGroups ++ formattedSa ++ formattedDomains
+    items
   }
 
   private def usersAsDot(allGrants: Set[String]): String = {
@@ -163,6 +246,54 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
+  private def jobsAsItems(config: AclDependenciesConfig): List[Item] = {
+    val allTasks = schemaHandler.tasks()
+    val all = config.grantees
+    val rlsAclTasks = allTasks.filter { desc =>
+      config.all || config.grantees.intersect(desc.acl).nonEmpty || config.grantees
+        .intersect(desc.rls)
+        .nonEmpty
+    }
+    val rlsAclTaskNames = rlsAclTasks
+      .filter { desc =>
+        config.grantees.intersect(desc.acl).nonEmpty
+      }
+      .map { desc =>
+        desc.domain -> desc.table
+      }
+      .groupBy(_._1)
+      .mapValues(_.map { case (domain, table) => table }.toSet)
+
+    val tasks: Map[String, Set[String]] = rlsAclTaskNames.toMap
+    tasks.toList.flatMap { case (domain, tables) =>
+      tables.map { table =>
+        val tableLabel = s"$domain.$table"
+        val columns = schemaHandler
+          .getDomain(domain)
+          .flatMap { d =>
+            d.tables.find(_.finalName == table).map { t =>
+              t.attributes.map { c =>
+                Column(
+                  id = s"$domain.$table.${c.name}",
+                  name = c.name,
+                  columnType = c.`type`,
+                  comment = c.comment,
+                  primaryKey = t.primaryKey.contains(c.name)
+                )
+              }
+            }
+          }
+          .getOrElse(Nil)
+        Item(
+          id = tableLabel,
+          label = tableLabel,
+          displayType = "table",
+          columns = columns
+        )
+      }
+    }
+  }
+
   private def jobsAsDot(config: AclDependenciesConfig): String = {
     val allTasks = schemaHandler.tasks()
     val all = config.grantees
@@ -210,6 +341,52 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       )
   }
 
+  private def rlsAclTablesAsItems(config: AclDependenciesConfig): List[Item] = {
+    // All tables that have an RLS
+    val rlsTableNames: Map[String, Set[String]] = rlsTables(config).map { case (domain, rlsMap) =>
+      domain -> rlsMap.keySet
+    }
+
+    // All tables that have an ACL
+    val aclTableNames: Map[String, Set[String]] = schemaHandler
+      .domains()
+      .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(_.finalName))
+      .toMap
+    //      .filter { case (domainName, rls) => rls.nonEmpty }
+
+    val tablesWithACLOrRLS: Map[String, Set[String]] = rlsTableNames ++ aclTableNames
+
+    tablesWithACLOrRLS.toList
+      .flatMap { case (domain, tables) =>
+        tables.map { table =>
+          val tableLabel = s"$domain.$table"
+          val columns = schemaHandler
+            .getDomain(domain)
+            .flatMap { d =>
+              d.tables.find(_.finalName == table).map { t =>
+                t.attributes.map { c =>
+                  Column(
+                    id = s"$domain.$table.${c.name}",
+                    name = c.name,
+                    columnType = c.`type`,
+                    comment = c.comment,
+                    primaryKey = t.primaryKey.contains(c.name)
+                  )
+                }
+              }
+            }
+            .getOrElse(Nil)
+          Item(
+            id = tableLabel,
+            label = tableLabel,
+            displayType = "table",
+            columns = columns
+          )
+
+        }
+      }
+  }
+
   /** @param config
     * @return
     */
@@ -255,6 +432,73 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       )
   }
 
+  private def aclRelationsAsItemsAndRelations(
+    config: AclDependenciesConfig
+  ): (List[Item], List[Relation]) = {
+    val aclTables = schemaHandler
+      .domains()
+      .map(d => d.finalName -> d.aclTables(config).toSet)
+      .filter(_._2.nonEmpty)
+      .toMap
+
+    val aclTablesRelations = aclTables.flatMap { case (domainName, schemas) =>
+      schemas.flatMap { schema =>
+        val acls = schema.acl
+        val schemaName = schema.finalName
+        acls
+          .flatMap { ace =>
+            ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
+          }
+          .filter { case (userName, aceRole, schemaName, domainName) =>
+            config.all || config.grantees.contains(userName)
+          }
+      }
+    }
+
+    val allTasks = schemaHandler.tasks().filter { task =>
+      config.tables.exists(_.toLowerCase() == task.name.toLowerCase())
+    }
+
+    // val aclAclTasks = allTasks.filter(_.acl.nonEmpty) ++ allTasks.filter(_.rls.nonEmpty)
+    val aclAclTasks = allTasks.filter { desc =>
+      config.all ||
+      config.grantees.intersect(desc.acl.flatMap(_.grants)).nonEmpty ||
+      config.grantees.intersect(desc.rls.flatMap(_.grants)).nonEmpty
+    }
+    val aclTaskRelations = aclAclTasks.flatMap { desc =>
+      desc.acl.flatMap { ace =>
+        ace.grants.map(userName => (userName, ace.role, desc.table, desc.domain))
+      }
+    }
+
+    val allRelations = aclTaskRelations ++ aclTablesRelations
+    val jsonAclRoles = allRelations.map { case (name, role, schema, domain) =>
+      Item(
+        id = s"${domain}.${schema}.acl_$role",
+        label = role,
+        displayType = "role"
+      )
+    }
+
+    val jsonAclRolesRelations = allRelations.map { case (name, role, schema, domain) =>
+      Relation(
+        source = s"${domain}.${schema}.acl_$role",
+        target = s"${domain}.$schema",
+        relationType = "acl"
+      )
+    }
+
+    val jsonAclRelations = allRelations.map { case (name, role, schema, domain) =>
+      Relation(
+        source = name,
+        target = s"${domain}.${schema}.acl_$role",
+        relationType = "acl"
+      )
+    }
+
+    val result = (jsonAclRoles, jsonAclRolesRelations ++ jsonAclRelations)
+    result
+  }
   private def aclRelationsAsDot(config: AclDependenciesConfig): String = {
     val aclTables = schemaHandler
       .domains()
@@ -318,7 +562,74 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     else
       list.mkString("", sep, sep)
 
-  private def rlsRelationsAsDot(config: AclDependenciesConfig): String = {
+  private def rlsRelationsAsItemsAndRelations(
+    config: AclDependenciesConfig
+  ): (List[Item], List[Relation]) = {
+    val rlsTables =
+      schemaHandler
+        .domains()
+        .map(d => d.finalName -> d.rlsTables(config))
+        .filter(_._2.nonEmpty)
+        .toMap
+
+    val rlsTableRelations = rlsTables.toList.flatMap { case (domainName, tablesMap) =>
+      tablesMap.toList.flatMap { case (tableName, rls) =>
+        rls.flatMap { r =>
+          r.grants.map(userName =>
+            (userName, r.name, Option(r.predicate).getOrElse("TRUE"), tableName, domainName)
+          )
+        }
+      }
+    }
+
+    val allTasks = schemaHandler.tasks()
+    val rlsTasks = allTasks.filter(_.rls.nonEmpty)
+
+    val rlsTaskRelations = rlsTasks.flatMap { rlsTask =>
+      rlsTask.rls
+        .flatMap { r =>
+          r.grants.map(userName =>
+            (
+              userName,
+              r.name,
+              Option(r.predicate).getOrElse("TRUE"),
+              rlsTask.table,
+              rlsTask.domain
+            )
+          )
+        }
+    }
+
+    val allRlsRelations = rlsTableRelations ++ rlsTaskRelations
+    val dotRlsRoles = allRlsRelations.map { case (userName, name, predicate, schema, domain) =>
+      Item(
+        id = s"${domain}.${schema}.rls_$name",
+        label = predicate,
+        displayType = "rls-role"
+      )
+    }
+
+    val dotRlsRolesRelations = allRlsRelations.map {
+      case (userName, name, predicate, schema, domain) =>
+        Relation(
+          source = s"${domain}.${schema}.rls_$name",
+          target = s"${domain}.$schema",
+          relationType = "rls"
+        )
+    }
+
+    val dotRlsRelations = allRlsRelations.map { case (userName, name, predicate, schema, domain) =>
+      Relation(
+        source = userName,
+        target = s"${domain}.${schema}.rls_$name",
+        relationType = "rls"
+      )
+    }
+
+    (dotRlsRoles, dotRlsRolesRelations ++ dotRlsRelations)
+  }
+
+  private def rlsRelationsAsDot(config: AclDependenciesConfig) = {
     val rlsTables =
       schemaHandler
         .domains()
@@ -398,17 +709,37 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     else
       Utils.save(configWithFinalTables.outputFile, dotStr)
   }
-}
 
-object AclDependencies {
-  case class Relation(source: String, target: String, label: Option[String] = None)
-  case class Column(
-    id: String,
-    name: String,
-    `type`: String,
-    comment: Option[String],
-    primaryKey: Boolean
-  )
-  case class Item(id: String, label: String, `displayType`: String, columns: List[Column] = Nil)
-  case class Diagram(items: List[Item], relations: List[Relation], `diagramType`: String)
+  def aclsAsDiagramFile(config: AclDependenciesConfig) = {
+    val diagram = aclsAsDiagram(config)
+    val data = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
+    Utils.save(config.outputFile, data)
+  }
+
+  def aclsAsDiagram(config: AclDependenciesConfig): Diagram = {
+    val domains = schemaHandler.domains(reload = config.reload)
+    val configWithFinalTables =
+      if (config.tables.length == 1 && !config.tables.head.contains('.')) {
+        config.copy(tables = domains.flatMap(_.tables).map(_.finalName))
+      } else {
+        config
+      }
+
+    val (aclItems, aclRels) = aclRelationsAsItemsAndRelations(configWithFinalTables)
+    val (rlsItems, rlsRelations) = rlsRelationsAsItemsAndRelations(configWithFinalTables)
+
+    val allItems =
+      rlsAclTablesAsItems(configWithFinalTables) ++
+      jobsAsItems(configWithFinalTables) ++
+      granteesAsItems(configWithFinalTables) ++
+      aclItems ++ rlsItems
+
+    val allRelations = aclRels ++ rlsRelations
+
+    Diagram(
+      items = allItems.distinct,
+      relations = allRelations.distinct,
+      diagramType = "acl"
+    )
+  }
 }

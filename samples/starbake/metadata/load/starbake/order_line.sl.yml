@@ -7,18 +7,40 @@ table:
   - name: "order_id"
     type: "int"
     array: false
+    sample: "1"
   - name: "product_id"
     type: "int"
     array: false
+    sample: "10"
   - name: "quantity"
     type: "int"
     array: false
+    sample: "2"
   - name: "sale_price"
     type: "double"
     array: false
+    sample: "18.18"
   metadata:
     format: "DSV"
     withHeader: true
     separator: ";"
     writeStrategy:
       type: "APPEND"
+  sample: "[{\"order_id\":1,\"product_id\":10,\"quantity\":2,\"sale_price\":18.18},{\"\
+    order_id\":2,\"product_id\":11,\"quantity\":2,\"sale_price\":10.72},{\"order_id\"\
+    :3,\"product_id\":12,\"quantity\":1,\"sale_price\":16.84},{\"order_id\":4,\"product_id\"\
+    :4,\"quantity\":1,\"sale_price\":21.05},{\"order_id\":5,\"product_id\":8,\"quantity\"\
+    :2,\"sale_price\":15.0},{\"order_id\":6,\"product_id\":10,\"quantity\":4,\"sale_price\"\
+    :18.18},{\"order_id\":7,\"product_id\":3,\"quantity\":5,\"sale_price\":28.91},{\"\
+    order_id\":8,\"product_id\":5,\"quantity\":1,\"sale_price\":8.68},{\"order_id\"\
+    :9,\"product_id\":11,\"quantity\":2,\"sale_price\":10.72},{\"order_id\":10,\"\
+    product_id\":4,\"quantity\":5,\"sale_price\":21.05},{\"order_id\":11,\"product_id\"\
+    :7,\"quantity\":5,\"sale_price\":17.06},{\"order_id\":12,\"product_id\":2,\"quantity\"\
+    :4,\"sale_price\":14.71},{\"order_id\":13,\"product_id\":12,\"quantity\":3,\"\
+    sale_price\":16.84},{\"order_id\":14,\"product_id\":2,\"quantity\":4,\"sale_price\"\
+    :14.71},{\"order_id\":15,\"product_id\":10,\"quantity\":1,\"sale_price\":18.18},{\"\
+    order_id\":16,\"product_id\":6,\"quantity\":4,\"sale_price\":27.81},{\"order_id\"\
+    :17,\"product_id\":2,\"quantity\":2,\"sale_price\":14.71},{\"order_id\":18,\"\
+    product_id\":8,\"quantity\":3,\"sale_price\":15.0},{\"order_id\":19,\"product_id\"\
+    :7,\"quantity\":5,\"sale_price\":17.06},{\"order_id\":20,\"product_id\":6,\"quantity\"\
+    :5,\"sale_price\":27.81}]"

@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.generator.AclDependenciesConfig
+import ai.starlake.schema.generator.{AclDependenciesConfig, AutoTaskDependencies}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
@@ -232,6 +232,16 @@ case class LoadDesc(version: Int, load: Domain)
       Right(true)
   }
 
+  def asItem(
+    fkTables: Set[String]
+  ): List[(AutoTaskDependencies.Item, List[AutoTaskDependencies.Relation])] = {
+    tables
+      .sortBy(_.name)
+      .flatMap { schema =>
+        schema.asItem(name, fkTables)
+      }
+  }
+
   def asDot(includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     tables
       .sortBy(_.name)
@@ -241,7 +251,7 @@ case class LoadDesc(version: Int, load: Domain)
       .mkString("\n")
   }
 
-  def foreignTablesForDot(tableNames: Seq[String]): List[String] = {
+  def foreignTableNames(tableNames: Seq[String]): List[String] = {
     // get tables included in tableNames
     val tableSchemas = getTables(tableNames)
     // get all tables referenced in foreign keys

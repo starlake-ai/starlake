@@ -22,7 +22,7 @@ case class BigQueryLoadConfig(
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
-  materializedView: Boolean = false,
+  materialization: Materialization = Materialization.TABLE,
   outputTableDesc: Option[String] = None,
   attributesDesc: List[AttributeDesc] = Nil,
   outputDatabase: Option[String] = None,
