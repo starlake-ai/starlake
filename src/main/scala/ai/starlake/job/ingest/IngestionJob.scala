@@ -254,7 +254,8 @@ trait IngestionJob extends SparkJob {
       err,
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      test = false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler)
     logger.error(err)
@@ -287,7 +288,8 @@ trait IngestionJob extends SparkJob {
       if (success) "success" else s"$rejectedCount invalid records",
       Step.LOAD.toString,
       schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant
+      settings.appConfig.tenant,
+      test = false
     )
     AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
   }
@@ -747,13 +749,13 @@ trait IngestionJob extends SparkJob {
       val autoTask =
         taskDesc.getSinkConfig() match {
           case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
-            new SparkExportTask(taskDesc, Map.empty, None, truncate = false)(
+            new SparkExportTask(taskDesc, Map.empty, None, truncate = false, test = false)(
               settings,
               storageHandler,
               schemaHandler
             )
           case _ =>
-            new SparkAutoTask(taskDesc, Map.empty, None, truncate = false)(
+            new SparkAutoTask(taskDesc, Map.empty, None, truncate = false, test = false)(
               settings,
               storageHandler,
               schemaHandler

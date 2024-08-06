@@ -228,6 +228,7 @@ class ExpectationJob(
           Map.empty,
           None,
           truncate = false,
+          test = false,
           engine = taskDesc.getSinkConnection().getEngine()
         )(settings, storageHandler, schemaHandler)
       val res = task.run()

@@ -5,7 +5,6 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
@@ -29,12 +28,14 @@ class SparkAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -191,7 +192,7 @@ class SparkAutoTask(
     result
   }
 
-  override def buildAllSQLQueries(sql: Option[String]): String = {
+  /*override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
     val columnNames = SQLUtils.extractColumnNames(sql.getOrElse(taskDesc.getSql()))
     val mainSql =
@@ -208,7 +209,7 @@ class SparkAutoTask(
           sinkConfig
         )
     mainSql
-  }
+  }*/
 
   def runSparkQueryOnBigQuery(): Option[DataFrame] = {
     val config = BigQueryLoadConfig(
@@ -351,11 +352,11 @@ class SparkAutoTask(
           SparkJobResult(jobResult)
       }
       val end = Timestamp.from(Instant.now())
-      logAuditSuccess(start, end, -1)
+      logAuditSuccess(start, end, -1, test = test)
       jobResult
     } recoverWith { case e: Exception =>
       val end = Timestamp.from(Instant.now())
-      logAuditFailure(start, end, e)
+      logAuditFailure(start, end, e, test = test)
       Failure(e)
     }
   }
@@ -435,18 +436,19 @@ class SparkAutoTask(
 
           case _: BigQuerySink =>
             val bqJob =
-              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
+              new BigQueryAutoTask(this.taskDesc, Map.empty, None, truncate = false, test = test)(
                 settings,
                 storageHandler,
                 schemaHandler
               )
             bqJob.tableExists
           case _: JdbcSink =>
-            val jdbcJob = new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false)(
-              settings,
-              storageHandler,
-              schemaHandler
-            )
+            val jdbcJob =
+              new JdbcAutoTask(this.taskDesc, Map.empty, None, truncate = false, test = test)(
+                settings,
+                storageHandler,
+                schemaHandler
+              )
             jdbcJob.tableExists
           case other =>
             throw new Exception(
@@ -631,6 +633,7 @@ class SparkAutoTask(
             commandParameters,
             interactive,
             truncate,
+            test,
             resultPageSize
           )
           secondStepTask.updateBigQueryTableSchema(loadedDF.schema)
@@ -652,6 +655,7 @@ class SparkAutoTask(
           commandParameters,
           interactive,
           truncate,
+          test,
           resultPageSize
         )
       secondSTepTask.updateBigQueryTableSchema(loadedDF.schema)
@@ -697,11 +701,12 @@ class SparkAutoTask(
             firstStepTempTable,
             loadedDF.schema,
             caseSensitive = false,
-            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions)
+            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
+            attDdl()
           )
         }
         loadedDF.write
-          .format("jdbc")
+          .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
           .option("dbtable", firstStepTempTable)
           .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
           .options(sinkConnectionRefOptions)
@@ -720,7 +725,7 @@ class SparkAutoTask(
           )
 
         val secondStepAutoTask =
-          new JdbcAutoTask(secondStepTaskDesc, Map.empty, None, truncate = false)(
+          new JdbcAutoTask(secondStepTaskDesc, Map.empty, None, truncate = false, test = test)(
             settings,
             storageHandler,
             schemaHandler
@@ -741,7 +746,7 @@ class SparkAutoTask(
           sql = None
         )
         val secondAutoStepTask =
-          new JdbcAutoTask(secondStepDesc, Map.empty, None, truncate = false)
+          new JdbcAutoTask(secondStepDesc, Map.empty, None, truncate = false, test = test)
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
         jobResult

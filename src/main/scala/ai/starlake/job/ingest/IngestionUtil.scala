@@ -86,7 +86,8 @@ object IngestionUtil {
       taskDesc,
       Map.empty,
       None,
-      truncate = false
+      truncate = false,
+      test = false
     )
     val res = autoTask.sink(rejectedDF)
     if (res) {

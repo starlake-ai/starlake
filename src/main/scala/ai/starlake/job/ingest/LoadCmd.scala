@@ -3,7 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, JsonSerializer, SparkJobResult}
 import scopt.OParser
 
 import scala.util.Try
@@ -47,17 +47,37 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .valueName("k1=v1,k2=v2...")
         .optional()
         .action((x, c) => c.copy(options = x))
-        .text("Watch arguments to be used as substitutions")
+        .text("Watch arguments to be used as substitutions"),
+      builder
+        .opt[Unit]("test")
+        .optional()
+        .action((x, c) => c.copy(test = true))
+        .text("Should we run this load as a test ? Default value is false"),
+      builder
+        .opt[Seq[String]]("files")
+        .optional()
+        .action((x, c) => c.copy(files = Some(x.toList)))
+        .text("load this file only")
     )
   }
 
   def parse(args: Seq[String]): Option[LoadConfig] =
-    OParser.parse(parser, args, LoadConfig())
+    OParser.parse(parser, args, LoadConfig(test = false, files = None))
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] =
-    workflow(schemaHandler).loadPending(config).map(_ => JobResult.empty)
+  ): Try[JobResult] = {
+    val result = workflow(schemaHandler).loadPending(config)
+    result match {
+      case scala.util.Success(sparkResult: SparkJobResult) =>
+        if (settings.appConfig.duckdbMode)
+          System.out.println(
+            "IngestionCounters:" + JsonSerializer.mapper.writeValueAsString(sparkResult.counters)
+          )
+      case _ =>
+    }
+    result
+  }
 }
 
 object LoadCmd extends LoadCmd

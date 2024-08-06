@@ -10,6 +10,8 @@ import org.apache.spark.sql._
 import scala.jdk.CollectionConverters.mapAsJavaMapConverter
 import scala.util.Try
 
+case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
+
 trait JobResult {
   def prettyPrint(
     format: String,
@@ -45,7 +47,12 @@ trait JobResult {
   }
 }
 
-case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L) extends JobResult
+case class SparkJobResult(dataframe: Option[DataFrame], rejectedCount: Long = 0L)
+    extends JobResult {
+  lazy val counters: Option[IngestionCounters] = Some(
+    IngestionCounters(0, 0, rejectedCount)
+  ) // TODO implements IngestionCounters
+}
 case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
   def show(format: String, rootServe: scala.Option[String]): Unit = {
     val output = rootServe.map(File(_, "extension.log"))
@@ -58,6 +65,7 @@ object JobResult {
   def empty: JobResult = EmptyJobResult
 }
 case object EmptyJobResult extends JobResult
+case object FailedJobResult extends JobResult
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from
   * application.conf.

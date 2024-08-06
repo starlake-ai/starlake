@@ -187,6 +187,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (errorCount, warningCount)
   }
 
+  def getDdlMapping(schema: Schema): Map[String, Map[String, String]] = {
+
+    schema.attributes.flatMap { attr =>
+      val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
+      ddlMapping match {
+        case Some(Some(mapping)) =>
+          Some(attr.name -> mapping) // we found the primitive type and it has a ddlMapping
+        case None       => None // we did not find the primitive type (should never happen)
+        case Some(None) => None // we found the primitive type but it has no ddlMapping
+      }
+    }.toMap
+  }
+
   def loadTypes(filename: String): List[Type] = {
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")

@@ -22,9 +22,11 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -47,10 +49,19 @@ abstract class AutoTask(
   val taskDesc: AutoTaskDesc,
   val commandParameters: Map[String, String],
   val interactive: Option[String],
+  val test: Boolean,
   val truncate: Boolean = false,
   val resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
+
+  def attDdl(): Map[String, Map[String, String]] =
+    schemaHandler
+      .domains()
+      .find(_.finalName == taskDesc.domain)
+      .flatMap(_.tables.find(_.finalName == taskDesc.table))
+      .map(schemaHandler.getDdlMapping)
+      .getOrElse(Map.empty)
 
   val sparkSinkFormat =
     taskDesc.sink.flatMap(_.format).getOrElse(settings.appConfig.defaultWriteFormat)
@@ -81,27 +92,79 @@ abstract class AutoTask(
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
-  protected lazy val preSql = parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
+  protected lazy val preSql = {
+    val testMacros =
+      if (this.test) {
+        JSQLTranspiler.getMacroArray.toList
+      } else
+        Nil
+    testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
+  }
   protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 
   val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
-  def substituteRefTaskMainSQL(sql: String) = {
-    val selectStatement = Utils.parseJinja(sql, allVars)
-    val select =
-      SQLUtils.substituteRefInSQLSelect(
-        selectStatement,
-        schemaHandler.refs(),
-        schemaHandler.domains(),
-        schemaHandler.tasks(),
-        taskDesc.getRunConnection()
-      )
-    select
+  def substituteRefTaskMainSQL(sql: String): String = {
+    if (sql.trim.isEmpty)
+      sql
+    else {
+      val selectStatement = Utils.parseJinja(sql, allVars)
+      val select =
+        SQLUtils.substituteRefInSQLSelect(
+          selectStatement,
+          schemaHandler.refs(),
+          schemaHandler.domains(),
+          schemaHandler.tasks(),
+          taskDesc.getRunConnection()
+        )
+      select
+    }
   }
 
-  def buildAllSQLQueries(sql: Option[String]): String = {
-    throw new Exception("Implemented in subclasses only")
+  final def buildAllSQLQueries(sql: Option[String]): String = {
+    if (taskDesc.parseSQL.getOrElse(true)) {
+      val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
+      val runConnection = this.taskDesc.getRunConnection()
+      val sqlWithParametersTranspiledIfInTest =
+        if (this.test || runConnection._transpileDialect.isDefined) {
+          val envVars = schemaHandler.activeEnvVars()
+          val timestamps =
+            if (this.test) {
+              List(
+                "SL_CURRENT_TIMESTAMP",
+                "SL_CURRENT_DATE",
+                "SL_CURRENT_TIME"
+              ).flatMap { e =>
+                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
+                value.map { v => e -> v }
+              }.toMap
+            } else
+              Map.empty[String, String]
+          SQLUtils.transpile(sqlWithParameters, runConnection, timestamps)
+        } else
+          sqlWithParameters
+
+      val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
+
+      val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
+
+      val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
+        strategy,
+        sqlWithParametersTranspiledIfInTest,
+        fullTableName,
+        SQLUtils.extractColumnNames(sqlWithParameters),
+        tableExists,
+        truncate = truncate,
+        materializedView = isMaterializedView(),
+        jdbcRunEngine,
+        sinkConfig
+      )
+      mainSql
+    } else {
+      val selectStatement = Utils.parseJinja(sql.getOrElse(taskDesc.getSql()), allVars)
+      selectStatement
+    }
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
@@ -127,7 +190,8 @@ abstract class AutoTask(
     end: Timestamp,
     jobResultCount: Long,
     success: Boolean,
-    message: String
+    message: String,
+    test: Boolean
   ): Unit = {
     if (taskDesc._auditTableName.isEmpty) { // avoid recursion when logging audit
       val log = AuditLog(
@@ -144,17 +208,18 @@ abstract class AutoTask(
         message,
         Step.TRANSFORM.toString,
         taskDesc.getDatabase(),
-        settings.appConfig.tenant
+        settings.appConfig.tenant,
+        test
       )
       AuditLog.sink(log)
     }
   }
 
-  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =
-    logAudit(start, end, jobResultCount, success = true, "success")
+  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long, test: Boolean): Unit =
+    logAudit(start, end, jobResultCount, success = true, "success", test)
 
-  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable): Unit =
-    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
+  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit =
+    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e), test)
 
   def dependencies(): List[String] = {
     val result = SQLUtils.extractRefsInFromAndJoin(parseJinja(taskDesc.getSql(), Map.empty))
@@ -180,7 +245,7 @@ object AutoTask extends StrictLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false))
+      .map(task(_, Map.empty, None, engine = Engine.SPARK, truncate = false, test = false))
   }
 
   def task(
@@ -188,6 +253,7 @@ object AutoTask extends StrictLogging {
     configOptions: Map[String, String],
     interactive: Option[String],
     truncate: Boolean,
+    test: Boolean,
     engine: Engine,
     resultPageSize: Int = 1
   )(implicit
@@ -202,6 +268,7 @@ object AutoTask extends StrictLogging {
           configOptions,
           interactive,
           truncate = truncate,
+          test = test,
           resultPageSize = resultPageSize
         )
       case Engine.JDBC =>
@@ -210,6 +277,7 @@ object AutoTask extends StrictLogging {
           configOptions,
           interactive,
           truncate = truncate,
+          test = test,
           resultPageSize = resultPageSize
         )
       case _ =>
@@ -222,6 +290,7 @@ object AutoTask extends StrictLogging {
               configOptions,
               interactive,
               truncate = truncate,
+              test = test,
               resultPageSize = resultPageSize
             )
 
@@ -231,6 +300,7 @@ object AutoTask extends StrictLogging {
               configOptions,
               interactive,
               truncate = truncate,
+              test = test,
               resultPageSize = resultPageSize
             )
 

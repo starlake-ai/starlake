@@ -7,5 +7,6 @@ case class TransformConfig(
   interactive: Option[String] = None,
   reload: Boolean = false,
   truncate: Boolean = false,
-  recursive: Boolean = false
+  recursive: Boolean = false,
+  test: Boolean = false
 )
