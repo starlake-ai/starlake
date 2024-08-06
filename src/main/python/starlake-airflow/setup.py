@@ -17,7 +17,7 @@ setup(name='starlake-airflow',
       license='Apache 2.0',
 #      url='https://github.com/starlake-ai/starlake/tree/master/src/main/python/starlake-airflow',
       packages=find_packages(include=['ai', 'ai.*']),
-      install_requires=['starlake-orchestration>=0.1.2.1'],
+      install_requires=['starlake-orchestration>=0.1.2.2'],
       extras_require={
         "airflow": ["airflow>=2.4.0"],
         "shell": [],

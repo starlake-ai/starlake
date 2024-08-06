@@ -22,23 +22,3 @@ def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
         **kwargs
     )
 spark_config = getattr(sys.modules[__name__], "get_spark_config", default_spark_config)
-
-from urllib import parse
-
-def asQueryParameters(parameters: dict = {}):
-    if parameters.__len__() > 0 :
-        return '?' + '&'.join(list(f'{parse.quote(k)}={parse.quote(v)}' for (k,v) in parameters.items()))
-    else :
-        return ''
-
-from croniter import croniter
-from datetime import datetime as dt
-
-def cron_start_time() -> dt:
-    return dt.fromtimestamp(dt.now().timestamp())
-
-sl_schedule_format = '%Y%m%dT%H%M'
-
-def sl_schedule(cron: str, start_time: dt = cron_start_time(), format: str = sl_schedule_format) -> str:
-  return croniter(cron, start_time).get_prev(dt).strftime(format)
-
