@@ -57,7 +57,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.sql.Types
@@ -1021,10 +1020,7 @@ class IngestionWorkflow(
             transformConfig.interactive match {
               case Some(format) =>
                 val bqJobResult = res.asInstanceOf[BigQueryJobResult]
-                val pretty = bqJobResult.prettyPrint(format, settings.appConfig.rootServe)
-                logger.info("START INTERACTIVE")
-                println(pretty)
-                logger.info("END INTERACTIVE")
+                val pretty = bqJobResult.prettyPrint(format)
                 Success(pretty)
               case None =>
                 Success("")
@@ -1039,9 +1035,6 @@ class IngestionWorkflow(
         (action.run(), transformConfig.interactive) match {
           case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
             val pretty = jdbcJobResult.prettyPrint(format)
-            logger.info("""START INTERACTIVE""")
-            println(pretty)
-            logger.info("""END INTERACTIVE""")
             Success(pretty) // Sink already done in JDBC
           case (Success(_), _) =>
             Success("")
@@ -1054,21 +1047,9 @@ class IngestionWorkflow(
         }
       case custom =>
         (action.run(), transformConfig.interactive) match {
-          case (Success(SparkJobResult(Some(dataFrame), _)), Some(_)) =>
-            val dsLogging =
-              new DatasetLogging {
-                def asString(ds: Dataset[Row]): String = ds.showString(10000, 0)
-              }
-            val output =
-              settings.appConfig.rootServe.map(rootServe => File(File(rootServe), "extension.log"))
-            import scala.language.reflectiveCalls
-            val data = dsLogging.asString(dataFrame)
-            // For interactive display. Used by the VSCode plugin
-            logger.info("""START INTERACTIVE""")
-            println(data)
-            logger.info("""END INTERACTIVE""")
-            output.foreach(_.append(s"""$data"""))
-            Success(data)
+          case (Success(jobResult: SparkJobResult), Some(format)) =>
+            val result = jobResult.prettyPrint(format)
+            Success(result)
           case (Success(_), None) =>
             Success("")
           case (Failure(exception), _) =>

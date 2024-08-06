@@ -123,7 +123,9 @@ object Settings extends StrictLogging {
     database: Option[String],
     domain: Option[String],
     active: Option[Boolean],
-    sql: Option[String]
+    sql: Option[String],
+    domainExpectation: Option[String],
+    domainRejected: Option[String]
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
@@ -141,6 +143,12 @@ object Settings extends StrictLogging {
 
     def getDomain()(implicit settings: Settings): String =
       this.domain.getOrElse("audit")
+
+    def getDomainExpectation()(implicit settings: Settings): String =
+      this.domainExpectation.getOrElse("audit")
+
+    def getDomainRejected()(implicit settings: Settings): String =
+      this.domainRejected.getOrElse("audit")
   }
 
   /** Describes a connection to a JDBC-accessible database engine
@@ -913,16 +921,12 @@ object Settings extends StrictLogging {
       dagRef.foreach { dagRef =>
         val dagConfigRef = if (dagRef.endsWith(".yml")) dagRef else dagRef + ".sl.yml"
         val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
-
-        Try(dagTemplateLoader.loadTemplate(dagConfigRef)(settings)) match {
-          case Failure(exception) =>
-            exception.printStackTrace()
-            errors = errors :+ ValidationMessage(
-              Severity.Error,
-              "AppConfig",
-              s"dagConfigRef $dagConfigRef not found in ${dagTemplateLoader.allPaths(settings).mkString("[", ",", "]")}"
-            )
-          case _ =>
+        if (!storageHandler.exists(dagConfigPath)) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            "AppConfig",
+            s"dagConfigRef $dagConfigRef not found in ${dagConfigPath.getParent}"
+          )
         }
       }
       errors

@@ -7,21 +7,27 @@ table:
   - name: "aBoolean"
     type: "boolean"
     array: false
+    sample: "true"
   - name: "aDate"
     type: "date"
     array: false
+    sample: "2024-05-27"
   - name: "aDoubleOrFloat"
     type: "double"
     array: false
+    sample: "1.5"
   - name: "aString"
     type: "string"
     array: false
+    sample: "\"v\"\"quoted\"\" string\""
   - name: "aTimestamp"
     type: "iso_date_time"
     array: false
+    sample: "2024-05-27T21:01:05.545Z"
   - name: "anInteger"
     type: "int"
     array: false
+    sample: "15"
   metadata:
     format: "DSV"
     withHeader: true

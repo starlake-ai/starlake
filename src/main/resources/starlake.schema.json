@@ -1265,6 +1265,12 @@
         "domain": {
           "$ref": "#/definitions/ConvertibleToString"
         },
+        "domainExpectation": {
+          "$ref": "#/definitions/ConvertibleToString"
+        },
+        "domainRejected": {
+          "$ref": "#/definitions/ConvertibleToString"
+        },
         "active": {
           "type": "boolean",
           "description": "Output table description"
@@ -2012,6 +2018,14 @@
         "timezone": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "TODO"
+        },
+        "duckdbMode": {
+          "type": "boolean",
+          "description": "is duckdb mode active"
+        },
+        "testCsvNullString": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "null string value in tests"
         },
         "hiveInTest": {
           "$ref": "#/definitions/ConvertibleToString",
