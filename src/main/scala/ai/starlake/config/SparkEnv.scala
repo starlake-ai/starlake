@@ -59,6 +59,8 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
           "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
     }
+    import org.apache.spark.sql.SparkSession
+
     val session =
       if (
         settings.appConfig.isHiveCompatible() || Utils

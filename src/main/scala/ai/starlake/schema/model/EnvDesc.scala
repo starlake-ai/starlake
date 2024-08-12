@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
+import java.time.LocalDateTime
 import java.util.regex.Pattern
 
 object Ref {
@@ -180,9 +181,18 @@ case class EnvDesc(
 object EnvDesc extends StrictLogging {
   def apply(env: Map[String, String]): EnvDesc = EnvDesc(latestSchemaVersion, env)
   def loadEnv(path: Path)(implicit storageHandler: StorageHandler): Option[EnvDesc] =
-    if (storageHandler.exists(path))
-      Option(YamlSerde.deserializeYamlEnvConfig(storageHandler.read(path), path.toString))
-    else {
+    if (storageHandler.exists(path)) {
+      val envDesc = Option(
+        YamlSerde.deserializeYamlEnvConfig(storageHandler.read(path), path.toString)
+      )
+      envDesc.map { envDesc =>
+        if (!envDesc.env.contains("_updated")) {
+          envDesc.copy(env = envDesc.env + ("_updated" -> LocalDateTime.now().toString))
+        } else
+          envDesc
+
+      }
+    } else {
       logger.warn(s"Env file $path not found")
       None
     }
@@ -192,8 +202,8 @@ object EnvDesc extends StrictLogging {
     settings: Settings
   ): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
-    val globalsCometPath = new Path(DatasetArea.metadata, "env.sl.yml")
-    val globalEnv = loadEnv(globalsCometPath).map(_.env).getOrElse(Map.empty)
+    val defaultEnvPath = new Path(DatasetArea.metadata, "env.sl.yml")
+    val defaultEnv = loadEnv(defaultEnvPath).map(_.env).getOrElse(Map.empty)
     val allSpecificEnvs: List[(Path, Map[String, String])] =
       storageHandler
         .list(DatasetArea.metadata, extension = ".sl.yml", recursive = false)
@@ -207,18 +217,18 @@ object EnvDesc extends StrictLogging {
           env.map(e => (path, e.env))
         }
     val specificEnvVarsCount = allSpecificEnvs.map { case (path, vars) => vars.size }.sum
-    if (globalEnv.isEmpty && specificEnvVarsCount > 0) {
+    if (defaultEnv.isEmpty && specificEnvVarsCount > 0) {
       val allSpecificFilenames =
         allSpecificEnvs.map { case (path, _) => path.getName() }.mkString(", ")
       errors = errors :+ ValidationMessage(
         Severity.Error,
         "Env",
-        s"Found Env specific $allSpecificFilenames. You cannot have env specific variables without a global env file"
+        s"Found Env specific $allSpecificFilenames. You cannot have env specific variables without the default env.sl.yml file"
       )
     }
 
     allSpecificEnvs.foreach { case (path, vars) =>
-      val envVarsWithNoDefault = vars.keys.toSet -- globalEnv.keys.toSet
+      val envVarsWithNoDefault = vars.keys.toSet -- defaultEnv.keys.toSet
       if (envVarsWithNoDefault.nonEmpty) {
         errors = errors :+ ValidationMessage(
           Severity.Error,

@@ -29,10 +29,11 @@ object SingleUserMainServer {
     metadata: Option[String],
     args: Array[String],
     env: Option[String],
-    gcpProject: Option[String]
+    gcpProject: Option[String],
+    duckDbMode: Boolean
   ): String = {
     val (settings, reload) =
-      SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
+      SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject, duckDbMode)
     if (args.head != "quit" && autoReload) {
       SingleUserMainServer.mapper.writeValueAsString(
         SingleUserServices.reset(reload = true)(settings)

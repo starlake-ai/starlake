@@ -47,19 +47,22 @@ object SettingsManager {
   private def uniqueId(
     root: String,
     metadata: Option[String],
-    env: Option[String]
+    env: Option[String],
+    duckDbMode: Boolean
   ): String = root +
     "," + metadata.getOrElse("null") +
-    "," + env.getOrElse("null")
+    "," + env.getOrElse("null") +
+    "," + duckDbMode
 
   def getUpdatedSettings(
     root: String,
     metadata: Option[String],
     env: Option[String],
     gcpProject: Option[String],
+    duckDbMode: Boolean,
     refresh: Boolean = false
   ): (Settings, Boolean) = {
-    val sessionId = uniqueId(root, metadata, env)
+    val sessionId = uniqueId(root, metadata, env, duckDbMode)
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 

@@ -28,19 +28,15 @@ import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerde}
+import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.{File, Resource}
 import com.databricks.spark.xml.util.XSDToSchema
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -83,12 +79,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
    */
-  private val forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
-  private val forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
-
-  // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
-  @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
-    new StarlakeObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
+  private def forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
+  private def forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 
   def listen(): Unit = {
     MetadataFileChangeHandler.start(this)
@@ -245,8 +237,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       List.empty[Type]
   }
 
-  def types(reload: Boolean = false): List[Type] = if (reload) loadTypes() else _types
-  var _types: List[Type] = loadTypes()
+  def types(reload: Boolean = false): List[Type] =
+    if (reload || _types == null) loadTypes() else _types
+
+  // Do not load if not required (useful for the API)
+  var _types: List[Type] = _
 
   /** All defined types. Load all default types defined in the file default.sl.yml Types are located
     * in the only file "types.sl.yml" Types redefined in the file "types.sl.yml" supersede the ones
@@ -316,7 +311,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allFiles
   }
 
-  val slDateVars: Map[String, String] = {
+  lazy val slDateVars: Map[String, String] = {
     val today = LocalDateTime.now
     val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
@@ -344,17 +339,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def activeEnvVars(reload: Boolean = false): Map[String, String] = {
-    if (reload) loadActiveEnvVars()
+    if (reload || _activeEnvVars == null) loadActiveEnvVars()
     this._activeEnvVars
   }
 
   def refs(reload: Boolean = false): RefDesc = {
-    if (reload) loadRefs()
+    if (reload || _refs == null) loadRefs()
     this._refs
   }
 
-  private var _activeEnvVars = loadActiveEnvVars()
-  private var _refs = loadRefs()
+  // Do not load if not required (useful for the API)
+  private var _activeEnvVars: Map[String, String] = _
+  private var _refs: RefDesc = _
 
   @throws[Exception]
   private def loadActiveEnvVars(): Map[String, String] = {
@@ -1328,7 +1324,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     result
   }
 
-  val auditTables: Domain =
+  lazy val auditTables: Domain =
     Domain(
       settings.appConfig.audit.getDomain(),
       tables = List(
@@ -1337,6 +1333,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         RejectedRecord.starlakeSchema
       )
     )
+
   def onTaskDelete(domain: String, task: String): Unit = {
     _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>

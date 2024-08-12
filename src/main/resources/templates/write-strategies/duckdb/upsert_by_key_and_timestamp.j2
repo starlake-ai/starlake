@@ -30,7 +30,7 @@ FROM (
 SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY (select 0)) AS SL_SEQ
 FROM SL_INCOMING SL_TMP1
 ) SL_TMP2
-WHERE SL_SEQ = 1);
+WHERE SL_SEQ = 1;
 
 DELETE FROM {{ tableFullName }}
 WHERE EXISTS
