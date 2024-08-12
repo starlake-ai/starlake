@@ -1008,7 +1008,8 @@ class SchemaHandlerSpec extends TestHelper {
             |writeStrategy:
             |  type: OVERWRITE
             |""".stripMargin
-      val metadata = sch.mapper.readValue(content, classOf[Metadata])
+
+      val metadata = mapper.readValue(content, classOf[Metadata])
 
       metadata shouldBe Metadata(
         format = Some(ai.starlake.schema.model.Format.POSITION),

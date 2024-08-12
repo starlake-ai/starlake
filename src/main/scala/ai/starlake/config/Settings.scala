@@ -796,7 +796,7 @@ object Settings extends StrictLogging {
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"env.${appConfig.env}.sl.yml not found in ${envFile.getName()}"
+            s"${envFile.getName()} not found !!!"
           )
         }
       }
@@ -910,13 +910,23 @@ object Settings extends StrictLogging {
         )
       }
 
-      val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
-      if (settings.appConfig.connectionRef.isEmpty) {
+      if (settings.appConfig.connections.isEmpty) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"connectionRef must be defined. Valid connection names are $validConnectionNames"
+          s"connections: at least one connection must be defined"
         )
+      }
+
+      val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
+
+      if (settings.appConfig.connectionRef.isEmpty) {
+        val msg =
+          if (settings.appConfig.connections.isEmpty)
+            s"connectionRef must be defined. Define a connection first and set it to this newly defined connection"
+          else
+            s"connectionRef must be defined. Valid connection names are $validConnectionNames"
+        errors = errors :+ ValidationMessage(Severity.Error, "AppConfig", msg)
       } else {
         settings.appConfig.connections.get(settings.appConfig.connectionRef) match {
           case Some(_) =>
@@ -937,7 +947,7 @@ object Settings extends StrictLogging {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "AppConfig",
-              s"schedulePresets $name value is not a valid cron"
+              s"schedulePresets $name value is not a valid cron (${exception.getMessage})"
             )
           case _ =>
         }

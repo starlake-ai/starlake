@@ -104,7 +104,14 @@ class Console(implicit isettings: Settings) {
           try {
             val params = s.split(" ")
             val response =
-              SingleUserMainServer.run(isettings.appConfig.root, None, params, this.envValue, None)
+              SingleUserMainServer.run(
+                isettings.appConfig.root,
+                None,
+                params,
+                this.envValue,
+                None,
+                isettings.appConfig.duckdbMode
+              )
             println(response)
           } catch {
             case e: Throwable =>

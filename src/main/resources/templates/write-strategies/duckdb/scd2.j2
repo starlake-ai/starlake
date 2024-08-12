@@ -1,10 +1,8 @@
 CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
 {% if strategyOn == 'TARGET' %}
-
-
 INSERT INTO {{ tableFullName }}
 SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
@@ -17,12 +15,9 @@ WHEN MATCHED THEN {{tableUpdateSetExpression}}, {{strategyStartTs}} = {{ strateg
 
    
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
-
-
-
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
 SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
+LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
 WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
 
 MERGE INTO {{ tableFullName }} SL_EXISTING USING (
