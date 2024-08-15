@@ -1,6 +1,6 @@
 object Versions {
   val curator = "2.6.0"
-  val spark3d0 = "3.5.1"
+  val spark3d0 = "3.5.2"
   val deltaSpark3d0 = "3.2.0"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
@@ -16,7 +16,7 @@ object Versions {
   val betterFiles = "3.9.2"
   val jackson212ForSpark3 = "2.15.2"
   val pureConfig212ForSpark3 = "0.14.0"
-  val esSpark212 = "8.14.3"
+  val esSpark212 = "8.15.0"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
   val bigquery = "2.42.0"
@@ -24,11 +24,11 @@ object Versions {
   val hadoop = "3.3.6"
   val sparkBigqueryWithDependencies = "0.39.1"
   val bigqueryConnector = "hadoop3-1.2.0"
-  val h2 = "2.3.230" // Test only
+  val h2 = "2.3.232" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.8"
   val confluentVersion = "7.7.0"
-  val kafkaClients = "7.6.2-ce"
+  val kafkaClients = "7.7.0-ce"
   val testContainers = "0.41.4"
   val gcpDataCatalog = "1.53.0"
   val gcpCloudLogging = "3.20.0"
