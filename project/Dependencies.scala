@@ -34,7 +34,11 @@ object Dependencies {
     ExclusionRule(organization = "com.fasterxml.jackson.databind"),
     ExclusionRule(organization = "com.fasterxml.jackson.jaxrs"),
     ExclusionRule(organization = "com.fasterxml.jackson.module"),
-    ExclusionRule(organization = "com.fasterxml.jackson.dataformat", "jackson-dataformat-yaml")
+    ExclusionRule(
+      organization = "com.fasterxml.jackson.dataformat",
+      name = "jackson-dataformat-yaml"
+    ),
+    ExclusionRule(organization = "com.fasterxml.jackson.datatype", name = "jackson-datatype-jsr310")
   )
 
   val jnaExclusions = Seq(ExclusionRule(organization = "net.java.dev.jna"))
@@ -58,9 +62,9 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0,
-    "org.apache.spark" %% "spark-avro" % Versions.spark3d0,
+    "com.databricks" %% "spark-xml" % Versions.sparkXML excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-avro" % Versions.spark3d0 excludeAll (jacksonExclusions: _*),
     "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
   )
 
@@ -78,20 +82,20 @@ object Dependencies {
   )
 
   val snowflake = Seq(
-    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test,
-    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test
+    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test excludeAll (jacksonExclusions: _*),
+    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test excludeAll (jacksonExclusions: _*)
   )
 
   val redshift = Seq(
-    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test,
-    "org.apache.hadoop" % "hadoop-aws" % "3.4.0" % Test,
+    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test excludeAll (jacksonExclusions: _*),
+    "org.apache.hadoop" % "hadoop-aws" % "3.4.0" % Test excludeAll (jacksonExclusions: _*),
     // "io.github.spark-redshift-community" %% "spark-redshift" % "6.2.0-spark_3.5" % Test,
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.768" % Test
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.768" % Test excludeAll (jacksonExclusions: _*)
   )
 
   val scalaTest = Seq(
-    "org.scalatest" %% "scalatest" % Versions.scalatest % Test,
-    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test
+    "org.scalatest" %% "scalatest" % Versions.scalatest % Test excludeAll (jacksonExclusions: _*),
+    "org.scalatestplus" %% "scalacheck-1-17" % Versions.scalacheckForScalatest % Test excludeAll (jacksonExclusions: _*)
   )
 
   val h2 = Seq(
@@ -149,9 +153,9 @@ object Dependencies {
   )
 
   val kafkaClients = Seq(
-    "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients,
-    "io.confluent" % "kafka-schema-registry-client" % Versions.confluentVersion % "provided",
-    "io.confluent" % "kafka-avro-serializer" % Versions.confluentVersion % "provided",
+    "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients excludeAll (jacksonExclusions: _*),
+    "io.confluent" % "kafka-schema-registry-client" % Versions.confluentVersion % "provided" excludeAll (jacksonExclusions: _*),
+    "io.confluent" % "kafka-avro-serializer" % Versions.confluentVersion % "provided" excludeAll (jacksonExclusions: _*),
     "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )

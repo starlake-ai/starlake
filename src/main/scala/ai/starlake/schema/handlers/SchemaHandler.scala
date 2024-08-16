@@ -851,80 +851,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] =
     for {
       jobDesc   <- loadJobDesc(jobPath)
-      taskDescs <- loadJobTasks(jobDesc, jobPath.getParent)
+      taskDescs <- loadAutoTasks(jobDesc, jobPath.getParent)
     } yield taskDescs
 
-  def loadJobTasks(
+  def loadAutoTasks(
     jobDesc: AutoJobDesc,
     jobFolder: Path
   ): Try[AutoJobDesc] = {
     Try {
       // Load task refs and inject them in the job
-      val autoTasksRefs = loadTaskRefs(jobDesc, jobFolder)
+      val autoTasksRefs = loadAutoTaskFiles(jobDesc, jobFolder)
 
       val jobDescWithTaskRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
       // set task name / domain / table and load sql/py file if any
       val tasks = jobDescWithTaskRefs.tasks.map { taskDesc =>
-        val (taskName, tableName) = (taskDesc.name, taskDesc.table) match {
-          case ("", "") =>
-            throw new Exception(
-              s"Task name or table must be defined for $taskDesc in ${jobFolder}"
-            )
-          case ("", table) =>
-            (table, table)
-          case (name, "") =>
-            (name, name)
-          case (name, table) =>
-            (name, table)
-        }
-
-        // Domain name may be set explicitly or else we use the folder name
-        val domainName =
-          if (taskDesc.domain.isEmpty) jobFolder.getName() else taskDesc.domain
-
-        val filenamePrefix =
-          if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
-        // task name is set explicitly and we always prefix it with the domain name except if it is already prefixed.
-        val taskWithName = taskDesc.copy(
-          domain = domainName,
-          table = tableName,
-          name = s"${domainName}.${taskName}",
-          _filenamePrefix = filenamePrefix
-        )
-
-        val taskCommandFile: Option[Path] =
-          taskCommandPath(jobFolder, taskWithName._filenamePrefix)
-
-        val taskWithCommand = taskCommandFile
-          .map { taskFile =>
-            if (taskFile.toString.endsWith(".py"))
-              taskWithName.copy(
-                python = Some(taskFile)
-              )
-            else {
-              val sqlTask = SqlTaskExtractor(storage.read(taskFile))
-              taskWithName.copy(
-                presql = sqlTask.presql,
-                sql = Option(sqlTask.sql),
-                postsql = sqlTask.postsql
-              )
-            }
-          }
-          .getOrElse(taskWithName)
-
-        // grants list can be set to a comma separated list in YAML , and transformed to a list while parsing
-        taskWithCommand.copy(
-          rls = taskWithName.rls.map(rls => {
-            val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
-            rls.copy(grants = grants)
-          }),
-          acl = taskWithName.acl.map(acl => {
-            val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
-            acl.copy(grants = grants)
-          })
-        )
+        loadAutoTask(jobDescWithTaskRefs, jobFolder, taskDesc)
       }
       val jobName = if (jobDesc.name.isEmpty) jobFolder.getName() else jobDesc.name
       // We do not check if task has a sql file associated with it, as it can be a python task
@@ -957,19 +900,133 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] = Try {
-    logger.info("Loading job " + jobPath)
-    val fileContent = storage.read(jobPath)
-    val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
-    YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
+  private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] =
+    Try {
+      logger.info("Loading job " + jobPath)
+      if (storage.exists(jobPath)) {
+        val fileContent = storage.read(jobPath)
+        val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
+        YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
+          case Failure(exception) =>
+            throw exception
+          case Success(autoJobDesc) =>
+            autoJobDesc
+        }
+      } else {
+        // no _config.sl.yml file. Dir name is the job name
+        AutoJobDesc(name = jobPath.getParent.getName, tasks = Nil)
+      }
+    }
+
+  def loadAutoTask(
+    jobDesc: AutoJobDesc,
+    jobFolder: Path,
+    taskPartName: String
+  ): Try[AutoTaskDesc] = Try {
+    // Load task ref and inject it in the job
+    val autoTasksRef = loadTaskRef(jobFolder, taskPartName)
+    autoTasksRef match {
+      case Success(taskDesc) =>
+        val autoTask = loadAutoTask(jobDesc, jobFolder, taskDesc)
+        autoTask
       case Failure(exception) =>
         throw exception
-      case Success(autoJobDesc) =>
-        autoJobDesc
     }
   }
 
-  private def loadTaskRefs(
+  def loadAutoTask(
+    jobDesc: AutoJobDesc,
+    jobFolder: Path,
+    taskDesc: AutoTaskDesc
+  ): AutoTaskDesc = {
+    val (taskName, tableName) = (taskDesc.name, taskDesc.table) match {
+      case ("", "") =>
+        throw new Exception(
+          s"Task name or table must be defined for $taskDesc in ${jobFolder}"
+        )
+      case ("", table) =>
+        (table, table)
+      case (name, "") =>
+        (name, name)
+      case (name, table) =>
+        (name, table)
+    }
+    // Domain name may be set explicitly or else we use the folder name
+    val domainName = if (taskDesc.domain.isEmpty) jobFolder.getName else taskDesc.domain
+
+    val filenamePrefix =
+      if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
+
+    // task name is set explicitly and we always prefix it with the domain name except if it is already prefixed.
+    val taskWithName = taskDesc.copy(
+      domain = domainName,
+      table = tableName,
+      name = s"${domainName}.${taskName}",
+      _filenamePrefix = filenamePrefix
+    )
+
+    val taskCommandFile: Option[Path] =
+      taskCommandPath(jobFolder, taskWithName._filenamePrefix)
+
+    val taskWithCommand = taskCommandFile
+      .map { taskFile =>
+        if (taskFile.toString.endsWith(".py"))
+          taskWithName.copy(
+            python = Some(taskFile)
+          )
+        else {
+          val sqlTask = SqlTaskExtractor(storage.read(taskFile))
+          taskWithName.copy(
+            presql = sqlTask.presql,
+            sql = Option(sqlTask.sql),
+            postsql = sqlTask.postsql
+          )
+        }
+      }
+      .getOrElse(taskWithName)
+
+    // grants list can be set to a comma separated list in YAML , and transformed to a list while parsing
+    val taskFinal =
+      taskWithCommand.copy(
+        rls = taskWithName.rls.map(rls => {
+          val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+          rls.copy(grants = grants)
+        }),
+        acl = taskWithName.acl.map(acl => {
+          val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+          acl.copy(grants = grants)
+        })
+      )
+
+    // We do not check if task has a sql file associated with it, as it can be a python task
+
+    val mergedTask = jobDesc.default match {
+      case Some(defaultTask) =>
+        defaultTask.merge(taskFinal)
+      case None =>
+        taskFinal
+    }
+
+    // strip comments from SQL
+    val mergedTaskWithStrippedComments =
+      mergedTask.copy(
+        presql = mergedTask.presql.map(sql => SQLUtils.stripComments(sql)),
+        sql = mergedTask.sql.map(sql => SQLUtils.stripComments(sql)),
+        postsql = mergedTask.postsql.map(sql => SQLUtils.stripComments(sql))
+      )
+
+    // set task name / domain / table and load sql/py file if any
+    val jobName = if (jobDesc.name.isEmpty) jobFolder.getName else jobDesc.name
+
+    AutoJobDesc(
+      name = jobName,
+      tasks = Option(jobDesc.tasks).getOrElse(Nil) :+ mergedTaskWithStrippedComments,
+      default = None
+    )
+    mergedTaskWithStrippedComments
+  }
+
+  private def loadAutoTaskFiles(
     jobDesc: AutoJobDesc,
     folder: Path
   ): List[AutoTaskDesc] = {
@@ -1033,6 +1090,43 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         }
     }
     autoTasksRefs
+  }
+
+  private def loadTaskRef(
+    folder: Path,
+    taskFilePrefix: String
+  ): Try[AutoTaskDesc] = {
+
+    val ymlPath = new Path(folder, taskFilePrefix + ".sl.yml")
+    val sqlPyCandidates =
+      List("sql", "sql.j2", "py").map(ext => new Path(folder, taskFilePrefix + s".$ext"))
+    val sqlPyPath = sqlPyCandidates.find(storage.exists)
+    if (storage.exists(ymlPath)) {
+      Try {
+        val taskDesc = YamlSerde
+          .deserializeYamlTask(
+            Utils
+              .parseJinja(storage.read(ymlPath), activeEnvVars()),
+            ymlPath.toString
+          )
+          .copy(name = taskFilePrefix)
+
+        val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
+        taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
+      }
+    } else {
+      Success(
+        AutoTaskDesc(
+          name = taskFilePrefix,
+          sql = None,
+          database = None,
+          domain = "",
+          table = "",
+          _filenamePrefix = taskFilePrefix,
+          taskTimeoutMs = None
+        )
+      )
+    }
   }
 
   /** @param basePath
@@ -1099,15 +1193,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     _jobs
   }
 
-  def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
-    if (reload) {
-      val (errors, validJobs) = loadJobs()
-      this._jobs = validJobs
-      this._jobErrors = errors
-    }
-    jobs().flatMap(_.tasks)
-  }
-
   def tasksMap(reload: Boolean = false): Map[String, List[AutoTaskDesc]] = {
     if (reload) {
       val (errors, validJobs) = loadJobs()
@@ -1125,9 +1210,39 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       None
   }
 
+  def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
+    if (reload) {
+      val (errors, validJobs) = loadJobs()
+      this._jobs = validJobs
+      this._jobErrors = errors
+    }
+    jobs().flatMap(_.tasks)
+  }
+
   def task(taskName: String): Option[AutoTaskDesc] = {
     val allTasks = tasks()
     allTasks.find(t => t.name == taskName)
+  }
+
+  def taskOnly(taskName: String): Option[AutoTaskDesc] = {
+    val loadedTask = _jobs.flatMap(_.tasks).find(_.name == taskName)
+    loadedTask match {
+      case Some(task) =>
+        Some(task)
+      case None =>
+        val components = taskName.split('.')
+        val domainName = components(0)
+        val taskPartName = components(1)
+        val directory = new Path(DatasetArea.transform, domainName)
+        val configPath = new Path(directory, "_config.sl.yml")
+        val taskDesc =
+          for {
+            jobDesc  <- loadJobDesc(configPath)
+            taskDesc <- loadAutoTask(jobDesc, directory, taskPartName)
+          } yield taskDesc
+        taskDesc.toOption
+    }
+
   }
 
   private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = (Nil, Nil)
@@ -1141,29 +1256,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val (validJobsFile, invalidJobsFile) = directories
         .map { directory =>
           val configPath = new Path(directory, "_config.sl.yml")
-          if (storage.exists(configPath)) {
-            val result = loadJobTasksFromFile(configPath)
-            result match {
-              case Success(_) =>
-                logger.info(s"Successfully loaded Job $configPath")
-              case Failure(e) =>
-                logger.error(s"Failed to load Job $configPath")
-                e.printStackTrace()
-            }
-            result
-          } else {
-            logger.info(s"Job $directory does not have a _config.sl.yml file")
-            val job = AutoJobDesc(directory.getName(), Nil)
-            val result = loadJobTasks(job, directory)
-            result match {
-              case Success(_) =>
-                logger.info(s"Successfully loaded Job $directory")
-              case Failure(e) =>
-                logger.error(s"Failed to load Job $directory")
-                e.printStackTrace()
-            }
-            result
+          val result = loadJobTasksFromFile(configPath)
+          result match {
+            case Success(_) =>
+              logger.info(s"Successfully loaded Job $configPath")
+            case Failure(e) =>
+              logger.error(s"Failed to load Job $configPath")
+              e.printStackTrace()
           }
+          result
         }
         .partition(_.isSuccess)
 
