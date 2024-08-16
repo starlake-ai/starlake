@@ -72,11 +72,12 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
- "com.google.protobuf"     % "protobuf-java"             % "3.25.3",
-  "org.scala-lang"         % "scala-library"             % scalaVersion.value,
-  "org.scala-lang"         % "scala-reflect"             % scalaVersion.value,
-  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value,
-  "com.google.guava"       %  "guava"                    % "31.1-jre" // required by jinjava 2.7.2
+ "com.google.protobuf"                % "protobuf-java"             % "3.25.3",
+  "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
+  "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
+  "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
+  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.2
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jackson212ForSpark3
 )
 
 name := {
@@ -372,4 +373,5 @@ Test / parallelExecution := false
 Test / testGrouping :=  (Test / definedTests).value.map { suite =>
   Group(suite.name, Seq(suite), SubProcess(ForkOptions().withRunJVMOptions(testJavaOptions.toVector)))
 }
+
 
