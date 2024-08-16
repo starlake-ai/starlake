@@ -1039,7 +1039,8 @@ class IngestionWorkflow(
     */
   // scalastyle:off println
   def transform(transformConfig: TransformConfig): Try[String] = {
-    schemaHandler.tasks(transformConfig.reload)
+    if (transformConfig.reload)
+      schemaHandler.tasks(transformConfig.reload)
     val action = buildTask(transformConfig)
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
