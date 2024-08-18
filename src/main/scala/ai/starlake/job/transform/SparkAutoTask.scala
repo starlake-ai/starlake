@@ -492,6 +492,7 @@ class SparkAutoTask(
                 .getOrElse("")}" """
           )
           .mkString(",")
+
         SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD COLUMNS ($colsAsString)")
       }
       Some(StructType(existingTableSchema.fields ++ newFields))

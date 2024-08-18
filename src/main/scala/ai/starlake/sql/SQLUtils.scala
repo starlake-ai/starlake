@@ -422,18 +422,22 @@ object SQLUtils extends StrictLogging {
       s"outputFormat=${outputFormat.name()}",
       "statementTerminator=NONE"
     )
-    val postFormat = formatted.replaceAll("______", "}}").replaceAll("___", "{{")
     val result =
-      if (outputFormat == JSQLFormatter.OutputFormat.HTML) {
-        val startIndex = postFormat.indexOf("<body>") + "<body>".length
-        val endIndex = postFormat.indexOf("</body>")
-        if (startIndex > 0 && endIndex > 0) {
-          postFormat.substring(startIndex, endIndex)
+      if (formatted.startsWith("-- failed to format start")) {
+        sql
+      } else {
+        val postFormat = formatted.replaceAll("______", "}}").replaceAll("___", "{{")
+        if (outputFormat == JSQLFormatter.OutputFormat.HTML) {
+          val startIndex = postFormat.indexOf("<body>") + "<body>".length
+          val endIndex = postFormat.indexOf("</body>")
+          if (startIndex > 0 && endIndex > 0) {
+            postFormat.substring(startIndex, endIndex)
+          } else {
+            postFormat
+          }
         } else {
           postFormat
         }
-      } else {
-        postFormat
       }
     // remove extra ';' added by JSQLFormatter
     val trimmedResult = result.trim
