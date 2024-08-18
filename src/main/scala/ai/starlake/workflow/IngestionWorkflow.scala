@@ -929,7 +929,7 @@ class IngestionWorkflow(
 
     val formattedSql =
       if (config.format)
-        SQLUtils.format(mainSQL, JSQLFormatter.OutputFormat.PLAIN).getOrElse(mainSQL)
+        SQLUtils.format(mainSQL, JSQLFormatter.OutputFormat.PLAIN)
       else
         mainSQL
 

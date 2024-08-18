@@ -244,14 +244,14 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     val aclSVGFile = File(outputFile.parent, taskDesc.name + "-acl.svg")
     val aclSVG = buildACLSVG(aclSVGFile, List(s"${jobDesc.name}.${taskDesc.name}"))
     val sql = taskDesc.sql.getOrElse("")
-    val trySql =
+    val formattedSql =
       SQLUtils.format(sql, JSQLFormatter.OutputFormat.PLAIN)
     val paramMap = Map(
       "task"          -> taskDesc,
       "schemaHandler" -> schemaHandler,
       "relationsSVG"  -> relationsSVGFile.name,
       "aclSVG"        -> aclSVGFile.name,
-      "sql"           -> trySql.getOrElse(sql),
+      "sql"           -> formattedSql,
       "python"        -> taskDesc.python.getOrElse("")
     )
 

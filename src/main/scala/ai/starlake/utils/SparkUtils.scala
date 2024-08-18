@@ -262,9 +262,7 @@ object SparkUtils extends StrictLogging {
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {
-    val formattedSQL = SQLUtils
-      .format(sql, JSQLFormatter.OutputFormat.PLAIN)
-      .getOrElse(sql)
+    val formattedSQL = SQLUtils.format(sql, JSQLFormatter.OutputFormat.PLAIN)
 
     val sqlId = java.util.UUID.randomUUID.toString
     val result =
