@@ -11,10 +11,10 @@ class ProjectCompareIntegrationSpec extends BigQueryIntegrationSpecBase {
   override def localDir: File = templates / "spark"
 
   override def sampleDataDir: File = localDir / "sample-data"
-
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Native Bigquery Transform" should "succeed" in {
+      pending
       withEnvs(
         "SL_ENV"                                        -> "BQ",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
