@@ -12,10 +12,10 @@ CREATE TABLE {{ tableFullName }}_INCOMING AS
 MERGE INTO {{ tableFullName }} USING {{ tableFullName }}_INCOMING
 ON ({{ renderStrategyJoinConditionWithPseudo('{{ tableFullName }}_INCOMING', '{{ tableFullName }}', strategyKey) }})
 WHEN MATCHED THEN
-    UPDATE SET {{ strategyEndTs }} = CURRENT_TIMESTAMP()
+    UPDATE SET {{ strategyEndTs }} = CURRENT_TIMESTAMP
 WHEN NOT MATCHED THEN
     INSERT ({{ renderColumnsWithoutScd2(tableColumnNames, "") }}, {{ quote }}{{ strategyStartTs }}{{ quote }}, {{ quote }}{{ strategyEndTs }}{{ quote }} )
-    VALUES ({{ renderColumnsWithoutScd2(tableColumnNames, '{{ tableFullName }}_INCOMING.') }}, CURRENT_TIMESTAMP(), NULL);
+    VALUES ({{ renderColumnsWithoutScd2(tableColumnNames, '{{ tableFullName }}_INCOMING.') }}, CURRENT_TIMESTAMP, NULL);
 
 
 DROP VIEW IF EXISTS #SL_INCOMING;

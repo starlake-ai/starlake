@@ -4,11 +4,9 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
-import ai.starlake.sql.SQLUtils
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
-import com.manticore.jsqlformatter.JSQLFormatter
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -92,16 +90,20 @@ class JdbcAutoTask(
     }
   }
 
-  def addSCD2Columns(connection: Connection): Unit = {
+  def addSCD2Columns(connection: Connection, engineName: Engine): Unit = {
     this.taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
         val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
         val scd2Columns = List(startTsCol, endTsCol)
         val alterTableSqls = scd2Columns.map { column =>
-          s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP"
+          if (engineName.toString.toLowerCase() == "redshift")
+            s"ALTER TABLE $fullTableName ADD COLUMN $column TIMESTAMP"
+          else
+            s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
         }
-        runSqls(connection, alterTableSqls, "addSCE2Columns")
+        // ignore errors if columns already exist
+        Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
       case _ =>
     }
   }
@@ -171,7 +173,7 @@ class JdbcAutoTask(
                 applyJdbcAcl(sinkConnection, forceApply = true)
               }
               runSqls(conn, postSql, "Post")
-              addSCD2Columns(conn)
+              addSCD2Columns(conn, sinkConnection.getJdbcEngineName())
 
             } match {
               case Success(_) =>
@@ -251,16 +253,9 @@ class JdbcAutoTask(
   private def runSqls(conn: Connection, sqls: List[String], typ: String): Unit = {
     if (sqls.nonEmpty) {
       sqls.foreach { req =>
-        val sqlId = java.util.UUID.randomUUID.toString
-        val formattedSQL = SQLUtils
-          .format(req, JSQLFormatter.OutputFormat.PLAIN)
-          .getOrElse(req)
-        logger.info(s"Running $typ JDBC SQL with id $sqlId: $formattedSQL")
         JdbcDbUtils.executeUpdate(req, conn) match {
           case Success(_) =>
-            logger.info(s"end running $typ JDBC SQL with id $sqlId")
           case Failure(e) =>
-            logger.error(s"Error running sql with id $sqlId", e)
             throw e
         }
       }

@@ -4,8 +4,10 @@ import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
@@ -219,7 +221,11 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def executeUpdate(script: String, connection: SQLConnection): Try[Boolean] = {
-    logger.info(s"Running $script")
+    val sqlId = java.util.UUID.randomUUID.toString
+    val formattedSQL = SQLUtils
+      .format(script, JSQLFormatter.OutputFormat.PLAIN)
+      .getOrElse(script)
+    logger.info(s"Running JDBC SQL with id $sqlId: $formattedSQL")
     val statement = connection.createStatement()
     val result = Try {
       val count = statement.executeUpdate(script)
@@ -228,10 +234,10 @@ object JdbcDbUtils extends LazyLogging {
     }
     result match {
       case Failure(exception) =>
-        logger.error(s"Error running $script", exception)
+        logger.error(s"Error running JDBC SQL with id $sqlId: ${exception.getMessage}")
         throw exception
       case Success(value) =>
-        logger.info(s"Executed $script with return value $value")
+        logger.info(s"end running JDBC SQL with id $sqlId with return value $value")
     }
     statement.close()
     result

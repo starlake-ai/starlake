@@ -6,7 +6,7 @@ CREATE  TEMPORARY TABLE SL_INCOMING AS {{selectStatement }};
 
 MERGE INTO  {{ tableFullName }}
 USING SL_INCOMING
-ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }})
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }})
 WHEN MATCHED THEN  UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
@@ -20,7 +20,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY 0) = 1;
 
 MERGE INTO {{ tableFullName }} 
 USING  SL_INCOMING
-ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', quotedStrategyKey) }})
+ON ({{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }})
 WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
