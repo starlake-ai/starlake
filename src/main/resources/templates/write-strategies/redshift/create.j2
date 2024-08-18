@@ -1,5 +1,5 @@
 
-{% if materializedView %}
+{% if materializedView == 'MATERIALIZED_VIEW' %}
 {% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
 {% else %}
 {% set createPrefix = 'CREATE TABLE' %}
@@ -14,14 +14,14 @@
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
 {{ createPrefix }} {{ tableFullName }} AS
 SELECT {{ tableColumnsCsv }}
-FROM SL_INCOMING
+FROM #SL_INCOMING
 QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY 0) = 1;
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
 {{ createPrefix }} {{ tableFullName }} AS 
 SELECT {{ tableColumnsCsv }}
-FROM SL_INCOMING
+FROM #SL_INCOMING
 QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
 """.stripMargin
 

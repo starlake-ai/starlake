@@ -1,45 +1,25 @@
-CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
+CREATE VIEW SL_INCOMING as
 {% if strategyOn == 'TARGET' %}
-
-
-INSERT INTO {{ tableFullName }}
-SELECT SL_INCOMING.*, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
-
-MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT SL_INCOMING.* FROM SL_INCOMING, {{ tableFullName }} SL_EXISTING
-    WHERE   {{strategyKeyJoinCondition}} AND 
-            SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
-            SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
-) SL_INCOMING ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN {{tableUpdateSetExpression}}, {{strategyStartTs}} = {{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
-
-   
+    {{ selectStatement }};
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
 
+    SELECT {{ tableColumnsCsv }}
+    FROM ({{ selectStatement }}) AS SL_INCOMING
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;
+
+{% endif %}
+
+CREATE VIEW SL_2 AS
+SELECT {{ renderStrategyKeyAsPseudo(strategyKey, 'SL_INCOMING') }}, SL_INCOMING.* FROM SL_INCOMING
+UNION ALL
+SELECT {{ renderStrategyKeyAsNullPseudo(strategyKey) }}, SL_INCOMING.* FROM SL_INCOMING
+INNER JOIN {{ tableFullName }} SL_EXISTING
+ON ({{ strategyKeyJoinCondition }} AND SL_EXISTING.{{strategyEndTs}} IS NULL);
 
 
-INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
-SELECT {{ tableColumnsCsv }}, NULL AS {{ strategyStartTs }}, NULL AS {{ strategyEndTs }} FROM SL_INCOMING
-LEFT JOIN {{ tableFullName }} SL_EXISTING ON ({{ strategyKeyJoinCondition }} AND {{ tableFullName }}.{{strategyEndTs}} IS NULL)
-WHERE {% for key in quotedStrategyKey %}SL_EXISTING.{{ key }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%};
-
-MERGE INTO {{ tableFullName }} SL_EXISTING USING (
-    SELECT {% for columnName in quotedTableColumnNames %}SL_INCOMING.{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
-    FROM
-        (   SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
-            FROM SL_INCOMING
-            WHERE SL_SEQ = 1 
-
-        ) AS SL_INCOMING, 
-    {{ tableFullName }} SL_EXISTING
-    WHERE   {{strategyKeyJoinCondition}} AND 
-        SL_EXISTING.{{ strategyEndTs }} IS NULL AND 
-        SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }}
-) SL_INCOMING 
-ON ({{ strategyKeyJoinCondition }})
-WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}, {{strategyStartTs}} = SL_INCOMING.{{ strategyTimestamp }}, {{ strategyEndTs }} = NULL;
-
-
-{%  endif %}
+MERGE INTO {{ tableFullName }} SL_EXISTING USING SL_2
+ON ({{ renderStrategyJoinConditionWithPseudo('SL_2', 'SL_EXISTING', strategyKey) }})
+WHEN MATCHED THEN UPDATE SET {{ strategyEndTs }} = CURRENT_TIMESTAMP
+WHEN NOT MATCHED THEN
+INSERT ({{ renderColumnsWithoutScd2(tableColumnNames, "") }}, {{ quote }}{{ strategyStartTs }}{{ quote }}, {{ quote }}{{ strategyEndTs }}{{ quote }} )
+VALUES ({{ renderColumnsWithoutScd2(tableColumnNames, 'SL_2.') }}, CURRENT_TIMESTAMP, NULL);

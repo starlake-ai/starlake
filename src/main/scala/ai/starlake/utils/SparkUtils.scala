@@ -1,6 +1,8 @@
 package ai.starlake.utils
 
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.sql.SQLUtils
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
@@ -260,15 +262,22 @@ object SparkUtils extends StrictLogging {
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {
-    try {
-      logger.info(s"Running Spark SQL $sql")
-      session.sql(sql)
-    } catch {
-      case e: Exception =>
-        logger.error(s"Error when executing sql $sql")
-        e.printStackTrace()
-        throw e
-    }
+    val formattedSQL = SQLUtils
+      .format(sql, JSQLFormatter.OutputFormat.PLAIN)
+      .getOrElse(sql)
 
+    val sqlId = java.util.UUID.randomUUID.toString
+    val result =
+      try {
+        logger.info(s"Executing statement with id $sqlId:\n $formattedSQL")
+        session.sql(sql)
+      } catch {
+        case e: Exception =>
+          logger.error(s"Error when executing statement id $sqlId")
+          e.printStackTrace()
+          throw e
+      }
+    logger.info(s"Successfully executed statement id $sqlId")
+    result
   }
 }

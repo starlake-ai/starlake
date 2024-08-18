@@ -65,12 +65,23 @@ class SparkAutoTask(
 
   def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
     Try {
-      if (forceApply || settings.appConfig.accessPolicies.apply) {
-        val sqls = extractHiveTableAcl()
-        sqls.foreach { sql =>
-          logger.info(sql)
-          SparkUtils.sql(session, sql)
+      val isGrantSupported = Try(
+        session.sessionState.sqlParser.parseExpression(
+          "grant select on table secured_table to role my_role"
+        )
+      ).isSuccess
+      if (isGrantSupported) {
+        if (forceApply || settings.appConfig.accessPolicies.apply) {
+          val sqls = extractHiveTableAcl()
+          sqls.foreach { sql =>
+            logger.info(sql)
+            SparkUtils.sql(session, sql)
+          }
         }
+      } else {
+        logger.warn(
+          "GRANT are not supported in this version of Spark."
+        )
       }
     }
 
@@ -345,9 +356,7 @@ class SparkAutoTask(
 
   def runSqls(sqls: List[String], typ: String): Option[DataFrame] = {
     if (sqls.nonEmpty) {
-      logger.info(s"Running Spark $typ FINAL SQL ==>")
       val df = sqls.map { sql =>
-        logger.info(sql)
         SparkUtils.sql(session, sql)
       }.lastOption
       df

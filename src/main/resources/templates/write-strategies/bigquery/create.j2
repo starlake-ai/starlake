@@ -5,7 +5,6 @@
 {{ sinkClustering }}
 {{ sinkDays }}
 {{ sinkRequirePartitionFilter }}
-{{ sinkMaterializedView }}
 {{ sinkEnableRefresh }}
 {{ sinkRefreshIntervalMs }}
 {{ sinkId }}
@@ -54,7 +53,7 @@ UPDATE {{ tableUpdateSetExpression }}
 
 #}
 
-{% if materializedView %}
+{% if materializedView == 'MATERIALIZED_VIEW' %}
 {% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
 {% else %}
 {% set createPrefix = 'CREATE TABLE' %}

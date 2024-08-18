@@ -1,5 +1,5 @@
 
-{% if materializedView %}
+{% if materializedView == 'MATERIALIZED_VIEW' %}
 {% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
 {% else %}
 {% set createPrefix = 'CREATE TABLE' %}

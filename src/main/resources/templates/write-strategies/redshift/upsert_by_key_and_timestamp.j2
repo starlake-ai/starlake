@@ -1,12 +1,4 @@
 
-{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
-{% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
-{% endmacro %}
-
-{% macro renderTableColumns(table, columnNames) %}
-    {% for columnName in columnNames %}{{ table }}."{{ columnName }}"{% if not loop.last %}, {% endif %}{%endfor%}
-{% endmacro %}
-
 
 {% if strategyOn == 'TARGET' %}
 

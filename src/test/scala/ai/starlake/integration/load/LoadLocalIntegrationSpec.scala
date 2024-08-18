@@ -74,18 +74,33 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
         )
         assert(new Main().run(Array("load")))
       }
-      val ordersCount = sparkSession.sql("select * from sales.orders").count
+      val orders = sparkSession.sql("select * from sales.orders")
+      orders.show(false)
+      val ordersCount = orders.count
       assert(ordersCount == 6)
-      val sellersCount = sparkSession.sql("select * from hr.sellers").count
+
+      val sellers = sparkSession.sql("select * from hr.sellers")
+      sellers.show(false)
+      val sellersCount = sellers.count
       assert(sellersCount == 2)
-      val customers =
-        sparkSession.sql("select name2 from sales.customers").collect().map(_.getString(0))
-      val customersCount = customers.size
+
+      val customers = sparkSession.sql("select name2 from sales.customers")
+      customers.show(false)
+      val customersCount = customers.count()
       assert(customersCount == 25)
-      assert(!customers.contains("RemoveLater"))
-      assert(customers.contains("Bama"))
-      val locationsCount = sparkSession.sql("select * from hr.flat_locations").count
+      val custCollection = customers.collect().map(_.getString(0))
+      assert(!custCollection.contains("RemoveLater"))
+      assert(custCollection.contains("Bama"))
+
+      val locations = sparkSession.sql("select * from hr.flat_locations")
+      locations.show(false)
+      val locationsCount = locations.count
       assert(locationsCount == 2)
+
+      val cats = sparkSession.sql("select * from sales.categories")
+      cats.show(false)
+      val catsCount = cats.count
+      assert(catsCount == 6)
     }
   }
 }

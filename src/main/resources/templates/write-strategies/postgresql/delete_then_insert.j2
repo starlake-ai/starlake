@@ -1,8 +1,3 @@
-{% macro renderCondition(table1, table2, columnNames) %}
-    {% for columnName in columnNames %}{{table1}}.{{ columnName }} = {{table2}}.{{ columnName }}{% if not loop.last %} AND {% endif %}{%endfor%}
-{% endmacro %}
-
-
 CREATE OR REPLACE VIEW SL_INCOMING AS {{ selectStatement }};
 
 {% if strategyOn == 'TARGET' %}
@@ -12,7 +7,7 @@ DELETE FROM {{ tableFullName }}
 WHERE EXISTS
 (
 SELECT 1 FROM SL_INCOMING
-WHERE {{ renderCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
 );
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
@@ -25,7 +20,7 @@ FROM #SL_INCOMING
 DELETE FROM {{ tableFullName }}
 WHERE EXISTS (
 SELECT 1 FROM SL_VIEW_WITH_ROWNUM
-WHERE {{ renderCondition(tableFullName, 'SL_VIEW_WITH_ROWNUM', strategyKey) }}
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_VIEW_WITH_ROWNUM', strategyKey) }}
 );
 
 {% endif %}

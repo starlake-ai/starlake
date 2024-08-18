@@ -10,6 +10,7 @@ import ai.starlake.schema.model.{
   Schema,
   TableInfo => SLTableInfo
 }
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
 import com.google.cloud.{PageImpl, RetryOption}
@@ -18,6 +19,7 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption,
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
+import com.manticore.jsqlformatter.JSQLFormatter
 
 import java.net.URI
 import java.nio.channels.Channels
@@ -287,7 +289,12 @@ class BigQueryNativeJob(
               connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
             )
 
-        logger.info(s"Running BQ FINAL SQL ==> $targetSQL")
+        val sqlId = java.util.UUID.randomUUID.toString
+        val formattedSQL = SQLUtils
+          .format(targetSQL, JSQLFormatter.OutputFormat.PLAIN)
+          .getOrElse(targetSQL)
+        logger.info(s"running BigQuery statement with Id $sqlId: $formattedSQL")
+
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
         val finalConfiguration =
           queryConfigWithUDF.setPriority(Priority.INTERACTIVE).setDryRun(dryRun).build()
@@ -325,14 +332,20 @@ class BigQueryNativeJob(
                 QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
               )
               logger.info(
-                s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+                s"Query large results performed successfully on query with Id $sqlId: ${results.getTotalRows} rows returned."
               )
               BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
             } else {
               BigQueryJobResult(None, totalBytesProcessed, Some(jobResult))
             }
           }
-        result
+        result match {
+          case Failure(e) =>
+            logger.error(s"Error while running BigQuery query with id $sqlId", e.getMessage)
+            Failure(e)
+          case Success(jobResult) =>
+            Success(jobResult)
+        }
       }
     }
   }

@@ -5,8 +5,10 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import com.manticore.jsqlformatter.JSQLFormatter
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -248,16 +250,20 @@ class JdbcAutoTask(
   @throws[Exception]
   private def runSqls(conn: Connection, sqls: List[String], typ: String): Unit = {
     if (sqls.nonEmpty) {
-      logger.info(s"running $typ FINAL SQL ==>")
       sqls.foreach { req =>
+        val sqlId = java.util.UUID.randomUUID.toString
+        val formattedSQL = SQLUtils
+          .format(req, JSQLFormatter.OutputFormat.PLAIN)
+          .getOrElse(req)
+        logger.info(s"Running $typ JDBC SQL with id $sqlId: $formattedSQL")
         JdbcDbUtils.executeUpdate(req, conn) match {
           case Success(_) =>
+            logger.info(s"end running $typ JDBC SQL with id $sqlId")
           case Failure(e) =>
-            logger.error(s"Error running sql $req as $typ SQL", e)
+            logger.error(s"Error running sql with id $sqlId", e)
             throw e
         }
       }
-      logger.info(s"end running $typ FINAL SQL")
     }
   }
 
