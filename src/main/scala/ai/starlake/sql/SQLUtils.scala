@@ -413,15 +413,17 @@ object SQLUtils extends StrictLogging {
       .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
       .mkString(" AND ")
 
-  def format(input: String, outputFormat: JSQLFormatter.OutputFormat): Try[String] = Try {
+  def format(input: String, outputFormat: JSQLFormatter.OutputFormat): String = {
     val sql = input.trim
 
     val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
-    val formatted = JSQLFormatter.format(
-      preformat,
-      s"outputFormat=${outputFormat.name()}",
-      "statementTerminator=NONE"
-    )
+    val formatted = Try(
+      JSQLFormatter.format(
+        preformat,
+        s"outputFormat=${outputFormat.name()}",
+        "statementTerminator=NONE"
+      )
+    ).getOrElse(s"-- failed to format start\n$sql\n-- failed to format end")
     val result =
       if (formatted.startsWith("-- failed to format start")) {
         sql

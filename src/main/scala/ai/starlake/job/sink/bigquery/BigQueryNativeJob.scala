@@ -13,12 +13,12 @@ import ai.starlake.schema.model.{
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{JobBase, JobResult, Utils}
 import better.files.File
-import com.google.cloud.{PageImpl, RetryOption}
 import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
+import com.google.cloud.{PageImpl, RetryOption}
 import com.manticore.jsqlformatter.JSQLFormatter
 
 import java.net.URI
@@ -292,7 +292,6 @@ class BigQueryNativeJob(
         val sqlId = java.util.UUID.randomUUID.toString
         val formattedSQL = SQLUtils
           .format(targetSQL, JSQLFormatter.OutputFormat.PLAIN)
-          .getOrElse(targetSQL)
         logger.info(s"running BigQuery statement with Id $sqlId: $formattedSQL")
 
         val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)

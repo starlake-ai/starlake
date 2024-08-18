@@ -224,7 +224,6 @@ object JdbcDbUtils extends LazyLogging {
     val sqlId = java.util.UUID.randomUUID.toString
     val formattedSQL = SQLUtils
       .format(script, JSQLFormatter.OutputFormat.PLAIN)
-      .getOrElse(script)
     logger.info(s"Running JDBC SQL with id $sqlId: $formattedSQL")
     val statement = connection.createStatement()
     val result = Try {
