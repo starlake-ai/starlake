@@ -162,7 +162,7 @@ abstract class AutoTask(
         tableComponents,
         tableExists,
         truncate = truncate,
-        materializedView = isMaterializedView(),
+        materializedView = resolveMaterializedView(),
         jdbcRunEngine,
         sinkConfig
       )
@@ -245,10 +245,10 @@ abstract class AutoTask(
       taskDesc.getWriteMode()
     )
 
-  def isMaterializedView(): Boolean = {
+  def resolveMaterializedView(): Materialization = {
     taskDesc.sink
       .flatMap(_.materializedView)
-      .getOrElse(Materialization.TABLE) == Materialization.MATERIALIZED_VIEW
+      .getOrElse(Materialization.TABLE)
   }
 }
 

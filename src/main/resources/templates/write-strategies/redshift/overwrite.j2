@@ -1,7 +1,7 @@
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
 
-{% if materializedView %}
+{% if materializedView == 'MATERIALIZED_VIEW' %}
 DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
 CREATE MATERIALIZED VIEW {{ tableFullName }} AS SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING;
 {% else %}

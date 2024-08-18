@@ -1,6 +1,6 @@
 
 
-{% if materializedView %}
+{% if materializedView == 'MATERIALIZED_VIEW' %}
 DROP MATERIALIZED VIEW IF EXISTS {{ tableFullName }};
 CREATE MATERIALIZED VIEW {{ tableFullName }} AS {{ selectStatement }}
 {% else %}

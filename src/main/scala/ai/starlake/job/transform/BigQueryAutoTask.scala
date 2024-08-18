@@ -135,7 +135,6 @@ class BigQueryAutoTask(
 
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {
     sqls.map { req =>
-      logger.info(s"running sql request $req")
       bqNativeJob(bigQuerySinkConfig, req).runInteractiveQuery()
     }
   }

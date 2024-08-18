@@ -59,4 +59,17 @@ abstract class AnyTemplateLoader extends LazyLogging {
         Failure(new RuntimeException(s"Relative template not found in for ${domainTemplate}"))
     }
   }
+
+  def loadMacros(): Try[String] = {
+    Resource.asString(s"$RESOURCE_TEMPLATE_FOLDER/default.j2") match {
+      case Some(value) => Success(value)
+      case None =>
+        Failure(
+          new RuntimeException(
+            s"default macros not found in for ${RESOURCE_TEMPLATE_FOLDER}/default.j2"
+          )
+        )
+    }
+  }
+
 }

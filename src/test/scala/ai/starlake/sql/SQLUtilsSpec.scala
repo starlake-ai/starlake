@@ -3,7 +3,13 @@ package ai.starlake.sql
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.job.strategies.StrategiesBuilder
-import ai.starlake.schema.model.{AllSinks, RefDesc, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model.{
+  AllSinks,
+  Materialization,
+  RefDesc,
+  WriteStrategy,
+  WriteStrategyType
+}
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -237,7 +243,7 @@ class SQLUtilsSpec extends TestHelper {
             ),
             targetTableExists = true,
             truncate = false,
-            materializedView = false,
+            materializedView = Materialization.TABLE,
             settings.appConfig.jdbcEngines("bigquery"),
             AllSinks().getSink()
           )

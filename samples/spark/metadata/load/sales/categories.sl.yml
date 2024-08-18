@@ -14,9 +14,10 @@ table:
     quote: "\""
     escape: "\\"
     writeStrategy:
-      type: "SCD2"
+      type: SCD2
       key: [id]
-      timestamp: "last_update"
+      timestamp: last_update
+      on: TARGET
   attributes:
     - name: "id"
       type: "longstring"

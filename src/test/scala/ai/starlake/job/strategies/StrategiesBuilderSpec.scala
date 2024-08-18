@@ -1,7 +1,13 @@
 package ai.starlake.job.strategies
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{AllSinks, MergeOn, WriteStrategy, WriteStrategyType}
+import ai.starlake.schema.model.{
+  AllSinks,
+  Materialization,
+  MergeOn,
+  WriteStrategy,
+  WriteStrategyType
+}
 import better.files.File
 
 trait StrategiesBuilderSpec extends TestHelper {
@@ -28,7 +34,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
@@ -57,7 +63,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
@@ -90,7 +96,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "CREATE"
@@ -119,7 +125,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "APPEND"
@@ -146,7 +152,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = true,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "APPEND"
@@ -175,7 +181,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = true,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "OVERWRITE"
@@ -205,7 +211,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY"
@@ -236,7 +242,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY"
@@ -270,7 +276,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY_AND_TIMESTAMP"
@@ -304,7 +310,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "UPSERT_BY_KEY_AND_TIMESTAMP"
@@ -338,7 +344,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "DELETE_THEN_INSERT"
@@ -352,7 +358,7 @@ trait StrategiesBuilderSpec extends TestHelper {
     "scd2" should "return correct SQL" in {
       val strategy =
         WriteStrategy(
-          `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
+          `type` = Some(WriteStrategyType.SCD2),
           key = List("transaction_id"),
           on = Some(MergeOn.TARGET),
           timestamp = Some("transaction_date"),
@@ -372,7 +378,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "SCD2"
@@ -386,7 +392,7 @@ trait StrategiesBuilderSpec extends TestHelper {
     "scd2 source and target" should "return correct SQL" in {
       val strategy =
         WriteStrategy(
-          `type` = Some(WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP),
+          `type` = Some(WriteStrategyType.SCD2),
           key = List("transaction_id"),
           on = Some(MergeOn.SOURCE_AND_TARGET),
           timestamp = Some("transaction_date"),
@@ -406,7 +412,7 @@ trait StrategiesBuilderSpec extends TestHelper {
           ),
           targetTableExists = true,
           truncate = false,
-          materializedView = false,
+          materializedView = Materialization.TABLE,
           settings.appConfig.jdbcEngines(engine),
           AllSinks(format = Some("delta")).getSink(),
           "SCD2"
