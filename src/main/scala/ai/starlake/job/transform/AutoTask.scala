@@ -282,7 +282,7 @@ object AutoTask extends StrictLogging {
     test: Boolean,
     engine: Engine,
     accessToken: Option[String] = None,
-    resultPageSize: Int = 1,
+    resultPageSize: Int = 1000,
     dryRun: Boolean = false
   )(implicit
     settings: Settings,

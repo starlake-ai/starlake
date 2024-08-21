@@ -12,11 +12,8 @@ object SchemaExtractor {
   def extractSchemas(
     connectionName: String
   )(implicit settings: Settings): Try[List[(String, List[String])]] = {
-    println(s"SchemaExtractor1:$connectionName")
     val connection = settings.appConfig.connections(connectionName)
-    println(s"SchemaExtractor2:$connection")
     val connType = connection.getType()
-    println(s"SchemaExtractor3:${connection.getType()}")
     connType match {
       case ConnectionType.JDBC =>
         val result = JdbcDbUtils.extractSchemasAndTables(connection)

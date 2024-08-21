@@ -27,7 +27,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def run(args: Array[String]): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
     AclDependenciesCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 

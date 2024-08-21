@@ -1014,26 +1014,54 @@ object Settings extends StrictLogging {
     * @return
     *   final configuration after merging with application.conf & application. sl.yml
     */
-  def apply(config: Config): Settings = {
+
+  def apply(config: Config, env: Option[String], root: Option[String]): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
       config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     // Load reference.conf
-    val loaded = loadConf(Some(effectiveConfig))
+    val loadedConfig = loadConf(Some(effectiveConfig))
+    val updatedConfig =
+      root
+        .map { root =>
+          val oldRootLength = loadedConfig.root.length
+          loadedConfig.copy(
+            root = loadedConfig.root,
+            audit = loadedConfig.audit
+              .copy(path = root + loadedConfig.audit.path.substring(oldRootLength)),
+            expectations = loadedConfig.expectations
+              .copy(path = root + loadedConfig.expectations.path.substring(oldRootLength)),
+            datasets = root + loadedConfig.datasets.substring(oldRootLength),
+            incoming = root + loadedConfig.incoming.substring(oldRootLength),
+            metadata = root + loadedConfig.metadata.substring(oldRootLength),
+            lock =
+              loadedConfig.lock.copy(path = root + loadedConfig.lock.path.substring(oldRootLength)),
+            metrics = loadedConfig.metrics
+              .copy(path = root + loadedConfig.metrics.path.substring(oldRootLength)),
+            dags = root + loadedConfig.dags.substring(oldRootLength),
+            writeStrategies = root + loadedConfig.writeStrategies.substring(oldRootLength)
+          )
+        }
+        .getOrElse(loadedConfig)
+
     logger.info(
       "root=" + config.getString("root")
     )
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )
-    logger.debug(YamlSerde.serialize(loaded))
+    logger.debug(YamlSerde.serialize(updatedConfig))
     val settings =
-      Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
+      Settings(
+        updatedConfig,
+        effectiveConfig.getConfig("spark"),
+        effectiveConfig.getConfig("extra")
+      )
     // Load application.conf / application.sl.yml
     val loadedSettings =
-      loadApplicationYaml(effectiveConfig, settings)
-        .orElse(loadApplicationConf(effectiveConfig, settings))
+      loadApplicationYaml(effectiveConfig, settings, env)
+        .orElse(loadApplicationConf(effectiveConfig, settings, env))
         .getOrElse(settings)
 
     val applicationConfSettings =
@@ -1062,7 +1090,11 @@ object Settings extends StrictLogging {
     settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
 
-  private def loadApplicationConf(effectiveConfig: Config, settings: Settings): Option[Settings] = {
+  private def loadApplicationConf(
+    effectiveConfig: Config,
+    settings: Settings,
+    env: Option[String] = None
+  ): Option[Settings] = {
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     if (settings.storageHandler().exists(applicationConfPath)) {
       logger.info(s"Loading $applicationConfPath")
@@ -1094,7 +1126,11 @@ object Settings extends StrictLogging {
     *   :
     * @return
     */
-  private def loadApplicationYaml(effectiveConfig: Config, settings: Settings): Option[Settings] = {
+  private def loadApplicationYaml(
+    effectiveConfig: Config,
+    settings: Settings,
+    env: Option[String] = None
+  ): Option[Settings] = {
     val applicationYmlPath =
       new Path(DatasetArea.metadata(settings), "application.sl.yml")
     val applicationYmlConfig =
@@ -1104,9 +1140,10 @@ object Settings extends StrictLogging {
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
           Try(
-            Utils.parseJinja(applicationYmlContent, schemaHandler.activeEnvVars(reload = true))(
-              settings
-            )
+            Utils
+              .parseJinja(applicationYmlContent, schemaHandler.activeEnvVars(reload = true, env))(
+                settings
+              )
           ) match {
             case Success(value) => value
             case Failure(exception) =>

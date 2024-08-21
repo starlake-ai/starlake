@@ -36,7 +36,7 @@ sealed case class WriteStrategyType(value: String) {
   def requireTimestamp(): Boolean = {
     this match {
       case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP => true
-      case WriteStrategyType.SCD2                        => true
+      case WriteStrategyType.SCD2                        => false
       case _                                             => false
     }
   }

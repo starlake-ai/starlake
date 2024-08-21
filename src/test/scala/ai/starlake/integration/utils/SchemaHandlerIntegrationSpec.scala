@@ -27,7 +27,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
     // It works locally but not in pipeline. Wrapping it in order to use it only locally
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       clearDataDirectories()
-      implicit val settings: Settings = Settings(Settings.referenceConfig)
+      implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
       val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
       val workflow =
         new IngestionWorkflow(settings.storageHandler(), schemaHandler)

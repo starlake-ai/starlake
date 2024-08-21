@@ -756,7 +756,7 @@ object StarlakeTestData {
       d.tables.find(_.finalName == taskOrTableFolderName)
     }
 
-    val task = schemaHandler.tasks().find(_.name == s"$domainName.$taskOrTableFolderName")
+    val task = schemaHandler.task(s"$domainName.$taskOrTableFolderName")
 
     (table, task) match {
       case (Some(table), None) =>

@@ -31,9 +31,11 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   def extractSchemasAndTables(schemaHandler: SchemaHandler): Try[List[(String, List[String])]] = {
     val domains = extractDatasets(schemaHandler)
     Try {
-      domains.map { domain =>
-        domain.name -> domain.tables.map(_.name)
-      }
+      domains
+        .sortBy(_.name)
+        .map { domain =>
+          domain.name -> domain.tables.map(_.name).sorted
+        }
     }
   }
 

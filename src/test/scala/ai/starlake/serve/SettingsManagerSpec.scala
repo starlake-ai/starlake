@@ -13,7 +13,7 @@ class SettingsManagerSpec extends TestHelper {
       val oldRoot = settings.appConfig.root
       val oldDatabase = settings.appConfig.database
       val (settings2, isNew) =
-        SettingsManager.getUpdatedSettings(
+        MapSettingsManager.getUpdatedSettings(
           "/tmp/my/settings/home",
           Some("test-metadata"),
           Some("test"),
@@ -25,7 +25,7 @@ class SettingsManagerSpec extends TestHelper {
       settings2.appConfig.metadata shouldBe "/tmp/my/settings/home/test-metadata"
       settings2.appConfig.database shouldBe "my-project-id"
 
-      SettingsManager.getUpdatedSettings(
+      MapSettingsManager.getUpdatedSettings(
         oldRoot,
         Option(oldMetadata),
         Option(oldEnv),

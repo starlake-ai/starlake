@@ -89,7 +89,6 @@ object Dependencies {
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test excludeAll (jacksonExclusions: _*),
     "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % Test excludeAll (jacksonExclusions: _*),
-    "io.github.spark-redshift-community" %% "spark-redshift" % "6.3.0-spark_3.5" % Test,
     "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.769" % Test excludeAll (jacksonExclusions: _*)
   )
 
@@ -192,6 +191,10 @@ object Dependencies {
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
   )
 
+  val scala212LibsOnly = Seq(
+    "io.github.spark-redshift-community" %% "spark-redshift" % "6.3.0-spark_3.5" % Test
+  )
+
   val scalaCompat = Seq(
     "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
@@ -203,8 +206,12 @@ object Dependencies {
     "org.apache.derby" % "derbynet" % Versions.derbyVersion % Test
   )
 
+  val cache = Seq(
+    "com.github.ben-manes.caffeine" % "caffeine" % "3.1.8"
+  )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache
 }

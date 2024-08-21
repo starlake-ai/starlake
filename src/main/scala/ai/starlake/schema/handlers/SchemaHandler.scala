@@ -338,8 +338,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def activeEnvVars(reload: Boolean = false): Map[String, String] = {
-    if (reload || _activeEnvVars == null) loadActiveEnvVars()
+  def activeEnvVars(reload: Boolean = false, env: Option[String] = None): Map[String, String] = {
+    if (reload || _activeEnvVars == null) loadActiveEnvVars(env)
     this._activeEnvVars
   }
 
@@ -353,7 +353,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private var _refs: RefDesc = _
 
   @throws[Exception]
-  private def loadActiveEnvVars(): Map[String, String] = {
+  private def loadActiveEnvVars(env: Option[String] = None): Map[String, String] = {
     val slVarsAsProperties =
       System
         .getProperties()
@@ -380,11 +380,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           _.richFormat(externalProps, slDateVars)
         ) // will replace with sys.env
 
-    val activeEnvName = Option(System.getProperties().get("env"))
-      .orElse(Option(System.getenv().get("SL_ENV")))
-      .orElse(globalEnvVars.get("SL_ENV"))
-      .getOrElse(settings.appConfig.env)
-      .toString
+    val activeEnvName =
+      env // passed as argument (by the API)
+        .orElse(Option(System.getProperties().get("env"))) // passed as a system property
+        .orElse(Option(System.getenv().get("SL_ENV"))) // passed as an environment variable
+        .orElse(globalEnvVars.get("SL_ENV")) // defined in the default env file
+        .getOrElse(settings.appConfig.env) // defined in the application.sl.yml
+        .toString
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
 
