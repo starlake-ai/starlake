@@ -175,7 +175,7 @@ object StarlakeTestResult {
     transformResults: List[StarlakeTestResult]
   ): Unit = {
 
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
+    implicit val originalSettings: Settings = Settings(Settings.referenceConfig, None, None)
     val rootFolder = new Directory(
       new File(originalSettings.appConfig.root, "test-reports")
     )
@@ -195,7 +195,7 @@ object StarlakeTestResult {
     loadAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
     transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage)
   ): Unit = {
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
+    implicit val originalSettings: Settings = Settings(Settings.referenceConfig, None, None)
     val rootFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
     copyCssAndJs(rootFolder)
 

@@ -192,7 +192,12 @@ object BigQueryFreshnessInfo extends StrictLogging {
 
   @nowarn
   def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig)
-    BigQueryFreshnessInfoCmd.run(args, schemaHandler).map(_ => ())
+    BigQueryFreshnessInfoCmd.parse(args) match {
+      case Some(config) =>
+        implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
+        BigQueryFreshnessInfoCmd.run(config, schemaHandler).map(_ => ())
+      case None =>
+        Try(throw new IllegalArgumentException(BigQueryFreshnessInfoCmd.usage()))
+    }
   }
 }

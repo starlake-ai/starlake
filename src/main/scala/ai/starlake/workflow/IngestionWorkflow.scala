@@ -913,7 +913,7 @@ class IngestionWorkflow(
       config.test,
       taskDesc.getRunEngine(),
       config.accessToken,
-      resultPageSize = 1000,
+      resultPageSize = 1,
       dryRun = config.dryRun
     )(
       settings,

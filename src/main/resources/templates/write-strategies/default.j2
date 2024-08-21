@@ -20,6 +20,10 @@
     {% for columnName in columnNames %}{{table1}}.{{ quote }}{{ columnName }}{{ quote }} = {{table2}}.{{ quote }}{{ columnName }}{{ quote }}{% if not loop.last %} AND {% endif %}{%endfor%}
 {% endmacro %}
 
+{% macro renderStrategyKeyIsNull(table, columnNames) %}
+    {% for columnName in columnNames %}{{table}}.{{ quote }}{{ columnName }}{{ quote }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
 {% macro renderTableColumns(table, columnNames) %}
     {% for columnName in columnNames %}{{ table }}.{{ quote }}{{ columnName }}{{ quote }}{% if not loop.last %}, {% endif %}{%endfor%}
 {% endmacro %}

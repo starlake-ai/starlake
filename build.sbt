@@ -60,7 +60,7 @@ resolvers ++= Resolvers.allResolvers
 libraryDependencies ++= {
   val versionSpecificLibs = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => Seq()
+      case Some((2, 12)) => scala212LibsOnly
       case Some((2, 13)) => scalaCompat
       case _ => throw new Exception(s"Invalid Scala Version")
     }

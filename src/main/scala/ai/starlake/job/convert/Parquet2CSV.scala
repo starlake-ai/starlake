@@ -85,7 +85,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 object Parquet2CSV {
 
   def main(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
 
     import settings.storageHandler
     Parquet2CSVCmd.run(args.toIndexedSeq, new SchemaHandler(storageHandler()))

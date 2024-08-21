@@ -257,7 +257,8 @@ class SparkAutoTask(
       val jobResult = interactive match {
         case Some(_) =>
           // just run the request and return the dataframe
-          val df = SparkUtils.sql(session, sqlNoRefs)
+          val df =
+            SparkUtils.sql(session, sqlNoRefs).limit(settings.appConfig.maxInteractiveRecords)
           SparkJobResult(Some(df), None)
         case None =>
           runSqls(preSql, "Pre")

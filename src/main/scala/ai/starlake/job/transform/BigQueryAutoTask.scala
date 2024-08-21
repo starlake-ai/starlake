@@ -7,6 +7,7 @@ import ai.starlake.job.sink.bigquery._
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -127,7 +128,7 @@ class BigQueryAutoTask(
     val toUpperSql = sql.toUpperCase()
     val finalSql =
       if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
-        "(" + sql + ")"
+        sql // "(" + sql + ")"
       else
         sql
     new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
@@ -296,10 +297,12 @@ class BigQueryAutoTask(
           }
 
         case Some(_) =>
+          // interactive query, we limit the number of rows to maxInteractiveRecords
+          val limitSql = limitQuery(mainSql)
           val res = bqNativeJob(
             config,
-            mainSql
-          ).runInteractiveQuery(dryRun = dryRun)
+            limitSql
+          ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
           res
       }
 
@@ -308,6 +311,23 @@ class BigQueryAutoTask(
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
 
+  }
+
+  private def limitQuery(sql: String) = {
+    val limit = settings.appConfig.maxInteractiveRecords
+    val trimmedSql = SQLUtils.stripComments(sql)
+    val upperCaseSQL = trimmedSql.toUpperCase().replace("\n", " ")
+    if (
+      upperCaseSQL.indexOf(" LIMIT ") == -1 &&
+      (upperCaseSQL.startsWith("SELECT ") || upperCaseSQL.startsWith("WITH "))
+    ) {
+      if (trimmedSql.endsWith(";")) {
+        val noDelimiterSql = trimmedSql.dropRight(1)
+        s"$noDelimiterSql LIMIT $limit"
+      } else
+        s"$sql LIMIT $limit"
+    } else
+      sql
   }
   override def run(): Try[JobResult] = {
     runBQ(None)

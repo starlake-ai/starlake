@@ -33,7 +33,7 @@ object SingleUserMainServer {
     duckDbMode: Boolean
   ): String = {
     val (settings, reload) =
-      SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject, duckDbMode)
+      MapSettingsManager.getUpdatedSettings(root, metadata, env, gcpProject, duckDbMode)
     if (args.head != "quit" && autoReload) {
       SingleUserMainServer.mapper.writeValueAsString(
         SingleUserServices.reset(reload = true)(settings)
