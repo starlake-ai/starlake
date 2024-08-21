@@ -47,7 +47,6 @@ class MapSettingsManager extends SettingsManager {
     root: String,
     metadata: Option[String],
     env: Option[String],
-    gcpProject: Option[String],
     duckDbMode: Boolean,
     refresh: Boolean = false
   ): (Settings, Boolean) = {
@@ -55,10 +54,6 @@ class MapSettingsManager extends SettingsManager {
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 
-    val sysProps = System.getProperties()
-    gcpProject.foreach { gcpProject =>
-      sysProps.setProperty("database", gcpProject)
-    }
     if (refresh) {
       settingsMap.remove(sessionId)
     }

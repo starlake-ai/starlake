@@ -19,10 +19,9 @@ class CaffeineSettingsManager extends SettingsManager {
   }
 
   override def getUpdatedSettings(
-    root: String,
+    root: String, // contains project id and userid
     metadata: Option[String],
     env: Option[String],
-    gcpProject: Option[String],
     duckDbMode: Boolean,
     refresh: Boolean
   ): (Settings, Boolean) = {
@@ -30,10 +29,6 @@ class CaffeineSettingsManager extends SettingsManager {
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 
-    val sysProps = System.getProperties()
-    gcpProject.foreach { gcpProject =>
-      sysProps.setProperty("database", gcpProject)
-    }
     if (refresh) {
       cache.invalidate(sessionId)
     }
@@ -51,3 +46,5 @@ class CaffeineSettingsManager extends SettingsManager {
     }
   }
 }
+
+object CaffeineSettingsManager extends CaffeineSettingsManager

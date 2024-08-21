@@ -1051,6 +1051,23 @@ object Settings extends StrictLogging {
     logger.info(
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )
+
+    val updatedEffectiveConfig =
+      effectiveConfig
+        .withValue("root", ConfigValueFactory.fromAnyRef(root.getOrElse("")))
+        .withValue("audit.path", ConfigValueFactory.fromAnyRef(updatedConfig.audit.path))
+        .withValue(
+          "expectations.path",
+          ConfigValueFactory.fromAnyRef(updatedConfig.expectations.path)
+        )
+        .withValue("datasets", ConfigValueFactory.fromAnyRef(updatedConfig.datasets))
+        .withValue("incoming", ConfigValueFactory.fromAnyRef(updatedConfig.incoming))
+        .withValue("metadata", ConfigValueFactory.fromAnyRef(updatedConfig.metadata))
+        .withValue("lock.path", ConfigValueFactory.fromAnyRef(updatedConfig.lock.path))
+        .withValue("metrics.path", ConfigValueFactory.fromAnyRef(updatedConfig.metrics.path))
+        .withValue("dags", ConfigValueFactory.fromAnyRef(updatedConfig.dags))
+        .withValue("writeStrategies", ConfigValueFactory.fromAnyRef(updatedConfig.writeStrategies))
+
     logger.debug(YamlSerde.serialize(updatedConfig))
     val settings =
       Settings(
@@ -1060,8 +1077,8 @@ object Settings extends StrictLogging {
       )
     // Load application.conf / application.sl.yml
     val loadedSettings =
-      loadApplicationYaml(effectiveConfig, settings, env)
-        .orElse(loadApplicationConf(effectiveConfig, settings, env))
+      loadApplicationYaml(updatedEffectiveConfig, settings, env, root)
+        .orElse(loadApplicationConf(updatedEffectiveConfig, settings, env))
         .getOrElse(settings)
 
     val applicationConfSettings =
@@ -1129,7 +1146,8 @@ object Settings extends StrictLogging {
   private def loadApplicationYaml(
     effectiveConfig: Config,
     settings: Settings,
-    env: Option[String] = None
+    env: Option[String],
+    root: Option[String]
   ): Option[Settings] = {
     val applicationYmlPath =
       new Path(DatasetArea.metadata(settings), "application.sl.yml")
@@ -1139,12 +1157,22 @@ object Settings extends StrictLogging {
         val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
-          Try(
+          Try {
+            val vars = schemaHandler.activeEnvVars(reload = true, env, root)
+            val varsWithRoot = {
+              root match {
+                case Some(root) =>
+                  vars + ("SL_ROOT" -> root)
+                case None =>
+                  vars
+              }
+            }
+
             Utils
-              .parseJinja(applicationYmlContent, schemaHandler.activeEnvVars(reload = true, env))(
+              .parseJinja(applicationYmlContent, varsWithRoot)(
                 settings
               )
-          ) match {
+          } match {
             case Success(value) => value
             case Failure(exception) =>
               throw new Exception(
