@@ -338,8 +338,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def activeEnvVars(reload: Boolean = false, env: Option[String] = None): Map[String, String] = {
-    if (reload || _activeEnvVars == null) loadActiveEnvVars(env)
+  def activeEnvVars(
+    reload: Boolean = false,
+    env: Option[String] = None,
+    root: Option[String] = None
+  ): Map[String, String] = {
+    if (reload || _activeEnvVars == null) loadActiveEnvVars(env, root)
     this._activeEnvVars
   }
 
@@ -353,7 +357,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private var _refs: RefDesc = _
 
   @throws[Exception]
-  private def loadActiveEnvVars(env: Option[String] = None): Map[String, String] = {
+  private def loadActiveEnvVars(
+    env: Option[String] = None,
+    root: Option[String]
+  ): Map[String, String] = {
     val slVarsAsProperties =
       System
         .getProperties()
@@ -378,7 +385,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .getOrElse(Map.empty)
         .mapValues(
           _.richFormat(externalProps, slDateVars)
-        ) // will replace with sys.env
+        )
+    // will replace with sys.env
 
     val activeEnvName =
       env // passed as argument (by the API)
@@ -398,12 +406,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
 
+        val allVars =
+          root match {
+            case None => externalProps ++ globalEnvVars ++ slDateVars
+            case Some(root) =>
+              externalProps ++ globalEnvVars ++ slDateVars ++ Map("SL_ROOT" -> root)
+          }
         EnvDesc
           .loadEnv(envsCometPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
           .mapValues(
-            _.richFormat(sys.env, externalProps ++ globalEnvVars ++ slDateVars)
+            _.richFormat(sys.env, allVars)
           )
 
       } else

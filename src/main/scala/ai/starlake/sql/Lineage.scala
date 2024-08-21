@@ -11,10 +11,10 @@ class Lineage {
       """
       |with mycte as (
       |  select o.amount, c.id, CURRENT_TIMESTAMP() as timestamp1, o.amount as amount2
-      |  from `sales`.`orders` o, `sales.customers` c
+      |  from `sales.orders` o, `sales.customers` c
       |  where o.customer_id = c.id
       |),
-      |yourcte as (select o.amount from sales.orders o)
+      |yourcte as (select * from mycte)
       |select id, sumx(sumy(mycte.amount + yourcte.amount) + yourcte.amount) as sum, timestamp1, amount as amount2, yourcte.amount as amount3
       |from mycte, yourcte
       |group by yourcte.id, yourcte.timestamp1

@@ -19,7 +19,6 @@ trait SettingsManager {
     root: String,
     metadata: Option[String],
     env: Option[String],
-    gcpProject: Option[String],
     duckDbMode: Boolean,
     refresh: Boolean = false
   ): (Settings, Boolean)

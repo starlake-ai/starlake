@@ -17,7 +17,6 @@ class SettingsManagerSpec extends TestHelper {
           "/tmp/my/settings/home",
           Some("test-metadata"),
           Some("test"),
-          Some("my-project-id"),
           false
         )
       settings2.appConfig.env shouldBe "test"
@@ -29,7 +28,6 @@ class SettingsManagerSpec extends TestHelper {
         oldRoot,
         Option(oldMetadata),
         Option(oldEnv),
-        Option(oldDatabase),
         false
       )
 

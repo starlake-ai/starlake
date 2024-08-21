@@ -174,7 +174,7 @@ object BigQueryTableInfo extends StrictLogging {
 
   @nowarn
   def run(args: Array[String]): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
     BigQueryTableInfoCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
   }
 }
