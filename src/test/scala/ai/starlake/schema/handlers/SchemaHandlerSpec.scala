@@ -24,7 +24,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig}
-import ai.starlake.schema.generator.{AclDependencies, TableDependencies}
+import ai.starlake.lineage.{AclDependencies, TableDependencies}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import better.files.File

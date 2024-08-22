@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.schema.generator.AutoTaskDependencies.{Column, Item, Relation}
+import ai.starlake.lineage.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
 import ai.starlake.schema.model.Severity._

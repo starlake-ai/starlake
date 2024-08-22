@@ -175,7 +175,8 @@ class SparkAutoTask(
       connectionRef = Some(this.taskDesc.getRunConnectionRef()),
       accessToken = accessToken
     )
-    val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
+    val sqlWithParameters =
+      schemaHandler.substituteRefTaskMainSQL(taskDesc.getSql(), taskDesc.getRunConnection())
     val result = new BigQuerySparkJob(config).query(sqlWithParameters)
     result match {
       case Success(df) => Some(df)
@@ -187,7 +188,8 @@ class SparkAutoTask(
 
   def buildDataframeFromJdbc(): Option[DataFrame] = {
     val runConnection = taskDesc.getRunConnection()
-    val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
+    val sqlWithParameters =
+      schemaHandler.substituteRefTaskMainSQL(taskDesc.getSql(), taskDesc.getRunConnection())
     val res = session.read
       .format(
         runConnection.sparkDatasource().getOrElse(throw new Exception("Should never happen"))
@@ -209,7 +211,8 @@ class SparkAutoTask(
   }
 
   def buildDataframeFromFS(): Option[DataFrame] = {
-    val sqlWithParameters = substituteRefTaskMainSQL(taskDesc.getSql())
+    val sqlWithParameters =
+      schemaHandler.substituteRefTaskMainSQL(taskDesc.getSql(), taskDesc.getRunConnection())
     runSqls(List(sqlWithParameters), "Main")
   }
 
@@ -253,7 +256,7 @@ class SparkAutoTask(
       }
 
       // we replace any ref in the sql
-      val sqlNoRefs = substituteRefTaskMainSQL(sql)
+      val sqlNoRefs = schemaHandler.substituteRefTaskMainSQL(sql, taskDesc.getRunConnection())
       val jobResult = interactive match {
         case Some(_) =>
           // just run the request and return the dataframe

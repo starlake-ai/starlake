@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig}
+import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
@@ -624,6 +624,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               }
               .map { t =>
                 (domainName, t)
+              }
+              .orElse {
+                Some((domainName, TableWithNameOnly(tableName, Nil)))
               }
         }
       domainNameAndTable
@@ -1533,4 +1536,58 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     }
   }
+
+  def substituteRefTaskMainSQL(
+    sql: String,
+    connection: Connection,
+    extraVars: Map[String, String] = Map.empty
+  ): String = {
+    if (sql.trim.isEmpty)
+      sql
+    else {
+      val selectStatement = Utils.parseJinja(sql, extraVars)
+      val select =
+        SQLUtils.substituteRefInSQLSelect(
+          selectStatement,
+          refs(),
+          domains(),
+          tasks(),
+          connection
+        )
+      select
+    }
+  }
+
+  def transpileAndSubstitute(
+    sql: String,
+    connection: Connection,
+    extraVars: Map[String, String] = Map.empty,
+    test: Boolean
+  ): String = {
+    val sqlWithParameters = substituteRefTaskMainSQL(
+      sql,
+      connection,
+      activeEnvVars() ++ extraVars
+    )
+    val sqlWithParametersTranspiledIfInTest =
+      if (test || connection._transpileDialect.isDefined) {
+        val envVars = activeEnvVars() ++ extraVars
+        val timestamps =
+          if (test) {
+            List(
+              "SL_CURRENT_TIMESTAMP",
+              "SL_CURRENT_DATE",
+              "SL_CURRENT_TIME"
+            ).flatMap { e =>
+              val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
+              value.map { v => e -> v }
+            }.toMap
+          } else
+            Map.empty[String, String]
+        SQLUtils.transpile(sqlWithParameters, connection, timestamps)
+      } else
+        sqlWithParameters
+    sqlWithParametersTranspiledIfInTest
+  }
+
 }

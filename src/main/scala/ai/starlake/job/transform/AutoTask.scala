@@ -106,70 +106,56 @@ abstract class AutoTask(
   lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
-  def substituteRefTaskMainSQL(sql: String): String = {
-    if (sql.trim.isEmpty)
-      sql
-    else {
-      val selectStatement = Utils.parseJinja(sql, allVars)
-      val select =
-        SQLUtils.substituteRefInSQLSelect(
-          selectStatement,
-          schemaHandler.refs(),
-          schemaHandler.domains(),
-          schemaHandler.tasks(),
-          taskDesc.getRunConnection()
-        )
-      select
-    }
-  }
-
   def buildAllSQLQueries(sql: Option[String]): String = {
-    if (interactive.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
-      val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-      val runConnection = this.taskDesc.getRunConnection()
-      val sqlWithParametersTranspiledIfInTest =
-        if (this.test || runConnection._transpileDialect.isDefined) {
-          val envVars = schemaHandler.activeEnvVars()
-          val timestamps =
-            if (this.test) {
-              List(
-                "SL_CURRENT_TIMESTAMP",
-                "SL_CURRENT_DATE",
-                "SL_CURRENT_TIME"
-              ).flatMap { e =>
-                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
-                value.map { v => e -> v }
-              }.toMap
-            } else
-              Map.empty[String, String]
-          SQLUtils.transpile(sqlWithParameters, runConnection, timestamps)
-        } else
-          sqlWithParameters
+    val runConnection = this.taskDesc.getRunConnection()
+    if (interactive.isEmpty) {
+      if (taskDesc.parseSQL.getOrElse(true)) {
+        val sqlWithParametersTranspiledIfInTest =
+          schemaHandler.transpileAndSubstitute(
+            sql.getOrElse(taskDesc.getSql()),
+            runConnection,
+            commandParameters,
+            this.test
+          )
 
-      val tableComponents = StrategiesBuilder.TableComponents(
-        taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
-        taskDesc.domain,
-        taskDesc.table,
-        SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
-      )
-      val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
+        val tableComponents = StrategiesBuilder.TableComponents(
+          taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
+          taskDesc.domain,
+          taskDesc.table,
+          SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
+        )
+        val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
 
-      val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
+        val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
-      val mainSql = StrategiesBuilder().run(
-        strategy,
-        sqlWithParametersTranspiledIfInTest,
-        tableComponents,
-        tableExists,
-        truncate = truncate,
-        materializedView = resolveMaterializedView(),
-        jdbcRunEngine,
-        sinkConfig
-      )
-      mainSql
+        val mainSql = StrategiesBuilder().run(
+          strategy,
+          sqlWithParametersTranspiledIfInTest,
+          tableComponents,
+          tableExists,
+          truncate = truncate,
+          materializedView = resolveMaterializedView(),
+          jdbcRunEngine,
+          sinkConfig
+        )
+        mainSql
+      } else {
+        val mainSql = schemaHandler.substituteRefTaskMainSQL(
+          sql.getOrElse(taskDesc.getSql()),
+          taskDesc.getRunConnection(),
+          commandParameters
+        )
+        mainSql
+      }
     } else {
-      val selectStatement = Utils.parseJinja(sql.getOrElse(taskDesc.getSql()), allVars)
-      selectStatement
+      val sqlWithParametersTranspiledIfInTest =
+        schemaHandler.transpileAndSubstitute(
+          sql.getOrElse(taskDesc.getSql()),
+          runConnection,
+          commandParameters,
+          this.test
+        )
+      sqlWithParametersTranspiledIfInTest
     }
   }
 

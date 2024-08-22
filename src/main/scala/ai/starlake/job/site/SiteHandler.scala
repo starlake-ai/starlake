@@ -1,7 +1,7 @@
 package ai.starlake.job.site
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator._
+import ai.starlake.lineage._
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Domain, Schema}
 import ai.starlake.sql.SQLUtils

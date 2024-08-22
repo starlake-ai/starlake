@@ -753,6 +753,15 @@ object Settings extends StrictLogging {
         )
       )
     }
+    @JsonIgnore
+    def getDefaultConnection(): Connection = {
+      connections.getOrElse(
+        this.connectionRef,
+        throw new Exception(
+          s"Connection $connectionRef not found. Please check your connection definition."
+        )
+      )
+    }
 
     @JsonIgnore
     def getDefaultDatabase(): Option[String] = if (database.isEmpty) None else Some(database)

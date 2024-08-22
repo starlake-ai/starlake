@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.utils.AnyTemplateLoader
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 

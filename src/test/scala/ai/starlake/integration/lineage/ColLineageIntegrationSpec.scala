@@ -11,6 +11,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
   override def localDir: File = templates / "spark"
   override def sampleDataDir: File = localDir / "sample-data"
 
+  "Lineage Generation1" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+      assert(
+        new Main().run(
+          Array("col-lineage", "--task", "sales_kpi.byseller_kpi0")
+        )
+      )
+    }
+  }
+
   "Lineage" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       new Main().run(

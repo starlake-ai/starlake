@@ -2,7 +2,6 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.generator.ExtractBigQuerySchemaCmd
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._

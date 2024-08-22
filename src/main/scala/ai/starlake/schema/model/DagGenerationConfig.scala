@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator.TaskViewDependencyNode
+import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.JsonSerializer
 

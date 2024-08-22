@@ -36,6 +36,11 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.lineage.{
+  AutoTaskDependencies,
+  AutoTaskDependenciesConfig,
+  TaskViewDependencyNode
+}
 import ai.starlake.schema.AdaptiveWriteStrategy
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
