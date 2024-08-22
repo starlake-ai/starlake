@@ -1,8 +1,7 @@
 package ai.starlake.config
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.BigQueryTablesConfig
-import ai.starlake.schema.generator.ExtractBigQuerySchema
+import ai.starlake.extract.{BigQueryTablesConfig, ExtractBigQuerySchema}
 import ai.starlake.schema.handlers.SchemaHandler
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import com.typesafe.config.{Config, ConfigFactory}

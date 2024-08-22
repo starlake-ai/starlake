@@ -1,10 +1,9 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.BigQueryTablesConfig
+import ai.starlake.extract.{BigQueryTablesConfig, ExtractBigQuerySchema}
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils

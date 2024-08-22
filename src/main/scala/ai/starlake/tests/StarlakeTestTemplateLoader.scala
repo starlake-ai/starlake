@@ -1,7 +1,7 @@
 package ai.starlake.tests
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.generator.AnyTemplateLoader
+import ai.starlake.utils.AnyTemplateLoader
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 

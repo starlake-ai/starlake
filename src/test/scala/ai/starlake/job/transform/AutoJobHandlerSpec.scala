@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.schema.generator.TaskViewDependency
+import ai.starlake.lineage.TaskViewDependency
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow

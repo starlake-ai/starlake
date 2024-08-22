@@ -13,6 +13,12 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
 import ai.starlake.job.transform.{StarlakeTestCmd, TransformCmd}
+import ai.starlake.lineage.{
+  AclDependenciesCmd,
+  AutoTaskDependenciesCmd,
+  ColLineageCmd,
+  TableDependenciesCmd
+}
 import ai.starlake.migration.MigrateCmd
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._

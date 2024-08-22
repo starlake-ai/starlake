@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.generator.{AclDependenciesConfig, AutoTaskDependencies}
+import ai.starlake.lineage.{AclDependenciesConfig, AutoTaskDependencies}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}

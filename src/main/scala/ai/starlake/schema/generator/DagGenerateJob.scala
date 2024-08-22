@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
