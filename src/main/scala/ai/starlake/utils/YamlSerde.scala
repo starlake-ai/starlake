@@ -407,8 +407,13 @@ object YamlSerde extends LazyLogging with YamlUtils {
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        logger.error(s"Invalid transform file: $path(${exception.getMessage})")
-        Failure(exception)
+        if (content.trim == "transform:") {
+          logger.warn(s"Empty transform file: $path")
+          Success(AutoJobDesc("", Nil))
+        } else {
+          logger.error(s"Invalid transform file: $path(${exception.getMessage})")
+          Failure(exception)
+        }
     }
   }
 }

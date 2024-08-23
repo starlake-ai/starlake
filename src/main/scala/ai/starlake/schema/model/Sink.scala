@@ -91,7 +91,7 @@ sealed abstract class Sink {
   def getConnectionType()(implicit
     settings: Settings
   ): ConnectionType = {
-    getConnection().getType()
+    getConnection().`type`
   }
 
   def getConnectionRef()(implicit settings: Settings): String =
@@ -134,13 +134,13 @@ case class AllSinks(
   // depending on the connection.type coming from the connection ref, some of the options below may be required
 
   // BigQuery
+  // partition: Option[List[String]] = None,  // only one column allowed
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
   materializedView: Option[Materialization] = None,
   enableRefresh: Option[Boolean] = None, // only if materializedView is MATERIALIZED_VIEW
   refreshIntervalMs: Option[Long] = None, // only if enable refresh is true
-  // partition: Option[List[String]] = None,  // only one column allowed
 
   // ES
   id: Option[String] = None,
@@ -203,7 +203,9 @@ case class AllSinks(
     }
   }
 
-  def checkValidity()(settings: Settings): List[ValidationMessage] = {
+  def checkValidity(
+    tableName: String
+  )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {
       case None =>
@@ -211,17 +213,17 @@ case class AllSinks(
         if (!settings.appConfig.connections.contains(ref)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
-            "connectionRef",
-            s"ConnectionRef $ref not found in the application.conf file"
+            s"connectionRef in $tableName",
+            s"ConnectionRef '$ref' not found in the application.sl.yml file"
           )
         } else {
           val connection = settings.appConfig.connections(ref)
-          if (connection.getType() == ConnectionType.FS) {
+          if (connection.`type` == ConnectionType.FS) {
             val defaultConnection = settings.appConfig.connections(settings.appConfig.connectionRef)
             if (defaultConnection.sparkFormat.isEmpty) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
-                "connectionRef",
+                s"connectionRef in $tableName",
                 s"Even though  the default connection ${settings.appConfig.connectionRef} does not have a sparkFormat defined, spark will be used to execute the request"
               )
             }
@@ -229,7 +231,11 @@ case class AllSinks(
         }
     }
 
-    errors
+    if (errors.isEmpty) {
+      Right(true)
+    } else {
+      Left(errors)
+    }
   }
 
   def merge(child: AllSinks): AllSinks = {
@@ -260,14 +266,14 @@ case class AllSinks(
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     val options = this.options.getOrElse(connection.options)
     val allSinksWithOptions = this.copy(options = Some(options))
-    connection.getType() match {
+    connection.`type` match {
       case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(allSinksWithOptions)
       case ConnectionType.FS     => FsSink.fromAllSinks(allSinksWithOptions)
       case ConnectionType.JDBC   => JdbcSink.fromAllSinks(allSinksWithOptions)
       case ConnectionType.BQ     => BigQuerySink.fromAllSinks(allSinksWithOptions)
       case ConnectionType.ES     => EsSink.fromAllSinks(allSinksWithOptions)
       case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(allSinksWithOptions)
-      case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.getType()}")
+      case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.`type`}")
 
     }
   }

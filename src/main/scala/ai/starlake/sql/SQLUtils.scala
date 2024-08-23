@@ -475,8 +475,16 @@ object SQLUtils extends StrictLogging {
     }
 
   def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
-    if (timestamps.nonEmpty)
+    if (timestamps.nonEmpty) {
       logger.info(s"Transpiling SQL with timestamps: $timestamps")
-    JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)
+    }
+    Try(JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)) match {
+      case Success(transpiled) =>
+        transpiled
+      case Failure(e) =>
+        logger.error(s"Failed to transpile SQL: $sql")
+        Utils.logException(logger, e)
+        sql
+    }
   }
 }

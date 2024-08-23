@@ -148,7 +148,7 @@ class SchemaSpec extends TestHelper {
         ignore = Some(".*")
       )
       meta
-        .checkValidity(schemaHandler)
+        .checkValidity("dummy", None)
         .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
     }
     "Ignore attribute " should "on DSV should be UDF" in {
@@ -164,9 +164,9 @@ class SchemaSpec extends TestHelper {
         sink = None,
         ignore = Some(".*")
       )
-      val res = meta.checkValidity(schemaHandler)
+      val res = meta.checkValidity("dummy", None)
       meta
-        .checkValidity(schemaHandler)
+        .checkValidity("dummy", None)
         .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
     }
   }

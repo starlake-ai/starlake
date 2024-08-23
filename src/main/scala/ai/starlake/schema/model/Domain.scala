@@ -197,7 +197,7 @@ case class LoadDesc(version: Int, load: Domain)
     if (name != null && !forceDomainPrefixRegex.pattern.matcher(name).matches())
       messageList += ValidationMessage(
         Error,
-        "Domain",
+        s"Domain $name",
         s"name: Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
       )
 
@@ -205,14 +205,14 @@ case class LoadDesc(version: Int, load: Domain)
 
     // Check Schemas validity
     tables.foreach { schema =>
-      for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
+      for (errors <- schema.checkValidity(this.name, schemaHandler).left) {
         messageList ++= errors
       }
     }
 
     // Check Metadata validity
     metadata.foreach { metadata =>
-      for (errors <- metadata.checkValidity(schemaHandler).left) {
+      for (errors <- metadata.checkValidity(this.name, None).left) {
         messageList ++= errors
       }
     }

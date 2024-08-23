@@ -1,10 +1,12 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.Formatter.RichFormatter
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import java.util.regex.Pattern
+import scala.collection.mutable
 
 case class WriteStrategy(
   `type`: Option[WriteStrategyType] = None,
@@ -26,6 +28,99 @@ case class WriteStrategy(
     val startTsStr = startTs.getOrElse("")
     val endTsStr = endTs.getOrElse("")
     s"WriteStrategy(type=$typeStr, key=$keyStr, timestamp=$timestampStr, queryFilter=$queryFilterStr, on=$onStr, startTs=$startTsStr, endTs=$endTsStr)"
+  }
+
+  def checkValidity(
+    domainName: String,
+    table: Option[Schema]
+  ): Either[List[ValidationMessage], Boolean] = {
+    val tableName = table.map(_.name).getOrElse("")
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
+    table match {
+      case Some(table) =>
+        key.foreach { key =>
+          if (!table.attributes.exists(_.getFinalName().equalsIgnoreCase(key)))
+            errorList += ValidationMessage(
+              Error,
+              "WriteStrategy",
+              s"key: '$key' does not exist in table: $tableName"
+            )
+        }
+        timestamp.foreach { timestamp =>
+          if (!table.attributes.exists(_.getFinalName().equalsIgnoreCase(timestamp)))
+            errorList += ValidationMessage(
+              Error,
+              "WriteStrategy",
+              s"timestamp: '$timestamp' does not exist in table: $tableName"
+            )
+        }
+      case None =>
+    }
+
+    val definedTs = Set(startTs, endTs).flatten
+    if (definedTs.size == 1)
+      errorList += ValidationMessage(
+        Error,
+        "WriteStrategy",
+        s"startTs and endTs must be defined together in table: $tableName"
+      )
+
+    this.getEffectiveType() match {
+      case WriteStrategyType.UPSERT_BY_KEY =>
+        if (key.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"key must be defined for upsert strategy in table: $tableName"
+          )
+      case WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP =>
+        if (key.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"key must be defined for upsert strategy in table: $tableName"
+          )
+        if (timestamp.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"timestamp must be defined for upsert strategy in table: $tableName"
+          )
+      case WriteStrategyType.SCD2 =>
+        if (key.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"key must be defined for scd2 strategy in table: $tableName"
+          )
+        if (timestamp.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"timestamp must be defined for scd2 strategy in table: $tableName"
+          )
+      case WriteStrategyType.OVERWRITE_BY_PARTITION =>
+        if (timestamp.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"key must be defined for overwrite by partition strategy in table: $tableName"
+          )
+      case WriteStrategyType.DELETE_THEN_INSERT =>
+        if (key.isEmpty)
+          errorList += ValidationMessage(
+            Error,
+            "WriteStrategy",
+            s"key must be defined for delete then insert strategy in table: $tableName"
+          )
+      case WriteStrategyType.OVERWRITE =>
+      case WriteStrategyType.APPEND    =>
+      case _                           =>
+    }
+    if (errorList.isEmpty)
+      Right(true)
+    else
+      Left(errorList.toList)
   }
 
   @JsonIgnore

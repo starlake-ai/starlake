@@ -26,6 +26,7 @@ import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.schema.handlers._
+import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
@@ -162,7 +163,7 @@ object Settings extends StrictLogging {
     *   password to use in order to connect to the database engine
     */
   final case class Connection(
-    `type`: String,
+    `type`: ConnectionType,
     sparkFormat: Option[String] = None,
     quote: Option[String] = None,
     separator: Option[String] = None,
@@ -181,7 +182,7 @@ object Settings extends StrictLogging {
     }
 
     def sparkDatasource(): Option[String] = {
-      this.getType() match {
+      this.`type` match {
         case ConnectionType.JDBC =>
           val engineName = options("url").split(':')(1).toLowerCase()
           this.sparkFormat match {
@@ -200,7 +201,7 @@ object Settings extends StrictLogging {
 
     }
 
-    def this() = this(ConnectionType.JDBC.value, None, None, None, Map.empty)
+    def this() = this(ConnectionType.JDBC, None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
@@ -220,14 +221,13 @@ object Settings extends StrictLogging {
           s"env.sl.comet not found in ${globalsCometPath.toString}"
         )
 
-      val tpe = getType()
-      tpe match {
+      `type` match {
         case ConnectionType.JDBC =>
           if (!options.contains("url")) {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "Connection",
-              s"Connection type $tpe requires a url"
+              s"Connection type ${`type`} requires a url"
             )
           }
           sparkDatasource() match {
@@ -237,14 +237,14 @@ object Settings extends StrictLogging {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,
                     "Connection",
-                    s"Connection type $tpe requires an aws_iam_role"
+                    s"Connection type ${`type`} requires an aws_iam_role"
                   )
                 }
                 if (options.get("tempdir").isEmpty) {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,
                     "Connection",
-                    s"Connection type $tpe requires an tempdir"
+                    s"Connection type ${`type`} requires an tempdir"
                   )
                 }
               }
@@ -253,14 +253,14 @@ object Settings extends StrictLogging {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,
                     "Connection",
-                    s"Connection type $tpe requires an warehouse"
+                    s"Connection type ${`type`} requires an warehouse"
                   )
                 }
                 if (options.get("db").isEmpty) {
                   errors = errors :+ ValidationMessage(
                     Severity.Error,
                     "Connection",
-                    s"Connection type $tpe requires an db"
+                    s"Connection type ${`type`} requires an db"
                   )
                 }
               }
@@ -271,7 +271,7 @@ object Settings extends StrictLogging {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "Connection",
-              s"Connection type $tpe requires a location"
+              s"Connection type ${`type`} requires a location"
             )
           }
           if (this.sparkFormat.isDefined) {
@@ -280,21 +280,21 @@ object Settings extends StrictLogging {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
-                s"Connection type $tpe requires a gcsBucket"
+                s"Connection type ${`type`} requires a gcsBucket"
               )
             }
             if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
                 "Connection",
-                s"Connection type $tpe: using gcsBucket as temporaryGcsBucket"
+                s"Connection type ${`type`}: using gcsBucket as temporaryGcsBucket"
               )
             }
             if (!settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
-                s"Connection type $tpe requires spark.datasource.bigquery.materializationDataset"
+                s"Connection type ${`type`} requires spark.datasource.bigquery.materializationDataset"
               )
             }
           }
@@ -305,7 +305,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Warning,
                   "Connection",
-                  s"authScopes not defined in Connection type $tpe. Using 'https://www.googleapis.com/auth/cloud-platform'"
+                  s"authScopes not defined in Connection type ${`type`}. Using 'https://www.googleapis.com/auth/cloud-platform'"
                 )
               }
             case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
@@ -313,7 +313,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a jsonKeyfile"
+                  s"Connection type ${`type`} requires a jsonKeyfile"
                 )
               }
             case "USER_CREDENTIALS" =>
@@ -324,7 +324,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a clientId, clientSecret and refreshToken options"
+                  s"Connection type ${`type`} requires a clientId, clientSecret and refreshToken options"
                 )
               }
             case "ACCESS_TOKEN" =>
@@ -333,14 +333,14 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type $tpe requires a gcpAccessToken option"
+                  s"Connection type ${`type`} requires a gcpAccessToken option"
                 )
               }
             case _ =>
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
-                s"Connection type $tpe requires an authType"
+                s"Connection type ${`type`} requires an authType"
               )
           }
         case _ =>
@@ -356,8 +356,7 @@ object Settings extends StrictLogging {
     def getEngine(): Engine = {
       if (sparkFormat.isDefined) Engine.SPARK
       else {
-        val tpe = getType()
-        tpe match {
+        `type` match {
           case ConnectionType.BQ   => Engine.BQ
           case ConnectionType.JDBC => Engine.JDBC
           case _                   => Engine.SPARK
@@ -367,7 +366,7 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     def getDbName() = {
-      this.getType() match {
+      `type` match {
         case ConnectionType.BQ => "bigquery"
         case ConnectionType.JDBC =>
           val engineName = options("url").split(':')(1).toLowerCase()
@@ -375,8 +374,6 @@ object Settings extends StrictLogging {
         case _ => "spark"
       }
     }
-
-    def getType(): ConnectionType = ConnectionType.fromString(`type`)
 
     @nowarn
     def datawareOptions(): Map[String, String] =
@@ -391,12 +388,12 @@ object Settings extends StrictLogging {
       val engineName = sparkFormat match {
         case None | Some("jdbc") =>
           this.`type` match {
-            case "jdbc" =>
+            case JDBC =>
               val engineName = options("url").split(':')(1).toLowerCase()
               if (engineName == "databricks")
                 "spark"
               else engineName
-            case "bigquery" | "bq" => "bigquery"
+            case ConnectionType.BQ => "bigquery"
             case _                 =>
               // if this is a jdbc url (aka snowflake, redshift ...)
               options
@@ -465,10 +462,10 @@ object Settings extends StrictLogging {
     }
 
     private def applyIfConnectionTypeIs[T](connectionType: ConnectionType, action: => T): T = {
-      getType() match {
+      `type` match {
         case `connectionType` => action
         case _ =>
-          throw new RuntimeException(s"Can only be used for ${getType().value} connection type")
+          throw new RuntimeException(s"Can only be used for ${`type`} connection type")
       }
     }
   }
@@ -775,7 +772,7 @@ object Settings extends StrictLogging {
       val connectionTypeIsHive = this.connections
         .get(this.connectionRef)
         .exists { conn =>
-          conn.getType() == ConnectionType.FS // && session.conf.getAll.contains("hive.metastore.uris")
+          conn.`type` == ConnectionType.FS // && session.conf.getAll.contains("hive.metastore.uris")
         }
       connectionTypeIsHive || Utils.isRunningInDatabricks()
     }
@@ -1005,6 +1002,9 @@ object Settings extends StrictLogging {
   implicit val sinkHint: FieldCoproductHint[Sink] = new FieldCoproductHint[Sink]("type") {
     override def fieldValue(name: String) = name
   }
+
+  implicit val connectionTypeReader: ConfigReader[ConnectionType] =
+    ConfigReader.fromString[ConnectionType](catchReadError(ConnectionType.fromString))
 
   implicit val storageLevelReader: ConfigReader[StorageLevel] =
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
@@ -1263,7 +1263,7 @@ object Settings extends StrictLogging {
     val duckdbPath = DatasetArea.path("duckdb.db")(settings)
     val pathAsString = duckdbPath.toUri.getPath
     val duckDBConnection = Connection(
-      `type` = "jdbc",
+      `type` = ConnectionType.JDBC,
       sparkFormat = None,
       options = Map(
         "url"    -> s"jdbc:duckdb:$pathAsString",

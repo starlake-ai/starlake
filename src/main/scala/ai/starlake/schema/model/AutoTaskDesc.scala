@@ -2,6 +2,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.model.Severity.Error
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 
@@ -102,13 +103,40 @@ case class AutoTaskDesc(
     )
   }
 
-  def checkValidity(): Either[List[String], Boolean] = {
-    freshness.map(_.checkValidity()).getOrElse(Right(true)).left.map { errors =>
-      errors.map { error =>
-        s"freshness: $error"
+  def checkValidity()(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
+    val sinkErrors = sink.map(_.checkValidity(this.name)).getOrElse(Right(true))
+    val freshnessErrors = freshness.map(_.checkValidity(this.name)).getOrElse(Right(true))
+    val writeStrategyErrors = writeStrategy
+      .map(_.checkValidity(this.domain, Some(new Schema().copy(name = this.name))))
+      .getOrElse(Right(true))
+    val scheduleErrors = schedule
+      .map { schedule =>
+        if (settings.appConfig.schedulePresets.contains(schedule)) {
+          Right(true)
+        } else {
+          Left(
+            List(
+              ValidationMessage(
+                Error,
+                s"Task $name",
+                s"schedule: $schedule is not a valid schedule. Valid schedules are ${settings.appConfig.schedulePresets
+                    .mkString(", ")}"
+              )
+            )
+          )
+        }
       }
-    }
-    Right(true)
+      .getOrElse(Right(true))
+
+    // TODO dag errors
+
+    // merge all errors
+    val allErrors = List(sinkErrors, freshnessErrors, writeStrategyErrors, scheduleErrors)
+    val errorList = allErrors.collect { case Left(errors) => errors }.flatten
+    if (errorList.isEmpty)
+      Right(true)
+    else
+      Left(errorList)
   }
 
   def this() = this(
@@ -159,11 +187,11 @@ case class AutoTaskDesc(
   }
 
   def getSinkConnectionType()(implicit settings: Settings): ConnectionType = {
-    getSinkConnection().getType()
+    getSinkConnection().`type`
   }
 
   def getRunConnectionType()(implicit settings: Settings): ConnectionType = {
-    getRunConnection().getType()
+    getRunConnection().`type`
   }
 
   def getSinkConfig()(implicit settings: Settings): Sink =

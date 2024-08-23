@@ -128,7 +128,7 @@ class JdbcAutoTask(
     val res = Try {
       JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
         val mainSql =
-          if (df.isEmpty) {
+          if (df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
             buildAllSQLQueries(None)
           } else {
             val sql = taskDesc.getSql()
