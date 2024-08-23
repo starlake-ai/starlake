@@ -12,7 +12,7 @@ object SchemaExtractor {
     connectionName: String
   )(implicit settings: Settings): Try[List[(String, List[String])]] = {
     val connection = settings.appConfig.connections(connectionName)
-    val connType = connection.getType()
+    val connType = connection.`type`
     connType match {
       case ConnectionType.JDBC =>
         val result = JdbcDbUtils.extractSchemasAndTables(connection)

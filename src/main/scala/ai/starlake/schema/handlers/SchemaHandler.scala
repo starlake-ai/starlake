@@ -108,7 +108,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       domainStructureValidity ++ loadedDomainsValidity
     val domainsVarsValidity = checkDomainsVars()
     val jobsVarsValidity = checkJobsVars() // job vars may be defined at runtime.
-    val allErrors = typesValidity ++ domainsValidity
+    val loadedJobs = this.jobs(reload)
+    val jobsValidity = loadedJobs.map(_.checkValidity(this))
+
+    val allErrors = typesValidity ++ domainsValidity ++ jobsValidity
 
     val errs = allErrors.flatMap {
       case Left(values) => values
@@ -477,7 +480,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             )
           val domainWithName = domainOnly
             .map { domainOnly =>
-              val domainName = if (domainOnly.name == "") directory.getName() else domainOnly.name
+              val domainName = if (domainOnly.name.isEmpty) directory.getName else domainOnly.name
               domainOnly.copy(name = domainName)
             }
           (configPath, domainWithName)
@@ -486,7 +489,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           (
             configPath,
             Success(
-              Domain(name = directory.getName(), comment = Some(s"${directory.getName()} domain"))
+              Domain(name = directory.getName, comment = Some(s"${directory.getName} domain"))
             )
           )
         }
@@ -929,7 +932,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case Failure(exception) =>
             throw exception
           case Success(autoJobDesc) =>
-            autoJobDesc
+            if (autoJobDesc.getName().isEmpty)
+              autoJobDesc.copy(name = jobPath.getParent.getName)
+            else
+              autoJobDesc
         }
       } else {
         // no _config.sl.yml file. Dir name is the job name
@@ -1564,11 +1570,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     extraVars: Map[String, String] = Map.empty,
     test: Boolean
   ): String = {
-    val sqlWithParameters = substituteRefTaskMainSQL(
-      sql,
-      connection,
-      activeEnvVars() ++ extraVars
-    )
+    val sqlWithParameters =
+      Try {
+        substituteRefTaskMainSQL(
+          sql,
+          connection,
+          activeEnvVars() ++ extraVars
+        )
+      } match {
+        case Success(transpiled) =>
+          transpiled
+        case Failure(e) =>
+          Utils.logException(logger, e)
+          sql
+      }
+
     val sqlWithParametersTranspiledIfInTest =
       if (test || connection._transpileDialect.isDefined) {
         val envVars = activeEnvVars() ++ extraVars

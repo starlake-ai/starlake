@@ -60,9 +60,24 @@ class ColLineage(
     extractRelations("mySchema", "myTable", res).foreach(println)
   }
 
+  val domains = schemaHandler.domains()
+  val tasks = schemaHandler.tasks()
+
+  def getTableWithColumnNames(domain: String, table: String): Table = {
+    domains
+      .find(_.name.equalsIgnoreCase(domain))
+      .flatMap { domain =>
+        domain.tables.find(_.finalName.equalsIgnoreCase(table)).map { table =>
+          Table(domain.name, table.name, table.attributes.map(_.getFinalName()))
+        }
+      }
+      .getOrElse(Table(domain, table, Nil))
+  }
+
   def extractTables(column: JdbcColumn): List[Table] = {
-    val thisTable = Table(column.tableSchema, Option(column.tableName).getOrElse(""))
-    val scopeTable = Table(column.scopeSchema, Option(column.scopeTable).getOrElse(""))
+    val thisTable = getTableWithColumnNames(column.tableSchema, column.tableName)
+
+    val scopeTable = getTableWithColumnNames(column.scopeSchema, column.scopeTable)
     val childTables = column.getChildren.asScala.flatMap { child =>
       extractTables(child)
     }.toList
@@ -70,9 +85,12 @@ class ColLineage(
     alTables.filter(_.table.nonEmpty)
   }
   def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
-    resultSetMetaData.getColumns.asScala.flatMap { column =>
-      extractTables(column)
-    }.toList
+    resultSetMetaData.getColumns.asScala
+      .flatMap { column =>
+        extractTables(column)
+      }
+      .toList
+      .distinct
   }
 
   def extractRelations(
@@ -163,23 +181,49 @@ class ColLineage(
           .asInstanceOf[JdbcResultSetMetaData]
 
       val tables = extractTables(res)
-      tables.foreach(println)
       val relations = extractRelations(task.domain, task.table, res)
+      println("relations")
       relations.foreach(println)
-      val lineage = ColLineage.Lineage(tables, relations)
+
+      println("tablesInRelations(relations)")
+      tablesInRelations(relations).foreach(println)
+
+      val allTables = tablesInRelations(relations) ++ tables
+      println("allTables")
+      allTables.foreach(println)
+
+      val finalTables = allTables
+        .groupBy(t => (t.domain, t.table))
+        .map { case ((domainName, tableName), table) =>
+          Table(domainName, tableName, table.flatMap(_.columns).distinct)
+        }
+        .toList
+      println("finalTables")
+      finalTables.foreach(println)
+
+      val lineage = ColLineage.Lineage(finalTables, relations)
       val diagramAsStr =
         JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
       Utils.save(colLineageConfig.outputFile, diagramAsStr)
       lineage
     }
   }
+
+  def tablesInRelations(relations: List[Relation]): List[Table] = {
+    val tables =
+      relations.flatMap { relation =>
+        val table1 = Table(relation.from.domain, relation.from.table, List(relation.from.column))
+        val table2 = Table(relation.to.domain, relation.to.table, List(relation.to.column))
+        List(table1, table2)
+      }
+    tables
+  }
+
 }
 
 object ColLineage {
-
   case class Column(domain: String, table: String, column: String)
   case class Relation(from: Column, to: Column, expression: Option[String])
-  case class Table(domain: String, table: String)
+  case class Table(domain: String, table: String, columns: List[String])
   case class Lineage(tables: List[Table], relations: List[Relation])
-
 }

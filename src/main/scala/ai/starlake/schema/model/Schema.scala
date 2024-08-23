@@ -265,7 +265,7 @@ case class Schema(
     *   error list or true
     */
   def checkValidity(
-    domainMetaData: Option[Metadata],
+    domainName: String,
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
@@ -273,12 +273,12 @@ case class Schema(
     if (!forceTablePrefixRegex.pattern.matcher(name).matches())
       errorList += ValidationMessage(
         Error,
-        "Table",
+        s"Table $domainName.$name",
         s"name: Table with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
       )
 
     metadata.foreach { metadata =>
-      for (errors <- metadata.checkValidity(schemaHandler).left) {
+      for (errors <- metadata.checkValidity(domainName, Some(this)).left) {
         errorList ++= errors
       }
     }

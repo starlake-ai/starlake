@@ -22,8 +22,8 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
     outputDomainAndTablename: String
   )(implicit settings: Settings): Unit = {
     assert(
-      jdbcOptions.getType() == ConnectionType.JDBC,
-      s"Only JDBC connections are supported ${jdbcOptions.getType()}"
+      jdbcOptions.`type` == ConnectionType.JDBC,
+      s"Only JDBC connections are supported ${jdbcOptions.`type`}"
     )
 
     val table = jdbcEngine.tables.get(outputDomainAndTablename.split('.').last)

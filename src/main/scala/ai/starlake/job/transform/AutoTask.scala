@@ -107,12 +107,13 @@ abstract class AutoTask(
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
   def buildAllSQLQueries(sql: Option[String]): String = {
+    val inputSQL = sql.getOrElse(taskDesc.getSql())
     val runConnection = this.taskDesc.getRunConnection()
     if (interactive.isEmpty) {
       if (taskDesc.parseSQL.getOrElse(true)) {
         val sqlWithParametersTranspiledIfInTest =
           schemaHandler.transpileAndSubstitute(
-            sql.getOrElse(taskDesc.getSql()),
+            inputSQL,
             runConnection,
             commandParameters,
             this.test
@@ -141,7 +142,7 @@ abstract class AutoTask(
         mainSql
       } else {
         val mainSql = schemaHandler.substituteRefTaskMainSQL(
-          sql.getOrElse(taskDesc.getSql()),
+          inputSQL,
           taskDesc.getRunConnection(),
           commandParameters
         )
@@ -150,13 +151,14 @@ abstract class AutoTask(
     } else {
       val sqlWithParametersTranspiledIfInTest =
         schemaHandler.transpileAndSubstitute(
-          sql.getOrElse(taskDesc.getSql()),
+          inputSQL,
           runConnection,
           commandParameters,
           this.test
         )
       sqlWithParametersTranspiledIfInTest
     }
+
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
@@ -278,7 +280,7 @@ object AutoTask extends StrictLogging {
     val sinkConfig = taskDesc.getSinkConfig()
     val runConnectionRef = taskDesc.getRunConnectionRef()
     engine match {
-      case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] =>
+      case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] || interactive.isDefined =>
         new BigQueryAutoTask(
           appId,
           taskDesc,
@@ -292,7 +294,8 @@ object AutoTask extends StrictLogging {
         )
       case Engine.JDBC
           if sinkConfig
-            .isInstanceOf[JdbcSink] && sinkConfig.getConnectionRef() == runConnectionRef =>
+            .isInstanceOf[JdbcSink] && sinkConfig
+            .getConnectionRef() == runConnectionRef || interactive.isDefined =>
         new JdbcAutoTask(
           appId,
           taskDesc,
@@ -305,7 +308,7 @@ object AutoTask extends StrictLogging {
         )
       case _ =>
         sinkConfig match {
-          case fs: FsSink if fs.isExport() =>
+          case fs: FsSink if fs.isExport() && interactive.isEmpty =>
             logger.info("Exporting to the filesystem")
             new SparkExportTask(
               appId,
@@ -366,14 +369,14 @@ object AutoTask extends StrictLogging {
       connectionRef = Some(connectionName)
     )
     val engine =
-      connection.getType() match {
+      connection.`type` match {
         case ConnectionType.BQ   => Engine.BQ
         case ConnectionType.JDBC => Engine.JDBC
         case ConnectionType.FS =>
           Engine.SPARK
         case _ =>
           throw new IllegalArgumentException(
-            s"Unsupported connection type: ${connection.getType()}"
+            s"Unsupported connection type: ${connection.`type`}"
           )
       }
     val t = task(

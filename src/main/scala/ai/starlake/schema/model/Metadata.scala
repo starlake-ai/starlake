@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
@@ -126,6 +125,85 @@ case class Metadata(
 ) {
 
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
+
+  def checkValidity(domainName: String, table: Option[Schema])(implicit
+    settings: Settings
+  ): Either[List[ValidationMessage], Boolean] = {
+    val tableName = table.map(_.name).getOrElse("")
+    val sinkErrors =
+      sink.map(_.checkValidity(tableName)).getOrElse(Right(true))
+    val freshnessErrors = freshness.map(_.checkValidity(tableName)).getOrElse(Right(true))
+    val scheduleErrors = schedule
+      .map { schedule =>
+        if (
+          schedule.contains(" ") ||
+          settings.appConfig.schedulePresets.contains(schedule)
+        ) {
+          // inline cron expression or reference to a schedule preset
+          Right(true)
+        } else {
+          Left(
+            List(
+              ValidationMessage(
+                Error,
+                s"Table metadata in $domainName.$tableName",
+                s"schedule: $schedule is not a valid schedule. Valid schedules are ${settings.appConfig.schedulePresets
+                    .mkString(", ")}"
+              )
+            )
+          )
+        }
+      }
+      .getOrElse(Right(true))
+
+    val loaderErrors =
+      Set("native", "spark").contains(loader.getOrElse("spark")) match {
+        case true => Right(true)
+        case false =>
+          Left(
+            List(
+              ValidationMessage(
+                Error,
+                "Table metadata",
+                s"loader: $loader is not a valid loader. Valid loaders are native, spark"
+              )
+            )
+          )
+      }
+    val writeStrategyErrors =
+      writeStrategy.map(_.checkValidity(domainName, table)).getOrElse(Right(true))
+    // merge all errors above
+    val errors = List(sinkErrors, freshnessErrors, scheduleErrors, loaderErrors).collect {
+      case Left(err) => err
+    }.flatten
+
+    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
+    def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
+    if (!isIgnoreUDF && resolveFormat() == Format.DSV)
+      errorList += ValidationMessage(
+        Error,
+        "Table metadata",
+        "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+      )
+
+    import Format._
+    if (
+      ignore.isDefined &&
+      !List(DSV, JSON_FLAT, POSITION).contains(resolveFormat())
+    )
+      errorList += ValidationMessage(
+        Error,
+        "Table metadata",
+        s"ignore: ignore not yet supported for format ${resolveFormat()}"
+      )
+
+    val allErrors = errors ++ errorList.toList
+    if (allErrors.nonEmpty)
+      Left(allErrors)
+    else
+      Right(true)
+
+  }
 
   def getSink()(implicit settings: Settings): Sink = {
     sink.map(_.getSink()).getOrElse(AllSinks().getSink())
@@ -338,42 +416,6 @@ case class Metadata(
       Some(this)
     else
       None
-  }
-
-  def checkValidity(
-    schemaHandler: SchemaHandler
-  ): Either[List[ValidationMessage], Boolean] = {
-    def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
-    val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
-
-    if (!isIgnoreUDF && resolveFormat() == Format.DSV)
-      errorList += ValidationMessage(
-        Error,
-        "Table metadata",
-        "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
-      )
-
-    import Format._
-    if (
-      ignore.isDefined &&
-      !List(DSV, JSON_FLAT, POSITION).contains(resolveFormat())
-    )
-      errorList += ValidationMessage(
-        Error,
-        "Table metadata",
-        s"ignore: ignore not yet supported for format ${resolveFormat()}"
-      )
-
-    val freshnessValidity = freshness.map(_.checkValidity()).getOrElse(Right(true))
-    freshnessValidity match {
-      case Left(freshnessErrors) =>
-        errorList ++= freshnessErrors
-      case Right(_) =>
-    }
-    if (errorList.nonEmpty)
-      Left(errorList.toList)
-    else
-      Right(true)
   }
 
   def compare(other: Metadata): ListDiff[Named] =

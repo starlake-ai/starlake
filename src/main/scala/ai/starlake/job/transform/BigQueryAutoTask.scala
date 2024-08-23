@@ -46,15 +46,15 @@ class BigQueryAutoTask(
       resultPageSize
     ) {
 
-  private val bqSink = taskDesc.sink
+  private lazy val bqSink = taskDesc.sink
     .map(_.getSink())
     .getOrElse(BigQuerySink(connectionRef = Some(sinkConnectionRef)))
     .asInstanceOf[BigQuerySink]
 
-  private val tableId = BigQueryJobBase
+  private lazy val tableId = BigQueryJobBase
     .extractProjectDatasetAndTable(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table)
 
-  val fullTableName: String = BigQueryJobBase.getBqTableForNative(tableId)
+  lazy val fullTableName: String = BigQueryJobBase.getBqTableForNative(tableId)
 
   override def tableExists: Boolean = {
     val tableExists =
@@ -150,7 +150,7 @@ class BigQueryAutoTask(
       // nothing to do, config is created with write_truncate in that case
     }
     val mainSql =
-      if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+      if (loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
         buildAllSQLQueries(None)
       } else {
         val sql = taskDesc.getSql()

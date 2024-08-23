@@ -45,20 +45,24 @@ class SparkAutoTask(
 
   override def run(): Try[JobResult] = {
     val result =
-      (taskDesc.getRunConnection().getType(), sinkConnection.getType()) match {
-        case (
-              ConnectionType.FS,
-              ConnectionType.FS
-            ) => // databricks to databricks including fs (text, csv ...)
-          if (sinkConfig.asInstanceOf[FsSink].isExport()) {
-            runSparkOnAny() // We exporting from Spark to the filesystem
-          } else {
-            runSparkOnSpark(taskDesc.getSql())
+      interactive match {
+        case Some(_) =>
+          runSparkOnSpark(taskDesc.getSql())
+        case None =>
+          (taskDesc.getRunConnection().`type`, sinkConnection.`type`) match {
+            case (
+                  ConnectionType.FS,
+                  ConnectionType.FS
+                ) => // databricks to databricks including fs (text, csv ...)
+              if (sinkConfig.asInstanceOf[FsSink].isExport()) {
+                runSparkOnAny() // We exporting from Spark to the filesystem
+              } else {
+                runSparkOnSpark(taskDesc.getSql())
+              }
+
+            case _ =>
+              runSparkOnSpark(taskDesc.getSql())
           }
-
-        case _ =>
-          runSparkOnAny()
-
       }
     result
   }
@@ -192,7 +196,7 @@ class SparkAutoTask(
       schemaHandler.substituteRefTaskMainSQL(taskDesc.getSql(), taskDesc.getRunConnection())
     val res = session.read
       .format(
-        runConnection.sparkDatasource().getOrElse(throw new Exception("Should never happen"))
+        runConnection.sparkDatasource().getOrElse("jdbc")
       )
       .option("query", sqlWithParameters)
       .options(runConnection.options)

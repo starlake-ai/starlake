@@ -40,9 +40,9 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
 
   def toSQLString(connection: Settings.Connection): String = {
     val engine =
-      if (connection.getType() == ConnectionType.BQ)
+      if (connection.`type` == ConnectionType.BQ)
         Engine.BQ
-      else if (connection.getType() == ConnectionType.JDBC)
+      else if (connection.`type` == ConnectionType.JDBC)
         Engine.JDBC
       else
         Engine.SPARK

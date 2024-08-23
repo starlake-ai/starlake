@@ -937,7 +937,7 @@ object YamlConfigGenerators {
         else m
       )
     } yield Connection(
-      `type` = connectionType,
+      `type` = ConnectionType.fromString(connectionType),
       sparkFormat = sparkFormat,
       quote = quote,
       separator = separator,

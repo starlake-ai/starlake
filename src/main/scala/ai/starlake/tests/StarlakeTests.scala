@@ -3,6 +3,7 @@ package ai.starlake.tests
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.DDLLeaf
 import ai.starlake.utils.Utils
 
@@ -490,7 +491,7 @@ object StarlakeTestData {
       originalSettings.appConfig.copy(
         connections = originalSettings.appConfig.connections.map { case (k, v) =>
           k -> v.copy(
-            `type` = "jdbc",
+            `type` = JDBC,
             quote = Some("\""),
             separator = Some("."),
             sparkFormat = None,

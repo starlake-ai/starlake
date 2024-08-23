@@ -51,7 +51,7 @@ case class TransformDesc(version: Int, transform: AutoJobDesc)
   */
 case class AutoJobDesc(
   name: String,
-  tasks: List[AutoTaskDesc],
+  tasks: List[AutoTaskDesc] = Nil,
   comment: Option[String] = None,
   default: Option[AutoTaskDesc] = None
 ) extends Named {
@@ -73,13 +73,23 @@ case class AutoJobDesc(
     if (!forceJobPrefixRegex.pattern.matcher(name).matches())
       errorList += ValidationMessage(
         Error,
-        "Transform",
+        s"Transform $name",
         s"name: Job with name $name should respect the pattern ${forceJobPrefixRegex.regex}"
       )
-    if (errorList.nonEmpty)
-      Left(errorList.toList)
-    else
+
+    // Check Tasks validity
+    tasks.foreach { task =>
+      task.checkValidity() match {
+        case Left(errors) => errorList ++= errors
+        case Right(_)     =>
+      }
+    }
+
+    if (errorList.isEmpty)
       Right(true)
+    else
+      Left(errorList.toList)
+
   }
 
 }
