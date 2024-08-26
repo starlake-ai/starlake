@@ -23,6 +23,7 @@ class JdbcAutoTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  logExecution: Boolean,
   accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
@@ -32,6 +33,7 @@ class JdbcAutoTask(
       commandParameters,
       interactive,
       test,
+      logExecution,
       truncate,
       resultPageSize
     ) {
@@ -203,7 +205,8 @@ class JdbcAutoTask(
     val end = Timestamp.from(Instant.now())
     res match {
       case Success(_) =>
-        logAuditSuccess(start, end, -1, test)
+        if (logExecution)
+          logAuditSuccess(start, end, -1, test)
       case Failure(e) =>
         logAuditFailure(start, end, e, test)
     }

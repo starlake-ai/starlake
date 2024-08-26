@@ -759,7 +759,7 @@ object StarlakeTestData {
 
     val task = schemaHandler.task(s"$domainName.$taskOrTableFolderName")
 
-    (table, task) match {
+    (table, task.toOption) match {
       case (Some(table), None) =>
         // handle load
         val preloadFiles =

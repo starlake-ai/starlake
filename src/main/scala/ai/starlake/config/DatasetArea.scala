@@ -109,6 +109,12 @@ object DatasetArea extends StrictLogging {
     new Path(`export`(domain), table)
   }
 
+  def refs()(implicit settings: Settings): Path = new Path(metadata, "refs.sl.yml")
+
+  def env()(implicit settings: Settings): Path = new Path(metadata, "env.sl.yml")
+
+  def env(name: String)(implicit settings: Settings): Path = new Path(metadata, s"env.$name.sl.yml")
+
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.appConfig.metrics.path)
 

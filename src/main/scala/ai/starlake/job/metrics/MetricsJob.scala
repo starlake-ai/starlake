@@ -204,7 +204,8 @@ class MetricsJob(
             Map.empty,
             None,
             truncate = false,
-            test = false
+            test = false,
+            logExecution = true
           )(
             settings,
             storageHandler,

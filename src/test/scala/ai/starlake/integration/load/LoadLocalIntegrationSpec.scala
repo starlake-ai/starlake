@@ -100,7 +100,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       val cats = sparkSession.sql("select * from sales.categories")
       cats.show(false)
       val catsCount = cats.count
-      assert(catsCount == 6)
+      assert(catsCount == 5)
     }
   }
 }

@@ -906,7 +906,7 @@ class IngestionWorkflow(
   ): AutoTask = {
     val taskDesc =
       schemaHandler
-        .task(config.name)
+        .taskOnly(config.name, reload = true)
         .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
     logger.debug(taskDesc.toString)
     AutoTask.task(
@@ -917,6 +917,7 @@ class IngestionWorkflow(
       config.truncate,
       config.test,
       taskDesc.getRunEngine(),
+      logExecution = true,
       config.accessToken,
       resultPageSize = 1,
       dryRun = config.dryRun

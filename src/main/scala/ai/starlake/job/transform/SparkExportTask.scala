@@ -27,6 +27,7 @@ class SparkExportTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  logExecution: Boolean,
   accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
@@ -37,6 +38,7 @@ class SparkExportTask(
       interactive,
       truncate,
       test,
+      logExecution,
       accessToken,
       resultPageSize
     ) {

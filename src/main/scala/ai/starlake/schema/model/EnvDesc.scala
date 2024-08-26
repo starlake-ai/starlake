@@ -202,7 +202,7 @@ object EnvDesc extends StrictLogging {
     settings: Settings
   ): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
-    val defaultEnvPath = new Path(DatasetArea.metadata, "env.sl.yml")
+    val defaultEnvPath = DatasetArea.env()
     val defaultEnv = loadEnv(defaultEnvPath).map(_.env).getOrElse(Map.empty)
     val allSpecificEnvs: List[(Path, Map[String, String])] =
       storageHandler

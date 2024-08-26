@@ -51,6 +51,7 @@ abstract class AutoTask(
   val commandParameters: Map[String, String],
   val interactive: Option[String],
   val test: Boolean,
+  val logExecution: Boolean,
   val truncate: Boolean = false,
   val resultPageSize: Int = 1
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
@@ -256,7 +257,8 @@ object AutoTask extends StrictLogging {
           None,
           engine = Engine.SPARK,
           truncate = false,
-          test = false
+          test = false,
+          logExecution = true
         )
       )
   }
@@ -269,6 +271,7 @@ object AutoTask extends StrictLogging {
     truncate: Boolean,
     test: Boolean,
     engine: Engine,
+    logExecution: Boolean,
     accessToken: Option[String] = None,
     resultPageSize: Int = 1000,
     dryRun: Boolean = false
@@ -288,6 +291,7 @@ object AutoTask extends StrictLogging {
           interactive,
           truncate = truncate,
           test = test,
+          logExecution = logExecution,
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           dryRun = dryRun
@@ -303,6 +307,7 @@ object AutoTask extends StrictLogging {
           interactive,
           truncate = truncate,
           test = test,
+          logExecution = logExecution,
           accessToken = accessToken,
           resultPageSize = resultPageSize
         )
@@ -318,7 +323,8 @@ object AutoTask extends StrictLogging {
               truncate = truncate,
               test = test,
               accessToken = accessToken,
-              resultPageSize = resultPageSize
+              resultPageSize = resultPageSize,
+              logExecution = logExecution
             )
 
           case _ =>
@@ -330,7 +336,8 @@ object AutoTask extends StrictLogging {
               truncate = truncate,
               test = test,
               accessToken = accessToken,
-              resultPageSize = resultPageSize
+              resultPageSize = resultPageSize,
+              logExecution = logExecution
             )
         }
     }
@@ -386,7 +393,8 @@ object AutoTask extends StrictLogging {
       Some("json-array"),
       truncate = false,
       test = true,
-      engine = engine
+      engine = engine,
+      logExecution = false
     )
     t.run() match {
       case Success(jobResult) =>

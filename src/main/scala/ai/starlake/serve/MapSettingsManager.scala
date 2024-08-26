@@ -45,12 +45,11 @@ class MapSettingsManager extends SettingsManager {
 
   def getUpdatedSettings(
     root: String,
-    metadata: Option[String],
     env: Option[String],
     duckDbMode: Boolean,
     refresh: Boolean = false
   ): (Settings, Boolean) = {
-    val sessionId = uniqueId(root, metadata, env, duckDbMode)
+    val sessionId = uniqueId(root, env, duckDbMode)
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 

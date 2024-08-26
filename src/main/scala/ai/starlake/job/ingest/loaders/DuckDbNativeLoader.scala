@@ -99,7 +99,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             Map.empty,
             None,
             truncate = false,
-            test = false
+            test = false,
+            logExecution = true
           )(
             settings,
             storageHandler,
@@ -224,7 +225,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         Map.empty,
         None,
         truncate = false,
-        test = false
+        test = false,
+        logExecution = true
       )(
         settings,
         storageHandler,
