@@ -213,7 +213,7 @@ object Settings extends StrictLogging {
           s"File not found: ${defaultTypes.toString}"
         )
 
-      val globalsCometPath = new Path(DatasetArea.metadata, "env.sl.yml")
+      val globalsCometPath = DatasetArea.env()
       if (!settings.storageHandler().exists(globalsCometPath))
         errors = errors :+ ValidationMessage(
           Severity.Warning,
@@ -1024,19 +1024,23 @@ object Settings extends StrictLogging {
     *   final configuration after merging with application.conf & application. sl.yml
     */
 
-  def apply(config: Config, env: Option[String], root: Option[String]): Settings = {
+  def apply(
+    config: Config,
+    env: Option[String],
+    root: Option[String]
+  ): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
       config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     // Load reference.conf
     val loadedConfig = loadConf(Some(effectiveConfig))
-    val updatedConfig =
+    val withRootUpdatedConfig =
       root
         .map { root =>
           val oldRootLength = loadedConfig.root.length
           loadedConfig.copy(
-            root = loadedConfig.root,
+            root = root,
             audit = loadedConfig.audit
               .copy(path = root + loadedConfig.audit.path.substring(oldRootLength)),
             expectations = loadedConfig.expectations
@@ -1054,6 +1058,12 @@ object Settings extends StrictLogging {
         }
         .getOrElse(loadedConfig)
 
+    val withEnvUpdatedEnvConfig =
+      env
+        .orElse(Option(System.getenv("SL_ENV")))
+        .map(env => withRootUpdatedConfig.copy(env = env))
+        .getOrElse(withRootUpdatedConfig)
+
     logger.info(
       "root=" + config.getString("root")
     )
@@ -1061,33 +1071,45 @@ object Settings extends StrictLogging {
       "ENV SL_ROOT=" + Option(System.getenv("SL_ROOT")).getOrElse("")
     )
 
-    val updatedEffectiveConfig =
+    val rootUpdatedEffectiveConfig =
       effectiveConfig
-        .withValue("root", ConfigValueFactory.fromAnyRef(root.getOrElse("")))
-        .withValue("audit.path", ConfigValueFactory.fromAnyRef(updatedConfig.audit.path))
+        .withValue("root", ConfigValueFactory.fromAnyRef(root.getOrElse(System.getenv("SL_ROOT"))))
+        .withValue("audit.path", ConfigValueFactory.fromAnyRef(withRootUpdatedConfig.audit.path))
         .withValue(
           "expectations.path",
-          ConfigValueFactory.fromAnyRef(updatedConfig.expectations.path)
+          ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.expectations.path)
         )
-        .withValue("datasets", ConfigValueFactory.fromAnyRef(updatedConfig.datasets))
-        .withValue("incoming", ConfigValueFactory.fromAnyRef(updatedConfig.incoming))
-        .withValue("metadata", ConfigValueFactory.fromAnyRef(updatedConfig.metadata))
-        .withValue("lock.path", ConfigValueFactory.fromAnyRef(updatedConfig.lock.path))
-        .withValue("metrics.path", ConfigValueFactory.fromAnyRef(updatedConfig.metrics.path))
-        .withValue("dags", ConfigValueFactory.fromAnyRef(updatedConfig.dags))
-        .withValue("writeStrategies", ConfigValueFactory.fromAnyRef(updatedConfig.writeStrategies))
+        .withValue("datasets", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.datasets))
+        .withValue("incoming", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.incoming))
+        .withValue("metadata", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.metadata))
+        .withValue("lock.path", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.lock.path))
+        .withValue(
+          "metrics.path",
+          ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.metrics.path)
+        )
+        .withValue("dags", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.dags))
+        .withValue(
+          "writeStrategies",
+          ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.writeStrategies)
+        )
 
-    logger.debug(YamlSerde.serialize(updatedConfig))
+    val withUpdatedEnvConfig =
+      env
+        .orElse(Option(System.getenv("SL_ENV")))
+        .map(env => rootUpdatedEffectiveConfig.withValue("env", ConfigValueFactory.fromAnyRef(env)))
+        .getOrElse(rootUpdatedEffectiveConfig)
+
+    logger.debug(YamlSerde.serialize(withEnvUpdatedEnvConfig))
     val settings =
       Settings(
-        updatedConfig,
+        withEnvUpdatedEnvConfig,
         effectiveConfig.getConfig("spark"),
         effectiveConfig.getConfig("extra")
       )
     // Load application.conf / application.sl.yml
     val loadedSettings =
-      loadApplicationYaml(updatedEffectiveConfig, settings, env, root)
-        .orElse(loadApplicationConf(updatedEffectiveConfig, settings, env))
+      loadApplicationYaml(withUpdatedEnvConfig, settings, env, root)
+        .orElse(loadApplicationConf(withUpdatedEnvConfig, settings, env))
         .getOrElse(settings)
 
     val applicationConfSettings =
@@ -1173,7 +1195,9 @@ object Settings extends StrictLogging {
                 case Some(root) =>
                   vars + ("SL_ROOT" -> root)
                 case None =>
-                  vars
+                  val slRoot = Option(System.getenv("SL_ROOT"))
+                    .getOrElse(throw new Exception("SL_ROOT not defined"))
+                  vars + ("SL_ROOT" -> slRoot)
               }
             }
 

@@ -797,7 +797,8 @@ trait IngestionJob extends SparkJob {
               Map.empty,
               None,
               truncate = false,
-              test = test
+              test = test,
+              logExecution = true
             )(
               settings,
               storageHandler,
@@ -810,7 +811,8 @@ trait IngestionJob extends SparkJob {
               Map.empty,
               None,
               truncate = false,
-              test = test
+              test = test,
+              logExecution = true
             )(
               settings,
               storageHandler,

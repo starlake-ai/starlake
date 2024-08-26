@@ -342,7 +342,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           s"SELECT * FROM graduate_agg_view"
         ),
         database = None,
-        domain = "graduateProgram",
+        domain = "user",
         table = "output",
         presql = List(
           s"""
@@ -379,10 +379,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("graduateProgram.graduateProgram"))
+      workflow.autoJob(TransformConfig("user.graduateProgram"))
 
       val result = sparkSession
-        .table("graduateProgram.output")
+        .table("user.output")
         .select("*")
 
       result

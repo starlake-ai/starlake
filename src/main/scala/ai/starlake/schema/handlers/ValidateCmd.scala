@@ -38,6 +38,7 @@ object ValidateCmd extends Cmd[ValidateConfig] {
       case Failure(error) =>
         // scalastyle:off println
         println(error)
+        error.printStackTrace()
       case Success((errorsAndWarning, errorCount, warningCount)) =>
         if (errorCount > 0) {
           // scalastyle:off println

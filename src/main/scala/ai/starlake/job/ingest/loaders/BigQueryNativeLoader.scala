@@ -233,7 +233,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
         None,
         truncate = false,
         test = false,
-        Engine.BQ
+        Engine.BQ,
+        logExecution = true
       )(
         settings,
         storageHandler,
@@ -421,7 +422,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
         Map.empty,
         None,
         truncate = false,
-        test = false
+        test = false,
+        logExecution = true
       )(
         settings,
         storageHandler,

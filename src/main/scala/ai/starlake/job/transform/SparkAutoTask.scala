@@ -30,6 +30,7 @@ class SparkAutoTask(
   interactive: Option[String],
   truncate: Boolean,
   test: Boolean,
+  logExecution: Boolean,
   accessToken: Option[String] = None,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
@@ -39,6 +40,7 @@ class SparkAutoTask(
       commandParameters,
       interactive,
       test,
+      logExecution,
       truncate,
       resultPageSize
     ) {
@@ -322,7 +324,8 @@ class SparkAutoTask(
           SparkJobResult(jobResult, None)
       }
       val end = Timestamp.from(Instant.now())
-      logAuditSuccess(start, end, -1, test)
+      if (logExecution)
+        logAuditSuccess(start, end, -1, test)
       jobResult
     } recoverWith { case e: Exception =>
       val end = Timestamp.from(Instant.now())
@@ -411,7 +414,8 @@ class SparkAutoTask(
                 Map.empty,
                 None,
                 truncate = false,
-                test
+                test,
+                logExecution
               )(
                 settings,
                 storageHandler,
@@ -426,7 +430,8 @@ class SparkAutoTask(
                 Map.empty,
                 None,
                 truncate = false,
-                test
+                test,
+                logExecution = logExecution
               )(
                 settings,
                 storageHandler,
@@ -620,6 +625,7 @@ class SparkAutoTask(
             interactive,
             truncate,
             test,
+            logExecution,
             accessToken,
             resultPageSize
           )
@@ -644,6 +650,7 @@ class SparkAutoTask(
           interactive,
           truncate,
           test,
+          logExecution,
           accessToken,
           resultPageSize
         )
@@ -721,7 +728,8 @@ class SparkAutoTask(
             Map.empty,
             None,
             truncate = false,
-            test
+            test,
+            logExecution = logExecution
           )(
             settings,
             storageHandler,
@@ -749,7 +757,8 @@ class SparkAutoTask(
             Map.empty,
             None,
             truncate = false,
-            test
+            test,
+            logExecution = logExecution
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))

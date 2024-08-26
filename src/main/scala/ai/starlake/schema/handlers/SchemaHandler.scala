@@ -379,7 +379,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val externalProps = sys.env ++ slVarsAsProperties
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
-    val globalsCometPath = new Path(DatasetArea.metadata, "env.sl.yml")
+    val globalsCometPath = DatasetArea.env()
     val globalEnv = EnvDesc.loadEnv(globalsCometPath)(storage)
     // System Env variables may be used as values for variables defined in the env files.
     val globalEnvVars =
@@ -403,9 +403,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val localEnvVars =
       if (activeEnvName.nonEmpty && activeEnvName != "None") {
-        val envsCometPath =
-          new Path(DatasetArea.metadata, s"env.$activeEnvName.sl.yml")
-
+        val envsCometPath = DatasetArea.env(activeEnvName)
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
 
@@ -435,7 +433,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   @throws[Exception]
   private def loadRefs(): RefDesc = {
-    val refsPath = new Path(DatasetArea.metadata, "refs.sl.yml")
+    val refsPath = DatasetArea.refs()
     val refs = if (storage.exists(refsPath)) {
       val rawContent = storage.read(refsPath)
       val content = Utils.parseJinja(rawContent, activeEnvVars())
@@ -481,6 +479,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val domainWithName = domainOnly
             .map { domainOnly =>
               val domainName = if (domainOnly.name.isEmpty) directory.getName else domainOnly.name
+              if (domainName != domainOnly.name)
+                logger.warn(
+                  s"Domain name ${domainOnly.name} in ${configPath.toString} is different from the directory name ${directory.getName}"
+                )
               domainOnly.copy(name = domainName)
             }
           (configPath, domainWithName)
@@ -564,37 +566,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     tablesFromDomainOrTasks
   }
-
-  /*  def findTables(
-    domainName: Option[String]
-  ): Either[Map[String, List[Schema]], Map[String, List[AutoTaskDesc]]] = {
-    val tablesFromDomain =
-      domainName match {
-        case Some(domainName) =>
-          val tables = domains()
-            .find(_.finalName.toLowerCase() == domainName.toLowerCase())
-            .map { d => d.tables }
-            .getOrElse(Nil)
-          Map(domainName -> tables)
-
-        case None =>
-          domains().map(d => d.finalName -> d.tables).toMap
-      }
-
-    val tablesFromDomainOrTasks =
-      if (tablesFromDomain.isEmpty) {
-        domainName match {
-          case Some(domainName) =>
-            Right(tasksMap().filterKeys(_.toLowerCase() == domainName.toLowerCase()))
-          case None =>
-            Right(tasksMap())
-        }
-      } else
-        Left(tablesFromDomain)
-
-    tablesFromDomainOrTasks
-  }
-   */
 
   def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
     val objects = getObjectNames()
@@ -840,16 +811,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   ): TableDesc = {
     val schemaPath = new Path(folder, tableRefName)
     logger.debug(s"Loading schema from $schemaPath")
-    YamlSerde
-      .deserializeYamlTables(
-        if (raw)
-          storage.read(schemaPath)
-        else
-          Utils
-            .parseJinja(storage.read(schemaPath), activeEnvVars()),
-        schemaPath.toString
+    val tableDesc =
+      YamlSerde
+        .deserializeYamlTables(
+          if (raw)
+            storage.read(schemaPath)
+          else
+            Utils
+              .parseJinja(storage.read(schemaPath), activeEnvVars()),
+          schemaPath.toString
+        )
+        .head
+    val namedTableDesc =
+      if (tableDesc.table.name.isEmpty)
+        tableDesc.copy(table = tableDesc.table.copy(name = tableRefName))
+      else
+        tableDesc
+    if (namedTableDesc.table.name != tableRefName.dropRight(".sl.yml".length))
+      logger.warn(
+        s"Table name ${namedTableDesc.table.name} in ${schemaPath.toString} is different from the file name ${tableRefName}"
       )
-      .head
+    namedTableDesc
   }
 
   private def checkVarsAreDefined(path: Path): Set[ValidationMessage] = {
@@ -925,39 +907,31 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] =
     Try {
       logger.info("Loading job " + jobPath)
-      if (storage.exists(jobPath)) {
-        val fileContent = storage.read(jobPath)
-        val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
-        YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
-          case Failure(exception) =>
-            throw exception
-          case Success(autoJobDesc) =>
-            if (autoJobDesc.getName().isEmpty)
-              autoJobDesc.copy(name = jobPath.getParent.getName)
-            else
-              autoJobDesc
+      val jobDesc =
+        if (storage.exists(jobPath)) {
+          val fileContent = storage.read(jobPath)
+          val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
+          YamlSerde.deserializeYamlTransform(rootContent, jobPath.toString) match {
+            case Failure(exception) =>
+              throw exception
+            case Success(autoJobDesc) =>
+              if (autoJobDesc.getName().isEmpty)
+                autoJobDesc.copy(name = jobPath.getParent.getName)
+              else
+                autoJobDesc
+          }
+        } else {
+          // no _config.sl.yml file. Dir name is the job name
+          AutoJobDesc(name = jobPath.getParent.getName, tasks = Nil)
         }
-      } else {
-        // no _config.sl.yml file. Dir name is the job name
-        AutoJobDesc(name = jobPath.getParent.getName, tasks = Nil)
-      }
-    }
 
-  def loadAutoTask(
-    jobDesc: AutoJobDesc,
-    jobFolder: Path,
-    taskPartName: String
-  ): Try[AutoTaskDesc] = Try {
-    // Load task ref and inject it in the job
-    val autoTasksRef = loadTaskRef(jobFolder, taskPartName)
-    autoTasksRef match {
-      case Success(taskDesc) =>
-        val autoTask = loadAutoTask(jobDesc, jobFolder, taskDesc)
-        autoTask
-      case Failure(exception) =>
-        throw exception
+      if (jobDesc.name != jobPath.getParent.getName)
+        logger.warn(
+          s"Job name ${jobDesc.name} in ${jobPath.toString} is different from the folder name ${jobPath.getParent.getName}"
+        )
+
+      jobDesc
     }
-  }
 
   def loadAutoTask(
     jobDesc: AutoJobDesc,
@@ -1053,14 +1027,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private def loadAutoTaskFiles(
     jobDesc: AutoJobDesc,
-    folder: Path
+    folder: Path,
+    taskNames: List[String] = Nil
   ): List[AutoTaskDesc] = {
     // List[(prefix, filename, extension)]
+    val taskNamesPrefix = taskNames.map(taskName => taskName + ".")
     val allFiles =
       storage
         .list(folder, recursive = true)
         .map(_.path.getName())
-        .filter(name => !name.startsWith("_config."))
+        .filter(name =>
+          !name.startsWith("_config.") &&
+          (taskNames.isEmpty || taskNamesPrefix.exists(name.startsWith))
+        )
         .flatMap { filename =>
           // improve the code below to handle more than one extension
           List("sl.yml", "sql", "sql.j2", "py")
@@ -1091,12 +1070,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 )
                 .copy(name = taskFilePrefix)
               val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
+              if (taskDesc.name != taskName)
+                logger.warn(
+                  s"Task name ${taskDesc.name} in ${taskPath.toString} is different from the file name ${taskFilePrefix}"
+                )
               taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
             } match {
               case Failure(e) =>
                 e.printStackTrace()
                 logger.error(e.getMessage, e)
-                // TODO: could not deserialise. Since we support legacy we may encounter sl.yml files that doesn't define task nor _config.sl.yml. We should add breaking change to remove this behavior and have a strict definition of config files.
                 None
               case Success(value) => Some(value)
             }
@@ -1244,35 +1226,56 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
-  def task(taskName: String): Option[AutoTaskDesc] = {
+  def task(taskName: String): Try[AutoTaskDesc] = Try {
     val allTasks = tasks()
-    allTasks.find(t => t.name == taskName)
+    allTasks
+      .find(t => t.name == taskName)
+      .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
 
-  def taskOnly(taskName: String): Option[AutoTaskDesc] = {
-    val loadedTask = _jobs.flatMap(_.tasks).find(_.name == taskName)
-    loadedTask match {
-      case Some(task) =>
-        Some(task)
-      case None =>
-        val components = taskName.split('.')
-        val domainName = components(0)
-        val taskPartName = components(1)
-        val directory = new Path(DatasetArea.transform, domainName)
-        val configPath = new Path(directory, "_config.sl.yml")
-        val taskDesc =
-          for {
-            jobDesc  <- loadJobDesc(configPath)
-            taskDesc <- loadAutoTask(jobDesc, directory, taskPartName)
-          } yield taskDesc
-        taskDesc.toOption
+  def taskOnly(taskName: String, reload: Boolean = false): Try[AutoTaskDesc] = {
+    val refs = loadRefs()
+    if (refs.refs.isEmpty) {
+      val components = taskName.split('.')
+      val domainName = components(0)
+      val taskPartName = components(1)
+      val loadedTask =
+        if (reload) {
+          val theJob = _jobs.find(_.getName() == domainName)
+          theJob match {
+            case None =>
+            case Some(job) =>
+              val tasks = job.tasks.filterNot(_.table == taskPartName)
+              val newJob = job.copy(tasks = tasks)
+              _jobs = _jobs.filterNot(_.getName() == domainName) :+ newJob
+          }
+          None
+        } else {
+          _jobs.flatMap(_.tasks).find(_.name == taskName)
+        }
+      loadedTask match {
+        case Some(task) =>
+          Success(task)
+        case None =>
+          val directory = new Path(DatasetArea.transform, domainName)
+          val configPath = new Path(directory, "_config.sl.yml")
+          val taskDesc =
+            for {
+              jobDesc <- loadJobDesc(configPath)
+              taskDesc = loadAutoTaskFiles(jobDesc, directory, List(taskPartName)).head
+            } yield taskDesc
+          taskDesc.orElse(
+            task(taskName)
+          ) // because taskOnly can only handle task named after folder and file names
+      }
+    } else {
+      task(taskName)
     }
-
   }
 
   private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = (Nil, Nil)
 
-  /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
+  /** All Jobs are defined under the "transform" folder in the metadata folder
     */
   @throws[Exception]
   private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {

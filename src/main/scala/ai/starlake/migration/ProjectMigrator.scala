@@ -118,7 +118,7 @@ class ExtractMetadataFolderMigrator(implicit val settings: Settings)
 }
 
 class RefMetadataMigrator(implicit val settings: Settings) extends MetadataFolderMigrator {
-  override protected val areaPath: Path = new Path(DatasetArea.metadata, "refs.sl.yml")
+  override protected val areaPath: Path = DatasetArea.refs()
 
   override protected def recursive: Boolean = false
 

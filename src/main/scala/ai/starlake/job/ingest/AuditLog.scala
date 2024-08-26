@@ -229,7 +229,8 @@ object AuditLog extends StrictLogging {
               None,
               truncate = false,
               test = log.test,
-              engine = auditTaskDesc.getSinkConnection().getEngine()
+              engine = auditTaskDesc.getSinkConnection().getEngine(),
+              logExecution = false // We do not log the job that write the logs :)
             )
           val res = task.run()
           Utils.logFailure(res, logger)

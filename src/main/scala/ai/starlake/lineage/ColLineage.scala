@@ -160,8 +160,8 @@ class ColLineage(
     relations.distinct
   }
   def colLineage(colLineageConfig: ColLineageConfig): Option[ColLineage.Lineage] = {
-    val taskDesc = schemaHandler.task(colLineageConfig.task)
-    taskDesc.map { task =>
+    val taskDesc = schemaHandler.taskOnly(colLineageConfig.task, reload = true)
+    taskDesc.toOption.map { task =>
       val sql = task.sql
         .map { sql =>
           schemaHandler.substituteRefTaskMainSQL(sql, task.getRunConnection()(settings))
