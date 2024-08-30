@@ -22,6 +22,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -263,6 +264,26 @@ object AutoTask extends StrictLogging {
       )
   }
 
+  def executeUpdate(sql: String, connectionRef: String)(implicit
+    settings: Settings
+  ): Try[Boolean] = {
+    val connection = settings.appConfig
+      .connection(connectionRef)
+      .getOrElse(throw new Exception(s"Connection not found $connectionRef"))
+    val engine = connection.getEngine()
+    engine match {
+      case Engine.BQ =>
+        BigQueryJobBase.executeUpdate(sql, connectionRef)
+      case Engine.JDBC =>
+        JdbcAutoTask.executeUpdate(sql, connectionRef)
+      case Engine.SPARK =>
+        SparkAutoTask.executeUpdate(sql, connectionRef)
+      case _ =>
+        Failure(throw new Exception(s"Unsupported engine $engine"))
+    }
+
+  }
+
   def task(
     appId: Option[String],
     taskDesc: AutoTaskDesc,
@@ -361,9 +382,9 @@ object AutoTask extends StrictLogging {
     val finalSql =
       if (summarizeOnly)
         if (connection.isDuckDb())
-          "SUMMARIZE " + sql
+          s"SUMMARIZE $domain.$table"
         else
-          s"DESCRIBE TABLE $domain.$table"
+          s"DESCRIBE $domain.$table"
       else
         sql
 

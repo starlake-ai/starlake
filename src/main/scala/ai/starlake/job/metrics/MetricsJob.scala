@@ -205,7 +205,7 @@ class MetricsJob(
             None,
             truncate = false,
             test = false,
-            logExecution = true
+            logExecution = false
           )(
             settings,
             storageHandler,

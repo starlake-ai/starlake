@@ -38,10 +38,6 @@
         <value>/Users/me/.gcloud/keys/ebiz-europe-west2-0392b4074acb.json</value>
     </property>
     <property>
-        <name>fs.default.name</name>
-        <value>gs://starlake-app</value>
-    </property>
-    <property>
         <name>fs.defaultFS</name>
         <value>gs://starlake-app</value>
     </property>
@@ -63,7 +59,7 @@
                 <description>A base for other temporary directories.</description>
             </property>
             <property>
-                <name>fs.default.name</name>
+                <name>fs.defaultFS</name>
                 <value>hdfs://localhost:9000</value>
             </property>
 

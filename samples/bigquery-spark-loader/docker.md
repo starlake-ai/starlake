@@ -11,7 +11,6 @@ google.cloud.auth.type=SERVICE_ACCOUNT_JSON_KEYFILE,
 google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
 fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
 google.cloud.auth.service.account.enable=true,
-fs.default.name=$SL_FS,
 fs.defaultFS=$SL_FS"
 ```
 
@@ -21,7 +20,6 @@ export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs
 google.cloud.auth.type=APPLICATION_DEFAULT,
 fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
 google.cloud.auth.service.account.enable=true,
-fs.default.name=$SL_FS,
 fs.defaultFS=$SL_FS"
 ```
 
@@ -31,7 +29,6 @@ export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs
 google.cloud.auth.type=COMPUTE_ENGINE,
 fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
 google.cloud.auth.service.account.enable=true,
-fs.default.name=$SL_FS,
 fs.defaultFS=$SL_FS"
 ```
 
@@ -52,7 +49,6 @@ docker run \
 google.cloud.auth.type=APPLICATION_DEFAULT, \
 fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem, \
 google.cloud.auth.service.account.enable=true, \
-fs.default.name=gs://starlake-app, \
 fs.defaultFS=gs://starlake-app" \
 -e SL_ENV=BQ \
 -e SPARK_DRIVER_MEMORY=4G \
@@ -70,7 +66,7 @@ YAML configuration for Cloud Run below
 ```
 env:
 - name: SL_STORAGE_CONF
-  value: fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,google.cloud.auth.type=APPLICATION_DEFAULT,fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,google.cloud.auth.service.account.enable=true,fs.default.name=gs://starlake-app,fs.defaultFS=gs://starlake-app
+  value: fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,google.cloud.auth.type=APPLICATION_DEFAULT,fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,google.cloud.auth.service.account.enable=true,fs.defaultFS=gs://starlake-app
 - name: GCP_BUCKET_NAME
   value: starlake-app
 - name: GCP_PROJECT_ID

@@ -39,7 +39,11 @@ case class WriteStrategy(
     table match {
       case Some(table) =>
         key.foreach { key =>
-          if (!table.attributes.exists(_.getFinalName().equalsIgnoreCase(key)))
+          if (
+            table.attributes.nonEmpty && !table.attributes.exists(
+              _.getFinalName().equalsIgnoreCase(key)
+            )
+          )
             errorList += ValidationMessage(
               Error,
               "WriteStrategy",
@@ -47,7 +51,11 @@ case class WriteStrategy(
             )
         }
         timestamp.foreach { timestamp =>
-          if (!table.attributes.exists(_.getFinalName().equalsIgnoreCase(timestamp)))
+          if (
+            table.attributes.nonEmpty && !table.attributes.exists(
+              _.getFinalName().equalsIgnoreCase(timestamp)
+            )
+          )
             errorList += ValidationMessage(
               Error,
               "WriteStrategy",

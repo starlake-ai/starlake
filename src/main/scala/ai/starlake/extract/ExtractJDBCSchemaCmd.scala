@@ -21,8 +21,18 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
       builder
         .opt[String]("config")
         .action((x, c) => c.copy(extractConfig = x))
-        .required()
+        .optional()
         .text("Database tables & connection info"),
+      builder
+        .opt[Seq[String]]("tables")
+        .action((x, c) => c.copy(tables = x))
+        .optional()
+        .text("Database tables info"),
+      builder
+        .opt[String]("connectionRef")
+        .action((x, c) => c.copy(connectionRef = Some(x)))
+        .optional()
+        .text("Database  connection info"),
       builder
         .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))

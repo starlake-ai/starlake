@@ -199,12 +199,15 @@ object DatasetArea extends StrictLogging {
   def iamPolicyTags()(implicit settings: Settings): Path =
     new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
+  def folders(implicit settings: Settings): List[Path] =
+    List(metadata, types, load, external, extract, transform, expectations, mapping)
+
   /** @param storage
     */
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, load, external, extract, transform, expectations, mapping)
+    folders
       .foreach(
         storage.mkdirs
       )
