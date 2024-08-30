@@ -25,10 +25,9 @@ import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.{StringType, StructField}
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.{compareTypes, parseString}
+import org.apache.spark.sql.types.{DataType, StringType, StructField}
 
 import scala.util.{Failure, Success, Try}
 
@@ -62,11 +61,10 @@ class JsonIngestionJob(
 
   protected def loadJsonData(): Dataset[String] = {
     if (mergedMetadata.resolveArray()) {
-      val jsonRDD =
-        session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
-          case (_, content) => content
-        }
-      session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
+      session.read
+        .option("multiLine", true)
+        .json(path.map(_.toString): _*)
+        .toJSON
 
     } else {
       session.read
@@ -75,7 +73,6 @@ class JsonIngestionJob(
         .options(sparkOptions)
         .textFile(path.map(_.toString): _*)
     }
-
   }
 
   /** load the json as an RDD of String
@@ -101,38 +98,59 @@ class JsonIngestionJob(
     }
   }
 
+  private def validateRecord(record: String, schema: DataType): Array[String] = {
+    parseString(record) match {
+      case Success(datasetType) =>
+        compareTypes(schema, datasetType).toArray
+      case Failure(exception) =>
+        Array(exception.toString)
+    }
+  }
+
+  def parseDF(
+    inputDF: DataFrame,
+    schemaSparkType: DataType
+  ): (Dataset[String], Dataset[String]) = {
+    implicit val tuple3Encoder =
+      Encoders.tuple(
+        Encoders.STRING,
+        Encoders.STRING,
+        Encoders.STRING
+      )
+    val validatedDF = inputDF.map { row =>
+      val inputFilename = row.getAs[String](CometColumns.cometInputFileNameColumn)
+      val rowAsString = row.getAs[String]("value")
+      val errorList = validateRecord(rowAsString, schemaSparkType)
+      (rowAsString, errorList.mkString("\n"), inputFilename)
+    }
+
+    val withInvalidSchema =
+      validatedDF
+        .filter(_._2.nonEmpty)
+        .map { case (_, errorList, _) =>
+          errorList
+        }(Encoders.STRING)
+
+    val withValidSchema = validatedDF
+      .filter(_._2.isEmpty)
+      .map { case (rowAsString, _, inputFilename) =>
+        val (left, _) = rowAsString.splitAt(rowAsString.lastIndexOf("}"))
+        // Because Spark cannot detect the input files when session.read.json(session.createDataset(withValidSchema)(Encoders.STRING)),
+        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
+        s"""$left, "${CometColumns.cometInputFileNameColumn}" : "$inputFilename" }"""
+      }(Encoders.STRING)
+    (withInvalidSchema, withValidSchema)
+  }
+
   /** Where the magic happen
     *
     * @param dataset
     *   input dataset as a RDD of string
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val rdd: RDD[Row] = dataset.rdd
     val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
-    val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
-      .parseRDD(rdd, validationSchema)
-      .persist(settings.appConfig.cacheStorageLevel)
-
-    val withValidSchema: RDD[String] =
-      parsed
-        .collect { case Right(value) =>
-          value
-        }
-        .map { case (row, inputFileName) =>
-          val (left, _) = row.splitAt(row.lastIndexOf("}"))
-
-          // Because Spark cannot detect the input files when session.read.json(session.createDataset(withValidSchema)(Encoders.STRING)),
-          // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
-
-          s"""$left, "${CometColumns.cometInputFileNameColumn}" : "$inputFileName" }"""
-        }
-
-    val withInvalidSchema: RDD[String] =
-      parsed
-        .collect { case Left(value) =>
-          value
-        }
-        .map(_.mkString("\n"))
+    val persistedDF = dataset.persist(settings.appConfig.cacheStorageLevel)
+    val (withInvalidSchema, withValidSchema) = parseDF(persistedDF, validationSchema)
 
     val loadSchema = schema
       .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
@@ -140,7 +158,7 @@ class JsonIngestionJob(
 
     val toValidate = session.read
       .schema(loadSchema)
-      .json(session.createDataset(withValidSchema)(Encoders.STRING))
+      .json(withValidSchema)
 
     val validationResult =
       treeRowValidator.validate(
@@ -156,10 +174,8 @@ class JsonIngestionJob(
         settings.appConfig.sinkReplayToFile,
         mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
       )
-
-    import session.implicits._
-    val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
-    rejectedDS.cache()
+    val rejectedDS = withInvalidSchema.union(validationResult.errors)
+    rejectedDS.persist(settings.appConfig.cacheStorageLevel)
 
     saveRejected(rejectedDS, validationResult.rejected)(
       settings,

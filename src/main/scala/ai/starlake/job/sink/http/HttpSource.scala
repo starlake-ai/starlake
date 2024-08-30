@@ -46,7 +46,10 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
     urls.zip(transformerObjects).toMap
   }
 
-  override def schema: StructType = StructType(List(StructField("value", StringType, true)))
+  override def schema: StructType = StructType(
+    Array(StructField("value", StringType, nullable = true))
+  )
+
   private var producerOffset: LongOffset = new LongOffset(-1);
   private var consumerOffset = -1;
   private val streamBuffer = ListBuffer.empty[HttpPayload]
@@ -119,6 +122,12 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
       val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice.toSeq).map { item =>
         InternalRow(UTF8String.fromString(item))
       }
+      /*
+      import scala.jdk.CollectionConverters._
+      val rows = slice.toList.map { item => Row(UTF8String.fromString(item)) }.asJava
+      sqlContext.sparkSession.createDataFrame(rows, schema)
+       */
+
       val dataframe = internalCreateDataFrame(
         sqlContext.sparkSession,
         rdd,

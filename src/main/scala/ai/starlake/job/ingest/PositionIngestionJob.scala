@@ -172,22 +172,34 @@ object PositionIngestionUtil {
       }
       Row.fromSeq(columnArray.toIndexedSeq)
     }
+    import org.apache.spark.sql.catalyst.encoders.RowEncoder
+    implicit val encoder =
+      RowEncoder.encoderFor(StructType(attributes.map(attr => StructField(attr.name, StringType))))
 
     val positions = attributes.flatMap(_.position)
     val fieldTypeArray = new Array[StructField](positions.length)
     for (i <- attributes.indices) {
       fieldTypeArray(i) = StructField(s"col$i", StringType)
     }
+
+    val schema = StructType(fieldTypeArray)
+
+    /*
     val rdd = input.rdd.map { row =>
       getRow(row.getString(0), positions)
     }
-
     val dataset =
-      session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
+      session.createDataFrame(rdd, schema).toDF(attributes.map(_.name): _*)
+     */
+
+    val dataset = input.map { row =>
+      val tupledRow = getRow(row.getString(0), positions)
+      tupledRow
+    }(encoder)
+
     dataset withColumn (
       CometColumns.cometInputFileNameColumn,
       org.apache.spark.sql.functions.input_file_name()
     )
   }
-
 }

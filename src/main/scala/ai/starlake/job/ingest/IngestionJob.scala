@@ -527,15 +527,6 @@ trait IngestionJob extends SparkJob {
     dataFrame.columns.map(colName => attributesMap(colName)).toList
   }
 
-  private def nbFsPartitions(
-    dataset: DataFrame
-  ): Int = {
-    if (dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
-      1
-    else
-      dataset.rdd.getNumPartitions
-  }
-
   private def runExpectations(): Try[JobResult] = {
     mergedMetadata.getSink() match {
       case _: BigQuerySink =>
