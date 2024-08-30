@@ -23,7 +23,7 @@
         <description>A base for other temporary directories.</description>
     </property>
     <property>
-        <name>fs.default.name</name>
+        <name>fs.defaultFS</name>
         <value>hdfs://localhost:9000</value>
     </property>
 

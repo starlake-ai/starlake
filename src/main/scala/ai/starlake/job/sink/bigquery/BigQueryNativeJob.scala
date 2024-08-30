@@ -33,9 +33,8 @@ class BigQueryNativeJob(
   sql: String,
   resultPageSize: Long = 1,
   jobTimeoutMs: scala.Option[Long] = None
-)(implicit
-  val settings: Settings
-) extends JobBase
+)(implicit val settings: Settings)
+    extends JobBase
     with BigQueryJobBase {
   override def name: String = s"bqload-${bqNativeTable}"
 

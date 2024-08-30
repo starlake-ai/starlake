@@ -54,132 +54,16 @@ trait BigQueryJobBase extends StrictLogging {
   lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
     .orElse(Some(settings.appConfig.connectionRef))
 
-  lazy val connectionRef: scala.Option[Settings.Connection] =
+  lazy val connection: scala.Option[Settings.Connection] =
     connectionName.flatMap(name => settings.appConfig.connections.get(name))
 
   lazy val connectionOptions: Map[String, String] =
-    connectionRef.map(_.options).getOrElse(Map.empty)
-
-  private def bigQueryCredentials(
-    accessToken: scala.Option[String] = None
-  ): scala.Option[Credentials] = {
-    accessToken match {
-      case Some(token) =>
-        logger.info(s"Using inline access token credentials")
-        val cred = GoogleCredentials.create(new AccessToken(token, null))
-        scala.Option(cred)
-      case None =>
-        logger.info(s"Using ${connectionOptions("authType")} credentials")
-        connectionOptions("authType") match {
-          case "APPLICATION_DEFAULT" =>
-            val refreshToken =
-              Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
-            if (refreshToken) {
-              val scopes = connectionOptions
-                .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-                .split(',')
-              val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
-              Try {
-                cred.refresh()
-              } match {
-                case Failure(e) =>
-                  logger.warn(s"Error refreshing credentials: ${e.getMessage}")
-                  None
-                case Success(_) =>
-                  Some(cred)
-              }
-            } else {
-              scala.Option(GoogleCredentials.getApplicationDefault())
-            }
-          case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-            val credentialsStream = getJsonKeyStream()
-            scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
-
-          case "USER_CREDENTIALS" =>
-            val clientId = connectionOptions("clientId")
-            val clientSecret = connectionOptions("clientSecret")
-            val refreshToken = connectionOptions("refreshToken")
-            val cred = UserCredentials
-              .newBuilder()
-              .setClientId(clientId)
-              .setClientSecret(clientSecret)
-              .setRefreshToken(refreshToken)
-              .build()
-            scala.Option(cred)
-
-          case "ACCESS_TOKEN" =>
-            val accessToken = connectionOptions("gcpAccessToken")
-            val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
-            scala.Option(cred)
-        }
-    }
-  }
-
-  @nowarn
-  private def gcsCredentials(): GcsCredentials = {
-    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
-    connectionOptions("authType") match {
-      case "APPLICATION_DEFAULT" =>
-        val scopes = connectionOptions
-          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
-          .split(',')
-        val cred = GcsGoogleCredentials
-          .getApplicationDefault()
-          .createScoped(scopes: _*)
-        cred.refresh()
-        cred
-      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        val credentialsStream = getJsonKeyStream()
-        GcsServiceAccountCredentials.fromStream(credentialsStream)
-      case "USER_CREDENTIALS" =>
-        val clientId = connectionOptions("clientId")
-        val clientSecret = connectionOptions("clientSecret")
-        val refreshToken = connectionOptions("refreshToken")
-        GcsUserCredentials
-          .newBuilder()
-          .setClientId(clientId)
-          .setClientSecret(clientSecret)
-          .setRefreshToken(refreshToken)
-          .build()
-      case "ACCESS_TOKEN" =>
-        val accessToken = connectionOptions("gcpAccessToken")
-        GcsGoogleCredentials.create(
-          new com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.AccessToken(
-            accessToken,
-            null
-          )
-        )
-    }
-  }
-
-  private def getJsonKeyStream(): ByteArrayInputStream = {
-    val gcpSAJsonKeyAsString: String = getJsonKeyContent()
-    val credentialsStream = new ByteArrayInputStream(
-      gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
-    )
-    credentialsStream
-
-  }
-
-  protected def getJsonKeyContent(): String = {
-    val gcpSAJsonKey = connectionOptions("jsonKeyfile")
-    val path = File(gcpSAJsonKey)
-    getJsonKeyContent(path)
-  }
-
-  protected def getJsonKeyContent(path: File): String = {
-    val gcpSAJsonKeyAsString = if (path.exists()) {
-      path.contentAsString
-    } else {
-      throw new Exception(s"Invalid GCP SA KEY Path: $path")
-    }
-    gcpSAJsonKeyAsString
-  }
+    connection.map(_.options).getOrElse(Map.empty)
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
   private def policyClient(): PolicyTagManagerClient = {
-    val credentials = bigQueryCredentials()
+    val credentials = BigQueryJobBase.bigQueryCredentials(connectionOptions)
     val policySettings =
       credentials match {
         case None =>
@@ -206,29 +90,12 @@ trait BigQueryJobBase extends StrictLogging {
   ): BigQuery = {
     val create = alwaysCreate || _bigquery.isEmpty
     if (create) {
-      logger.info(s"Getting BQ credentials for connection $connectionName")
-      logger.debug(s"$connectionName -> ${connectionRef}")
-
-      val bqOptionsBuilder = BigQueryOptions
-        .newBuilder()
-        .setLocation(
-          connectionOptions.getOrElse(
-            "location",
-            throw new Exception(
-              s"location is required but not present in connection $connectionName"
-            )
-          )
-        )
-
-      val credentials = bigQueryCredentials(accessToken)
-      val bqOptions = bqOptionsBuilder.setProjectId(projectId(cliConfig.outputDatabase))
       val bqService =
-        credentials match {
-          case None =>
-            bqOptions.build().getService()
-          case Some(credentials) =>
-            bqOptions.setCredentials(credentials).build().getService()
-        }
+        BigQueryJobBase.bigquery(
+          this.connectionName,
+          accessToken,
+          cliConfig.outputDatabase
+        )
       if (!alwaysCreate)
         _bigquery = Some(bqService)
       bqService
@@ -242,10 +109,10 @@ trait BigQueryJobBase extends StrictLogging {
   def gcsStorage()(implicit settings: Settings): Storage = {
     _gcsStorage match {
       case None =>
-        logger.info(s"Getting GCS credentials for connection $connectionName -> ${connectionRef}")
+        logger.info(s"Getting GCS credentials for connection $connectionName")
         StorageOptions.newBuilder.setProjectId(projectId(cliConfig.outputDatabase)).build.getService
         val gcsOptionsBuilder = StorageOptions.newBuilder()
-        val credentials = gcsCredentials()
+        val credentials = BigQueryJobBase.gcsCredentials(connectionOptions)
         val gcsOptions = gcsOptionsBuilder.setProjectId(projectId(cliConfig.outputDatabase))
         val gcsService = gcsOptions
           .setCredentials(credentials)
@@ -1091,7 +958,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 }
 
-object BigQueryJobBase {
+object BigQueryJobBase extends StrictLogging {
 
   def dictToBQSchema(dictField: Map[String, String]): BQSchema = {
     // we don't know the type of field so we put string by default
@@ -1204,4 +1071,174 @@ object BigQueryJobBase {
 
   private def getPropertyOrEnv(envVar: String): scala.Option[String] =
     scala.Option(System.getProperty(envVar, System.getenv(envVar)))
+
+  private def bigQueryCredentials(
+    connectionOptions: Map[String, String],
+    accessToken: scala.Option[String] = None
+  ): scala.Option[Credentials] = {
+    accessToken match {
+      case Some(token) =>
+        logger.info(s"Using inline access token credentials")
+        val cred = GoogleCredentials.create(new AccessToken(token, null))
+        scala.Option(cred)
+      case None =>
+        logger.info(s"Using ${connectionOptions("authType")} credentials")
+        connectionOptions("authType") match {
+          case "APPLICATION_DEFAULT" =>
+            val refreshToken =
+              Try(connectionOptions.getOrElse("refreshToken", "true").toBoolean).getOrElse(true)
+            if (refreshToken) {
+              val scopes = connectionOptions
+                .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+                .split(',')
+              val cred = GoogleCredentials.getApplicationDefault().createScoped(scopes: _*)
+              Try {
+                cred.refresh()
+              } match {
+                case Failure(e) =>
+                  logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+                  None
+                case Success(_) =>
+                  Some(cred)
+              }
+            } else {
+              scala.Option(GoogleCredentials.getApplicationDefault())
+            }
+          case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+            val credentialsStream = getJsonKeyStream(connectionOptions)
+            scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
+
+          case "USER_CREDENTIALS" =>
+            val clientId = connectionOptions("clientId")
+            val clientSecret = connectionOptions("clientSecret")
+            val refreshToken = connectionOptions("refreshToken")
+            val cred = UserCredentials
+              .newBuilder()
+              .setClientId(clientId)
+              .setClientSecret(clientSecret)
+              .setRefreshToken(refreshToken)
+              .build()
+            scala.Option(cred)
+
+          case "ACCESS_TOKEN" =>
+            val accessToken = connectionOptions("gcpAccessToken")
+            val cred = GoogleCredentials.create(new AccessToken(accessToken, null))
+            scala.Option(cred)
+        }
+    }
+  }
+
+  @nowarn
+  private def gcsCredentials(connectionOptions: Map[String, String]): GcsCredentials = {
+    logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
+    connectionOptions("authType") match {
+      case "APPLICATION_DEFAULT" =>
+        val scopes = connectionOptions
+          .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
+          .split(',')
+        val cred = GcsGoogleCredentials
+          .getApplicationDefault()
+          .createScoped(scopes: _*)
+        cred.refresh()
+        cred
+      case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
+        val credentialsStream = getJsonKeyStream(connectionOptions)
+        GcsServiceAccountCredentials.fromStream(credentialsStream)
+      case "USER_CREDENTIALS" =>
+        val clientId = connectionOptions("clientId")
+        val clientSecret = connectionOptions("clientSecret")
+        val refreshToken = connectionOptions("refreshToken")
+        GcsUserCredentials
+          .newBuilder()
+          .setClientId(clientId)
+          .setClientSecret(clientSecret)
+          .setRefreshToken(refreshToken)
+          .build()
+      case "ACCESS_TOKEN" =>
+        val accessToken = connectionOptions("gcpAccessToken")
+        GcsGoogleCredentials.create(
+          new com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.AccessToken(
+            accessToken,
+            null
+          )
+        )
+    }
+  }
+
+  def getJsonKeyStream(connectionOptions: Map[String, String]): ByteArrayInputStream = {
+    val gcpSAJsonKeyAsString: String = BigQueryJobBase.getJsonKeyContent(connectionOptions)
+    val credentialsStream = new ByteArrayInputStream(
+      gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
+    )
+    credentialsStream
+
+  }
+
+  def getJsonKeyContent(connectionOptions: Map[String, String]): String = {
+    val gcpSAJsonKey = connectionOptions("jsonKeyfile")
+    val path = File(gcpSAJsonKey)
+    getJsonKeyContent(path)
+  }
+
+  def getJsonKeyContent(path: File): String = {
+    val gcpSAJsonKeyAsString = if (path.exists()) {
+      path.contentAsString
+    } else {
+      throw new Exception(s"Invalid GCP SA KEY Path: $path")
+    }
+    gcpSAJsonKeyAsString
+  }
+
+  def bigquery(
+    connectionRef: scala.Option[String],
+    accessToken: scala.Option[String],
+    outputDatabase: scala.Option[String]
+  )(implicit
+    settings: Settings
+  ): BigQuery = {
+    val connectionName: scala.Option[String] = connectionRef
+      .orElse(Some(settings.appConfig.connectionRef))
+
+    val connection: scala.Option[Settings.Connection] =
+      connectionName.flatMap(name => settings.appConfig.connections.get(name))
+
+    val connectionOptions: Map[String, String] =
+      connection.map(_.options).getOrElse(Map.empty)
+
+    logger.info(s"Getting BQ credentials for connection $connectionName")
+    logger.debug(s"$connectionName")
+
+    val bqOptionsBuilder = BigQueryOptions
+      .newBuilder()
+      .setLocation(
+        connectionOptions.getOrElse(
+          "location",
+          throw new Exception(
+            s"location is required but not present in connection $connectionName"
+          )
+        )
+      )
+
+    val credentials = BigQueryJobBase.bigQueryCredentials(connectionOptions, accessToken)
+    val bqOptions = bqOptionsBuilder.setProjectId(projectId(outputDatabase))
+    val bqService =
+      credentials match {
+        case None =>
+          bqOptions.build().getService()
+        case Some(credentials) =>
+          bqOptions.setCredentials(credentials).build().getService()
+      }
+    bqService
+  }
+
+  def executeUpdate(
+    sql: String,
+    connectionRef: String
+  )(implicit
+    settings: Settings
+  ): Try[Boolean] = Try {
+    val bq = bigquery(Some(connectionRef), None, None)
+    val _ = bq.query(QueryJobConfiguration.of(sql))
+    true
+  }
 }

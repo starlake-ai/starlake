@@ -45,7 +45,7 @@ class BigQuerySparkJob(
     */
   def prepareConf(): Configuration = {
     logger.debug(s"BigQuery Config $cliConfig")
-    // fs.default.name
+    // fs.defaultFS
 
     val bucketFromExtraConf = {
       connectorOptions
@@ -58,13 +58,13 @@ class BigQuerySparkJob(
         )
         .orElse(connectorOptions.get("gcsBucket"))
         .orElse(settings.storageHandler().extraConf.get("fs.gs.system.bucket"))
-        .orElse(settings.storageHandler().extraConf.get("fs.default.name"))
+        .orElse(settings.storageHandler().extraConf.get("fs.defaultFS"))
     }
 
     val bucket: Option[String] =
       bucketFromExtraConf
         .orElse(Option(conf.get("fs.gs.system.bucket")))
-        .orElse(Option(conf.get("fs.default.name")))
+        .orElse(Option(conf.get("fs.defaultFS")))
 
     bucket.foreach { bucket =>
       logger.info(s"Temporary GCS path $bucket")
@@ -102,7 +102,7 @@ class BigQuerySparkJob(
             val accessToken = cred.getAccessToken()
             session.conf.set("gcpAccessToken", accessToken.getTokenValue())
           case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-            val jsonKeyContent = getJsonKeyContent()
+            val jsonKeyContent = BigQueryJobBase.getJsonKeyContent(connectionOptions)
             val jsonKeyInBase64 =
               BaseEncoding.base64.encode(jsonKeyContent.getBytes(StandardCharsets.UTF_8))
             session.conf.set("credentials", jsonKeyInBase64)

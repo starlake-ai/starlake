@@ -702,7 +702,7 @@ object StarlakeTestData {
       if (load)
         schemaHandler.domains().flatMap { dom =>
           dom.tables.map { table =>
-            (dom.finalName, table.finalName)
+            (dom.name, table.name)
           }
         }
       else
@@ -751,15 +751,13 @@ object StarlakeTestData {
 
     val testExpectationsData = expectationsTestData(schemaHandler, testFolder)
 
-    val domain = schemaHandler.domains().find(_.finalName == domainName)
+    val table = schemaHandler.tableOnly(s"$domainName.$taskOrTableFolderName").toOption.map(_.table)
 
-    val table = domain.flatMap { d =>
-      d.tables.find(_.finalName == taskOrTableFolderName)
-    }
+    val task =
+      if (table.isDefined) None
+      else schemaHandler.taskOnly(s"$domainName.$taskOrTableFolderName").toOption
 
-    val task = schemaHandler.task(s"$domainName.$taskOrTableFolderName")
-
-    (table, task.toOption) match {
+    (table, task) match {
       case (Some(table), None) =>
         // handle load
         val preloadFiles =
@@ -927,10 +925,7 @@ object StarlakeTestData {
     dataFile: File
   )(implicit settings: Settings): String = {
 
-    val domain = schemaHandler.domains().find(_.finalName == domainName)
-    val table = domain.flatMap { d =>
-      d.tables.find(t => t.finalName == tableName)
-    }
+    val table = schemaHandler.tableOnly(s"$domainName.$tableName").map(_.table).toOption
     val expectedCreateTable = table match {
       case Some(table) if table.isFlat() =>
         // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature

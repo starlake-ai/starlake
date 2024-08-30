@@ -10,7 +10,7 @@ table:
     required: false
     privacy: "NONE"
     ignore: false
-  - name: "sum"
+  - name: "sumx"
     type: "decimal"
     array: false
     required: false

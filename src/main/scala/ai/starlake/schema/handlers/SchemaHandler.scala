@@ -607,6 +607,16 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def tableOnly(tableName: String, ignoreDomain: Boolean = true): Try[TableDesc] =
+    Try {
+      val components = tableName.split('.')
+      val domainName = components(0)
+      val tablePartName = components(1)
+
+      var folder = new Path(DatasetArea.load, tablePartName)
+      loadTableRef(tablePartName + ".sl.yml", raw = false, folder)
+    }
+
   def domains(
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
@@ -852,19 +862,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] =
+  def loadJobTasksFromFile(jobPath: Path, taskNames: List[String] = Nil): Try[AutoJobDesc] =
     for {
       jobDesc   <- loadJobDesc(jobPath)
-      taskDescs <- loadAutoTasks(jobDesc, jobPath.getParent)
+      taskDescs <- loadAutoTasksInto(jobDesc, jobPath.getParent, taskNames)
     } yield taskDescs
 
-  def loadAutoTasks(
+  private def loadAutoTasksInto(
     jobDesc: AutoJobDesc,
-    jobFolder: Path
+    jobFolder: Path,
+    taskNames: List[String] = Nil
   ): Try[AutoJobDesc] = {
     Try {
       // Load task refs and inject them in the job
-      val autoTasksRefs = loadAutoTaskFiles(jobDesc, jobFolder)
+      val autoTasksRefs = loadAutoTaskFiles(jobDesc, jobFolder, taskNames)
 
       val jobDescWithTaskRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
@@ -1099,43 +1110,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     autoTasksRefs
   }
 
-  private def loadTaskRef(
-    folder: Path,
-    taskFilePrefix: String
-  ): Try[AutoTaskDesc] = {
-
-    val ymlPath = new Path(folder, taskFilePrefix + ".sl.yml")
-    val sqlPyCandidates =
-      List("sql", "sql.j2", "py").map(ext => new Path(folder, taskFilePrefix + s".$ext"))
-    val sqlPyPath = sqlPyCandidates.find(storage.exists)
-    if (storage.exists(ymlPath)) {
-      Try {
-        val taskDesc = YamlSerde
-          .deserializeYamlTask(
-            Utils
-              .parseJinja(storage.read(ymlPath), activeEnvVars()),
-            ymlPath.toString
-          )
-          .copy(name = taskFilePrefix)
-
-        val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
-        taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
-      }
-    } else {
-      Success(
-        AutoTaskDesc(
-          name = taskFilePrefix,
-          sql = None,
-          database = None,
-          domain = "",
-          table = "",
-          _filenamePrefix = taskFilePrefix,
-          taskTimeoutMs = None
-        )
-      )
-    }
-  }
-
   /** @param basePath
     * @param filePrefix
     * @param extensions
@@ -1171,26 +1145,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def deserializedJobs(jobPath: Path): List[(Path, Try[AutoJobDesc])] = {
-    val paths = storage
-      .list(
-        jobPath,
-        extension = ".sl.yml",
-        recursive = true,
-        exclude = Some(Pattern.compile("_.*"))
-      )
-      .map(_.path)
-
-    val jobs = paths
-      .map { path =>
-        YamlSerde.deserializeYamlTransform(
-          Utils.parseJinja(storage.read(path), activeEnvVars()),
-          path.toString
-        )
-      }
-    paths.zip(jobs)
-  }
-
   def jobs(reload: Boolean = false): List[AutoJobDesc] = {
     if (_jobs.isEmpty || reload) {
       val (errors, validJobs) = loadJobs()
@@ -1198,15 +1152,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       this._jobErrors = errors
     }
     _jobs
-  }
-
-  def tasksMap(reload: Boolean = false): Map[String, List[AutoTaskDesc]] = {
-    if (reload) {
-      val (errors, validJobs) = loadJobs()
-      this._jobs = validJobs
-      this._jobErrors = errors
-    }
-    jobs().map(j => j.getName() -> j.tasks).toMap
   }
 
   def iamPolicyTags(): Option[IamPolicyTags] = {
@@ -1233,7 +1178,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
 
-  def taskOnly(taskName: String, reload: Boolean = false): Try[AutoTaskDesc] = {
+  def taskOnly(
+    taskName: String,
+    ignoreRefs: Boolean = false,
+    reload: Boolean = false
+  ): Try[AutoTaskDesc] = {
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
       val components = taskName.split('.')
@@ -1261,8 +1210,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val configPath = new Path(directory, "_config.sl.yml")
           val taskDesc =
             for {
-              jobDesc <- loadJobDesc(configPath)
-              taskDesc = loadAutoTaskFiles(jobDesc, directory, List(taskPartName)).head
+              jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
+              taskDesc = jobDesc.tasks
+                .find(_.name == taskName)
+                .getOrElse(
+                  throw new Exception(s"Task $taskName not found in $directory")
+                )
             } yield taskDesc
           taskDesc.orElse(
             task(taskName)

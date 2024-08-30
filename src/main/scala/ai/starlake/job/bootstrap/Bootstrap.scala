@@ -81,11 +81,11 @@ object Bootstrap extends StrictLogging {
   def bootstrap(inputTemplate: Option[String])(implicit settings: Settings): Unit = {
     val template = askTemplate(inputTemplate)
     val metadataFolder = File(DatasetArea.metadata.toString)
-    metadataFolder.createDirectories()
     if (metadataFolder.collectChildren(!_.isDirectory).nonEmpty) {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
+    DatasetArea.folders.foreach(p => File(p.toString).createDirectories())
     val dagLibDir = File(metadataFolder, "dags", "generated")
     dagLibDir.createDirectories()
     import scala.sys.process._

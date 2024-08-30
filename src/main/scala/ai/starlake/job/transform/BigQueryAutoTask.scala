@@ -274,10 +274,11 @@ class BigQueryAutoTask(
                     s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"
                   )
                 } else {
-                  val config =
-                    BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
-                  if (settings.appConfig.autoExportSchema)
+                  if (settings.appConfig.autoExportSchema) {
+                    val config =
+                      BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
                     ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+                  }
                 }
               } match {
                 case Success(_) =>

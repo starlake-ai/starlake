@@ -13,6 +13,7 @@ import ai.starlake.utils._
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import better.files.File
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -275,7 +276,7 @@ class SparkAutoTask(
             (sql, taskDesc.python) match {
               case (_, None) =>
                 val sqlToRun =
-                  if (taskDesc.parseSQL.getOrElse(true)) {
+                  if (taskDesc.parseSQL.getOrElse(true) && taskDesc._auditTableName.isEmpty) {
                     // we need to generate the insert / merge / create table except when exporting to csv & xls
                     buildAllSQLQueries(Some(sqlNoRefs))
                   } else {
@@ -766,5 +767,36 @@ class SparkAutoTask(
       }
     result
   }
+}
 
+object SparkAutoTask extends StrictLogging {
+  def executeUpdate(
+    sql: String,
+    connectionName: String
+  )(implicit iSettings: Settings): Try[Boolean] = {
+    val job = new SparkJob {
+      override def name: String = "BigQueryTablesInfo"
+
+      override implicit def settings: Settings = iSettings
+
+      /** Just to force any job to implement its entry point using within the "run" method
+        *
+        * @return
+        *   : Spark Dataframe for Spark Jobs None otherwise
+        */
+      override def run(): Try[JobResult] = Try {
+        val df = session.sql(sql)
+        SparkJobResult(Option(df), None)
+      }
+    }
+
+    val jobResult = job.run()
+    jobResult match {
+      case Success(_) =>
+        Success(true)
+      case Failure(e) =>
+        logger.error("Error while executing SQL", e)
+        Failure(e)
+    }
+  }
 }

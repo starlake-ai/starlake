@@ -98,7 +98,7 @@ object IngestionUtil {
           None,
           truncate = false,
           test = false,
-          logExecution = true
+          logExecution = false
         )
         val res = autoTask.sink(rejectedDF)
         if (res) {

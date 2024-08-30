@@ -1,12 +1,13 @@
 package ai.starlake.job.transform
 
-import ai.starlake.config.Settings
-import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.{ExtractJDBCSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -198,6 +199,21 @@ class JdbcAutoTask(
                 new JdbcExpectationAssertionHandler(conn)
               ).run()
             }
+
+            if (settings.appConfig.autoExportSchema) {
+              val isTableInAuditDomain =
+                taskDesc.domain == settings.appConfig.audit.getDomain()
+              if (isTableInAuditDomain)
+                logger.info(
+                  s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"
+                )
+              val config = ExtractSchemaConfig(
+                external = true,
+                outputDir = Some(DatasetArea.external.toString),
+                tables = s"${taskDesc.domain}.${taskDesc.table}" :: Nil
+              )
+              ExtractJDBCSchemaCmd.run(config, schemaHandler)
+            }
             JdbcJobResult(Nil)
         }
       }
@@ -343,6 +359,21 @@ class JdbcAutoTask(
           attDdl()
         )
       }
+    }
+  }
+}
+
+object JdbcAutoTask extends StrictLogging {
+  def executeUpdate(sql: String, connectionName: String)(implicit
+    settings: Settings
+  ): Try[Boolean] = {
+    val connection = settings.appConfig
+      .connection(connectionName)
+      .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+
+    // This is an update statement. No readonly connection is needed
+    JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+      JdbcDbUtils.execute(sql, conn)
     }
   }
 }

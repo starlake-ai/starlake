@@ -112,7 +112,6 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     }
     Map(
       "fs.defaultFS"                  -> bucket,
-      "fs.default.name"               -> bucket,
       "temporaryGcsBucket"            -> tempBucketName,
       "fs.AbstractFileSystem.gs.impl" -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
       "fs.gs.impl"                    -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"
@@ -133,8 +132,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       throw new Exception("azureStorageKey attribute is required for Azure Storage")
     )
     Map(
-      "fs.defaultFS"    -> azureStorageContainer,
-      "fs.default.name" -> azureStorageContainer,
+      "fs.defaultFS" -> azureStorageContainer,
       s"fs.azure.account.auth.type.$azureStorageAccount.blob.core.windows.net" -> "SharedKey",
       s"fs.azure.account.key.$azureStorageAccount.blob.core.windows.net"       -> azureStorageKey
     )
@@ -145,21 +143,23 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   override def loadExtraConf(): Map[String, String] = {
+    if (settings.appConfig.fileSystem.startsWith("file:")) {
+      Map.empty
+    } else {
+      val options = settings.appConfig.connections
+        .get(settings.appConfig.connectionRef)
+        .map(_.options)
+        .getOrElse(Map.empty)
 
-    val options = settings.appConfig.connections
-      .get(settings.appConfig.connectionRef)
-      .map(_.options)
-      .getOrElse(Map.empty)
-
-    if (options.contains("gcsBucket"))
-      loadGCPExtraConf(options)
-    else if (options.contains("s3Bucket"))
-      loadS3ExtraConf(options)
-    else if (options.contains("azureStorageContainer"))
-      loadAzureExtraConf(options)
-    else
-      Map.empty[String, String]
-
+      if (options.contains("gcsBucket"))
+        loadGCPExtraConf(options)
+      else if (options.contains("s3Bucket"))
+        loadS3ExtraConf(options)
+      else if (options.contains("azureStorageContainer"))
+        loadAzureExtraConf(options)
+      else
+        Map.empty
+    }
   }
 
   lazy val conf = {

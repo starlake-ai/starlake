@@ -68,10 +68,10 @@ class ColLineage(
       .find(_.name.equalsIgnoreCase(domain))
       .flatMap { domain =>
         domain.tables.find(_.finalName.equalsIgnoreCase(table)).map { table =>
-          Table(domain.name, table.name, table.attributes.map(_.getFinalName()))
+          Table(domain.name, table.name, table.attributes.map(_.getFinalName()), isTask = false)
         }
       }
-      .getOrElse(Table(domain, table, Nil))
+      .getOrElse(Table(domain, table, Nil, isTask = false))
   }
 
   def extractTables(column: JdbcColumn): List[Table] = {
@@ -85,12 +85,17 @@ class ColLineage(
     alTables.filter(_.table.nonEmpty)
   }
   def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
-    resultSetMetaData.getColumns.asScala
+    val allTables = resultSetMetaData.getColumns.asScala
       .flatMap { column =>
         extractTables(column)
       }
       .toList
       .distinct
+    val alltaskNames = schemaHandler.taskNames().map(_.toLowerCase)
+    allTables.map { table =>
+      val isTask = alltaskNames.contains(table.fullName.toLowerCase)
+      table.copy(isTask = isTask)
+    }
   }
 
   def extractRelations(
@@ -195,7 +200,12 @@ class ColLineage(
       val finalTables = allTables
         .groupBy(t => (t.domain, t.table))
         .map { case ((domainName, tableName), table) =>
-          Table(domainName, tableName, table.flatMap(_.columns).distinct)
+          Table(
+            domainName,
+            tableName,
+            table.flatMap(_.columns).distinct,
+            isTask = table.exists(_.isTask)
+          )
         }
         .toList
       println("finalTables")
@@ -212,8 +222,15 @@ class ColLineage(
   def tablesInRelations(relations: List[Relation]): List[Table] = {
     val tables =
       relations.flatMap { relation =>
-        val table1 = Table(relation.from.domain, relation.from.table, List(relation.from.column))
-        val table2 = Table(relation.to.domain, relation.to.table, List(relation.to.column))
+        val table1 =
+          Table(
+            relation.from.domain,
+            relation.from.table,
+            List(relation.from.column),
+            isTask = false
+          )
+        val table2 =
+          Table(relation.to.domain, relation.to.table, List(relation.to.column), isTask = false)
         List(table1, table2)
       }
     tables
@@ -224,6 +241,8 @@ class ColLineage(
 object ColLineage {
   case class Column(domain: String, table: String, column: String)
   case class Relation(from: Column, to: Column, expression: Option[String])
-  case class Table(domain: String, table: String, columns: List[String])
+  case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
+    def fullName: String = s"$domain.$table"
+  }
   case class Lineage(tables: List[Table], relations: List[Relation])
 }

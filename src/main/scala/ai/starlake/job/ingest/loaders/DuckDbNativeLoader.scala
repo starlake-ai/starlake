@@ -325,12 +325,16 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               ""
             else
               s"nullstr = '${mergedMetadata.resolveNullValue()}',"
-          val extraOptions = mergedMetadata
-            .getOptions()
-            .map { case (k, v) =>
-              s"$k = '$v'"
-            }
-            .mkString("", ",", ",")
+          val options = mergedMetadata.getOptions()
+          val extraOptions =
+            if (options.nonEmpty)
+              options
+                .map { case (k, v) =>
+                  s"$k = '$v'"
+                }
+                .mkString("", ",", ",")
+            else
+              ""
 
           val sql = s"""INSERT INTO $domainAndTableName SELECT
                | * FROM read_csv(

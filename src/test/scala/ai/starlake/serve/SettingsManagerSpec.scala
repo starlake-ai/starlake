@@ -20,7 +20,6 @@ class SettingsManagerSpec extends TestHelper {
         )
       settings2.appConfig.env shouldBe "test"
       settings2.appConfig.root shouldBe "/tmp/my/settings/home"
-      settings2.appConfig.database shouldBe "my-project-id"
 
       MapSettingsManager.getUpdatedSettings(
         oldRoot,

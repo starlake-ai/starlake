@@ -402,36 +402,45 @@ object JdbcDbUtils extends LazyLogging {
         tablePredicate: String => Boolean
       ): Map[String, Option[String]] = {
         Try {
+          val tableTypes =
+            if (jdbcSchema.tableTypes.nonEmpty) jdbcSchema.tableTypes.toArray else null
           connectionSettings match {
             case d if d.isMySQLOrMariaDb() =>
               databaseMetaData.getTables(
                 schemaName,
                 "%",
                 "%",
-                jdbcSchema.tableTypes.toArray
+                tableTypes
               )
             case d if d.isDuckDb() =>
               // https://duckdb.org/docs/sql/information_schema.html
-              val tableTypes = jdbcSchema.tableTypes.map { tt =>
+              val tableTypesWithBaseTable = jdbcSchema.tableTypes.map { tt =>
                 if (tt == "TABLE")
                   "BASE TABLE"
                 else
                   tt
 
               }.toArray
-              databaseMetaData.getTables(
-                jdbcSchema.catalog.orNull,
-                schemaName,
-                "%",
-                tableTypes
-              )
+              val tableTypes =
+                if (tableTypesWithBaseTable.nonEmpty) tableTypesWithBaseTable else null
+              val resultset =
+                databaseMetaData.getTables(
+                  jdbcSchema.catalog.orNull,
+                  schemaName,
+                  "%",
+                  tableTypes
+                )
+              resultset
             case _ =>
-              databaseMetaData.getTables(
-                jdbcSchema.catalog.orNull,
-                schemaName,
-                "%",
-                jdbcSchema.tableTypes.toArray
-              )
+              val resultset =
+                databaseMetaData.getTables(
+                  jdbcSchema.catalog.orNull,
+                  schemaName,
+                  "%",
+                  tableTypes
+                )
+              resultset
+
           }
         }.flatMap { resultSet =>
           Using(resultSet) { resultSet =>
