@@ -20,6 +20,8 @@
 
 package ai.starlake.schema.model
 
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
+
 import java.sql.Timestamp
 
 /** Contains classes used to describe rejected records. Recjected records are stored in parquet file
@@ -54,6 +56,19 @@ object Rejection {
       val failMsg = if (success) "success" else "failure"
       s"""$colName: $typeName("$pattern") = "$colData" ? $failMsg"""
     }
+
+  }
+
+  object ColInfo {
+    val sparkType = StructType(
+      Seq(
+        StructField("colData", StringType, nullable = true),
+        StructField("colName", StringType, nullable = false),
+        StructField("typeName", StringType, nullable = false),
+        StructField("pattern", StringType, nullable = false),
+        StructField("success", StringType, nullable = false)
+      )
+    )
   }
 
   /** Rejected Row information
@@ -88,6 +103,16 @@ object Rejection {
     */
   case class ColResult(colInfo: ColInfo, sparkValue: Any) {
     override def toString: String = colInfo.toString
+
+  }
+
+  object ColResult {
+    def sparkType(dataType: DataType) = StructType(
+      Seq(
+        StructField("colInfo", ColInfo.sparkType, nullable = false),
+        StructField("sparkValue", dataType, nullable = true)
+      )
+    )
   }
 
   /** @param colResults
@@ -101,8 +126,17 @@ object Rejection {
     inputLine: Option[String]
   ) {
     def isRejected: Boolean = !isAccepted
-
     override def toString: String = colResults.map(_.toString).mkString("\n")
   }
 
+  object RowResult {
+    def sparkType(types: Array[DataType]) = StructType(
+      Seq(
+        StructField("colResults", ColResult.sparkType(dataTypes), nullable = false),
+        StructField("isAccepted", StringType, nullable = false),
+        StructField("inputFileName", StringType, nullable = false),
+        StructField("inputLine", StringType, nullable = true)
+      )
+    )
+  }
 }

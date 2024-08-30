@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import org.apache.spark.sql.Encoder
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
@@ -51,6 +52,7 @@ sealed abstract case class PrimitiveType(value: String) {
   override def toString: String = value
 
   def sparkType(zone: Option[String]): DataType
+
 }
 
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
