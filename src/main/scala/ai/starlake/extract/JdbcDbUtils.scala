@@ -41,6 +41,14 @@ object JdbcDbUtils extends LazyLogging {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, DataSource]()
 
     def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
+      if (!connectionOptions.contains("driver")) {
+        Try(throw new Exception("Driver class not found in JDBC connection options")) match {
+          case Failure(exception) =>
+            exception.printStackTrace()
+          case Success(connection) =>
+        }
+      }
+
       assert(
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
@@ -51,8 +59,9 @@ object JdbcDbUtils extends LazyLogging {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
         val properties = new Properties()
-        (connectionOptions - "url" - "driver").foreach { case (k, v) =>
-          properties.setProperty(k, v)
+        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions").foreach {
+          case (k, v) =>
+            properties.setProperty(k, v)
         }
         DriverManager.getConnection(url, properties)
       } else {
@@ -60,8 +69,9 @@ object JdbcDbUtils extends LazyLogging {
           .getOrElseUpdate(
             url, {
               val config = new HikariConfig()
-              (connectionOptions - "url" - "driver").foreach { case (key, value) =>
-                config.addDataSourceProperty(key, value)
+              (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions").foreach {
+                case (key, value) =>
+                  config.addDataSourceProperty(key, value)
               }
               config.setJdbcUrl(url)
               config.setDriverClassName(driver)
@@ -108,7 +118,9 @@ object JdbcDbUtils extends LazyLogging {
 
         val url = connectionOptions("url")
         Try(connection.close()) match {
-          case Success(_) => logger.debug(s"Closed connection $url")
+          case Success(_) =>
+            logger.debug(s"Closed connection $url")
+
           case Failure(exception) =>
             logger.warn(s"Could not close connection to $url", exception)
         }

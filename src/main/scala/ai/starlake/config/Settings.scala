@@ -1113,7 +1113,10 @@ object Settings extends StrictLogging {
         .getOrElse(settings)
 
     val applicationConfSettings =
-      if (settings.appConfig.duckdbMode) duckDBMode(loadedSettings) else loadedSettings
+      if (settings.appConfig.duckdbMode) duckDBMode(loadedSettings)
+      else {
+        adjustDuckDBProperties(loadedSettings)
+      }
 
     // Reload Storage Handler with the authentication settings
     applicationConfSettings.storageHandler(reload = true)
@@ -1283,6 +1286,20 @@ object Settings extends StrictLogging {
       Some(new Path(file))
   }
 
+  def adjustDuckDBProperties(settings: Settings): Settings = {
+    val connections = settings.appConfig.connections
+    val updatedConnections =
+      connections.map { case (name, connection) =>
+        val updatedConnection =
+          if (connection.isDuckDb())
+            connection.copy(sparkFormat = None) // spark mode not supported in duckdb
+          else connection
+        name -> updatedConnection
+      }
+    val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
+    settings.copy(appConfig = updatedAppConfig)
+  }
+
   def duckDBMode(settings: Settings): Settings = {
     val duckdbPath = DatasetArea.path("duckdb.db")(settings)
     val pathAsString = duckdbPath.toUri.getPath
@@ -1423,10 +1440,5 @@ object PrivacyLevels {
           println(s"$keyPrefix$refKey = $incomingText")
       }
     }
-  }
-
-  def main(args: Array[String]): Unit = {
-    val config = Settings.loadConf()
-    traverse(config)
   }
 }

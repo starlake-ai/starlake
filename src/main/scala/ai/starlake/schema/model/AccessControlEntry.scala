@@ -39,17 +39,27 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
 }
 
 object AccessControlEntry {
-  def applyJdbcAcl(connection: Settings.Connection, sqls: Seq[String], forceApply: Boolean = false)(
-    implicit settings: Settings
+  def applyJdbcAcl(connection: Settings.Connection, sqls: Seq[String], forceApply: Boolean)(implicit
+    settings: Settings
   ): Try[Unit] =
     Try {
-      if (forceApply || settings.appConfig.accessPolicies.apply) {
-        JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
-          sqls.foreach { sql =>
-            JdbcDbUtils.executeUpdate(sql, conn)
-          }
-        }
+      JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+        applyJdbcAcl(conn, sqls, forceApply).get
       }
+    }
+
+  def applyJdbcAcl(
+    jdbcConnection: java.sql.Connection,
+    sqls: Seq[String],
+    forceApply: Boolean
+  )(implicit
+    settings: Settings
+  ): Try[Unit] =
+    Try {
+      if (forceApply || settings.appConfig.accessPolicies.apply)
+        sqls.foreach { sql =>
+          JdbcDbUtils.executeUpdate(sql, jdbcConnection)
+        }
     }
 
 }

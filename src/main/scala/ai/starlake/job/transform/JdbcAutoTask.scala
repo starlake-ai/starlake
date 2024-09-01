@@ -49,8 +49,11 @@ class JdbcAutoTask(
     }
   }
 
-  def applyJdbcAcl(connection: Settings.Connection, forceApply: Boolean = false): Try[Unit] =
+  def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
     AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
+
+  def applyJdbcAcl(jdbcConnection: Settings.Connection, forceApply: Boolean): Try[Unit] =
+    AccessControlEntry.applyJdbcAcl(jdbcConnection, extractJdbcAcl(), forceApply)
 
   override def run(): Try[JobResult] = {
     runJDBC(None)
@@ -129,63 +132,90 @@ class JdbcAutoTask(
     }
 
     val res = Try {
-      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-        val mainSql =
-          if (df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
-            buildAllSQLQueries(None)
-          } else {
-            val sql = taskDesc.getSql()
-            Utils.parseJinja(sql, allVars)
-          }
-        interactive match {
-          case Some(_) =>
+      val mainSql =
+        if (df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+          buildAllSQLQueries(None)
+        } else {
+          val sql = taskDesc.getSql()
+          Utils.parseJinja(sql, allVars)
+        }
+      interactive match {
+        case Some(_) =>
+          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
             runInteractive(conn, mainSql)
-          case None =>
-            conn.setAutoCommit(false)
-            val parsedPreActions =
-              Utils.parseJinja(
-                jdbcSinkEngine.preActions.getOrElse(""),
-                Map("schema" -> taskDesc.domain)
-              )
-            Try {
-              runPreActions(conn, parsedPreActions.splitSql(";"))
-              runSqls(conn, preSql, "Pre")
-              df match {
-                case Some(loadedDF) =>
+          }
+        case None =>
+          val parsedPreActions =
+            Utils.parseJinja(
+              jdbcSinkEngine.preActions.getOrElse(""),
+              Map("schema" -> taskDesc.domain)
+            )
+          df match {
+            case Some(loadedDF) =>
+              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+                Try {
+                  conn.setAutoCommit(false)
+                  runPreActions(conn, parsedPreActions.splitSql(";"))
+                  runSqls(conn, preSql, "Pre")
                   logger.info(s"Writing dataframe to $fullTableName")
                   val saveMode = strategy.toWriteMode().toSaveMode
                   if (saveMode == SaveMode.Overwrite || truncate) {
                     val jdbcUrl = sinkConnection.options("url")
-                    val dialect = SparkUtils.dialect(jdbcUrl)
+                    // val dialect = SparkUtils.dialect(jdbcUrl)
                     // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
-                    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-                      JdbcDbUtils.truncateTable(conn, fullTableName)
-                    }
+                    JdbcDbUtils.truncateTable(conn, fullTableName)
                   }
-                  loadedDF.write
-                    .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
-                    .option("dbtable", fullTableName)
-                    .mode(SaveMode.Append) // truncate done above if requested
-                    .options(sinkConnection.options)
-                    .save()
-                case None =>
+                } match {
+                  case Success(_) =>
+                    conn.commit()
+                  case Failure(e) =>
+                    conn.rollback()
+                    throw e
+                }
+              }
+
+              val format = if (sinkConnection.isDuckDb()) "starlake-duckdb" else "jdbc"
+              val dfToWrite =
+                loadedDF.write
+                  .format(sinkConnection.sparkDatasource().getOrElse(format))
+                  .option("dbtable", fullTableName)
+                  .mode(SaveMode.Append) // truncate done above if requested
+                  .options(sinkConnection.options)
+
+              if (sinkConnection.isDuckDb())
+                dfToWrite.option("numPartitions", "1").save()
+              else
+                dfToWrite.save()
+
+            case None =>
+              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+                Try {
+                  conn.setAutoCommit(false)
+                  runPreActions(conn, parsedPreActions.splitSql(";"))
+                  runSqls(conn, preSql, "Pre")
                   val finalSqls = mainSql.splitSql()
                   runSqls(conn, finalSqls, "Main")
+                } match {
+                  case Success(_) =>
+                    conn.commit()
+                  case Failure(e) =>
+                    conn.rollback()
+                    throw e
+                }
               }
-              if (!test) {
-                applyJdbcAcl(sinkConnection, forceApply = true)
-              }
+          }
+
+          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+            Try {
+              if (!test) applyJdbcAcl(conn, forceApply = true)
               runSqls(conn, postSql, "Post")
               addSCD2Columns(conn, sinkConnection.getJdbcEngineName())
-
             } match {
               case Success(_) =>
-                conn.commit()
               case Failure(e) =>
                 conn.rollback()
                 throw e
             }
-            conn.setAutoCommit(true)
 
             if (settings.appConfig.expectations.active) {
               new ExpectationJob(
@@ -199,14 +229,15 @@ class JdbcAutoTask(
                 new JdbcExpectationAssertionHandler(conn)
               ).run()
             }
-
-            if (settings.appConfig.autoExportSchema) {
-              val isTableInAuditDomain =
-                taskDesc.domain == settings.appConfig.audit.getDomain()
-              if (isTableInAuditDomain)
-                logger.info(
-                  s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"
-                )
+          }
+          if (settings.appConfig.autoExportSchema) {
+            val isTableInAuditDomain =
+              taskDesc.domain == settings.appConfig.audit.getDomain()
+            if (isTableInAuditDomain)
+              logger.info(
+                s"Table ${taskDesc.domain}.${taskDesc.table} is in audit domain, skipping schema extraction"
+              )
+            else {
               val config = ExtractSchemaConfig(
                 external = true,
                 outputDir = Some(DatasetArea.external.toString),
@@ -214,8 +245,8 @@ class JdbcAutoTask(
               )
               ExtractJDBCSchemaCmd.run(config, schemaHandler)
             }
-            JdbcJobResult(Nil)
-        }
+          }
+          JdbcJobResult(Nil)
       }
     }
     val end = Timestamp.from(Instant.now())
@@ -306,8 +337,8 @@ class JdbcAutoTask(
         incomingSchema
     val sinkConnectionRefOptions = sinkConnection.options
     val jdbcUrl = sinkConnectionRefOptions("url")
+    val targetTableExists: Boolean = tableExists
     JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-      val targetTableExists: Boolean = tableExists
       if (targetTableExists) {
         val existingSchema =
           SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)

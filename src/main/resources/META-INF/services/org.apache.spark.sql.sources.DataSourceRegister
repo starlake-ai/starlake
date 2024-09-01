@@ -1,1 +1,2 @@
 ai.starlake.job.sink.http.HttpProvider
+org.apache.spark.sql.execution.datasources.duckdb.DuckDBRelationProvider

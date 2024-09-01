@@ -1186,6 +1186,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
       val components = taskName.split('.')
+      assert(
+        components.length == 2,
+        s"Task name $taskName should be composed of domain and task name separated by a dot"
+      )
       val domainName = components(0)
       val taskPartName = components(1)
       val loadedTask =

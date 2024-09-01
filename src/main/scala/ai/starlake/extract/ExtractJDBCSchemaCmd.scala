@@ -32,7 +32,7 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .opt[String]("connectionRef")
         .action((x, c) => c.copy(connectionRef = Some(x)))
         .optional()
-        .text("Database  connection info"),
+        .text("Database connection to use"),
       builder
         .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))
@@ -42,7 +42,7 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .opt[Unit]("external")
         .action((x, c) => c.copy(external = true))
         .optional()
-        .text("Where to output YML files"),
+        .text("Should we output YML files in the external folder"),
       builder
         .opt[Int]("parallelism")
         .action((x, c) => c.copy(parallelism = Some(x)))

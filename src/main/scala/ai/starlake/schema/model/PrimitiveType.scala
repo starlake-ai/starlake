@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
-import org.apache.spark.sql.Encoder
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
