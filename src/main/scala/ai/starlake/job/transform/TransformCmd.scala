@@ -29,6 +29,11 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .optional()
         .text("Return final query only"),
       builder
+        .opt[Seq[String]]("tags")
+        .action((x, c) => c.copy(tags = x))
+        .optional()
+        .text("Return final query only"),
+      builder
         .opt[Unit]("format")
         .action((_, c) => c.copy(format = true))
         .optional()
@@ -79,7 +84,11 @@ trait TransformCmd extends Cmd[TransformConfig] {
   }
 
   def parse(args: Seq[String]): Option[TransformConfig] = {
-    OParser.parse(parser, args, TransformConfig(), setup)
+    val result = OParser.parse(parser, args, TransformConfig(), setup)
+    result.foreach { config =>
+      assert(config.name.isEmpty, "Cannot specify both tags and task name")
+    }
+    result
   }
 
   override def run(config: TransformConfig, schemaHandler: SchemaHandler)(implicit
