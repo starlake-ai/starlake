@@ -276,7 +276,7 @@ class SparkAutoTask(
             (sql, taskDesc.python) match {
               case (_, None) =>
                 val sqlToRun =
-                  if (taskDesc.parseSQL.getOrElse(true) && taskDesc._auditTableName.isEmpty) {
+                  if (taskDesc.parseSQL.getOrElse(true)) {
                     // we need to generate the insert / merge / create table except when exporting to csv & xls
                     buildAllSQLQueries(Some(sqlNoRefs))
                   } else {
@@ -703,12 +703,21 @@ class SparkAutoTask(
             attDdl()
           )
         }
-        loadedDF.write
-          .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
-          .option("dbtable", firstStepTempTable)
-          .mode(SaveMode.Append) // Because Overwrite loose the schema and require us to add quotes
-          .options(sinkConnectionRefOptions)
-          .save()
+
+        val format = if (sinkConnection.isDuckDb()) "starlake-duckdb" else "jdbc"
+        val dfToWrite =
+          loadedDF.write
+            .format(sinkConnection.sparkDatasource().getOrElse(format))
+            .option("dbtable", firstStepTempTable)
+            .mode(
+              SaveMode.Append
+            ) // Because Overwrite loose the schema and require us to add quotes
+            .options(sinkConnectionRefOptions)
+
+        if (sinkConnection.isDuckDb())
+          dfToWrite.option("numPartitions", "1").save()
+        else
+          dfToWrite.save()
 
         logger.info(
           s"JDBC save done to table $firstStepTempTable"
