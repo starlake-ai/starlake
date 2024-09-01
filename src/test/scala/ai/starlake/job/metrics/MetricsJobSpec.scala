@@ -1,11 +1,9 @@
 package ai.starlake.job.metrics
 
-import ai.starlake.config.DatasetArea
 import ai.starlake.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class MetricsJobSpec extends TestHelper with JdbcChecks {
   val expectedContinuousMetricsSchema: StructType = StructType(
@@ -94,7 +92,6 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
         deliverSourceTable("/sample/yelp/business.sl.yml")
         loadPending
 
-        val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
         val discreteMetricsDf: DataFrame = sparkSession.table("audit.discrete")
         logger.info(discreteMetricsDf.showString(truncate = 0))
         val discreteMetricsFields =

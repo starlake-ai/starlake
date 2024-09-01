@@ -130,13 +130,19 @@ object Rejection {
   }
 
   object RowResult {
-    def sparkType(types: Array[DataType]) = StructType(
-      Seq(
-        StructField("colResults", ColResult.sparkType(dataTypes), nullable = false),
-        StructField("isAccepted", StringType, nullable = false),
-        StructField("inputFileName", StringType, nullable = false),
-        StructField("inputLine", StringType, nullable = true)
+    def sparkType(types: Array[DataType]) = {
+      throw new Exception("Not implemented")
+      /*
+      val colResultTypes = types.map(ColResult.sparkType)
+      StructType(
+        Seq(
+          StructField("colResults", ArrayType(colResultTypes, false), nullable = false),
+          StructField("isAccepted", StringType, nullable = false),
+          StructField("inputFileName", StringType, nullable = false),
+          StructField("inputLine", StringType, nullable = true)
+        )
       )
-    )
+       */
+    }
   }
 }

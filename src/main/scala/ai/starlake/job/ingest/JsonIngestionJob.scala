@@ -26,7 +26,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.{compareTypes, parseString}
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.validateRecord
 import org.apache.spark.sql.types.{DataType, StringType, StructField}
 
 import scala.util.{Failure, Success, Try}
@@ -95,15 +95,6 @@ class JsonIngestionJob(
       }
       val df = applyIgnore(dfInWithInputFilename)
       df
-    }
-  }
-
-  private def validateRecord(record: String, schema: DataType): Array[String] = {
-    parseString(record) match {
-      case Success(datasetType) =>
-        compareTypes(schema, datasetType).toArray
-      case Failure(exception) =>
-        Array(exception.toString)
     }
   }
 

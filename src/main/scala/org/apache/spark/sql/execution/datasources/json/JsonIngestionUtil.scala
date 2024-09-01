@@ -29,7 +29,7 @@ import org.apache.spark.sql.types._
 
 import java.util.Comparator
 import scala.collection.mutable
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
@@ -371,6 +371,15 @@ object JsonIngestionUtil {
         parser.nextToken()
         JsonIngestionUtil.inferSchema(parser)
       }
+    }
+  }
+
+  def validateRecord(record: String, schema: DataType): Array[String] = {
+    parseString(record) match {
+      case Success(datasetType) =>
+        compareTypes(schema, datasetType).toArray
+      case Failure(exception) =>
+        Array(exception.toString)
     }
   }
 

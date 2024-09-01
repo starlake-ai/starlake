@@ -91,10 +91,11 @@ class SparkJdbcWriter(
           )
         }
       }
-
+      val isDuckDb = url.contains("jdbc:duckdb")
       // table exists at this point
+      val format = if (isDuckDb) "starlake-duckdb" else "jdbc"
       val dfw = sourceDF.write
-        .format("jdbc")
+        .format(format)
         .option("dbtable", cliConfig.outputDomainAndTableName)
 
       val dialect = SparkUtils.dialect(url)
@@ -103,10 +104,15 @@ class SparkJdbcWriter(
       JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
         JdbcDbUtils.truncateTable(conn, cliConfig.outputDomainAndTableName)
       }
-      dfw
-        .mode(SaveMode.Append)
-        .options(cliConfig.options)
-        .save()
+      val dfToSave =
+        dfw
+          .mode(SaveMode.Append)
+          .options(cliConfig.options)
+
+      if (isDuckDb)
+        dfToSave.option("numPartitions", "1").save()
+      else
+        dfToSave.save()
 
       logger.info(
         s"JDBC save done to table ${cliConfig.outputDomainAndTableName} at ${cliConfig.options}"
