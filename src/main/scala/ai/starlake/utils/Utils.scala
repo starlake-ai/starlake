@@ -36,8 +36,6 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
 
@@ -333,24 +331,6 @@ object Utils extends StrictLogging {
       .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     mapper
-  }
-
-  /** Set nullable property of column.
-    *
-    * @param df
-    *   source DataFrame
-    * @param nullable
-    *   is the flag to set, such that the column is either nullable or not
-    */
-  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
-
-    // get schema
-    val schema = df.schema
-    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
-      StructField(c, t, nullable = nullable, m)
-    })
-    // apply new schema
-    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 
   def keepAlphaNum(domain: String): String = {

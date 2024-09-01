@@ -213,5 +213,7 @@ object Dependencies {
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ Seq(
+      "org.duckdb" % "duckdb_jdbc" % Versions.duckdb
+    )
 }

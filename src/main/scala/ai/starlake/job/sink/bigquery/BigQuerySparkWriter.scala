@@ -6,6 +6,7 @@ import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{col, lit, when}
 
 import scala.util.{Failure, Success, Try}
 /*
@@ -22,6 +23,13 @@ BigQueryLoadConfig(
             ),
  */
 object BigQuerySparkWriter extends StrictLogging {
+  def setNullable(df: DataFrame): DataFrame = {
+    val fieldNames = df.schema.fields.map(_.name)
+    fieldNames.foldLeft(df) { case (df, colName) =>
+      df.withColumn(colName, when(col(colName).isNotNull, col(colName)).otherwise(lit(null)))
+    }
+  }
+
   def sinkInAudit(
     df: DataFrame,
     tableName: String,
@@ -35,7 +43,7 @@ object BigQuerySparkWriter extends StrictLogging {
     Try {
       settings.appConfig.audit.sink.getSink() match {
         case sink: BigQuerySink =>
-          val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
+          val source = Right(setNullable(df))
           val (createDisposition, writeDisposition) = {
             Utils.getDBDisposition(writeMode)
           }

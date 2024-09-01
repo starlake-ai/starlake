@@ -20,19 +20,16 @@
 package org.apache.spark.sql.execution.datasources.json
 
 import ai.starlake.utils.Utils
+import com.fasterxml.jackson.core.JsonParser.Feature
+import com.fasterxml.jackson.core.JsonParser.NumberType._
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
 import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import JsonParser.NumberType._
-import ai.starlake.config.CometColumns
-import com.fasterxml.jackson.core.JsonParser.Feature
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
@@ -377,25 +374,12 @@ object JsonIngestionUtil {
     }
   }
 
-  def parseRDD(
-    inputRDD: RDD[Row],
-    schemaSparkType: DataType
-  ): RDD[Either[List[String], (String, String)]] = {
-    inputRDD.mapPartitions { partition =>
-      partition.map { row =>
-        val rowAsString = row.getAs[String]("value")
-        parseString(rowAsString) match {
-          case Success(datasetType) =>
-            val errorList = compareTypes(schemaSparkType, datasetType)
-            if (errorList.isEmpty)
-              Right((rowAsString, row.getAs[String](CometColumns.cometInputFileNameColumn)))
-            else
-              Left(errorList)
-
-          case Failure(exception) =>
-            Left(List(exception.toString))
-        }
-      }
+  def validateRecord(record: String, schema: DataType): Array[String] = {
+    parseString(record) match {
+      case Success(datasetType) =>
+        compareTypes(schema, datasetType).toArray
+      case Failure(exception) =>
+        Array(exception.toString)
     }
   }
 

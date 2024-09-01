@@ -51,6 +51,7 @@ sealed abstract case class PrimitiveType(value: String) {
   override def toString: String = value
 
   def sparkType(zone: Option[String]): DataType
+
 }
 
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {

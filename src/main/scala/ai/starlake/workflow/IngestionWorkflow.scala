@@ -21,6 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.JdbcDbUtils.StarlakeConnectionPool
 import ai.starlake.extract.{JdbcDbUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
@@ -60,11 +61,12 @@ import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
 import org.apache.spark.sql.types._
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
-import java.sql.Types
+import java.sql.{Connection, Types}
 import java.time.Instant
 import java.util.Collections
 import java.util.regex.Pattern
@@ -83,6 +85,22 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
 }
 
 private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
+
+  override def createConnectionFactory(options: JDBCOptions): Int => Connection = {
+    (partitionId: Int) =>
+      {
+        try {
+          StarlakeConnectionPool.getConnection(options.parameters)
+        } catch {
+          case e: Throwable =>
+            throw new Exception(
+              s"Error while creating connection for partition $partitionId",
+              e
+            )
+        }
+      }
+  }
+
   override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:duckdb:")
   // override def quoteIdentifier(column: String): String = column
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
@@ -1026,15 +1044,42 @@ class IngestionWorkflow(
   }
 
   def autoJob(config: TransformConfig): Try[String] = {
-    val result = if (config.recursive) {
-      val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
-      val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
-        .jobsDependencyTree(taskConfig)
-      dependencyTree.foreach(_.print())
-      transform(dependencyTree, config.options)
-    } else {
-      transform(config)
-    }
+    val result =
+      if (config.recursive) {
+        val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
+        val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
+          .jobsDependencyTree(taskConfig)
+        dependencyTree.foreach(_.print())
+        transform(dependencyTree, config.options)
+      } else if (config.tags.nonEmpty) {
+        val jobs =
+          schemaHandler.jobs().flatMap { job =>
+            val tasks = job.tasks.filter { task =>
+              task.tags.intersect(config.tags.toSet).nonEmpty
+            }
+            if (tasks.isEmpty)
+              None
+            else
+              Some(job.copy(tasks = tasks))
+          }
+        Try {
+          jobs
+            .flatMap { job =>
+              job.tasks.map { task =>
+                val result = transform(config.copy(name = s"${job.name}.${task.name}"))
+                result match {
+                  case Success(res) =>
+                    res
+                  case Failure(e) =>
+                    throw e
+                }
+              }
+            }
+            .mkString("\n")
+        }
+      } else {
+        transform(config)
+      }
     result
   }
 

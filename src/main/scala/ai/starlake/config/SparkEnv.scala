@@ -59,23 +59,23 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
           "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
     }
-    import org.apache.spark.sql.SparkSession
 
-    val session =
+    import org.apache.spark.sql.SparkSession
+    val master = config.get("spark.master", "local[*]")
+    val builder = SparkSession.builder().config(config).master(master)
+
+    val session = builder.getOrCreate()
+    /*
+    val catalogs = settings.sparkConfig.getString("sql.catalogKeys").split(",").toList
       if (
-        settings.appConfig.isHiveCompatible() || Utils
-          .isRunningInDatabricks()
+        settings.appConfig.isHiveCompatible()
+        && catalogs.exists(config.contains)
+        && !Utils.isRunningInDatabricks() /* no need to enable hive support on databricks */
       )
-        SparkSession
-          .builder()
-          .config(config)
-          .enableHiveSupport()
-          .getOrCreate()
+        builder.enableHiveSupport().getOrCreate()
       else
-        SparkSession
-          .builder()
-          .config(config)
-          .getOrCreate()
+        builder.getOrCreate()
+     */
 
     // hive support on databricks, spark local, hive metastore
 

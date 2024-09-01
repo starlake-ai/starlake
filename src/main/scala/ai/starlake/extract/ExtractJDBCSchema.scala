@@ -36,6 +36,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig, jdbcSchemas: JDBCSchemas)(implicit settings: Settings) = {
+    println("REFF=" + settings.appConfig.connectionRef)
+    settings.appConfig.connections.foreach(println)
     val connectionSettings = jdbcSchemas.connectionRef match {
       case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
       case None                => settings.appConfig.getDefaultConnection()

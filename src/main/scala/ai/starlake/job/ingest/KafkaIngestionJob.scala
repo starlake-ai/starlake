@@ -96,13 +96,12 @@ class KafkaIngestionJob(
     logger.whenDebugEnabled {
       logger.debug(dfIn.schemaString())
     }
-    val rddIn = dfIn.rdd.map { row =>
-      row.getAs[String]("value")
-    }
+    val finalDfIn = dfIn.map(_.getAs[String]("value"))(Encoders.STRING)
+
     logger.whenDebugEnabled {
       logger.debug(dfIn.schemaString())
     }
-    session.createDataset(rddIn)(Encoders.STRING)
+    finalDfIn
   }
 
   override def run(): Try[JobResult] = {
