@@ -1044,15 +1044,42 @@ class IngestionWorkflow(
   }
 
   def autoJob(config: TransformConfig): Try[String] = {
-    val result = if (config.recursive) {
-      val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
-      val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
-        .jobsDependencyTree(taskConfig)
-      dependencyTree.foreach(_.print())
-      transform(dependencyTree, config.options)
-    } else {
-      transform(config)
-    }
+    val result =
+      if (config.recursive) {
+        val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
+        val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
+          .jobsDependencyTree(taskConfig)
+        dependencyTree.foreach(_.print())
+        transform(dependencyTree, config.options)
+      } else if (config.tags.nonEmpty) {
+        val jobs =
+          schemaHandler.jobs().flatMap { job =>
+            val tasks = job.tasks.filter { task =>
+              task.tags.intersect(config.tags.toSet).nonEmpty
+            }
+            if (tasks.isEmpty)
+              None
+            else
+              Some(job.copy(tasks = tasks))
+          }
+        Try {
+          jobs
+            .flatMap { job =>
+              job.tasks.map { task =>
+                val result = transform(config.copy(name = s"${job.name}.${task.name}"))
+                result match {
+                  case Success(res) =>
+                    res
+                  case Failure(e) =>
+                    throw e
+                }
+              }
+            }
+            .mkString("\n")
+        }
+      } else {
+        transform(config)
+      }
     result
   }
 

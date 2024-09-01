@@ -1441,4 +1441,15 @@ object PrivacyLevels {
       }
     }
   }
+
+  def main(args: Array[String]): Unit = {
+    val connection = DriverManager.getConnection("jdbc:duckdb:")
+    val statement = connection.createStatement()
+    statement.execute("LOAD httpfs")
+    statement.execute("ATTACH 'http://127.0.0.1/duck.db' as db (READ_ONLY)")
+    val rs = statement.executeQuery("SELECT count(*) FROM db.jsellers limit 10")
+    while (rs.next()) {
+      println(rs.getInt(1))
+    }
+  }
 }
