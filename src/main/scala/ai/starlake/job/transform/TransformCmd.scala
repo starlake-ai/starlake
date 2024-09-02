@@ -86,7 +86,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
   def parse(args: Seq[String]): Option[TransformConfig] = {
     val result = OParser.parse(parser, args, TransformConfig(), setup)
     result.foreach { config =>
-      assert(config.name.isEmpty, "Cannot specify both tags and task name")
+      assert(config.name.isEmpty || config.tags.isEmpty, "Cannot specify both tags and task name")
     }
     result
   }
