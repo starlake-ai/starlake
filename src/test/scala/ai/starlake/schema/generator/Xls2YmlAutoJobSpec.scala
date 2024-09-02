@@ -106,7 +106,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       resultBQ.domain shouldBe "someDomain"
       resultBQ.table shouldBe "dataset"
       result.writeStrategy.flatMap(_.`type`) shouldBe Some(WriteStrategyType.OVERWRITE_BY_PARTITION)
-      resultBQ.sink.map(_.getSink()) shouldBe Some(BigQuerySink())
+      resultBQ.sink.map(_.getSink()) shouldBe Some(BigQuerySink(Some("bigquery")))
       resultBQ.comment shouldBe Some("jointure source1 et source2")
       resultBQ.rls.size shouldBe 0
       resultBQ.acl.size shouldBe 0
