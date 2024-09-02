@@ -133,7 +133,7 @@ class JdbcAutoTask(
 
     val res = Try {
       val mainSql =
-        if (df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+        if (interactive.isEmpty && df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
           buildAllSQLQueries(None)
         } else {
           val sql = taskDesc.getSql()

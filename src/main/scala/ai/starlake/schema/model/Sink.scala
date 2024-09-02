@@ -265,17 +265,19 @@ case class AllSinks(
     val connection = settings.appConfig.connections
       .getOrElse(ref, throw new Exception(s"Could not find connection $ref"))
     val options = this.options.getOrElse(connection.options)
-    val allSinksWithOptions = this.copy(options = Some(options))
-    connection.`type` match {
-      case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(allSinksWithOptions)
-      case ConnectionType.FS     => FsSink.fromAllSinks(allSinksWithOptions)
-      case ConnectionType.JDBC   => JdbcSink.fromAllSinks(allSinksWithOptions)
-      case ConnectionType.BQ     => BigQuerySink.fromAllSinks(allSinksWithOptions)
-      case ConnectionType.ES     => EsSink.fromAllSinks(allSinksWithOptions)
-      case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(allSinksWithOptions)
-      case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.`type`}")
+    val allSinksWithOptions = this.copy(options = Some(options), connectionRef = Some(ref))
+    val connResult =
+      connection.`type` match {
+        case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.FS     => FsSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.JDBC   => JdbcSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.BQ     => BigQuerySink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.ES     => EsSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(allSinksWithOptions)
+        case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.`type`}")
 
-    }
+      }
+    connResult
   }
 }
 

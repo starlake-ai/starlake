@@ -26,7 +26,6 @@ import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
 import ai.starlake.serve.MainServerCmd
 import ai.starlake.utils._
 import buildinfo.BuildInfo
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.ByteArrayOutputStream
@@ -161,8 +160,6 @@ class Main extends StrictLogging {
 
   def run(args: Array[String]): Boolean = {
     ProxySettings.setProxy()
-    val configx = ConfigFactory.load()
-    println(configx)
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
     logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")

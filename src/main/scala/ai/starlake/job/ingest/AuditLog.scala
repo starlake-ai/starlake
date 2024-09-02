@@ -221,6 +221,14 @@ object AuditLog extends StrictLogging {
             _auditTableName = Some("audit"),
             taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
           )
+          val engine =
+            auditTaskDesc.getSinkConnection().isJdbcUrl() match {
+              case true =>
+                // This handle the case when sparkFormat is true,
+                // we do not want to use spark to write the logs
+                Engine.JDBC
+              case false => auditTaskDesc.getSinkConnection().getEngine()
+            }
           val task = AutoTask
             .task(
               Option(log.jobid),
@@ -229,9 +237,8 @@ object AuditLog extends StrictLogging {
               None,
               truncate = false,
               test = log.test,
-              engine = auditTaskDesc.getSinkConnection().getEngine(),
+              engine = engine,
               logExecution = false // We do not log the job that write the logs :)
-
             )
           val res = task.run()
           Utils.logFailure(res, logger)
