@@ -251,6 +251,14 @@ class ExpectationJob(
               parseSQL = Some(true),
               _auditTableName = Some("expectations")
             )
+            val engine =
+              taskDesc.getSinkConnection().isJdbcUrl() match {
+                case true =>
+                  // This handle the case when sparkFormat is true,
+                  // we do not want to use spark to write the logs
+                  Engine.JDBC
+                case false => taskDesc.getSinkConnection().getEngine()
+              }
             val task = AutoTask
               .task(
                 Option(applicationId()),
@@ -258,7 +266,7 @@ class ExpectationJob(
                 Map.empty,
                 None,
                 truncate = false,
-                engine = taskDesc.getSinkConnection().getEngine(),
+                engine = engine,
                 logExecution = false,
                 test = false
               )(settings, storageHandler, schemaHandler)
