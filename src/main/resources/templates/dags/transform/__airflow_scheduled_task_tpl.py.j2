@@ -130,7 +130,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
           for dataset, _ in cronDatasets.items() :
             # we republish all scheduled datasets
             outlets.append(Dataset(dataset, extra))
-        else if set(cronDatasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+        elif set(cronDatasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
           # we sort the cron datasets by frequency (most frequent first)
           sorted_crons = sort_crons_by_frequency(set(cronDatasets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
           # we exclude the most frequent cron dataset
