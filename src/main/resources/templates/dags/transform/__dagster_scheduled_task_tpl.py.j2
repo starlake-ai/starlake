@@ -1,4 +1,4 @@
-from ai.starlake.common import sanitize_id
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency
 from ai.starlake.job import StarlakeSparkConfig
 
 import json
@@ -170,11 +170,20 @@ def generate_job():
 
     asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
     # we don't want to republish all scheduled assets if there is none unscheduled assets, otherwise the job will be triggered indefinitely
-    if assets.__len__() != cronAssets.__len__():
-      if cronAssets :
+    if cronAssets :
+        if assets.__len__() != cronAssets.__len__():
           for cronAsset, _ in cronAssets.items() :
             # we republish all scheduled assets
             asset_events.append(AssetKey(cronAsset))
+        else if set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+          # we sort the cron assets by frequency (most frequent first)
+          sorted_assets = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+          # we exclude the most frequent cron asset
+          least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
+          for cronAsset, cron in cronAssets.items() :
+            # we republish the least frequent scheduled assets
+            if cron in least_frequent_crons:
+              asset_events.append(AssetKey(cronAsset))
     end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
     nodes.append(end)
     dependencies[end._name] = end_dependencies
