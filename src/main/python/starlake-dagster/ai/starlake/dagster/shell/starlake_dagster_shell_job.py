@@ -24,11 +24,11 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
 
         Returns:
-            OpDefinition: The Dastger node.
+            OpDefinition: The Dagster node.
         """
         command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
