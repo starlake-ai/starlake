@@ -1,8 +1,7 @@
-from ai.starlake.common import keep_ascii_only, sanitize_id
+from ai.starlake.common import sanitize_id
 from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
 import os
-from typing import Union
 
 from airflow import DAG
 
@@ -33,8 +32,6 @@ def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
     return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
-_extra_dataset: dict = sys.modules[__name__].__dict__.get('extra_dataset', dict())
-
 # [START instantiate_dag]
 for schedule in schedules:
     tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
@@ -51,7 +48,7 @@ for schedule in schedules:
 
         post_tasks = sl_job.post_tasks(dag=dag)
 
-        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"])
+        pre_load_tasks = sl_job.sl_pre_load(domain=domain["name"], params={'cron':_cron}, dag=dag)
 
         def generate_task_group_for_domain(domain):
             with TaskGroup(group_id=sanitize_id(f'{domain["name"]}_load_tasks')) as domain_load_tasks:
@@ -63,6 +60,8 @@ for schedule in schedules:
                         domain=domain["name"], 
                         table=table["name"],
                         spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
+                        params={'cron':_cron},
+                        dag=dag
                     )
             return domain_load_tasks
 
@@ -73,12 +72,7 @@ for schedule in schedules:
         else:
             start >> all_load_tasks
 
-        extra: dict = {"source": dag.dag_id}
-        parameters = dict(_extra_dataset)
-        if _cron is not None :
-          parameters['sl_schedule'] = sl_schedule(_cron)
-
-        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(keep_ascii_only(dag.dag_id), extra)]+list(map(lambda x: Dataset(x.uri + asQueryParameters(parameters), extra), sl_job.outlets)))
+        end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sl_job.sl_dataset(dag.dag_id, cron=_cron), {"source": dag.dag_id})])
 
         all_load_tasks >> end
 
