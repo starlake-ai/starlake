@@ -175,7 +175,7 @@ def generate_job():
           for cronAsset, _ in cronAssets.items() :
             # we republish all scheduled assets
             asset_events.append(AssetKey(cronAsset))
-        else if set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+        elif set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
           # we sort the cron assets by frequency (most frequent first)
           sorted_assets = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
           # we exclude the most frequent cron asset
