@@ -58,7 +58,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         """Overrides IStarlakeJob.pre_tasks()"""
         task_id = f"create_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
@@ -78,7 +78,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         task_id = f"delete_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
         """Overrides IStarlakeJob.post_tasks()"""
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
@@ -103,7 +103,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
 
         Returns:
-            NodeDefinition: The Dastger node.
+            NodeDefinition: The Dagster node.
         """
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",")
         main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options)
@@ -147,7 +147,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             }
         }
 
-        asset_key: AssetKey = kwargs.get("asset", None)
+        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
         @op(
             name=task_id,
