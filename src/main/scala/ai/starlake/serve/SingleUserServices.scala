@@ -18,7 +18,7 @@ object SingleUserServices {
   }
 
   def reset(reload: Boolean)(implicit settings: Settings): String = {
-    val result = SingleUserMainServer.mapper.writeValueAsString(MapSettingsManager.reset())
+    val result = SingleUserMainServer.mapper.writeValueAsString(CaffeineSettingsManager.reset())
     // external(reload)
     result
   }

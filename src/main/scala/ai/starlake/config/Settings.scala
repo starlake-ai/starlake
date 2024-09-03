@@ -413,13 +413,14 @@ object Settings extends StrictLogging {
     }
 
     @JsonIgnore
-    def isBigQuery() = this.`type`.equals("bigquery")
+    def isBigQuery() = this.`type` == ConnectionType.BQ
 
     @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
 
     @JsonIgnore
-    def isSpark(): Boolean = getJdbcEngineName().toString == "spark"
+    def isSpark(): Boolean =
+      getJdbcEngineName().toString == "spark" || this.`type` == ConnectionType.FS
 
     @JsonIgnore
     def isJdbcUrl() = this.options.get("url").exists(_.startsWith("jdbc"))

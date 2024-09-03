@@ -6,17 +6,19 @@ trait SettingsManager {
   def reset(): Boolean
   def uniqueId(
     root: String,
-    env: Option[String],
-    duckDbMode: Boolean
+    env: Option[String]
   ): String =
     root +
-    "," + env.getOrElse("null") +
-    "," + duckDbMode
-
+    "," + env.getOrElse("null")
   def getUpdatedSettings(
     root: String,
     env: Option[String],
-    duckDbMode: Boolean,
     refresh: Boolean = false
   ): (Settings, Boolean)
+
+  def set(
+    root: String,
+    env: Option[String],
+    settings: Settings
+  ): Unit
 }

@@ -21,10 +21,9 @@ class CaffeineSettingsManager extends SettingsManager {
   override def getUpdatedSettings(
     root: String, // contains project id and userid
     env: Option[String],
-    duckDbMode: Boolean,
     refresh: Boolean
   ): (Settings, Boolean) = {
-    val sessionId = uniqueId(root, env, duckDbMode)
+    val sessionId = uniqueId(root, env)
     Utils.resetJinjaClassLoader()
     PrivacyLevels.resetAllPrivacy()
 
@@ -43,6 +42,15 @@ class CaffeineSettingsManager extends SettingsManager {
         cache.put(sessionId, updatedSession)
         (updatedSession, true)
     }
+  }
+
+  override def set(
+    root: String,
+    env: Option[String],
+    settings: Settings
+  ): Unit = {
+    val sessionId = uniqueId(root, env)
+    cache.put(sessionId, settings)
   }
 }
 

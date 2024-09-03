@@ -87,11 +87,16 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     val schemas = tables.flatMap { bqTable =>
       logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable()}")
       // We get the Table again below because Tables are returned with a null definition by listTables above.
-      val tableWithDefinition = bigquery.getTable(bqTable.getTableId())
-      if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
-        Some(extractTable(tableWithDefinition))
-      else
-        None
+      Try(bigquery.getTable(bqTable.getTableId())) match {
+        case scala.util.Success(tableWithDefinition) =>
+          if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
+            Some(extractTable(tableWithDefinition))
+          else
+            None
+        case scala.util.Failure(e) =>
+          logger.error(s"Failed to get table ${bqTable.getTableId()}", e)
+          None
+      }
     }
     Domain(
       name = dataset.getDatasetId().getDataset(),

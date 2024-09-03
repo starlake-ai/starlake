@@ -9,7 +9,8 @@ import scala.util.Try
 
 object SchemaExtractor {
   def extractSchemas(
-    connectionName: String
+    connectionName: String,
+    accessToken: Option[String]
   )(implicit settings: Settings): Try[List[(String, List[String])]] = {
     val connection = settings.appConfig.connections(connectionName)
     val connType = connection.`type`
@@ -19,7 +20,7 @@ object SchemaExtractor {
         result
       case ConnectionType.BQ =>
         val extractor = new ExtractBigQuerySchema(
-          BigQueryTablesConfig(connectionRef = Some(connectionName))
+          BigQueryTablesConfig(connectionRef = Some(connectionName), accessToken = accessToken)
         )
         val schemaHandler = new SchemaHandler(settings.storageHandler())
         val result = extractor.extractSchemasAndTables(schemaHandler)
