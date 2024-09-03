@@ -109,9 +109,10 @@ case class AutoTaskDesc(
     val writeStrategyErrors = writeStrategy
       .map(_.checkValidity(this.domain, Some(new Schema().copy(name = this.name))))
       .getOrElse(Right(true))
+
     val scheduleErrors = schedule
       .map { schedule =>
-        if (settings.appConfig.schedulePresets.contains(schedule)) {
+        if (schedule.contains(" ") || settings.appConfig.schedulePresets.contains(schedule)) {
           Right(true)
         } else {
           Left(

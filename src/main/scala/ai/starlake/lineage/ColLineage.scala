@@ -180,10 +180,13 @@ class ColLineage(
         val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
         jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
       }
+
       val res: JdbcResultSetMetaData =
         JSQLColumResolver
-          .getResultSetMetaData(sql, JdbcMetaData.copyOf(jdbcMetadata))
-          .asInstanceOf[JdbcResultSetMetaData]
+          .getResultSetMetaData(
+            sql,
+            JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
+          )
 
       val tables = extractTables(res)
       val relations = extractRelations(task.domain, task.table, res)

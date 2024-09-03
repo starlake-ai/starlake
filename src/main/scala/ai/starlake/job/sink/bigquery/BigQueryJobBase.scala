@@ -1233,11 +1233,16 @@ object BigQueryJobBase extends StrictLogging {
 
   def executeUpdate(
     sql: String,
-    connectionRef: String
+    connectionRef: String,
+    accessToken: scala.Option[String]
   )(implicit
     settings: Settings
   ): Try[Boolean] = Try {
-    val bq = bigquery(Some(connectionRef), None, None)
+    val bq = bigquery(
+      connectionRef = Some(connectionRef),
+      accessToken = accessToken,
+      outputDatabase = None
+    )
     val _ = bq.query(QueryJobConfiguration.of(sql))
     true
   }

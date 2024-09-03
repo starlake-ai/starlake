@@ -949,16 +949,31 @@ class IngestionWorkflow(
   def compileAutoJob(config: TransformConfig): Try[String] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
-    val mainSQL = action.buildAllSQLQueries(None)
+    val sqlWhenTableDontExist = action.buildAllSQLQueries(None, Some(false))
+    val sqlWhenTableExist = action.buildAllSQLQueries(None, Some(true))
+    val tableExists = action.tableExists
 
-    val formattedSql =
-      if (config.format)
-        SQLUtils.format(mainSQL, JSQLFormatter.OutputFormat.PLAIN)
-      else
-        mainSQL
+    val (formattedDontExist, formattedExist) =
+      if (config.format) {
+        (
+          SQLUtils.format(sqlWhenTableDontExist, JSQLFormatter.OutputFormat.PLAIN),
+          SQLUtils.format(sqlWhenTableExist, JSQLFormatter.OutputFormat.PLAIN)
+        )
+      } else {
+        (sqlWhenTableDontExist, sqlWhenTableExist)
+      }
 
-    logger.info(s"""$formattedSql""")
-    formattedSql
+    val result =
+      s"""
+         |-- Table exists: $tableExists
+         |-- SQL when table does not exist
+        |$formattedDontExist
+        |-- SQL when table exists
+        |$formattedExist
+        |
+        |""".stripMargin
+    logger.info(result)
+    result
   }
 
   def transform(

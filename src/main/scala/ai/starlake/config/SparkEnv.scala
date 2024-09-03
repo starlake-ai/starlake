@@ -61,7 +61,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     }
 
     import org.apache.spark.sql.SparkSession
-    val master = config.get("spark.master", "local[*]")
+    val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
     val builder = SparkSession.builder().config(config).master(master)
 
     val session = builder.getOrCreate()

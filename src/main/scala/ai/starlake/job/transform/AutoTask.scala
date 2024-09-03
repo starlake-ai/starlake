@@ -108,7 +108,10 @@ abstract class AutoTask(
   lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
-  def buildAllSQLQueries(sql: Option[String]): String = {
+  def buildAllSQLQueries(
+    sql: Option[String],
+    tableExistsForcedValue: Option[Boolean] = None
+  ): String = {
     val inputSQL = sql.getOrElse(taskDesc.getSql())
     val runConnection = this.taskDesc.getRunConnection()
     if (interactive.isEmpty) {
@@ -131,11 +134,15 @@ abstract class AutoTask(
 
         val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
+        val tblExists =
+          tableExistsForcedValue.getOrElse(
+            tableExists
+          ) // If tableExistsForcedValue is defined, use it, otherwise use tableExists
         val mainSql = StrategiesBuilder().run(
           strategy,
           sqlWithParametersTranspiledIfInTest,
           tableComponents,
-          tableExists,
+          tblExists,
           truncate = truncate,
           materializedView = resolveMaterializedView(),
           jdbcRunEngine,
@@ -264,7 +271,7 @@ object AutoTask extends StrictLogging {
       )
   }
 
-  def executeUpdate(sql: String, connectionRef: String)(implicit
+  def executeUpdate(sql: String, connectionRef: String, accessToken: Option[String])(implicit
     settings: Settings
   ): Try[Boolean] = {
     val connection = settings.appConfig
@@ -273,7 +280,7 @@ object AutoTask extends StrictLogging {
     val engine = connection.getEngine()
     engine match {
       case Engine.BQ =>
-        BigQueryJobBase.executeUpdate(sql, connectionRef)
+        BigQueryJobBase.executeUpdate(sql, connectionRef, accessToken)
       case Engine.JDBC =>
         JdbcAutoTask.executeUpdate(sql, connectionRef)
       case Engine.SPARK =>
@@ -369,7 +376,8 @@ object AutoTask extends StrictLogging {
     table: String,
     sql: String,
     summarizeOnly: Boolean,
-    connectionName: String
+    connectionName: String,
+    accessToken: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -415,7 +423,8 @@ object AutoTask extends StrictLogging {
       truncate = false,
       test = true,
       engine = engine,
-      logExecution = false
+      logExecution = false,
+      accessToken = accessToken
     )
     t.run() match {
       case Success(jobResult) =>
