@@ -33,7 +33,7 @@ object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
     Try {
       if (config.external) {
         val extractor = new ExtractBigQuerySchema(config)
-        val externalDomains = extractor.extractDatasets(schemaHandler)
+        val externalDomains = extractor.extractSchemasAndTables(schemaHandler, config.tables)
         externalDomains.foreach { domain =>
           domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
         }

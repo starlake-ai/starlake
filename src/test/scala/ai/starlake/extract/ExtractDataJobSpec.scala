@@ -99,7 +99,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       (rs: ResultSet) => rs.getString("TABLE_SCHEM") + "." + rs.getString("TABLE_NAME")
 
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -137,7 +137,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "getStringPartitionFunc" should "return string partition func for the given database if defined" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       extractDataJob.getStringPartitionFunc("sqlserver") shouldBe Some(
         "abs( binary_checksum({{col}}) % {{nb_partitions}} )"
       )
@@ -147,7 +147,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "resolveNumPartitions" should "return partition column with precedence" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // Table definition first
       val jdbcConnection = settings.appConfig.connections("test-pg")
       extractDataJob.resolveNumPartitions(
@@ -216,7 +216,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "resolveTableStringPartitionFunc" should "return string partition function with precedence" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // Table definition first
       val jdbcConnection: Settings.Connection = settings.appConfig.connections("test-pg")
       extractDataJob.resolveTableStringPartitionFunc(
@@ -305,7 +305,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "resolvePartitionColumn" should "return partition column with precedence" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // Table definition first
       val jdbcConnection = settings.appConfig.connections("test-pg")
       extractDataJob.resolvePartitionColumn(
@@ -375,7 +375,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
   "extractPartitionToFile" should "extract data to a file without index when extract config is not partitionned" in {
     pending
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -422,7 +422,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract data to a file with index when extract config is partitionned" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -470,7 +470,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "consider CSV output settings" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -524,7 +524,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "createDomainOutputDir" should "create nested folders" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val outputDir = extractDataJob.createDomainOutputDir(
         new Path(starlakeTestRoot, "subfolder/subsubfolder"),
         "domain"
@@ -536,7 +536,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "computeEligibleTablesForExtraction" should "not change the list of tables when table inclusion is empty" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val updatedJdbcSchemas = extractDataJob.computeEligibleTablesForExtraction(
         JDBCSchema(tables =
           List(
@@ -557,7 +557,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "change the list of tables with an intersection of table inclusion and the configured list" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val updatedJdbcSchemas = extractDataJob.computeEligibleTablesForExtraction(
         JDBCSchema(tables =
           List(
@@ -576,7 +576,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "change the list of tables and consider * as the configuration of table for table's included but not declared" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val updatedJdbcSchemas = extractDataJob.computeEligibleTablesForExtraction(
         JDBCSchema(tables =
           List(
@@ -597,7 +597,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "change fill list of tables with included one since empty tables is like *" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val updatedJdbcSchemas = extractDataJob.computeEligibleTablesForExtraction(
         JDBCSchema(tables = Nil),
         List("T2", "T3", "T4")
@@ -612,7 +612,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "extractTableData" should "extract unpartitionned table" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -705,7 +705,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract unpartitionned table from sql" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -800,7 +800,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "filter out data" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -892,7 +892,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "project restricted columns" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -973,7 +973,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "limit the number of extracted rows" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1066,7 +1066,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "extractTablePartionnedData" should "extract partitionned table" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1169,7 +1169,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract partitionned table from sql" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1274,7 +1274,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "filter out data" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1376,7 +1376,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "project restricted columns and don't affect partition column" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1467,7 +1467,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "rename output columns" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1581,7 +1581,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on short" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1684,7 +1684,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on int" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1787,7 +1787,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on long" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1890,7 +1890,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on decimal" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -1993,7 +1993,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on timestamp" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2096,7 +2096,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on date" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2199,7 +2199,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "partition data on string" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2302,7 +2302,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract full data in incremental mode when recovering on first failed extraction for short partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2416,7 +2416,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract full data in incremental mode when recovering on first failed extraction for decimal partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2530,7 +2530,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract full data in incremental mode when recovering on first failed extraction for timestamp partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2644,7 +2644,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract full data in incremental mode when recovering on first failed extraction for date partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2758,7 +2758,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract incrementally from highest int partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2871,7 +2871,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract incrementally from highest decimal partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -2984,7 +2984,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract incrementally from highest timestamp partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3097,7 +3097,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract incrementally from highest date partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3210,7 +3210,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract fully if forced, ignoring highest int partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3324,7 +3324,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract fully if forced, ignoring highest decimal partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3438,7 +3438,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract fully if forced, ignoring highest timestamp partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3552,7 +3552,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   it should "extract fully if forced, ignoring highest date partition" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3666,7 +3666,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "cleanTableFiles" should "delete all files" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3697,7 +3697,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "getCurrentTableDefinition" should "retrieve the correct configuration" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // specific configuration
       extractDataJob.resolveTableDefinition(
         JDBCSchema(tables =
@@ -3749,7 +3749,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "isExtractionNeeded" should "check predicate if given" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")
       val conn = DriverManager.getConnection(
         jdbcConnection.options("url"),
@@ -3896,7 +3896,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "isTableFullExport" should "follow precedence CLI, table, schema, default" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // specific configuration
       val jdbcConnection = settings.appConfig.connections("test-pg")
 
@@ -3988,7 +3988,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
   "computeTableFetchSize" should "follow precedence table, schema" in {
     new WithSettings() {
-      private val extractDataJob = new ExtractDataJob(new SchemaHandler(settings.storageHandler()))
+      private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // specific configuration
       val jdbcConnection = settings.appConfig.connections("test-pg")
 

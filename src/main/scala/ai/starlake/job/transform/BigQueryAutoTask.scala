@@ -1,7 +1,12 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.{BigQueryTablesConfig, ExtractBigQuerySchema}
+import ai.starlake.extract.{
+  BigQueryTablesConfig,
+  ExtractBigQuerySchema,
+  ExtractJDBCSchemaCmd,
+  ExtractSchemaConfig
+}
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -17,6 +22,7 @@ import com.google.cloud.bigquery.{
   Schema => BQSchema,
   StandardTableDefinition
 }
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
@@ -152,7 +158,7 @@ class BigQueryAutoTask(
       // nothing to do, config is created with write_truncate in that case
     }
     val mainSql =
-      if (loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+      if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
         buildAllSQLQueries(None)
       } else {
         val sql = taskDesc.getSql()
@@ -275,9 +281,14 @@ class BigQueryAutoTask(
                   )
                 } else {
                   if (settings.appConfig.autoExportSchema) {
-                    val config =
-                      BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
-                    ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+                    val config = ExtractSchemaConfig(
+                      external = true,
+                      outputDir = Some(DatasetArea.external.toString),
+                      tables = s"${taskDesc.domain}.${taskDesc.table}" :: Nil,
+                      connectionRef = Some(sinkConnectionRef),
+                      accessToken = accessToken
+                    )
+                    ExtractJDBCSchemaCmd.run(config, schemaHandler)
                   }
                 }
               } match {
@@ -306,6 +317,25 @@ class BigQueryAutoTask(
             config,
             limitSql
           ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+
+          res.foreach { _ =>
+            if (settings.appConfig.autoExportSchema) {
+              SQLUtils.extractTableNames(mainSql).foreach { domainAndTableName =>
+                val components = domainAndTableName.split("\\.")
+                if (components.size == 2) {
+                  val domainName = components(0)
+                  val tableName = components(1)
+                  val slFile =
+                    new Path(new Path(DatasetArea.external, domainName), s"$tableName.sl.yml")
+                  if (!storageHandler.exists(slFile)) {
+                    val config =
+                      BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
+                    ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+                  }
+                }
+              }
+            }
+          }
           res
       }
 

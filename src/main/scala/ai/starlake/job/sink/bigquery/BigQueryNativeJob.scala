@@ -258,92 +258,90 @@ class BigQueryNativeJob(
     queryJobTimeoutMs: scala.Option[Long] = None,
     dryRun: Boolean = false
   ): Try[BigQueryJobResult] = {
-    getOrCreateDataset(cliConfig.domainDescription).flatMap { _ =>
-      val targetSQL = thisSql.getOrElse(sql).trim()
-      if (targetSQL.startsWith("DESCRIBE")) {
-        val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
-        val bqSchema = table.getDefinition[StandardTableDefinition].getSchema
-        Success(
-          BigQueryJobResult(
-            Some(
-              TableResult
-                .newBuilder()
-                .setTotalRows(0)
-                .setPageNoSchema(
-                  new PageImpl[FieldValueList](null, null, null)
-                )
-                .setSchema(bqSchema)
-                .build()
-            ),
-            -1,
-            None
-          )
+    val targetSQL = thisSql.getOrElse(sql).trim()
+    if (targetSQL.startsWith("DESCRIBE")) {
+      val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
+      val bqSchema = table.getDefinition[StandardTableDefinition].getSchema
+      Success(
+        BigQueryJobResult(
+          Some(
+            TableResult
+              .newBuilder()
+              .setTotalRows(0)
+              .setPageNoSchema(
+                new PageImpl[FieldValueList](null, null, null)
+              )
+              .setSchema(bqSchema)
+              .build()
+          ),
+          -1,
+          None
         )
-      } else {
-        val queryConfig: QueryJobConfiguration.Builder =
-          QueryJobConfiguration
-            .newBuilder(targetSQL)
-            .setAllowLargeResults(true)
-            .setMaximumBytesBilled(
-              connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
+      )
+    } else {
+      val queryConfig: QueryJobConfiguration.Builder =
+        QueryJobConfiguration
+          .newBuilder(targetSQL)
+          .setAllowLargeResults(true)
+          .setMaximumBytesBilled(
+            connectionOptions.get("maximumBytesBilled").map(java.lang.Long.valueOf).orNull
+          )
+
+      val sqlId = java.util.UUID.randomUUID.toString
+      val formattedSQL = SQLUtils
+        .format(targetSQL, JSQLFormatter.OutputFormat.PLAIN)
+      logger.info(s"running BigQuery statement with Id $sqlId: $formattedSQL")
+
+      val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+      val finalConfiguration =
+        queryConfigWithUDF.setPriority(Priority.INTERACTIVE).setDryRun(dryRun).build()
+
+      val result =
+        recoverBigqueryException {
+          val jobId = newJobIdWithLocation()
+          val queryJob =
+            bigquery(accessToken = cliConfig.accessToken).create(
+              JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
             )
-
-        val sqlId = java.util.UUID.randomUUID.toString
-        val formattedSQL = SQLUtils
-          .format(targetSQL, JSQLFormatter.OutputFormat.PLAIN)
-        logger.info(s"running BigQuery statement with Id $sqlId: $formattedSQL")
-
-        val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-        val finalConfiguration =
-          queryConfigWithUDF.setPriority(Priority.INTERACTIVE).setDryRun(dryRun).build()
-
-        val result =
-          recoverBigqueryException {
-            val jobId = newJobIdWithLocation()
-            val queryJob =
-              bigquery(accessToken = cliConfig.accessToken).create(
-                JobInfo.newBuilder(finalConfiguration).setJobId(jobId).build()
-              )
-            if (!dryRun) {
-              logger.info(s"Waiting for job $jobId")
-              queryJob.waitFor(
-                RetryOption.maxAttempts(0),
-                RetryOption.totalTimeout(
-                  org.threeten.bp.Duration.ofMinutes(
-                    queryJobTimeoutMs
-                      .orElse(jobTimeoutMs)
-                      .getOrElse(settings.appConfig.longJobTimeoutMs)
-                  )
+          if (!dryRun) {
+            logger.info(s"Waiting for job $jobId")
+            queryJob.waitFor(
+              RetryOption.maxAttempts(0),
+              RetryOption.totalTimeout(
+                org.threeten.bp.Duration.ofMinutes(
+                  queryJobTimeoutMs
+                    .orElse(jobTimeoutMs)
+                    .getOrElse(settings.appConfig.longJobTimeoutMs)
                 )
               )
-            } else {
-              logger.info(s"Dry run $jobId")
-              queryJob
-            }
-          }.map { jobResult =>
-            val totalBytesProcessed = jobResult
-              .getStatistics()
-              .asInstanceOf[QueryStatistics]
-              .getTotalBytesProcessed
-            if (!dryRun) {
-              val results = jobResult.getQueryResults(
-                QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
-              )
-              logger.info(
-                s"Query large results performed successfully on query with Id $sqlId: ${results.getTotalRows} rows returned."
-              )
-              BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
-            } else {
-              BigQueryJobResult(None, totalBytesProcessed, Some(jobResult))
-            }
+            )
+          } else {
+            logger.info(s"Dry run $jobId")
+            queryJob
           }
-        result match {
-          case Failure(e) =>
-            logger.error(s"Error while running BigQuery query with id $sqlId", e.getMessage)
-            Failure(e)
-          case Success(jobResult) =>
-            Success(jobResult)
+        }.map { jobResult =>
+          val totalBytesProcessed = jobResult
+            .getStatistics()
+            .asInstanceOf[QueryStatistics]
+            .getTotalBytesProcessed
+          if (!dryRun) {
+            val results = jobResult.getQueryResults(
+              QueryResultsOption.pageSize(pageSize.getOrElse(this.resultPageSize))
+            )
+            logger.info(
+              s"Query large results performed successfully on query with Id $sqlId: ${results.getTotalRows} rows returned."
+            )
+            BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobResult))
+          } else {
+            BigQueryJobResult(None, totalBytesProcessed, Some(jobResult))
+          }
         }
+      result match {
+        case Failure(e) =>
+          logger.error(s"Error while running BigQuery query with id $sqlId", e.getMessage)
+          Failure(e)
+        case Success(jobResult) =>
+          Success(jobResult)
       }
     }
   }
