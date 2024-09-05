@@ -1366,6 +1366,19 @@ final case class Settings(
   created: Long = System.currentTimeMillis()
 ) {
 
+  var _schemaHandler: Option[SchemaHandler] = None
+  @transient
+  def schemaHandler(reload: Boolean = false): StorageHandler = {
+    _schemaHandler match {
+      case Some(handler) if !reload => handler
+      case _ =>
+        implicit val self: Settings = this
+        val handler = new SchemaHandler(storageHandler())
+        handler
+    }
+  }
+
+
   var _storageHandler: Option[StorageHandler] = None
   @transient
   def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))

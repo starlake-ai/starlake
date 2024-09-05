@@ -49,7 +49,7 @@ class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
         ) {
           val schemaHandler = new SchemaHandler(storageHandler)
           val domains = new ExtractBigQuerySchema(BigQueryTablesConfig(None, None))
-            .extractDatasets(schemaHandler)
+            .extractSchemasAndTables(schemaHandler, Map.empty)
           println(domains.size)
           domains.foreach(println)
         }

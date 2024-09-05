@@ -6,5 +6,6 @@ case class ExtractSchemaConfig(
   outputDir: Option[String] = None,
   parallelism: Option[Int] = None,
   external: Boolean = false,
-  connectionRef: Option[String] = None
+  connectionRef: Option[String] = None,
+  accessToken: Option[String] = None
 )

@@ -335,7 +335,7 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def extractSchemasAndTables(connectionSettings: Connection)(implicit
+  def extractSchemasAndTableNames(connectionSettings: Connection)(implicit
     settings: Settings
   ): Try[List[(DomainName, List[TableName])]] = {
     val schemas = extractJDBCSchemas(connectionSettings)

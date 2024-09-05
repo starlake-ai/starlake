@@ -370,8 +370,7 @@ object AutoTask extends StrictLogging {
         }
     }
   }
-
-  def query(
+  def executeQuery(
     domain: String,
     table: String,
     sql: String,
@@ -382,11 +381,35 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[Map[String, String]]] = Try {
-    val connection = settings.appConfig
-      .connection(connectionName)
-      .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+  ): Try[List[Map[String, String]]] = {
+    val connection =
+      Try(
+        settings.appConfig
+          .connection(connectionName)
+          .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+      )
+    connection match {
+      case Success(conn) =>
+        executeQuery(domain, table, sql, summarizeOnly, conn, accessToken, Some(connectionName))
+      case Failure(e) =>
+        Failure(e)
+    }
 
+  }
+
+  def executeQuery(
+    domain: String,
+    table: String,
+    sql: String,
+    summarizeOnly: Boolean,
+    connection: Settings.Connection,
+    accessToken: Option[String],
+    connectionName: Option[String]
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Try[List[Map[String, String]]] = Try {
     val finalSql =
       if (summarizeOnly)
         if (connection.isDuckDb())
@@ -402,7 +425,7 @@ object AutoTask extends StrictLogging {
       domain = domain,
       table = table,
       database = None,
-      connectionRef = Some(connectionName)
+      connectionRef = connectionName
     )
     val engine =
       connection.`type` match {

@@ -241,7 +241,9 @@ class JdbcAutoTask(
               val config = ExtractSchemaConfig(
                 external = true,
                 outputDir = Some(DatasetArea.external.toString),
-                tables = s"${taskDesc.domain}.${taskDesc.table}" :: Nil
+                tables = s"${taskDesc.domain}.${taskDesc.table}" :: Nil,
+                connectionRef = Some(sinkConnectionRef),
+                accessToken = accessToken
               )
               ExtractJDBCSchemaCmd.run(config, schemaHandler)
             }

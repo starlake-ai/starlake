@@ -163,13 +163,17 @@ case class AutoTaskDesc(
   }
 
   def getSinkConnection()(implicit settings: Settings): Connection = {
-    val connectionRef =
-      sink.flatMap { sink => sink.connectionRef }.getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig
-      .connection(connectionRef)
+      .connection(getSinkConnectionRef())
       .getOrElse(throw new Exception(s"Connection not found: $connectionRef"))
     connection
   }
+  def getSinkConnectionRef()(implicit settings: Settings): String = {
+    val connectionRef =
+      sink.flatMap { sink => sink.connectionRef }.getOrElse(this.getRunConnectionRef())
+    connectionRef
+  }
+
   def getRunConnectionRef()(implicit settings: Settings): String = {
     val connectionRef = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
     if (connectionRef.isEmpty) {
@@ -195,8 +199,12 @@ case class AutoTaskDesc(
     getRunConnection().`type`
   }
 
-  def getSinkConfig()(implicit settings: Settings): Sink =
-    this.sink.map(_.getSink()).getOrElse(AllSinks().getSink())
+  def getSinkConfig()(implicit settings: Settings): Sink = {
+    val sinkConnectionRef = this.getSinkConnectionRef()
+    this.sink
+      .map(_.getSink())
+      .getOrElse(AllSinks().copy(connectionRef = Some(sinkConnectionRef)).getSink())
+  }
 }
 
 object AutoTaskDesc {
