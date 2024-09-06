@@ -22,7 +22,6 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
@@ -175,6 +174,6 @@ object BigQueryTableInfo extends StrictLogging {
   @nowarn
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
-    BigQueryTableInfoCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
+    BigQueryTableInfoCmd.run(args, settings.schemaHandler()).map(_ => ())
   }
 }

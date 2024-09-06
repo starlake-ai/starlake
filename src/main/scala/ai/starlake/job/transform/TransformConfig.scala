@@ -12,5 +12,6 @@ case class TransformConfig(
   recursive: Boolean = false,
   test: Boolean = false,
   accessToken: Option[String] = None,
-  dryRun: Boolean = false
+  dryRun: Boolean = false,
+  query: Option[String] = None
 )

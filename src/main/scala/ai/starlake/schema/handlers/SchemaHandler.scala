@@ -29,7 +29,7 @@ import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
-import better.files.{File, Resource}
+import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -82,10 +82,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private def forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private def forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 
-  def listen(): Unit = {
-    MetadataFileChangeHandler.start(this)
-  }
-  listen()
   @throws[Exception]
   private def checkTypeDomainsJobsValidity(
     domainNames: List[String] = Nil,
@@ -607,13 +603,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def tableOnly(tableName: String, ignoreDomain: Boolean = true): Try[TableDesc] =
+  def tableOnly(tableName: String): Try[TableDesc] =
     Try {
       val components = tableName.split('.')
       val domainName = components(0)
       val tablePartName = components(1)
 
-      var folder = new Path(DatasetArea.load, tablePartName)
+      var folder = new Path(DatasetArea.load, domainName)
       loadTableRef(tablePartName + ".sl.yml", raw = false, folder)
     }
 
@@ -906,7 +902,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       AutoJobDesc(
         name = jobName,
         tasks = mergedTasksWithStrippedComments,
-        default = None
+        default = jobDesc.default
       )
     } match {
       case Success(value) => Success(value)
@@ -1180,7 +1176,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def taskOnly(
     taskName: String,
-    ignoreRefs: Boolean = false,
     reload: Boolean = false
   ): Try[AutoTaskDesc] = {
     val refs = loadRefs()
@@ -1220,7 +1215,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 .getOrElse(
                   throw new Exception(s"Task $taskName not found in $directory")
                 )
-            } yield taskDesc
+            } yield {
+              val mergedTask = jobDesc.default match {
+                case Some(defaultTask) =>
+                  defaultTask.merge(taskDesc)
+                case None =>
+                  taskDesc
+              }
+              mergedTask
+            }
           taskDesc.orElse(
             task(taskName)
           ) // because taskOnly can only handle task named after folder and file names
@@ -1420,86 +1423,70 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
     )
 
-  def onTaskDelete(domain: String, task: String): Unit = {
-    _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
-      case None =>
-        logger.info(s"Job $domain not found")
-      case Some(domain) =>
-        val tasks = domain.tasks.filterNot(_.name.toLowerCase() == task.toLowerCase())
-        val newDomain = domain.copy(tasks = tasks)
-        _jobs = _jobs.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ newDomain
-    }
-  }
-  def onTableDelete(domain: String, table: String): Unit = {
+  def tableDeleted(domain: String, table: String): Unit = {
     _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
         logger.warn(s"Domain $domain not found")
       case Some(domain) =>
         val tablesToKeep = domain.tables.filterNot(_.name.toLowerCase() == table.toLowerCase())
         val updatedDomain = domain.copy(tables = tablesToKeep)
-        _domains = _domains
-          .map(_.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ updatedDomain)
-          .orElse(Some(List(updatedDomain)))
+        _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ updatedDomain)
     }
   }
 
-  def onTaskChange(domain: String, task: String, file: File): Unit = {
-    /*
-    val domainPath = new Path(DatasetArea.transform, domain)
-    val taskPath = new Path(domainPath, task + ".sl.yml")
-    if (storage.exists(taskPath)) {
-      val task = loadJobTasksFromFile(taskPath)
-      task match {
-        case Success(task) =>
-          _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
-            case None =>
-              logger.info(s"Job $domain not found")
-              val (validationMessages, validJobsFile) =
-                this.loadJobs(DatasetArea.transform, List(domain), Nil)
-              _jobs = _jobs ++ validJobsFile
-            case Some(job) =>
-              val tasks =
-                job.tasks.filterNot(_.name.toLowerCase() == task.name.toLowerCase()) :+ task
-              val newJob = job.copy(tasks = tasks)
-              _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ newJob
-
-          }
-        case Failure(err) =>
-          logger.error(s"Failed to load task $taskPath")
-          Utils.logException(logger, err)
-      }
+  def taskDeleted(domain: String, task: String): Unit = {
+    _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
+      case None =>
+        logger.warn(s"Job $domain not found")
+      case Some(job) =>
+        val tasksToKeep = job.tasks.filterNot(_.name.toLowerCase() == task.toLowerCase())
+        val updatedJob = job.copy(tasks = tasksToKeep)
+        _jobs = _jobs.filterNot(_.name == job.name) :+ updatedJob
     }
-     */
   }
 
-  def onTableChange(updatedDomain: String, updatedTable: String, file: File): Unit = {
-    val updatedDomainPath = new Path(DatasetArea.load, updatedDomain)
-    val updatedTablePath = new Path(updatedDomainPath, updatedTable + ".sl.yml")
-    if (storage.exists(updatedTablePath)) {
-      val updatedTableReloaded = Try(
-        loadTableRefs(List(updatedTable), raw = false, folder = updatedDomainPath).head
-      )
-      updatedTableReloaded match {
-        case Success(updatedTable) =>
-          _domains.getOrElse(Nil).find(_.name.toLowerCase() == updatedDomain.toLowerCase()) match {
-            case None =>
-              logger.warn(s"Domain $updatedDomain not found")
-              val (validDomainsFile, invalidDomainsFiles) =
-                this.loadDomains(DatasetArea.load, List(updatedDomain), Nil, raw = false)
-              val newDomains = validDomainsFile.collect { case Success(domain) => domain }
-              _domains = Some(_domains.getOrElse(Nil) ++ newDomains)
-            case Some(domain) =>
-              val unchangedTables =
-                domain.tables.filterNot(
-                  _.name.toLowerCase() == updatedTable.name.toLowerCase()
-                )
-              val newDomain = domain.copy(tables = unchangedTables :+ updatedTable)
-              _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ newDomain)
-          }
-        case Failure(err) =>
-          logger.error(s"Failed to load table $updatedTablePath")
-          Utils.logException(logger, err)
-      }
+  def tableAdded(domain: String, table: String): Try[Unit] = {
+    _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+      case None =>
+        _domains = Some(_domains.getOrElse(Nil) :+ Domain(domain))
+      case Some(_) =>
+      // do nothing
+    }
+    tableOnly(s"${domain}.${table}") match {
+      case Success(tableDesc) =>
+        _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+          case None =>
+            throw new Exception(s"Should not happen: Domain $domain not found")
+          case Some(domain) =>
+            val updatedDomain = domain.copy(tables = domain.tables :+ tableDesc.table)
+            _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ updatedDomain)
+            Success(())
+        }
+      case Failure(e) =>
+        Failure(e)
+    }
+  }
+
+  def taskAdded(domainName: String, taskName: String): Try[Unit] = {
+    _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
+      case None =>
+        _jobs = _jobs :+ AutoJobDesc(domainName)
+      case Some(_) =>
+      // do nothing
+    }
+
+    taskOnly(s"${domainName}.${taskName}") match {
+      case Success(taskDesc) =>
+        _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
+          case None =>
+            throw new Exception(s"Should not happen: Job $domainName not found")
+          case Some(job) =>
+            val updatedJob = job.copy(tasks = job.tasks :+ taskDesc)
+            _jobs = _jobs.filterNot(_.name == job.name) :+ updatedJob
+            Success(())
+        }
+      case Failure(e) =>
+        Failure(e)
     }
   }
 

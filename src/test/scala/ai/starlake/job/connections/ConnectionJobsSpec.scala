@@ -4,7 +4,6 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.typesafe.config.{Config, ConfigFactory}
@@ -65,7 +64,7 @@ class ConnectionJobsSpec extends TestHelper {
 
       storageHandler.write(businessTaskDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler, Map("age" -> "10"))
+      val schemaHandler = settings.schemaHandler(Map("age" -> "10"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)

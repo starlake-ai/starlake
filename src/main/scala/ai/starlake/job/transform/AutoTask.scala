@@ -250,6 +250,37 @@ abstract class AutoTask(
 }
 
 object AutoTask extends StrictLogging {
+
+  def minimal(
+    domainName: String,
+    tableName: String,
+    connectionRef: String,
+    accessToken: Option[String] = None
+  )(implicit
+    settings: Settings
+  ): AutoTask = {
+    val desc =
+      AutoTaskDesc(
+        "__IGNORE__",
+        sql = None,
+        database = None,
+        domain = domainName,
+        table = tableName,
+        connectionRef = Some(connectionRef)
+      )
+    AutoTask
+      .task(
+        appId = None,
+        taskDesc = desc,
+        configOptions = Map.empty,
+        interactive = None,
+        accessToken = accessToken,
+        test = false,
+        truncate = false,
+        logExecution = false,
+        engine = settings.appConfig.getConnection(connectionRef).getEngine()
+      )(settings, settings.storageHandler(), settings.schemaHandler())
+  }
   def unauthenticatedTasks(reload: Boolean)(implicit
     settings: Settings,
     storageHandler: StorageHandler,

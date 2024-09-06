@@ -5,7 +5,6 @@ import ai.starlake.config.Settings
 import ai.starlake.extract._
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.JsonSerializer
 import ai.starlake.workflow.IngestionWorkflow
@@ -144,7 +143,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             new Path(starlakeMetadataPath + "/transform/bqtest/_config.sl.yml")
           storageHandler.write(configJobDef, pathConfigBusiness)
 
-          val schemaHandler = new SchemaHandler(storageHandler)
+          val schemaHandler = settings.schemaHandler()
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler)
@@ -183,7 +182,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           val config = BigQueryTablesConfig(tables = Map("bqtest" -> List("account")))
-          val result = BigQueryFreshnessInfo.freshness(config, new SchemaHandler(storageHandler))
+          val result = BigQueryFreshnessInfo.freshness(config, settings.schemaHandler())
           val json = JsonSerializer.serializeObject(result)
           println(json)
 

@@ -1,7 +1,6 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, ConnectionType, Domain, Schema}
 import ai.starlake.utils.{JobResult, SparkJob}
 
@@ -28,7 +27,7 @@ object SchemaExtractor {
             tables = tables
           )
         )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
         val result = extractor.extractSchemasAndTableNames(schemaHandler)
         result
 

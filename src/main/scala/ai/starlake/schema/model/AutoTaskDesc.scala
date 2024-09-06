@@ -99,10 +99,13 @@ case class AutoTaskDesc(
       dagRef = child.dagRef.orElse(dagRef),
       _filenamePrefix = child._filenamePrefix,
       parseSQL = child.parseSQL.orElse(parseSQL),
-      taskTimeoutMs = child.taskTimeoutMs.orElse(taskTimeoutMs)
+      taskTimeoutMs = child.taskTimeoutMs.orElse(taskTimeoutMs),
+      connectionRef = child.connectionRef.orElse(connectionRef)
     )
   }
+  /*
 
+   */
   def checkValidity()(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val sinkErrors = sink.map(_.checkValidity(this.name)).getOrElse(Right(true))
     val freshnessErrors = freshness.map(_.checkValidity(this.name)).getOrElse(Right(true))

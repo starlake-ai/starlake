@@ -1,7 +1,6 @@
 package ai.starlake.extract
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.TransformInput
 import better.files.File
 
@@ -25,7 +24,7 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatesPayloadFromDir = new ExtractScript(new SchemaHandler(settings.storageHandler()))
+      val templatesPayloadFromDir = new ExtractScript(settings.schemaHandler())
         .templatizeFolder(
           File(
             getClass.getResource("/sample/database")
@@ -37,7 +36,7 @@ class ExtractScriptGenSpec extends TestHelper {
 
       println(File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase)
 
-      val templatePayload = new ExtractScript(new SchemaHandler(settings.storageHandler()))
+      val templatePayload = new ExtractScript(settings.schemaHandler())
         .templatizeFile(
           File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache")).pathAsString,
           templateParams
@@ -66,7 +65,7 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatePayload: String = new ExtractScript(new SchemaHandler(settings.storageHandler()))
+      val templatePayload: String = new ExtractScript(settings.schemaHandler())
         .templatizeFile(
           File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp")).pathAsString,
           templateParams

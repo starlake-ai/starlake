@@ -1,7 +1,6 @@
 package ai.starlake.schema
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Project, ProjectDiff}
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
@@ -13,7 +12,7 @@ import scala.util.Try
 
 object ProjectCompare {
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
-    ProjectCompareCmd.run(args, new SchemaHandler(settings.storageHandler())).map(_ => ())
+    ProjectCompareCmd.run(args, settings.schemaHandler()).map(_ => ())
 
   private def applyJ2AndSave(
     outputDir: Path,

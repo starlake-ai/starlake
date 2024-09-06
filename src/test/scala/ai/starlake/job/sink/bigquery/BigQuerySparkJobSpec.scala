@@ -3,7 +3,6 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
@@ -134,7 +133,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             )
           storageHandler.write(businessTaskAddPartDef, pathTaskAdd)
           storageHandler.write(queryAdd, pathTaskSQLAdd)
-          val schemaHandler = new SchemaHandler(storageHandler)
+          val schemaHandler = settings.schemaHandler()
           logger.info("Job:SL_BQ_TEST_DS")
           logger.info(pathTaskSQL.toString)
           logger.info(this.jobMetadataRootPath.toString)

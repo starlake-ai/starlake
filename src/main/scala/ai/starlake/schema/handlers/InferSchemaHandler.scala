@@ -30,6 +30,7 @@ import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
+import scala.collection.GenSeq
 import scala.util.Try
 
 object InferSchemaHandler {
@@ -44,6 +45,8 @@ object InferSchemaHandler {
     }
   }
 
+  val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_]*)$".r
+
   /** * Traverses the schema and returns a list of attributes.
     *
     * @param schema
@@ -55,7 +58,7 @@ object InferSchemaHandler {
     lines: List[Row],
     schema: StructType,
     format: Format
-  )(implicit settings: Settings): List[Attribute] = {
+  ): List[Attribute] = {
 
     def createAttribute(
       currentLines: List[Any],
@@ -63,103 +66,111 @@ object InferSchemaHandler {
       container: StructField,
       fieldPath: String
     ): Attribute = {
-      currentSchema match {
-        case st: StructType =>
-          val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
-          val attributes = schemaWithIndex.map { case (field, index) =>
-            val structLines =
-              currentLines.flatMap(Option(_)).map {
-                case r: Row => r.get(index)
-                case other =>
-                  throw new RuntimeException(
-                    "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
-                  )
-              }
-
-            createAttribute(
-              structLines,
-              st(index).dataType,
-              field,
-              fieldPath + "." + field.name
-            )
-          }.toList
-
-          Attribute(
-            container.name,
-            st.typeName,
-            required = if (!container.nullable) Some(true) else None,
-            array = Some(false),
-            attributes = attributes,
-            sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
-          )
-        case dt: ArrayType =>
-          dt.elementType match {
-            case _: ArrayType =>
-              throw new RuntimeException(
-                s"Starlake doesn't support array of array. Rejecting field path $fieldPath"
-              )
-            case _ =>
-              // if the array contains elements of type struct.
-              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-              val arrayLines =
-                currentLines.flatMap(Option(_)).flatMap {
-                  case ar: Seq[_] => ar
+      val result =
+        currentSchema match {
+          case st: StructType =>
+            val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
+            val attributes = schemaWithIndex.map { case (field, index) =>
+              val structLines =
+                currentLines.flatMap(Option(_)).map {
+                  case r: Row => r.get(index)
                   case other =>
                     throw new RuntimeException(
-                      s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
+                      "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
                     )
                 }
 
-              val stAttributes = createAttribute(
-                arrayLines,
-                dt.elementType,
-                container,
-                fieldPath + "[]"
+              createAttribute(
+                structLines,
+                st(index).dataType,
+                field,
+                fieldPath + "." + field.name
               )
-              stAttributes.copy(
-                array = Some(true),
-                required = if (!container.nullable) Some(true) else None,
-                sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
-              )
-          }
-        // if the datatype is a simple Attribute
-        case _ =>
-          val cellType = currentSchema.typeName match {
-            case "string" =>
-              val timestampCandidates = currentLines.flatMap(Option(_).map(_.toString))
-              if (timestampCandidates.isEmpty)
-                "string"
-              else if (timestampCandidates.forall(v => parseIsoInstant(v)))
-                "iso_date_time"
-              else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
-                "date"
-              else
-                "string"
-            case "timestamp"
-                if Set(
-                  Format.DSV,
-                  Format.POSITION,
-                  Format.JSON_FLAT
-                ).contains(format) =>
-              // We handle here the case when it is a date and not a timestamp
-              val timestamps = currentLines.flatMap(Option(_).map(_.toString))
-              if (timestamps.forall(v => datePattern.matcher(v).matches()))
-                "date"
-              else if (timestamps.forall(v => parseIsoInstant(v)))
-                "iso_date_time"
-              else
-                "timestamp"
-            case _ =>
-              PrimitiveType.from(currentSchema).value
-          }
-          Attribute(
-            name = container.name,
-            `type` = cellType,
-            array = Some(false),
-            required = if (!container.nullable) Some(true) else None,
-            sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
-          )
-      }
+            }.toList
+
+            Attribute(
+              container.name,
+              st.typeName,
+              required = if (!container.nullable) Some(true) else None,
+              array = Some(false),
+              attributes = attributes,
+              sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+            )
+          case dt: ArrayType =>
+            dt.elementType match {
+              case _: ArrayType =>
+                throw new RuntimeException(
+                  s"Starlake doesn't support array of array. Rejecting field path $fieldPath"
+                )
+              case _ =>
+                // if the array contains elements of type struct.
+                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
+                val arrayLines =
+                  currentLines.flatMap(Option(_)).flatMap {
+                    case ar: GenSeq[_] => ar
+                    case other =>
+                      throw new RuntimeException(
+                        s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
+                      )
+                  }
+
+                val stAttributes = createAttribute(
+                  arrayLines,
+                  dt.elementType,
+                  container,
+                  fieldPath + "[]"
+                )
+                stAttributes.copy(
+                  array = Some(true),
+                  required = if (!container.nullable) Some(true) else None,
+                  sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+                )
+            }
+          // if the datatype is a simple Attribute
+          case _ =>
+            val cellType = currentSchema.typeName match {
+              case "string" =>
+                val timestampCandidates = currentLines.flatMap(Option(_).map(_.toString))
+                if (timestampCandidates.isEmpty)
+                  "string"
+                else if (timestampCandidates.forall(v => parseIsoInstant(v)))
+                  "iso_date_time"
+                else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
+                  "date"
+                else
+                  "string"
+              case "timestamp"
+                  if Set(
+                    Format.DSV,
+                    Format.POSITION,
+                    Format.JSON_FLAT
+                  ).contains(format) =>
+                // We handle here the case when it is a date and not a timestamp
+                val timestamps = currentLines.flatMap(Option(_).map(_.toString))
+                if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                  "date"
+                else if (timestamps.forall(v => parseIsoInstant(v)))
+                  "iso_date_time"
+                else
+                  "timestamp"
+              case _ =>
+                PrimitiveType.from(currentSchema).value
+            }
+            Attribute(
+              name = container.name,
+              `type` = cellType,
+              array = Some(false),
+              required = if (!container.nullable) Some(true) else None,
+              sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+            )
+        }
+
+      if (identifierRegex.pattern.matcher(result.name).matches)
+        result
+      else
+        throw new RuntimeException(
+          s"Invalid field name ->${result.name}<-. Only letters, digits and '_' are allowed. Other characters including spaces are forbidden."
+        )
     }
     createAttribute(lines, schema, StructField("_ROOT_", StructType(Nil)), "").attributes
   }

@@ -1,7 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde._
 import com.typesafe.scalalogging.LazyLogging
@@ -42,7 +42,7 @@ object Xls2Yml extends LazyLogging {
 
   def run(args: Array[String]): Try[Boolean] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
-    Xls2YmlCmd.run(args.toIndexedSeq, new SchemaHandler(settings.storageHandler())).map(_ => true)
+    Xls2YmlCmd.run(args.toIndexedSeq, settings.schemaHandler()).map(_ => true)
   }
 
   def main(args: Array[String]): Unit = {

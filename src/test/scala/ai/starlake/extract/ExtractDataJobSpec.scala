@@ -3,7 +3,6 @@ package ai.starlake.extract
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, PrimitiveType}
 import better.files.File
 import org.apache.hadoop.fs.Path

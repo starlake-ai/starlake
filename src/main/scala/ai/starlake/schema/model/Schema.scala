@@ -738,7 +738,7 @@ object Schema {
   def fromSparkSchema(
     schemaName: String,
     obj: StructField
-  )(implicit settings: Settings): Schema = {
+  ): Schema = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |

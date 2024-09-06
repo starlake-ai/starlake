@@ -4,7 +4,6 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Metadata, Schema}
 import ai.starlake.utils.YamlSerde
 import better.files.File
@@ -86,7 +85,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -148,7 +147,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -206,7 +205,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -255,7 +254,7 @@ class ExtractSpec extends TestHelper {
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
     implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-    new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+    new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
       jdbcSchema,
       connectionSettings,
       new Path(outputDir.pathAsString),
@@ -554,7 +553,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -628,7 +627,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler())).extractSchema(
+      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",

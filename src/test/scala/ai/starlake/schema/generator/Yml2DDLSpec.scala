@@ -1,7 +1,6 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 
 import scala.util.{Failure, Success}
@@ -20,7 +19,7 @@ class Yml2DDLSpec extends TestHelper {
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
         cleanMetadata
         deliverSourceDomain()
         deliverSourceTable(

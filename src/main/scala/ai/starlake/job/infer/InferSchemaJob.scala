@@ -26,6 +26,7 @@ import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
 import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -70,7 +71,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     val lastLine = lines.last
 
     file.extension(includeDot = false).getOrElse("").toLowerCase() match {
-      case "xml" => "XML"
+      case "parquet" => "PARQUET"
+      case "xml"     => "XML"
       case "json" if firstLine.startsWith("[") =>
         "JSON_ARRAY"
       case "json" if firstLine.startsWith("{") =>
@@ -166,6 +168,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     * @param path
     *   : file path
     * @return
+    *   dataframe and rowtag if xml
     */
   private def createDataFrameWithFormat(
     lines: List[String],
@@ -178,6 +181,10 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     val formatFile = getFormatFile(dataPath, lines)
 
     formatFile match {
+      case "PARQUET" =>
+        val df = session.read
+          .parquet(dataPath)
+        (df, None)
       case "JSON_ARRAY" =>
         val content = lines.mkString("\n")
         val jsons = ListBuffer[String]()
@@ -191,9 +198,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         tmpFile.write(jsons.mkString("\n"))
         tmpFile.deleteOnExit()
         val df = session.read
-          .format("json")
-          .option("inferSchema", value = inferSchema)
-          .load(tmpFile.pathAsString)
+          .json(tmpFile.pathAsString)
         (df, None)
       case "JSON" =>
         val isJsonL =
@@ -202,10 +207,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           }
         val df = session.read
           .option("multiLine", !isJsonL)
-          .option("mode", "PERMISSIVE")
-          .format("json")
-          .option("inferSchema", value = inferSchema)
-          .load(dataPath)
+          .json(dataPath)
         (df, None)
       case "XML" =>
         // find second occurrence of xml tag starting with letter in content
@@ -391,5 +393,27 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
       InferSchemaHandler.generateYaml(domain, saveDir, clean)
     }.flatten
+  }
+}
+
+object InferSchemaJob {
+  def main(args: Array[String]): Unit = {
+    val config = ConfigFactory.load()
+    implicit val settings = Settings(config, None, None)
+
+    val job = new InferSchemaJob()
+    job.infer(
+      domainName = "domain",
+      tableName = "table",
+      pattern = None,
+      comment = None,
+      // inputPath = "/Users/hayssams/Downloads/jsonarray.json",
+      inputPath = "/Users/hayssams/Downloads/ndjson-sample.json",
+      saveDir = "/Users/hayssams/tmp/aaa",
+      forceFormat = None,
+      writeMode = WriteMode.OVERWRITE,
+      rowTag = None,
+      clean = false
+    )(settings.storageHandler())
   }
 }
