@@ -39,7 +39,7 @@ Test / javaOptions ++= testJavaOptions
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.19"
+lazy val scala212 = "2.12.20"
 
 lazy val scala213 = "2.13.14"
 
