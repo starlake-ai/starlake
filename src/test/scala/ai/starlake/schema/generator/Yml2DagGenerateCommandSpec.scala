@@ -2,7 +2,6 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
@@ -84,7 +83,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
           "/sample/position/account_position.sl.yml",
           Some("account.sl.yml")
         )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
         new DagGenerateJob(schemaHandler).run(Array.empty)
         val dagPath = new Path(new Path(DatasetArea.dags, "generated/load"), "position.py")
         settings.storageHandler().exists(dagPath) shouldBe true

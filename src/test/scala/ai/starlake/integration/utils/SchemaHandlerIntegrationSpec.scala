@@ -2,7 +2,6 @@ package ai.starlake.integration.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.integration.IntegrationTestBase
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.workflow.IngestionWorkflow
 
 class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
@@ -28,7 +27,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       clearDataDirectories()
       implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
-      val schemaHandler = new SchemaHandler(settings.storageHandler(), Map.empty)
+      val schemaHandler = settings.schemaHandler()
       val workflow =
         new IngestionWorkflow(settings.storageHandler(), schemaHandler)
       assert(schemaHandler.domains(List("hr"), List("flat_locations")).length == 1)

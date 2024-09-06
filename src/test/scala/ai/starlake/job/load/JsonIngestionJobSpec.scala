@@ -22,7 +22,6 @@ package ai.starlake.job.load
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest._
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.{JdbcChecks, TestHelper}
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
@@ -62,7 +61,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
           s"/sample/json/$jsonData"
         )
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
         val schema = schemaHandler.getSchema("json", "sample_json").get
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 

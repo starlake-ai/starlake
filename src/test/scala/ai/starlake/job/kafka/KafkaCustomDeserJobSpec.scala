@@ -3,7 +3,6 @@ package ai.starlake.job.kafka
 import ai.starlake.TestHelper
 import ai.starlake.job.sink.http.SinkTransformer
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 import better.files.File
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -98,7 +97,7 @@ class KafkaCustomDeserJobSpec extends TestHelper {
               streaming = true,
               coalesce = Some(1)
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob2.run() match {
           case Success(_) =>

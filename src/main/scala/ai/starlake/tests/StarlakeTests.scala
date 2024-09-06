@@ -289,8 +289,7 @@ object StarlakeTestData {
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
-      import settings.storageHandler
-      val schemaHandler = new SchemaHandler(storageHandler())(settings)
+      val schemaHandler = settings.schemaHandler()
       new Main().run(
         params,
         schemaHandler
@@ -343,8 +342,7 @@ object StarlakeTestData {
         ) ++
         config.toArgs
 
-      import settings.storageHandler
-      val schemaHandler = new SchemaHandler(storageHandler())(settings)
+      val schemaHandler = settings.schemaHandler()
       Try {
         new Main().run(
           params,
@@ -646,8 +644,7 @@ object StarlakeTestData {
     ],
     List[(String, String)]
   ) = {
-    import settings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler())
+    val schemaHandler = settings.schemaHandler()
 
     // Load single test
     val (domainName, taskName, testName) = onlyThisTest.map { testName =>
@@ -1009,7 +1006,7 @@ object StarlakeTestData {
           val dataAsCreateTableExpression =
             ext match {
               case "json" | "csv" =>
-                val schemaHandler = new SchemaHandler(settings.storageHandler())
+                val schemaHandler = settings.schemaHandler()
                 loadDataAsCreateTableExpression(
                   schemaHandler,
                   testDataDomainName,

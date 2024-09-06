@@ -20,7 +20,6 @@
 
 package ai.starlake.job.load
 
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.{JdbcChecks, TestHelper}
 
 class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
@@ -38,7 +37,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         deliverSourceTable("/sample/jsonmultiline/sample_json.sl.yml")
         loadPending
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
         val schema = schemaHandler.getSchema("jsonmultiline", "sample_json").get
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 

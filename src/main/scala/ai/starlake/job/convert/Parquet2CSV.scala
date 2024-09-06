@@ -1,7 +1,7 @@
 package ai.starlake.job.convert
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
@@ -87,7 +87,6 @@ object Parquet2CSV {
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
 
-    import settings.storageHandler
-    Parquet2CSVCmd.run(args.toIndexedSeq, new SchemaHandler(storageHandler()))
+    Parquet2CSVCmd.run(args.toIndexedSeq, settings.schemaHandler())
   }
 }

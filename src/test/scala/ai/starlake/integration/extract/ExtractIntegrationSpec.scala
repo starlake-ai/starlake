@@ -2,7 +2,6 @@ package ai.starlake.integration.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.extract.{ExtractDataJob, ExtractJDBCSchema}
-import ai.starlake.schema.handlers.SchemaHandler
 import better.files.File
 
 import java.sql.DriverManager
@@ -55,7 +54,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpYmlFile = File.newTemporaryFile("extract", ".sl.yml")
       val tmpDir = File.newTemporaryDirectory("extract")
       tmpYmlFile.write(config)
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
       val result = new ExtractDataJob(schemaHandler).run(
         Array(
           "--clean",
@@ -133,7 +132,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpYmlFile = File.newTemporaryFile("extract", ".sl.yml")
       val tmpDir = File.newTemporaryDirectory("extract")
       tmpYmlFile.write(config)
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
       val result = new ExtractDataJob(schemaHandler).run(
         Array(
           "--clean",
@@ -205,7 +204,7 @@ class ExtractIntegrationSpec extends TestHelper {
       val tmpDir = File.newTemporaryDirectory("extract")
       println(tmpDir.pathAsString)
       tmpYmlFile.write(config)
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
       new ExtractJDBCSchema(schemaHandler).run(
         Array(
           "--config",

@@ -32,7 +32,7 @@ object ConsoleCmd extends Cmd[ConsoleConfig] {
   override def run(config: ConsoleConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    new Console().console(schemaHandler: SchemaHandler)
+    new Console().console()
     Try(JobResult.empty)
   }
 }

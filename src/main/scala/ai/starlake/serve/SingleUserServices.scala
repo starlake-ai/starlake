@@ -12,7 +12,7 @@ object SingleUserServices {
   var schemaHandler: SchemaHandler = null
   def getSchemaHandler(reload: Boolean)(implicit settings: Settings): SchemaHandler = {
     if (reload || schemaHandler == null) {
-      schemaHandler = new SchemaHandler(settings.storageHandler())
+      schemaHandler = settings.schemaHandler()
     }
     schemaHandler
   }

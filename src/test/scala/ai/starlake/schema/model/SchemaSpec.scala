@@ -20,16 +20,15 @@
 
 package ai.starlake.schema.model
 
-import java.io.{InputStream, StringWriter}
-
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity._
+
+import java.io.{InputStream, StringWriter}
 
 class SchemaSpec extends TestHelper {
 
   new WithSettings() {
-    val schemaHandler = new SchemaHandler(storageHandler)
+    val schemaHandler = settings.schemaHandler()
 
     "Attribute type" should "be valid" in {
       val stream: InputStream =

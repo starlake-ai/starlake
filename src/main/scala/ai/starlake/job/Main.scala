@@ -175,7 +175,7 @@ class Main extends StrictLogging {
       case None      => Map.empty[String, String]
     }
 
-    val schemaHandler = new SchemaHandler(storageHandler(), cliEnv)
+    val schemaHandler = settings.schemaHandler(cliEnv)
     val executedCommand = argList.mkString(" ")
     logger.info(s"Running Starlake $executedCommand")
     val errCapture = new ByteArrayOutputStream()

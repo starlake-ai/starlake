@@ -2,7 +2,6 @@ package ai.starlake.utils.conversion
 
 import ai.starlake.TestHelper
 import ai.starlake.config.SparkEnv
-import ai.starlake.schema.handlers.SchemaHandler
 import com.google.cloud.bigquery.{Field, FieldList, Schema => BQSchema, StandardSQLTypeName}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
@@ -131,7 +130,7 @@ class BigQueryUtilsSpec extends TestHelper {
           "/sample/complexUser.sl.yml"
         ).foreach(deliverSourceTable)
 
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
 
         val schema = schemaHandler
           .domains()

@@ -505,7 +505,8 @@ object Settings extends StrictLogging {
     preActions: Option[String],
     strategyBuilder: String,
     columnRemarks: Option[String] = None,
-    tableRemarks: Option[String] = None
+    tableRemarks: Option[String] = None,
+    supportsJson: Option[Boolean] = None
   )
 
   object JdbcEngine {
@@ -1189,7 +1190,7 @@ object Settings extends StrictLogging {
     val applicationYmlConfig =
       if (settings.storageHandler().exists(applicationYmlPath)) {
         logger.info(s"Loading $applicationYmlPath")
-        val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
+        val schemaHandler = settings.schemaHandler()
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
           Try {
@@ -1368,16 +1369,19 @@ final case class Settings(
 
   var _schemaHandler: Option[SchemaHandler] = None
   @transient
-  def schemaHandler(reload: Boolean = false): StorageHandler = {
+  def schemaHandler(
+    cliEnv: Map[String, String] = Map.empty,
+    reload: Boolean = false
+  ): SchemaHandler = {
     _schemaHandler match {
       case Some(handler) if !reload => handler
       case _ =>
         implicit val self: Settings = this
-        val handler = new SchemaHandler(storageHandler())
+        val handler = new SchemaHandler(this.storageHandler(), cliEnv)
+        _schemaHandler = Some(handler)
         handler
     }
   }
-
 
   var _storageHandler: Option[StorageHandler] = None
   @transient

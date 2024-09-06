@@ -2,7 +2,6 @@ package ai.starlake.console
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
-import ai.starlake.schema.handlers.{MetadataFileChangeHandler, SchemaHandler}
 import ai.starlake.serve.{SingleUserMainServer, SingleUserServices}
 import jline.console.history.FileHistory
 import org.apache.hadoop.fs.Path
@@ -28,9 +27,7 @@ class Console(implicit isettings: Settings) {
 
   private var envValue: Option[String] = None
 
-  def console(schemaHandler: SchemaHandler): Unit = {
-    MetadataFileChangeHandler.startListening()
-    schemaHandler.listen()
+  def console(): Unit = {
     val consoleReader = new jline.console.ConsoleReader()
     consoleReader.setBellEnabled(false)
     consoleReader.setExpandEvents(false)

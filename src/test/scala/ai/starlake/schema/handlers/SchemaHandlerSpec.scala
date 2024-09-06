@@ -774,7 +774,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/simple-json-locations/locations.sl.yml",
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
         val filename = "/sample/metadata/transform/business/business.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
@@ -789,7 +789,7 @@ class SchemaHandlerSpec extends TestHelper {
       cleanMetadata
       sparkSession.sql("DROP TABLE IF EXISTS locations.locations")
       sparkSession.sql("DROP TABLE IF EXISTS locations.flat_locations")
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
       val filename = "/sample/job-tasks-without-sql/nosql.sl.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
@@ -800,7 +800,7 @@ class SchemaHandlerSpec extends TestHelper {
   "Load Transform Job with taskrefs" should "succeed" in {
     new WithSettings() {
       cleanMetadata
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
       val filename = "/sample/job-with-taskrefs/_config.sl.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
@@ -835,7 +835,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/simple-json-locations/locations.sl.yml",
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
         val filename = "/sample/metadata/transform/business_with_vars/business_with_vars.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val content = storageHandler.read(jobPath)
@@ -861,7 +861,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/simple-json-locations/locations.sl.yml",
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
         val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
@@ -909,7 +909,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/simple-json-locations/locations.sl.yml",
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
 
         val schema: Option[Schema] = schemaHandler
           .domains()
@@ -977,7 +977,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/simple-json-locations/locations.sl.yml",
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
-        val schemaHandler = new SchemaHandler(storageHandler)
+        val schemaHandler = settings.schemaHandler()
 
         val ds: URL = getClass.getResource("/sample/mapping/dataset")
 
@@ -998,7 +998,7 @@ class SchemaHandlerSpec extends TestHelper {
 
   "Custom mapping in Metadata" should "be read as a map" in {
     new WithSettings() {
-      val sch = new SchemaHandler(storageHandler)
+      val sch = settings.schemaHandler()
       val content =
         """withHeader: false
             |encoding: ISO-8859-1
@@ -1033,7 +1033,7 @@ class SchemaHandlerSpec extends TestHelper {
         List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
           deliverSourceTable
         )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
 
         val tempFile = File.newTemporaryFile().pathAsString
         new TableDependencies(schemaHandler).run(
@@ -1082,7 +1082,7 @@ class SchemaHandlerSpec extends TestHelper {
         List("/sample/dream/client.sl.yml", "/sample/dream/segment.sl.yml").foreach(
           deliverSourceTable
         )
-        val schemaHandler = new SchemaHandler(settings.storageHandler())
+        val schemaHandler = settings.schemaHandler()
 
         new AclDependencies(schemaHandler).run(Array("--all"))
 

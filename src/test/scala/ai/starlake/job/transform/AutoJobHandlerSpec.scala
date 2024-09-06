@@ -5,7 +5,6 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.lineage.TaskViewDependency
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -93,7 +92,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val schemaHandler =
-        new SchemaHandler(storageHandler, Map("age" -> "40"))
+        settings.schemaHandler(Map("age" -> "40"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
@@ -150,7 +149,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
 
       val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
       val deps = TaskViewDependency.dependencies(tasks)(settings, schemaHandler)
@@ -196,10 +195,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
-      val schemaHandler = new SchemaHandler(
-        storageHandler,
-        Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
-      )
+      val schemaHandler =
+        settings.schemaHandler(Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
 
       sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
@@ -245,7 +242,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessJobDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
 
       val configJob =
         AutoJobDesc(
@@ -315,7 +312,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(TransformDesc(latestSchemaVersion, configJob))
       storageHandler.write(configJobDef, pathConfigBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = settings.schemaHandler()
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
@@ -375,7 +372,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(TaskDesc(latestSchemaVersion, businessTask1))
       storageHandler.write(businessTaskDef, pathGraduateProgramBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
+      val schemaHandler = settings.schemaHandler(Map("school" -> "'UC_Berkeley'"))
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 

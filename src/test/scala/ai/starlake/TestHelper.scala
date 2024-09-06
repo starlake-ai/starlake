@@ -22,9 +22,9 @@ package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
-import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, StarlakeObjectMapper, Utils}
+import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers._
@@ -309,6 +309,7 @@ trait TestHelper
 
         DatasetArea.initMetadata(storageHandler)
         deliverTypesFiles()
+        settings.schemaHandler(reload = true)
       }
 
     def deliverTypesFiles() = {
@@ -436,6 +437,7 @@ trait TestHelper
       val fload = new File(starlakeLoadPath)
       new Directory(fload).deleteRecursively()
       fload.mkdirs()
+      settings.schemaHandler(reload = true)
     }
 
     def deliverSourceJob(): Unit = {
@@ -468,7 +470,7 @@ trait TestHelper
 
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
-      val schemaHandler = new SchemaHandler(settings.storageHandler())
+      val schemaHandler = settings.schemaHandler()
       schemaHandler.checkValidity()
 
       DatasetArea.initMetadata(storageHandler)
@@ -494,26 +496,27 @@ trait TestHelper
     }
 
     def getTasks(): List[AutoTaskDesc] = {
-      new SchemaHandler(settings.storageHandler()).tasks()
+      settings.schemaHandler().tasks()
     }
 
     def getDomains(): List[Domain] = {
-      new SchemaHandler(settings.storageHandler()).domains()
+      settings.schemaHandler().domains()
     }
 
     def getDomain(domainName: String): Option[Domain] = {
-      new SchemaHandler(settings.storageHandler()).getDomain(domainName)
+      settings.schemaHandler().getDomain(domainName)
     }
 
     def landingPath: String =
-      new SchemaHandler(settings.storageHandler())
+      settings
+        .schemaHandler()
         .getDomain(datasetDomainName)
         .map(_.resolveDirectory())
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
     def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
 
-      val schemaHandler = new SchemaHandler(settings.storageHandler())
+      val schemaHandler = settings.schemaHandler()
 
       DatasetArea.initMetadata(storageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))

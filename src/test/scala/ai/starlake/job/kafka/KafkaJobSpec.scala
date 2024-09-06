@@ -2,7 +2,6 @@ package ai.starlake.job.kafka
 
 import ai.starlake.TestHelper
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.kafka.KafkaClient
 import better.files.File
 import com.dimafeng.testcontainers.lifecycle.and
@@ -314,7 +313,7 @@ class KafkaJobSpec extends TestHelper {
               writeMode = SaveMode.Append.toString,
               writeFormat = "kafka"
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob.run()
         val kafkaJob2 =
@@ -327,7 +326,7 @@ class KafkaJobSpec extends TestHelper {
               writePath = Some("/tmp/json2.json"),
               coalesce = Some(1)
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob2.run() match {
           case Success(_) =>
@@ -353,7 +352,7 @@ class KafkaJobSpec extends TestHelper {
               writeTopicConfigName = Some("test_load"),
               writeMode = SaveMode.Append.toString
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob.run()
         val offsets =
@@ -383,7 +382,7 @@ class KafkaJobSpec extends TestHelper {
               writeTopicConfigName = Some("kafka_to_es"),
               writeMode = SaveMode.Overwrite.toString
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob.run()
         val offsets =
@@ -404,7 +403,7 @@ class KafkaJobSpec extends TestHelper {
               writePath = Some("test/_doc"),
               writeOptions = settings.appConfig.connectionOptions("elasticsearch")
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJobToEs.run()
 
@@ -439,7 +438,7 @@ class KafkaJobSpec extends TestHelper {
               writeTopicConfigName = Some("stream_kafka_to_es"),
               writeMode = SaveMode.Append.toString
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob.run()
 
@@ -453,7 +452,7 @@ class KafkaJobSpec extends TestHelper {
               writePath = Some("test/_doc"),
               writeOptions = settings.appConfig.connectionOptions("elasticsearch")
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJobToEs.run()
 
@@ -534,7 +533,7 @@ class KafkaJobSpec extends TestHelper {
               writeTopicConfigName = Some("test_offload_kafka_to_kafka"),
               writeMode = SaveMode.Append.toString
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob.run()
         val kafkaJob2 =
@@ -550,7 +549,7 @@ class KafkaJobSpec extends TestHelper {
                 "kafka.bootstrap.servers" -> s"${kafkaContainer.bootstrapServers}"
               )
             ),
-            schemaHandler = new SchemaHandler(settings.storageHandler())
+            schemaHandler = settings.schemaHandler()
           )
         kafkaJob2.run() match {
           case Success(_) =>

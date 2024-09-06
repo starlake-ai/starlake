@@ -451,17 +451,17 @@ class IngestionWorkflow(
                     }
                   // files for schemas without any privacy attributes are moved directly to accepted area
                   /*
-          noPrivacy.foreach {
-            case (Some(schema), fileInfo) =>
-              storageHandler.move(
-                fileInfo.path,
-                new Path(
-                  new Path(DatasetArea.accepted(domain.name), schema.name),
-                  fileInfo.path.getName
-                )
-              )
-            case (None, _) => throw new Exception("Should never happen")
-          }
+                  noPrivacy.foreach {
+                    case (Some(schema), fileInfo) =>
+                      storageHandler.move(
+                        fileInfo.path,
+                        new Path(
+                          new Path(DatasetArea.accepted(domain.name), schema.name),
+                          fileInfo.path.getName
+                        )
+                      )
+                    case (None, _) => throw new Exception("Should never happen")
+                  }
                    */
                   withPrivacy
                 } else {
@@ -927,9 +927,16 @@ class IngestionWorkflow(
         .taskOnly(config.name, reload = true)
         .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
     logger.debug(taskDesc.toString)
+    val updatedTaskDesc =
+      config.query match {
+        case Some(_) =>
+          taskDesc.copy(sql = config.query)
+        case None =>
+          taskDesc
+      }
     AutoTask.task(
       None,
-      taskDesc,
+      updatedTaskDesc,
       config.options,
       config.interactive,
       config.truncate,

@@ -28,6 +28,7 @@ __Bug Fix__:
 - Fix incremental next query
 - Fix restricted renamed column and pk renaming
 - Fix comet_input_file_name usage in native bigquery load
+- Inherit property from default transform
 
 __Improvement__:
 - add log during long extraction around every 30 seconds
