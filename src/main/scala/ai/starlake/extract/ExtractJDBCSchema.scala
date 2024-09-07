@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.config.Settings.Connection
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -97,7 +97,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
             connectionSettings,
             schemaOutputDir(config.outputDir),
             domainTemplate,
-            currentDomain
+            currentDomain,
+            config.external
           )
         }
       }
@@ -168,7 +169,8 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
     connectionSettings: Connection,
     baseOutputDir: Path,
     domainTemplate: Option[Domain],
-    currentDomain: Option[Domain]
+    currentDomain: Option[Domain],
+    external: Boolean
   )(implicit
     settings: Settings,
     fjp: Option[ForkJoinTaskSupport]
@@ -192,57 +194,53 @@ class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyL
         .copy(fillWithDefaultValue = false)
         .asOption()
     )
-    val tables = domain.tables
-    tables.foreach { table =>
-      val restoredTable =
-        currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
-          case Some(currentTable) =>
-            val mergedTable = table.mergeWith(
-              currentTable,
-              domain.metadata,
-              AttributeMergeStrategy(
-                failOnContainerMismatch = false,
-                failOnAttributesEmptinessMismatch = false,
-                keepSourceDiffAttributesStrategy = KeepOnlyScriptDiff,
-                attributePropertiesMergeStrategy = RefFirst
-              )
-            )
-            mergedTable.copy(metadata =
-              mergedTable.metadata.map(_.copy(fillWithDefaultValue = false))
-            )
-          case None =>
-            table.copy(metadata =
-              Metadata
-                .mergeAll(Nil ++ domain.metadata ++ table.metadata)
-                .`keepIfDifferent`(
-                  domain.metadata.getOrElse(Metadata())
+    val tables =
+      domain.tables.map { table =>
+        val restoredTable =
+          currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
+            case Some(currentTable) =>
+              val mergedTable = table.mergeWith(
+                currentTable,
+                domain.metadata,
+                AttributeMergeStrategy(
+                  failOnContainerMismatch = false,
+                  failOnAttributesEmptinessMismatch = false,
+                  keepSourceDiffAttributesStrategy = KeepOnlyScriptDiff,
+                  attributePropertiesMergeStrategy = RefFirst
                 )
-                .copy(fillWithDefaultValue = false)
-                .asOption()
-            )
-        }
+              )
+              mergedTable.copy(metadata =
+                mergedTable.metadata.map(_.copy(fillWithDefaultValue = false))
+              )
+            case None =>
+              table.copy(metadata =
+                Metadata
+                  .mergeAll(Nil ++ domain.metadata ++ table.metadata)
+                  .`keepIfDifferent`(
+                    domain.metadata.getOrElse(Metadata())
+                  )
+                  .copy(fillWithDefaultValue = false)
+                  .asOption()
+              )
+          }
 
-      val tableWithPatternAndWrite = jdbcSchema.pattern match {
-        case None => restoredTable
-        case Some(pattern) =>
-          val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
-          val pat = Pattern.compile(interpolatePattern)
-          restoredTable.copy(pattern = pat)
+        val tableWithPatternAndWrite = jdbcSchema.pattern match {
+          case None => restoredTable
+          case Some(pattern) =>
+            val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
+            val pat = Pattern.compile(interpolatePattern)
+            restoredTable.copy(pattern = pat)
+        }
+        tableWithPatternAndWrite
       }
 
-      val content =
-        YamlSerde.serialize(TableDesc(latestSchemaVersion, tableWithPatternAndWrite))
-      val file =
-        new Path(new Path(baseOutputDir, domainName), table.name + ".sl.yml")
-      storageHandler.delete(file)
-      storageHandler.write(content, file)
-    }
+    val finalDomain = domain.copy(tables = tables)
 
-    val finalDomain = domain.copy(tables = Nil)
-    YamlSerde.serializeToPath(
-      new Path(new Path(baseOutputDir, domainName), "_config.sl.yml"),
-      finalDomain
-    )
+    if (external) {
+      schemaHandler.saveToExternals(List(finalDomain))
+    } else {
+      schemaHandler.saveTo(List(finalDomain), baseOutputDir)
+    }
   }
 
   /** Generate YML file from the JDBCSchema

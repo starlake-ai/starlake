@@ -68,11 +68,6 @@ object Dependencies {
     "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
   )
 
-  val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.4.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
-  )
-
   val hadoop = Seq(
     "org.apache.hadoop" % "hadoop-common" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.hadoop" % "hadoop-hdfs" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
@@ -81,15 +76,20 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
+  val azure = Seq(
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
+  )
+
   val snowflake = Seq(
-    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % Test excludeAll (jacksonExclusions: _*),
-    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % Test excludeAll (jacksonExclusions: _*)
+    "net.snowflake" % "snowflake-jdbc" % Versions.snowflakeJDBC % "provided" excludeAll (jacksonExclusions: _*),
+    "net.snowflake" %% "spark-snowflake" % Versions.snowflakeSpark % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val redshift = Seq(
-    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % Test excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % Test excludeAll (jacksonExclusions: _*),
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.769" % Test excludeAll (jacksonExclusions: _*)
+    "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % "provided" excludeAll (jacksonExclusions: _*),
+    "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % "provided" excludeAll (jacksonExclusions: _*),
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.769" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val scalaTest = Seq(
@@ -166,7 +166,7 @@ object Dependencies {
   val pgGcp = Seq(
     "com.google.cloud.sql" % "postgres-socket-factory" % "1.20.0" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
-    "org.postgresql" % "postgresql" % "42.7.3" % Test
+    "org.postgresql" % "postgresql" % "42.7.3" % "provided"
   )
 
   val mariadb = Seq(
@@ -185,7 +185,7 @@ object Dependencies {
     "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
   )
 
-  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
+  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % "provided")
 
   val jsonSchemaValidator = Seq(
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)

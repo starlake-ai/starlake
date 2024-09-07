@@ -36,7 +36,7 @@ object SingleUserServices {
   }
 
   def objectNames()(implicit settings: Settings): List[DomainWithNameOnly] = {
-    getSchemaHandler(reload = false).getObjectNames()
+    getSchemaHandler(reload = false).objectNames()
   }
 
   def core(args: Array[String], reload: Boolean)(implicit settings: Settings): Try[Any] = {

@@ -5,6 +5,7 @@ import ai.starlake.job.infer.InferSchemaJob
 import ai.starlake.schema.model.{Attribute, WriteMode}
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
+import org.apache.hadoop.fs.Path
 
 import scala.io.Source
 
@@ -248,7 +249,7 @@ class InferSchemaJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
-        val inputData3 = loadTextFile("/sample/infer-json/jsonarraysimple.json")
+        val inputData3 = loadTextFile("/sample/infer-schema/jsonarraysimple.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
@@ -275,7 +276,7 @@ class InferSchemaJobSpec extends TestHelper {
           println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
         }
 
-        val inputData = loadTextFile("/sample/infer-json/jsonarray.json")
+        val inputData = loadTextFile("/sample/infer-schema/jsonarray.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
@@ -302,7 +303,7 @@ class InferSchemaJobSpec extends TestHelper {
           println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
         }
 
-        val inputData2 = loadTextFile("/sample/infer-json/ndjson.json")
+        val inputData2 = loadTextFile("/sample/infer-schema/ndjson.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
@@ -335,90 +336,35 @@ class InferSchemaJobSpec extends TestHelper {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
         datasetDomainName = "locations",
-        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+        sourceDatasetPathName = "/sample/infer-schema/userdata1.parquet"
       ) {
         cleanMetadata
-        val inputData3 = loadTextFile("/sample/infer-json/jsonarraysimple.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
         } {
-          sourceFile.overwrite(inputData3)
+          val targetPath = new Path(tempDir.toString, "userdata1.parquet")
+          withSettings.deliverBinaryFile(sourceDatasetPathName, targetPath)
           inferSchemaJob.infer(
-            domainName = "json",
-            tableName = "jsonarraysimple",
+            domainName = "parquet",
+            tableName = "userdata1",
             pattern = None,
             comment = None,
-            inputPath = sourceFile.pathAsString,
+            inputPath = targetPath.toString,
             saveDir = targetDir.pathAsString,
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
             clean = false
           )(settings.storageHandler())
-          val locationDir = File(targetDir, "json")
-          val targetFile = File(locationDir, "jsonarraysimple.sl.yml")
+          val locationDir = File(targetDir, "parquet")
+          val targetFile = File(locationDir, "userdata1.sl.yml")
           val discoveredSchema = YamlSerde.deserializeYamlTables(
             targetFile.contentAsString,
             targetFile.pathAsString
           )
           println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
         }
-
-        val inputData = loadTextFile("/sample/infer-json/jsonarray.json")
-        for {
-          sourceFile <- File.temporaryFile()
-          targetDir  <- File.temporaryDirectory()
-        } {
-          sourceFile.overwrite(inputData)
-          inferSchemaJob.infer(
-            domainName = "json",
-            tableName = "array",
-            pattern = None,
-            comment = None,
-            inputPath = sourceFile.pathAsString,
-            saveDir = targetDir.pathAsString,
-            forceFormat = None,
-            writeMode = WriteMode.OVERWRITE,
-            rowTag = None,
-            clean = false
-          )(settings.storageHandler())
-          val locationDir = File(targetDir, "json")
-          val targetFile = File(locationDir, "array.sl.yml")
-          val discoveredSchema = YamlSerde.deserializeYamlTables(
-            targetFile.contentAsString,
-            targetFile.pathAsString
-          )
-          println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
-        }
-
-        val inputData2 = loadTextFile("/sample/infer-json/ndjson.json")
-        for {
-          sourceFile <- File.temporaryFile()
-          targetDir  <- File.temporaryDirectory()
-        } {
-          sourceFile.overwrite(inputData2)
-          inferSchemaJob.infer(
-            domainName = "json",
-            tableName = "ndjson",
-            pattern = None,
-            comment = None,
-            inputPath = sourceFile.pathAsString,
-            saveDir = targetDir.pathAsString,
-            forceFormat = None,
-            writeMode = WriteMode.OVERWRITE,
-            rowTag = None,
-            clean = false
-          )(settings.storageHandler())
-          val locationDir = File(targetDir, "json")
-          val targetFile = File(locationDir, "ndjson.sl.yml")
-          val discoveredSchema = YamlSerde.deserializeYamlTables(
-            targetFile.contentAsString,
-            targetFile.pathAsString
-          )
-          println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
-        }
-
       }
     }
   }

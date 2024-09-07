@@ -59,26 +59,7 @@ object SchemaHandler {
 class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
   settings: Settings
 ) extends StrictLogging {
-  /*
-  if (settings.appConfig.fileSystem.startsWith("file:")) {
-    val handler = new MetadataFileChangeHandler(this)
-    val watcher = new RecursiveFileMonitor(File(DatasetArea.metadata.toString)) {
-      override def onEvent(
-        eventType: WatchEvent.Kind[java.nio.file.Path],
-        file: File,
-        count: Int
-      ): Unit = {
-        handler.onEvent(eventType, file, count)
-      }
-    }
-    import scala.concurrent.ExecutionContext.Implicits.global
-    watcher.start()
-  } else {
-    logger.warn(
-      "File system is not local, file watcher is not available. Please use local file system for file watcher."
-    )
-  }
-   */
+
   private def forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private def forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r
 
@@ -454,7 +435,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domainNames: List[String] = Nil,
     raw: Boolean = false
   ): List[(Path, Try[Domain])] = {
-    val directories = storage.listDirectories(domainPath)
+    val directories = storage.listDirectories(path = domainPath)
     val requestedDomainDirectories =
       if (domainNames.isEmpty)
         directories
@@ -564,7 +545,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
-    val objects = getObjectNames()
+    val objects = objectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
       val (domainName, tableName) = tableComponents match {
@@ -635,22 +616,51 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private[handlers] var (_domainErrors, _domains): (List[ValidationMessage], Option[List[Domain]]) =
     (Nil, None)
 
-  def loadExternals(): List[Domain] = {
-    if (storage.exists(DatasetArea.external)) {
-      loadDomains(DatasetArea.external, Nil, Nil, raw = false) match {
-        case (list, Nil) => list.collect { case Success(domain) => domain }
-        case (list, errors) =>
-          errors.foreach {
-            case Failure(err) =>
-              logger.warn(
-                s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
-              )
-            case Success(_) => // ignore
+  private var _externals = List.empty[Domain]
+  private var _externalLastUpdate = LocalDateTime.now()
+
+  def externals(): List[Domain] = {
+    if (_externals.isEmpty) loadExternals()
+    _externals
+  }
+
+  private def loadExternals(): List[Domain] = {
+    _externals = if (storage.exists(DatasetArea.external)) {
+      val loadedDomains =
+        loadDomains(DatasetArea.external, Nil, Nil, raw = false, _externalLastUpdate) match {
+          case (list, Nil) => list.collect { case Success(domain) => domain }
+          case (list, errors) =>
+            errors.foreach {
+              case Failure(err) =>
+                logger.warn(
+                  s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+                )
+              case Success(_) => // ignore
+            }
+            list.collect { case Success(domain) => domain }
+        }
+      loadedDomains.foreach { domain =>
+        domain.tables.foreach { table =>
+          _externals.find(_.name == domain.name) match {
+            case Some(existingDomain) =>
+              val otherTables = existingDomain.tables.filter(_.name != table.name)
+              _externals = _externals.map { d =>
+                if (d.name == domain.name) {
+                  d.copy(tables = otherTables :+ table)
+                } else {
+                  d
+                }
+              }
+            case None =>
+              _externals = _externals :+ domain
           }
-          list.collect { case Success(domain) => domain }
+        }
       }
+      _externalLastUpdate = LocalDateTime.now()
+      loadedDomains
     } else
       Nil
+    _externals
   }
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths =
@@ -763,37 +773,40 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     area: Path,
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
-    raw: Boolean
+    raw: Boolean,
+    lastUpdated: LocalDateTime = LocalDateTime.MIN
   ): (List[Try[Domain]], List[Try[Domain]]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, domainNames, raw)
-      .map {
-        case (path, Success(domain)) =>
-          logger.info(s"Loading domain from $path")
-          val folder = path.getParent()
-          val schemaRefs = loadTableRefs(tableNames, raw, folder)
-          val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
-          val finalTables =
-            if (raw) tables
-            else tables.map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
-          logger.info(s"Successfully loaded Domain  in $path")
-          Success(domain.copy(tables = finalTables))
-        case (path, Failure(e)) =>
-          logger.error(s"Failed to load domain in $path")
-          Utils.logException(logger, e)
-          Failure(e)
-      }
-      .partition(_.isSuccess)
+    val (validDomainsFile, invalidDomainsFiles) =
+      deserializedDomains(area, domainNames, raw)
+        .map {
+          case (path, Success(domain)) =>
+            logger.info(s"Loading domain from $path")
+            val folder = path.getParent()
+            val schemaRefs = loadTableRefs(tableNames, raw, folder, lastUpdated)
+            val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
+            val finalTables =
+              if (raw) tables
+              else tables.map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
+            logger.info(s"Successfully loaded Domain  in $path")
+            Success(domain.copy(tables = finalTables))
+          case (path, Failure(e)) =>
+            logger.error(s"Failed to load domain in $path")
+            Utils.logException(logger, e)
+            Failure(e)
+        }
+        .partition(_.isSuccess)
     (validDomainsFile, invalidDomainsFiles)
   }
 
   def loadTableRefs(
     tableNames: List[String] = Nil,
     raw: Boolean,
-    folder: Path
+    folder: Path,
+    lastUpdated: LocalDateTime
   ): List[Schema] = {
     val tableRefNames =
       storage
-        .list(folder, extension = ".sl.yml", recursive = true)
+        .list(folder, extension = ".sl.yml", since = lastUpdated, recursive = true)
         .map(_.path.getName())
         .filter(!_.startsWith("_config."))
 
@@ -1386,8 +1399,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // SL_DATABASE
   // default database
 
-  def getObjectNames(): List[DomainWithNameOnly] = {
-    val domains = this.domains() ++ this.loadExternals() ++ List(this.auditTables)
+  def objectNames(): List[DomainWithNameOnly] = {
+    val domains = this.domains() ++ this.externals() ++ List(this.auditTables)
     val tableNames =
       domains.map { domain =>
         DomainWithNameOnly(
@@ -1411,6 +1424,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val all = tableNames ++ taskNames
     val result = all.sortBy(_.name)
     result
+  }
+
+  def saveToExternals(domains: List[Domain]) = {
+    saveTo(domains, DatasetArea.external)
+    loadExternals()
+  }
+
+  def saveTo(domains: List[Domain], outputPath: Path) = {
+    domains.foreach { domain =>
+      domain.writeDomainAsYaml(outputPath)(settings.storageHandler())
+    }
   }
 
   lazy val auditTables: Domain =
