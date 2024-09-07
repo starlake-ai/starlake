@@ -1,6 +1,6 @@
 package ai.starlake.job.transform
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.extract.SchemaExtractor.SparkExtractorJob
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
@@ -309,9 +309,7 @@ class SparkAutoTask(
                   .schemasAndTables()
                 domains match {
                   case Success(domains) =>
-                    domains.foreach { domain =>
-                      domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
-                    }
+                    schemaHandler.saveToExternals(domains)
                   case Failure(e) =>
                     logger.error(s"Failed to extract domain", e)
                 }

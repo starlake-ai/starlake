@@ -415,15 +415,24 @@ object SQLUtils extends StrictLogging {
 
   def format(input: String, outputFormat: JSQLFormatter.OutputFormat): String = {
     val sql = input.trim
+    val uppercaseSQL = sql.toUpperCase
+    val formatted =
+      if (
+        uppercaseSQL.startsWith("SELECT") || uppercaseSQL.startsWith("WITH") || uppercaseSQL
+          .startsWith("MERGE")
+      ) {
+        val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
+        Try(
+          JSQLFormatter.format(
+            preformat,
+            s"outputFormat=${outputFormat.name()}",
+            "statementTerminator=NONE"
+          )
+        ).getOrElse(s"-- failed to format start\n$sql\n-- failed to format end")
+      } else {
+        sql
+      }
 
-    val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
-    val formatted = Try(
-      JSQLFormatter.format(
-        preformat,
-        s"outputFormat=${outputFormat.name()}",
-        "statementTerminator=NONE"
-      )
-    ).getOrElse(s"-- failed to format start\n$sql\n-- failed to format end")
     val result =
       if (formatted.startsWith("-- failed to format start")) {
         sql

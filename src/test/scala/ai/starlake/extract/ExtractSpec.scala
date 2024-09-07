@@ -90,7 +90,8 @@ class ExtractSpec extends TestHelper {
         connectionSettings,
         new Path(outputDir.pathAsString),
         None,
-        None
+        None,
+        false
       )
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
@@ -152,7 +153,8 @@ class ExtractSpec extends TestHelper {
         connectionSettings,
         new Path(outputDir.pathAsString),
         None,
-        None
+        None,
+        false
       )
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
@@ -210,7 +212,8 @@ class ExtractSpec extends TestHelper {
         connectionSettings,
         new Path(outputDir.pathAsString),
         None,
-        None
+        None,
+        false
       )
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
@@ -259,7 +262,8 @@ class ExtractSpec extends TestHelper {
       connectionSettings,
       new Path(outputDir.pathAsString),
       domainTemplate,
-      None
+      None,
+      false
     )
     val publicOutputDir = outputDir / "PUBLIC"
     val publicPath = publicOutputDir / "_config.sl.yml"
@@ -575,7 +579,8 @@ class ExtractSpec extends TestHelper {
         settings.appConfig.connections("test-pg"),
         new Path(tmpDir.pathAsString),
         None,
-        None
+        None,
+        false
       )
       val publicPath = tmpDir / "PUBLIC/_config.sl.yml"
       val domain =
@@ -638,7 +643,8 @@ class ExtractSpec extends TestHelper {
         settings.appConfig.connections("test-pg"),
         new Path(tmpDir.pathAsString),
         None,
-        None
+        None,
+        false
       )
       val publicPath = tmpDir / "PUBLIC" / "_config.sl.yml"
       val domain =

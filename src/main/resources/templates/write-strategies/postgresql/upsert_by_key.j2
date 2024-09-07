@@ -20,4 +20,5 @@ ON ( {{strategyKeyJoinCondition}} )
 WHEN MATCHED THEN UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }};
 
+DROP VIEW  IF EXISTS SL_INCOMING;
 {%  endif %}

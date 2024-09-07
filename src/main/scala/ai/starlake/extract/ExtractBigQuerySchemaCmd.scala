@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.JobResult
 
@@ -34,9 +34,7 @@ object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
       if (config.external) {
         val extractor = new ExtractBigQuerySchema(config)
         val externalDomains = extractor.extractSchemasAndTables(schemaHandler, config.tables)
-        externalDomains.foreach { domain =>
-          domain.writeDomainAsYaml(DatasetArea.external)(settings.storageHandler())
-        }
+        schemaHandler.saveToExternals(externalDomains)
       } else {
         ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
       }
