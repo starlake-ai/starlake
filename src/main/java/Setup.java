@@ -137,7 +137,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SCALA 2.12 by default until spark redshift is available for 2.13
-    private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.12");
+    private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
     // STARLAKE
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.2.0-SNAPSHOT");
@@ -178,7 +178,14 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.595");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
     private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.30");
-    private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.3.0-spark_3.5");
+    private static  String SPARK_REDSHIFT_VERSION() {
+        if (SCALA_VERSION.equals("2.13")) {
+            return getEnv("SPARK_REDSHIFT_VERSION").orElse("6.3.0-spark_3.5-SNAPSHOT");
+        } else {
+            return getEnv("SPARK_REDSHIFT_VERSION").orElse("6.3.0-spark_3.5");
+        }
+    }
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // DUCKDB
@@ -205,8 +212,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final JarDependency AWS_JAVA_SDK_JAR = new JarDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
     private static final JarDependency HADOOP_AWS_JAR = new JarDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final JarDependency REDSHIFT_JDBC_JAR = new JarDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
-    private static final JarDependency SPARK_REDSHIFT_JAR = new JarDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
-            "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
+    private static  JarDependency SPARK_REDSHIFT_JAR() {
+        if (SCALA_VERSION.equals("2.13")) {
+            return new JarDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
+                    "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
+        }
+        else {
+        return new JarDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
+            "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
+        }
+    }
     private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
 
@@ -220,7 +235,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             AWS_JAVA_SDK_JAR,
             HADOOP_AWS_JAR,
             REDSHIFT_JDBC_JAR,
-            SPARK_REDSHIFT_JAR
+            SPARK_REDSHIFT_JAR()
     };
 
     private static final JarDependency[] azureDependencies = {
@@ -319,7 +334,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 variableWriter.apply(writer).accept("AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
                 variableWriter.apply(writer).accept("HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
                 variableWriter.apply(writer).accept("REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
-                variableWriter.apply(writer).accept("SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION);
+                variableWriter.apply(writer).accept("SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION());
             }
         } finally {
             writer.close();
