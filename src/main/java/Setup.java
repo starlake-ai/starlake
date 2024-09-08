@@ -357,7 +357,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 return true;
             }
         }
-        return false;
+        return ENABLE_ALL;
     }
 
     @Override
