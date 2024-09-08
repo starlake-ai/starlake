@@ -158,3 +158,4 @@ samples/starbake/datasets
 samples/starbake/metadata/dags/generated
 samples/spark/test-reports
 lib2
+samples/spark/metadata/external
