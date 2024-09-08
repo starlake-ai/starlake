@@ -574,7 +574,7 @@ public class BigQuerySchemaConverters {
         if (elementType instanceof FloatType || elementType instanceof DoubleType) {
             return LegacySQLTypeName.FLOAT;
         }
-        if (elementType instanceof StringType) {
+        if (elementType instanceof StringType || elementType instanceof VarcharType) {
             if (SparkBigQueryUtil.isJson(metadata)) {
                 return LegacySQLTypeName.JSON;
             }
