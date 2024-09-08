@@ -24,3 +24,5 @@ WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTi
 WHEN NOT MATCHED THEN {{ tableInsert }}
 
 {%  endif %}
+
+DROP VIEW  IF EXISTS SL_INCOMING;
