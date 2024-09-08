@@ -179,7 +179,10 @@ case class Schema(
       val structField = StructField(
         attr.getFinalName(),
         attr.sparkType(schemaHandler),
-        if (attr.script.isDefined) true else !attr.resolveRequired()
+        if (attr.script.isDefined) true else !attr.resolveRequired(),
+        if (attr.`type` == "variant")
+          org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+        else org.apache.spark.sql.types.Metadata.empty
       )
       attr.comment.map(structField.withComment).getOrElse(structField)
     }

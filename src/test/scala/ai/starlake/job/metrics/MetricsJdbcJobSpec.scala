@@ -84,7 +84,7 @@ class MetricsJdbcJobSpec extends TestHelper with JdbcChecks {
           |}
           |
           |engine = spark
-          |connectionRef = "audit"
+          |connectionRef = "spark"
           |audit {
           |  active = true
           |  sink {
