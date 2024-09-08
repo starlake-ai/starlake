@@ -28,6 +28,9 @@ import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.bigquery.connector.common.BigQueryUtil;
+import com.google.cloud.spark.bigquery.SchemaConvertersConfiguration;
+import com.google.cloud.spark.bigquery.SparkBigQueryUtil;
 import com.google.cloud.spark.bigquery.SupportedCustomDataType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -42,31 +45,25 @@ import org.apache.spark.unsafe.types.UTF8String;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 // Copied from com.google.cloud.spark.bigquery.SchemaConverters
 // Last update : 0.22.0
 // Known differences : b3f1946f Fix timestamp conversion between parquet converted type and BigQuery data type (#427)
-
 @SuppressWarnings("all")
 public class BigQuerySchemaConverters {
-    // Numeric is a fixed precision Decimal Type with 38 digits of precision and 9 digits of scale.
-    // See https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#numeric-type
-    static final int BQ_NUMERIC_PRECISION = 38;
-    static final int BQ_NUMERIC_SCALE = 9;
-    static final int BQ_BIG_NUMERIC_SCALE = 38;
-    private static final DecimalType NUMERIC_SPARK_TYPE =
-            DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE);
+
+    static final DecimalType NUMERIC_SPARK_TYPE =
+            DataTypes.createDecimalType(
+                    BigQueryUtil.DEFAULT_NUMERIC_PRECISION, BigQueryUtil.DEFAULT_NUMERIC_SCALE);
     // The maximum nesting depth of a BigQuery RECORD:
     static final int MAX_BIGQUERY_NESTED_DEPTH = 15;
-    static final String MAPTYPE_ERROR_MESSAGE = "MapType is unsupported.";
+    // Numeric cannot have more than 29 digits left of the dot. For more details
+    // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#parameterized_decimal_type
+    private static final int NUMERIC_MAX_LEFT_OF_DOT_DIGITS = 29;
+
 
     /**
      * Convert a BigQuery schema to a Spark schema
@@ -101,10 +98,13 @@ public class BigQuerySchemaConverters {
                     createBigQueryFieldBuilder(
                             "_PARTITIONTIME", LegacySQLTypeName.TIMESTAMP, Field.Mode.NULLABLE, null)
                             .build());
-            fields.add(
-                    createBigQueryFieldBuilder(
-                            "_PARTITIONDATE", LegacySQLTypeName.DATE, Field.Mode.NULLABLE, null)
-                            .build());
+            // Issue #748: _PARTITIONDATE exists only when partition type is day (not hour/month/year)
+            if (timePartitioning.getType().equals(TimePartitioning.Type.DAY)) {
+                fields.add(
+                        createBigQueryFieldBuilder(
+                                "_PARTITIONDATE", LegacySQLTypeName.DATE, Field.Mode.NULLABLE, null)
+                                .build());
+            }
             schema = Schema.of(fields);
         }
         return schema;
@@ -138,21 +138,15 @@ public class BigQuerySchemaConverters {
                             // nulls, so select required instead of nullable.
                             .setMode(Field.Mode.REQUIRED)
                             .build();
-            List<?> valueList;
-            if(value instanceof List)
-                valueList = (List<?>) value;
-            else
-                throw new RuntimeException("Didn't expect something other than a list");
+
+            List<Object> valueList = (List<Object>) value;
             return new GenericArrayData(
                     valueList.stream()
                             .map(v -> convert(nestedField, v, getStructFieldForRepeatedMode(userProvidedField)))
                             .collect(Collectors.toList()));
         }
 
-        Object datum = convertByBigQueryType(field, value, userProvidedField);
-        Optional<Object> customDatum =
-                getCustomDataType(field).map(dt -> ((UserDefinedType) dt).deserialize(datum));
-        return customDatum.orElse(datum);
+        return convertByBigQueryType(field, value, userProvidedField);
     }
 
     private static StructField getStructFieldForRepeatedMode(StructField field) {
@@ -171,8 +165,23 @@ public class BigQuerySchemaConverters {
     }
 
     static Object convertByBigQueryType(Field bqField, Object value, StructField userProvidedField) {
-        if (LegacySQLTypeName.INTEGER.equals(bqField.getType())
-                || LegacySQLTypeName.FLOAT.equals(bqField.getType())
+        if (LegacySQLTypeName.INTEGER.equals(bqField.getType())) {
+            if (userProvidedField != null) {
+                DataType userProvidedType = userProvidedField.dataType();
+                if (userProvidedType.equals(DataTypes.IntegerType)) {
+                    return Integer.valueOf(((Number) value).intValue());
+                }
+                if (userProvidedType.equals(DataTypes.ShortType)) {
+                    return Short.valueOf(((Number) value).shortValue());
+                }
+                if (userProvidedType.equals(DataTypes.ByteType)) {
+                    return Byte.valueOf(((Number) value).byteValue());
+                }
+            }
+            // regular long value
+            return value;
+        }
+        if (LegacySQLTypeName.FLOAT.equals(bqField.getType())
                 || LegacySQLTypeName.BOOLEAN.equals(bqField.getType())
                 || LegacySQLTypeName.DATE.equals(bqField.getType())
                 || LegacySQLTypeName.TIME.equals(bqField.getType())
@@ -182,7 +191,8 @@ public class BigQuerySchemaConverters {
 
         if (LegacySQLTypeName.STRING.equals(bqField.getType())
                 || LegacySQLTypeName.DATETIME.equals(bqField.getType())
-                || LegacySQLTypeName.GEOGRAPHY.equals(bqField.getType())) {
+                || LegacySQLTypeName.GEOGRAPHY.equals(bqField.getType())
+                || LegacySQLTypeName.JSON.equals(bqField.getType())) {
             return UTF8String.fromBytes(((Utf8) value).getBytes());
         }
 
@@ -190,29 +200,31 @@ public class BigQuerySchemaConverters {
             return getBytes((ByteBuffer) value);
         }
 
-        if (LegacySQLTypeName.NUMERIC.equals(bqField.getType())) {
+        if (LegacySQLTypeName.NUMERIC.equals(bqField.getType())
+                || LegacySQLTypeName.BIGNUMERIC.equals(bqField.getType())) {
             byte[] bytes = getBytes((ByteBuffer) value);
-            BigDecimal b = new BigDecimal(new BigInteger(bytes), BQ_NUMERIC_SCALE);
-            Decimal d = Decimal.apply(b, BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE);
+            int scale =
+                    Optional.ofNullable(bqField.getScale())
+                            .map(Long::intValue)
+                            .orElse(BigQueryUtil.DEFAULT_NUMERIC_SCALE);
+            BigDecimal b = new BigDecimal(new BigInteger(bytes), scale);
+            int precision =
+                    Optional.ofNullable(bqField.getPrecision())
+                            .map(Long::intValue)
+                            .orElse(BigQueryUtil.DEFAULT_NUMERIC_PRECISION);
+            Decimal d = Decimal.apply(b, precision, scale);
 
             return d;
         }
-
-        // TODO : uncomment after updating google-cloud-bigquery
-//        if (LegacySQLTypeName.BIGNUMERIC.equals(bqField.getType())) {
-//            byte[] bytes = getBytes((ByteBuffer) value);
-//            BigDecimal bigDecimal = new BigDecimal(new BigInteger(bytes), BQ_BIG_NUMERIC_SCALE);
-//            return UTF8String.fromString(bigDecimal.toString());
-//        }
 
         if (LegacySQLTypeName.RECORD.equals(bqField.getType())) {
             List<String> namesInOrder = null;
             List<StructField> structList = null;
 
             if (userProvidedField != null) {
-                structList =
-                        Arrays.stream(((StructType) userProvidedField.dataType()).fields())
-                                .collect(Collectors.toList());
+                StructType userStructType =
+                        (StructType) SupportedCustomDataType.toSqlType(userProvidedField.dataType());
+                structList = Arrays.stream(userStructType.fields()).collect(Collectors.toList());
 
                 namesInOrder = structList.stream().map(StructField::name).collect(Collectors.toList());
             } else {
@@ -283,17 +295,49 @@ public class BigQuerySchemaConverters {
             dataType = new ArrayType(dataType, true);
         }
 
-        MetadataBuilder metadata = new MetadataBuilder();
+        MetadataBuilder metadataBuilder = new MetadataBuilder();
         if (field.getDescription() != null) {
-            metadata.putString("description", field.getDescription());
-            metadata.putString("comment", field.getDescription());
+            metadataBuilder.putString("description", field.getDescription());
+            metadataBuilder.putString("comment", field.getDescription());
+        }
+        // JSON
+        if (LegacySQLTypeName.JSON.equals(field.getType())) {
+            metadataBuilder.putString("sqlType", "JSON");
         }
 
-        return new StructField(field.getName(), dataType, nullable, metadata.build());
+        Metadata metadata = metadataBuilder.build();
+        return convertMap(field, metadata) //
+                .orElse(new StructField(field.getName(), dataType, nullable, metadata));
+    }
+
+    static Optional<StructField> convertMap(Field field, Metadata metadata) {
+        if (field.getMode() != Field.Mode.REPEATED) {
+            return Optional.empty();
+        }
+        if (field.getType() != LegacySQLTypeName.RECORD) {
+            return Optional.empty();
+        }
+        FieldList subFields = field.getSubFields();
+        if (subFields.size() != 2) {
+            return Optional.empty();
+        }
+        Set<String> subFieldNames = subFields.stream().map(Field::getName).collect(Collectors.toSet());
+        if (!subFieldNames.contains("key") || !subFieldNames.contains("value")) {
+            // no "key" or "value" fields
+            return Optional.empty();
+        }
+        Field key = subFields.get("key");
+        Field value = subFields.get("value");
+        MapType mapType = DataTypes.createMapType(convert(key).dataType(), convert(value).dataType());
+        // The returned type is not nullable because the original field is a REPEATED, not NULLABLE.
+        // There are some compromises we need to do as BigQuery has no native MAP type
+        return Optional.of(new StructField(field.getName(), mapType, /* nullable */ false, metadata));
     }
 
     private static DataType getDataType(Field field) {
-        return getCustomDataType(field).orElseGet(() -> getStandardDataType(field));
+        return getCustomDataType(field)
+                .map(udt -> (DataType) udt)
+                .orElseGet(() -> getStandardDataType(field));
     }
 
     @VisibleForTesting
@@ -304,7 +348,7 @@ public class BigQuerySchemaConverters {
             // All supported types are serialized to records
             if (LegacySQLTypeName.RECORD.equals(field.getType())) {
                 // we don't have many types, so we keep parsing to minimum
-                return com.google.cloud.spark.bigquery.SupportedCustomDataType.forDescription(description)
+                return SupportedCustomDataType.forDescription(description)
                         .map(SupportedCustomDataType::getSparkDataType);
             }
         }
@@ -317,10 +361,27 @@ public class BigQuerySchemaConverters {
         } else if (LegacySQLTypeName.FLOAT.equals(field.getType())) {
             return DataTypes.DoubleType;
         } else if (LegacySQLTypeName.NUMERIC.equals(field.getType())) {
-            return NUMERIC_SPARK_TYPE;
-            // TODO : uncomment after updating google-cloud-bigquery
-//        } else if (LegacySQLTypeName.BIGNUMERIC.equals(field.getType())) {
-//            return BigQueryDataTypes.BigNumericType;
+            return createDecimalTypeFromNumericField(
+                    field,
+                    LegacySQLTypeName.NUMERIC,
+                    BigQueryUtil.DEFAULT_NUMERIC_PRECISION,
+                    BigQueryUtil.DEFAULT_NUMERIC_SCALE);
+        } else if (LegacySQLTypeName.BIGNUMERIC.equals(field.getType())) {
+            int precision =
+                    Optional.ofNullable(field.getPrecision())
+                            .map(Long::intValue)
+                            .orElse(BigQueryUtil.DEFAULT_BIG_NUMERIC_PRECISION);
+            if (precision > DecimalType.MAX_PRECISION()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "BigNumeric precision is too wide (%d), Spark can only handle decimal types with max precision of %d",
+                                precision, DecimalType.MAX_PRECISION()));
+            }
+            return createDecimalTypeFromNumericField(
+                    field,
+                    LegacySQLTypeName.BIGNUMERIC,
+                    BigQueryUtil.DEFAULT_BIG_NUMERIC_PRECISION,
+                    BigQueryUtil.DEFAULT_BIG_NUMERIC_SCALE);
         } else if (LegacySQLTypeName.STRING.equals(field.getType())) {
             return DataTypes.StringType;
         } else if (LegacySQLTypeName.BOOLEAN.equals(field.getType())) {
@@ -345,14 +406,43 @@ public class BigQuerySchemaConverters {
             return new StructType(structFields.toArray(new StructField[0]));
         } else if (LegacySQLTypeName.GEOGRAPHY.equals(field.getType())) {
             return DataTypes.StringType;
+        } else if (LegacySQLTypeName.JSON.equals(field.getType())) {
+            return DataTypes.StringType;
         } else {
             throw new IllegalStateException("Unexpected type: " + field.getType());
         }
     }
 
-    /**
-     * Spark ==> BigQuery Schema Converter utils:
-     */
+    @VisibleForTesting
+    static DecimalType createDecimalTypeFromNumericField(
+            Field field, LegacySQLTypeName expectedType, int defaultPrecision, int defaultScale) {
+        Preconditions.checkArgument(
+                field.getType().equals(expectedType),
+                "Field %s must be of type NUMERIC, instead it is of type %s",
+                field.getName(),
+                field.getType());
+        Optional<Integer> precisionOpt = Optional.ofNullable(field.getPrecision()).map(Long::intValue);
+        Optional<Integer> scaleOpt = Optional.ofNullable(field.getScale()).map(Long::intValue);
+        // Both exist
+        if (precisionOpt.isPresent() && scaleOpt.isPresent()) {
+            return DataTypes.createDecimalType(precisionOpt.get(), scaleOpt.get());
+        }
+        // Both missing
+        if (!precisionOpt.isPresent() && !scaleOpt.isPresent()) {
+            return DataTypes.createDecimalType(defaultPrecision, defaultScale);
+        }
+        // Either precision or scale exists, but not both
+        int maxLeftOfDotDigits = defaultPrecision - defaultScale;
+        if (precisionOpt.isPresent()) {
+            Integer precision = precisionOpt.get().intValue();
+            return DataTypes.createDecimalType(precision, Math.max(0, precision - maxLeftOfDotDigits));
+        }
+        // only scale exists
+        Integer scale = scaleOpt.get();
+        return DataTypes.createDecimalType(scale + maxLeftOfDotDigits, scale);
+    }
+
+    /** Spark ==> BigQuery Schema Converter utils: */
     public static Schema toBigQuerySchema(StructType sparkSchema) {
         FieldList bigQueryFields = sparkToBigQueryFields(sparkSchema, 0);
         return Schema.of(bigQueryFields);
@@ -371,9 +461,7 @@ public class BigQuerySchemaConverters {
         return FieldList.of(bqFields);
     }
 
-    /**
-     * Converts a single StructField to a BigQuery Field (column).
-     */
+    /** Converts a single StructField to a BigQuery Field (column). */
     @VisibleForTesting
     protected static Field createBigQueryColumn(StructField sparkField, int depth) {
         DataType sparkType = sparkField.dataType();
@@ -381,6 +469,8 @@ public class BigQuerySchemaConverters {
         Field.Mode fieldMode = (sparkField.nullable()) ? Field.Mode.NULLABLE : Field.Mode.REQUIRED;
         FieldList subFields = null;
         LegacySQLTypeName fieldType;
+        OptionalLong scale = OptionalLong.empty();
+        long precision = 0;
 
         if (sparkType instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) sparkType;
@@ -389,41 +479,86 @@ public class BigQuerySchemaConverters {
             sparkType = arrayType.elementType();
         }
 
+        Optional<SupportedCustomDataType> supportedCustomDataTypeOptional =
+                SupportedCustomDataType.of(sparkType);
+        // not using lambda as we need to affect method level variables
+        if (supportedCustomDataTypeOptional.isPresent()) {
+            SupportedCustomDataType supportedCustomDataType = supportedCustomDataTypeOptional.get();
+            sparkType = supportedCustomDataType.getSqlType();
+        }
         if (sparkType instanceof StructType) {
             subFields = sparkToBigQueryFields((StructType) sparkType, depth + 1);
             fieldType = LegacySQLTypeName.RECORD;
+        } else if (sparkType instanceof MapType) {
+            MapType mapType = (MapType) sparkType;
+            fieldMode = Field.Mode.REPEATED;
+            fieldType = LegacySQLTypeName.RECORD;
+            subFields =
+                    FieldList.of(
+                            Field.newBuilder("key", toBigQueryType(mapType.keyType(), sparkField.metadata()))
+                                    .setMode(Field.Mode.REQUIRED)
+                                    .build(),
+                            Field.newBuilder("value", toBigQueryType(mapType.valueType(), sparkField.metadata()))
+                                    .setMode(mapType.valueContainsNull() ? Field.Mode.NULLABLE : Field.Mode.REQUIRED)
+                                    .build());
+        } else if (sparkType instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) sparkType;
+            int leftOfDotDigits = decimalType.precision() - decimalType.scale();
+            fieldType =
+                    (decimalType.scale() > BigQueryUtil.DEFAULT_NUMERIC_SCALE
+                            || leftOfDotDigits > NUMERIC_MAX_LEFT_OF_DOT_DIGITS)
+                            ? LegacySQLTypeName.BIGNUMERIC
+                            : LegacySQLTypeName.NUMERIC;
+            scale = OptionalLong.of(decimalType.scale());
+            precision = decimalType.precision();
         } else {
-            fieldType = toBigQueryType(sparkType);
-            if (sparkField.metadata().contains("sqlType") && sparkField.metadata().getString("sqlType") != null) {
-                fieldType = LegacySQLTypeName.valueOf(sparkField.metadata().getString("sqlType"));
-            }
+            fieldType = toBigQueryType(sparkType, sparkField.metadata());
         }
 
         Field.Builder fieldBuilder =
                 createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields);
-
-        Optional<String> description = getDescriptionOrCommentOfField(sparkField);
+        Optional<String> description =
+                getDescriptionOrCommentOfField(sparkField, supportedCustomDataTypeOptional);
 
         if (description.isPresent()) {
             fieldBuilder.setDescription(description.get());
         }
 
+        // if this is a decimal type
+        if (scale.isPresent()) {
+            fieldBuilder.setPrecision(precision);
+            fieldBuilder.setScale(scale.getAsLong());
+        }
+
         return fieldBuilder.build();
     }
 
-    public static Optional<String> getDescriptionOrCommentOfField(StructField field) {
+    public static Optional<String> getDescriptionOrCommentOfField(
+            StructField field, Optional<SupportedCustomDataType> supportedCustomDataTypeOptional) {
+        Optional<String> description = Optional.empty();
+
         if (!field.getComment().isEmpty()) {
-            return Optional.of(field.getComment().get());
-        }
-        if (field.metadata().contains("description")
+            description = Optional.of(field.getComment().get());
+        } else if (field.metadata().contains("description")
                 && field.metadata().getString("description") != null) {
-            return Optional.of(field.metadata().getString("description"));
+            description = Optional.of(field.metadata().getString("description"));
         }
-        return Optional.empty();
+
+        Optional<String> marker =
+                supportedCustomDataTypeOptional.map(SupportedCustomDataType::getTypeMarker);
+
+        // skipping some lambdas for readability
+        if (description.isPresent()) {
+            String descriptionString = description.get();
+            return Optional.of(
+                    marker.map(value -> descriptionString + " " + value).orElse(descriptionString));
+        }
+        // no description, so the field marker determines the result
+        return marker;
     }
 
     @VisibleForTesting
-    protected static LegacySQLTypeName toBigQueryType(DataType elementType) {
+    protected static LegacySQLTypeName toBigQueryType(DataType elementType, Metadata metadata) {
         if (elementType instanceof BinaryType) {
             return LegacySQLTypeName.BYTES;
         }
@@ -439,32 +574,19 @@ public class BigQuerySchemaConverters {
         if (elementType instanceof FloatType || elementType instanceof DoubleType) {
             return LegacySQLTypeName.FLOAT;
         }
-        if (elementType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) elementType;
-            if (decimalType.precision() <= BQ_NUMERIC_PRECISION
-                    && decimalType.scale() <= BQ_NUMERIC_SCALE) {
-                return LegacySQLTypeName.NUMERIC;
-            } else {
-                throw new IllegalArgumentException(
-                        "Decimal type is too wide to fit in BigQuery Numeric format");
+        if (elementType instanceof StringType) {
+            if (SparkBigQueryUtil.isJson(metadata)) {
+                return LegacySQLTypeName.JSON;
             }
-        }
-        if (elementType instanceof StringType || elementType instanceof VarcharType) {
             return LegacySQLTypeName.STRING;
         }
         if (elementType instanceof TimestampType) {
-            // return LegacySQLTypeName.TIMESTAMP; FIXME: Restore this correct conversion when the Vortex
-            // team adds microsecond support to their backend
             return LegacySQLTypeName.TIMESTAMP;
         }
         if (elementType instanceof DateType) {
             return LegacySQLTypeName.DATE;
         }
-        if (elementType instanceof MapType) {
-            throw new IllegalArgumentException(MAPTYPE_ERROR_MESSAGE);
-        } else {
-            throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString());
-        }
+        throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString());
     }
 
     private static Field.Builder createBigQueryFieldBuilder(
