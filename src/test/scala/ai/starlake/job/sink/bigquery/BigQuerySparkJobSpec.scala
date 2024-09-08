@@ -55,7 +55,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = ""
         ) {
           cleanMetadata
-          deliverSourceDomain()
+          deliverSourceJob()
           private val query: String =
             """
               |        WITH tbl as (

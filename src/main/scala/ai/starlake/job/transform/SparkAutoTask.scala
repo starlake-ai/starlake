@@ -66,7 +66,7 @@ class SparkAutoTask(
               }
 
             case _ =>
-              runSparkOnSpark(taskDesc.getSql())
+              runSparkOnAny()
           }
       }
     result
