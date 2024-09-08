@@ -1,0 +1,18 @@
+table:
+    name: "locations_variant"
+    pattern: "locations-.*.json"
+    primaryKey:
+      - id
+    metadata:
+      array: false
+      format: "JSON"
+      write: "OVERWRITE"
+      schedule: "0 0 * * *"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: true
+      - name: "address"
+        type: "variant"
+        required: true
+
