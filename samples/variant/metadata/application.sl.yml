@@ -1,0 +1,11 @@
+application:
+  connectionRef: bigquery
+  loader: native
+  connections:
+    bigquery:
+      type: "bigquery"
+      options:
+        writeMethod: "direct" # direct or indirect (indirect is required for certain features when using Spark see https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
+        location: "europe-west1" # EU or US or ..
+        authType: "APPLICATION_DEFAULT"
+        authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
