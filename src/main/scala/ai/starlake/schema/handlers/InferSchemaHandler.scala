@@ -57,14 +57,16 @@ object InferSchemaHandler {
   def createAttributes(
     lines: List[Row],
     schema: StructType,
-    format: Format
+    format: Format,
+    forcePattern: Boolean = true
   ): List[Attribute] = {
 
     def createAttribute(
       currentLines: List[Any],
       currentSchema: DataType,
       container: StructField,
-      fieldPath: String
+      fieldPath: String,
+      forcePattern: Boolean = true
     ): Attribute = {
       val result =
         currentSchema match {
@@ -84,7 +86,8 @@ object InferSchemaHandler {
                 structLines,
                 st(index).dataType,
                 field,
-                fieldPath + "." + field.name
+                fieldPath + "." + field.name,
+                forcePattern
               )
             }.toList
 
@@ -118,7 +121,8 @@ object InferSchemaHandler {
                   arrayLines,
                   dt.elementType,
                   container,
-                  fieldPath + "[]"
+                  fieldPath + "[]",
+                  forcePattern
                 )
                 stAttributes.copy(
                   array = Some(true),
@@ -165,14 +169,20 @@ object InferSchemaHandler {
             )
         }
 
-      if (identifierRegex.pattern.matcher(result.name).matches)
+      if (!forcePattern || identifierRegex.pattern.matcher(result.name).matches)
         result
       else
         throw new RuntimeException(
           s"Invalid field name ->${result.name}<-. Only letters, digits and '_' are allowed. Other characters including spaces are forbidden."
         )
     }
-    createAttribute(lines, schema, StructField("_ROOT_", StructType(Nil)), "").attributes
+    createAttribute(
+      lines,
+      schema,
+      StructField("_ROOT_", StructType(Nil)),
+      "",
+      forcePattern
+    ).attributes
   }
 
   /** * builds the Metadata case class. check case class metadata for attribute definition

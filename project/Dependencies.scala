@@ -195,6 +195,10 @@ object Dependencies {
     "io.github.spark-redshift-community" %% "spark-redshift" % "6.3.0-spark_3.5" % Test
   )
 
+  val scala213LibsOnly = Seq(
+    "ai.starlake" %% "spark-redshift" % "6.3.0-spark_3.5-SNAPSHOT" % Test
+  )
+
   val scalaCompat = Seq(
     "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections

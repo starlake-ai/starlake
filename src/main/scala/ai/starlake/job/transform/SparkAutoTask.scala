@@ -34,7 +34,8 @@ class SparkAutoTask(
   test: Boolean,
   logExecution: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1
+  resultPageSize: Int = 1,
+  schema: Option[Schema] = None
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,

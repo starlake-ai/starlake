@@ -100,7 +100,8 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID.dsv")
 
-      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema, Format.DSV)
+      val dsv: List[Attribute] =
+        InferSchemaHandler.createAttributes(Nil, df1.schema, Format.DSV, false)
 
       val dsv1: List[Attribute] = List(
         Attribute("first name", "string", Some(false), required = None),
