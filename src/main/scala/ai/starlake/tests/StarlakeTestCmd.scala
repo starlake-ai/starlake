@@ -30,17 +30,19 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
         .text(s"Test transform tasks only")
         .optional(),
       builder
-        .opt[Option[String]]("name")
-        .action { (x, c) =>
-          val splitted = x.map(_.split('.'))
-          if (splitted.exists(_.length != 3)) {
-            throw new IllegalArgumentException(
-              "Invalid test format. Use 'domainName.taskName.testName' or 'domainName.tableName.testName'"
-            )
-          }
-          c.copy(name = x)
-        }
-        .text(s"Test this test only")
+        .opt[Option[String]]("domain")
+        .action { (x, c) => c.copy(domain = x) }
+        .text(s"Test this domain only")
+        .optional(),
+      builder
+        .opt[Option[String]]("table")
+        .action { (x, c) => c.copy(test = x) }
+        .text(s"Test this table or task only in the selected domain")
+        .optional(),
+      builder
+        .opt[Option[String]]("test")
+        .action { (x, c) => c.copy(test = x) }
+        .text(s"Test this test only in the domain and table/task selected")
         .optional(),
       builder
         .opt[String]("accessToken")

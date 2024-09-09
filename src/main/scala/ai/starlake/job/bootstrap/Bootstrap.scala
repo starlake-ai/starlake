@@ -89,6 +89,7 @@ object Bootstrap extends StrictLogging {
     DatasetArea.folders.foreach(p => File(p.toString).createDirectories())
     val dagLibDir = File(metadataFolder, "dags", "generated")
     dagLibDir.createDirectories()
+    /*
     import scala.sys.process._
     println("Installing starlake-airflow")
     val pipCmd = s"pip install --target $dagLibDir starlake-airflow"
@@ -106,6 +107,8 @@ object Bootstrap extends StrictLogging {
       case _ =>
 
     }
+     */
+
     template
       .foreach { template =>
         val rootFolder = metadataFolder.parent
