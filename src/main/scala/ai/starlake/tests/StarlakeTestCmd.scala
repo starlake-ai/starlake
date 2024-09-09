@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.tests.StarlakeTestConfig
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{EmptyJobResult, JobResult}
 import scopt.OParser
 
 import scala.util.{Success, Try}
@@ -45,6 +45,11 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
         .text(s"Test this test only in the domain and table/task selected")
         .optional(),
       builder
+        .opt[Option[String]]("site")
+        .action { (x, c) => c.copy(generate = true) }
+        .text(s"Test this test only in the domain and table/task selected")
+        .optional(),
+      builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
@@ -59,7 +64,8 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
   override def run(config: StarlakeTestConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    Success(workflow(schemaHandler).test(config))
+    workflow(schemaHandler).testLoadAndTransform(config)
+    Success(EmptyJobResult)
   }
 }
 

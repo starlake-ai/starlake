@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
-import org.codehaus.jackson.map.deser.std.FromStringDeserializer
 
 /** Recognized file type format. This will select the correct parser
   *

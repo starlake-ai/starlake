@@ -1059,22 +1059,6 @@ class IngestionWorkflow(
     StarlakeTestData.runTransforms(transformTests, config)
   }
 
-  def test(config: StarlakeTestConfig): JobResult = {
-    val loadResults =
-      if (config.runLoad()) {
-        testLoad(config)
-      } else
-        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
-    val transformResults =
-      if (config.runTransform()) {
-        testTransform(config)
-      } else
-        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
-
-    StarlakeTestResult.html(loadResults, transformResults)
-    testsLog(loadResults._1 ++ transformResults._1)
-  }
-
   def testLoadAndTransform(
     config: StarlakeTestConfig
   ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
@@ -1088,6 +1072,10 @@ class IngestionWorkflow(
         testTransform(config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+    if (config.generate) {
+      StarlakeTestResult.html(loadResults, transformResults)
+      testsLog(loadResults._1 ++ transformResults._1)
+    }
     (loadResults._1 ++ transformResults._1, loadResults._2.merge(transformResults._2))
   }
 

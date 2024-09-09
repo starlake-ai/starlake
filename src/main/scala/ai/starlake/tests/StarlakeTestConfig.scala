@@ -6,7 +6,8 @@ case class StarlakeTestConfig(
   transform: Boolean = false,
   domain: Option[String] = None,
   table: Option[String] = None,
-  test: Option[String] = None
+  test: Option[String] = None,
+  generate: Boolean = false
 ) {
   def runLoad(): Boolean = load || (!load && !transform)
 
