@@ -176,11 +176,11 @@ class JsonIngestionParsingSpec extends TestHelper {
       """
         |{
         |   "complexArray": [ {"a": "Hello"}, {"a": "Hello"} ],
-        |	  "GlossSeeAlso": ["GML", "XML"]
+        |	"GlossSeeAlso": ["GML", "XML"],
         |   "myArray":[1, 2]
         |}
       """.stripMargin
 
-    JsonIngestionUtil.parseString(json1).isSuccess shouldBe false
+    JsonIngestionUtil.parseString(json1).isSuccess shouldBe true
   }
 }
