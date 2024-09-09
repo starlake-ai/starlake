@@ -261,7 +261,7 @@ releaseCrossBuild := true
 releaseIgnoreUntrackedFiles := true
 
 releaseProcess := Seq(
-  checkSnapshotDependencies,
+//  checkSnapshotDependencies, //allow snapshot dependencies
   inquireVersions,
   runClean,
 //  releaseStepCommand("+test"),
