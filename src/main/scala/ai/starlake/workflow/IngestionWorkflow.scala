@@ -1038,14 +1038,24 @@ class IngestionWorkflow(
   }
 
   def testLoad(config: StarlakeTestConfig): (List[StarlakeTestResult], StarlakeTestCoverage) = {
-    val loadTests = StarlakeTestData.loadTests(load = true, config.name, "", "")
+    val loadTests = StarlakeTestData.loadTests(
+      load = true,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
     StarlakeTestData.runLoads(loadTests, config)
   }
 
   def testTransform(
     config: StarlakeTestConfig
   ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
-    val transformTests = StarlakeTestData.loadTests(load = false, config.name, "", "")
+    val transformTests = StarlakeTestData.loadTests(
+      load = false,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
     StarlakeTestData.runTransforms(transformTests, config)
   }
 
@@ -1063,6 +1073,22 @@ class IngestionWorkflow(
 
     StarlakeTestResult.html(loadResults, transformResults)
     testsLog(loadResults._1 ++ transformResults._1)
+  }
+
+  def testLoadAndTransform(
+    config: StarlakeTestConfig
+  ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val loadResults =
+      if (config.runLoad()) {
+        testLoad(config)
+      } else
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+    val transformResults =
+      if (config.runTransform()) {
+        testTransform(config)
+      } else
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+    (loadResults._1 ++ transformResults._1, loadResults._2.merge(transformResults._2))
   }
 
   def autoJob(config: TransformConfig): Try[String] = {

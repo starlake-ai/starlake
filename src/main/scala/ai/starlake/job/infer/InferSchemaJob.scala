@@ -176,9 +176,10 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     content: String,
     tableName: String,
     rowTag: Option[String],
-    inferSchema: Boolean = true
+    inferSchema: Boolean = true,
+    forceFormat: Option[Format] = None
   ): (DataFrame, Option[String]) = {
-    val formatFile = getFormatFile(dataPath, lines)
+    val formatFile = forceFormat.map(_.toString).getOrElse(getFormatFile(dataPath, lines))
 
     formatFile match {
       case "PARQUET" =>
@@ -266,10 +267,16 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
   )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
       val path = new Path(inputPath)
-      val content = storageHandler.readAndExecute(path)(isr => {
-        val bufferedReader = new BufferedReader(isr)
-        (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
-      })
+      val content =
+        if (forceFormat.exists(Format.isBinary))
+          List("")
+        else {
+          storageHandler
+          storageHandler.readAndExecute(path)(isr => {
+            val bufferedReader = new BufferedReader(isr)
+            (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
+          })
+        }
       val lines = content.map(_.trim).filter(_.nonEmpty)
 
       val schema = forceFormat match {
@@ -316,7 +323,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               inputPath,
               content.map(_.trim).mkString("\n"),
               tableName,
-              rowTag
+              rowTag,
+              forceFormat = forceFormat
             )
 
           val (format, array) = forceFormat match {
@@ -336,7 +344,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
                     content.mkString("\n"),
                     tableName,
                     rowTag,
-                    inferSchema = false
+                    inferSchema = false,
+                    Some(format)
                   )
                 rawDataframeWithFormat.collect().toList
               case _ =>

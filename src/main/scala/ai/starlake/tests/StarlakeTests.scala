@@ -24,6 +24,14 @@ case class StarlakeTestCoverage(
   untestedDomains: List[String],
   untestedTables: List[String]
 ) {
+  def merge(other: StarlakeTestCoverage): StarlakeTestCoverage = {
+    StarlakeTestCoverage(
+      testedDomains ++ other.testedDomains,
+      testedTables ++ other.testedTables,
+      untestedDomains ++ other.untestedDomains,
+      untestedTables ++ other.untestedTables
+    )
+  }
   def getTestedDomains(): util.List[String] = testedDomains.toList.sorted.asJava
   def getTestedTables(): util.List[String] = testedTables.toList.sorted.asJava
   def getUntestedDomains(): util.List[String] = untestedDomains.sorted.asJava
@@ -618,9 +626,9 @@ object StarlakeTestData {
   type TableOrTaskName = String
   def loadTests(
     load: Boolean,
-    onlyThisTest: Option[String],
-    domainName: String,
-    taskOrTableName: String
+    thisDomainName: String,
+    thisTaskOrTableName: String,
+    onlyThisTest: String
   )(implicit
     settings: Settings
   ): (
@@ -646,35 +654,26 @@ object StarlakeTestData {
   ) = {
     val schemaHandler = settings.schemaHandler()
 
-    // Load single test
-    val (domainName, taskName, testName) = onlyThisTest.map { testName =>
-      val split = testName.split('.')
-      assert(split.length == 3, "Invalid test format. Use 'domainName.taskName.testName'")
-      val domainName = split(0)
-      val taskName = split(1)
-      val test = split(2)
-      (domainName, taskName, test)
-    } match {
-      case None                               => ("", "", "") // empty means load all
-      case Some((domainName, taskName, test)) => (domainName, taskName, test)
-    }
-
     // Domain names we are willing to test
     val filteredDomainFolders =
-      domainFolders(load).filter(domainDir => domainName.isEmpty || domainName == domainDir.getName)
+      domainFolders(load).filter(domainDir =>
+        thisDomainName.isEmpty || thisDomainName == domainDir.getName || thisDomainName == "*"
+      )
 
     val allTests =
       filteredDomainFolders.map { domainFolder =>
         val filteredTaskOrTableFolders = taskOrTableFolders(domainFolder)
-          .filter(taskName.isEmpty || taskName == _.getName || taskName == "*")
+          .filter(
+            thisTaskOrTableName.isEmpty || thisTaskOrTableName == _.getName || thisTaskOrTableName == "*"
+          )
 
         val domainTests = filteredTaskOrTableFolders.map { taskOrTableFolder =>
           val filteredTestFolders =
             testFolders(taskOrTableFolder)
               .filter(
                 onlyThisTest.isEmpty ||
-                testName == _.getName ||
-                testName == "*"
+                onlyThisTest == _.getName ||
+                onlyThisTest == "*"
               )
 
           val taskOrTableTests: List[(String, StarlakeTest)] =
