@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.2.1
+
+__Bug Fix__:
+- propagate final name and variant type for nested struct
+
 # 1.2
 __New Feature__:
 - Custom DDL mapping for JDBC datawarehouses (Postgres, Snowflake, Redshift, Synapse ...)

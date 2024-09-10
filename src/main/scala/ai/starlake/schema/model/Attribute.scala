@@ -230,7 +230,10 @@ case class Attribute(
     * @return
     *   Spark type of this attribute
     */
-  def sparkType(schemaHandler: SchemaHandler): DataType = {
+  def sparkType(
+    schemaHandler: SchemaHandler,
+    structFieldModifier: (Attribute, StructField) => StructField = (_, sf) => sf
+  ): DataType = {
     def buildStruct(): List[StructField] = {
       if (attributes.isEmpty)
         throw new Exception(
@@ -238,7 +241,14 @@ case class Attribute(
         )
       val fields = attributes.map { attr =>
         val structField =
-          StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
+          structFieldModifier(
+            attr,
+            StructField(
+              attr.name,
+              attr.sparkType(schemaHandler, structFieldModifier),
+              !attr.resolveRequired()
+            )
+          )
         attr.comment.map(structField.withComment).getOrElse(structField)
       }
       fields
