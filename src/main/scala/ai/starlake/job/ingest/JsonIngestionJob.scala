@@ -139,12 +139,13 @@ class JsonIngestionJob(
     *   input dataset as a RDD of string
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
+    val validationSchema =
+      schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
     val persistedDF = dataset.persist(settings.appConfig.cacheStorageLevel)
     val (withInvalidSchema, withValidSchema) = parseDF(persistedDF, validationSchema)
 
     val loadSchema = schema
-      .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
+      .sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
 
     val toValidate = session.read

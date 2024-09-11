@@ -107,7 +107,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             schemaHandler
           )
         job.run()
-        job.updateJdbcTableSchema(schema.sparkSchema(schemaHandler), targetTableName)
+        job.updateJdbcTableSchema(schema.targetSparkSchema(schemaHandler), targetTableName)
 
         // TODO archive if set
         tempTables.foreach { tempTable =>
@@ -186,61 +186,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     }
   }
 
-  def applyBigQuerySecondStepSQL(
-    firstStepTempTableId: List[TableId],
-    starlakeSchema: Schema
-  ): Try[JobResult] = {
-    val incomingSparkSchema = starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler)
-
-    val tempTable = firstStepTempTableId
-      .map(BigQueryUtils.tableIdToTableName)
-      .map("SELECT * FROM " + _)
-      .mkString("(", " UNION ALL ", ")")
-    val targetTableName = s"${domain.finalName}.${schema.finalName}"
-
-    val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(tempTable)
-
-    val taskDesc = AutoTaskDesc(
-      name = targetTableName,
-      sql = Some(sqlWithTransformedFields),
-      database = schemaHandler.getDatabase(domain),
-      domain = domain.finalName,
-      table = schema.finalName,
-      presql = schema.presql,
-      postsql = schema.postsql,
-      sink = mergedMetadata.sink,
-      rls = schema.rls,
-      expectations = schema.expectations,
-      acl = schema.acl,
-      comment = schema.comment,
-      tags = schema.tags,
-      writeStrategy = mergedMetadata.writeStrategy,
-      parseSQL = Some(true)
-    )
-    val job =
-      new BigQueryAutoTask(
-        Option(ingestionJob.applicationId()),
-        taskDesc,
-        Map.empty,
-        None,
-        truncate = false,
-        test = false,
-        logExecution = true
-      )(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-
-    job.updateBigQueryTableSchema(incomingSparkSchema)
-    val jobResult = job.run()
-    jobResult
-  }
-
   def singleStepLoad(domain: String, table: String, schema: Schema, path: List[Path]) = {
     val sinkConnection = mergedMetadata.getSinkConnection()
-    val incomingSparkSchema = schema.sparkSchema(schemaHandler)
+    val incomingSparkSchema = schema.targetSparkSchema(schemaHandler)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)

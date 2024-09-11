@@ -115,7 +115,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                 val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
                 val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
                   firstStepTempTable,
-                  _.bqSchemaWithIgnoreAndScript(schemaHandler)
+                  _.targetBqSchemaWithIgnoreAndScript(schemaHandler)
                 )
 
                 val enrichedTableInfo = firstStepTableInfo.copy(maybeSchema =
@@ -173,7 +173,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       } else {
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
         bigqueryJob.loadPathsToBQ(
-          bigqueryJob.getTableInfo(targetTableId, _.bqSchemaWithoutIgnore(schemaHandler))
+          bigqueryJob.getTableInfo(targetTableId, _.targetBqSchemaWithoutIgnore(schemaHandler))
         )
       }
     }.map {
@@ -387,7 +387,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     firstStepTempTableId: List[TableId],
     starlakeSchema: Schema
   ): Try[JobResult] = {
-    val incomingSparkSchema = starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler)
+    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
 
     val tempTable = firstStepTempTableId
       .map(BigQueryUtils.tableIdToTableName)

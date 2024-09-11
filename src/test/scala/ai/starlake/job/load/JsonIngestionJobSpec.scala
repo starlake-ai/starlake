@@ -63,7 +63,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
 
         val schemaHandler = settings.schemaHandler()
         val schema = schemaHandler.getSchema("json", "sample_json").get
-        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+        val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
 
         val location = getTablePath("json", "sample_json")
         // Accepted should have the same data as input

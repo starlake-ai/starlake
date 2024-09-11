@@ -103,7 +103,7 @@ class DsvIngestionJob(
         .options(settings.appConfig.dsvOptions)
 
       val dfInReaderWithSchema = if (withSchema) {
-        dfInReader.schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
+        dfInReader.schema(schema.sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
       } else {
         dfInReader
       }
@@ -112,7 +112,7 @@ class DsvIngestionJob(
       logger.debug(dfIn.schema.treeString)
       if (dfIn.isEmpty) {
         // empty dataframe with accepted schema
-        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+        val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
 
         session
           .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))

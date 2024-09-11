@@ -204,7 +204,7 @@ case class Schema(
     * @return
     *   Spark Catalyst Schema
     */
-  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+  def sourceSparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.filter(_.script.isEmpty).map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
         .withComment(attr.comment.getOrElse(""))
@@ -212,7 +212,9 @@ case class Schema(
     StructType(fields)
   }
 
-  def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+  def sourceSparkSchemaUntypedEpochWithoutScriptedFields(
+    schemaHandler: SchemaHandler
+  ): StructType = {
     val fields = attributesWithoutScriptedFields.map { attr =>
       val sparkType = attr.`type`(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
         (tpe.primitiveType, tpe.pattern) match {
@@ -228,25 +230,25 @@ case class Schema(
     StructType(fields)
   }
 
-  def sparkSchemaWithoutScriptedFieldsWithInputFileName(
+  def sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(
     schemaHandler: SchemaHandler
   ): StructType = {
-    sparkSchemaWithoutScriptedFields(schemaHandler)
+    sourceSparkSchemaWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
   }
 
-  def sparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
+  def targetSparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
 
-  def sparkSchema(schemaHandler: SchemaHandler): StructType =
+  def targetSparkSchema(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
 
-  def bqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkSchemaWithoutIgnore(schemaHandler))
+  def targetBqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(targetSparkSchemaWithoutIgnore(schemaHandler))
   }
 
-  def bqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkSchema(schemaHandler))
+  def targetBqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(targetSparkSchema(schemaHandler))
   }
 
   /** return the list of renamed attributes

@@ -200,6 +200,18 @@ class IngestionWorkflow(
         } else {
           Nil
         }
+      case (Some(domain), None) =>
+        val domains = schemaHandler.domains(List(domain), reload = true)
+        domains.flatMap { domain =>
+          domain.tables.flatMap { table =>
+            val pattern = table.pattern
+            if (pattern.matcher(filename).matches()) {
+              Some((domain.name, table.name))
+            } else {
+              None
+            }
+          }
+        }
       case (_, _) =>
         val domains = schemaHandler.domains(reload = true)
         domains.flatMap { domain =>
