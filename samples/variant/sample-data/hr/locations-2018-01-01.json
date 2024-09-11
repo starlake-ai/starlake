@@ -1,2 +1,3 @@
-{  "id":"1", "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France"} }
-{  "id":"2",  "address": {    "city":"Berlin",    "country":"Germany"  }}
+{  "id":"1", "container": {"address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France"}}, "address_root": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France"} }
+{  "id":"2",  "container": {"address": {    "city":"Berlin",    "country":"Germany"  }}, "address_root": {    "city":"Berlin",    "country":"Germany"  }}
+{  "id":"3",  "container": {"address": []}, "address_root": []}

@@ -12,7 +12,13 @@ table:
       - name: "id"
         type: "string"
         required: true
-      - name: "address"
+      - name: "address_root"
         type: "variant"
         required: true
+      - name: "container"
+        type: struct
+        attributes:
+        - name: "address"
+          type: "variant"
+          required: true
 

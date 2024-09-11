@@ -175,10 +175,20 @@ case class Schema(
     schemaHandler: SchemaHandler,
     p: Attribute => Boolean
   ): StructType = {
+    def enrichStructField(attr: Attribute, structField: StructField) = {
+      structField.copy(
+        name = attr.getFinalName(),
+        nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
+        metadata =
+          if (attr.`type` == "variant")
+            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+          else org.apache.spark.sql.types.Metadata.empty
+      )
+    }
     val fields = attributes filter p map { attr =>
       val structField = StructField(
         attr.getFinalName(),
-        attr.sparkType(schemaHandler),
+        attr.sparkType(schemaHandler, enrichStructField),
         if (attr.script.isDefined) true else !attr.resolveRequired(),
         if (attr.`type` == "variant")
           org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
@@ -224,12 +234,6 @@ case class Schema(
     sparkSchemaWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
   }
-
-  def sparkSchemaWithoutIgnoreScriptAndTransform(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(
-      schemaHandler,
-      attr => !attr.resolveIgnore() && attr.script.isEmpty && attr.transform.isEmpty
-    )
 
   def sparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
