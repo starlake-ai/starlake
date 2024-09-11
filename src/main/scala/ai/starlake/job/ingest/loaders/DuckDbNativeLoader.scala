@@ -3,13 +3,11 @@ package ai.starlake.job.ingest.loaders
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestionJob
-import ai.starlake.job.transform.{BigQueryAutoTask, JdbcAutoTask}
+import ai.starlake.job.transform.JdbcAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.{IngestionCounters, JobResult, SparkUtils}
-import com.google.cloud.bigquery.TableId
+import ai.starlake.utils.{IngestionCounters, SparkUtils}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
