@@ -271,7 +271,6 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         if (forceFormat.exists(Format.isBinary))
           List("")
         else {
-          storageHandler
           storageHandler.readAndExecute(path)(isr => {
             val bufferedReader = new BufferedReader(isr)
             (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
