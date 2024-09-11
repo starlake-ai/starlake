@@ -78,7 +78,7 @@ class XmlIngestionJob(
               .option("inferSchema", value = false)
               .option("encoding", mergedMetadata.resolveEncoding())
               .options(sparkOptions)
-              .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
+              .schema(schema.sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }
           .reduce((acc, df) => acc union df)
@@ -131,7 +131,7 @@ class XmlIngestionJob(
           dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
 
         val validationSchema =
-          schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
+          schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
 
         val validationResult =
           treeRowValidator.validate(

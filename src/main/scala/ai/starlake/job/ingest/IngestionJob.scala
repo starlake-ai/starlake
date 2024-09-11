@@ -16,7 +16,6 @@ import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.job.ingest.loaders.BigQueryNativeLoader
 import ai.starlake.job.ingest.loaders.DuckDbNativeLoader
-
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
@@ -27,7 +26,7 @@ import com.google.cloud.bigquery.{
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -487,7 +486,7 @@ trait IngestionJob extends SparkJob {
           // val incomingSchema = BigQueryUtils.normalizeSchema(schema.sparkSchemaWithoutIgnore(schemaHandler))
           // MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
           val finalSparkSchema = BigQueryUtils.normalizeCompatibleSchema(
-            schema.sparkSchemaWithoutIgnore(schemaHandler),
+            schema.targetSparkSchemaWithoutIgnore(schemaHandler),
             existingSchema
           )
           logger.whenInfoEnabled {
@@ -502,7 +501,7 @@ trait IngestionJob extends SparkJob {
           updatedTable.update()
         }
     } else {
-      val bqSchema = schema.bqSchemaWithoutIgnore(schemaHandler)
+      val bqSchema = schema.targetBqSchemaWithoutIgnore(schemaHandler)
       val sink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
 
       val partitionField = sink.getPartitionColumn().map { partitionField =>
@@ -746,9 +745,21 @@ trait IngestionJob extends SparkJob {
   }
 
   private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
+    def enrichStructField(attr: Attribute, structField: StructField) = {
+      structField.copy(
+        name = attr.getFinalName(),
+        nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
+        metadata =
+          if (attr.`type` == "variant")
+            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+          else org.apache.spark.sql.types.Metadata.empty
+      )
+    }
     schema.attributes
       .filter(_.script.isDefined)
-      .map(attr => (attr.getFinalName(), attr.sparkType(schemaHandler), attr.script))
+      .map(attr =>
+        (attr.getFinalName(), attr.sparkType(schemaHandler, enrichStructField), attr.script)
+      )
       .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
         df.withColumn(
           name,
@@ -756,20 +767,6 @@ trait IngestionJob extends SparkJob {
             .cast(sparkType)
         )
       }
-  }
-
-  private def sinkToES(mergedDF: DataFrame, sink: EsSink): Try[DataFrame] = Try {
-    val config = ESLoadConfig(
-      timestamp = sink.timestamp,
-      id = sink.id,
-      format = settings.appConfig.defaultWriteFormat,
-      domain = domain.name,
-      schema = schema.name,
-      dataset = Some(Right(mergedDF)),
-      options = sink.connectionRefOptions(settings.appConfig.connectionRef)
-    )
-    new ESLoadJob(config, storageHandler, schemaHandler).run()
-    mergedDF
   }
 
   private def sinkAccepted(mergedDF: DataFrame): Try[Long] = {

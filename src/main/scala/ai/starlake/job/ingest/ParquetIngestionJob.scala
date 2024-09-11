@@ -79,7 +79,7 @@ class ParquetIngestionJob(
       logger.debug(dfIn.schema.treeString)
       if (dfIn.isEmpty) {
         // empty dataframe with accepted schema
-        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+        val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
 
         session
           .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
