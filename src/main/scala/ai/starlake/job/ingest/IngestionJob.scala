@@ -3,9 +3,9 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
 import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -14,8 +14,6 @@ import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import ai.starlake.job.ingest.loaders.BigQueryNativeLoader
-import ai.starlake.job.ingest.loaders.DuckDbNativeLoader
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
