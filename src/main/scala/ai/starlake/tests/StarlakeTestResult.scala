@@ -237,7 +237,7 @@ object StarlakeTestResult {
     testsFolder: Directory,
     loadOrTransform: String
   )(implicit
-    originalSettings: Settings
+    settings: Settings
   ): Unit = {
     val domainSummaries = StarlakeTestsDomainSummary.summaries(results)
     val summaryIndex = StarlakeTestsSummary.summaryIndex(domainSummaries)
