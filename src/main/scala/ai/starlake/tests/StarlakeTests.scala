@@ -2,11 +2,10 @@ package ai.starlake.tests
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.DDLLeaf
 import ai.starlake.utils.Utils
-import org.apache.hadoop.fs.Path
 
 import java.io.File
 import java.nio.charset.StandardCharsets
