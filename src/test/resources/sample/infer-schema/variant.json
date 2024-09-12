@@ -1,0 +1,3 @@
+{"a_str":"str","an_int":1,"a_floating_number":1.5,"a_boolean":true,"a_timestamp":"2024-09-12T12:46:00.00595+02:00","a_date":"2024-09-13","a_time":"12:46:00","a_json":"this is a simple string"}
+{"a_str":"str","an_int":1,"a_floating_number":1.5,"a_boolean":true,"a_timestamp":"2024-09-12T12:46:00.00595+02:00","a_date":"2024-09-13","a_time":"12:46:00","a_json":{"msg":"this is a record"}}
+

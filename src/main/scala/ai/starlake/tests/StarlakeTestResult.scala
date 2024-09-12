@@ -1,7 +1,8 @@
 package ai.starlake.tests
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.utils.Utils
+import org.apache.hadoop.fs.Path
 
 import scala.jdk.CollectionConverters._
 import java.io.File
@@ -120,6 +121,8 @@ case class StarlakeTestResult(
   def getSuccess(): Boolean = success
   def getExceptionHead(): String =
     exception.getOrElse("None").split("\n").head
+  def getException(): util.List[String] =
+    exception.getOrElse("None").split("\n").toList.asJava
   def getDuration(): String = {
     val d: Double = duration.toDouble / 1000
     s"$d"
@@ -173,11 +176,10 @@ object StarlakeTestResult {
   def junitXml(
     loadResults: List[StarlakeTestResult],
     transformResults: List[StarlakeTestResult]
-  ): Unit = {
+  )(implicit settings: Settings): Unit = {
 
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig, None, None)
     val rootFolder = new Directory(
-      new File(originalSettings.appConfig.root, "test-reports")
+      new File(settings.appConfig.root, "test-reports")
     )
 
     val junitTestSuites = toJunitTestSuites(loadResults, transformResults)
@@ -193,10 +195,13 @@ object StarlakeTestResult {
 
   def html(
     loadAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
-    transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage)
-  ): Unit = {
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig, None, None)
-    val rootFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
+    transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
+    outputDir: Option[String]
+  )(implicit settings: Settings): Unit = {
+    val rootFolder =
+      outputDir
+        .map(dir => new Directory(new File(dir)))
+        .getOrElse(new Directory(new File(settings.appConfig.root, "test-reports")))
     copyCssAndJs(rootFolder)
 
     val (loadResults, loadCoverage) = loadAndCoverageResults

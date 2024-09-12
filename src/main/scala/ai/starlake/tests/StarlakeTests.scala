@@ -2,10 +2,11 @@ package ai.starlake.tests
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.DDLLeaf
 import ai.starlake.utils.Utils
+import org.apache.hadoop.fs.Path
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -137,12 +138,19 @@ object StarlakeTestData {
     execute(conn, s"""DROP SCHEMA IF EXISTS "$domainName" CASCADE""")
   }
 
-  def describeTable(connection: Connection, domainAndTable: String): List[String] = {
-    val domAndTbl = domainAndTable.split('.')
-    val domain = domAndTbl(0)
-    val table = domAndTbl(1)
-
-    val (stmt, rs) = executeQuery(connection, s"""DESCRIBE "$domain"."$table"""")
+  def describe(connection: Connection, domainAndTableOrQuery: String): List[String] = {
+    val selectPattern = "(?i)SELECT\\s".r
+    val statement =
+      selectPattern.findFirstMatchIn(domainAndTableOrQuery) match {
+        case Some(_) =>
+          domainAndTableOrQuery
+        case None =>
+          val domAndTbl = domainAndTableOrQuery.split('.')
+          val domain = domAndTbl(0)
+          val table = domAndTbl(1)
+          s""""$domain"."$table""""
+      }
+    val (stmt, rs) = executeQuery(connection, s"""DESCRIBE $statement""")
     val columns = new ListBuffer[String]()
     while (rs.next()) {
       val name = rs.getString("column_name")
@@ -154,26 +162,42 @@ object StarlakeTestData {
 
     columns.toList
   }
+
+  private def expectationQuery(
+    targetDomain: String,
+    targetTable: String,
+    assertDatum: StarlakeTestData,
+    missing: Boolean
+  ): String = {
+    val sql = assertDatum.expectationAsSql.getOrElse("*")
+    val assertTable = assertDatum.table
+    val selectPattern = "(?i)SELECT\\s".r
+    val selectStatement =
+      selectPattern.findFirstMatchIn(sql) match {
+        case Some(_) =>
+          if (missing)
+            s"""$sql EXCEPT SELECT * FROM "$targetDomain"."$assertTable""""
+          else // not expected
+            s"""SELECT * FROM "$targetDomain"."$assertTable" EXCEPT $sql"""
+        case None =>
+          val columnNames = sql
+          if (missing)
+            s"""SELECT $columnNames FROM "$targetDomain"."$targetTable" EXCEPT SELECT * FROM "$targetDomain"."$assertTable""""
+          else // not expected
+            s"""SELECT * FROM "$targetDomain"."$assertTable" EXCEPT SELECT $columnNames FROM "$targetDomain"."$targetTable""""
+      }
+    selectStatement
+  }
+
 // Call transpile
   def outputTableDifferences(
     conn: Connection,
     targetDomain: String,
     targetTable: String,
     assertDatum: StarlakeTestData,
-    outputPath: File
+    outputPath: File,
+    selectStatement: String
   ): Boolean = {
-    val sql = assertDatum.expectationAsSql.getOrElse("*")
-    val assertTable = assertDatum.table
-    val selectPattern = "\\?i(^|\\s)SELECT(\\s|$)".r
-    val selectStatement =
-      selectPattern.findFirstMatchIn(sql) match {
-        case Some(_) =>
-          sql
-        case None =>
-          val columnNames = sql
-          s"""SELECT $columnNames FROM "$targetDomain"."$assertTable" EXCEPT SELECT $columnNames FROM "$targetDomain"."$targetTable""""
-      }
-
     val diffSql = s"""COPY
                         |($selectStatement)
                         |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
@@ -198,18 +222,15 @@ object StarlakeTestData {
   ): Array[StarlakeTestResult] = {
     assertData.map { assertDatum =>
       val assertTable = assertDatum.table
-      val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
-      val assertColumns = describeTable(conn, s"$targetDomain.${assertTable}")
+
+      val expectedColumns = assertDatum.expectationAsSql.getOrElse("*")
+      val targetColumns =
+        describe(conn, s"""SELECT $expectedColumns FROM "$targetDomain"."$targetTable"""")
+      val assertColumns = describe(conn, s"$targetDomain.${assertTable}")
       val missingColumns = assertColumns.diff(targetColumns)
 
-      val notExpectedColumns =
-        if (assertDatum.expectationName.isEmpty)
-          targetColumns.diff(assertColumns)
-        else
-          Nil
-      val notExpectedPath =
-        new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
-      val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
+      // Compare schemas
+      val notExpectedColumns = targetColumns.diff(assertColumns)
       var success = true
       if (missingColumns.nonEmpty) {
         println(s"Missing columns: ${missingColumns.mkString(", ")}")
@@ -218,13 +239,18 @@ object StarlakeTestData {
         println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
       }
 
+      val notExpectedPath =
+        new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
+      val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
       if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
+        // if schema OK,compare contents
         val missingSuccess = outputTableDifferences(
           conn,
           targetDomain,
           targetTable,
           assertDatum,
-          missingPath
+          missingPath,
+          expectationQuery(targetDomain, targetTable, assertDatum, missing = true)
         )
 
         val notExpectedSuccess = outputTableDifferences(
@@ -232,7 +258,8 @@ object StarlakeTestData {
           targetDomain,
           assertTable,
           assertDatum,
-          notExpectedPath
+          notExpectedPath,
+          expectationQuery(targetDomain, targetTable, assertDatum, missing = false)
         )
 
         success = notExpectedSuccess && missingSuccess
@@ -248,6 +275,8 @@ object StarlakeTestData {
         success = false
       }
 
+      val missingData = Files.readAllLines(missingPath.toPath).asScala.mkString("\n")
+      val notExpectedData = Files.readAllLines(notExpectedPath.toPath).asScala.mkString("\n")
       StarlakeTestResult(
         testFolder.path,
         domainName = targetDomain,
@@ -260,8 +289,8 @@ object StarlakeTestData {
         missingRecords = missingPath,
         notExpectedRecords = notExpectedPath,
         success = success,
-        None,
-        duration
+        exception = None,
+        duration = duration
       )
     }
   }
@@ -298,11 +327,15 @@ object StarlakeTestData {
     def runner(test: StarlakeTest, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
       val schemaHandler = settings.schemaHandler()
+
       new Main().run(
         params,
         schemaHandler
-      )(settings)
-
+      )(settings) match {
+        case Failure(e) =>
+          throw e
+        case Success(_) =>
+      }
     }
 
     val rootFolder = new File(originalSettings.appConfig.root, "test-reports")
@@ -351,12 +384,10 @@ object StarlakeTestData {
         config.toArgs
 
       val schemaHandler = settings.schemaHandler()
-      Try {
-        new Main().run(
-          params,
-          schemaHandler
-        )(settings)
-      } match {
+      new Main().run(
+        params,
+        schemaHandler
+      )(settings) match {
         case Failure(e) =>
           tmpDir.foreach(_.deleteRecursively())
           throw e
@@ -430,16 +461,16 @@ object StarlakeTestData {
                 println(s"Test $domainName.$tableName.$testName failed to run (${e.getMessage})")
                 Array(
                   StarlakeTestResult(
-                    testFolder.path,
-                    domainName,
-                    tableName,
-                    test.getTaskName(),
-                    testName,
+                    testFolder = testFolder.path,
+                    domainName = domainName,
+                    tableName = tableName,
+                    taskName = test.getTaskName(),
+                    testName = testName,
                     expectationName = "",
-                    Nil,
-                    Nil,
-                    new File(""),
-                    new File(""),
+                    missingColumns = Nil,
+                    notExpectedColumns = Nil,
+                    missingRecords = new File(""),
+                    notExpectedRecords = new File(""),
                     success = false,
                     exception = Some(Utils.exceptionAsString(e)),
                     duration = end - start // in milliseconds
@@ -685,11 +716,14 @@ object StarlakeTestData {
                   }
               }
 
-          taskOrTableFolder.getName -> (taskOrTableTestData(
-            taskOrTableFolder,
-            domainFolder.getName,
-            taskOrTableFolder.getName
-          ), taskOrTableTests)
+          taskOrTableFolder.getName -> (
+            taskOrTableTestData(
+              taskOrTableFolder,
+              domainFolder.getName,
+              taskOrTableFolder.getName
+            ),
+            taskOrTableTests
+          )
         }
         domainFolder.getName -> (domainTestData(domainFolder), domainTests)
       }
@@ -953,7 +987,7 @@ object StarlakeTestData {
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =
           if (dataFile.getName.endsWith("csv"))
-            s"read_csv('${dataFile.toString}', nullstr = '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
+            s"read_csv('${dataFile.toString}', header = true, nullstr = '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
           else s"'${dataFile.toString}'"
         s"CREATE OR REPLACE TABLE $domainName.$tableName AS SELECT * FROM $source;"
     }

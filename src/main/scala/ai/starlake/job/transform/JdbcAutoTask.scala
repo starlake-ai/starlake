@@ -60,16 +60,21 @@ class JdbcAutoTask(
   }
 
   override def tableExists: Boolean = {
-    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-      val url = sinkConnection.options("url")
-      val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
-      if (!exists && taskDesc._auditTableName.isDefined)
+    val exists =
+      JdbcDbUtils.withJDBCConnection(JdbcDbUtils.readOnlyConnection(sinkConnection).options) {
+        conn =>
+          val url = sinkConnection.options("url")
+          val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
+          exists
+      }
+    if (!exists && taskDesc._auditTableName.isDefined)
+      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
         createAuditTable(
           conn
         ) // We are sinking to an audit table. We need to create it first in JDBC
-      else
-        exists
-    }
+      }
+    else
+      exists
   }
 
   def createAuditTable(conn: java.sql.Connection): Boolean = {
