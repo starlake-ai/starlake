@@ -122,6 +122,20 @@
 </div>
 {% endif %}
 
+ {% if testResult.exceptionHead != "None" %}
+<div id="tab3" class="tab">
+<span class="code">
+<pre>
+     {% for exception in testResult.exception %}
+         {{exception}}
+     {% endfor %}
+</pre>
+</span>
+</div>
+{% endif %}
+
+
+
     <div id="footer">
         <p>
         <div>

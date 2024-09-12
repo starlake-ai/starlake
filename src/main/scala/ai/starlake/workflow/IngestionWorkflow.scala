@@ -1085,7 +1085,7 @@ class IngestionWorkflow(
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
     if (config.generate) {
-      StarlakeTestResult.html(loadResults, transformResults)
+      StarlakeTestResult.html(loadResults, transformResults, config.outputDir)
       testsLog(loadResults._1 ++ transformResults._1)
     }
     (loadResults._1 ++ transformResults._1, loadResults._2.merge(transformResults._2))

@@ -50,6 +50,11 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
         .text(s"Test this test only in the domain and table/task selected")
         .optional(),
       builder
+        .opt[Option[String]]("outputDir")
+        .action { (x, c) => c.copy(outputDir = x) }
+        .text(s"Where to output the tests")
+        .optional(),
+      builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")

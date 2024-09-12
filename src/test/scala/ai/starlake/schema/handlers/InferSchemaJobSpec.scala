@@ -242,6 +242,7 @@ class InferSchemaJobSpec extends TestHelper {
         }
       }
     }
+
     "Ingest JSON Schema" should "produce file in accepted" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
@@ -249,12 +250,12 @@ class InferSchemaJobSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
-        val inputData3 = loadTextFile("/sample/infer-schema/jsonarraysimple.json")
+        val inputData0 = loadTextFile("/sample/infer-schema/jsonarraysimple.json")
         for {
           sourceFile <- File.temporaryFile()
           targetDir  <- File.temporaryDirectory()
         } {
-          sourceFile.overwrite(inputData3)
+          sourceFile.overwrite(inputData0)
           inferSchemaJob.infer(
             domainName = "json",
             tableName = "jsonarraysimple",
@@ -323,6 +324,33 @@ class InferSchemaJobSpec extends TestHelper {
           )(settings.storageHandler())
           val locationDir = File(targetDir, "json")
           val targetFile = File(locationDir, "ndjson.sl.yml")
+          val discoveredSchema = YamlSerde.deserializeYamlTables(
+            targetFile.contentAsString,
+            targetFile.pathAsString
+          )
+          println(YamlSerde.mapper.writeValueAsString(discoveredSchema))
+        }
+
+        val inputData3 = loadTextFile("/sample/infer-schema/variant.json")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
+        } {
+          sourceFile.overwrite(inputData3)
+          inferSchemaJob.infer(
+            domainName = "json",
+            tableName = "variantjson",
+            pattern = None,
+            comment = None,
+            inputPath = sourceFile.pathAsString,
+            saveDir = targetDir.pathAsString,
+            forceFormat = None,
+            writeMode = WriteMode.OVERWRITE,
+            rowTag = None,
+            clean = false
+          )(settings.storageHandler())
+          val locationDir = File(targetDir, "json")
+          val targetFile = File(locationDir, "variantjson.sl.yml")
           val discoveredSchema = YamlSerde.deserializeYamlTables(
             targetFile.contentAsString,
             targetFile.pathAsString
