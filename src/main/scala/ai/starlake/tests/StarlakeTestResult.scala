@@ -1,14 +1,13 @@
 package ai.starlake.tests
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.utils.Utils
-import org.apache.hadoop.fs.Path
 
-import scala.jdk.CollectionConverters._
 import java.io.File
 import java.nio.file.Files
 import java.time.format.DateTimeFormatter
 import java.util
+import scala.jdk.CollectionConverters._
 import scala.reflect.io.Directory
 
 case class JUnitTestSuite(
