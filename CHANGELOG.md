@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.2.2
+__Bug Fix__:
+- fix usage of technical columns when load table is set to overwrite
+
 # 1.2.1
 
 __Bug Fix__:
