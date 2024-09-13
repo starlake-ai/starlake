@@ -16,7 +16,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery
-import com.google.cloud.bigquery.{Field, StandardSQLTypeName, TableId}
+import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
@@ -109,7 +109,11 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                       source = Left(sourceUri),
                       outputTableId = Some(firstStepTempTable),
                       outputTableDesc = Some("Temporary table created during data ingestion."),
-                      days = Some(1)
+                      days = Some(1),
+                      // force first step to be write append, otherwise write_truncate overwrite the
+                      // created structure with default values, making second step query to fail if it relies on
+                      // technical column such as comet_input_filename.
+                      writeDisposition = JobInfo.WriteDisposition.WRITE_APPEND.name()
                     )
 
                 val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
