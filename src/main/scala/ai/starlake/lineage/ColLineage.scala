@@ -113,10 +113,14 @@ class ColLineage(
         val immediateRelations =
           if (column.scopeTable.nonEmpty) {
             val scopeColumn = Column(column.scopeSchema, column.scopeTable, column.columnName)
-            List(
-              Relation(parentColumn, currentColumn, expression),
-              Relation(scopeColumn, parentColumn, expression)
-            )
+            if (scopeColumn == parentColumn) {
+              List(Relation(parentColumn, currentColumn, expression))
+            } else {
+              List(
+                Relation(parentColumn, currentColumn, expression),
+                Relation(scopeColumn, parentColumn, expression)
+              )
+            }
           } else {
             List(Relation(parentColumn, currentColumn, expression))
           }

@@ -22,6 +22,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
     }
   }
 
+  "Lineage Generation2" should "succeed" in {
+    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+      assert(
+        new Main().run(
+          Array("col-lineage", "--task", "sales_kpi.byseller_kpi1")
+        )
+      )
+    }
+  }
+
   "Lineage" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString) {
       new Main().run(
