@@ -104,6 +104,24 @@ case class StarlakeTestData(
 }
 
 object StarlakeTestData {
+  def createDuckDbSettings(originalSettings: Settings, dbFilename: String): Settings = {
+    originalSettings.copy(appConfig =
+      originalSettings.appConfig.copy(
+        connections = originalSettings.appConfig.connections.map { case (k, v) =>
+          k -> v.copy(
+            `type` = JDBC,
+            quote = Some("\""),
+            separator = Some("."),
+            sparkFormat = None,
+            options = Map(
+              "url"    -> s"jdbc:duckdb:$dbFilename",
+              "driver" -> "org.duckdb.DuckDBDriver"
+            )
+          )
+        }
+      )
+    )
+  }
 
   def getFile(
     load: Boolean,
@@ -520,25 +538,6 @@ object StarlakeTestData {
       untestedTables
     )
     (testResults, coverage)
-  }
-
-  private def createDuckDbSettings(originalSettings: Settings, dbFilename: String): Settings = {
-    originalSettings.copy(appConfig =
-      originalSettings.appConfig.copy(
-        connections = originalSettings.appConfig.connections.map { case (k, v) =>
-          k -> v.copy(
-            `type` = JDBC,
-            quote = Some("\""),
-            separator = Some("."),
-            sparkFormat = None,
-            options = Map(
-              "url"    -> s"jdbc:duckdb:$dbFilename",
-              "driver" -> "org.duckdb.DuckDBDriver"
-            )
-          )
-        }
-      )
-    )
   }
 
   def drop(

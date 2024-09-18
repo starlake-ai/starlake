@@ -51,6 +51,13 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
       }
     }
+    import org.apache.spark.sql.SparkSession
+    val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
+    val builder = SparkSession.builder()
+    if (settings.getWarehouseDir().isEmpty) {
+      config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
+    }
+
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
@@ -60,11 +67,22 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         )
     }
 
-    import org.apache.spark.sql.SparkSession
-    val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
-    val builder = SparkSession.builder().config(config).master(master)
+    // spark.sql.catalogImplementation = in-memory incompatible with delta
 
-    val session = builder.getOrCreate()
+    val session =
+      if (
+        config
+          .getOption("spark.sql.catalogImplementation")
+          .isEmpty &&
+        sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean
+      ) {
+        // We need to avoid in-memory cata log implementation otherwise delta will fail to work
+        // through subsequent spark sessions since the metastore is not present anywhere.
+        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
+        builder.config(config).master(master).enableHiveSupport().getOrCreate()
+      } else
+        builder.config(config).master(master).getOrCreate()
+
     /*
     val catalogs = settings.sparkConfig.getString("sql.catalogKeys").split(",").toList
       if (
@@ -83,5 +101,17 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     logger.debug(session.conf.getAll.mkString("\n"))
 
     session
+  }
+}
+
+object SparkEnv {
+  var sparkEnv: SparkEnv = _
+  def get(name: String, confTransformer: SparkConf => SparkConf = identity)(implicit
+    settings: Settings
+  ): SparkEnv = {
+    if (sparkEnv == null) {
+      sparkEnv = new SparkEnv(name, confTransformer)
+    }
+    sparkEnv
   }
 }
