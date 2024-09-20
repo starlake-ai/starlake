@@ -40,6 +40,38 @@ object GcpUtils {
     }
   }
 
+  def adapt_map_to_gcp_log(log: Map[String, Any]): Map[String, Any] = {
+    // JsonPayload.of doesn't handle all types. Types handle by this method are defined in com.google.cloud.Structs.objectToValue.
+
+    def adapt_values(value: Any): Any = {
+      if (value != null) {
+        value match {
+          case v: Map[_, _] =>
+            // force key to be string and value to any supported type
+            v.iterator.map { case (k, v) =>
+              (if (k != null) k.toString else k.asInstanceOf[String]) -> adapt_values(v)
+            }.toMap
+          case v: Iterable[_]                     => v.map(adapt_values)
+          case _: String | _: Boolean | _: Number => value
+          case _ if value.getClass.isEnum         => value
+          // special handling starts here
+          case v: java.sql.Timestamp => v.getTime
+          case _ =>
+            value.toString // by default, serialize to string instead of throwing an exception
+        }
+      } else {
+        value
+      }
+    }
+    adapt_values(log) match {
+      case result: Map[String @unchecked, Any @unchecked] => result
+      case result =>
+        throw new RuntimeException(
+          s"Expected type Map[String, Any], got ${result.getClass.getSimpleName}"
+        )
+    }
+  }
+
   def sinkToGcpCloudLogging(log: Map[String, Any], typ: String, logName: String)(implicit
     settings: Settings
   ): Unit = {
@@ -50,7 +82,7 @@ object GcpUtils {
       .getService
     try {
       val entry = LogEntry
-        .newBuilder(JsonPayload.of(log.asJava))
+        .newBuilder(JsonPayload.of(adapt_map_to_gcp_log(log).asJava))
         .setSeverity(com.google.cloud.logging.Severity.INFO)
         .addLabel("type", typ)
         .addLabel("app", "starlake")
