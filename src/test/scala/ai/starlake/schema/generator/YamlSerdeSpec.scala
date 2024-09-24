@@ -1282,9 +1282,15 @@ object YamlConfigGenerators {
   implicit val attributeDesc: Arbitrary[AttributeDesc] = Arbitrary {
     for {
       name         <- arbitrary[String]
+      `type`       <- arbitrary[String]
       comment      <- arbitrary[String]
       accessPolicy <- Gen.option(arbitrary[String])
-    } yield AttributeDesc(name = name, comment = comment, accessPolicy = accessPolicy)
+    } yield AttributeDesc(
+      name = name,
+      `type` = `type`,
+      comment = comment,
+      accessPolicy = accessPolicy
+    )
   }
 
   implicit val path: Arbitrary[Path] = Arbitrary {

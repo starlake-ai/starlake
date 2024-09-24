@@ -1304,6 +1304,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Column name"
         },
+        "type": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Column Type"
+        },
         "comment": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Column description"

@@ -76,7 +76,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
           .isEmpty &&
         sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean
       ) {
-        // We need to avoid in-memory cata log implementation otherwise delta will fail to work
+        // We need to avoid in-memory catalog implementation otherwise delta will fail to work
         // through subsequent spark sessions since the metastore is not present anywhere.
         sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
         builder.config(config).master(master).enableHiveSupport().getOrCreate()
