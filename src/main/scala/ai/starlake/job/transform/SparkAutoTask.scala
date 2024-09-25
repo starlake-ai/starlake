@@ -386,7 +386,7 @@ class SparkAutoTask(
     }
   }
 
-  private def createAuditTable(): Boolean = {
+  def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
     val entry = taskDesc._auditTableName.getOrElse(

@@ -68,36 +68,34 @@ class JdbcAutoTask(
           exists
       }
     if (!exists && taskDesc._auditTableName.isDefined)
-      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-        createAuditTable(
-          conn
-        ) // We are sinking to an audit table. We need to create it first in JDBC
-      }
+      createAuditTable() // We are sinking to an audit table. We need to create it first in JDBC
     else
       exists
   }
 
-  def createAuditTable(conn: java.sql.Connection): Boolean = {
+  def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
-    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-    val entry = taskDesc._auditTableName.getOrElse(
-      throw new Exception(
-        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+      val entry = taskDesc._auditTableName.getOrElse(
+        throw new Exception(
+          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+        )
       )
-    )
-    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
-    JdbcDbUtils.createSchema(conn, fullDomainName)
+      val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+      JdbcDbUtils.createSchema(conn, fullDomainName)
 
-    val script = scriptTemplate.richFormat(
-      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
-      Map.empty
-    )
-    JdbcDbUtils.executeUpdate(script, conn) match {
-      case Success(_) =>
-        true
-      case Failure(e) =>
-        logger.error(s"Error creating table $fullTableName", e)
-        throw e
+      val script = scriptTemplate.richFormat(
+        Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
+        Map.empty
+      )
+      JdbcDbUtils.executeUpdate(script, conn) match {
+        case Success(_) =>
+          true
+        case Failure(e) =>
+          logger.error(s"Error creating table $fullTableName", e)
+          throw e
+      }
     }
   }
 

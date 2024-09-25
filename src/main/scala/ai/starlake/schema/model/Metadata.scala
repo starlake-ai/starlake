@@ -173,9 +173,10 @@ case class Metadata(
     val writeStrategyErrors =
       writeStrategy.map(_.checkValidity(domainName, table)).getOrElse(Right(true))
     // merge all errors above
-    val errors = List(sinkErrors, freshnessErrors, scheduleErrors, loaderErrors).collect {
-      case Left(err) => err
-    }.flatten
+    val errors =
+      List(sinkErrors, freshnessErrors, scheduleErrors, loaderErrors, writeStrategyErrors).collect {
+        case Left(err) => err
+      }.flatten
 
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
