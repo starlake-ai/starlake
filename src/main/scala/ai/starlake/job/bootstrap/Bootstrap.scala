@@ -82,6 +82,7 @@ object Bootstrap extends StrictLogging {
     val template = askTemplate(inputTemplate)
     val metadataFolder = File(DatasetArea.metadata.toString)
     metadataFolder.createDirectories()
+    File(metadataFolder.parent, "datasets").createDirectories()
     if (metadataFolder.collectChildren(!_.isDirectory).nonEmpty) {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
