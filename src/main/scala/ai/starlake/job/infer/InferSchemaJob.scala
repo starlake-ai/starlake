@@ -25,11 +25,11 @@ import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
-import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.json.JSONArray
 
 import java.io.BufferedReader
 import java.util.regex.Pattern
