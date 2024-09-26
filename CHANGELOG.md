@@ -5,6 +5,7 @@
 __Bug Fix__:
 - fix usage of technical columns when load table is set to overwrite
 - fix gcp log serialization
+- fix tree validation
 
 # 1.2.1
 
