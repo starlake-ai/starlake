@@ -760,7 +760,8 @@ object Schema {
           )
         case _: DecimalType =>
           Attribute(obj.name, "decimal", required = Some(!obj.nullable), comment = obj.getComment())
-        case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
+        case ArrayType(eltType, containsNull) =>
+          buildAttributeTree(obj.copy(dataType = eltType)).copy(array = Some(true))
         case x: StructType =>
           Attribute(
             obj.name,
