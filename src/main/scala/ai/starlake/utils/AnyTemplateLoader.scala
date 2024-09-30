@@ -5,7 +5,92 @@ import better.files.Resource
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
+import scala.io.Source
 import scala.util.{Failure, Success, Try}
+
+case class DagTemplateInfo(
+  fullName: String,
+  dagType: String,
+  orchestrator: String,
+  template: String,
+  runner: String,
+  options: Map[String, String] // key => description
+)
+
+object DagTemplateInfo {
+  def fromFile(
+    pythonFile: Path
+  )(implicit settings: Settings): DagTemplateInfo = {
+    val name = pythonFile.getName
+    val dagType = pythonFile.getParent.getName
+    assert(
+      dagType == "load" || dagType == "transform",
+      s"Invalid dag type: ${dagType}, only 'load' and 'transform' are supported."
+    )
+    val parts = name.split("__")
+    assert(parts.length == 3, s"Invalid dag template name: ${name}")
+    val orchestrator = parts(0)
+    val template = parts(1)
+    val runner = parts(2).stripSuffix(".py.j2")
+    val options =
+      settings
+        .storageHandler()
+        .read(pythonFile)
+        .split("\n")
+        .filter(_.startsWith("# - "))
+        .flatMap { line =>
+          val parts = line.stripPrefix("# - ").split(":")
+          val option =
+            if (parts.length != 2 || !Set("[OPTIONAL]", "[REQUIRED]").exists(parts(1).contains)) {
+              None
+            } else {
+              Some(parts(0).trim -> parts(1).trim)
+            }
+          option
+        }
+        .toMap
+
+    val fullName = orchestrator + "__" + template + "__" + runner
+    DagTemplateInfo(fullName, dagType, orchestrator, template, runner, options)
+  }
+  def fromResource(
+    resourceName: String
+  )(implicit settings: Settings): DagTemplateInfo = {
+    val name = resourceName.substring(resourceName.lastIndexOf("/") + 1)
+    val parent = resourceName.substring(0, resourceName.lastIndexOf("/"))
+    val dagType = parent.substring(parent.lastIndexOf("/") + 1)
+    assert(
+      dagType == "load" || dagType == "transform",
+      s"Invalid dag type: ${dagType}, only 'load' and 'transform' are supported."
+    )
+    val parts = name.split("__")
+    assert(parts.length == 3, s"Invalid dag template name: ${name}")
+    val orchestrator = parts(0)
+    val template = parts(1)
+    val runner = parts(2).stripSuffix(".py.j2")
+    val source = Source.fromResource(resourceName)
+    if (source == null)
+      throw new Exception(s"Resource $resourceName not found in assembly")
+    val options =
+      source
+        .getLines()
+        .filter(_.startsWith("# - "))
+        .flatMap { line =>
+          val parts = line.stripPrefix("# - ").split(":")
+          val option =
+            if (parts.length != 2 || !Set("[OPTIONAL]", "[REQUIRED]").exists(parts(1).contains)) {
+              None
+            } else {
+              Some(parts(0).trim -> parts(1).trim)
+            }
+          option
+        }
+        .toMap
+
+    val fullName = orchestrator + "__" + template + "__" + runner
+    DagTemplateInfo(fullName, dagType, orchestrator, template, runner, options)
+  }
+}
 
 abstract class AnyTemplateLoader extends LazyLogging {
 
@@ -19,6 +104,79 @@ abstract class AnyTemplateLoader extends LazyLogging {
       RESOURCE_TEMPLATE_FOLDER
     )
   }
+
+  private def externalTemplates()(
+    settings: Settings,
+    templateType: String
+  ): List[DagTemplateInfo] = {
+    val appPath =
+      new Path(EXTERNAL_TEMPLATE_BASE_PATH(settings), TEMPLATE_FOLDER + "/" + templateType)
+    val paths =
+      if (settings.storageHandler().exists(appPath)) {
+        settings
+          .storageHandler()
+          .list(path = appPath, recursive = false)
+          .filter { p =>
+            val name = p.path.getName
+            !name.startsWith("_") && name.endsWith(".j2")
+          }
+          .map(_.path)
+      } else {
+        Nil
+      }
+    val templates =
+      paths.map { p =>
+        DagTemplateInfo.fromFile(p)(settings)
+      }
+    templates
+  }
+
+  private def internalTemplates()(
+    settings: Settings,
+    templateType: String
+  ): List[DagTemplateInfo] = {
+    val resourceNames =
+      JarUtil
+        .getResourceFiles(s"${RESOURCE_TEMPLATE_FOLDER}/${templateType}")
+        .filter { p =>
+          val name = p.substring(p.lastIndexOf("/") + 1)
+          !name.startsWith("_") && name.endsWith(".j2")
+        }
+    val templates =
+      resourceNames.map { res =>
+        DagTemplateInfo.fromResource(res)(settings)
+      }
+    templates
+  }
+
+  def internalLoadTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    internalTemplates()(settings, "load")
+  }
+
+  def internalTransformTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    internalTemplates()(settings, "transform")
+  }
+
+  def externalLoadTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    externalTemplates()(settings, "load")
+  }
+
+  def externalTransformTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    externalTemplates()(settings, "transform")
+  }
+
+  def allLoadTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    val all = externalLoadTemplates() ++ internalLoadTemplates()
+    val distinct = all.distinctBy(_.fullName)
+    distinct
+  }
+
+  def allTransformTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
+    val all = externalTransformTemplates() ++ internalTransformTemplates()
+    val distinct = all.distinctBy(_.template)
+    distinct
+  }
+
   def loadTemplate(templatePathname: String)(implicit settings: Settings): String = {
     loadTemplateFromAbsolutePath(templatePathname)
       .orElse(loadTemplateFromAppPath(templatePathname))
