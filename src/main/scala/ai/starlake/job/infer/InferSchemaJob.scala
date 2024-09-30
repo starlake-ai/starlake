@@ -22,7 +22,7 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Format.{DSV, JSON_FLAT}
+import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
 import com.typesafe.config.ConfigFactory
