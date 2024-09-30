@@ -53,6 +53,17 @@ if load_dependencies.lower() != 'true' :
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
+dependencies: set = set()
+
+def load_task_dependencies(task):
+    if 'children' in task:
+        for subtask in task['children']:
+            dependencies.add(subtask['data']['name'])
+            load_task_dependencies(subtask)
+
+for task in task_deps:
+    load_task_dependencies(task)
+
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
          schedule=_cron if _cron else schedule,
@@ -115,7 +126,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
             airflow_task = create_task(airflow_task_id=airflow_task_id, task_name=task_name, task_type=task_type)
             return airflow_task
 
-    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps]
+    all_transform_tasks = [generate_task_group_for_task(task) for task in task_deps if task['data']['name'] not in dependencies]
 
     if pre_tasks:
         start >> pre_tasks >> all_transform_tasks
