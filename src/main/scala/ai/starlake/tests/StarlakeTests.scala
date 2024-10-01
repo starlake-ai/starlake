@@ -4,8 +4,9 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
-import ai.starlake.schema.model.DDLLeaf
+import ai.starlake.schema.model.{DDLLeaf, EnvDesc}
 import ai.starlake.utils.Utils
+import org.apache.hadoop.fs.Path
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -104,6 +105,24 @@ case class StarlakeTestData(
 }
 
 object StarlakeTestData {
+  def createDuckDbSettings(originalSettings: Settings, dbFilename: String): Settings = {
+    originalSettings.copy(appConfig =
+      originalSettings.appConfig.copy(
+        connections = originalSettings.appConfig.connections.map { case (k, v) =>
+          k -> v.copy(
+            `type` = JDBC,
+            quote = Some("\""),
+            separator = Some("."),
+            sparkFormat = None,
+            options = Map(
+              "url"    -> s"jdbc:duckdb:$dbFilename",
+              "driver" -> "org.duckdb.DuckDBDriver"
+            )
+          )
+        }
+      )
+    )
+  }
 
   def getFile(
     load: Boolean,
@@ -325,7 +344,18 @@ object StarlakeTestData {
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
-      val schemaHandler = settings.schemaHandler()
+      val testEnvPath =
+        new Path(
+          DatasetArea.tests(settings),
+          s"transform/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
+        )
+      val storage = settings.storageHandler()
+      val testEnvVars =
+        EnvDesc.loadEnv(testEnvPath)(storage)
+          .map(_.env)
+          .getOrElse(Map.empty)
+
+      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
 
       new Main().run(
         params,
@@ -382,7 +412,18 @@ object StarlakeTestData {
         ) ++
         config.toArgs
 
-      val schemaHandler = settings.schemaHandler()
+      val testEnvPath =
+        new Path(
+          DatasetArea.tests(settings),
+          s"load/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
+        )
+      val storage = settings.storageHandler()
+      val testEnvVars =
+        EnvDesc.loadEnv(testEnvPath)(storage)
+          .map(_.env)
+          .getOrElse(Map.empty)
+
+      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
       new Main().run(
         params,
         schemaHandler
@@ -520,25 +561,6 @@ object StarlakeTestData {
       untestedTables
     )
     (testResults, coverage)
-  }
-
-  private def createDuckDbSettings(originalSettings: Settings, dbFilename: String): Settings = {
-    originalSettings.copy(appConfig =
-      originalSettings.appConfig.copy(
-        connections = originalSettings.appConfig.connections.map { case (k, v) =>
-          k -> v.copy(
-            `type` = JDBC,
-            quote = Some("\""),
-            separator = Some("."),
-            sparkFormat = None,
-            options = Map(
-              "url"    -> s"jdbc:duckdb:$dbFilename",
-              "driver" -> "org.duckdb.DuckDBDriver"
-            )
-          )
-        }
-      )
-    )
   }
 
   def drop(

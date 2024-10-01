@@ -160,7 +160,7 @@ trait SparkJob extends JobBase {
     thisConf
   }
 
-  private lazy val sparkEnv: SparkEnv = new SparkEnv(name, withExtraSparkConf)
+  private lazy val sparkEnv: SparkEnv = SparkEnv.get(name, withExtraSparkConf)
 
   def getTableLocation(domain: String, schema: String): String = {
     getTableLocation(s"$domain.$schema")
