@@ -63,7 +63,8 @@ object JdbcDbUtils extends LazyLogging {
           case (k, v) =>
             properties.setProperty(k, v)
         }
-        DriverManager.getConnection(url, properties)
+        val sqlConn = DriverManager.getConnection(url, properties)
+        sqlConn
       } else {
         hikariPools
           .getOrElseUpdate(
@@ -134,7 +135,11 @@ object JdbcDbUtils extends LazyLogging {
   def readOnlyConnection(connection: Connection): Connection = {
     val options =
       if (connection.isDuckDb()) {
-        connection.options.updated("duckdb.read_only", "true").updated("access_mode", "READ_ONLY")
+        connection.options
+          .updated("duckdb.read_only", "true")
+          .updated("access_mode", "READ_ONLY")
+          .updated("enable_external_access", "false")
+
       } else {
         connection.options
       }

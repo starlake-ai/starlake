@@ -14,8 +14,44 @@ case class DagTemplateInfo(
   orchestrator: String,
   template: String,
   runner: String,
-  options: Map[String, String] // key => description
+  options: List[DagTemplateOption]
 )
+
+case class DagTemplateOption(
+  key: String,
+  description: String,
+  required: Boolean
+)
+
+object DagTemplateOption {
+  def fromLine(line: String): Option[DagTemplateOption] = {
+    if (line.startsWith("# - ")) {
+      val parts = line.stripPrefix("# - ").split(":")
+      val option =
+        if (parts.length != 2) {
+          None
+        } else if (parts(1).contains("[OPTIONAL]")) {
+          val option = DagTemplateOption(
+            key = parts(0).trim,
+            description = parts(1).trim,
+            required = false
+          )
+          Some(option)
+        } else if (parts(1).contains("[REQUIRED]")) {
+          val option = DagTemplateOption(
+            key = parts(0).trim,
+            description = parts(1).trim,
+            required = true
+          )
+          Some(option)
+        } else {
+          None
+        }
+      option
+    } else
+      None
+  }
+}
 
 object DagTemplateInfo {
   def fromFile(
@@ -37,25 +73,15 @@ object DagTemplateInfo {
         .storageHandler()
         .read(pythonFile)
         .split("\n")
-        .filter(_.startsWith("# - "))
-        .flatMap { line =>
-          val parts = line.stripPrefix("# - ").split(":")
-          val option =
-            if (parts.length != 2 || !Set("[OPTIONAL]", "[REQUIRED]").exists(parts(1).contains)) {
-              None
-            } else {
-              Some(parts(0).trim -> parts(1).trim)
-            }
-          option
-        }
-        .toMap
+        .flatMap(DagTemplateOption.fromLine)
+        .toList
 
     val fullName = orchestrator + "__" + template + "__" + runner
     DagTemplateInfo(fullName, dagType, orchestrator, template, runner, options)
   }
   def fromResource(
     resourceName: String
-  )(implicit settings: Settings): DagTemplateInfo = {
+  ): DagTemplateInfo = {
     val name = resourceName.substring(resourceName.lastIndexOf("/") + 1)
     val parent = resourceName.substring(0, resourceName.lastIndexOf("/"))
     val dagType = parent.substring(parent.lastIndexOf("/") + 1)
@@ -74,18 +100,8 @@ object DagTemplateInfo {
     val options =
       source
         .getLines()
-        .filter(_.startsWith("# - "))
-        .flatMap { line =>
-          val parts = line.stripPrefix("# - ").split(":")
-          val option =
-            if (parts.length != 2 || !Set("[OPTIONAL]", "[REQUIRED]").exists(parts(1).contains)) {
-              None
-            } else {
-              Some(parts(0).trim -> parts(1).trim)
-            }
-          option
-        }
-        .toMap
+        .flatMap(DagTemplateOption.fromLine)
+        .toList
 
     val fullName = orchestrator + "__" + template + "__" + runner
     DagTemplateInfo(fullName, dagType, orchestrator, template, runner, options)
@@ -144,7 +160,7 @@ abstract class AnyTemplateLoader extends LazyLogging {
         }
     val templates =
       resourceNames.map { res =>
-        DagTemplateInfo.fromResource(res)(settings)
+        DagTemplateInfo.fromResource(res)
       }
     templates
   }

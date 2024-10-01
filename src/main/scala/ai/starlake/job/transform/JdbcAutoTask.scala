@@ -8,6 +8,7 @@ import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, Write
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -142,9 +143,16 @@ class JdbcAutoTask(
           val sql = taskDesc.getSql()
           Utils.parseJinja(sql, allVars)
         }
+      val sinkOptions =
+        if (sinkConnection.isDuckDb()) {
+          sinkConnection.options.updated("enable_external_access", "false")
+        } else {
+          sinkConnection.options
+        }
+
       interactive match {
         case Some(_) =>
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
             runInteractive(conn, mainSql)
           }
         case None =>
@@ -155,7 +163,7 @@ class JdbcAutoTask(
             )
           df match {
             case Some(loadedDF) =>
-              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -176,22 +184,35 @@ class JdbcAutoTask(
                     throw e
                 }
               }
+              val tablePath = new Path(s"${settings.appConfig.datasets}/${fullTableName}")
 
-              val format = if (sinkConnection.isDuckDb()) "starlake-duckdb" else "jdbc"
-              val dfToWrite =
+              if (settings.storageHandler().exists(tablePath)) {
+                settings.storageHandler().delete(tablePath)
+              }
+              if (sinkConnection.isDuckDb()) {
                 loadedDF.write
-                  .format(sinkConnection.sparkDatasource().getOrElse(format))
+                  .format("parquet")
+                  .mode(SaveMode.Overwrite) // truncate done above if requested
+                  .save(tablePath.toString)
+                JdbcDbUtils.withJDBCConnection(
+                  sinkConnection.options.updated("enable_external_access", "true")
+                ) { conn =>
+                  val sql =
+                    s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
+                  JdbcDbUtils.executeUpdate(sql, conn)
+                }
+                settings.storageHandler().delete(tablePath)
+              } else {
+                loadedDF.write
+                  .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
                   .option("dbtable", fullTableName)
                   .mode(SaveMode.Append) // truncate done above if requested
                   .options(sinkConnection.options)
-
-              if (sinkConnection.isDuckDb())
-                dfToWrite.option("numPartitions", "1").save()
-              else
-                dfToWrite.save()
+                  .save()
+              }
 
             case None =>
-              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -208,7 +229,7 @@ class JdbcAutoTask(
               }
           }
 
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
             Try {
               if (!test) applyJdbcAcl(conn, forceApply = true)
               runSqls(conn, postSql, "Post")
