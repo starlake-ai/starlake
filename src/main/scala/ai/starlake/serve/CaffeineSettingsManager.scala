@@ -19,6 +19,7 @@ class CaffeineSettingsManager extends SettingsManager {
   }
 
   override def getUpdatedSettings(
+    tenant: String,
     root: String, // contains project id and userid
     env: Option[String],
     refresh: Boolean
@@ -31,17 +32,20 @@ class CaffeineSettingsManager extends SettingsManager {
       cache.invalidate(sessionId)
     }
 
-    Option(cache.getIfPresent(sessionId)) match {
-      case Some(settings) =>
-        (settings, false)
-      case None =>
-        val updatedSession = {
-          println("new settings")
-          Settings(Settings.referenceConfig, env, Some(root))
-        }
-        cache.put(sessionId, updatedSession)
-        (updatedSession, true)
-    }
+    val (settings, fromCache) =
+      Option(cache.getIfPresent(sessionId)) match {
+        case Some(settings) =>
+          (settings, false)
+        case None =>
+          val updatedSession = {
+            println("new settings")
+            Settings(Settings.referenceConfig, env, Some(root))
+          }
+          cache.put(sessionId, updatedSession)
+          (updatedSession, true)
+      }
+    val apiConfigWithTenant = settings.appConfig.copy(tenant = tenant)
+    (settings.copy(appConfig = apiConfigWithTenant), fromCache)
   }
 
   override def set(
