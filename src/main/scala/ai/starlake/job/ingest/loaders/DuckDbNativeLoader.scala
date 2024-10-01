@@ -195,6 +195,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
     // Create or update table schema first
     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      val stmtExternal = conn.createStatement()
+      stmtExternal.close()
       val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
       JdbcDbUtils.createSchema(conn, domain)
       strategy.getEffectiveType() match {

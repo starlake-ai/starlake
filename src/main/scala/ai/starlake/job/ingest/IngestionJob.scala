@@ -346,12 +346,6 @@ trait IngestionJob extends SparkJob {
     val engine = settings.appConfig.jdbcEngines
       .getOrElse(engineName.toString, throw new Exception(s"Unknown engine $engineName"))
 
-    if (schema.isDeep() && !engine.supportsJson.getOrElse(false)) {
-      throw new Exception(
-        s"Engine $engineName does not support deep schema. Please load using a different engine"
-      )
-    }
-
     // Run selected ingestion engine
     val jobResult = selectLoader() match {
       case "bigquery" =>

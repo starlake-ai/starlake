@@ -712,20 +712,33 @@ class SparkAutoTask(
           )
         }
 
-        val format = if (sinkConnection.isDuckDb()) "starlake-duckdb" else "jdbc"
-        val dfToWrite =
-          loadedDF.write
-            .format(sinkConnection.sparkDatasource().getOrElse(format))
-            .option("dbtable", firstStepTempTable)
-            .mode(
-              SaveMode.Append
-            ) // Because Overwrite loose the schema and require us to add quotes
-            .options(sinkConnectionRefOptions)
+        val tablePath = new Path(s"${settings.appConfig.datasets}/${fullTableName}")
 
-        if (sinkConnection.isDuckDb())
-          dfToWrite.option("numPartitions", "1").save()
-        else
-          dfToWrite.save()
+        if (settings.storageHandler().exists(tablePath)) {
+          settings.storageHandler().delete(tablePath)
+        }
+
+        if (sinkConnection.isDuckDb()) {
+          loadedDF.write
+            .format("parquet")
+            .mode(SaveMode.Overwrite) // truncate done above if requested
+            .save(tablePath.toString)
+          JdbcDbUtils.withJDBCConnection(
+            sinkConnection.options.updated("enable_external_access", "true")
+          ) { conn =>
+            val sql =
+              s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
+            JdbcDbUtils.executeUpdate(sql, conn)
+          }
+          settings.storageHandler().delete(tablePath)
+        } else {
+          loadedDF.write
+            .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
+            .option("dbtable", fullTableName)
+            .mode(SaveMode.Append) // truncate done above if requested
+            .options(sinkConnection.options)
+            .save()
+        }
 
         logger.info(
           s"JDBC save done to table $firstStepTempTable"
