@@ -80,45 +80,49 @@ object JsonIngestionUtil {
         // We never reject the input here.
         Nil
       case (_: StringType, _: StringType) => Nil
-      case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
-        val fields1 = unsortedFields1.sortBy(_.name)
-        val fields2 = unsortedFields2.sortBy(_.name)
+      case (StructType(unsortedSchemaFields), StructType(unsortedDatasetFields)) =>
+        val structContext = context :+ schemaAttrName
+        val schemaFields = unsortedSchemaFields.sortBy(_.name)
+        val datasetFields = unsortedDatasetFields.sortBy(_.name)
         val errorList: mutable.ListBuffer[String] = mutable.ListBuffer.empty
-        var f1Idx = 0
-        var f2Idx = 0
-        var typeComp = true
-        while (f1Idx < fields1.length && f2Idx < fields2.length && typeComp) {
-          val schemaField = fields1(f1Idx)
-          val messageField = fields2(f2Idx)
-          val nameComp = schemaField.name.compareTo(messageField.name)
-          if (nameComp < 0 && schemaField.nullable) {
+        var schemaFieldsIdx = 0
+        var datasetFieldsIdx = 0
+        while (schemaFieldsIdx < schemaFields.length && datasetFieldsIdx < datasetFields.length) {
+          val schemaField = schemaFields(schemaFieldsIdx)
+          val datasetField = datasetFields(datasetFieldsIdx)
+          val nameComp = schemaField.name.compareTo(datasetField.name)
+          if (nameComp != 0 && schemaField.nullable) {
             // Field exists in schema  and is not present in the input record
             // go get the next field in the schema
-            f1Idx += 1
+            if (nameComp > 0) {
+              // schema fields is higher alphabetically speaking so we need to increase dataset field index
+              datasetFieldsIdx += 1
+              addError(structContext, errorList, None, datasetField)
+            } else {
+              schemaFieldsIdx += 1
+            }
           } else if (nameComp == 0) {
             // field is present in the schema and the input record : check that types are equal
             val f1Type = schemaField.dataType
-            val f2Type = messageField.dataType
+            val f2Type = datasetField.dataType
             errorList ++= compareTypes(
-              context :+ schemaAttrName,
+              structContext,
               (schemaField.name, f1Type, schemaField.nullable),
-              (messageField.name, f2Type, messageField.nullable)
+              (datasetField.name, f2Type, datasetField.nullable)
             )
-            f1Idx += 1
-            f2Idx += 1
-            typeComp = typeComp && errorList.isEmpty
+            schemaFieldsIdx += 1
+            datasetFieldsIdx += 1
           } else {
             // Required field is present in the schema but not in the message.
-            addError(context, errorList, Some(schemaField), messageField)
-            typeComp = false
+            addError(structContext, errorList, Some(schemaField), datasetField)
           }
         }
-        if (f1Idx == fields1.length) {
+        if (schemaFieldsIdx == schemaFields.length) {
           // Field is present in the message but not in the schema.
-          while (f2Idx < fields2.length) {
-            val f2 = fields2(f2Idx)
-            addError(context, errorList, None, f2)
-            f2Idx += 1
+          while (datasetFieldsIdx < datasetFields.length) {
+            val f2 = datasetFields(datasetFieldsIdx)
+            addError(structContext, errorList, None, f2)
+            datasetFieldsIdx += 1
           }
         }
 

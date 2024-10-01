@@ -4,6 +4,10 @@
 # 1.2.2
 __Bug Fix__:
 - fix usage of technical columns when load table is set to overwrite
+- fix gcp log serialization
+- fix tree validation
+- fix intermediate format to orc rules
+- fix conversion from spark schema to starlake schema
 
 # 1.2.1
 

@@ -1,7 +1,13 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{AttributeDesc, ClusteringInfo, FieldPartitionInfo, TableInfo}
+import ai.starlake.schema.model.{
+  AttributeDesc,
+  ClusteringInfo,
+  FieldPartitionInfo,
+  Schema,
+  TableInfo
+}
 import ai.starlake.utils._
 import com.google.cloud.bigquery.{JobInfo, Schema => BQSchema, StandardTableDefinition}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -9,6 +15,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCrede
 import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
@@ -168,15 +175,24 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} which contained ${stdTableDefinition.getNumRows} rows"
       )
 
-      val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
+      lazy val containsArrayOfRecords = {
+        val maybeStarlakeSchema = cliConfig.starlakeSchema
+          .orElse(
+            cliConfig.source.toOption.map(df =>
+              Schema
+                .fromSparkSchema("df_schema", StructField("ignore", df.schema))
+            )
+          )
+        maybeStarlakeSchema.exists(_.containsArrayOfRecords())
+      }
       val intermediateFormatSettings = settings.appConfig.internal.map(_.intermediateBigqueryFormat)
-      val defaultIntermediateFormat = intermediateFormatSettings.getOrElse("parquet")
+      val pretendingIntermediateFormat = intermediateFormatSettings.getOrElse("parquet")
 
       val intermediateFormat =
-        if (containsArrayOfRecords && defaultIntermediateFormat == "parquet")
+        if (pretendingIntermediateFormat == "parquet" && containsArrayOfRecords)
           "orc"
         else
-          defaultIntermediateFormat
+          pretendingIntermediateFormat
 
       val output: Try[Long] =
         cliConfig.writeDisposition match {
