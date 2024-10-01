@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
-import ai.starlake.schema.model.DDLLeaf
+import ai.starlake.schema.model.{DDLLeaf, Env}
 import ai.starlake.utils.Utils
 
 import java.io.File
@@ -343,7 +343,27 @@ object StarlakeTestData {
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
-      val schemaHandler = settings.schemaHandler()
+      val testEnvPath =
+        new Path(
+          DatasetArea.tests(settings),
+          s"load/${test.domain}/${test.table}/${test.name}/_env.sl.yml"
+        )
+      val storage = settings.storageHandler()
+      val testEnv: Option[Env] =
+        if (storage.exists(testEnvPath)) {
+          Option(
+            new SchemaHandler(storage)(settings).mapper
+              .readValue(storage.read(testEnvPath), classOf[Env])
+          )
+        } else {
+          None
+        }
+      val testEnvVars =
+        testEnv
+          .map(_.env)
+          .getOrElse(Map.empty)
+
+      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
 
       new Main().run(
         params,
@@ -400,7 +420,27 @@ object StarlakeTestData {
         ) ++
         config.toArgs
 
-      val schemaHandler = settings.schemaHandler()
+      val testEnvPath =
+        new Path(
+          DatasetArea.tests(settings),
+          s"load/${test.domain}/${test.table}/${test.name}/_env.sl.yml"
+        )
+      val storage = settings.storageHandler()
+      val testEnv: Option[Env] =
+        if (storage.exists(testEnvPath)) {
+          Option(
+            new SchemaHandler(storage)(settings).mapper
+              .readValue(storage.read(testEnvPath), classOf[Env])
+          )
+        } else {
+          None
+        }
+      val testEnvVars =
+        testEnv
+          .map(_.env)
+          .getOrElse(Map.empty)
+
+      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
       new Main().run(
         params,
         schemaHandler
