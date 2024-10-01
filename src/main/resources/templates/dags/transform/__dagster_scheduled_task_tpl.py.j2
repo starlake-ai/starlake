@@ -26,6 +26,17 @@ assets: Set[str] = set()
 
 cronAssets: dict = dict()
 
+all_dependencies: set = set()
+
+def load_task_dependencies(task):
+    if 'children' in task:
+        for subtask in task['children']:
+            all_dependencies.add(subtask['data']['name'])
+            load_task_dependencies(subtask)
+
+for task in task_deps:
+    load_task_dependencies(task)
+
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
 if not load_dependencies:
     _filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
@@ -164,9 +175,10 @@ def generate_job():
     ins = dict()
     end_dependencies = dict()
     for task in task_deps:
-        node = generate_node_for_task(task, dependencies, nodes, snodes)
-        ins[node._name] = In(Nothing)
-        end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
+        if task['data']['name'] not in all_dependencies:
+            node = generate_node_for_task(task, dependencies, nodes, snodes)
+            ins[node._name] = In(Nothing)
+            end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
 
     asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
     # we don't want to republish all scheduled assets if there is none unscheduled assets, otherwise the job will be triggered indefinitely

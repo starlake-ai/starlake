@@ -11,6 +11,7 @@ trait SettingsManager {
     root +
     "," + env.getOrElse("null")
   def getUpdatedSettings(
+    tenant: String,
     root: String,
     env: Option[String],
     refresh: Boolean = false
