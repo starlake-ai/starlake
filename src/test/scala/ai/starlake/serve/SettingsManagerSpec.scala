@@ -14,6 +14,7 @@ class SettingsManagerSpec extends TestHelper {
       val oldDatabase = settings.appConfig.database
       val (settings2, isNew) =
         CaffeineSettingsManager.getUpdatedSettings(
+          "",
           "/tmp/my/settings/home",
           Some("test"),
           false
@@ -22,6 +23,7 @@ class SettingsManagerSpec extends TestHelper {
       settings2.appConfig.root shouldBe "/tmp/my/settings/home"
 
       CaffeineSettingsManager.getUpdatedSettings(
+        "",
         oldRoot,
         Option(oldEnv),
         false
