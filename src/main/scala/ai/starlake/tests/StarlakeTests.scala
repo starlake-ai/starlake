@@ -4,8 +4,9 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
-import ai.starlake.schema.model.{DDLLeaf, Env}
+import ai.starlake.schema.model.{DDLLeaf, EnvDesc}
 import ai.starlake.utils.Utils
+import org.apache.hadoop.fs.Path
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -346,20 +347,11 @@ object StarlakeTestData {
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"load/${test.domain}/${test.table}/${test.name}/_env.sl.yml"
+          s"transform/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
         )
       val storage = settings.storageHandler()
-      val testEnv: Option[Env] =
-        if (storage.exists(testEnvPath)) {
-          Option(
-            new SchemaHandler(storage)(settings).mapper
-              .readValue(storage.read(testEnvPath), classOf[Env])
-          )
-        } else {
-          None
-        }
       val testEnvVars =
-        testEnv
+        EnvDesc.loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -423,20 +415,11 @@ object StarlakeTestData {
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"load/${test.domain}/${test.table}/${test.name}/_env.sl.yml"
+          s"load/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
         )
       val storage = settings.storageHandler()
-      val testEnv: Option[Env] =
-        if (storage.exists(testEnvPath)) {
-          Option(
-            new SchemaHandler(storage)(settings).mapper
-              .readValue(storage.read(testEnvPath), classOf[Env])
-          )
-        } else {
-          None
-        }
       val testEnvVars =
-        testEnv
+        EnvDesc.loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
