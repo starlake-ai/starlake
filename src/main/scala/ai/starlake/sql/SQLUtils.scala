@@ -5,6 +5,7 @@ import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model._
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Utils
+import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
 import net.sf.jsqlparser.statement.select.{
@@ -85,22 +86,22 @@ object SQLUtils extends StrictLogging {
         selectItem.getASTNode.jjtGetLastToken().image
       }.toList
     }
-    val selectVisitorAdapter = new SelectVisitorAdapter() {
-      override def visit(plainSelect: PlainSelect): Unit = {
+    val selectVisitorAdapter = new SelectVisitorAdapter[Any]() {
+      override def visit[T](plainSelect: PlainSelect, context: T): Any = {
         extractColumnsFromPlainSelect(plainSelect)
       }
-      override def visit(setOpList: SetOperationList): Unit = {
-        val plainSelect = setOpList.getSelect(0).getPlainSelect()
+      override def visit[T](setOpList: SetOperationList, context: T): Any = {
+        val plainSelect = setOpList.getSelect(0).getPlainSelect
         extractColumnsFromPlainSelect(plainSelect)
       }
     }
-    val statementVisitor = new StatementVisitorAdapter() {
-      override def visit(select: Select): Unit = {
-        select.accept(selectVisitorAdapter)
+    val statementVisitor = new StatementVisitorAdapter[Any]() {
+      override def visit[T](select: Select, context: T): Any = {
+        select.accept(selectVisitorAdapter, null)
       }
     }
     val select = jsqlParse(sql)
-    select.accept(statementVisitor)
+    select.accept(statementVisitor, null)
     result
   }
 
@@ -113,18 +114,19 @@ object SQLUtils extends StrictLogging {
 
   def extractCTENames(sql: String): List[String] = {
     var result: ListBuffer[String] = ListBuffer()
-    val statementVisitor = new StatementVisitorAdapter() {
-      override def visit(select: Select): Unit = {
+    val statementVisitor = new StatementVisitorAdapter[Any]() {
+      override def visit[T](select: Select, context: T): Any = {
         val ctes = Option(select.getWithItemsList()).map(_.asScala).getOrElse(Nil)
         ctes.foreach { withItem =>
           val alias = Option(withItem.getAlias).map(_.getName).getOrElse("")
           if (alias.nonEmpty)
             result += alias
         }
+        null
       }
     }
     val select = jsqlParse(sql)
-    select.accept(statementVisitor)
+    select.accept(statementVisitor, null)
     result.toList
   }
 
@@ -138,13 +140,13 @@ object SQLUtils extends StrictLogging {
         t.withTimeOut(60 * 1000)
       }
     }
-    CCJSqlParserUtil.parse(parseable, features)
-  }
-
-  def getColumnNames(sql: String): String = {
-    val columnNames = SQLUtils.extractColumnNames(sql)
-    val columnNamesString = columnNames.mkString("(", ",", ")")
-    columnNamesString
+    try {
+      CCJSqlParserUtil.parse(parseable, features)
+    } catch {
+      case exception: Exception =>
+        logger.error(s"Failed to parse $sql")
+        throw exception
+    }
   }
 
   def substituteRefInSQLSelect(
@@ -156,7 +158,7 @@ object SQLUtils extends StrictLogging {
   )(implicit
     settings: Settings
   ): String = {
-    logger.info(s"Source SQL: $sql")
+    logger.debug(s"Source SQL: $sql")
     val fromResolved =
       buildSingleSQLQueryForRegex(
         sql,
@@ -167,7 +169,7 @@ object SQLUtils extends StrictLogging {
         "FROM",
         connection
       )
-    logger.info(s"fromResolved SQL: $fromResolved")
+    logger.debug(s"fromResolved SQL: $fromResolved")
     val joinAndFromResolved =
       buildSingleSQLQueryForRegex(
         fromResolved,
@@ -178,7 +180,7 @@ object SQLUtils extends StrictLogging {
         "JOIN",
         connection
       )
-    logger.info(s"joinAndFromResolved SQL: $joinAndFromResolved")
+    logger.debug(s"joinAndFromResolved SQL: $joinAndFromResolved")
     joinAndFromResolved
   }
 
@@ -252,10 +254,8 @@ object SQLUtils extends StrictLogging {
       // This is a file in the form of parquet.`/path/to/file`
       tableName
     } else {
-      val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
-        tableName.replaceAll(quote, "")
-      }
-      val tableTuple = quoteFreeTableName.split("\\.").toList
+      val quoteFreeTName: String = quoteFreeTableName(tableName)
+      val tableTuple = quoteFreeTName.split("\\.").toList
 
       // We need to find it in the refs
       val activeEnvRefs = refs
@@ -276,6 +276,13 @@ object SQLUtils extends StrictLogging {
       }
       resolvedTableName
     }
+  }
+
+  def quoteFreeTableName(tableName: String) = {
+    val quoteFreeTableName = List("\"", "`", "'").foldLeft(tableName) { (tableName, quote) =>
+      tableName.replaceAll(quote, "")
+    }
+    quoteFreeTableName
   }
 
   private def resolveTableRefInDomainsAndJobs(
@@ -406,6 +413,52 @@ object SQLUtils extends StrictLogging {
       .map(col => s"$incomingTable.$quote$col$quote = $targetTable.$quote$col$quote")
       .mkString(" AND ")
 
+  def format(input: String, outputFormat: JSQLFormatter.OutputFormat): String = {
+    val sql = input.trim
+    val uppercaseSQL = sql.toUpperCase
+    val formatted =
+      if (
+        uppercaseSQL.startsWith("SELECT") || uppercaseSQL.startsWith("WITH") || uppercaseSQL
+          .startsWith("MERGE")
+      ) {
+        val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
+        Try(
+          JSQLFormatter.format(
+            preformat,
+            s"outputFormat=${outputFormat.name()}",
+            "statementTerminator=NONE"
+          )
+        ).getOrElse(s"-- failed to format start\n$sql\n-- failed to format end")
+      } else {
+        sql
+      }
+
+    val result =
+      if (formatted.startsWith("-- failed to format start")) {
+        sql
+      } else {
+        val postFormat = formatted.replaceAll("______", "}}").replaceAll("___", "{{")
+        if (outputFormat == JSQLFormatter.OutputFormat.HTML) {
+          val startIndex = postFormat.indexOf("<body>") + "<body>".length
+          val endIndex = postFormat.indexOf("</body>")
+          if (startIndex > 0 && endIndex > 0) {
+            postFormat.substring(startIndex, endIndex)
+          } else {
+            postFormat
+          }
+        } else {
+          postFormat
+        }
+      }
+    // remove extra ';' added by JSQLFormatter
+    val trimmedResult = result.trim
+    if (!sql.endsWith(";") && trimmedResult.endsWith(";")) {
+      trimmedResult.substring(0, trimmedResult.length - 1)
+    } else {
+      result
+    }
+  }
+
   def transpilerDialect(conn: Connection): JSQLTranspiler.Dialect =
     conn._transpileDialect match {
       case Some(dialect) => JSQLTranspiler.Dialect.valueOf(dialect)
@@ -431,8 +484,16 @@ object SQLUtils extends StrictLogging {
     }
 
   def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
-    if (timestamps.nonEmpty)
+    if (timestamps.nonEmpty) {
       logger.info(s"Transpiling SQL with timestamps: $timestamps")
-    JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)
+    }
+    Try(JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)) match {
+      case Success(transpiled) =>
+        transpiled
+      case Failure(e) =>
+        logger.error(s"Failed to transpile SQL: $sql")
+        Utils.logException(logger, e)
+        sql
+    }
   }
 }
