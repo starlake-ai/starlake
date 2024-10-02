@@ -3,7 +3,7 @@ package ai.starlake.tests
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.DDLLeaf
+import ai.starlake.schema.model.{DDLLeaf, Env}
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import java.util
+import scala.Console
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.jdk.CollectionConverters._
@@ -329,7 +330,27 @@ object StarlakeTestData {
             val dbFilename = new File(testFolder.jfile, s"$testName.db").getPath()
             implicit val settings = createDuckDbSettings(originalSettings, dbFilename)
             import settings.storageHandler
-            val schemaHandler = new SchemaHandler(storageHandler())(settings)
+            val testEnvPath =
+              new Path(
+                DatasetArea.tests(settings),
+                s"${testsFolder.name}/$domainName/$tableName/$testName/_env.sl.yml"
+              )
+            Console.println(s"test env file -> ${testEnvPath.toString}")
+            val storage = storageHandler()
+            val testEnv: Option[Env] =
+              if (storage.exists(testEnvPath)) {
+                Option(
+                  new SchemaHandler(storage)(settings).mapper
+                    .readValue(storage.read(testEnvPath), classOf[Env])
+                )
+              } else {
+                None
+              }
+            val testEnvVars =
+              testEnv
+                .map(_.env)
+                .getOrElse(Map.empty)
+            val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
             Utils.withResources(
               DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
             ) { conn =>
