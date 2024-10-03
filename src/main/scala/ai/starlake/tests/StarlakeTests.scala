@@ -347,14 +347,16 @@ object StarlakeTestData {
             val testEnvPath =
               new Path(
                 DatasetArea.tests(settings),
-                s"${testsFolder.name}/$domainName/$tableName/$testName/_env.sl.yml"
+                s"${testsFolder.name}/$domainName/$tableName/$testName/env.sl.yml"
               )
             Console.println(s"test env file -> ${testEnvPath.toString}")
             val storage = storageHandler()
             val testEnv: Option[Env] =
               if (storage.exists(testEnvPath)) {
                 Option(
-                  new SchemaHandler(storage)(settings).mapper
+                  settings
+                    .schemaHandler()
+                    .mapper
                     .readValue(storage.read(testEnvPath), classOf[Env])
                 )
               } else {
@@ -364,7 +366,7 @@ object StarlakeTestData {
               testEnv
                 .map(_.env)
                 .getOrElse(Map.empty)
-            val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
+            val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
             Utils.withResources(
               DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
             ) { conn =>
@@ -517,8 +519,7 @@ object StarlakeTestData {
     ],
     List[(String, String)]
   ) = {
-    import settings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler())
+    val schemaHandler = settings.schemaHandler()
 
     // Load single test
     val (domainName, taskName, test) = testName.map { testName =>
@@ -833,7 +834,7 @@ object StarlakeTestData {
         val dataAsCreateTableExpression =
           ext match {
             case "json" | "csv" =>
-              val schemaHandler = new SchemaHandler(settings.storageHandler())
+              val schemaHandler = settings.schemaHandler()
               loadDataAsCreateTableExpression(
                 schemaHandler,
                 testDataDomainName,
