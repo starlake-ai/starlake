@@ -196,7 +196,7 @@ object StarlakeTestResult {
   )(implicit settings: Settings): Unit = {
     val rootFolder =
       outputDir
-        .flatMap(dir => {
+        .flatMap { dir =>
           val file = new File(dir)
           if (file.exists() || file.mkdirs()) {
             Option(new Directory(file))
@@ -204,7 +204,7 @@ object StarlakeTestResult {
             Console.err.println(s"Could not create output directory $dir")
             None
           }
-        })
+        }
         .getOrElse(new Directory(new File(settings.appConfig.root, "test-reports")))
     copyCssAndJs(rootFolder)
 
