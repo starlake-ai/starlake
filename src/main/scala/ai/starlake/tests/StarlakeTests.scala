@@ -47,7 +47,7 @@ case class StarlakeTest(
   assertData: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
-  sqlFunctions: Array[String]
+  preTestStatements: Array[String]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -57,7 +57,7 @@ case class StarlakeTest(
       d.load(conn)
     }
     assertData.foreach(_.load(conn))
-    sqlFunctions.foreach { sql =>
+    preTestStatements.foreach { sql =>
       if (sql.trim.nonEmpty) {
         Try {
           println(sql)
@@ -649,10 +649,10 @@ object StarlakeTestData {
             }
           }
 
-          val sqlFunctionsFile = new File(testFolder, "_functions.sql")
-          val sqlFunctions: Array[String] =
-            if (sqlFunctionsFile.exists()) {
-              val source = Source.fromFile(sqlFunctionsFile)
+          val preTestStatementsFile = new File(testFolder, "_pretest.sql")
+          val preTestStatements: Array[String] =
+            if (preTestStatementsFile.exists()) {
+              val source = Source.fromFile(preTestStatementsFile)
               val sql = source.mkString
               source.close()
               sql.split(";")
@@ -710,7 +710,7 @@ object StarlakeTestData {
                   assertData,
                   preloadTestData,
                   incomingFiles,
-                  sqlFunctions
+                  preTestStatements
                 )
               )
             case (None, Some(task)) =>
@@ -727,7 +727,7 @@ object StarlakeTestData {
                   assertData,
                   testDataList,
                   Nil,
-                  sqlFunctions
+                  preTestStatements
                 )
               )
             case (Some(_), Some(_)) =>
