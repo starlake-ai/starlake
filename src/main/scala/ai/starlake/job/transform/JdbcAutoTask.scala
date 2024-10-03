@@ -240,19 +240,19 @@ class JdbcAutoTask(
                 conn.rollback()
                 throw e
             }
+          }
 
-            if (settings.appConfig.expectations.active) {
-              new ExpectationJob(
-                Option(applicationId()),
-                taskDesc.database,
-                taskDesc.domain,
-                taskDesc.table,
-                taskDesc.expectations,
-                storageHandler,
-                schemaHandler,
-                new JdbcExpectationAssertionHandler(conn)
-              ).run()
-            }
+          if (settings.appConfig.expectations.active) {
+            new ExpectationJob(
+              Option(applicationId()),
+              taskDesc.database,
+              taskDesc.domain,
+              taskDesc.table,
+              taskDesc.expectations,
+              storageHandler,
+              schemaHandler,
+              new JdbcExpectationAssertionHandler(sinkOptions)
+            ).run()
           }
           if (settings.appConfig.autoExportSchema) {
             val isTableInAuditDomain =

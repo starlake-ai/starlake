@@ -1,5 +1,6 @@
 package ai.starlake.utils
 
+import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.sql.SQLUtils
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -10,7 +11,13 @@ import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
-import org.apache.spark.sql.types.{StructField, StructType, TimestampNTZType}
+import org.apache.spark.sql.types.{
+  ArrayType,
+  DecimalType,
+  StructField,
+  StructType,
+  TimestampNTZType
+}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.sql.{Connection, SQLException}
@@ -157,7 +164,7 @@ object SparkUtils extends StrictLogging {
     caseSensitive: Boolean,
     options: JdbcOptionsInWrite,
     attrDdlMapping: Map[String, Map[String, String]]
-  ): Unit = {
+  )(implicit settings: Settings): Unit = {
     val statement = conn.createStatement
     val jdbcDialect = dialect(options.url)
     val strSchema =
@@ -165,7 +172,8 @@ object SparkUtils extends StrictLogging {
         schema,
         caseSensitive,
         options.url,
-        attrDdlMapping
+        attrDdlMapping,
+        0
       ) // options.createTableColumnTypes
     try {
       statement.setQueryTimeout(options.queryTimeout)
@@ -221,13 +229,25 @@ object SparkUtils extends StrictLogging {
     }
     jdbcDialect
   }
+  private def getDescription(field: StructField): Option[String] = {
+    val comment =
+      if (!field.getComment().isEmpty) {
+        field.getComment()
+      } else if (field.metadata.contains("description")) {
+        Option(field.metadata.getString("description"))
+      } else {
+        None
+      }
+    comment
+  }
 
   def schemaString(
     schema: StructType,
     caseSensitive: Boolean,
     url: String,
-    createTableColumnTypes: Map[String, Map[String, String]] = Map.empty
-  ) = {
+    createTableColumnTypes: Map[String, Map[String, String]] = Map.empty,
+    level: Int
+  )(implicit settings: Settings): String = {
     logger.debug(s"SchemaString of $schema")
     createTableColumnTypes.foreach { case (k, v) =>
       logger.debug(s"Column $k has DDL types $v")
@@ -237,28 +257,77 @@ object SparkUtils extends StrictLogging {
       .matcher(url)
     assert(dialectPattern.find())
     val dialectName = dialectPattern.group(1)
+    val jdbcEng = settings.appConfig.jdbcEngines(dialectName)
 
-    val urlForRedshift = url.replace("jdbc:redshift:", "jdbc:postgresql:")
-    val dialect = JdbcDialects.get(urlForRedshift)
-    val sb = new StringBuilder()
-    schema.fields.foreach { field =>
-      /*
+    val urlForRedshiftAndDuckDb =
+      url
+        .replace("jdbc:redshift:", "jdbc:postgresql:")
+        .replace("jdbc:duckdb:", "jdbc:postgresql:")
+
+    val dialect = JdbcDialects.get(urlForRedshiftAndDuckDb)
+    val typMap =
+      if (caseSensitive) createTableColumnTypes
+      else
+        CaseInsensitiveMap(createTableColumnTypes)
+    val columns =
+      schema.fields.map { field =>
+        val nullable = if (!field.nullable && level == 0) "NOT NULL" else ""
+        val description =
+          if (level == 0) getDescription(field).map(d => s"COMMENT '$d'").getOrElse("")
+          else ""
+        val ddlTyp = typMap.get(field.name).flatMap(_.get(dialectName))
+        val quotedFieldName = dialect.quoteIdentifier(field.name)
+        /*
       val typ = userSpecifiedColTypesMap
         .getOrElse(field.name, getJdbcType(field.dataType, dialect).databaseTypeDefinition)
-       */
-      val typMap =
-        if (caseSensitive) createTableColumnTypes
-        else
-          CaseInsensitiveMap(createTableColumnTypes)
-
-      val ddlTyp = typMap.get(field.name).flatMap(_.get(dialectName))
-      val typ =
-        ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
-      val nullable = if (field.nullable) "" else "NOT NULL"
-      val quotedFieldName = dialect.quoteIdentifier(field.name)
-      sb.append(s", $quotedFieldName $typ $nullable")
-    }
-    if (sb.length < 2) "" else sb.substring(2)
+         */
+        val column =
+          if (jdbcEng.supportsJson.getOrElse(false)) { // DuckDB only
+            val dataType = field.dataType
+            val name = field.name
+            val (elementType, repeated) =
+              dataType match {
+                case arrayType: ArrayType =>
+                  (arrayType.elementType, true)
+                case _ =>
+                  (dataType, false)
+              }
+            val element =
+              elementType match {
+                case struct: StructType =>
+                  val fields =
+                    schemaString(struct, caseSensitive, url, createTableColumnTypes, level + 1)
+                  if (repeated) {
+                    s"$name STRUCT($fields)[]"
+                  } else {
+                    s"$name STRUCT($fields)"
+                  }
+                case decimal: DecimalType =>
+                  if (repeated) {
+                    s"$name DECIMAL(${decimal.precision},${decimal.scale})[]"
+                  } else {
+                    s"$name DECIMAL(${decimal.precision},${decimal.scale}) $nullable $description"
+                  }
+                case _ =>
+                  val typ =
+                    ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
+                  if (typ.endsWith("[]")) {
+                    s"$quotedFieldName $typ"
+                  } else if (repeated) {
+                    s"$quotedFieldName $typ[]"
+                  } else {
+                    s"$quotedFieldName $typ $nullable $description"
+                  }
+              }
+            element
+          } else {
+            val typ =
+              ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
+            s"$quotedFieldName $typ"
+          }
+        column
+      }
+    columns.mkString(", ")
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {
