@@ -55,7 +55,7 @@ case class StarlakeTest(
   expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
-  sqlFunctions: Array[String]
+  preTestStatements: Array[String]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -65,7 +65,7 @@ case class StarlakeTest(
       d.load(conn)
     }
     expectations.foreach(_.load(conn))
-    sqlFunctions.foreach { sql =>
+    preTestStatements.foreach { sql =>
       if (sql.trim.nonEmpty) {
         Try {
           println(sql)
@@ -804,10 +804,10 @@ object StarlakeTestData {
   ): Option[StarlakeTest] = {
     val taskOrTableFolderName = testFolder.getParentFile.getName
     val domainName = testFolder.getParentFile.getParentFile.getName
-    val sqlFunctionsFile = new File(testFolder, "_functions.sql")
-    val sqlFunctions: Array[String] =
-      if (sqlFunctionsFile.exists()) {
-        val source = Source.fromFile(sqlFunctionsFile)
+    val preTestStatementsFile = new File(testFolder, "_pretest.sql")
+    val preTestStatements: Array[String] =
+      if (preTestStatementsFile.exists()) {
+        val source = Source.fromFile(preTestStatementsFile)
         val sql = source.mkString
         source.close()
         sql.split(";")
@@ -883,7 +883,7 @@ object StarlakeTestData {
             testExpectationsData,
             preloadTestData,
             matchingPatternFiles,
-            sqlFunctions
+            preTestStatements
           )
         )
       case (None, Some(task)) =>
@@ -906,7 +906,7 @@ object StarlakeTestData {
             testExpectationsData,
             testDataList,
             Nil,
-            sqlFunctions
+            preTestStatements
           )
         )
       case (Some(_), Some(_)) =>
