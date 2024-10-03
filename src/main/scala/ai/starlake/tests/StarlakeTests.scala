@@ -54,7 +54,8 @@ case class StarlakeTest(
   table: String,
   expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
-  incomingFiles: List[File]
+  incomingFiles: List[File],
+  sqlFunctions: Array[String]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -64,6 +65,19 @@ case class StarlakeTest(
       d.load(conn)
     }
     expectations.foreach(_.load(conn))
+    sqlFunctions.foreach { sql =>
+      if (sql.trim.nonEmpty) {
+        Try {
+          println(sql)
+          val stmt = conn.createStatement()
+          stmt.execute(sql)
+          stmt.close()
+        } match {
+          case Failure(exception) => Console.err.println(exception.getMessage)
+          case _                  =>
+        }
+      }
+    }
   }
 
   def unload(dbFilename: String): Unit = {
@@ -788,6 +802,16 @@ object StarlakeTestData {
   ): Option[StarlakeTest] = {
     val taskOrTableFolderName = testFolder.getParentFile.getName
     val domainName = testFolder.getParentFile.getParentFile.getName
+    val sqlFunctionsFile = new File(testFolder, "_functions.sql")
+    val sqlFunctions: Array[String] =
+      if (sqlFunctionsFile.exists()) {
+        val source = Source.fromFile(sqlFunctionsFile)
+        val sql = source.mkString
+        source.close()
+        sql.split(";")
+      } else {
+        Array.empty
+      }
     // Al files that do not start with an '_' are considered data files
     // files that end with ".sql" are considered as tests to run against
     // the output and compared against the expected output in the "_expected_filename" file
@@ -856,7 +880,8 @@ object StarlakeTestData {
             taskOrTableFolderName,
             testExpectationsData,
             preloadTestData,
-            matchingPatternFiles
+            matchingPatternFiles,
+            sqlFunctions
           )
         )
       case (None, Some(task)) =>
@@ -878,7 +903,8 @@ object StarlakeTestData {
             task.table,
             testExpectationsData,
             testDataList,
-            Nil
+            Nil,
+            sqlFunctions
           )
         )
       case (Some(_), Some(_)) =>
