@@ -174,12 +174,9 @@ object StarlakeTestResult {
   }
   def junitXml(
     loadResults: List[StarlakeTestResult],
-    transformResults: List[StarlakeTestResult]
+    transformResults: List[StarlakeTestResult],
+    rootFolder: Directory
   )(implicit settings: Settings): Unit = {
-
-    val rootFolder = new Directory(
-      new File(settings.appConfig.root, "test-reports")
-    )
 
     val junitTestSuites = toJunitTestSuites(loadResults, transformResults)
     val j2Params = Map(
@@ -199,7 +196,15 @@ object StarlakeTestResult {
   )(implicit settings: Settings): Unit = {
     val rootFolder =
       outputDir
-        .map(dir => new Directory(new File(dir)))
+        .flatMap(dir => {
+          val file = new File(dir)
+          if (file.exists() || file.mkdirs()) {
+            Option(new Directory(file))
+          } else {
+            Console.err.println(s"Could not create output directory $dir")
+            None
+          }
+        })
         .getOrElse(new Directory(new File(settings.appConfig.root, "test-reports")))
     copyCssAndJs(rootFolder)
 
@@ -229,7 +234,7 @@ object StarlakeTestResult {
     val transformFolder = new Directory(new File(rootFolder.jfile, "transform"))
     transformFolder.createDirectory()
     html(transformResults, transformFolder, "Transform")
-    junitXml(loadResults, transformResults)
+    junitXml(loadResults, transformResults, rootFolder)
   }
 
   def html(
@@ -297,6 +302,7 @@ object StarlakeTestResult {
           testsFolder.path,
           result.domainName + File.separator + result.taskName + File.separator + result.testName
         )
+      testFolder.mkdir()
       val resultContent = Utils.parseJinja(indexJ2, j2Params)
       Files.write(
         new File(testFolder, s"${result.getExpectationName()}.html").toPath,

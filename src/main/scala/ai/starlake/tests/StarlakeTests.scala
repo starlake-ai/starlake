@@ -351,7 +351,8 @@ object StarlakeTestData {
         )
       val storage = settings.storageHandler()
       val testEnvVars =
-        EnvDesc.loadEnv(testEnvPath)(storage)
+        EnvDesc
+          .loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -367,7 +368,18 @@ object StarlakeTestData {
       }
     }
 
-    val rootFolder = new File(originalSettings.appConfig.root, "test-reports")
+    val rootFolder =
+      config.outputDir
+        .flatMap(dir => {
+          val file = new File(dir)
+          if (file.exists() || file.mkdirs()) {
+            Option(file)
+          } else {
+            Console.err.println(s"Could not create output directory $dir")
+            None
+          }
+        })
+        .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "transform"))
     run(dataAndTests, runner, testsFolder)
   }
@@ -419,7 +431,8 @@ object StarlakeTestData {
         )
       val storage = settings.storageHandler()
       val testEnvVars =
-        EnvDesc.loadEnv(testEnvPath)(storage)
+        EnvDesc
+          .loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -437,7 +450,18 @@ object StarlakeTestData {
 
     }
 
-    val rootFolder = new File(originalSettings.appConfig.root, "test-reports")
+    val rootFolder =
+      config.outputDir
+        .flatMap(dir => {
+          val file = new File(dir)
+          if (file.exists() || file.mkdirs()) {
+            Option(file)
+          } else {
+            Console.err.println(s"Could not create output directory $dir")
+            None
+          }
+        })
+        .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "load"))
     run(dataAndTests, runner, testsFolder)
   }
