@@ -347,7 +347,7 @@ object StarlakeTestData {
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"transform/${test.domain}/${test.table}/$testName/_env.sl.yml"
+          s"transform/${test.domain}/${test.table}/$testName/env.sl.yml"
         )
       val storage = settings.storageHandler()
       val testEnvVars =
@@ -356,7 +356,7 @@ object StarlakeTestData {
           .map(_.env)
           .getOrElse(Map.empty)
 
-      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
+      val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
 
       new Main().run(
         params,
@@ -416,7 +416,7 @@ object StarlakeTestData {
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"load/${test.domain}/${test.table}/$testName/_env.sl.yml"
+          s"load/${test.domain}/${test.table}/$testName/env.sl.yml"
         )
       val storage = settings.storageHandler()
       val testEnvVars =
@@ -425,7 +425,7 @@ object StarlakeTestData {
           .map(_.env)
           .getOrElse(Map.empty)
 
-      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
+      val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
       new Main().run(
         params,
         schemaHandler
