@@ -55,7 +55,7 @@ case class StarlakeTest(
   expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
-  preTestStatements: Array[String]
+  preTestStatements: List[String]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -804,16 +804,23 @@ object StarlakeTestData {
   ): Option[StarlakeTest] = {
     val taskOrTableFolderName = testFolder.getParentFile.getName
     val domainName = testFolder.getParentFile.getParentFile.getName
-    val preTestStatementsFile = new File(testFolder, "_pretest.sql")
-    val preTestStatements: Array[String] =
-      if (preTestStatementsFile.exists()) {
-        val source = Source.fromFile(preTestStatementsFile)
-        val sql = source.mkString
-        source.close()
-        sql.split(";")
-      } else {
-        Array.empty
+
+    // All files that do not start with an '_' and end with .sql are considered pretest sql statements
+    val preTestStatementsFiles = testFolder
+      .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+      .toList
+    val preTestStatements: List[String] =
+      preTestStatementsFiles.flatMap { preTestStatementsFile =>
+        if (preTestStatementsFile.exists()) {
+          val source = Source.fromFile(preTestStatementsFile)
+          val sql = source.mkString
+          source.close()
+          sql.split(";")
+        } else {
+          Nil
+        }
       }
+
     // Al files that do not start with an '_' are considered data files
     // files that end with ".sql" are considered as tests to run against
     // the output and compared against the expected output in the "_expected_filename" file
