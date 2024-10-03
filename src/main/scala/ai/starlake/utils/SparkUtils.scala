@@ -270,7 +270,7 @@ object SparkUtils extends StrictLogging {
       else
         CaseInsensitiveMap(createTableColumnTypes)
     val columns =
-      schema.fields.map { field =>
+      schema.fields.flatMap { field =>
         val nullable = if (!field.nullable && level == 0) "NOT NULL" else ""
         val description =
           if (level == 0) getDescription(field).map(d => s"COMMENT '$d'").getOrElse("")
@@ -281,10 +281,10 @@ object SparkUtils extends StrictLogging {
       val typ = userSpecifiedColTypesMap
         .getOrElse(field.name, getJdbcType(field.dataType, dialect).databaseTypeDefinition)
          */
+        val dataType = field.dataType
+        val name = field.name
         val column =
           if (jdbcEng.supportsJson.getOrElse(false)) { // DuckDB only
-            val dataType = field.dataType
-            val name = field.name
             val (elementType, repeated) =
               dataType match {
                 case arrayType: ArrayType =>
@@ -306,7 +306,7 @@ object SparkUtils extends StrictLogging {
                   if (repeated) {
                     s"$name DECIMAL(${decimal.precision},${decimal.scale})[]"
                   } else {
-                    s"$name DECIMAL(${decimal.precision},${decimal.scale}) $nullable $description"
+                    s"$name DECIMAL(${decimal.precision},${decimal.scale}) $nullable"
                   }
                 case _ =>
                   val typ =
@@ -316,14 +316,19 @@ object SparkUtils extends StrictLogging {
                   } else if (repeated) {
                     s"$quotedFieldName $typ[]"
                   } else {
-                    s"$quotedFieldName $typ $nullable $description"
+                    s"$quotedFieldName $typ $nullable"
                   }
               }
-            element
+            Some(element)
           } else {
+            if (dataType.isInstanceOf[StructType] || dataType.isInstanceOf[ArrayType]) {
+              throw new IllegalArgumentException(
+                "Array and nested struct types are not supported in the schema for this database"
+              )
+            }
             val typ =
               ddlTyp.getOrElse(getJdbcType(field.dataType, dialect).databaseTypeDefinition)
-            s"$quotedFieldName $typ"
+            Some(s"$quotedFieldName $typ")
           }
         column
       }

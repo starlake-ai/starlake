@@ -6,19 +6,10 @@ table:
   attributes:
   - name: "id"
     type: "string"
-    array: false
     required: false
-    privacy: "NONE"
-    ignore: false
-  - name: "sumx"
+  - name: "sum"
     type: "decimal"
-    array: false
     required: false
-    privacy: "NONE"
-    ignore: false
   - name: "timestamp"
     type: "timestamp"
-    array: false
     required: false
-    privacy: "NONE"
-    ignore: false
