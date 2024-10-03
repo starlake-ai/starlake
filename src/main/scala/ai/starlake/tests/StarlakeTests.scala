@@ -17,7 +17,7 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.jdk.CollectionConverters._
 import scala.reflect.io.Directory
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 case class StarlakeTestCoverage(
   testedDomains: Set[String],
@@ -46,7 +46,8 @@ case class StarlakeTest(
   table: String,
   assertData: Array[StarlakeTestData],
   data: List[StarlakeTestData],
-  incomingFiles: List[File]
+  incomingFiles: List[File],
+  sqlFunctions: Array[String]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -56,6 +57,19 @@ case class StarlakeTest(
       d.load(conn)
     }
     assertData.foreach(_.load(conn))
+    sqlFunctions.foreach { sql =>
+      if (sql.trim.nonEmpty) {
+        Try {
+          println(sql)
+          val stmt = conn.createStatement()
+          stmt.execute(sql)
+          stmt.close()
+        } match {
+          case Failure(exception) => Console.err.println(exception.getMessage)
+          case _                  =>
+        }
+      }
+    }
   }
 
   def unload(dbFilename: String): Unit = {
@@ -635,6 +649,17 @@ object StarlakeTestData {
             }
           }
 
+          val sqlFunctionsFile = new File(testFolder, "_functions.sql")
+          val sqlFunctions: Array[String] =
+            if (sqlFunctionsFile.exists()) {
+              val source = Source.fromFile(sqlFunctionsFile)
+              val sql = source.mkString
+              source.close()
+              sql.split(";")
+            } else {
+              Array.empty
+            }
+
           val domain = schemaHandler.domains().find(_.finalName == domainName)
 
           val table = domain.flatMap { d =>
@@ -684,7 +709,8 @@ object StarlakeTestData {
                   taskOrTableFolderName,
                   assertData,
                   preloadTestData,
-                  incomingFiles
+                  incomingFiles,
+                  sqlFunctions
                 )
               )
             case (None, Some(task)) =>
@@ -700,7 +726,8 @@ object StarlakeTestData {
                   task.table,
                   assertData,
                   testDataList,
-                  Nil
+                  Nil,
+                  sqlFunctions
                 )
               )
             case (Some(_), Some(_)) =>
