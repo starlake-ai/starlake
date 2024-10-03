@@ -579,6 +579,7 @@ object Settings extends StrictLogging {
     datasets: String,
     dags: String,
     tests: String,
+    types: String,
     metadata: String,
     metrics: Metrics,
     validateOnLoad: Boolean,
@@ -1013,7 +1014,8 @@ object Settings extends StrictLogging {
     }
     val applicationYmlConfig = applicationYml match {
       case Some(filename) =>
-        val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
+        val schemaHandler =
+          settings.schemaHandler() // new SchemaHandler(settings.storageHandler())(settings)
         val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
@@ -1155,6 +1157,23 @@ final case class Settings(
 ) {
 
   var _storageHandler: Option[StorageHandler] = None
+
+  var _schemaHandler: Option[SchemaHandler] = None
+
+  @transient
+  def schemaHandler(
+    cliEnv: Map[String, String] = Map.empty,
+    reload: Boolean = false
+  ): SchemaHandler = {
+    _schemaHandler match {
+      case Some(handler) if !reload => handler
+      case _ =>
+        implicit val self: Settings = this
+        val handler = new SchemaHandler(this.storageHandler(), cliEnv)
+        _schemaHandler = Some(handler)
+        handler
+    }
+  }
 
   @transient
   def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))
