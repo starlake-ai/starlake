@@ -365,7 +365,8 @@ object StarlakeTestData {
         )
       val storage = settings.storageHandler()
       val testEnvVars =
-        EnvDesc.loadEnv(testEnvPath)(storage)
+        EnvDesc
+          .loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -433,7 +434,8 @@ object StarlakeTestData {
         )
       val storage = settings.storageHandler()
       val testEnvVars =
-        EnvDesc.loadEnv(testEnvPath)(storage)
+        EnvDesc
+          .loadEnv(testEnvPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
