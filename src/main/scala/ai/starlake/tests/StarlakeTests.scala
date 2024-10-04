@@ -55,7 +55,7 @@ case class StarlakeTest(
   expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
-  preTestStatements: List[String]
+  preTestStatements: List[StarlakePreTestScript]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -65,19 +65,7 @@ case class StarlakeTest(
       d.load(conn)
     }
     expectations.foreach(_.load(conn))
-    preTestStatements.foreach { sql =>
-      if (sql.trim.nonEmpty) {
-        Try {
-          println(sql)
-          val stmt = conn.createStatement()
-          stmt.execute(sql)
-          stmt.close()
-        } match {
-          case Failure(exception) => Console.err.println(exception.getMessage)
-          case _                  =>
-        }
-      }
-    }
+    preTestStatements.foreach(_.load(conn))
   }
 
   def unload(dbFilename: String): Unit = {
@@ -88,6 +76,24 @@ case class StarlakeTest(
         d.unload(conn)
       }
       expectations.foreach(_.unload(conn))
+    }
+  }
+}
+case class StarlakePreTestScript(path: String, preTestStatements: String) {
+  def load(conn: java.sql.Connection): Unit = {
+    if (preTestStatements.trim.nonEmpty) {
+      Try {
+        Console.println("*********************************************************")
+        Console.println(s"Executing pre test script $path")
+        Console.println("*********************************************************")
+        val stmt = conn.createStatement()
+        stmt.execute(preTestStatements)
+        stmt.close()
+      } match {
+        case Failure(exception) =>
+          Console.err.println(s"an error occurred while executing $path -> ${exception.getMessage}")
+        case _ =>
+      }
     }
   }
 }
@@ -809,13 +815,13 @@ object StarlakeTestData {
     val preTestStatementsFiles = testFolder
       .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
       .toList
-    val preTestStatements: List[String] =
+    val preTestStatements: List[StarlakePreTestScript] =
       preTestStatementsFiles.flatMap { preTestStatementsFile =>
         if (preTestStatementsFile.exists()) {
           val source = Source.fromFile(preTestStatementsFile)
           val sql = source.mkString
           source.close()
-          sql.split(";")
+          Option(StarlakePreTestScript(preTestStatementsFile.getPath, sql))
         } else {
           Nil
         }
