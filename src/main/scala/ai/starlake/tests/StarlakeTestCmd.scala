@@ -1,4 +1,4 @@
-package ai.starlake.job.transform
+package ai.starlake.tests
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
@@ -21,12 +21,12 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
       builder.note(""),
       builder
         .opt[Unit]("load")
-        .action((x, c) => c.copy(load = true))
+        .action((_, c) => c.copy(load = true))
         .text(s"Test load tasks only")
         .optional(),
       builder
         .opt[Unit]("transform")
-        .action((x, c) => c.copy(transform = true))
+        .action((_, c) => c.copy(transform = true))
         .text(s"Test transform tasks only")
         .optional(),
       builder
@@ -45,9 +45,9 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
         .text(s"Test this test only in the domain and table/task selected")
         .optional(),
       builder
-        .opt[Option[String]]("site")
-        .action { (x, c) => c.copy(generate = true) }
-        .text(s"Test this test only in the domain and table/task selected")
+        .opt[Option[Unit]]("site")
+        .action { (_, c) => c.copy(generate = true) }
+        .text(s"Generate the results of the tests as a website")
         .optional(),
       builder
         .opt[Option[String]]("outputDir")
