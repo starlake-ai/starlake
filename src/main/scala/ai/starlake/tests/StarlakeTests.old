@@ -3,7 +3,8 @@ package ai.starlake.tests
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{DDLLeaf, Env}
+import ai.starlake.schema.model.ConnectionType.JDBC
+import ai.starlake.schema.model.{DDLLeaf, EnvDesc}
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
@@ -24,6 +25,14 @@ case class StarlakeTestCoverage(
   untestedDomains: List[String],
   untestedTables: List[String]
 ) {
+  def merge(other: StarlakeTestCoverage): StarlakeTestCoverage = {
+    StarlakeTestCoverage(
+      testedDomains ++ other.testedDomains,
+      testedTables ++ other.testedTables,
+      untestedDomains ++ other.untestedDomains,
+      untestedTables ++ other.untestedTables
+    )
+  }
   def getTestedDomains(): util.List[String] = testedDomains.toList.sorted.asJava
   def getTestedTables(): util.List[String] = testedTables.toList.sorted.asJava
   def getUntestedDomains(): util.List[String] = untestedDomains.sorted.asJava
@@ -43,7 +52,7 @@ case class StarlakeTest(
   name: String,
   domain: String,
   table: String,
-  assertData: Array[StarlakeTestData],
+  expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
   preTestStatements: List[StarlakePreTestScript]
@@ -55,7 +64,7 @@ case class StarlakeTest(
     data.foreach { d =>
       d.load(conn)
     }
-    assertData.foreach(_.load(conn))
+    expectations.foreach(_.load(conn))
     preTestStatements.foreach(_.load(conn))
   }
 
@@ -66,7 +75,7 @@ case class StarlakeTest(
       data.foreach { d =>
         d.unload(conn)
       }
-      assertData.foreach(_.unload(conn))
+      expectations.foreach(_.unload(conn))
     }
   }
 }
@@ -141,7 +150,7 @@ object StarlakeTestData {
 
     columns.toList
   }
-// Call transpile
+  // Call transpile
   def outputTableDifferences(
     conn: Connection,
     targetDomain: String,
@@ -162,8 +171,8 @@ object StarlakeTestData {
       }
 
     val diffSql = s"""COPY
-                        |($selectStatement)
-                        |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
+                     |($selectStatement)
+                     |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
     execute(conn, diffSql)
     try {
       val allLines = Files.readAllLines(outputPath.toPath)
@@ -384,19 +393,9 @@ object StarlakeTestData {
               )
             Console.println(s"test env file -> ${testEnvPath.toString}")
             val storage = storageHandler()
-            val testEnv: Option[Env] =
-              if (storage.exists(testEnvPath)) {
-                Option(
-                  settings
-                    .schemaHandler()
-                    .mapper
-                    .readValue(storage.read(testEnvPath), classOf[Env])
-                )
-              } else {
-                None
-              }
             val testEnvVars =
-              testEnv
+              EnvDesc
+                .loadEnv(testEnvPath)(storage)
                 .map(_.env)
                 .getOrElse(Map.empty)
             val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
@@ -447,7 +446,7 @@ object StarlakeTestData {
                       test.domain,
                       test.table,
                       test.getTaskName(),
-                      test.assertData,
+                      test.expectations,
                       conn,
                       end - start
                     )
@@ -490,7 +489,7 @@ object StarlakeTestData {
       originalSettings.appConfig.copy(
         connections = originalSettings.appConfig.connections.map { case (k, v) =>
           k -> v.copy(
-            `type` = Some("jdbc"),
+            `type` = JDBC,
             quote = Some("\""),
             separator = Some("."),
             sparkFormat = None,
@@ -529,7 +528,12 @@ object StarlakeTestData {
     */
   type DomainName = String
   type TableOrTaskName = String
-  def loadTests(area: Path, testName: Option[String])(implicit
+  def loadTests(
+    load: Boolean,
+    thisDomainName: String,
+    thisTaskOrTableName: String,
+    onlyThisTest: String
+  )(implicit
     settings: Settings
   ): (
     List[StarlakeTestData], // Root Test Data
@@ -552,26 +556,18 @@ object StarlakeTestData {
     ],
     List[(String, String)]
   ) = {
+    val path = if (load) DatasetArea.loadTests else DatasetArea.transformTests
+
     val schemaHandler = settings.schemaHandler()
 
-    // Load single test
-    val (domainName, taskName, test) = testName.map { testName =>
-      val split = testName.split('.')
-      assert(split.length == 3, "Invalid test format. Use 'domainName.taskName.testName'")
-      val domainName = split(0)
-      val taskName = split(1)
-      val test = split(2)
-      (domainName, taskName, test)
-    } match {
-      case None                               => ("", "", "") // empty means load all
-      case Some((domainName, taskName, test)) => (domainName, taskName, test)
-    }
-    val testDir = new File(area.toString)
+    val testDir = new File(path.toString)
 
     // Domain names we are willing to test
     val domains = Option(testDir.listFiles)
       .getOrElse(Array())
-      .filter(dir => dir.isDirectory && (domainName.isEmpty || domainName == dir.getName))
+      .filter(dir =>
+        dir.isDirectory && (thisDomainName.isEmpty || thisDomainName == dir.getName) || thisDomainName == "*"
+      )
       .toList
 
     // load all test files as StarlakeTestData objects
@@ -584,7 +580,8 @@ object StarlakeTestData {
     val allTests = domains.map { domainPath =>
       val taskOrTableFolders = domainPath
         .listFiles(taskPath =>
-          taskPath.isDirectory && (taskName.isEmpty || taskName == taskPath.getName)
+          taskPath.isDirectory &&
+          (thisTaskOrTableName.isEmpty || thisTaskOrTableName == taskPath.getName || thisTaskOrTableName == "*")
         )
         .toList
 
@@ -598,7 +595,8 @@ object StarlakeTestData {
       val domainTests = taskOrTableFolders.map { taskOrTableFolder =>
         val testFolders = taskOrTableFolder
           .listFiles(testDir =>
-            testDir.isDirectory && (testName.isEmpty || test == testDir.getName)
+            testDir.isDirectory &&
+            (onlyThisTest.isEmpty || onlyThisTest == testDir.getName || onlyThisTest == "*")
           )
           .toList
 
@@ -787,7 +785,7 @@ object StarlakeTestData {
       domainPath.getName() -> (domainTestData, domainTests)
     }
     val domainAndTables =
-      if (area.toString == DatasetArea.loadTests.toString)
+      if (path.toString == DatasetArea.loadTests.toString)
         schemaHandler.domains().flatMap { dom =>
           dom.tables.map { table =>
             (dom.finalName, table.finalName)
@@ -835,7 +833,7 @@ object StarlakeTestData {
             s"(FORMAT CSV, nullstr '${schemaHandler.activeEnvVars().getOrElse("SL_CSV_NULLSTR", "null")}')"
           else ""
         s"""CREATE TABLE "$domainName"."$tableName" ($cols);
-                 |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
+           |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
       case None =>
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =
