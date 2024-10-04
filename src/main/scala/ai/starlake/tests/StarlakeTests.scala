@@ -362,12 +362,12 @@ object StarlakeTestData {
     ),
     config: StarlakeTestConfig
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
-    def runner(test: StarlakeTest, settings: Settings): Unit = {
+    def runner(test: StarlakeTest, testName: String, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"transform/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
+          s"transform/${test.domain}/${test.table}/$testName/env.sl.yml"
         )
       val storage = settings.storageHandler()
       val testEnvVars =
@@ -376,7 +376,7 @@ object StarlakeTestData {
           .map(_.env)
           .getOrElse(Map.empty)
 
-      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
+      val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
 
       new Main().run(
         params,
@@ -420,7 +420,7 @@ object StarlakeTestData {
     ),
     config: StarlakeTestConfig
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
-    def runner(test: StarlakeTest, settings: Settings): Unit = {
+    def runner(test: StarlakeTest, testName: String, settings: Settings): Unit = {
       val tmpDir =
         test.incomingFiles.headOption.map { incomingFile =>
           val tmpDir = new Directory(new java.io.File(incomingFile.getParentFile, "tmp"))
@@ -447,7 +447,7 @@ object StarlakeTestData {
       val testEnvPath =
         new Path(
           DatasetArea.tests(settings),
-          s"load/${test.domain}/${test.table}/${test.getTaskName()}/_env.sl.yml"
+          s"load/${test.domain}/${test.table}/$testName/env.sl.yml"
         )
       val storage = settings.storageHandler()
       val testEnvVars =
@@ -456,7 +456,7 @@ object StarlakeTestData {
           .map(_.env)
           .getOrElse(Map.empty)
 
-      val schemaHandler = new SchemaHandler(storage, testEnvVars)(settings)
+      val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
       new Main().run(
         params,
         schemaHandler
@@ -500,7 +500,7 @@ object StarlakeTestData {
       ],
       List[(String, String)] // Domain and Table names
     ),
-    runner: (StarlakeTest, Settings) => Unit,
+    runner: (StarlakeTest, String, Settings) => Unit,
     testsFolder: Directory
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     Class.forName("org.duckdb.DuckDBDriver")
@@ -537,7 +537,7 @@ object StarlakeTestData {
               if (test.incomingFiles.isEmpty) {
                 Success(())
               } else {
-                Try(runner(test, settings))
+                Try(runner(test, testName, settings))
               }
             result match {
               case Failure(e) =>
