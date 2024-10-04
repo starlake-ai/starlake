@@ -54,9 +54,6 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     import org.apache.spark.sql.SparkSession
     val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
     val builder = SparkSession.builder()
-    if (settings.getWarehouseDir().isEmpty) {
-      config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
-    }
 
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
