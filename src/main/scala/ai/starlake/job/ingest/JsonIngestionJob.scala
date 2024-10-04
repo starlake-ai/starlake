@@ -143,7 +143,6 @@ class JsonIngestionJob(
       schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
     val persistedDF = dataset.persist(settings.appConfig.cacheStorageLevel)
     val (withInvalidSchema, withValidSchema) = parseDF(persistedDF, validationSchema)
-
     val loadSchema = schema
       .sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
