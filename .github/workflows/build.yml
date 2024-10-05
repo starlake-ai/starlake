@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - '!master'
-#      - '*'         # matches every branch that doesn't contain a '/'
-#      - '*/*'       # matches every branch containing a single '/'
-#      - '**'        # matches every branch
-#      - '!master'   # excludes master
+  #      - '*'         # matches every branch that doesn't contain a '/'
+  #      - '*/*'       # matches every branch containing a single '/'
+  #      - '**'        # matches every branch
+  #      - '!master'   # excludes master
   pull_request:
     branches:
       - '**'
@@ -29,9 +29,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-#      - uses: actions/setup-python@v2
-#        with:
-#          python-version: '3.10'
+      #      - uses: actions/setup-python@v2
+      #        with:
+      #          python-version: '3.10'
       - uses: actions/checkout@v2
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
@@ -40,11 +40,11 @@ jobs:
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
           java-version: '11'
-#      - uses: vemonet/setup-spark@v1
-#        with:
-#          spark-version: '3.3.2'
-#          hadoop-version: '3'
-#      - run: spark-submit --version
+      #      - uses: vemonet/setup-spark@v1
+      #        with:
+      #          spark-version: '3.3.2'
+      #          hadoop-version: '3'
+      #      - run: spark-submit --version
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
@@ -127,8 +127,7 @@ jobs:
       - name: Run tests(workflow)  & Coverage Report On Push
         if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.workflow.*" coverageReport
-
-
+        
       - name: Upload coverage to Codecov
         if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v1
