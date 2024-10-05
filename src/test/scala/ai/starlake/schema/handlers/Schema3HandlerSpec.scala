@@ -21,21 +21,10 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.config.DatasetArea
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.{IngestConfig, LoadConfig}
-import ai.starlake.lineage.{AclDependencies, TableDependencies}
-import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter.RichFormatter
-import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
-import org.apache.spark.sql.{DataFrame, Row}
-
-import java.net.URL
-import scala.util.{Failure, Success, Try}
 
 class Schema3HandlerSpec extends TestHelper {
 

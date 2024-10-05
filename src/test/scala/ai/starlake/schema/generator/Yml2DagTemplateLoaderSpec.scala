@@ -1,12 +1,6 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model._
-import ai.starlake.utils.Utils
-import org.apache.hadoop.fs.Path
-
-import scala.jdk.CollectionConverters._
 
 class Yml2DagTemplateLoaderSpec extends TestHelper {
   new WithSettings() {
