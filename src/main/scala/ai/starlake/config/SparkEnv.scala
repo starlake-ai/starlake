@@ -64,7 +64,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         )
     }
 
-    // spark.sql.catalogImplementation = in-memory incompatible with delta
+    // spark.sql.catalogImplementation = in-memory incompatible with delta on multiple spark sessions
 
     val session =
       if (
