@@ -1,6 +1,6 @@
 
 export SPARK_DRIVER_MEMORY=4G
-export SL_ROOT="$(pwd)/quickstart"
+export SL_ROOT="$(pwd)"
 export SL_METRICS_ACTIVE=true
 export SL_ASSERTIONS_ACTIVE=true
 export SL_ANALYZE=false
