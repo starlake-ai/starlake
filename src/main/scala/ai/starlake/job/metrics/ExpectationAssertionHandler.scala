@@ -1,5 +1,7 @@
 package ai.starlake.job.metrics
 
+import ai.starlake.config.Settings
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.sink.bigquery.BigQueryNativeJob
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{CompilerUtils, SparkUtils}
@@ -10,7 +12,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 trait ExpectationAssertionHandler extends StrictLogging {
-  def handle(sql: String, assertion: String): Map[String, Any]
+  def handle(sql: String, assertion: String)(implicit settings: Settings): Map[String, Any]
 
   protected def submitExpectation(
     assertion: String,
@@ -29,7 +31,7 @@ trait ExpectationAssertionHandler extends StrictLogging {
 }
 
 class SparkExpectationAssertionHandler(session: SparkSession) extends ExpectationAssertionHandler {
-  def handle(sql: String, assertion: String): Map[String, Any] = {
+  def handle(sql: String, assertion: String)(implicit settings: Settings): Map[String, Any] = {
     val df = SparkUtils.sql(session, sql)
     val count = df.count()
     val result = if (df.count() == 1) {
@@ -54,7 +56,9 @@ class SparkExpectationAssertionHandler(session: SparkSession) extends Expectatio
   */
 class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
     extends ExpectationAssertionHandler {
-  override def handle(sql: String, assertion: String): Map[String, Any] = {
+  override def handle(sql: String, assertion: String)(implicit
+    settings: Settings
+  ): Map[String, Any] = {
     runner
       .runInteractiveQuery(Some(sql)) match {
       case Success(result) =>
@@ -96,25 +100,28 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
   *
   * @param runner
   */
-class JdbcExpectationAssertionHandler(connection: java.sql.Connection)
+class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
     extends ExpectationAssertionHandler {
-  override def handle(sql: String, assertion: String): Map[String, Any] = {
-    val statement = connection.createStatement()
-    var count = 0
-    var results = Seq.empty[Seq[Any]]
-    try {
-      val rs = statement.executeQuery(sql)
-      val rsMetaData = rs.getMetaData()
-      val colCount = rsMetaData.getColumnCount()
-      while (rs.next()) {
-        count = count + 1
-        val cols = for (i <- 1 to colCount) yield rs.getObject(i)
-        results = results :+ cols
+  override def handle(sql: String, assertion: String)(implicit
+    settings: Settings
+  ): Map[String, Any] = {
+    JdbcDbUtils.withJDBCConnection(jdbcProperties) { connection =>
+      val statement = connection.createStatement()
+      var count = 0
+      var results = Seq.empty[Seq[Any]]
+      try {
+        val rs = statement.executeQuery(sql)
+        val rsMetaData = rs.getMetaData
+        val colCount = rsMetaData.getColumnCount
+        while (rs.next()) {
+          count = count + 1
+          val cols = for (i <- 1 to colCount) yield rs.getObject(i)
+          results = results :+ cols
+        }
+      } finally {
+        statement.close()
       }
-    } finally {
-      statement.close()
+      submitExpectation(assertion, count, results, results)
     }
-    submitExpectation(assertion, count, results, results)
   }
-
 }

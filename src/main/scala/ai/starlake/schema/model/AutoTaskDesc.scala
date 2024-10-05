@@ -109,8 +109,14 @@ case class AutoTaskDesc(
   def checkValidity()(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val sinkErrors = sink.map(_.checkValidity(this.name)).getOrElse(Right(true))
     val freshnessErrors = freshness.map(_.checkValidity(this.name)).getOrElse(Right(true))
+    val emptySchema = new Schema()
     val writeStrategyErrors = writeStrategy
-      .map(_.checkValidity(this.domain, Some(new Schema().copy(name = this.name))))
+      .map(
+        _.checkValidity(
+          this.domain,
+          Some(emptySchema.copy(name = this.name, metadata = Some(Metadata(sink = this.sink))))
+        )
+      )
       .getOrElse(Right(true))
 
     val scheduleErrors = schedule

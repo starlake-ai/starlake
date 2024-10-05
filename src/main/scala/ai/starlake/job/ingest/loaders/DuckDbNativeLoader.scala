@@ -195,6 +195,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
     // Create or update table schema first
     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      val stmtExternal = conn.createStatement()
+      stmtExternal.close()
       val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
       JdbcDbUtils.createSchema(conn, domain)
       strategy.getEffectiveType() match {
@@ -312,9 +314,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                   s"""INSERT INTO $domainAndTableName SELECT * FROM read_json_objects($paths, format = '$format');"""
                 JdbcDbUtils.execute(sql, conn)
               case _ =>
-                throw new Exception(
-                  "JSON format is only supported for flat schema or variant type"
-                )
+                s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
             }
           }
         case _ =>

@@ -17,6 +17,11 @@ trait SettingsManager {
     refresh: Boolean = false
   ): (Settings, Boolean)
 
+  def remove(
+    root: String,
+    env: Option[String]
+  ): Unit
+
   def set(
     root: String,
     env: Option[String],
