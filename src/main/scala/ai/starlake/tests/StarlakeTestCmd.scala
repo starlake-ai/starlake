@@ -3,7 +3,6 @@ package ai.starlake.tests
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.tests.StarlakeTestConfig
 import ai.starlake.utils.{EmptyJobResult, JobResult}
 import scopt.OParser
 
@@ -45,7 +44,7 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
         .text(s"Test this test only in the domain and table/task selected")
         .optional(),
       builder
-        .opt[Option[Unit]]("site")
+        .opt[Unit]("site")
         .action { (_, c) => c.copy(generate = true) }
         .text(s"Generate the results of the tests as a website")
         .optional(),
