@@ -259,77 +259,97 @@ object StarlakeTestData {
     duration: Long
   ): Array[StarlakeTestResult] = {
     assertData.map { assertDatum =>
-      val assertTable = assertDatum.table
+      Try {
+        val assertTable = assertDatum.table
 
-      val expectedColumns = assertDatum.expectationAsSql.getOrElse("*")
-      val targetColumns =
-        describe(conn, s"""SELECT $expectedColumns FROM "$targetDomain"."$targetTable"""")
-      val assertColumns = describe(conn, s"$targetDomain.${assertTable}")
-      val missingColumns = assertColumns.diff(targetColumns)
+        val expectedColumns = assertDatum.expectationAsSql.getOrElse("*")
+        val targetColumns =
+          describe(conn, s"""SELECT $expectedColumns FROM "$targetDomain"."$targetTable"""")
+        val assertColumns = describe(conn, s"$targetDomain.${assertTable}")
+        val missingColumns = assertColumns.diff(targetColumns)
 
-      // Compare schemas
-      val notExpectedColumns = targetColumns.diff(assertColumns)
-      var success = true
-      if (missingColumns.nonEmpty) {
-        println(s"Missing columns: ${missingColumns.mkString(", ")}")
+        // Compare schemas
+        val notExpectedColumns = targetColumns.diff(assertColumns)
+        var success = true
+        if (missingColumns.nonEmpty) {
+          println(s"Missing columns: ${missingColumns.mkString(", ")}")
+        }
+        if (notExpectedColumns.nonEmpty) {
+          println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
+        }
+
+        val notExpectedPath =
+          new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
+        val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
+        if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
+          // if schema OK,compare contents
+          val missingSuccess = outputTableDifferences(
+            conn,
+            targetDomain,
+            targetTable,
+            assertDatum,
+            missingPath,
+            expectationQuery(targetDomain, targetTable, assertDatum, missing = true)
+          )
+
+          val notExpectedSuccess = outputTableDifferences(
+            conn,
+            targetDomain,
+            assertTable,
+            assertDatum,
+            notExpectedPath,
+            expectationQuery(targetDomain, targetTable, assertDatum, missing = false)
+          )
+
+          success = notExpectedSuccess && missingSuccess
+        } else {
+          Files.write(
+            notExpectedPath.toPath,
+            "number of columns does not match. Not expected data could not be computed".getBytes()
+          )
+          Files.write(
+            missingPath.toPath,
+            "number of columns does not match. Missing data could not be computed".getBytes()
+          )
+          success = false
+        }
+
+        val missingData = Files.readAllLines(missingPath.toPath).asScala.mkString("\n")
+        val notExpectedData = Files.readAllLines(notExpectedPath.toPath).asScala.mkString("\n")
+        StarlakeTestResult(
+          testFolder.path,
+          domainName = targetDomain,
+          tableName = targetTable,
+          taskName = taskName,
+          testName = testFolder.name,
+          expectationName = assertDatum.expectationName,
+          missingColumns = missingColumns,
+          notExpectedColumns = notExpectedColumns,
+          missingRecords = missingPath,
+          notExpectedRecords = notExpectedPath,
+          success = success,
+          exception = None,
+          duration = duration
+        )
+      } match {
+        case Success(result) => result
+        case Failure(e) =>
+          StarlakeTestResult(
+            testFolder.path,
+            domainName = targetDomain,
+            tableName = targetTable,
+            taskName = taskName,
+            testName = testFolder.name,
+            expectationName = assertDatum.expectationName,
+            missingColumns = Nil,
+            notExpectedColumns = Nil,
+            missingRecords = new File(""),
+            notExpectedRecords = new File(""),
+            success = false,
+            exception = Some(Utils.exceptionAsString(e)),
+            duration = duration
+          )
       }
-      if (notExpectedColumns.nonEmpty) {
-        println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
-      }
-
-      val notExpectedPath =
-        new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
-      val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
-      if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
-        // if schema OK,compare contents
-        val missingSuccess = outputTableDifferences(
-          conn,
-          targetDomain,
-          targetTable,
-          assertDatum,
-          missingPath,
-          expectationQuery(targetDomain, targetTable, assertDatum, missing = true)
-        )
-
-        val notExpectedSuccess = outputTableDifferences(
-          conn,
-          targetDomain,
-          assertTable,
-          assertDatum,
-          notExpectedPath,
-          expectationQuery(targetDomain, targetTable, assertDatum, missing = false)
-        )
-
-        success = notExpectedSuccess && missingSuccess
-      } else {
-        Files.write(
-          notExpectedPath.toPath,
-          "number of columns does not match. Not expected data could not be computed".getBytes()
-        )
-        Files.write(
-          missingPath.toPath,
-          "number of columns does not match. Missing data could not be computed".getBytes()
-        )
-        success = false
-      }
-
-      val missingData = Files.readAllLines(missingPath.toPath).asScala.mkString("\n")
-      val notExpectedData = Files.readAllLines(notExpectedPath.toPath).asScala.mkString("\n")
-      StarlakeTestResult(
-        testFolder.path,
-        domainName = targetDomain,
-        tableName = targetTable,
-        taskName = taskName,
-        testName = testFolder.name,
-        expectationName = assertDatum.expectationName,
-        missingColumns = missingColumns,
-        notExpectedColumns = notExpectedColumns,
-        missingRecords = missingPath,
-        notExpectedRecords = notExpectedPath,
-        success = success,
-        exception = None,
-        duration = duration
-      )
     }
   }
 
