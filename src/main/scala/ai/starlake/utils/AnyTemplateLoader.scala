@@ -183,13 +183,13 @@ abstract class AnyTemplateLoader extends LazyLogging {
 
   def allLoadTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
     val all = externalLoadTemplates() ++ internalLoadTemplates()
-    val distinct = all.distinctBy(_.fullName)
+    val distinct = all.groupBy(_.fullName).map(_._2.head).toList
     distinct
   }
 
   def allTransformTemplates()(implicit settings: Settings): List[DagTemplateInfo] = {
     val all = externalTransformTemplates() ++ internalTransformTemplates()
-    val distinct = all.distinctBy(_.template)
+    val distinct = all.groupBy(_.fullName).map(_._2.head).toList
     distinct
   }
 
