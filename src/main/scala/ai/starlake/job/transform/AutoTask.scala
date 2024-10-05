@@ -58,6 +58,8 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  def createAuditTable(): Boolean
+
   override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   def attDdl(): Map[String, Map[String, String]] =
@@ -255,7 +257,8 @@ object AutoTask extends StrictLogging {
     domainName: String,
     tableName: String,
     connectionRef: String,
-    accessToken: Option[String] = None
+    accessToken: Option[String] = None,
+    _auditTableName: Option[String] = None
   )(implicit
     settings: Settings
   ): AutoTask = {
@@ -266,7 +269,8 @@ object AutoTask extends StrictLogging {
         database = None,
         domain = domainName,
         table = tableName,
-        connectionRef = Some(connectionRef)
+        connectionRef = Some(connectionRef),
+        _auditTableName = _auditTableName
       )
     AutoTask
       .task(

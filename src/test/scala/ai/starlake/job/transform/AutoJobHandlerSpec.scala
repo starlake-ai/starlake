@@ -39,6 +39,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   override def beforeAll(): Unit = {
     new WithSettings() {
+      TestHelper.sparkSessionReset(settings)
       sparkSession.read
         .option("inferSchema", "true")
         .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
@@ -58,7 +59,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
     new WithSettings() {
-      sparkSessionReset(settings)
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "",
@@ -221,7 +221,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
     new WithSettings() {
-      TestHelper.sparkSessionReset(settings)
       val userView = pathUserAccepted.toString
       val businessTask1 = AutoTaskDesc(
         name = "user",
@@ -466,6 +465,59 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .prepareRLS()
         .map(_.replaceAll("`.*`", "`DOMAIN.TABLE`")) // we remove the computed project id
       result should contain theSameElementsInOrderAs List(delStatement, createStatement)
+    }
+  }
+}
+
+/*
+      import org.apache.spark.sql.SparkSession
+      val config: SparkConf = new SparkConf()
+      val master = "local[*]"
+      config.set(
+        "spark.sql.catalog.spark_catalog",
+        "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+      )
+      config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+      val sysProps = System.getProperties
+      sysProps.setProperty("derby.system.home", "/Users/hayssams/tmp/derby")
+      config.set("spark.sql.warehouse.dir", "/Users/hayssams/tmp/warehouse")
+
+      val spark = SparkSession.builder().config(config).master(master).getOrCreate()
+
+ */
+
+object AutoJobHandlerSpec extends AutoJobHandlerSpec {
+  def main(args: Array[String]): Unit = {
+    new WithSettings() {
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathUserAccepted.toString)
+
+      sparkSession.read
+        .option("inferSchema", "true")
+        .json(getResPath("/expected/datasets/accepted/DOMAIN/graduateProgram.json"))
+        .write
+        .mode("overwrite")
+        .parquet(pathGraduateProgramAccepted.toString)
+    }
+
+    new WithSettings() {
+      sparkSessionReset(settings)
+      println("go")
+      val stmt =
+        """
+        | CREATE TABLE user1 USING delta
+        | AS
+        | with user_view as (select * from parquet.`/Users/hayssams/tmp//userdata1.parquet`)
+        | select * from user_View;
+        |""".stripMargin
+      sparkSession.sql(
+        stmt
+      )
+      sparkSession.sql("select * from user1").show()
     }
   }
 }

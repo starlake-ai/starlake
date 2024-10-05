@@ -114,7 +114,16 @@ object JsonIngestionUtil {
             datasetFieldsIdx += 1
           } else {
             // Required field is present in the schema but not in the message.
-            addError(structContext, errorList, Some(schemaField), datasetField)
+            if (nameComp > 0) {
+              // schema fields is higher alphabetically speaking so we need to increase dataset field index
+              // Should we add here the fact that an unknown attribute is present in the incoming json.
+              // For now it is simply ignored.
+              datasetFieldsIdx += 1
+            } else {
+              addError(structContext, errorList, Some(schemaField), datasetField)
+              schemaFieldsIdx += 1
+            }
+
           }
         }
         if (schemaFieldsIdx == schemaFields.length) {
