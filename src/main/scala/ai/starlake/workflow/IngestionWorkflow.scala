@@ -71,6 +71,7 @@ import java.time.Instant
 import java.util.Collections
 import java.util.regex.Pattern
 import scala.annotation.nowarn
+import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
 private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -1087,6 +1088,21 @@ class IngestionWorkflow(
     if (config.generate) {
       StarlakeTestResult.html(loadResults, transformResults, config.outputDir)
       testsLog(loadResults._1 ++ transformResults._1)
+    } else {
+      import java.io.{File => JFile}
+      val rootFolder =
+        config.outputDir
+          .flatMap { dir =>
+            val file = new JFile(dir)
+            if (file.exists() || file.mkdirs()) {
+              Option(new Directory(file))
+            } else {
+              Console.err.println(s"Could not create output directory $dir")
+              None
+            }
+          }
+          .getOrElse(new Directory(new JFile(settings.appConfig.root, "test-reports")))
+      StarlakeTestResult.junitXml(loadResults._1, transformResults._1, rootFolder)
     }
     (loadResults._1 ++ transformResults._1, loadResults._2.merge(transformResults._2))
   }
