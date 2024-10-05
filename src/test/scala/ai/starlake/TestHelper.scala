@@ -360,7 +360,7 @@ trait TestHelper
     sparkSessionInterest.get(settings)
   }
    */
-  private val _testId: String = UUID.randomUUID().toString
+  protected val _testId: String = UUID.randomUUID().toString
 
   def sparkSession(implicit isettings: Settings): SparkSession = {
     TestHelper.sparkSession(isettings, _testId)

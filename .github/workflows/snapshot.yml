@@ -53,6 +53,8 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v1'
       - name: Use gcloud CLI
         run: gcloud info
+      - name: Run tests(schema)
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.schema.*"
       - name: Run tests(job.load)
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.job.load.*"
       - name: Run tests(job.metrics)
@@ -93,8 +95,6 @@ jobs:
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.utils.*" 
       - name: Run tests(privacy)
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.privacy.*" 
-      - name: Run tests(schema)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.schema.*"
       - name: Run tests(serve)
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.serve.*"
       - name: Run tests(sql)
