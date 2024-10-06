@@ -143,7 +143,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.2.0-SNAPSHOT");
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.2");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.3");
     private static final String SPARK_MAJOR_VERSION = SPARK_VERSION.split("\\.")[0];
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
