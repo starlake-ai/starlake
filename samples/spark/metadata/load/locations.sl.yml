@@ -1,3 +1,4 @@
+version: 1
 table:
     name: "locations"
     pattern: "locations-.*.json"
@@ -6,7 +7,8 @@ table:
     metadata:
       array: false
       format: "JSON"
-      write: "OVERWRITE"
+      writeStrategy:
+        type: "OVERWRITE"
       schedule: "0 0 * * *"
     acl:
       - role: viewer

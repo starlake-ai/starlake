@@ -25,11 +25,11 @@ import ai.starlake.schema.handlers.{InferSchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
-import com.google.cloud.spark.bigquery.repackaged.org.json.JSONArray
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.json.JSONArray
 
 import java.io.BufferedReader
 import java.util.regex.Pattern
@@ -117,17 +117,6 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         .toList
         .maxBy { case (ch, count) => count }
     separator.toString
-  }
-
-  /** Get domain directory name
-    *
-    * @param path
-    *   : file path
-    * @return
-    *   the domain directory name
-    */
-  def getDomainDirectoryName(path: Path): String = {
-    path.toString.replace(path.getName, "")
   }
 
   /** Get schema pattern
@@ -263,7 +252,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     forceFormat: Option[Format],
     writeMode: WriteMode,
     rowTag: Option[String],
-    clean: Boolean
+    clean: Boolean,
+    variant: Boolean = false
   )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
       val path = new Path(inputPath)
@@ -376,8 +366,21 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val strategy = WriteStrategy(
             `type` = Some(WriteStrategyType.fromWriteMode(writeMode))
           )
-
-          val sample = dataframeWithFormat.toJSON.collect().take(20).mkString("[", ",", "]")
+          val sample =
+            metadata.resolveFormat() match {
+              case Format.JSON | Format.JSON_FLAT =>
+                if (metadata.resolveArray())
+                  dataframeWithFormat.toJSON
+                    .collect()
+                    .take(20)
+                    .mkString("[", metadata.resolveSeparator(), "]")
+                else
+                  dataframeWithFormat.toJSON.collect().take(20).mkString("\n")
+              case Format.DSV =>
+                dataLines.take(20).mkString("\n")
+              case _ =>
+                dataframeWithFormat.toJSON.collect().take(20).mkString("\n")
+            }
           InferSchemaHandler.createSchema(
             tableName,
             Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),

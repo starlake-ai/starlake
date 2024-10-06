@@ -346,12 +346,6 @@ trait IngestionJob extends SparkJob {
     val engine = settings.appConfig.jdbcEngines
       .getOrElse(engineName.toString, throw new Exception(s"Unknown engine $engineName"))
 
-    if (schema.isDeep() && !engine.supportsJson.getOrElse(false)) {
-      throw new Exception(
-        s"Engine $engineName does not support deep schema. Please load using a different engine"
-      )
-    }
-
     // Run selected ingestion engine
     val jobResult = selectLoader() match {
       case "bigquery" =>
@@ -541,18 +535,16 @@ trait IngestionJob extends SparkJob {
           settings.appConfig.audit.getDomain(),
           "expectations"
         )
-        runExpectations(bqNativeJob(tableId, ""))
+        runBigQueryExpectations(bqNativeJob(tableId, ""))
       case _: JdbcSink =>
         val options = mergedMetadata.getSinkConnection().options
-        JdbcDbUtils.withJDBCConnection(options) { conn =>
-          runExpectations(conn)
-        }
+        runJdbcExpectations(options)
       case _ =>
-        runExpectations(session)
+        runSparkExpectations(session)
     }
   }
-  private def runExpectations(
-    connection: java.sql.Connection
+  private def runJdbcExpectations(
+    jdbcOptions: Map[String, String]
   ): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
 
@@ -564,14 +556,14 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(connection)
+        new JdbcExpectationAssertionHandler(jdbcOptions)
       ).run()
     } else {
       Success(SparkJobResult(None, None))
     }
   }
 
-  private def runExpectations(session: SparkSession): Try[JobResult] = {
+  private def runSparkExpectations(session: SparkSession): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         Option(applicationId()),
@@ -588,7 +580,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def runExpectations(
+  def runBigQueryExpectations(
     job: BigQueryNativeJob
   ): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {

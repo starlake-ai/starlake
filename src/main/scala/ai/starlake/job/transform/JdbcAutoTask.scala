@@ -8,6 +8,7 @@ import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, Write
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -68,36 +69,34 @@ class JdbcAutoTask(
           exists
       }
     if (!exists && taskDesc._auditTableName.isDefined)
-      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-        createAuditTable(
-          conn
-        ) // We are sinking to an audit table. We need to create it first in JDBC
-      }
+      createAuditTable() // We are sinking to an audit table. We need to create it first in JDBC
     else
       exists
   }
 
-  def createAuditTable(conn: java.sql.Connection): Boolean = {
+  def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
-    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-    val entry = taskDesc._auditTableName.getOrElse(
-      throw new Exception(
-        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+      val entry = taskDesc._auditTableName.getOrElse(
+        throw new Exception(
+          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+        )
       )
-    )
-    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
-    JdbcDbUtils.createSchema(conn, fullDomainName)
+      val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+      JdbcDbUtils.createSchema(conn, fullDomainName)
 
-    val script = scriptTemplate.richFormat(
-      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
-      Map.empty
-    )
-    JdbcDbUtils.executeUpdate(script, conn) match {
-      case Success(_) =>
-        true
-      case Failure(e) =>
-        logger.error(s"Error creating table $fullTableName", e)
-        throw e
+      val script = scriptTemplate.richFormat(
+        Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
+        Map.empty
+      )
+      JdbcDbUtils.executeUpdate(script, conn) match {
+        case Success(_) =>
+          true
+        case Failure(e) =>
+          logger.error(s"Error creating table $fullTableName", e)
+          throw e
+      }
     }
   }
 
@@ -144,9 +143,16 @@ class JdbcAutoTask(
           val sql = taskDesc.getSql()
           Utils.parseJinja(sql, allVars)
         }
+      val sinkOptions =
+        if (sinkConnection.isDuckDb()) {
+          sinkConnection.options.updated("enable_external_access", "false")
+        } else {
+          sinkConnection.options
+        }
+
       interactive match {
         case Some(_) =>
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
             runInteractive(conn, mainSql)
           }
         case None =>
@@ -157,7 +163,7 @@ class JdbcAutoTask(
             )
           df match {
             case Some(loadedDF) =>
-              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -178,22 +184,35 @@ class JdbcAutoTask(
                     throw e
                 }
               }
+              val tablePath = new Path(s"${settings.appConfig.datasets}/${fullTableName}")
 
-              val format = if (sinkConnection.isDuckDb()) "starlake-duckdb" else "jdbc"
-              val dfToWrite =
+              if (settings.storageHandler().exists(tablePath)) {
+                settings.storageHandler().delete(tablePath)
+              }
+              if (sinkConnection.isDuckDb()) {
                 loadedDF.write
-                  .format(sinkConnection.sparkDatasource().getOrElse(format))
+                  .format("parquet")
+                  .mode(SaveMode.Overwrite) // truncate done above if requested
+                  .save(tablePath.toString)
+                JdbcDbUtils.withJDBCConnection(
+                  sinkConnection.options.updated("enable_external_access", "true")
+                ) { conn =>
+                  val sql =
+                    s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
+                  JdbcDbUtils.executeUpdate(sql, conn)
+                }
+                settings.storageHandler().delete(tablePath)
+              } else {
+                loadedDF.write
+                  .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
                   .option("dbtable", fullTableName)
                   .mode(SaveMode.Append) // truncate done above if requested
                   .options(sinkConnection.options)
-
-              if (sinkConnection.isDuckDb())
-                dfToWrite.option("numPartitions", "1").save()
-              else
-                dfToWrite.save()
+                  .save()
+              }
 
             case None =>
-              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -210,7 +229,7 @@ class JdbcAutoTask(
               }
           }
 
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
             Try {
               if (!test) applyJdbcAcl(conn, forceApply = true)
               runSqls(conn, postSql, "Post")
@@ -221,19 +240,19 @@ class JdbcAutoTask(
                 conn.rollback()
                 throw e
             }
+          }
 
-            if (settings.appConfig.expectations.active) {
-              new ExpectationJob(
-                Option(applicationId()),
-                taskDesc.database,
-                taskDesc.domain,
-                taskDesc.table,
-                taskDesc.expectations,
-                storageHandler,
-                schemaHandler,
-                new JdbcExpectationAssertionHandler(conn)
-              ).run()
-            }
+          if (settings.appConfig.expectations.active) {
+            new ExpectationJob(
+              Option(applicationId()),
+              taskDesc.database,
+              taskDesc.domain,
+              taskDesc.table,
+              taskDesc.expectations,
+              storageHandler,
+              schemaHandler,
+              new JdbcExpectationAssertionHandler(sinkOptions)
+            ).run()
           }
           if (settings.appConfig.autoExportSchema) {
             val isTableInAuditDomain =

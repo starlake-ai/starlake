@@ -239,7 +239,7 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      val attributesDescMap = attributesDesc.map { case AttributeDesc(name, desc, _) =>
+      val attributesDescMap = attributesDesc.map { case AttributeDesc(name, _, desc, _) =>
         name -> desc
       }.toMap
 

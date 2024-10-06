@@ -18,6 +18,14 @@ class CaffeineSettingsManager extends SettingsManager {
     true
   }
 
+  override def remove(
+    root: String,
+    env: Option[String]
+  ): Unit = {
+    val sessionId = uniqueId(root, env)
+    cache.invalidate(sessionId)
+  }
+
   override def getUpdatedSettings(
     tenant: String,
     root: String, // contains project id and userid

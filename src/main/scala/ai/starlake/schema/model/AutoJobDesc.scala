@@ -103,13 +103,14 @@ case class AutoJobDesc(
   */
 case class AttributeDesc(
   name: String,
+  `type`: String = "variant",
   comment: String = "",
   accessPolicy: Option[String] = None
 ) {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   override def toString: String = {
-    s"AttributeDesc(name=$name, comment=$comment, accessPolicy=$accessPolicy)"
+    s"AttributeDesc(name=$name, type=${`type`}, comment=$comment, accessPolicy=$accessPolicy)"
   }
 }
 
