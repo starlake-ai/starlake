@@ -184,7 +184,7 @@ object DatasetArea extends StrictLogging {
     new Path(s"${settings.appConfig.metadata}")
 
   def types(implicit settings: Settings): Path =
-    new Path(metadata, "types")
+    new Path(s"${settings.appConfig.types}")
 
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
