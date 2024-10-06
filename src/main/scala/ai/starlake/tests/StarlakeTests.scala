@@ -390,6 +390,15 @@ object StarlakeTestData {
           .loadEnv(
             new Path(
               DatasetArea.tests(settings),
+              "env.sl.yml" // env defined at the test root level
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
               s"transform/${test.domain}/env.sl.yml" // env defined for the domain
             )
           )(storage)
@@ -484,6 +493,15 @@ object StarlakeTestData {
 
       val storage = settings.storageHandler()
       val testEnvVars =
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              "env.sl.yml" // env defined at the test root level
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
         EnvDesc
           .loadEnv(
             new Path(
@@ -890,9 +908,13 @@ object StarlakeTestData {
     val taskOrTableFolderName = taskOrTableFolder.getName
     val domainFolder = taskOrTableFolder.getParentFile
     val domainName = domainFolder.getName
+    val rootFolder = domainFolder.getParentFile
 
     // All files that do not start with an '_' and end with .sql are considered pretest sql statements
     val preTestStatementsFiles =
+      rootFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+        .toList ++
       domainFolder
         .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
         .toList ++
