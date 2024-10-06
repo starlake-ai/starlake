@@ -1,11 +1,28 @@
+version: 1
 table:
     name: "locations"
     pattern: "locations-.*.json"
     metadata:
       array: false
       format: "JSON"
-      write: "OVERWRITE"
+      writeStrategy:
+        type: "OVERWRITE"
       schedule: "0 0 * * *"
     attributes:
-      - name: "v"
-        type: "variant"
+      - name: "id"
+        type: "string"
+        required: true
+      - name: "address"
+        type: "struct"
+        required: true
+        attributes:
+          - name: "city"
+            type: "string"
+            required: true
+          - name: "stores"
+            type: "string"
+            array: true
+            required: false
+          - name: "country"
+            type: "string"
+            required: true

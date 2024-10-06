@@ -1,0 +1,11 @@
+version: 1
+task:
+  name: table1
+  writeStrategy:
+    type: OVERWRITE_BY_PARTITION
+  sink:
+    partition:
+      - due
+
+
+

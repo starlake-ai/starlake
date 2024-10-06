@@ -12,7 +12,7 @@ import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
-import ai.starlake.job.transform.{StarlakeTestCmd, TransformCmd}
+import ai.starlake.job.transform.TransformCmd
 import ai.starlake.lineage.{
   AclDependenciesCmd,
   AutoTaskDependenciesCmd,
@@ -24,6 +24,7 @@ import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
 import ai.starlake.serve.MainServerCmd
+import ai.starlake.tests.StarlakeTestCmd
 import ai.starlake.utils._
 import buildinfo.BuildInfo
 import com.typesafe.scalalogging.StrictLogging

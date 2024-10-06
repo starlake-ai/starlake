@@ -54,9 +54,6 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     import org.apache.spark.sql.SparkSession
     val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
     val builder = SparkSession.builder()
-    if (settings.getWarehouseDir().isEmpty) {
-      config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
-    }
 
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -67,7 +64,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         )
     }
 
-    // spark.sql.catalogImplementation = in-memory incompatible with delta
+    // spark.sql.catalogImplementation = in-memory incompatible with delta on multiple spark sessions
 
     val session =
       if (
@@ -76,7 +73,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
           .isEmpty &&
         sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean
       ) {
-        // We need to avoid in-memory cata log implementation otherwise delta will fail to work
+        // We need to avoid in-memory catalog implementation otherwise delta will fail to work
         // through subsequent spark sessions since the metastore is not present anywhere.
         sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
         builder.config(config).master(master).enableHiveSupport().getOrCreate()

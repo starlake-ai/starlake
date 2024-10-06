@@ -94,6 +94,7 @@ object TreeRowValidator extends GenericRowValidator {
           StructField(CometColumns.slErrorMessageColumn, StringType, nullable = false)
         )
       )
+
     dataset.rdd.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
       val (rowRes, errors) = validateRow(
@@ -163,7 +164,25 @@ object TreeRowValidator extends GenericRowValidator {
             )
             errorList ++= errors
             row
-          case (cell: mutable.WrappedArray[_], name) =>
+          case (cell: mutable.WrappedArray[_], name) => // This code for Scala 2.12
+            cell.map {
+              case subcell: GenericRowWithSchema =>
+                val (row, errors) = validateRow(
+                  subcell,
+                  attributes(name).asInstanceOf[Map[String, Any]],
+                  schemaSparkType,
+                  types,
+                  schemaSparkTypeWithSuccessErrorMessage,
+                  allPrivacyLevels,
+                  topLevel = false,
+                  emptyIsNull = emptyIsNull
+                )
+                errorList ++= errors
+                row
+              case subcell =>
+                validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(subcell))
+            }
+          case (cell: mutable.ArraySeq[_], name) => // This code for Scala 2.13
             cell.map {
               case subcell: GenericRowWithSchema =>
                 val (row, errors) = validateRow(

@@ -108,12 +108,15 @@ case class WriteStrategy(
             s"timestamp must be defined for scd2 strategy in table: $tableName"
           )
       case WriteStrategyType.OVERWRITE_BY_PARTITION =>
-        if (timestamp.isEmpty)
-          errorList += ValidationMessage(
-            Error,
-            "WriteStrategy",
-            s"key must be defined for overwrite by partition strategy in table: $tableName"
-          )
+        table.foreach { table =>
+          val partition = table.metadata.flatMap(_.sink.flatMap(_.partition)).getOrElse(Nil)
+          if (partition.isEmpty)
+            errorList += ValidationMessage(
+              Error,
+              "WriteStrategy",
+              s"partition must be defined in the sink section for overwrite by partition strategy in table: $tableName"
+            )
+        }
       case WriteStrategyType.DELETE_THEN_INSERT =>
         if (key.isEmpty)
           errorList += ValidationMessage(
