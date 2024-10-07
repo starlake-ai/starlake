@@ -16,6 +16,7 @@ import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.serve.MainServerCmd
+import ai.starlake.tests.StarlakeTestCmd
 import ai.starlake.utils._
 import buildinfo.BuildInfo
 import com.typesafe.scalalogging.StrictLogging
@@ -99,6 +100,7 @@ class Main() extends StrictLogging {
     BigQueryFreshnessInfoCmd,
     ProjectCompareCmd,
     MainServerCmd,
+    StarlakeTestCmd,
     DagGenerateCmd
   )
   private def printUsage(): Unit = {

@@ -67,7 +67,7 @@ case class StarlakeTestResult(
   missingRecords: File,
   notExpectedRecords: File,
   success: Boolean,
-  exception: Option[Throwable],
+  exception: Option[String],
   duration: Long
 ) {
   def junitErrMessage(): Option[String] = {
@@ -119,7 +119,9 @@ case class StarlakeTestResult(
 
   def getSuccess(): Boolean = success
   def getExceptionHead(): String =
-    exception.map(Utils.exceptionAsString).getOrElse("None").split("\n").head
+    exception.getOrElse("None").split("\n").head
+  def getException(): util.List[String] =
+    exception.getOrElse("None").split("\n").toList.asJava
   def getDuration(): String = {
     val d: Double = duration.toDouble / 1000
     s"$d"
@@ -172,13 +174,9 @@ object StarlakeTestResult {
   }
   def junitXml(
     loadResults: List[StarlakeTestResult],
-    transformResults: List[StarlakeTestResult]
-  ): Unit = {
-
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val rootFolder = new Directory(
-      new File(originalSettings.appConfig.root, "test-reports")
-    )
+    transformResults: List[StarlakeTestResult],
+    rootFolder: Directory
+  )(implicit settings: Settings): Unit = {
 
     val junitTestSuites = toJunitTestSuites(loadResults, transformResults)
     val j2Params = Map(
@@ -193,10 +191,21 @@ object StarlakeTestResult {
 
   def html(
     loadAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
-    transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage)
-  ): Unit = {
-    implicit val originalSettings: Settings = Settings(Settings.referenceConfig)
-    val rootFolder = new Directory(new File(originalSettings.appConfig.root, "test-reports"))
+    transformAndCoverageResults: (List[StarlakeTestResult], StarlakeTestCoverage),
+    outputDir: Option[String]
+  )(implicit settings: Settings): Unit = {
+    val rootFolder =
+      outputDir
+        .flatMap { dir =>
+          val file = new File(dir)
+          if (file.exists() || file.mkdirs()) {
+            Option(new Directory(file))
+          } else {
+            Console.err.println(s"Could not create output directory $dir")
+            None
+          }
+        }
+        .getOrElse(new Directory(new File(settings.appConfig.root, "test-reports")))
     copyCssAndJs(rootFolder)
 
     val (loadResults, loadCoverage) = loadAndCoverageResults
@@ -225,7 +234,7 @@ object StarlakeTestResult {
     val transformFolder = new Directory(new File(rootFolder.jfile, "transform"))
     transformFolder.createDirectory()
     html(transformResults, transformFolder, "Transform")
-    junitXml(loadResults, transformResults)
+    junitXml(loadResults, transformResults, rootFolder)
   }
 
   def html(
@@ -233,7 +242,7 @@ object StarlakeTestResult {
     testsFolder: Directory,
     loadOrTransform: String
   )(implicit
-    originalSettings: Settings
+    settings: Settings
   ): Unit = {
     val domainSummaries = StarlakeTestsDomainSummary.summaries(results)
     val summaryIndex = StarlakeTestsSummary.summaryIndex(domainSummaries)
@@ -293,6 +302,7 @@ object StarlakeTestResult {
           testsFolder.path,
           result.domainName + File.separator + result.taskName + File.separator + result.testName
         )
+      testFolder.mkdir()
       val resultContent = Utils.parseJinja(indexJ2, j2Params)
       Files.write(
         new File(testFolder, s"${result.getExpectationName()}.html").toPath,

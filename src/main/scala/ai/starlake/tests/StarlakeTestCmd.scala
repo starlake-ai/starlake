@@ -8,7 +8,7 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
-trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
+trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"
 
@@ -20,26 +20,38 @@ trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
       builder.note(""),
       builder
         .opt[Unit]("load")
-        .action((x, c) => c.copy(load = true))
+        .action((_, c) => c.copy(load = true))
         .text(s"Test load tasks only")
         .optional(),
       builder
         .opt[Unit]("transform")
-        .action((x, c) => c.copy(transform = true))
+        .action((_, c) => c.copy(transform = true))
         .text(s"Test transform tasks only")
         .optional(),
       builder
-        .opt[Option[String]]("name")
-        .action { (x, c) =>
-          val splitted = x.map(_.split('.'))
-          if (splitted.exists(_.length != 3)) {
-            throw new IllegalArgumentException(
-              "Invalid test format. Use 'domainName.taskName.testName' or 'domainName.tableName.testName'"
-            )
-          }
-          c.copy(name = x)
-        }
-        .text(s"Test this test only")
+        .opt[Option[String]]("domain")
+        .action { (x, c) => c.copy(domain = x) }
+        .text(s"Test this domain only")
+        .optional(),
+      builder
+        .opt[Option[String]]("table")
+        .action { (x, c) => c.copy(test = x) }
+        .text(s"Test this table or task only in the selected domain")
+        .optional(),
+      builder
+        .opt[Option[String]]("test")
+        .action { (x, c) => c.copy(test = x) }
+        .text(s"Test this test only in the domain and table/task selected")
+        .optional(),
+      builder
+        .opt[Unit]("site")
+        .action { (_, c) => c.copy(generate = true) }
+        .text(s"Generate the results of the tests as a website")
+        .optional(),
+      builder
+        .opt[Option[String]]("outputDir")
+        .action { (x, c) => c.copy(outputDir = x) }
+        .text(s"Where to output the tests")
         .optional(),
       builder
         .opt[String]("accessToken")
@@ -60,4 +72,4 @@ trait TransformTestCmd extends Cmd[StarlakeTestConfig] {
   }
 }
 
-object TransformTestCmd extends TransformTestCmd
+object StarlakeTestCmd extends StarlakeTestCmd

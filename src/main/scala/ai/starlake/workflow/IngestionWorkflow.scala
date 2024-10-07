@@ -67,6 +67,7 @@ import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
 private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -459,7 +460,7 @@ class IngestionWorkflow(
                         JobContext(domain, schema, path :: Nil, config.options)
                       }
                     }
-                    implicit val forkJoinTaskSupport =
+                    implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
                       ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
                     val parJobs =
                       ParUtils.makeParallel(jobs.toList)
@@ -1107,21 +1108,59 @@ class IngestionWorkflow(
       EmptyJobResult
     }
   }
+
+  def testLoad(config: StarlakeTestConfig): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val loadTests = StarlakeTestData.loadTests(
+      load = true,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
+    StarlakeTestData.runLoads(loadTests, config)
+  }
+
+  def testTransform(
+    config: StarlakeTestConfig
+  ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val transformTests = StarlakeTestData.loadTests(
+      load = false,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
+    StarlakeTestData.runTransforms(transformTests, config)
+  }
+
   def test(config: StarlakeTestConfig): JobResult = {
     val loadResults =
       if (config.runLoad()) {
-        val loadTests = StarlakeTestData.loadTests(DatasetArea.loadTests, config.name)
-        StarlakeTestData.runLoads(loadTests, config)
+        testLoad(config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
     val transformResults =
       if (config.runTransform()) {
-        val transformTests = StarlakeTestData.loadTests(DatasetArea.transformTests, config.name)
-        StarlakeTestData.runTransforms(transformTests, config)
+        testTransform(config)
       } else
         (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
-
-    StarlakeTestResult.html(loadResults, transformResults)
+    if (config.generate) {
+      StarlakeTestResult.html(loadResults, transformResults, config.outputDir)
+      testsLog(loadResults._1 ++ transformResults._1)
+    } else {
+      import java.io.{File => JFile}
+      val rootFolder =
+        config.outputDir
+          .flatMap { dir =>
+            val file = new JFile(dir)
+            if (file.exists() || file.mkdirs()) {
+              Option(new Directory(file))
+            } else {
+              Console.err.println(s"Could not create output directory $dir")
+              None
+            }
+          }
+          .getOrElse(new Directory(new JFile(settings.appConfig.root, "test-reports")))
+      StarlakeTestResult.junitXml(loadResults._1, transformResults._1, rootFolder)
+    }
     testsLog(loadResults._1 ++ transformResults._1)
   }
 

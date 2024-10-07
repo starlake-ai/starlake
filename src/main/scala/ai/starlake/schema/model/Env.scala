@@ -4,6 +4,8 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model.Ref.anyRefPattern
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonCreator
+import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 
 import java.util.regex.Pattern
 
@@ -27,7 +29,7 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
 
   def asTuple(): (String, String, String) = (database, domain, table)
 
-  val tableNamingQuotes = Map(
+  val tableNamingQuotes: Map[String, (String, String)] = Map(
     Engine.JDBC.toString  -> ("", "."),
     Engine.SPARK.toString -> ("`", ":"),
     Engine.BQ.toString    -> ("`", ".")
@@ -165,5 +167,23 @@ case class Env(
   override def toString: String = {
     val redactEnv = Utils.redact(env)
     s"Env($redactEnv)"
+  }
+}
+
+object Env extends StrictLogging {
+  def loadEnv(path: Path)(implicit settings: Settings): Option[Env] = {
+    val storage = settings.storageHandler()
+    if (storage.exists(path)) {
+      Option(
+        settings
+          .schemaHandler()
+          .mapper
+          .readValue(storage.read(path), classOf[Env])
+      )
+
+    } else {
+      logger.warn(s"Env file $path not found")
+      None
+    }
   }
 }
