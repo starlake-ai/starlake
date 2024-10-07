@@ -52,7 +52,8 @@ class ParquetIngestionJob(
   val path: List[Path],
   val storageHandler: StorageHandler,
   val schemaHandler: SchemaHandler,
-  val options: Map[String, String]
+  val options: Map[String, String],
+  val test: Boolean
 )(implicit val settings: Settings)
     extends IngestionJob {
 

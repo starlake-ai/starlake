@@ -157,7 +157,7 @@ object Dependencies {
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.17.0" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.15.2" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.postgresql" % "postgresql" % "42.7.2" % Test
   )
@@ -166,9 +166,15 @@ object Dependencies {
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
 
-  val jSqlParser = Seq("com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser)
+  val jSqlTranspiler = Seq(
+    "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
+    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io"),
+    "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
+  )
+
+  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % Test)
 
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlParser ++ pgGcp // ++ bigQueue
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
+    scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++ jSqlTranspiler ++ pgGcp // ++ bigQueue
 }

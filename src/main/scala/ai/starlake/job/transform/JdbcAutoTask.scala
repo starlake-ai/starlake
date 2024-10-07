@@ -3,10 +3,8 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -23,12 +21,14 @@ class JdbcAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -100,7 +100,7 @@ class JdbcAutoTask(
       case _ =>
     }
   }
-  override def buildAllSQLQueries(sql: Option[String]): String = {
+  /*override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
     val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
@@ -116,7 +116,7 @@ class JdbcAutoTask(
       sinkConfig
     )
     mainSql
-  }
+  }*/
 
   def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
@@ -159,7 +159,7 @@ class JdbcAutoTask(
                     }
                   }
                   loadedDF.write
-                    .format("jdbc")
+                    .format(sinkConnection.sparkFormat.getOrElse("jdbc"))
                     .option("dbtable", fullTableName)
                     .mode(SaveMode.Append) // truncate done above if requested
                     .options(sinkConnection.options)
@@ -168,8 +168,9 @@ class JdbcAutoTask(
                   val finalSqls = mainSql.splitSql()
                   runSqls(conn, finalSqls, "Main")
               }
-
-              applyJdbcAcl(sinkConnection, forceApply = true)
+              if (!test) {
+                applyJdbcAcl(sinkConnection, forceApply = true)
+              }
               runSqls(conn, postSql, "Post")
               addSCD2Columns(conn)
 
@@ -200,9 +201,9 @@ class JdbcAutoTask(
     val end = Timestamp.from(Instant.now())
     res match {
       case Success(_) =>
-        logAuditSuccess(start, end, -1)
+        logAuditSuccess(start, end, -1, test)
       case Failure(e) =>
-        logAuditFailure(start, end, e)
+        logAuditFailure(start, end, e, test)
     }
     res
   }
@@ -333,7 +334,8 @@ class JdbcAutoTask(
           tableName,
           incomingSchemaWithSCD2,
           caseSensitive = false,
-          optionsWrite
+          optionsWrite,
+          attDdl()
         )
       }
     }
