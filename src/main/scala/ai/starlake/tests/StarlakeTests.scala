@@ -44,10 +44,10 @@ case class StarlakeTest(
   name: String,
   domain: String,
   table: String,
-  assertData: Array[StarlakeTestData],
+  expectations: Array[StarlakeTestData],
   data: List[StarlakeTestData],
   incomingFiles: List[File],
-  preTestStatements: Array[String]
+  preTestStatements: List[StarlakePreTestScript]
 ) {
 
   def getTaskName(): String = name.split('.').last
@@ -56,20 +56,8 @@ case class StarlakeTest(
     data.foreach { d =>
       d.load(conn)
     }
-    assertData.foreach(_.load(conn))
-    preTestStatements.foreach { sql =>
-      if (sql.trim.nonEmpty) {
-        Try {
-          println(sql)
-          val stmt = conn.createStatement()
-          stmt.execute(sql)
-          stmt.close()
-        } match {
-          case Failure(exception) => Console.err.println(exception.getMessage)
-          case _                  =>
-        }
-      }
-    }
+    expectations.foreach(_.load(conn))
+    preTestStatements.foreach(_.load(conn))
   }
 
   def unload(dbFilename: String): Unit = {
@@ -79,7 +67,25 @@ case class StarlakeTest(
       data.foreach { d =>
         d.unload(conn)
       }
-      assertData.foreach(_.unload(conn))
+      expectations.foreach(_.unload(conn))
+    }
+  }
+}
+case class StarlakePreTestScript(path: String, preTestStatements: String) {
+  def load(conn: java.sql.Connection): Unit = {
+    if (preTestStatements.trim.nonEmpty) {
+      Try {
+        Console.println("*********************************************************")
+        Console.println(s"Executing pre test script $path")
+        Console.println("*********************************************************")
+        val stmt = conn.createStatement()
+        stmt.execute(preTestStatements)
+        stmt.close()
+      } match {
+        case Failure(exception) =>
+          Console.err.println(s"an error occurred while executing $path -> ${exception.getMessage}")
+        case _ =>
+      }
     }
   }
 }
@@ -179,72 +185,93 @@ object StarlakeTestData {
     duration: Long
   ): Array[StarlakeTestResult] = {
     assertData.map { assertDatum =>
-      val assertTable = assertDatum.table
-      val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
-      val assertColumns = describeTable(conn, s"$targetDomain.${assertTable}")
-      val missingColumns = assertColumns.diff(targetColumns)
+      Try {
+        val assertTable = assertDatum.table
+        val targetColumns = describeTable(conn, s"$targetDomain.$targetTable")
+        val assertColumns = describeTable(conn, s"$targetDomain.${assertTable}")
+        val missingColumns = assertColumns.diff(targetColumns)
 
-      val notExpectedColumns =
-        if (assertDatum.expectationName.isEmpty)
-          targetColumns.diff(assertColumns)
-        else
-          Nil
-      val notExpectedPath =
-        new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
-      val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
-      var success = true
-      if (missingColumns.nonEmpty) {
-        println(s"Missing columns: ${missingColumns.mkString(", ")}")
+        val notExpectedColumns =
+          if (assertDatum.expectationName.isEmpty)
+            targetColumns.diff(assertColumns)
+          else
+            Nil
+        val notExpectedPath =
+          new File(testFolder.jfile, s"not_expected${assertDatum.expectationName}.csv")
+        val missingPath = new File(testFolder.jfile, s"missing${assertDatum.expectationName}.csv")
+        var success = true
+        if (missingColumns.nonEmpty) {
+          println(s"Missing columns: ${missingColumns.mkString(", ")}")
+        }
+        if (notExpectedColumns.nonEmpty) {
+          println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
+        }
+
+        if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
+          val missingSuccess = outputTableDifferences(
+            conn,
+            targetDomain,
+            targetTable,
+            assertDatum,
+            missingPath
+          )
+
+          val notExpectedSuccess = outputTableDifferences(
+            conn,
+            targetDomain,
+            assertTable,
+            assertDatum,
+            notExpectedPath
+          )
+
+          success = notExpectedSuccess && missingSuccess
+        } else {
+          Files.write(
+            notExpectedPath.toPath,
+            "number of columns does not match. Not expected data could not be computed".getBytes()
+          )
+          Files.write(
+            missingPath.toPath,
+            "number of columns does not match. Missing data could not be computed".getBytes()
+          )
+          success = false
+        }
+
+        StarlakeTestResult(
+          testFolder.path,
+          domainName = targetDomain,
+          tableName = targetTable,
+          taskName = taskName,
+          testName = testFolder.name,
+          expectationName = assertDatum.expectationName,
+          missingColumns = missingColumns,
+          notExpectedColumns = notExpectedColumns,
+          missingRecords = missingPath,
+          notExpectedRecords = notExpectedPath,
+          success = success,
+          None,
+          duration
+        )
+      } match {
+        case Success(result) =>
+          result
+        case Failure(e) =>
+          StarlakeTestResult(
+            testFolder.path,
+            domainName = targetDomain,
+            tableName = targetTable,
+            taskName = taskName,
+            testName = testFolder.name,
+            expectationName = assertDatum.expectationName,
+            missingColumns = Nil,
+            notExpectedColumns = Nil,
+            missingRecords = new File(""),
+            notExpectedRecords = new File(""),
+            success = false,
+            Some(Utils.exceptionAsString(e)),
+            duration
+          )
       }
-      if (notExpectedColumns.nonEmpty) {
-        println(s"Not expected columns: ${notExpectedColumns.mkString(", ")}")
-      }
-
-      if (missingColumns.isEmpty && notExpectedColumns.isEmpty) {
-        val missingSuccess = outputTableDifferences(
-          conn,
-          targetDomain,
-          targetTable,
-          assertDatum,
-          missingPath
-        )
-
-        val notExpectedSuccess = outputTableDifferences(
-          conn,
-          targetDomain,
-          assertTable,
-          assertDatum,
-          notExpectedPath
-        )
-
-        success = notExpectedSuccess && missingSuccess
-      } else {
-        Files.write(
-          notExpectedPath.toPath,
-          "number of columns does not match. Not expected data could not be computed".getBytes()
-        )
-        Files.write(
-          missingPath.toPath,
-          "number of columns does not match. Missing data could not be computed".getBytes()
-        )
-        success = false
-      }
-
-      StarlakeTestResult(
-        testFolder.path,
-        domainName = targetDomain,
-        tableName = targetTable,
-        taskName = taskName,
-        testName = testFolder.name,
-        expectationName = assertDatum.expectationName,
-        missingColumns = missingColumns,
-        notExpectedColumns = notExpectedColumns,
-        missingRecords = missingPath,
-        notExpectedRecords = notExpectedPath,
-        success = success,
-        None,
-        duration
-      )
     }
   }
 
@@ -342,28 +369,42 @@ object StarlakeTestData {
             testFolder.deleteRecursively()
             testFolder.createDirectory(force = true)
             val dbFilename = new File(testFolder.jfile, s"$testName.db").getPath()
-            implicit val settings = createDuckDbSettings(originalSettings, dbFilename)
-            import settings.storageHandler
-            val testEnvPath =
-              new Path(
-                DatasetArea.tests(settings),
-                s"${testsFolder.name}/$domainName/$tableName/$testName/env.sl.yml"
-              )
-            Console.println(s"test env file -> ${testEnvPath.toString}")
-            val storage = storageHandler()
-            val testEnv: Option[Env] =
-              if (storage.exists(testEnvPath)) {
-                Option(
-                  settings
-                    .schemaHandler()
-                    .mapper
-                    .readValue(storage.read(testEnvPath), classOf[Env])
-                )
-              } else {
-                None
-              }
+            implicit val settings: Settings = createDuckDbSettings(originalSettings, dbFilename)
             val testEnvVars =
-              testEnv
+              Env
+                .loadEnv(
+                  new Path(
+                    DatasetArea.tests(settings),
+                    "env.sl.yml" // env defined at the test root level
+                  )
+                )(settings)
+                .map(_.env)
+                .getOrElse(Map.empty) ++
+              Env
+                .loadEnv(
+                  new Path(
+                    DatasetArea.tests(settings),
+                    s"${testsFolder.name}/$domainName/env.sl.yml" // env defined for the domain
+                  )
+                )(settings)
+                .map(_.env)
+                .getOrElse(Map.empty) ++
+              Env
+                .loadEnv(
+                  new Path(
+                    DatasetArea.tests(settings),
+                    s"${testsFolder.name}/$domainName/$tableName/env.sl.yml" // env defined for the task or table
+                  )
+                )(settings)
+                .map(_.env)
+                .getOrElse(Map.empty) ++
+              Env
+                .loadEnv(
+                  new Path(
+                    DatasetArea.tests(settings),
+                    s"${testsFolder.name}/$domainName/$tableName/$testName/env.sl.yml" // env defined for the test
+                  )
+                )(settings)
                 .map(_.env)
                 .getOrElse(Map.empty)
             val schemaHandler = settings.schemaHandler(testEnvVars, reload = true)
@@ -400,7 +441,7 @@ object StarlakeTestData {
                       new File(""),
                       new File(""),
                       success = false,
-                      exception = Some(e),
+                      exception = Some(Utils.exceptionAsString(e)),
                       duration = end - start // in milliseconds
                     )
                   )
@@ -414,7 +455,7 @@ object StarlakeTestData {
                       test.domain,
                       test.table,
                       test.getTaskName(),
-                      test.assertData,
+                      test.expectations,
                       conn,
                       end - start
                     )
@@ -496,7 +537,12 @@ object StarlakeTestData {
     */
   type DomainName = String
   type TableOrTaskName = String
-  def loadTests(area: Path, testName: Option[String])(implicit
+  def loadTests(
+    load: Boolean,
+    thisDomainName: String,
+    thisTaskOrTableName: String,
+    onlyThisTest: String
+  )(implicit
     settings: Settings
   ): (
     List[StarlakeTestData], // Root Test Data
@@ -519,26 +565,18 @@ object StarlakeTestData {
     ],
     List[(String, String)]
   ) = {
+    val area: Path = if (load) DatasetArea.loadTests else DatasetArea.transformTests
     val schemaHandler = settings.schemaHandler()
 
-    // Load single test
-    val (domainName, taskName, test) = testName.map { testName =>
-      val split = testName.split('.')
-      assert(split.length == 3, "Invalid test format. Use 'domainName.taskName.testName'")
-      val domainName = split(0)
-      val taskName = split(1)
-      val test = split(2)
-      (domainName, taskName, test)
-    } match {
-      case None                               => ("", "", "") // empty means load all
-      case Some((domainName, taskName, test)) => (domainName, taskName, test)
-    }
     val testDir = new File(area.toString)
+    val rootFolder = testDir.getParentFile
 
     // Domain names we are willing to test
     val domains = Option(testDir.listFiles)
       .getOrElse(Array())
-      .filter(dir => dir.isDirectory && (domainName.isEmpty || domainName == dir.getName))
+      .filter(dir =>
+        dir.isDirectory && (thisDomainName.isEmpty || thisDomainName == dir.getName || thisDomainName == "*")
+      )
       .toList
 
     // load all test files as StarlakeTestData objects
@@ -548,15 +586,15 @@ object StarlakeTestData {
       .toList
       .flatMap(f => testDataFromFile("", "", f))
 
-    val allTests = domains.map { domainPath =>
-      val taskOrTableFolders = domainPath
+    val allTests = domains.map { domainFolder =>
+      val taskOrTableFolders = domainFolder
         .listFiles(taskPath =>
-          taskPath.isDirectory && (taskName.isEmpty || taskName == taskPath.getName)
+          taskPath.isDirectory && (thisTaskOrTableName.isEmpty || thisTaskOrTableName == taskPath.getName || thisTaskOrTableName == "*")
         )
         .toList
 
       val domainTestData =
-        Option(domainPath.listFiles)
+        Option(domainFolder.listFiles)
           .getOrElse(Array())
           .filter(_.isFile)
           .toList
@@ -565,7 +603,7 @@ object StarlakeTestData {
       val domainTests = taskOrTableFolders.map { taskOrTableFolder =>
         val testFolders = taskOrTableFolder
           .listFiles(testDir =>
-            testDir.isDirectory && (testName.isEmpty || test == testDir.getName)
+            testDir.isDirectory && (onlyThisTest.isEmpty || onlyThisTest == testDir.getName || onlyThisTest == "*")
           )
           .toList
 
@@ -595,7 +633,7 @@ object StarlakeTestData {
             } else {
               None
             }
-          val domainName = domainPath.getName
+          val domainName = domainFolder.getName
           val taskOrTableFolderName = taskOrTableFolder.getName
 
           val assertData = testFolder.listFiles().flatMap { f =>
@@ -650,15 +688,30 @@ object StarlakeTestData {
             }
           }
 
-          val preTestStatementsFile = new File(testFolder, "_pretest.sql")
-          val preTestStatements: Array[String] =
-            if (preTestStatementsFile.exists()) {
-              val source = Source.fromFile(preTestStatementsFile)
-              val sql = source.mkString
-              source.close()
-              sql.split(";")
-            } else {
-              Array.empty
+          // All files that do not start with an '_' and end with .sql are considered pretest sql statements
+          val preTestStatementsFiles =
+            rootFolder
+              .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+              .toList ++
+            domainFolder
+              .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+              .toList ++
+            taskOrTableFolder
+              .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+              .toList ++
+            testFolder
+              .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+              .toList
+          val preTestStatements: List[StarlakePreTestScript] =
+            preTestStatementsFiles.flatMap { preTestStatementsFile =>
+              if (preTestStatementsFile.exists()) {
+                val source = Source.fromFile(preTestStatementsFile)
+                val sql = source.mkString
+                source.close()
+                Option(StarlakePreTestScript(preTestStatementsFile.getPath, sql))
+              } else {
+                Nil
+              }
             }
 
           val domain = schemaHandler.domains().find(_.finalName == domainName)
@@ -745,7 +798,7 @@ object StarlakeTestData {
         }
         taskOrTableFolder.getName() -> (taskOrTableTestData, taskOrTableTests)
       }
-      domainPath.getName() -> (domainTestData, domainTests)
+      domainFolder.getName() -> (domainTestData, domainTests)
     }
     val domainAndTables =
       if (area.toString == DatasetArea.loadTests.toString)
