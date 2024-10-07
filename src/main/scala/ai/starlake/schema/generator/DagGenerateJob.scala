@@ -114,9 +114,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val taskConfigsGroupedByFilename = taskConfigs
       .map { taskConfig =>
         val envVars = schemaHandler.activeEnvVars() ++ Map(
-          "table"  -> taskConfig.taskDesc.table,
-          "domain" -> taskConfig.taskDesc.domain,
-          "name"   -> taskConfig.taskDesc.name
+          "table"    -> taskConfig.taskDesc.table,
+          "domain"   -> taskConfig.taskDesc.domain,
+          "name"     -> taskConfig.taskDesc.name,
+          "schedule" -> taskConfig.schedule.getOrElse("None")
         )
         val filename = Utils.parseJinja(
           taskConfig.dagConfig.filename,
