@@ -91,17 +91,19 @@ object JsonIngestionUtil {
           val schemaField = schemaFields(schemaFieldsIdx)
           val datasetField = datasetFields(datasetFieldsIdx)
           val nameComp = schemaField.name.compareTo(datasetField.name)
-          if (nameComp != 0 && schemaField.nullable) {
-            // Field exists in schema  and is not present in the input record
-            // go get the next field in the schema
-            if (nameComp > 0) {
-              // schema fields is higher alphabetically speaking so we need to increase dataset field index
-              datasetFieldsIdx += 1
-              addError(structContext, errorList, None, datasetField)
-            } else {
-              schemaFieldsIdx += 1
+          // Field exists in schema  and is not present in the input record
+          // go get the next field in the schema
+          if (nameComp > 0) {
+            // schema fields is higher alphabetically speaking so we need to increase dataset field index
+            addError(structContext, errorList, None, datasetField)
+            datasetFieldsIdx += 1
+          } else if (nameComp < 0) {
+            if (!schemaField.nullable) {
+              // Required field is present in the schema but not in the message.
+              addError(structContext, errorList, Some(schemaField), datasetField)
             }
-          } else if (nameComp == 0) {
+            schemaFieldsIdx += 1
+          } else { // nameComp == 0
             // field is present in the schema and the input record : check that types are equal
             val f1Type = schemaField.dataType
             val f2Type = datasetField.dataType
@@ -112,18 +114,6 @@ object JsonIngestionUtil {
             )
             schemaFieldsIdx += 1
             datasetFieldsIdx += 1
-          } else {
-            // Required field is present in the schema but not in the message.
-            if (nameComp > 0) {
-              // schema fields is higher alphabetically speaking so we need to increase dataset field index
-              // Should we add here the fact that an unknown attribute is present in the incoming json.
-              // For now it is simply ignored.
-              datasetFieldsIdx += 1
-            } else {
-              addError(structContext, errorList, Some(schemaField), datasetField)
-              schemaFieldsIdx += 1
-            }
-
           }
         }
         if (schemaFieldsIdx == schemaFields.length) {
