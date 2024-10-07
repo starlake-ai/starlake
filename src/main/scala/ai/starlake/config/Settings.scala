@@ -27,7 +27,10 @@ import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model._
+import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.{SparkUtils, StarlakeObjectMapper, Utils, YamlSerializer}
+import better.files.File
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -46,6 +49,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.ObjectStreamException
 import java.net.URI
+import java.sql.DriverManager
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.collection.JavaConverters._
@@ -161,7 +165,8 @@ object Settings extends StrictLogging {
     sparkFormat: Option[String] = None,
     quote: Option[String] = None,
     separator: Option[String] = None,
-    options: Map[String, String] = Map.empty
+    options: Map[String, String] = Map.empty,
+    _transpileDialect: Option[String] = None
   ) {
     override def toString: String = {
       val redactOptions = Utils.redact(options)
@@ -348,10 +353,35 @@ object Settings extends StrictLogging {
       Engine.fromString(engineName)
     }
 
+    @JsonIgnore
+    def isBigQuery() = this.`type`.equals("bigquery")
+
+    @JsonIgnore
     def isSnowflake(): Boolean = getJdbcEngineName().toString == "snowflake"
+
+    @JsonIgnore
+    def isSpark(): Boolean = getJdbcEngineName().toString == "spark"
+
+    @JsonIgnore
+    def isJdbcUrl() = this.options.get("url").exists(_.startsWith("jdbc"))
+
+    @JsonIgnore
     def isRedshift(): Boolean = getJdbcEngineName().toString == "redshift"
 
+    @JsonIgnore
+    def isPostgreSql(): Boolean = getJdbcEngineName().toString == "postgresql"
+
+    @JsonIgnore
+    def isMySQLOrMariaDb(): Boolean = isMySQL() || isMariaDb()
+
+    @JsonIgnore
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"
+
+    @JsonIgnore
+    def isMariaDb(): Boolean = getJdbcEngineName().toString == "mariadb"
+
+    @JsonIgnore
+    def isDuckDb(): Boolean = getJdbcEngineName().toString == "duckdb"
 
     @JsonIgnore
     lazy val jdbcUrl: String = applyIfConnectionTypeIs(
@@ -548,6 +578,8 @@ object Settings extends StrictLogging {
     env: String,
     datasets: String,
     dags: String,
+    tests: String,
+    types: String,
     metadata: String,
     metrics: Metrics,
     validateOnLoad: Boolean,
@@ -613,8 +645,9 @@ object Settings extends StrictLogging {
     shortJobTimeoutMs: Long,
     createSchemaIfNotExists: Boolean,
     http: Http,
-    timezone: TimeZone
+    timezone: TimeZone,
     // createTableIfNotExists: Boolean
+    duckdbMode: Boolean
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
@@ -913,10 +946,13 @@ object Settings extends StrictLogging {
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
 
     // Load application.conf / application.sl.yml
-    val applicationConfSettings =
+    val loadedSettings =
       loadApplicationYaml(effectiveConfig, settings)
         .orElse(loadApplicationConf(effectiveConfig, settings))
         .getOrElse(settings)
+
+    val applicationConfSettings =
+      if (settings.appConfig.duckdbMode) duckDBMode(loadedSettings) else loadedSettings
 
     applicationConfSettings.storageHandler(true) // Reload with the authentication settings
 
@@ -978,7 +1014,8 @@ object Settings extends StrictLogging {
     }
     val applicationYmlConfig = applicationYml match {
       case Some(filename) =>
-        val schemaHandler = new SchemaHandler(settings.storageHandler())(settings)
+        val schemaHandler =
+          settings.schemaHandler() // new SchemaHandler(settings.storageHandler())(settings)
         val applicationYmlPath = new Path(DatasetArea.metadata(settings), filename)
         val applicationYmlContent = settings.storageHandler().read(applicationYmlPath)
         val content =
@@ -1057,6 +1094,47 @@ object Settings extends StrictLogging {
     } else
       Some(new Path(file))
   }
+
+  def duckDBMode(settings: Settings): Settings = {
+    val duckdbPath = DatasetArea.path("duckdb.db")(settings)
+    val pathAsString = duckdbPath.toUri.getPath
+    val duckDBConnection = Connection(
+      `type` = Some("jdbc"),
+      sparkFormat = None,
+      options = Map(
+        "url"    -> s"jdbc:duckdb:$pathAsString",
+        "driver" -> "org.duckdb.DuckDBDriver"
+      )
+    )
+    val duckdbFile = File(pathAsString)
+    if (!duckdbFile.exists) {
+      if (!duckdbFile.parent.exists)
+        duckdbFile.parent.createDirectories()
+      Utils.withResources(DriverManager.getConnection(duckDBConnection.jdbcUrl)) { _ => }
+    }
+    val updatedConnections = settings.appConfig.connections
+      .map { case (k, v) =>
+        val duckDBConnectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
+          case JSQLTranspiler.Dialect.DUCK_DB =>
+            duckDBConnection.copy(_transpileDialect = None)
+          case dialect =>
+            duckDBConnection.copy(_transpileDialect = Some(dialect.name()))
+        }
+
+        k -> duckDBConnectionWithTranspileInfo
+      }
+      .updated("duckdb", duckDBConnection)
+
+    val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
+    val configWithDuckDB =
+      if (updatedAppConfig.connectionRef.isEmpty)
+        updatedAppConfig.copy(connectionRef = "duckdb")
+      else
+        updatedAppConfig
+
+    settings.copy(appConfig = configWithDuckDB)
+
+  }
 }
 
 object CometColumns {
@@ -1079,6 +1157,23 @@ final case class Settings(
 ) {
 
   var _storageHandler: Option[StorageHandler] = None
+
+  var _schemaHandler: Option[SchemaHandler] = None
+
+  @transient
+  def schemaHandler(
+    cliEnv: Map[String, String] = Map.empty,
+    reload: Boolean = false
+  ): SchemaHandler = {
+    _schemaHandler match {
+      case Some(handler) if !reload => handler
+      case _ =>
+        implicit val self: Settings = this
+        val handler = new SchemaHandler(this.storageHandler(), cliEnv)
+        _schemaHandler = Some(handler)
+        handler
+    }
+  }
 
   @transient
   def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))

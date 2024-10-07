@@ -4,11 +4,9 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.BigQueryTablesConfig
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
-import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -33,12 +31,14 @@ class BigQueryAutoTask(
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
+  test: Boolean,
   resultPageSize: Int = 1
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       taskDesc,
       commandParameters,
       interactive,
+      test,
       truncate,
       resultPageSize
     ) {
@@ -239,7 +239,7 @@ class BigQueryAutoTask(
                 val end = Timestamp.from(Instant.now())
                 val jobResultCount =
                   jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
-                jobResultCount.foreach(logAuditSuccess(start, end, _))
+                jobResultCount.foreach(logAuditSuccess(start, end, _, test))
                 // We execute assertions only on success
                 if (settings.appConfig.expectations.active) {
                   new ExpectationJob(
@@ -287,7 +287,7 @@ class BigQueryAutoTask(
             case _ =>
               val err = errors.reduce(_.initCause(_))
               val end = Timestamp.from(Instant.now())
-              logAuditFailure(start, end, err)
+              logAuditFailure(start, end, err, test)
               Failure(err)
           }
 
@@ -309,7 +309,7 @@ class BigQueryAutoTask(
     runBQ(None)
   }
 
-  override def buildAllSQLQueries(sql: Option[String]): String = {
+  /*override def buildAllSQLQueries(sql: Option[String]): String = {
     assert(taskDesc.parseSQL.getOrElse(true))
     val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
     val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
@@ -326,7 +326,7 @@ class BigQueryAutoTask(
       sinkConfig
     )
     mainSql
-  }
+  }*/
 
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
     val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2

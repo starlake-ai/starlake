@@ -21,6 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.{JdbcDbUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -41,7 +42,13 @@ import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
-import ai.starlake.utils._
+import ai.starlake.tests.{
+  StarlakeTestConfig,
+  StarlakeTestCoverage,
+  StarlakeTestData,
+  StarlakeTestResult
+}
+import ai.starlake.utils.{FailedJobResult, IngestionCounters, _}
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -49,15 +56,18 @@ import org.apache.spark.sql.{Dataset, DatasetLogging, Row}
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
-import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
+import org.apache.spark.sql.types.{BooleanType, DataType, MetadataBuilder, TimestampType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
+import java.sql.Types
+import java.time.Instant
 import java.util.Collections
 import java.util.concurrent.ForkJoinPool
 import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
 private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -69,6 +79,26 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
       Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.BOOLEAN))
     case _ => JdbcUtils.getCommonJDBCType(dt)
   }
+}
+
+private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
+  override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:duckdb:")
+  // override def quoteIdentifier(column: String): String = column
+  override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
+    case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
+    case _           => JdbcDbUtils.getCommonJDBCType(dt)
+  }
+  override def getCatalystType(
+    sqlType: Int,
+    typeName: String,
+    size: Int,
+    md: MetadataBuilder
+  ): Option[DataType] = {
+    if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
+      Some(TimestampType)
+    } else None
+  }
+
 }
 
 /** The whole worklfow works as follow :
@@ -95,6 +125,7 @@ class IngestionWorkflow(
   import org.apache.spark.sql.jdbc.JdbcDialects
 
   JdbcDialects.registerDialect(StarlakeSnowflakeDialect)
+  JdbcDialects.registerDialect(StarlakeDuckDbDialect)
 
   private var _domains: Option[List[Domain]] = None
 
@@ -304,120 +335,188 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   @nowarn
-  def loadPending(config: LoadConfig = LoadConfig()): Try[Boolean] = Try {
-    val includedDomains = domainsToWatch(config)
+  def loadPending(config: LoadConfig = LoadConfig(test = false)): Try[SparkJobResult] = {
+    val loadResults: List[Try[JobResult]] =
+      if (config.test) {
+        logger.info("Test mode enabled")
+        val domain = schemaHandler.getDomain(config.domains.head)
+        val jobResult: Try[JobResult] =
+          domain match {
+            case Some(dom) =>
+              val schema = dom.tables.find(_.name == config.tables.head)
+              schema match {
+                case Some(sch) =>
+                  val paths = config.files.getOrElse(Nil).map(new Path(_)).sortBy(_.getName)
+                  val fileInfos = paths.map(p =>
+                    FileInfo(p, 0, Instant.now())
+                  ) // dummy file infos for calling AdaptiveWriteStrategy
+                  val updatedSchema =
+                    AdaptiveWriteStrategy
+                      .adaptThenGroup(sch, fileInfos)
+                      .head
+                      ._1 // get the schema only
+                  ingest(dom, updatedSchema, paths, config.options, config.test)
+                case None =>
+                  throw new Exception(s"Schema ${config.tables.head} not found")
+              }
+            case None =>
+              throw new Exception(s"Domain ${config.domains.head} not found")
 
-    val result: List[Boolean] = includedDomains.flatMap { domain =>
-      logger.info(s"Watch Domain: ${domain.name}")
-      val (resolved, unresolved) = pending(domain.name, config.tables.toList)
-      unresolved.foreach { case (_, fileInfo) =>
-        val targetPath =
-          new Path(DatasetArea.unresolved(domain.name), fileInfo.path.getName)
-        logger.info(s"Unresolved file : ${fileInfo.path.getName}")
-        storageHandler.move(fileInfo.path, targetPath)
+          }
+        List(jobResult)
+      } else {
+        val result =
+          Try {
+            val includedDomains = domainsToWatch(config)
+            includedDomains.flatMap { domain =>
+              logger.info(s"Watch Domain: ${domain.name}")
+              val (resolved, unresolved) = pending(domain.name, config.tables.toList)
+              unresolved.foreach { case (_, fileInfo) =>
+                val targetPath =
+                  new Path(DatasetArea.unresolved(domain.name), fileInfo.path.getName)
+                logger.info(s"Unresolved file : ${fileInfo.path.getName}")
+                storageHandler.move(fileInfo.path, targetPath)
+              }
+
+              val filteredResolved =
+                if (settings.appConfig.privacyOnly) {
+                  val (withPrivacy, noPrivacy) =
+                    resolved.partition { case (schema, _) =>
+                      schema.exists(
+                        _.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_))
+                      )
+                    }
+                  // files for schemas without any privacy attributes are moved directly to accepted area
+                  noPrivacy.foreach {
+                    case (Some(schema), fileInfo) =>
+                      storageHandler.move(
+                        fileInfo.path,
+                        new Path(
+                          new Path(DatasetArea.accepted(domain.name), schema.name),
+                          fileInfo.path.getName
+                        )
+                      )
+                    case (None, _) => throw new Exception("Should never happen")
+                  }
+
+                  // files for schemas without any privacy attributes are moved directly to accepted area
+                  noPrivacy.foreach {
+                    case (Some(schema), fileInfo) =>
+                      storageHandler.move(
+                        fileInfo.path,
+                        new Path(
+                          new Path(DatasetArea.accepted(domain.name), schema.name),
+                          fileInfo.path.getName
+                        )
+                      )
+                    case (None, _) => throw new Exception("Should never happen")
+                  }
+
+                  withPrivacy
+                } else {
+                  resolved
+                }
+
+              // We group files with the same schema to ingest them together in a single step.
+              val groupedResolved: Map[Schema, Iterable[FileInfo]] = filteredResolved.map {
+                case (Some(schema), fileInfo) => (schema, fileInfo)
+                case (None, _)                => throw new Exception("Should never happen")
+              } groupBy { case (schema, _) => schema } mapValues (it =>
+                it.map { case (_, fileInfo) => fileInfo }
+              )
+
+              case class JobContext(
+                domain: Domain,
+                schema: Schema,
+                paths: List[Path],
+                options: Map[String, String]
+              )
+              groupedResolved.toList
+                .flatMap { case (schema, pendingPaths) =>
+                  AdaptiveWriteStrategy.adaptThenGroup(schema, pendingPaths)
+                }
+                .map { case (schema, pendingPaths) =>
+                  logger.info(s"""Ingest resolved file : ${pendingPaths
+                      .map(_.path.getName)
+                      .mkString(",")} with schema ${schema.name}""")
+
+                  // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
+                  val groupedPendingPathsIterator =
+                    pendingPaths.grouped(settings.appConfig.groupedMax)
+                  groupedPendingPathsIterator.map { pendingPaths =>
+                    val ingestingPaths = pendingPaths.map { pendingPath =>
+                      val ingestingPath =
+                        new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
+                      if (!storageHandler.move(pendingPath.path, ingestingPath)) {
+                        logger.error(s"Could not move $pendingPath to $ingestingPath")
+                      }
+                      ingestingPath
+                    }
+                    val jobs = if (settings.appConfig.grouped) {
+                      JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+                    } else {
+                      // We ingest all the files but return false if one of them fails.
+                      ingestingPaths.map { path =>
+                        JobContext(domain, schema, path :: Nil, config.options)
+                      }
+                    }
+                    implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
+                      ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
+                    val parJobs =
+                      ParUtils.makeParallel(jobs.toList)
+                    val res = parJobs.map { jobContext =>
+                      ingest(
+                        jobContext.domain,
+                        jobContext.schema,
+                        jobContext.paths,
+                        jobContext.options,
+                        config.test
+                      )
+                    }.toList
+                    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+                    res
+                  }
+                }
+            }.flatten
+          }
+        result match {
+          case Success(jobs) =>
+            jobs.flatten
+          case Failure(exception) =>
+            logger.error("Error during ingestion", exception)
+            List(Failure(exception))
+        }
       }
 
-      val filteredResolved =
-        if (settings.appConfig.privacyOnly) {
-          val (withPrivacy, noPrivacy) =
-            resolved.partition { case (schema, _) =>
-              schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
-            }
-          // files for schemas without any privacy attributes are moved directly to accepted area
-          noPrivacy.foreach {
-            case (Some(schema), fileInfo) =>
-              storageHandler.move(
-                fileInfo.path,
-                new Path(
-                  new Path(DatasetArea.accepted(domain.name), schema.name),
-                  fileInfo.path.getName
-                )
-              )
-            case (None, _) => throw new Exception("Should never happen")
-          }
+    val (successLoads, failureLoads) = loadResults.partition(_.isSuccess)
+    val exceptionsAsString = failureLoads.map { f =>
+      Utils.exceptionAsString(f.failed.get)
+    }
 
-          // files for schemas without any privacy attributes are moved directly to accepted area
-          noPrivacy.foreach {
-            case (Some(schema), fileInfo) =>
-              storageHandler.move(
-                fileInfo.path,
-                new Path(
-                  new Path(DatasetArea.accepted(domain.name), schema.name),
-                  fileInfo.path.getName
-                )
-              )
-            case (None, _) => throw new Exception("Should never happen")
-          }
-
-          withPrivacy
-        } else {
-          resolved
+    val successAsJobResult =
+      successLoads
+        .flatMap {
+          case Success(result: SparkJobResult) =>
+            Some(result.counters.getOrElse(IngestionCounters(0, 0, 0)))
+          case Success(_) => None
         }
 
-      // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[FileInfo]] = filteredResolved.map {
-        case (Some(schema), fileInfo) => (schema, fileInfo)
-        case (None, _)                => throw new Exception("Should never happen")
-      } groupBy { case (schema, _) => schema } mapValues (it =>
-        it.map { case (_, fileInfo) => fileInfo }
-      )
-
-      case class JobContext(
-        domain: Domain,
-        schema: Schema,
-        paths: List[Path],
-        options: Map[String, String]
-      )
-      groupedResolved.toList
-        .flatMap { case (schema, pendingPaths) =>
-          AdaptiveWriteStrategy.adaptThenGroup(schema, pendingPaths)
-        }
-        .map { case (schema, pendingPaths) =>
-          logger.info(s"""Ingest resolved file : ${pendingPaths
-              .map(_.path.getName)
-              .mkString(",")} with schema ${schema.name}""")
-
-          // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
-          val groupedPendingPathsIterator =
-            pendingPaths.grouped(settings.appConfig.groupedMax)
-          groupedPendingPathsIterator.map { pendingPaths =>
-            val ingestingPaths = pendingPaths.map { pendingPath =>
-              val ingestingPath =
-                new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
-              if (!storageHandler.move(pendingPath.path, ingestingPath)) {
-                logger.error(s"Could not move $pendingPath to $ingestingPath")
-              }
-              ingestingPath
-            }
-            val jobs = if (settings.appConfig.grouped) {
-              JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
-            } else {
-              // We ingest all the files but return false if one of them fails.
-              ingestingPaths.map { path =>
-                JobContext(domain, schema, path :: Nil, config.options)
-              }
-            }
-            val (parJobs, forkJoinPool) =
-              makeParallel(jobs.toList, settings.appConfig.sparkScheduling.maxJobs)
-            val res = parJobs.map { jobContext =>
-              ingest(
-                jobContext.domain,
-                jobContext.schema,
-                jobContext.paths,
-                jobContext.options
-              ) match {
-                case Failure(e) =>
-                  e.printStackTrace()
-                  false
-                case Success(r) => true
-              }
-            }.toList
-            forkJoinPool.foreach(_.shutdown())
-            res.forall(_ == true)
-          }
-        }
-    }.flatten
-    result.forall(_ == true)
+    val counters =
+      successAsJobResult.fold(IngestionCounters(0, 0, 0)) { (acc, c) =>
+        IngestionCounters(
+          acc.inputCount + c.inputCount,
+          acc.acceptedCount + c.acceptedCount,
+          acc.rejectedCount + c.rejectedCount
+        )
+      }
+    if (exceptionsAsString.nonEmpty) {
+      logger.error("Some tables failed to be loaded")
+      logger.error(exceptionsAsString.mkString("\n"))
+      Failure(new Exception(exceptionsAsString.mkString("\n")))
+    } else {
+      logger.info("All tables loaded successfully")
+      Success(SparkJobResult(None, rejectedCount = counters.rejectedCount))
+    }
   }
 
   private def domainsToWatch(config: LoadConfig): List[Domain] = {
@@ -498,7 +597,7 @@ class IngestionWorkflow(
 
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def load(config: IngestConfig): Try[Boolean] = {
+  def load(config: IngestConfig): Try[JobResult] = {
     if (config.domain.isEmpty || config.schema.isEmpty) {
       val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
       val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
@@ -506,7 +605,9 @@ class IngestionWorkflow(
         LoadConfig(
           domains = domainToWatch,
           tables = schemasToWatch,
-          options = config.options
+          options = config.options,
+          test = false,
+          files = None
         )
       )
     } else {
@@ -522,9 +623,12 @@ class IngestionWorkflow(
         val result = for {
           domain <- domains(domainName :: Nil, schemaName :: Nil).find(_.name == domainName)
           schema <- domain.tables.find(_.name == schemaName)
-        } yield ingest(domain, schema, ingestingPaths, config.options)
+        } yield ingest(domain, schema, ingestingPaths, config.options, test = false)
         result match {
-          case None | Some(Success(_)) => Success(true)
+          case None =>
+            Success(SparkJobResult(None))
+          case Some(Success(jobResult)) =>
+            Success(jobResult)
           case Some(Failure(exception)) =>
             Failure(exception)
         }
@@ -537,7 +641,8 @@ class IngestionWorkflow(
     domain: Domain,
     schema: Schema,
     ingestingPath: List[Path],
-    options: Map[String, String]
+    options: Map[String, String],
+    test: Boolean
   ): Try[JobResult] = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
@@ -558,7 +663,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.GENERIC =>
           new GenericIngestionJob(
@@ -568,7 +674,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.DSV =>
           new DsvIngestionJob(
@@ -578,7 +685,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.SIMPLE_JSON =>
           new SimpleJsonIngestionJob(
@@ -588,7 +696,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.JSON =>
           new JsonIngestionJob(
@@ -598,7 +707,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.XML =>
           new XmlIngestionJob(
@@ -608,7 +718,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.TEXT_XML =>
           new XmlSimplePrivacyJob(
@@ -618,7 +729,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.POSITION =>
           new PositionIngestionJob(
@@ -628,7 +740,8 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            optionsAndEnvVars
+            optionsAndEnvVars,
+            test
           ).run()
         case Format.KAFKA =>
           new KafkaIngestionJob(
@@ -639,7 +752,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            FILE
+            FILE,
+            test
           ).run()
         case Format.KAFKASTREAM =>
           new KafkaIngestionJob(
@@ -650,7 +764,8 @@ class IngestionWorkflow(
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
-            STREAM
+            STREAM,
+            test
           ).run()
         case _ =>
           throw new Exception("Should never happen")
@@ -658,7 +773,9 @@ class IngestionWorkflow(
     }
     ingestionResult match {
       case Success(Success(jobResult)) =>
-        if (settings.appConfig.archive) {
+        if (test) {
+          logger.info(s"Test mode enabled, no file will be deleted")
+        } else if (settings.appConfig.archive) {
           val (parIngests, forkJoinPool) =
             makeParallel(ingestingPath, settings.appConfig.maxParCopy)
           parIngests.foreach { ingestingPath =>
@@ -772,6 +889,7 @@ class IngestionWorkflow(
       config.options,
       config.interactive,
       config.truncate,
+      config.test,
       taskDesc.getRunEngine(),
       resultPageSize = 1000
     )(
@@ -967,6 +1085,83 @@ class IngestionWorkflow(
         new BigQuerySparkJob(ignore).applyIamPolicyTags(iamPolicyTags)
       }
       .getOrElse(Success(()))
+  }
+
+  private def testsLog(transformResults: List[StarlakeTestResult]): JobResult = {
+    val (success, failure) = transformResults.partition(_.success)
+    println(s"Tests run: ${transformResults.size} ")
+    println(s"Tests succeeded: ${success.size}")
+    println(s"Tests failed: ${failure.size}")
+    if (failure.nonEmpty) {
+      println(
+        s"Tests failed: ${failure.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
+      )
+    }
+    if (success.nonEmpty) {
+      println(
+        s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
+      )
+    }
+    if (failure.size > 0) {
+      FailedJobResult
+    } else {
+      EmptyJobResult
+    }
+  }
+
+  def testLoad(config: StarlakeTestConfig): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val loadTests = StarlakeTestData.loadTests(
+      load = true,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
+    StarlakeTestData.runLoads(loadTests, config)
+  }
+
+  def testTransform(
+    config: StarlakeTestConfig
+  ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val transformTests = StarlakeTestData.loadTests(
+      load = false,
+      config.domain.getOrElse(""),
+      config.table.getOrElse(""),
+      config.test.getOrElse("")
+    )
+    StarlakeTestData.runTransforms(transformTests, config)
+  }
+
+  def test(config: StarlakeTestConfig): JobResult = {
+    val loadResults =
+      if (config.runLoad()) {
+        testLoad(config)
+      } else
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+    val transformResults =
+      if (config.runTransform()) {
+        testTransform(config)
+      } else
+        (Nil, StarlakeTestCoverage(Set.empty, Set.empty, Nil, Nil))
+    if (config.generate) {
+      StarlakeTestResult.html(loadResults, transformResults, config.outputDir)
+      testsLog(loadResults._1 ++ transformResults._1)
+    } else {
+      import java.io.{File => JFile}
+      val rootFolder =
+        config.outputDir
+          .flatMap { dir =>
+            val file = new JFile(dir)
+            if (file.exists() || file.mkdirs()) {
+              Option(new Directory(file))
+            } else {
+              Console.err.println(s"Could not create output directory $dir")
+              None
+            }
+          }
+          .getOrElse(new Directory(new JFile(settings.appConfig.root, "test-reports")))
+      StarlakeTestResult.junitXml(loadResults._1, transformResults._1, rootFolder)
+    }
+    testsLog(loadResults._1 ++ transformResults._1)
   }
 
   def secure(config: LoadConfig): Try[Boolean] = {

@@ -12,7 +12,27 @@ import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
 import com.univocity.parsers.csv.{CsvFormat, CsvRoutines, CsvWriterSettings}
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.jdbc.JdbcType
+import org.apache.spark.sql.types.{
+  BinaryType,
+  BooleanType,
+  ByteType,
+  CharType,
+  DataType,
+  DateType,
+  DecimalType,
+  DoubleType,
+  FloatType,
+  IntegerType,
+  LongType,
+  ShortType,
+  StringType,
+  TimestampNTZType,
+  TimestampType,
+  VarcharType
+}
 
 import java.nio.charset.StandardCharsets
 import java.sql.Types._
@@ -28,6 +48,7 @@ import java.sql.{
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
+import javax.sql.DataSource
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
@@ -71,6 +92,47 @@ object JdbcDbUtils extends LazyLogging {
     "TIMESTAMP_WITH_TIMEZONE" -> 2014
   )
 
+  object StarlakeConnectionPool {
+    private val hikariPools = scala.collection.concurrent.TrieMap[String, DataSource]()
+
+    def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
+      assert(
+        connectionOptions.contains("driver"),
+        s"driver class not found in JDBC connection options $connectionOptions"
+      )
+      val driver = connectionOptions("driver")
+      val url = connectionOptions("url")
+      if (url.startsWith("jdbc:duckdb")) {
+        // No connection pool for duckdb. This is a single user database on write.
+        // We need to release the connection asap
+        val properties = new Properties()
+        (connectionOptions - "url" - "driver").foreach { case (k, v) =>
+          properties.setProperty(k, v)
+        }
+        DriverManager.getConnection(url, properties)
+      } else {
+        hikariPools
+          .getOrElseUpdate(
+            url, {
+              val config = new HikariConfig()
+              (connectionOptions - "url" - "driver").foreach { case (key, value) =>
+                config.addDataSourceProperty(key, value)
+              }
+              config.setJdbcUrl(url)
+              config.setDriverClassName(driver)
+              config.setMinimumIdle(1)
+              config.setMaximumPoolSize(
+                100
+              ) // dummy value since we are limited by the ForJoinPool size
+              logger.info(s"Creating connection pool for $url")
+              new HikariDataSource(config)
+            }
+          )
+          .getConnection()
+      }
+    }
+  }
+
   val lastExportTableName = "SL_LAST_EXPORT"
 
   // The other part of the biMap
@@ -88,40 +150,32 @@ object JdbcDbUtils extends LazyLogging {
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    assert(
-      connectionOptions.contains("driver"),
-      "driver class not found in JDBC connection options"
-    )
-    Class.forName(connectionOptions("driver"))
-    val url = connectionOptions("url")
-    val properties = new Properties()
-    (connectionOptions - "url").foreach { case (key, value) =>
-      properties.setProperty(key, value)
-    }
-    val connection = DriverManager.getConnection(url, properties)
-    // connection.setAutoCommit(false)
-
-    val result = Try {
-      f(connection)
-    } match {
+    Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
-        logger.error(s"Error running sql", exception)
-        // connection.rollback()
-        Failure(throw exception)
-      case Success(value) =>
-        // connection.commit()
-        Success(value)
-    }
-
-    Try(connection.close()) match {
-      case Success(_) => logger.debug(s"Closed connection $url")
-      case Failure(exception) =>
-        logger.warn(s"Could not close connection to $url", exception)
-    }
-    result match {
-      case Failure(exception) =>
+        logger.error(s"Error creating connection", exception)
         throw exception
-      case Success(value) => value
+      case Success(connection) =>
+        val result = Try {
+          f(connection)
+        } match {
+          case Failure(exception) =>
+            logger.error(s"Error running sql", exception)
+            Failure(exception)
+          case Success(value) =>
+            Success(value)
+        }
+
+        val url = connectionOptions("url")
+        Try(connection.close()) match {
+          case Success(_) => logger.debug(s"Closed connection $url")
+          case Failure(exception) =>
+            logger.warn(s"Could not close connection to $url", exception)
+        }
+        result match {
+          case Failure(exception) =>
+            throw exception
+          case Success(value) => value
+        }
     }
   }
 
@@ -1513,6 +1567,31 @@ object JdbcDbUtils extends LazyLogging {
     } else
       jdbcOptions
     CaseInsensitiveMap[String](options)
+  }
+
+  def getCommonJDBCType(dt: DataType): Option[JdbcType] = {
+    dt match {
+      case IntegerType    => Option(JdbcType("INTEGER", java.sql.Types.INTEGER))
+      case LongType       => Option(JdbcType("BIGINT", java.sql.Types.BIGINT))
+      case DoubleType     => Option(JdbcType("DOUBLE PRECISION", java.sql.Types.DOUBLE))
+      case FloatType      => Option(JdbcType("REAL", java.sql.Types.FLOAT))
+      case ShortType      => Option(JdbcType("INTEGER", java.sql.Types.SMALLINT))
+      case ByteType       => Option(JdbcType("BYTE", java.sql.Types.TINYINT))
+      case BooleanType    => Option(JdbcType("BIT(1)", java.sql.Types.BIT))
+      case StringType     => Option(JdbcType("TEXT", java.sql.Types.CLOB))
+      case BinaryType     => Option(JdbcType("BLOB", java.sql.Types.BLOB))
+      case CharType(n)    => Option(JdbcType(s"CHAR($n)", java.sql.Types.CHAR))
+      case VarcharType(n) => Option(JdbcType(s"VARCHAR($n)", java.sql.Types.VARCHAR))
+      case TimestampType  => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      // This is a common case of timestamp without time zone. Most of the databases either only
+      // support TIMESTAMP type or use TIMESTAMP as an alias for TIMESTAMP WITHOUT TIME ZONE.
+      // Note that some dialects override this setting, e.g. as SQL Server.
+      case TimestampNTZType => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
+      case DateType         => Option(JdbcType("DATE", java.sql.Types.DATE))
+      case t: DecimalType =>
+        Option(JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
+      case _ => None
+    }
   }
 }
 

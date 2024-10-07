@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Test results - Test Summary</title>
+    <link href="css/base-style.css" rel="stylesheet" type="text/css"/>
+    <link href="css/style.css" rel="stylesheet" type="text/css"/>
+    <script src="js/report.js" type="text/javascript"></script>
+</head>
+<body>
+<div id="content">
+    <h1>Load Summary</h1>
+    <div id="summary">
+        <table>
+            <tr>
+                <td>
+                    <div class="summaryGroup">
+                        <table>
+                            <tr>
+                                <td>
+                                    <div class="infoBox" id="tests">
+                                        <div class="counter">{{ loadIndex.count }}</div>
+                                        <p><a href="load/index.html">tests</a></p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="success">
+                                        <div class="counter">{{ loadIndex.success }}</div>
+                                        <p>success</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="failures">
+                                        <div class="counter">{{ loadIndex.failures }}</div>
+                                        <p>failures</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="duration">
+                                        <div class="counter">{{ loadIndex.duration }}</div>
+                                        <p>duration</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+                <td>
+                    {% if loadIndex.successRate == 100  %}
+                        <div class="infoBox success" id="successRate">
+                    {% else %}
+                        <div class="infoBox failures" id="successRate">
+                    {% endif %}
+                        <div class="percent">{{ loadIndex.successRate }}%</div>
+                        <p>successful</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <div id="summary">
+            <table>
+                <tr>
+                    <td>
+                        <div class="summaryGroup">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <div class="infoBox" >
+                                      domain
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="infoBox" >
+                                        table
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="infoBox" >
+                                            <div class="counter">{{ loadCoverage.domainCoveragePercent }}%</div>
+                                            coverage
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="infoBox" >
+                                            <div class="counter">{{ loadCoverage.tableCoveragePercent }}%</div>
+                                            coverage
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+    <h1>Transform Summary</h1>
+    <div id="summary">
+        <table>
+            <tr>
+                <td>
+                    <div class="summaryGroup">
+                        <table>
+                            <tr>
+                                <td>
+                                    <div class="infoBox" id="tests">
+                                        <div class="counter">{{ transformIndex.count }}</div>
+                                        <p><a href="transform/index.html">test</a></p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="success">
+                                        <div class="counter">{{ transformIndex.success }}</div>
+                                        <p>success</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="failures">
+                                        <div class="counter">{{ transformIndex.failures }}</div>
+                                        <p>failure</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="infoBox" id="duration">
+                                        <div class="counter">{{ transformIndex.duration }}</div>
+                                        <p>duration</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+                <td>
+                    {% if transformIndex.successRate == 100  %}
+                        <div class="infoBox success" id="successRate">
+                    {% else %}
+                        <div class="infoBox failures" id="successRate">
+                    {% endif %}
+                        <div class="percent">{{ transformIndex.successRate }}%</div>
+                        <p>successful</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <div id="summary">
+            <table>
+                <tr>
+                    <td>
+                        <div class="summaryGroup">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <div class="infoBox" >
+                                            domains
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="infoBox" >
+                                            tasks
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="infoBox" >
+                                            <div class="counter">{{ transformCoverage.domainCoveragePercent }}%</div>
+                                            coverage
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="infoBox" >
+                                            <div class="counter">{{ transformCoverage.tableCoveragePercent }}%</div>
+                                            coverage
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+
+    </div>
+    <div id="footer">
+        <p>
+        <div>
+            <label class="hidden" id="label-for-line-wrapping-toggle" for="line-wrapping-toggle">Wrap lines
+                <input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
+            </label>
+        </div>Generated by
+        <a href="https://starlake.ai">starlake</a> at {{ timestamp }}</p>
+    </div>
+</div>
+</body>
+</html>
