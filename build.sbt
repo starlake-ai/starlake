@@ -39,7 +39,7 @@ Test / javaOptions ++= testJavaOptions
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.19"
+lazy val scala212 = "2.12.20"
 
 lazy val scala213 = "2.13.15"
 
@@ -76,7 +76,7 @@ dependencyOverrides := Seq(
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
-  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.2
+  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
   "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jackson212ForSpark3
 )
 
