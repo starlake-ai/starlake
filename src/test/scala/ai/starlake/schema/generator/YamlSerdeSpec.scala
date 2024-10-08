@@ -1279,13 +1279,13 @@ object YamlConfigGenerators {
     } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
   }
 
-  implicit val attributeDesc: Arbitrary[AttributeDesc] = Arbitrary {
+  implicit val attributes: Arbitrary[Attribute] = Arbitrary {
     for {
       name         <- arbitrary[String]
       `type`       <- arbitrary[String]
-      comment      <- arbitrary[String]
+      comment      <- Gen.option(arbitrary[String])
       accessPolicy <- Gen.option(arbitrary[String])
-    } yield AttributeDesc(
+    } yield Attribute(
       name = name,
       `type` = `type`,
       comment = comment,
@@ -1299,27 +1299,27 @@ object YamlConfigGenerators {
 
   implicit val autoTaskDesc: Arbitrary[AutoTaskDesc] = Arbitrary {
     for {
-      name           <- arbitrary[String]
-      sql            <- Gen.option(arbitrary[String])
-      database       <- Gen.option(arbitrary[String])
-      domain         <- arbitrary[String]
-      table          <- arbitrary[String]
-      partition      <- arbitrary[List[String]]
-      presql         <- arbitrary[List[String]]
-      postsql        <- arbitrary[List[String]]
-      sink           <- Gen.option(arbitrary[AllSinks])
-      rls            <- arbitrary[List[RowLevelSecurity]]
-      expectations   <- arbitrary[List[ExpectationItem]]
-      acl            <- arbitrary[List[AccessControlEntry]]
-      comment        <- Gen.option(arbitrary[String])
-      freshness      <- Gen.option(arbitrary[Freshness])
-      attributesDesc <- arbitrary[List[AttributeDesc]]
-      python         <- Gen.option(arbitrary[Path])
-      tags           <- arbitrary[List[String]].map(_.toSet)
-      schedule       <- Gen.option(arbitrary[String])
-      dagRef         <- Gen.option(arbitrary[String])
-      taskTimeoutMs  <- Gen.option(arbitrary[Long])
-      parseSQL       <- Gen.option(arbitrary[Boolean])
+      name          <- arbitrary[String]
+      sql           <- Gen.option(arbitrary[String])
+      database      <- Gen.option(arbitrary[String])
+      domain        <- arbitrary[String]
+      table         <- arbitrary[String]
+      partition     <- arbitrary[List[String]]
+      presql        <- arbitrary[List[String]]
+      postsql       <- arbitrary[List[String]]
+      sink          <- Gen.option(arbitrary[AllSinks])
+      rls           <- arbitrary[List[RowLevelSecurity]]
+      expectations  <- arbitrary[List[ExpectationItem]]
+      acl           <- arbitrary[List[AccessControlEntry]]
+      comment       <- Gen.option(arbitrary[String])
+      freshness     <- Gen.option(arbitrary[Freshness])
+      attributes    <- arbitrary[List[Attribute]]
+      python        <- Gen.option(arbitrary[Path])
+      tags          <- arbitrary[List[String]].map(_.toSet)
+      schedule      <- Gen.option(arbitrary[String])
+      dagRef        <- Gen.option(arbitrary[String])
+      taskTimeoutMs <- Gen.option(arbitrary[Long])
+      parseSQL      <- Gen.option(arbitrary[Boolean])
     } yield {
       val autoTask = AutoTaskDesc(
         name = name,
@@ -1335,7 +1335,7 @@ object YamlConfigGenerators {
         acl = acl,
         comment = comment,
         freshness = freshness,
-        attributesDesc = attributesDesc,
+        attributes = attributes,
         python = python,
         tags = tags,
         schedule = schedule,

@@ -8,5 +8,5 @@ case class TableInfo(
   maybeSchema: Option[BQSchema] = None,
   maybePartition: Option[FieldPartitionInfo] = None,
   maybeCluster: Option[ClusteringInfo] = None,
-  attributesDesc: List[AttributeDesc] = Nil
+  attributesDesc: List[Attribute] = Nil
 )
