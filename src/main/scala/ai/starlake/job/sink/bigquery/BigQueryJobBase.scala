@@ -718,9 +718,9 @@ trait BigQueryJobBase extends StrictLogging {
         */
       .map(field => field.getName -> field.getDescription)
       .toMap ++
-    cliConfig.attributesDesc
+    cliConfig.attributes
       .filter(_.comment.nonEmpty)
-      .map(att => att.name -> att.comment)
+      .map(att => att.name -> att.comment.getOrElse(""))
       .toMap
   }
 

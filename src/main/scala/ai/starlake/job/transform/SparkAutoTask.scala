@@ -399,7 +399,7 @@ class SparkAutoTask(
       Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
       Map.empty
     )
-
+    SparkUtils.createSchema(session, fullDomainName)
     Try(SparkUtils.sql(session, script)).isSuccess
 
   }

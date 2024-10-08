@@ -538,6 +538,7 @@ object YamlMigrator extends LazyLogging {
       override protected val isForTable: Boolean = false
 
       protected val migrateTask: List[JsonNode => JsonNode] = List(
+        renameField("attributesDesc", "attributes"),
         renameField("dataset", "table"),
         removeField("engine"),
         removeField("sqlEngine")

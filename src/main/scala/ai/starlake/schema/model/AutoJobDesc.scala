@@ -94,26 +94,6 @@ case class AutoJobDesc(
 
 }
 
-/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
-  *
-  * @param name
-  *   : Attribute name as defined in the source dataset and as received in the file
-  * @param comment
-  *   : free text for attribute description
-  */
-case class AttributeDesc(
-  name: String,
-  `type`: String = "variant",
-  comment: String = "",
-  accessPolicy: Option[String] = None
-) {
-  def this() = this("") // Should never be called. Here for Jackson deserialization only
-
-  override def toString: String = {
-    s"AttributeDesc(name=$name, type=${`type`}, comment=$comment, accessPolicy=$accessPolicy)"
-  }
-}
-
 object AutoJobDesc {
   private def diffTasks(
     existing: List[AutoTaskDesc],

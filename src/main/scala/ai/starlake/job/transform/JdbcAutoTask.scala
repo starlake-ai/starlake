@@ -90,6 +90,7 @@ class JdbcAutoTask(
         Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
         Map.empty
       )
+      JdbcDbUtils.createSchema(conn, fullDomainName)
       JdbcDbUtils.executeUpdate(script, conn) match {
         case Success(_) =>
           true
@@ -316,11 +317,6 @@ class JdbcAutoTask(
     } finally {
       stmt.close()
     }
-  }
-
-  lazy val fullDomainName = taskDesc.database match {
-    case Some(db) => s"$db.${taskDesc.domain}"
-    case None     => taskDesc.domain
   }
 
   lazy val fullTableName = s"$fullDomainName.${taskDesc.table}"

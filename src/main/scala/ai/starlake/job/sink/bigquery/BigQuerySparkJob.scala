@@ -1,13 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{
-  AttributeDesc,
-  ClusteringInfo,
-  FieldPartitionInfo,
-  Schema,
-  TableInfo
-}
+import ai.starlake.schema.model.{Attribute, ClusteringInfo, FieldPartitionInfo, Schema, TableInfo}
 import ai.starlake.utils._
 import com.google.cloud.bigquery.{JobInfo, Schema => BQSchema, StandardTableDefinition}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -28,7 +22,7 @@ class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
   maybeBqSchema: Option[BQSchema] = None,
   maybeTableDescription: Option[String] = None,
-  attributesDesc: List[AttributeDesc] = Nil
+  attributesDesc: List[Attribute] = Nil
 )(implicit val settings: Settings)
     extends SparkJob
     with BigQueryJobBase {
@@ -239,8 +233,8 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      val attributesDescMap = attributesDesc.map { case AttributeDesc(name, _, desc, _) =>
-        name -> desc
+      val attributesDescMap = attributesDesc.map { case attr: Attribute =>
+        attr.name -> attr.comment.getOrElse("")
       }.toMap
 
       if (attributesDescMap.nonEmpty)

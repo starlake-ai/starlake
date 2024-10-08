@@ -190,7 +190,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
               rls = rls,
               acl = acl,
               comment = commentOpt,
-              attributesDesc = {
+              attributes = {
                 schemaOpt
                   .flatMap(schema => Option(workbook.getSheet(schema)))
                   .map(sheet => {
@@ -217,9 +217,9 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
                       (nameOpt, descriptionOpt) match {
                         case (Some(name), Some(description)) if description.trim.nonEmpty =>
                           Some(
-                            AttributeDesc(
-                              name,
-                              comment = descriptionOpt.getOrElse("")
+                            Attribute(
+                              name = name,
+                              comment = descriptionOpt
                             )
                           )
                         case _ => None
