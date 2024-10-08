@@ -19,10 +19,10 @@ object Versions {
   val esSpark212 = "8.15.2"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
-  val bigquery = "2.42.3"
+  val bigquery = "2.42.4"
   val gcsConnector = "hadoop3-2.2.25"
   val hadoop = "3.3.6"
-  val sparkBigqueryWithDependencies = "0.40.0"
+  val sparkBigqueryWithDependencies = "0.41.0"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.3.232" // Test only
   val poi = "4.1.2"
@@ -30,7 +30,7 @@ object Versions {
   val confluentVersion = "7.7.1"
   val kafkaClients = "7.7.1-ce"
   val testContainers = "0.41.4"
-  val gcpCloudLogging = "3.20.2"
+  val gcpCloudLogging = "3.20.3"
   val gcpDataCatalog = "1.57.0"
   val jinja = "2.7.2" // forces dependency override on guava
   val snowflakeJDBC = "3.19.0"
