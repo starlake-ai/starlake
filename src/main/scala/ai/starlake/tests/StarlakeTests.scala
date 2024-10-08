@@ -384,15 +384,42 @@ object StarlakeTestData {
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, testName: String, settings: Settings): Unit = {
       val params = Array("transform", "--test", "--name", test.name) ++ config.toArgs
-      val testEnvPath =
-        new Path(
-          DatasetArea.tests(settings),
-          s"transform/${test.domain}/${test.table}/$testName/env.sl.yml"
-        )
       val storage = settings.storageHandler()
       val testEnvVars =
         EnvDesc
-          .loadEnv(testEnvPath)(storage)
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              "env.sl.yml" // env defined at the test root level
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"transform/${test.domain}/env.sl.yml" // env defined for the domain
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"transform/${test.domain}/${test.table}/env.sl.yml" // env defined for the task
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"transform/${test.domain}/${test.table}/$testName/env.sl.yml" // env defined for the test
+            )
+          )(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -464,15 +491,42 @@ object StarlakeTestData {
         ) ++
         config.toArgs
 
-      val testEnvPath =
-        new Path(
-          DatasetArea.tests(settings),
-          s"load/${test.domain}/${test.table}/$testName/env.sl.yml"
-        )
       val storage = settings.storageHandler()
       val testEnvVars =
         EnvDesc
-          .loadEnv(testEnvPath)(storage)
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              "env.sl.yml" // env defined at the test root level
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"load/${test.domain}/env.sl.yml" // env defined for the domain
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"load/${test.domain}/${test.table}/env.sl.yml" // env defined for the schema
+            )
+          )(storage)
+          .map(_.env)
+          .getOrElse(Map.empty) ++
+        EnvDesc
+          .loadEnv(
+            new Path(
+              DatasetArea.tests(settings),
+              s"load/${test.domain}/${test.table}/$testName/env.sl.yml" // env defined for the test
+            )
+          )(storage)
           .map(_.env)
           .getOrElse(Map.empty)
 
@@ -850,13 +904,26 @@ object StarlakeTestData {
   )(implicit
     settings: Settings
   ): Option[StarlakeTest] = {
-    val taskOrTableFolderName = testFolder.getParentFile.getName
-    val domainName = testFolder.getParentFile.getParentFile.getName
+    val taskOrTableFolder = testFolder.getParentFile
+    val taskOrTableFolderName = taskOrTableFolder.getName
+    val domainFolder = taskOrTableFolder.getParentFile
+    val domainName = domainFolder.getName
+    val rootFolder = domainFolder.getParentFile
 
     // All files that do not start with an '_' and end with .sql are considered pretest sql statements
-    val preTestStatementsFiles = testFolder
-      .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
-      .toList
+    val preTestStatementsFiles =
+      rootFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+        .toList ++
+      domainFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+        .toList ++
+      taskOrTableFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+        .toList ++
+      testFolder
+        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+        .toList
     val preTestStatements: List[StarlakePreTestScript] =
       preTestStatementsFiles.flatMap { preTestStatementsFile =>
         if (preTestStatementsFile.exists()) {

@@ -21,6 +21,7 @@ services:
       context: .  # Assuming Dockerfile.nas is in the current directory
       dockerfile: Dockerfile_nas
     container_name: starlake-nas
+    restart: on-failure
     privileged: true  # Required to access /proc/fs/nfsd
     ports:
       - ${SL_NFS_PORT:-2049}:2049  # NFS default port
@@ -78,6 +79,7 @@ services:
   starlake-api:
     image: starlakeai/starlake-api:${SL_API_VERSION:-1.3.0-SNAPSHOT}
     container_name: starlake-api
+    restart: on-failure
     depends_on:
       - starlake-db
       - starlake-nas
@@ -111,6 +113,7 @@ services:
   starlake-ui:
     image: starlakeai/starlake-ui:${SL_UI_VERSION:-1.3.0-SNAPSHOT}
     container_name: starlake-ui
+    restart: on-failure
     depends_on:
       - starlake-api
     privileged: true  # Required for mount permissions
