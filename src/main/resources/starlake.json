@@ -1151,7 +1151,7 @@
           "$ref": "#/definitions/FreshnessV1",
           "description": "Configure freshness checks on the output table"
         },
-        "attributesDesc": {
+        "attributes": {
           "description": "Attributes comments and access policies",
           "type": "array",
           "items": {
