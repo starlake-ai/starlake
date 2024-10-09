@@ -28,12 +28,12 @@ services:
     volumes:
       - projects_data:/projects
 
-  starlake-airflow-db:
+  starlake-init-airflow-db:
     image: starlakeai/starlake-airflow:latest
     build:
       context: .  # Assuming Dockerfile.airflow is in the current directory
       dockerfile: Dockerfile_airflow
-    container_name: starlake-airflow-db
+    container_name: starlake-init-airflow-db
     depends_on:
       - starlake-db
     environment:
@@ -57,11 +57,12 @@ services:
     depends_on:
       - starlake-db
       - starlake-nas
-      - starlake-airflow-db
+      - starlake-init-airflow-db
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${SL_POSTGRES_DB:-starlake}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      SL_HOME: /app/starlake
     entrypoint: >
       /bin/bash -c "
       sleep 120 &&
@@ -88,6 +89,7 @@ services:
     ports:
       - ${SL_API_HTTP_PORT:-9000}:9000  # starlake-api default port
     environment:
+      - SL_HOME=/app/starlake
       - SL_FS=file://
       - SL_ENV=
       - SL_ROOT=
