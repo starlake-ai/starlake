@@ -132,7 +132,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v1
         with:
-          file: target/scala-2.12/scoverage-report/scoverage.xml
+          file: target/scala-2.13/scoverage-report/scoverage.xml
           flags: unittests
           fail_ci_if_error: true
           verbose: true

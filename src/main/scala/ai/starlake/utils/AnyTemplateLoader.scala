@@ -19,34 +19,44 @@ case class DagTemplateInfo(
 
 case class DagTemplateOption(
   key: String,
+  dfault: String,
   description: String,
   required: Boolean
 )
 
 object DagTemplateOption {
+  private def keyAndDefault(
+    key: String
+  ): (String, String) = {
+    val parts = key.split('(')
+    if (parts.length == 2) {
+      (parts(0), parts(1).stripSuffix(")"))
+    } else {
+      (key, "")
+    }
+
+  }
   def fromLine(line: String): Option[DagTemplateOption] = {
     if (line.startsWith("# - ")) {
       val parts = line.stripPrefix("# - ").split(":")
-      val option =
+      val required = parts(1).contains("[REQUIRED]")
+      val optional = parts(1).contains("[OPTIONAL]")
+      val option = {
         if (parts.length != 2) {
           None
-        } else if (parts(1).contains("[OPTIONAL]")) {
+        } else if (required || optional) {
+          val (key, dfault) = keyAndDefault(parts(0).trim)
           val option = DagTemplateOption(
-            key = parts(0).trim,
+            key = key,
+            dfault = dfault,
             description = parts(1).trim,
-            required = false
-          )
-          Some(option)
-        } else if (parts(1).contains("[REQUIRED]")) {
-          val option = DagTemplateOption(
-            key = parts(0).trim,
-            description = parts(1).trim,
-            required = true
+            required = required
           )
           Some(option)
         } else {
           None
         }
+      }
       option
     } else
       None
