@@ -400,6 +400,7 @@ class SparkAutoTask(
       Map.empty
     )
 
+    SparkUtils.createSchema(session, fullDomainName)
     Try(SparkUtils.sql(session, script)).isSuccess
 
   }

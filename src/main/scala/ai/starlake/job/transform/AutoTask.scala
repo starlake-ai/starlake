@@ -60,6 +60,11 @@ abstract class AutoTask(
 
   def createAuditTable(): Boolean
 
+  lazy val fullDomainName = taskDesc.database match {
+    case Some(db) => s"$db.${taskDesc.domain}"
+    case None     => taskDesc.domain
+  }
+
   override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   def attDdl(): Map[String, Map[String, String]] =
