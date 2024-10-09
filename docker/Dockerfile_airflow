@@ -11,8 +11,10 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY scripts/starlake-airflow.sh /usr/local/bin/starlake
-RUN chmod +x /usr/local/bin/starlake
+RUN mkdir -p /app/starlake
+COPY scripts/starlake-airflow.sh /app/starlake/starlake
+RUN chmod +x /app/starlake/starlake
+RUN ln -s /app/starlake/starlake /usr/local/bin/starlake
 
 # Switch back to the airflow user
 USER airflow
