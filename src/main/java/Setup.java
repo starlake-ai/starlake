@@ -172,7 +172,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
 
     // DUCKDB
-    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.0.0");
+    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.1.0");
 
     // REDSHIFT
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.595");
