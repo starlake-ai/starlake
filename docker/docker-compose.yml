@@ -78,7 +78,7 @@ services:
     privileged: true  # Required for mounting NFS
 
   starlake-api:
-    image: starlakeai/starlake-api:${SL_API_VERSION:-1.3.0-SNAPSHOT}
+    image: starlakeai/starlake-1.3-api:${SL_API_VERSION:-0.1}
     container_name: starlake-api
     restart: on-failure
     depends_on:
@@ -113,7 +113,7 @@ services:
       - FILESTORE_MNT_DIR=/mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
 
   starlake-ui:
-    image: starlakeai/starlake-ui:${SL_UI_VERSION:-1.3.0-SNAPSHOT}
+    image: starlakeai/starlake-1.3-ui:${SL_UI_VERSION:-0.1}
     container_name: starlake-ui
     restart: on-failure
     depends_on:
