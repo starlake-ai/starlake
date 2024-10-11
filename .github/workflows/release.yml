@@ -55,7 +55,7 @@ jobs:
 
       - name: Prepare
         run: |
-          ./scripts/docker-prepare.sh -e dev
+          ./scripts/docker-prepare.sh
       
       - name: Docker meta
         id: meta
