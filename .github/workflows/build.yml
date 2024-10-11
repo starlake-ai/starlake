@@ -147,4 +147,43 @@ jobs:
           java-version: '11'
       - name: Formatting
         run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
+      - name: Env
+        run: |
+          cat .versions >> $GITHUB_ENV
+          source .versions
+          FIRST_LINE=$(head -n 1 version.sbt)
+          SL_VERSION=$(echo "$FIRST_LINE" | sed -E 's/.*version := "([0-9]+\.[0-9]+\.?.*)"/\1/')
+          echo "SL_VERSION=${SL_VERSION}" >> $GITHUB_ENV
+          SL_MAJOR_MINOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1-2)
+          echo "SL_MAJOR_MINOR_VERSION=${SL_MAJOR_MINOR_VERSION}" >> $GITHUB_ENV
+          REGISTRY_IMAGE=starlakeai/starlake
+          echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}" >> $GITHUB_ENV
+          REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
+          echo "REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE_LATEST}" >> $GITHUB_ENV
+
+      - name: Prepare
+        run: |
+          ./scripts/docker-prepare.sh -e dev
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build
+        run: |
+          docker buildx build --pull --platform ${{ env.PLATFORMS }} -t ${{ env.REGISTRY_IMAGE_LATEST }} ./distrib/docker
+          docker buildx build --load -t ${{ env.REGISTRY_IMAGE_LATEST }} ./distrib/docker
+
+      - name: Test
+        run: |
+          docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
