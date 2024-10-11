@@ -190,7 +190,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
               rls = rls,
               acl = acl,
               comment = commentOpt,
-              attributesDesc = {
+              attributes = {
                 schemaOpt
                   .flatMap(schema => Option(workbook.getSheet(schema)))
                   .map(sheet => {

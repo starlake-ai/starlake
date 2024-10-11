@@ -910,20 +910,20 @@ object StarlakeTestData {
     val domainName = domainFolder.getName
     val rootFolder = domainFolder.getParentFile
 
+    def listFilesInFolder(folder: File): List[File] = {
+      if (folder.exists()) {
+        folder
+          .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
+          .toList
+      } else Nil
+    }
     // All files that do not start with an '_' and end with .sql are considered pretest sql statements
     val preTestStatementsFiles =
-      rootFolder
-        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
-        .toList ++
-      domainFolder
-        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
-        .toList ++
-      taskOrTableFolder
-        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
-        .toList ++
-      testFolder
-        .listFiles(f => f.isFile && !f.getName.startsWith("_") && f.getName.endsWith(".sql"))
-        .toList
+      listFilesInFolder(rootFolder) ++
+      listFilesInFolder(domainFolder) ++
+      listFilesInFolder(taskOrTableFolder) ++
+      listFilesInFolder(testFolder)
+
     val preTestStatements: List[StarlakePreTestScript] =
       preTestStatementsFiles.flatMap { preTestStatementsFile =>
         if (preTestStatementsFile.exists()) {
@@ -1207,19 +1207,14 @@ object StarlakeTestData {
         val ext = components(2)
         val extOK = Set("json", "csv").contains(ext)
         if (extOK) {
+          val schemaHandler = settings.schemaHandler()
           val dataAsCreateTableExpression =
-            ext match {
-              case "json" | "csv" =>
-                val schemaHandler = settings.schemaHandler()
-                loadDataAsCreateTableExpression(
-                  schemaHandler,
-                  testDataDomainName,
-                  testDataTableName,
-                  dataPath
-                )
-              case _ => ""
-            }
-
+            loadDataAsCreateTableExpression(
+              schemaHandler,
+              testDataDomainName,
+              testDataTableName,
+              dataPath
+            )
           Some(
             StarlakeTestData(
               testDataDomainName, // Schema name in DuckDB
@@ -1233,6 +1228,20 @@ object StarlakeTestData {
         } else {
           None
         }
+      } else if (dataName.endsWith(".sql")) {
+        val source = Source.fromFile(dataPath)
+        val sql = source.mkString("\n")
+        source.close()
+        Some(
+          StarlakeTestData(
+            domainName, // Schema name in DuckDB
+            taskOrTableName, // Table name in DuckDB
+            "", // csv/json content
+            Some(sql),
+            expectationName,
+            dataPath.getName
+          )
+        )
       } else {
         None
       }

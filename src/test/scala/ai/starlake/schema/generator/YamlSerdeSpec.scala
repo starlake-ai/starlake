@@ -1335,7 +1335,7 @@ object YamlConfigGenerators {
         acl = acl,
         comment = comment,
         freshness = freshness,
-        attributesDesc = attributesDesc,
+        attributes = attributesDesc,
         python = python,
         tags = tags,
         schedule = schedule,
