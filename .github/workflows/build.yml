@@ -11,24 +11,26 @@ on:
   pull_request:
     branches:
       - '**'
-env:
-  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  REDSHIFT_DATABASE: ${{ secrets.REDSHIFT_DATABASE }}
-  REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
-  REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
-  REDSHIFT_USER: ${{ secrets.REDSHIFT_USER }}
-  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-  SNOWFLAKE_DB: ${{ secrets.SNOWFLAKE_DB }}
-  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-  SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Env
+        run: |
+          echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
+          echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_DATABASE=${{ secrets.REDSHIFT_DATABASE }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_HOST=${{ secrets.REDSHIFT_HOST }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_PASSWORD=${{ secrets.REDSHIFT_PASSWORD }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_USER=${{ secrets.REDSHIFT_USER }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_DB=${{ secrets.SNOWFLAKE_DB }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_WAREHOUSE=${{ secrets.SNOWFLAKE_WAREHOUSE }}" >>  $GITHUB_ENV
+
       #      - uses: actions/setup-python@v2
       #        with:
       #          python-version: '3.10'

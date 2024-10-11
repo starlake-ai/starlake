@@ -8,28 +8,29 @@ on:
     branches:
       - master
       - branch-*
-env:
-  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  REDSHIFT_DATABASE: ${{ secrets.REDSHIFT_DATABASE }}
-  REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
-  REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
-  REDSHIFT_USER: ${{ secrets.REDSHIFT_USER }}
-  REDSHIFT_ROLE: ${{ secrets.REDSHIFT_ROLE }}
-  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-  SNOWFLAKE_DB: ${{ secrets.SNOWFLAKE_DB }}
-  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-  SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
+      - name: Env
+        run: |
+          echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
+          echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_DATABASE=${{ secrets.REDSHIFT_DATABASE }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_HOST=${{ secrets.REDSHIFT_HOST }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_PASSWORD=${{ secrets.REDSHIFT_PASSWORD }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_USER=${{ secrets.REDSHIFT_USER }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_ROLE=${{ secrets.REDSHIFT_ROLE }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_DB=${{ secrets.SNOWFLAKE_DB }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}" >>  $GITHUB_ENV
+          echo "SNOWFLAKE_WAREHOUSE=${{ secrets.SNOWFLAKE_WAREHOUSE }}" >>  $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >>  $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >>  $GITHUB_ENV
+          echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >>  $GITHUB_ENV
       - uses: smartsquaregmbh/delete-old-packages@v0.3.1
         with:
           version-pattern: "^\\d+\\.\\d+\\.\\d+-SNAPSHOT$" # Remove all previous SNAPSHOT versions

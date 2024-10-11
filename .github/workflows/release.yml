@@ -2,14 +2,15 @@ name: Release
 # Run workflow on commits to the `master` branch
 on:
   workflow_dispatch:
-env:
-  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Env
+        run: |
+          echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
+          echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
       - name: Set up Zulu 11
