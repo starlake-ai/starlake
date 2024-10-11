@@ -45,8 +45,8 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       result.comment shouldBe Some("jointure source1 et source2")
       result.rls.size shouldBe 0
       result.acl.size shouldBe 1
-      result.attributesDesc.size shouldBe 3
-      result.attributesDesc.map(_.comment) shouldEqual List(
+      result.attributes.size shouldBe 3
+      result.attributes.map(_.comment) shouldEqual List(
         "description colonne 1",
         "description colonne 2",
         "date de traitement"
@@ -110,8 +110,8 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       resultBQ.comment shouldBe Some("jointure source1 et source2")
       resultBQ.rls.size shouldBe 0
       resultBQ.acl.size shouldBe 0
-      resultBQ.attributesDesc.size shouldBe 2
-      resultBQ.attributesDesc.map(_.comment) shouldEqual List(
+      resultBQ.attributes.size shouldBe 2
+      resultBQ.attributes.map(_.comment) shouldEqual List(
         "description colonne 1",
         "description colonne 2"
       )

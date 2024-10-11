@@ -93,6 +93,16 @@ class BigQueryAutoTask(
       Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
       Map.empty
     )
+    val thisSettings = settings
+    val bqJob = new BigQueryJobBase {
+      val settings: Settings = thisSettings
+      override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
+        connectionRef = Some(taskDesc.getRunConnectionRef()(settings)),
+        outputDatabase = None,
+        accessToken = accessToken
+      )
+    }
+    bqJob.getOrCreateDataset(None, Some(taskDesc.domain))
     runSqls(List(script)).forall(_.isSuccess)
   }
 
@@ -120,7 +130,7 @@ class BigQueryAutoTask(
         .getOrElse(Materialization.TABLE),
       enableRefresh = bqSink.enableRefresh,
       refreshIntervalMs = bqSink.refreshIntervalMs,
-      attributesDesc = taskDesc.attributesDesc,
+      attributesDesc = taskDesc.attributes,
       outputTableDesc = taskDesc.comment,
       outputDatabase = taskDesc.getDatabase(),
       accessToken = accessToken
@@ -200,7 +210,7 @@ class BigQueryAutoTask(
                     acl = this.taskDesc.acl,
                     starlakeSchema = None,
                     // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                    attributesDesc = this.taskDesc.attributesDesc,
+                    attributesDesc = this.taskDesc.attributes,
                     outputDatabase = this.taskDesc.database,
                     accessToken = accessToken
                   )
