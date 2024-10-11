@@ -215,7 +215,6 @@ class ColLineage(
           )
         }
         .toList
-      println("finalTables")
       finalTables.foreach(println)
 
       val lineage = ColLineage.Lineage(finalTables, relations)
