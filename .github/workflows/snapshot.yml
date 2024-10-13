@@ -113,11 +113,17 @@ jobs:
 
   docker-hub:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
     strategy:
       fail-fast: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        id: vcs
+        uses: actions/checkout@v4
 
       - name: Env
         run: |
@@ -142,6 +148,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
+          labels: |
+            org.opencontainers.image.vendor=starlakeai
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.title=starlakeai/starlake
+            org.opencontainers.image.description="A declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines."
+            org.opencontainers.image.url=https://starlake.ai
           # generate Docker tags based on the following events/attributes
           tags: |
             type=schedule
@@ -162,7 +174,29 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Build and push
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: "./distrib/docker"
+          pull: true
+          load: true
+          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+              BUILD_DATE=${{ env.BUILD_DATE }}
+              VCS_REF=${{ steps.vcs.outputs.commit }}
+              SL_VERSION=${{ env.SL_VERSION }}
+
+      - name: Inspect image
+        run: |
+          docker image inspect --format='{{json .Config.Labels}}' ${{ env.REGISTRY_IMAGE_LATEST }}
+
+      - name: Test
+        run: |
+          docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
+
+      - name: Push image
+        if: github.event_name != 'pull_request'
         id: push
         uses: docker/build-push-action@v6
         with:
@@ -170,7 +204,17 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           pull: true
           push: true
-          load: false
           tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
           labels: ${{ steps.meta.outputs.labels }}
-              
+          build-args: |
+              BUILD_DATE=${{ env.BUILD_DATE }}
+              VCS_REF=${{ steps.vcs.outputs.commit }}
+              SL_VERSION=${{ env.SL_VERSION }}
+
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY_IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

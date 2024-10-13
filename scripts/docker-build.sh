@@ -95,15 +95,15 @@ then
   if [ "$ENVIRONMENT" == "local" ]; then
     if [ "$BUILD" == "true" ] || [ "$PUBLISH" == "true" ]; then
       docker buildx create --platform ${PLATFORMS} --driver docker-container --use --bootstrap #--name starlake-builder
-      docker buildx build --platform ${PLATFORMS} -t ${REGISTRY_IMAGE_LATEST} ./distrib/docker --load
+      docker buildx build --platform ${PLATFORMS} --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} ./distrib/docker --load
       if [ "$PUBLISH" == "true" ]; then
         docker push ${REGISTRY_IMAGE_LATEST}
       fi
     else
-      docker buildx build -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
+      docker buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
     fi
   else
-    docker buildx build -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
+    docker buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
   fi
 else
   echo building for linux/$MACHINE
@@ -111,6 +111,6 @@ else
   export zone=$(gcloud config get-value compute/zone 2> /dev/null)
   export project=$(gcloud config get-value core/project 2> /dev/null)
 
-  docker buildx build  --platform linux/$MACHINE --build-arg SCALA_VERSION=$SCALA_VERSION --output type=docker -t starlake-ai/starlake-$MACHINE:latest ./distrib/docker
+  docker buildx build  --platform linux/$MACHINE --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION --output type=docker -t starlake-ai/starlake-$MACHINE:latest ./distrib/docker
   #docker push europe-west1-docker.pkg.dev/$project/starlake-docker-repo/starlake-$MACHINE:latest
 fi
