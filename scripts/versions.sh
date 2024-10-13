@@ -13,3 +13,5 @@ export REGISTRY_IMAGE=starlakeai/starlake
 echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}"
 export REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
 echo "REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE_LATEST}"
+export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+export VCS_REF=$(git rev-parse --short HEAD)
