@@ -79,6 +79,7 @@ services:
 
   starlake-api:
     image: starlakeai/starlake-1.3-api:${SL_API_VERSION:-0.1}
+    pull_policy: always
     container_name: starlake-api
     restart: on-failure
     depends_on:
@@ -114,6 +115,7 @@ services:
 
   starlake-ui:
     image: starlakeai/starlake-1.3-ui:${SL_UI_VERSION:-0.1}
+    pull_policy: always
     container_name: starlake-ui
     restart: on-failure
     depends_on:
