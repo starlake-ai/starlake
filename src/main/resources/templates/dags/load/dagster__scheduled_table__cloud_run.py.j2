@@ -9,7 +9,10 @@
 # - retry_on_failure(False): whether to retry the job on failure [OPTIONAL]
 # - retry_delay_in_seconds(10): the delay in seconds to wait before retrying the job [OPTIONAL]
 # - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
-# - incoming_path({{SL_ROOT}}/incoming): the path to the incoming landing zone (if not specified, the default SL_ROOT/incoming path will be used) [OPTIONAL]
+# - pre_load_strategy(none): The optional pre-load strategy to use to conditionaly load a domain, one of imported, ack, pending or none (if not set, the default 'none' strategy will be used) [OPTIONAL]
+# - incoming_path({{SL_ROOT}}/incoming): when the domain preloading strategy has been set to 'imported', the path to the incoming landing zone (if not specified, the default {{SL_ROOT}}/incoming path will be used) [OPTIONAL]
+# - pending_path({{SL_ROOT}}/datasets/pending): when the domain preloading strategy has been set to 'pending', the path to the pending landing zone (if not specified, the default {{SL_ROOT}}/datasets/pending will be used) [OPTIONAL]
+# - global_ack_file_path: when the domain preloading strategy has been set to 'ack', the path to the global ack file [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 {% include 'templates/dags/__starlake_dagster_cloud_run_job.py.j2' %}
