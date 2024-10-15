@@ -71,7 +71,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
          catchup=False,
          user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
-         tags=set([tag.upper() for tag in tags]),
+         tags=list(set([tag.upper() for tag in tags])),
          description=description) as dag:
 
     start = sl_job.dummy_op(task_id="start")
