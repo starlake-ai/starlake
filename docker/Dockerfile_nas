@@ -1,0 +1,25 @@
+# Utiliser une image de base légère
+FROM alpine:latest
+
+# Installer le serveur NFS
+RUN apk add --no-cache nfs-utils
+
+# Créer les répertoires à partager
+RUN mkdir -p /projects /projects/dags
+
+# Accorder les permissions nécessaires
+RUN chmod 777 /projects /projects/dags
+
+# Configurer les exports NFS
+RUN echo "/projects *(rw,sync,no_subtree_check,no_root_squash,insecure)" > /etc/exports && \
+    echo "/projects/dags *(rw,sync,no_subtree_check,no_root_squash,insecure)" >> /etc/exports
+
+# Script de démarrage pour les services NFS
+COPY scripts/start-nfs.sh /start-nfs.sh
+RUN chmod +x /start-nfs.sh
+
+# Exposer le port NFS
+EXPOSE 2049
+
+# Commande pour démarrer le serveur NFS
+CMD ["/start-nfs.sh"]

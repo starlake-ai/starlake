@@ -159,3 +159,14 @@ samples/starbake/metadata/dags/generated
 samples/spark/test-reports
 lib2
 samples/spark/metadata/external
+
+.bloop
+.metals
+.venv
+distrib/docker
+samples/spark/datasets/archive
+samples/starbake/airflow
+samples/starbake/audit
+samples/starbake/bin
+samples/starbake/storage
+starlake
