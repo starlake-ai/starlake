@@ -91,19 +91,17 @@ object JsonIngestionUtil {
           val schemaField = schemaFields(schemaFieldsIdx)
           val datasetField = datasetFields(datasetFieldsIdx)
           val nameComp = schemaField.name.compareTo(datasetField.name)
-          // Field exists in schema  and is not present in the input record
-          // go get the next field in the schema
-          if (nameComp > 0) {
-            // schema fields is higher alphabetically speaking so we need to increase dataset field index
-            addError(structContext, errorList, None, datasetField)
-            datasetFieldsIdx += 1
-          } else if (nameComp < 0) {
-            if (!schemaField.nullable) {
-              // Required field is present in the schema but not in the message.
-              addError(structContext, errorList, Some(schemaField), datasetField)
+          if (nameComp != 0 && schemaField.nullable) {
+            // Field exists in schema  and is not present in the input record
+            // go get the next field in the schema
+            if (nameComp > 0) {
+              // schema fields are higher alphabetically speaking so we need to increase dataset field index
+              datasetFieldsIdx += 1
+              addError(structContext, errorList, None, datasetField)
+            } else {
+              schemaFieldsIdx += 1
             }
-            schemaFieldsIdx += 1
-          } else { // nameComp == 0
+          } else if (nameComp == 0) {
             // field is present in the schema and the input record : check that types are equal
             val f1Type = schemaField.dataType
             val f2Type = datasetField.dataType
@@ -114,6 +112,18 @@ object JsonIngestionUtil {
             )
             schemaFieldsIdx += 1
             datasetFieldsIdx += 1
+          } else {
+            // Required field is present in the schema but not in the message.
+            if (nameComp > 0) {
+              // schema fields is higher alphabetically speaking so we need to increase dataset field index
+              // Should we add here the fact that an unknown attribute is present in the incoming json.
+              // For now it is simply ignored.
+              datasetFieldsIdx += 1
+            } else {
+              addError(structContext, errorList, Some(schemaField), datasetField)
+              schemaFieldsIdx += 1
+            }
+
           }
         }
         if (schemaFieldsIdx == schemaFields.length) {
@@ -160,7 +170,7 @@ object JsonIngestionUtil {
     }
   }
 
-// From Spark TypeCoercion
+  // From Spark TypeCoercion
   val findTightestCommonTypeOfTwo: (DataType, DataType) => Option[DataType] = {
     case (t1, t2) if t1 == t2 => Some(t1)
     case (NullType, t1)       => Some(t1)
@@ -282,48 +292,48 @@ object JsonIngestionUtil {
       case other    => Some(other)
     }
 
-//  private def withCorruptField(
-//    struct: StructType,
-//    columnNameOfCorruptRecords: String
-//  ): StructType = {
-//    if (!struct.fieldNames.contains(columnNameOfCorruptRecords)) {
-//      // If this given struct does not have a column used for corrupt records,
-//      // add this field.
-//      val newFields: Array[StructField] =
-//        StructField(columnNameOfCorruptRecords, StringType, nullable = true) +: struct.fields
-//      // Note: other code relies on this sorting for correctness, so don't remove it!
-//      java.util.Arrays.sort(newFields, structFieldComparator)
-//      StructType(newFields)
-//    } else {
-//      // Otherwise, just return this struct.
-//      struct
-//    }
-//  }
-//
-//  /** Remove top-level ArrayType wrappers and merge the remaining schemas
-//    */
-//  private def compatibleRootType(
-//    columnNameOfCorruptRecords: String,
-//    shouldHandleCorruptRecord: Boolean
-//  ): (DataType, DataType) => DataType = {
-//    // Since we support array of json objects at the top level,
-//    // we need to check the element type and find the root level data type.
-//    case (ArrayType(ty1, _), ty2) =>
-//      compatibleRootType(columnNameOfCorruptRecords, shouldHandleCorruptRecord)(ty1, ty2)
-//    case (ty1, ArrayType(ty2, _)) =>
-//      compatibleRootType(columnNameOfCorruptRecords, shouldHandleCorruptRecord)(ty1, ty2)
-//    // If we see any other data type at the root level, we get records that cannot be
-//    // parsed. So, we use the struct as the data type and add the corrupt field to the schema.
-//    case (struct: StructType, NullType) => struct
-//    case (NullType, struct: StructType) => struct
-//    case (struct: StructType, o) if !o.isInstanceOf[StructType] && shouldHandleCorruptRecord =>
-//      withCorruptField(struct, columnNameOfCorruptRecords)
-//    case (o, struct: StructType) if !o.isInstanceOf[StructType] && shouldHandleCorruptRecord =>
-//      withCorruptField(struct, columnNameOfCorruptRecords)
-//    // If we get anything else, we call compatibleType.
-//    // Usually, when we reach here, ty1 and ty2 are two StructTypes.
-//    case (ty1, ty2) => compatibleType(ty1, ty2)
-//  }
+  //  private def withCorruptField(
+  //    struct: StructType,
+  //    columnNameOfCorruptRecords: String
+  //  ): StructType = {
+  //    if (!struct.fieldNames.contains(columnNameOfCorruptRecords)) {
+  //      // If this given struct does not have a column used for corrupt records,
+  //      // add this field.
+  //      val newFields: Array[StructField] =
+  //        StructField(columnNameOfCorruptRecords, StringType, nullable = true) +: struct.fields
+  //      // Note: other code relies on this sorting for correctness, so don't remove it!
+  //      java.util.Arrays.sort(newFields, structFieldComparator)
+  //      StructType(newFields)
+  //    } else {
+  //      // Otherwise, just return this struct.
+  //      struct
+  //    }
+  //  }
+  //
+  //  /** Remove top-level ArrayType wrappers and merge the remaining schemas
+  //    */
+  //  private def compatibleRootType(
+  //    columnNameOfCorruptRecords: String,
+  //    shouldHandleCorruptRecord: Boolean
+  //  ): (DataType, DataType) => DataType = {
+  //    // Since we support array of json objects at the top level,
+  //    // we need to check the element type and find the root level data type.
+  //    case (ArrayType(ty1, _), ty2) =>
+  //      compatibleRootType(columnNameOfCorruptRecords, shouldHandleCorruptRecord)(ty1, ty2)
+  //    case (ty1, ArrayType(ty2, _)) =>
+  //      compatibleRootType(columnNameOfCorruptRecords, shouldHandleCorruptRecord)(ty1, ty2)
+  //    // If we see any other data type at the root level, we get records that cannot be
+  //    // parsed. So, we use the struct as the data type and add the corrupt field to the schema.
+  //    case (struct: StructType, NullType) => struct
+  //    case (NullType, struct: StructType) => struct
+  //    case (struct: StructType, o) if !o.isInstanceOf[StructType] && shouldHandleCorruptRecord =>
+  //      withCorruptField(struct, columnNameOfCorruptRecords)
+  //    case (o, struct: StructType) if !o.isInstanceOf[StructType] && shouldHandleCorruptRecord =>
+  //      withCorruptField(struct, columnNameOfCorruptRecords)
+  //    // If we get anything else, we call compatibleType.
+  //    // Usually, when we reach here, ty1 and ty2 are two StructTypes.
+  //    case (ty1, ty2) => compatibleType(ty1, ty2)
+  //  }
 
   def inferSchema(parser: JsonParser): DataType = {
     parser.getCurrentToken match {

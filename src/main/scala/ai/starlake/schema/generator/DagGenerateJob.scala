@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.{Severity, _}
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
@@ -164,6 +164,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
   def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
+
     val outputDir = new Path(
       config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/load/")
     )
@@ -184,6 +185,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
     groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
       val dagConfig = dagConfigs(dagConfigName)
+      val errors = dagConfig.checkValidity().filter(_.severity == Severity.Error)
+      errors.foreach { error =>
+        logger.error(error.toString)
+      }
+      if (errors.nonEmpty) {
+        throw new Exception(s"Dag config ${dagConfigName} is invalid")
+      }
       val dagTemplateName = dagConfig.template
       val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()

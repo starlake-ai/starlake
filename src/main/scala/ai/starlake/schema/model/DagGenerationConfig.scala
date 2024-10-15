@@ -44,6 +44,96 @@ case class DagGenerationConfig(
   filename: String,
   options: Map[String, String]
 ) {
+  def checkValidity(): List[ValidationMessage] = {
+    var errors = List.empty[ValidationMessage]
+    if (template.isEmpty) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "template",
+        "Template is required"
+      )
+    }
+    if (filename.isEmpty) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "filename",
+        "Filename is required"
+      )
+    }
+    if (template.contains("..")) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "template",
+        "Template cannot contain '..'"
+      )
+    }
+    if (template.startsWith("/")) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "template",
+        "Template cannot start with '/'"
+      )
+    }
+    if (filename.contains("..")) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "filename",
+        "Filename cannot contain '..'"
+      )
+    }
+    if (filename.startsWith("/")) {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "filename",
+        "Filename cannot start with '/'"
+      )
+    }
+    options.foreach { case (k, v) =>
+      if (k.isEmpty) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option key is required"
+        )
+      }
+      if (k.contains("..")) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option key cannot contain '..'"
+        )
+      }
+      if (k.startsWith("/")) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option key cannot start with '/'"
+        )
+      }
+      if (v.isEmpty) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option value is required"
+        )
+      }
+      if (v.contains("..")) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option value cannot contain '..'"
+        )
+      }
+      if (v.startsWith("/")) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "options",
+          "Option value cannot start with '/'"
+        )
+      }
+    }
+    errors
+  }
   def getfilenameVars()(implicit settings: Settings): Set[String] = filename.extractVars()
 
   def this() = this("", "", "", Map.empty)

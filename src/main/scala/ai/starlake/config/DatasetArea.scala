@@ -70,6 +70,12 @@ object DatasetArea extends StrictLogging {
   def stage(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.appConfig.area.stage)
 
+  def incoming(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.appConfig.area.incoming)
+
+  def incoming(implicit settings: Settings): Path =
+    path("dummy", settings.appConfig.area.incoming).getParent
+
   /** datasets with a file name that could not match any schema file name pattern in the specified
     * domain are marked unresolved by being stored in this folder.
     *
@@ -200,7 +206,7 @@ object DatasetArea extends StrictLogging {
     new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
   def folders(implicit settings: Settings): List[Path] =
-    List(metadata, types, load, external, extract, transform, expectations, mapping)
+    List(metadata, types, load, external, extract, transform, expectations, mapping, incoming)
 
   /** @param storage
     */

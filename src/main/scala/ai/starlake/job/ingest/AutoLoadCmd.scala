@@ -1,9 +1,9 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Cmd
 import ai.starlake.job.infer.{InferSchemaCmd, InferSchemaConfig}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.JobResult
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -58,7 +58,7 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
   override def run(config: AutoLoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    val incomingFile = File(settings.appConfig.incoming)
+    val incomingFile = StorageHandler.localFile(DatasetArea.incoming("dummy").getParent)
     if (incomingFile.exists && incomingFile.isDirectory) {
       val folders =
         incomingFile.list.filter(f =>
@@ -109,7 +109,7 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
         throw new Exception("Some schemas failed to be inferred")
       }
     } else {
-      throw new Exception(s"${settings.appConfig.incoming} is not a directory")
+      throw new Exception(s"${DatasetArea.incoming("dummy").getParent} is not a directory")
     }
   }
 }

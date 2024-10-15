@@ -839,6 +839,10 @@
     "AreaV1": {
       "type": "object",
       "properties": {
+        "incoming": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Files are read from  this folder for ingestion by the \"import\" command."
+        },
         "stage": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Files recognized by the extensions property are moved to this folder for ingestion by the \"import\" command."

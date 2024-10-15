@@ -85,6 +85,7 @@ object Settings extends StrictLogging {
     Array("acceptedFinal", "rejectedFinal", "businessFinal", "replayFinal")
   )
   final case class Area(
+    incoming: String,
     stage: String,
     unresolved: String,
     archive: String,
@@ -641,7 +642,6 @@ object Settings extends StrictLogging {
   final case class AppConfig(
     env: String,
     datasets: String,
-    incoming: String,
     dags: String,
     tests: String,
     writeStrategies: String,
@@ -1048,7 +1048,6 @@ object Settings extends StrictLogging {
             expectations = loadedConfig.expectations
               .copy(path = root + loadedConfig.expectations.path.substring(oldRootLength)),
             datasets = root + loadedConfig.datasets.substring(oldRootLength),
-            incoming = root + loadedConfig.incoming.substring(oldRootLength),
             metadata = root + loadedConfig.metadata.substring(oldRootLength),
             lock =
               loadedConfig.lock.copy(path = root + loadedConfig.lock.path.substring(oldRootLength)),
@@ -1082,7 +1081,6 @@ object Settings extends StrictLogging {
           ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.expectations.path)
         )
         .withValue("datasets", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.datasets))
-        .withValue("incoming", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.incoming))
         .withValue("metadata", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.metadata))
         .withValue("lock.path", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.lock.path))
         .withValue(
