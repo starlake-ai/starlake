@@ -895,6 +895,7 @@ object YamlConfigGenerators {
 
   implicit val area: Arbitrary[Area] = Arbitrary {
     for {
+      incoming     <- arbitrary[String]
       stage        <- arbitrary[String]
       unresolved   <- arbitrary[String]
       archive      <- arbitrary[String]
@@ -902,6 +903,7 @@ object YamlConfigGenerators {
       replay       <- arbitrary[String]
       hiveDatabase <- arbitrary[String]
     } yield Area(
+      incoming = incoming,
       stage = stage,
       unresolved = unresolved,
       archive = archive,
@@ -1090,7 +1092,6 @@ object YamlConfigGenerators {
     for {
       env                        <- arbitrary[String]
       datasets                   <- arbitrary[String]
-      incoming                   <- arbitrary[String]
       tests                      <- arbitrary[String]
       dags                       <- arbitrary[String]
       writeStrategies            <- arbitrary[String]
@@ -1168,7 +1169,6 @@ object YamlConfigGenerators {
     } yield AppConfig(
       env = env,
       datasets = datasets,
-      incoming = incoming,
       tests = tests,
       dags = dags,
       writeStrategies = writeStrategies,

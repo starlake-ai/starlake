@@ -46,7 +46,11 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     val sysProps = System.getProperties()
 
     if (!settings.appConfig.isHiveCompatible() || settings.appConfig.hiveInTest) {
-      if (settings.getWarehouseDir().isEmpty) {
+      if (
+        settings
+          .getWarehouseDir()
+          .isEmpty && sys.env.get("SL_SPARK_WAREHOUSE_IS_ACTIVE").getOrElse("true").toBoolean
+      ) {
         sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
         config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
       }
