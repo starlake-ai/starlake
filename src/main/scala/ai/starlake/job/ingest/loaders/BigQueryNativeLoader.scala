@@ -399,8 +399,9 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       .mkString("(", " UNION ALL ", ")")
     val targetTableName = s"${domain.finalName}.${schema.finalName}"
 
+    val bigqueryEngine = settings.appConfig.jdbcEngines.get("bigquery")
     val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(tempTable)
+      starlakeSchema.buildSqlSelectOnLoad(tempTable, bigqueryEngine)
 
     val taskDesc = AutoTaskDesc(
       name = targetTableName,

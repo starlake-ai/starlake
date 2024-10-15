@@ -8,6 +8,8 @@ __Bug Fix__:
 - fix tree validation
 - fix intermediate format to orc rules
 - fix conversion from spark schema to starlake schema
+- fix template resolution
+- fix merge statement when used with quoted column
 
 # 1.2.1
 
