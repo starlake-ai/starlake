@@ -42,7 +42,7 @@ for schedule in schedules:
              schedule=_cron,
              default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
              catchup=False,
-             tags=set([tag.upper() for tag in tags]),
+             tags=list(set([tag.upper() for tag in tags])),
              description=description) as dag:
         start = sl_job.dummy_op(task_id="start")
 
