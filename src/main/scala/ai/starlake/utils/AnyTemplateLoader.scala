@@ -218,11 +218,14 @@ abstract class AnyTemplateLoader extends LazyLogging {
     template: String
   )(implicit settings: Settings): Try[String] = {
     val templatePath = new Path(template)
-    if (settings.storageHandler().exists(templatePath)) {
-      Success(settings.storageHandler().read(templatePath))
-    } else {
-      Failure(new RuntimeException(s"No absolute template found for ${templatePath}."))
-    }
+    Try {
+      // exists may throw an exception
+      if (settings.storageHandler().exists(templatePath)) {
+        Success(settings.storageHandler().read(templatePath))
+      } else {
+        Failure(new RuntimeException(s"No absolute template found for ${templatePath}."))
+      }
+    }.flatten
   }
 
   def loadTemplateFromAppPath(template: String)(implicit settings: Settings): Try[String] = {

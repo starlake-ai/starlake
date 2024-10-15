@@ -399,7 +399,7 @@ object SQLUtils extends StrictLogging {
     targetTableColumns: List[String],
     quote: String
   ): String =
-    targetTableColumns
+    unquoteCols(targetTableColumns, quote)
       .map(col => s"$quote$col$quote = $incomingTable.$quote$col$quote")
       .mkString("SET ", ",", "")
 
