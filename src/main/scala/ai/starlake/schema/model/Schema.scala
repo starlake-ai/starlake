@@ -20,6 +20,7 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings.JdbcEngine
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.lineage.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
@@ -630,8 +631,10 @@ case class Schema(
     *   query
     */
   def buildSqlSelectOnLoad(
-    table: String
+    table: String,
+    jdbcEngine: Option[JdbcEngine] = None
   ): String = {
+    val attributeQuote = jdbcEngine.map(_.quote).getOrElse("")
     val (scriptAttributes, transformAttributes) =
       scriptAndTransformAttributes().partition(_.script.nonEmpty)
 
@@ -639,29 +642,29 @@ case class Schema(
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      s"$script AS ${scriptField.getFinalName()}"
+      s"$attributeQuote$script$attributeQuote AS $attributeQuote${scriptField.getFinalName()}$attributeQuote"
     }
 
     val sqlScriptsFinalName: List[String] = scriptAttributes.map { scriptField =>
-      s"${scriptField.getFinalName()}"
+      s"$attributeQuote${scriptField.getFinalName()}$attributeQuote"
     }
 
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
       val transform =
         transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      s"$transform AS ${transformField.getFinalName()}"
+      s"$attributeQuote$transform$attributeQuote AS $attributeQuote${transformField.getFinalName()}$attributeQuote"
     }
 
     val sqlTransformsFinalName: List[String] = transformAttributes.map { transformField =>
-      s"${transformField.getFinalName()}"
+      s"$attributeQuote${transformField.getFinalName()}$attributeQuote"
     }
 
     val sqlSimple = simpleAttributes.map { field =>
-      s"${field.getFinalName()}"
+      s"$attributeQuote${field.getFinalName()}$attributeQuote"
     }
 
     val sqlIgnored = ignoredAttributes().map { field =>
-      s"${field.getFinalName()}"
+      s"$attributeQuote${field.getFinalName()}$attributeQuote"
     }
 
     val allFinalAttributes =
