@@ -10,7 +10,7 @@
     {% for columnName in columnNames %} {{ table1 }}.SL_PSEUDO_{{ columnName }} = {{ table2 }}.{{ columnName }}{% if not loop.last %}AND {% endif %}{%endfor%}
 {% endmacro %}
 
-{% macro unquote(col, q) %}{% if col and col|length > 2 and col[0] == q and col[-1] == q %}{{ col[1:-1] }}{% else %}{{ col }}{% endif %}{% endmacro %}
+{% macro unquote(col, q) %}{% if col|length > 2 and col[0] == q and col[-1] == q %}{{ col[1:-1] }}{% else %}{{ col }}{% endif %}{% endmacro %}
 
 {% macro renderColumnsWithoutScd2(columnNames, prefix) %}
     {% set scd2Cols = ['{{ strategyStartTs }}', '{{ strategyEndTs }}'] %}
