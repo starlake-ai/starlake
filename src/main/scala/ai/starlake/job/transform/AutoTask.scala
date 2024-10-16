@@ -421,7 +421,7 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[Map[String, String]]] = {
+  ): Try[List[Map[String, Any]]] = {
     val connection =
       Try(
         settings.appConfig
@@ -449,7 +449,7 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[Map[String, String]]] = Try {
+  ): Try[List[Map[String, Any]]] = Try {
     val finalSql =
       if (summarizeOnly)
         if (connection.isDuckDb())
