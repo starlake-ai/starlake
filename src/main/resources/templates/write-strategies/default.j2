@@ -11,11 +11,7 @@
 {% endmacro %}
 
 {% macro unquote(col) %}
-    {% if col and col|length > 2 and col[0] == quote and col[-1] == quote %}
-        {{ col[1:-1] }}
-    {% else %}
-        {{ col }}
-    {% endif %}
+    {% if col and col|length > 2 and col[0] == quote and col[-1] == quote %}{{ col[1:-1] }}{% else %}{{ col }}{% endif %}
 {% endmacro %}
 
 {% macro renderColumnsWithoutScd2(columnNames, prefix) %}
