@@ -5,7 +5,6 @@ import ai.starlake.job.Cmd
 import ai.starlake.job.infer.{InferSchemaCmd, InferSchemaConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.JobResult
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
 
