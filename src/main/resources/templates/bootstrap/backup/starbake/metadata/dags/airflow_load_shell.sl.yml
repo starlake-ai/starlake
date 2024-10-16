@@ -1,6 +1,6 @@
 dag:
     comment: "sample dag configuration"
-    template: "load/airflow__scheduled_table__bash.py.j2"
+    template: "load/airflow__scheduled_table__shell.py.j2"
     filename: "airflow_all_tables.py"
     options:
         load_dependencies: "true"
