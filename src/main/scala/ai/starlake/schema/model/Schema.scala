@@ -642,7 +642,7 @@ case class Schema(
 
     val sqlScripts: List[String] = scriptAttributes.map { scriptField =>
       val script = scriptField.script.getOrElse(throw new Exception("Should never happen"))
-      s"$attributeQuote$script$attributeQuote AS $attributeQuote${scriptField.getFinalName()}$attributeQuote"
+      s"$script AS $attributeQuote${scriptField.getFinalName()}$attributeQuote"
     }
 
     val sqlScriptsFinalName: List[String] = scriptAttributes.map { scriptField =>
@@ -652,7 +652,7 @@ case class Schema(
     val sqlTransforms: List[String] = transformAttributes.map { transformField =>
       val transform =
         transformField.transform.getOrElse(throw new Exception("Should never happen"))
-      s"$attributeQuote$transform$attributeQuote AS $attributeQuote${transformField.getFinalName()}$attributeQuote"
+      s"$transform AS $attributeQuote${transformField.getFinalName()}$attributeQuote"
     }
 
     val sqlTransformsFinalName: List[String] = transformAttributes.map { transformField =>
