@@ -10,21 +10,25 @@
     {% for columnName in columnNames %} {{ table1 }}.SL_PSEUDO_{{ columnName }} = {{ table2 }}.{{ columnName }}{% if not loop.last %}AND {% endif %}{%endfor%}
 {% endmacro %}
 
+{% macro unquote(col) %}
+    {% if col and col|length > 2 and col[0] == quote and col[-1] == quote %}{{ col[1:-1] }}{% else %}{{ col }}{% endif %}
+{% endmacro %}
+
 {% macro renderColumnsWithoutScd2(columnNames, prefix) %}
     {% set scd2Cols = ['{{ strategyStartTs }}', '{{ strategyEndTs }}'] %}
     {% set resAsList = columnNames|difference(scd2Cols)  %}
-    {% for column in resAsList %}{{ prefix }}{{ quote }}{{ column }}{{ quote }}{% if not loop.last %}, {% endif %}{% endfor %}
+    {% for column in resAsList %}{{ prefix }}{{ quote }}{{ unquote(column) }}{{ quote }}{% if not loop.last %}, {% endif %}{% endfor %}
 {% endmacro %}
 
 {% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
-    {% for columnName in columnNames %}{{table1}}.{{ quote }}{{ columnName }}{{ quote }} = {{table2}}.{{ quote }}{{ columnName }}{{ quote }}{% if not loop.last %} AND {% endif %}{%endfor%}
+    {% for columnName in columnNames %}{{table1}}.{{ quote }}{{ unquote(columnName) }}{{ quote }} = {{table2}}.{{ quote }}{{ unquote(columnName) }}{{ quote }}{% if not loop.last %} AND {% endif %}{%endfor%}
 {% endmacro %}
 
 {% macro renderStrategyKeyIsNull(table, columnNames) %}
-    {% for columnName in columnNames %}{{table}}.{{ quote }}{{ columnName }}{{ quote }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%}
+    {% for columnName in columnNames %}{{table}}.{{ quote }}{{ unquote(columnName) }}{{ quote }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%}
 {% endmacro %}
 
 {% macro renderTableColumns(table, columnNames) %}
-    {% for columnName in columnNames %}{{ table }}.{{ quote }}{{ columnName }}{{ quote }}{% if not loop.last %}, {% endif %}{%endfor%}
+    {% for columnName in columnNames %}{{ table }}.{{ quote }}{{ unquote(columnName) }}{{ quote }}{% if not loop.last %}, {% endif %}{%endfor%}
 {% endmacro %}
 
