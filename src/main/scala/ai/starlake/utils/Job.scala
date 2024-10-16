@@ -13,7 +13,7 @@ import scala.util.Try
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
 
 trait JobResult {
-  def asMap(): List[Map[String, String]] = Nil
+  def asMap(): List[Map[String, Any]] = Nil
   def prettyPrint(format: String, dryRun: Boolean = false): String = ""
   def prettyPrint(
     format: String,
@@ -60,7 +60,7 @@ case class SparkJobResult(
   dataframe: Option[DataFrame],
   counters: Option[IngestionCounters]
 ) extends JobResult {
-  override def asMap(): List[Map[String, String]] = {
+  override def asMap(): List[Map[String, Any]] = {
     dataframe
       .map { dataFrame =>
         val headers = dataFrame.schema.fields.map(_.name).toList
@@ -95,7 +95,7 @@ case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) 
     prettyPrint(format, headers, rows)
   }
 
-  override def asMap(): List[Map[String, String]] = {
+  override def asMap(): List[Map[String, Any]] = {
     rows.map { value => headers.zip(value).toMap }
 
   }

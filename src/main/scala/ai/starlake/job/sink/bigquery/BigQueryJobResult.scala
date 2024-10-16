@@ -40,7 +40,7 @@ case class BigQueryJobResult(
     }
   }
 
-  override def asMap(): List[Map[String, String]] = {
+  override def asMap(): List[Map[String, Any]] = {
     if (this.totalBytesProcessed < 0) {
       // The result is the schema of the table
       tableResult
@@ -50,6 +50,20 @@ case class BigQueryJobResult(
         }
         .getOrElse(Nil)
     } else {
+      tableResult
+        .map { rows =>
+          val headers: List[Field] = rows.getSchema.getFields.iterator().asScala.toList
+          val values = rows.iterateAll().asScala.toList.map { row =>
+            val fields = row
+              .iterator()
+              .asScala
+              .toList
+            asMap(fields, headers)
+          }
+          values
+        }
+        .getOrElse(Nil)
+      /*
       tableResult
         .map { rows =>
           val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
@@ -67,6 +81,7 @@ case class BigQueryJobResult(
           result
         }
         .getOrElse(Nil)
+       */
     }
   }
 
