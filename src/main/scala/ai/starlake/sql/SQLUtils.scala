@@ -485,7 +485,12 @@ object SQLUtils extends StrictLogging {
 
   def resolve(sql: String)(implicit settings: Settings): String = {
     val schemaDefinition = settings.schemaHandler().objectDefinitions()
-    val resolved = Try(new JSQLColumResolver(schemaDefinition).getResolvedStatementText(sql))
+    val resolved = Try(
+      new JSQLColumResolver(schemaDefinition)
+        .getResolvedStatementText(sql)
+        .replaceAll("/* Resolved Column*/", "")
+    )
+
     resolved.getOrElse(sql)
   }
 

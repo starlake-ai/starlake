@@ -5,7 +5,7 @@ import ai.starlake.schema.model.{Attribute, ConnectionType, Domain, Schema}
 import ai.starlake.utils.{JobResult, SparkJob}
 
 import java.util.regex.Pattern
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 object SchemaExtractor {
 
