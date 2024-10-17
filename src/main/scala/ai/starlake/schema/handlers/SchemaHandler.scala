@@ -327,7 +327,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     root: Option[String] = None
   ): Map[String, String] = {
     if (reload || _activeEnvVars == null) loadActiveEnvVars(env, root)
-    this._activeEnvVars
+    root match {
+      case Some(value) => _activeEnvVars + ("SL_ROOT" -> value)
+      case None        => this._activeEnvVars
+    }
   }
 
   def refs(reload: Boolean = false): RefDesc = {
