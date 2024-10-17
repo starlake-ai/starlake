@@ -81,7 +81,7 @@ case class DagGenerationConfig(
         "Filename cannot contain '..'"
       )
     }
-    if (filename.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
+    if (filename.startsWith("/") && !filename.startsWith(settings.appConfig.root)) {
       errors = errors :+ ValidationMessage(
         Severity.Error,
         "filename",
@@ -103,7 +103,7 @@ case class DagGenerationConfig(
           "Option key cannot contain '..'"
         )
       }
-      if (k.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
+      if (k.startsWith("/") && !k.startsWith(settings.appConfig.root)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "options",
@@ -124,7 +124,7 @@ case class DagGenerationConfig(
           "Option value cannot contain '..'"
         )
       }
-      if (v.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
+      if (v.startsWith("/") && !v.startsWith(settings.appConfig.root)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "options",
@@ -134,6 +134,7 @@ case class DagGenerationConfig(
     }
     errors
   }
+
   def getfilenameVars()(implicit settings: Settings): Set[String] = filename.extractVars()
 
   def this() = this("", "", "", Map.empty)
