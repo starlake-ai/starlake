@@ -27,8 +27,7 @@ import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.transpiler.JSQLColumResolver
-import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
+import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
