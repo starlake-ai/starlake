@@ -43,7 +43,14 @@ import scala.util.{Failure, Success, Try}
 
 case class TableWithNameOnly(name: String, attrs: List[String])
 
-case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly])
+case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly]) {
+  def asSchemaDefinition(): List[Array[String]] = {
+    tables.map { table =>
+      val tab = name :: table.attrs
+      tab.toArray
+    }
+  }
+}
 
 object SchemaHandler {
   private val watcherMap: scala.collection.concurrent.TrieMap[String, Settings] =
@@ -1402,6 +1409,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // SL_DATABASE
   // default database
 
+  def objectDefinitions(): Array[Array[String]] = {
+    objectNames().flatMap(_.asSchemaDefinition()).toArray
+  }
   def objectNames(): List[DomainWithNameOnly] = {
     val domains = this.domains() ++ this.externals() ++ List(this.auditTables)
     val tableNames =
