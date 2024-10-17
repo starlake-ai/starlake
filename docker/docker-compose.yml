@@ -66,6 +66,9 @@ services:
     entrypoint: >
       /bin/bash -c "
       sleep 120 &&
+      pip install --no-cache-dir starlake-orchestration[airflow] --upgrade --force-reinstall &&
+      mkdir -p /mnt/filestore/projects &&
+      mount -v -o nolock starlake-nas:/projects /mnt/filestore/projects &&
       mount -v -o nolock starlake-nas:/projects/dags /opt/airflow/dags &&
       airflow scheduler &
       exec airflow webserver"

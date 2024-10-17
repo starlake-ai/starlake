@@ -9,5 +9,23 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-# Use all arguments passed to the script with $@
-docker exec -ti starlake-api /app/starlake/starlake.sh "$@"
+options=""
+command="$1"
+shift
+
+arguments=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -o | --options)   options="$2"; shift; shift;;
+        *) arguments+=("$1");shift;;
+    esac
+done
+
+envs=$(echo $options | tr "," "\n")
+
+docker_envs=()
+for env in $envs; do
+    docker_envs+=("-e $env")
+done
+
+docker exec ${docker_envs[*]} starlake-api /app/starlake/starlake.sh $command ${arguments[*]}
