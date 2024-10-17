@@ -27,6 +27,8 @@ import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLColumResolver
+import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
@@ -44,10 +46,11 @@ import scala.util.{Failure, Success, Try}
 case class TableWithNameOnly(name: String, attrs: List[String])
 
 case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly]) {
-  def asSchemaDefinition(): List[Array[String]] = {
-    tables.map { table =>
-      val tab = name :: table.attrs
-      tab.toArray
+  def asSchemaDefinition(jdbcMetadata: JdbcMetaData) = {
+    tables.foreach { table =>
+      val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
+      jdbcMetadata.addTable("", name, table.name, jdbcColumns.asJava)
+      jdbcMetadata.addTable("", "", table.name, jdbcColumns.asJava)
     }
   }
 }
@@ -1412,8 +1415,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // SL_DATABASE
   // default database
 
-  def objectDefinitions(): Array[Array[String]] = {
-    objectNames().flatMap(_.asSchemaDefinition()).toArray
+  def objectDefinitions(): JdbcMetaData = {
+    val jdbcMetadata = new JdbcMetaData("", "")
+    objectNames().foreach(_.asSchemaDefinition(jdbcMetadata))
+    jdbcMetadata
   }
   def objectNames(): List[DomainWithNameOnly] = {
     val domains = this.domains() ++ this.externals() ++ List(this.auditTables)
