@@ -44,7 +44,7 @@ case class DagGenerationConfig(
   filename: String,
   options: Map[String, String]
 ) {
-  def checkValidity(): List[ValidationMessage] = {
+  def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     if (template.isEmpty) {
       errors = errors :+ ValidationMessage(
@@ -67,7 +67,7 @@ case class DagGenerationConfig(
         "Template cannot contain '..'"
       )
     }
-    if (template.startsWith("/")) {
+    if (template.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
       errors = errors :+ ValidationMessage(
         Severity.Error,
         "template",
@@ -81,7 +81,7 @@ case class DagGenerationConfig(
         "Filename cannot contain '..'"
       )
     }
-    if (filename.startsWith("/")) {
+    if (filename.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
       errors = errors :+ ValidationMessage(
         Severity.Error,
         "filename",
@@ -103,7 +103,7 @@ case class DagGenerationConfig(
           "Option key cannot contain '..'"
         )
       }
-      if (k.startsWith("/")) {
+      if (k.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "options",
@@ -124,7 +124,7 @@ case class DagGenerationConfig(
           "Option value cannot contain '..'"
         )
       }
-      if (v.startsWith("/")) {
+      if (v.startsWith("/") && !template.startsWith(settings.appConfig.root)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "options",

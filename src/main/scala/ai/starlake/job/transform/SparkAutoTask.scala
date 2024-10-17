@@ -1,8 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.extract.SchemaExtractor.SparkExtractorJob
+import ai.starlake.extract.{JdbcDbUtils, SparkExtractorJob}
 import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
@@ -306,7 +305,7 @@ class SparkAutoTask(
                 s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
               )
               if (settings.appConfig.autoExportSchema) {
-                val domains = new SparkExtractorJob(List(taskDesc.domain -> List(taskDesc.table)))
+                val domains = new SparkExtractorJob(Map(taskDesc.domain -> List(taskDesc.table)))
                   .schemasAndTables()
                 domains match {
                   case Success(domains) =>

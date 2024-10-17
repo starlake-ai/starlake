@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model._
-import ai.starlake.transpiler.JSQLTranspiler
+import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
 import ai.starlake.utils.Utils
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
@@ -482,6 +482,12 @@ object SQLUtils extends StrictLogging {
         else
           JSQLTranspiler.Dialect.ANY // Should not happen
     }
+
+  def resolve(sql: String)(implicit settings: Settings): String = {
+    val schemaDefinition = settings.schemaHandler().objectDefinitions()
+    val resolved = Try(new JSQLColumResolver(schemaDefinition).getResolvedStatementText(sql))
+    resolved.getOrElse(sql)
+  }
 
   def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
     if (timestamps.nonEmpty) {
