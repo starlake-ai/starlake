@@ -39,7 +39,13 @@ object StageCmd extends Cmd[StageConfig] {
         .action((x, c) => c.copy(domains = x))
         .valueName("domain1,domain2...")
         .optional()
-        .text("Domains to stage")
+        .text("Domains to stage"),
+      builder
+        .opt[Map[String, String]]("options")
+        .valueName("k1=v1,k2=v2...")
+        .action((x, c) => c.copy(options = c.options ++ x))
+        .unbounded()
+        .text("Stage arguments to be used as substitutions")
     )
   }
 
