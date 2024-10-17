@@ -112,6 +112,8 @@ jobs:
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 publish
 
   docker-hub:
+    needs: snapshot
+    name: Snapshot Docker Image
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -160,7 +162,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha
+#            type=sha
         
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -204,6 +206,7 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           pull: true
           push: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -218,3 +221,4 @@ jobs:
           subject-name: ${{ env.REGISTRY_IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
