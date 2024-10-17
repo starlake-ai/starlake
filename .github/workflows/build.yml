@@ -150,6 +150,8 @@ jobs:
       - name: Formatting
         run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
   docker:
+    needs: test
+    name: Test Docker Image
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -193,7 +195,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha
+#            type=sha
       
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
