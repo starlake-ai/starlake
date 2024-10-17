@@ -178,7 +178,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
 
-    val env = schemaHandler.activeEnvVars()
+    val env = schemaHandler.activeEnvVars(root = Some(settings.appConfig.root))
     val jEnv = env.map { case (k, v) =>
       DagPair(k, v)
     }.toList
