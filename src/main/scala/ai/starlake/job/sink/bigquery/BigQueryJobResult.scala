@@ -100,7 +100,7 @@ case class BigQueryJobResult(
                 .iterator()
                 .asScala
                 .toList
-                .map(cell => scala.Option(cell.getValue()).map(_.toString).getOrElse("null"))
+                .map(cell => scala.Option(cell.getValue()).map(_.toString).orNull)
             }
           val result =
             if (format == "json-array") {
@@ -138,7 +138,7 @@ case class BigQueryJobResult(
           val obj =
             attribute match {
               case FieldValue.Attribute.PRIMITIVE =>
-                headerName -> scala.Option(fieldValue.getValue).map(_.toString).getOrElse("NULL")
+                headerName -> scala.Option(fieldValue.getValue).map(_.toString).orNull
               case FieldValue.Attribute.RECORD =>
                 val record = fieldValue.getValue.asInstanceOf[FieldValueList]
                 val subFieldValues = record.iterator().asScala.toList
@@ -152,9 +152,7 @@ case class BigQueryJobResult(
                 val valueList =
                   if (header.getSubFields == null) {
                     val valueList = subFieldValues
-                      .map(subField =>
-                        scala.Option(subField.getValue).map(_.toString).getOrElse("NULL")
-                      )
+                      .map(subField => scala.Option(subField.getValue).map(_.toString).orNull)
                     valueList
                   } else {
                     val subHeaders =
@@ -173,7 +171,7 @@ case class BigQueryJobResult(
                 headerName -> valueList
               case FieldValue.Attribute.RANGE =>
                 val value =
-                  scala.Option(fieldValue.getRangeValue).map(_.getValues).getOrElse("NULL")
+                  scala.Option(fieldValue.getRangeValue).map(_.getValues).orNull
                 headerName -> value
             }
           obj
