@@ -368,19 +368,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =
               csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-            if (effectiveAttributes.length > schema.attributes.length) {
-              logger.warn(
-                s"Attributes in the CSV file are bigger from the schema. " +
-                s"Schema will be updated to match the CSV file. " +
-                s"Schema: ${schema.attributes.map(_.name).mkString(",")}. " +
-                s"CSV: ${csvHeaders.mkString(",")}"
-              )
-              schema.copy(attributes = effectiveAttributes.take(schema.attributes.length))
-
-            } else {
-              schema.copy(attributes = effectiveAttributes)
-            }
-
+            schema.copy(attributes = effectiveAttributes)
           case _ => schema
         }
       case _ => schema
