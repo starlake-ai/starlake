@@ -40,6 +40,8 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${SL_POSTGRES_DB:-starlake}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      INSTALL_MYSQL_CLIENT: 'false'
+      INSTALL_MSSQL_CLIENT: 'false'
     entrypoint: >
       /bin/bash -c "
       sleep 10 &&
@@ -53,7 +55,6 @@ services:
       dockerfile: Dockerfile_airflow
     container_name: starlake-airflow
     restart: on-failure
-    user: root
     depends_on:
       - starlake-db
       - starlake-nas
@@ -62,19 +63,20 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${SL_POSTGRES_DB:-starlake}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      INSTALL_MYSQL_CLIENT: 'false'
+      INSTALL_MSSQL_CLIENT: 'false'
       SL_HOME: /app/starlake
     entrypoint: >
       /bin/bash -c "
-      sleep 120 &&
-      mkdir -p /mnt/filestore/projects &&
-      mount -v -o nolock starlake-nas:/projects /mnt/filestore/projects &&
-      mount -v -o nolock starlake-nas:/projects/dags /opt/airflow/dags &&
+      sleep 10 &&
+      pip install --no-cache-dir starlake-orchestration[airflow] --upgrade  --force-reinstall &&
+      sudo mkdir -p /mnt/filestore/projects &&
+      sudo mount -v -o nolock starlake-nas:/projects /mnt/filestore/projects &&
+      sudo mount -v -o nolock starlake-nas:/projects/dags /opt/airflow/dags &&
       airflow scheduler &
       exec airflow webserver"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
-      - /etc/passwd:/etc/passwd:ro
-      - /etc/group:/etc/group:ro
     ports:
       - ${SL_AIRFLOW_PORT:-8080}:8080  # Airflow Webserver port
     privileged: true  # Required for mounting NFS
