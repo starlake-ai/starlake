@@ -681,12 +681,14 @@ class SparkAutoTask(
     val allAttributeNames = loadedDF.schema.fields.map(_.name)
     val attributesSelectAsString = allAttributeNames.mkString(",")
 
+    /*
     val targetTableExists: Boolean = { // TODO declaration is never used
       JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
         val url = sinkConnection.options("url")
         JdbcDbUtils.tableExists(conn, url, targetTableName)
       }
     }
+     */
 
     val twoSteps = strategy.isMerge()
     val result =

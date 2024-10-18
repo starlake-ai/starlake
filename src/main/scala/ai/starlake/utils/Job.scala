@@ -55,7 +55,15 @@ trait JobResult {
     baos.toString
   }
 }
+/*
+          val values = rows.iterateAll().asScala.toList.map { row =>
+            val fields = row
+              .iterator()
+              .asScala
+              .toList
+            asMap(fields, headers)
 
+ */
 case class SparkJobResult(
   dataframe: Option[DataFrame],
   counters: Option[IngestionCounters]
@@ -67,8 +75,8 @@ case class SparkJobResult(
         val dataAsList = dataFrame
           .collect()
           .map { row =>
-            val values = row.toSeq.map(Option(_).map(_.toString).getOrElse("NULL")).toList
-            headers.zip(values).toMap
+            val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse("NULL")).toList
+            headers.zip(fields).toMap
           }
           .toList
         dataAsList
