@@ -8,7 +8,6 @@ import java.util.regex.Pattern
 import scala.util.{Success, Try}
 
 object SchemaExtractor {
-
   def extractSchemas(
     connectionName: String,
     accessToken: Option[String],
