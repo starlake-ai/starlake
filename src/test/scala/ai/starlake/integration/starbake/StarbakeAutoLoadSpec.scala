@@ -17,7 +17,7 @@ class StarbakeAutoLoadSpec extends IntegrationTestBase {
   "Autoload" should "succeed" in {
     withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
       copyFilesToIncomingDir(sampleDataDir)
-      assert(new Main().run(Array("autoload", "--clean")))
+      assert(new Main().run(Array("autoload")))
     }
   }
 }
