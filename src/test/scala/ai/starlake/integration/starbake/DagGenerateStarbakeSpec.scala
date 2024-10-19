@@ -8,6 +8,10 @@ class DagGenerateStarbakeSpec extends BigQueryIntegrationSpecBase {
   logger.info(starlakeDir.pathAsString)
   override val localDir = samplesDir / "starbake"
 
+  override protected def cleanup(): Unit = {
+    // do not cleanup between tests
+  }
+
   "All Dag generation" should "succeed" in {
     withEnvs(
       "SL_ROOT"                     -> localDir.pathAsString,
