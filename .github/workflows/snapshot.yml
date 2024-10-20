@@ -1,10 +1,9 @@
 name: Snapshot
-# Run workflow on commits to the `master` branch
+# Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
 on:
   workflow_dispatch:
-  push:
-#  pull_request:
-#    types: [closed]
+  pull_request:
+    types: [closed]
     branches:
       - master
       - branch-*
