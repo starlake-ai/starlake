@@ -169,4 +169,4 @@ samples/starbake/airflow
 samples/starbake/audit
 samples/starbake/bin
 samples/starbake/storage
-starlake
+bin
