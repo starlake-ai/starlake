@@ -1,0 +1,6 @@
+---
+version: 1
+task:
+  name: "customer_purchase_history"
+  domain: "starbake_analytics"
+  table: "customer_purchase_history"

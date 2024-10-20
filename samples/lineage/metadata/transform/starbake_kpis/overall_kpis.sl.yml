@@ -1,0 +1,6 @@
+---
+version: 1
+task:
+  name: "overall_kpis"
+  domain: "starbake_kpis"
+  table: "overall_kpis"

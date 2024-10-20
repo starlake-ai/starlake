@@ -1,0 +1,20 @@
+{"product_id":1,"name":"Baguette","price":14.33,"description":"This delicious Baguette is made with the finest ingredients and baked to perfection.","category":"bread","cost":8.12}
+{"product_id":2,"name":"Chocolate Croissant","price":3.99,"description":"A flaky, buttery croissant filled with rich chocolate.","category":"pastry","cost":1.75}
+{"product_id":3,"name":"Sourdough Loaf","price":6.50,"description":"Artisanal sourdough bread with a crispy crust and tangy flavor.","category":"bread","cost":3.25}
+{"product_id":4,"name":"Blueberry Muffin","price":2.75,"description":"Moist muffin packed with juicy blueberries and topped with a crumbly streusel.","category":"pastry","cost":1.20}
+{"product_id":5,"name":"Cinnamon Roll","price":3.50,"description":"Soft, gooey cinnamon roll with a generous drizzle of cream cheese frosting.","category":"pastry","cost":1.80}
+{"product_id":6,"name":"Whole Grain Bread","price":5.25,"description":"Nutritious whole grain bread packed with seeds and nuts.","category":"bread","cost":2.75}
+{"product_id":7,"name":"Apple Turnover","price":3.25,"description":"Flaky pastry filled with cinnamon-spiced apples and drizzled with vanilla glaze.","category":"pastry","cost":1.50}
+{"product_id":8,"name":"Focaccia","price":4.75,"description":"Italian flatbread topped with olive oil, herbs, and sea salt.","category":"bread","cost":2.25}
+{"product_id":9,"name":"Raspberry Danish","price":3.75,"description":"Buttery Danish pastry filled with sweet raspberry jam and topped with almond slivers.","category":"pastry","cost":1.85}
+{"product_id":10,"name":"Rye Bread","price":5.50,"description":"Dense and flavorful rye bread, perfect for sandwiches or toasting.","category":"bread","cost":2.80}
+{"product_id":11,"name":"Chocolate Chip Cookie","price":1.50,"description":"Classic chocolate chip cookie with a soft center and crispy edges.","category":"cookie","cost":0.75}
+{"product_id":12,"name":"Cheese Scone","price":2.95,"description":"Savory scone packed with cheddar cheese and a hint of herbs.","category":"pastry","cost":1.40}
+{"product_id":13,"name":"Banana Bread","price":4.25,"description":"Moist banana bread made with ripe bananas and a touch of cinnamon.","category":"bread","cost":2.10}
+{"product_id":14,"name":"Almond Croissant","price":4.50,"description":"Buttery croissant filled with almond cream and topped with sliced almonds.","category":"pastry","cost":2.20}
+{"product_id":15,"name":"Pumpernickel Bread","price":5.75,"description":"Dark, dense pumpernickel bread with a rich, complex flavor.","category":"bread","cost":3.00}
+{"product_id":16,"name":"Lemon Tart","price":4.95,"description":"Tangy lemon curd in a buttery shortcrust pastry shell.","category":"pastry","cost":2.50}
+{"product_id":17,"name":"Oatmeal Raisin Cookie","price":1.75,"description":"Chewy oatmeal cookie packed with plump raisins and a hint of cinnamon.","category":"cookie","cost":0.85}
+{"product_id":18,"name":"Brioche","price":6.25,"description":"Rich, buttery brioche bread with a tender crumb and golden crust.","category":"bread","cost":3.50}
+{"product_id":19,"name":"Pecan Pie","price":18.99,"description":"Classic pecan pie with a gooey filling and crunchy pecan topping.","category":"pie","cost":9.50}
+{"product_id":20,"name":"Garlic Bread","price":3.99,"description":"Crusty bread infused with garlic butter and herbs, ready to be warmed.","category":"bread","cost":1.95}

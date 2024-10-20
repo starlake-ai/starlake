@@ -5,3 +5,4 @@ WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }
 
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM SL_INCOMING;
 
+DROP VIEW IF EXISTS SL_INCOMING;

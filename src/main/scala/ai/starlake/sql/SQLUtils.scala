@@ -488,7 +488,7 @@ object SQLUtils extends StrictLogging {
     val resolved = Try(
       new JSQLColumResolver(schemaDefinition)
         .getResolvedStatementText(sql)
-        .replaceAll("/* Resolved Column*/", "")
+        .replaceAll("/\\* Resolved Column\\*/", "")
     )
 
     resolved.getOrElse(sql)
