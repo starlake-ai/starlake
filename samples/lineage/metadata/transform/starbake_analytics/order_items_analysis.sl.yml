@@ -1,0 +1,10 @@
+---
+version: 1
+task:
+  name: "order_items_analysis"
+  domain: "starbake_analytics"
+  table: "order_items_analysis"
+  writeStrategy:
+    type: "OVERWRITE"
+  schedule: "0 0 * * *"
+  dagRef: "airflow_scheduled_table_bash"

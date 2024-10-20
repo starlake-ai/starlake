@@ -19,7 +19,10 @@ import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.postgresql.copy.CopyManager
+import org.postgresql.core.BaseConnection
 
+import java.io.BufferedReader
 import java.sql.Timestamp
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
@@ -720,7 +723,32 @@ class SparkAutoTask(
           settings.storageHandler().delete(tablePath)
         }
 
-        if (sinkConnection.isDuckDb()) {
+        val isIndirectWriteMethod =
+          sinkConnection.options.getOrElse("writeMethod", "indirect") == "indirect"
+
+        if (sinkConnection.isPostgreSql() && isIndirectWriteMethod) {
+          val separator = sinkConnection.options.getOrElse("separator", ",")
+          loadedDF.write
+            .format("csv")
+            .mode(SaveMode.Overwrite) // truncate done above if requested
+            .option("separator", separator)
+            .save(tablePath.toString)
+          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+            val manager = new CopyManager(conn.unwrap(classOf[BaseConnection]))
+            storageHandler
+              .list(tablePath, recursive = false, extension = "csv")
+              .foreach { file =>
+                val localFile = StorageHandler.localFile(file.path).toString()
+                val copySql =
+                  s"COPY $fullTableName FROM '$localFile' DELIMITER ',' CSV HEADER"
+                manager.copyIn(
+                  copySql,
+                  new BufferedReader(new java.io.FileReader(localFile))
+                )
+              }
+          }
+          settings.storageHandler().delete(tablePath)
+        } else if (sinkConnection.isDuckDb()) {
           loadedDF.write
             .format("parquet")
             .mode(SaveMode.Overwrite) // truncate done above if requested
@@ -742,9 +770,7 @@ class SparkAutoTask(
             .save()
         }
 
-        logger.info(
-          s"JDBC save done to table $firstStepTempTable"
-        )
+        logger.info(s"JDBC save done to table $firstStepTempTable")
 
         // We now have a table in the database.
         // We can now run the merge statement using the native SQL capabilities

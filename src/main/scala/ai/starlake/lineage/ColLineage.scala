@@ -124,8 +124,18 @@ class ColLineage(
           } else {
             List(Relation(parentColumn, currentColumn, expression))
           }
-        assert(column.getChildren.size() == 0)
-        immediateRelations
+        val relations =
+          column.getChildren.asScala.flatMap { child =>
+            extractRelations(
+              column.tableSchema,
+              column.tableName,
+              column.columnName,
+              Option(column.getExpression).map(_.toString),
+              child
+            )
+          }.toList
+
+        immediateRelations ++ relations
       } else if (column.tableName.isEmpty && column.columnName.nonEmpty) { // this is a function
         val relations =
           column.getChildren.asScala.flatMap { child =>

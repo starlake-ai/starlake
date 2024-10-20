@@ -61,6 +61,24 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
     }
   }
 
+  "Lineage-2" should "succeed" in {
+    withEnvs(
+      "SL_ROOT" -> (localDir.parent / "lineage").pathAsString
+    ) {
+      assert(
+        new Main().run(
+          Array(
+            "col-lineage",
+            "--output",
+            "/tmp/lineage.json",
+            "--task",
+            "starbake_analytics.order_items_analysis"
+          )
+        )
+      )
+    }
+  }
+
   "Lineage JSON" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(

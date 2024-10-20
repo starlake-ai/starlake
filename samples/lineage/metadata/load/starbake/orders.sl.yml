@@ -1,0 +1,61 @@
+---
+version: 1
+table:
+  name: "orders"
+  pattern: "orders.*.json"
+  attributes:
+  - name: "customer_id"
+    type: "long"
+    array: false
+    foreignKey: "starbake.customers.id"
+    sample: "3"
+  - name: "order_date"
+    type: "date"
+    array: false
+    sample: "2023-03-15"
+  - name: "order_id"
+    type: "long"
+    array: false
+    sample: "1"
+  - name: "product_id"
+    type: "long"
+    array: false
+    foreignKey: "starbake.products.product_id"
+    sample: "1"
+  - name: "quantity"
+    type: "long"
+    array: false
+    sample: "2"
+  metadata:
+    format: "JSON_FLAT"
+    array: false
+    withHeader: true
+    writeStrategy:
+      type: "APPEND"
+  comment: "A detailed log of all order entries, linking customers to the products\
+    \ they've purchased"
+  sample: "{\"customer_id\":3,\"order_date\":\"2023-03-15\",\"order_id\":1,\"product_id\"\
+    :1,\"quantity\":2}\n{\"customer_id\":3,\"order_date\":\"2023-03-15\",\"order_id\"\
+    :1,\"product_id\":4,\"quantity\":1}\n{\"customer_id\":7,\"order_date\":\"2023-05-20\"\
+    ,\"order_id\":2,\"product_id\":2,\"quantity\":2}\n{\"customer_id\":7,\"order_date\"\
+    :\"2023-05-20\",\"order_id\":2,\"product_id\":11,\"quantity\":3}\n{\"customer_id\"\
+    :2,\"order_date\":\"2023-02-10\",\"order_id\":3,\"product_id\":3,\"quantity\"\
+    :1}\n{\"customer_id\":2,\"order_date\":\"2023-02-10\",\"order_id\":3,\"product_id\"\
+    :8,\"quantity\":2}\n{\"customer_id\":2,\"order_date\":\"2023-02-10\",\"order_id\"\
+    :3,\"product_id\":12,\"quantity\":1}\n{\"customer_id\":5,\"order_date\":\"2023-04-08\"\
+    ,\"order_id\":4,\"product_id\":5,\"quantity\":2}\n{\"customer_id\":5,\"order_date\"\
+    :\"2023-04-08\",\"order_id\":4,\"product_id\":9,\"quantity\":3}\n{\"customer_id\"\
+    :1,\"order_date\":\"2023-01-20\",\"order_id\":5,\"product_id\":6,\"quantity\"\
+    :2}\n{\"customer_id\":1,\"order_date\":\"2023-01-20\",\"order_id\":5,\"product_id\"\
+    :10,\"quantity\":2}\n{\"customer_id\":9,\"order_date\":\"2023-07-05\",\"order_id\"\
+    :6,\"product_id\":7,\"quantity\":3}\n{\"customer_id\":9,\"order_date\":\"2023-07-05\"\
+    ,\"order_id\":6,\"product_id\":11,\"quantity\":5}\n{\"customer_id\":4,\"order_date\"\
+    :\"2023-03-25\",\"order_id\":7,\"product_id\":13,\"quantity\":2}\n{\"customer_id\"\
+    :4,\"order_date\":\"2023-03-25\",\"order_id\":7,\"product_id\":14,\"quantity\"\
+    :3}\n{\"customer_id\":8,\"order_date\":\"2023-06-12\",\"order_id\":8,\"product_id\"\
+    :15,\"quantity\":2}\n{\"customer_id\":8,\"order_date\":\"2023-06-12\",\"order_id\"\
+    :8,\"product_id\":17,\"quantity\":5}\n{\"customer_id\":6,\"order_date\":\"2023-04-30\"\
+    ,\"order_id\":9,\"product_id\":16,\"quantity\":2}\n{\"customer_id\":6,\"order_date\"\
+    :\"2023-04-30\",\"order_id\":9,\"product_id\":18,\"quantity\":3}\n{\"customer_id\"\
+    :10,\"order_date\":\"2023-07-25\",\"order_id\":10,\"product_id\":19,\"quantity\"\
+    :1}"
