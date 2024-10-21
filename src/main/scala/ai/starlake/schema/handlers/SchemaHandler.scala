@@ -1009,7 +1009,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             python = Some(taskFile)
           )
         else {
-          val sqlTask = SqlTaskExtractor(storage.read(taskFile))
+          val sqlContentRaw = storage.read(taskFile)
+          val sqlContent = Utils.parseJinja(sqlContentRaw, activeEnvVars())
+          val sqlTask = SqlTaskExtractor(sqlContent)
           taskWithName.copy(
             presql = sqlTask.presql,
             sql = Option(sqlTask.sql),
