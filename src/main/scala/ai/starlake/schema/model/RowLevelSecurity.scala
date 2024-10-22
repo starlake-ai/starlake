@@ -23,7 +23,7 @@ case class RowLevelSecurity(
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   def grantees(): Set[(UserType, String)] = {
-    grants.map { user =>
+    grants.flatMap(grant => grant.split(",").map(_.replaceAll("\"", ""))).map { user =>
       val res = user.split(':')
       assert(res.length == 2)
       (UserType.fromString(res(0).trim), res(1).trim)
