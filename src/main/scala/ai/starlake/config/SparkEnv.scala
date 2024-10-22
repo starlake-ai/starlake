@@ -45,15 +45,14 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   lazy val session: SparkSession = {
     val sysProps = System.getProperties()
 
-    if (!settings.appConfig.isHiveCompatible() || settings.appConfig.hiveInTest) {
-      if (
-        settings
-          .getWarehouseDir()
-          .isEmpty && sys.env.get("SL_SPARK_WAREHOUSE_IS_ACTIVE").getOrElse("true").toBoolean
-      ) {
-        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
-        config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
-      }
+    if (
+      sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
+      config.getOption("spark.sql.catalogImplementation").isEmpty
+    ) {
+      // We need to avoid in-memory catalog implementation otherwise delta will fail to work
+      // through subsequent spark sessions since the metastore is not present anywhere.
+      sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
+      config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
     }
     import org.apache.spark.sql.SparkSession
     val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
@@ -72,14 +71,9 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
 
     val session =
       if (
-        config
-          .getOption("spark.sql.catalogImplementation")
-          .isEmpty &&
-        sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean
+        sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
+        config.getOption("spark.sql.catalogImplementation").isEmpty
       ) {
-        // We need to avoid in-memory catalog implementation otherwise delta will fail to work
-        // through subsequent spark sessions since the metastore is not present anywhere.
-        sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
         builder.config(config).master(master).enableHiveSupport().getOrCreate()
       } else
         builder.config(config).master(master).getOrCreate()

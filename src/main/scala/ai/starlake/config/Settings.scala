@@ -712,7 +712,8 @@ object Settings extends StrictLogging {
     hiveInTest: Boolean,
     duckdbMode: Boolean,
     testCsvNullString: String,
-    maxInteractiveRecords: Int
+    maxInteractiveRecords: Int,
+    duckdbPath: Option[String]
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -1040,21 +1041,28 @@ object Settings extends StrictLogging {
     val withRootUpdatedConfig =
       root
         .map { root =>
-          val oldRootLength = loadedConfig.root.length
+          def pathFromRoot(path: String): String = {
+            val loadedConfigRootLen = loadedConfig.root.length
+            if (loadedConfigRootLen == 0) {
+              root + path
+            } else if (path.startsWith(loadedConfig.root))
+              root + path.substring(loadedConfigRootLen)
+            else
+              path
+          }
           loadedConfig.copy(
             root = root,
             audit = loadedConfig.audit
-              .copy(path = root + loadedConfig.audit.path.substring(oldRootLength)),
+              .copy(path = pathFromRoot(loadedConfig.audit.path)),
             expectations = loadedConfig.expectations
-              .copy(path = root + loadedConfig.expectations.path.substring(oldRootLength)),
-            datasets = root + loadedConfig.datasets.substring(oldRootLength),
-            metadata = root + loadedConfig.metadata.substring(oldRootLength),
-            lock =
-              loadedConfig.lock.copy(path = root + loadedConfig.lock.path.substring(oldRootLength)),
+              .copy(path = pathFromRoot(loadedConfig.expectations.path)),
+            datasets = pathFromRoot(loadedConfig.datasets),
+            metadata = pathFromRoot(loadedConfig.metadata),
+            lock = loadedConfig.lock.copy(path = pathFromRoot(loadedConfig.lock.path)),
             metrics = loadedConfig.metrics
-              .copy(path = root + loadedConfig.metrics.path.substring(oldRootLength)),
-            dags = root + loadedConfig.dags.substring(oldRootLength),
-            writeStrategies = root + loadedConfig.writeStrategies.substring(oldRootLength)
+              .copy(path = pathFromRoot(loadedConfig.metrics.path)),
+            dags = pathFromRoot(loadedConfig.dags),
+            writeStrategies = pathFromRoot(loadedConfig.writeStrategies)
           )
         }
         .getOrElse(loadedConfig)
@@ -1301,7 +1309,7 @@ object Settings extends StrictLogging {
   }
 
   def duckDBMode(settings: Settings): Settings = {
-    val duckdbPath = DatasetArea.path("duckdb.db")(settings)
+    val duckdbPath = DatasetArea.duckdbPath()(settings)
     val pathAsString = duckdbPath.toUri.getPath
     val duckDBConnection = Connection(
       `type` = ConnectionType.JDBC,
