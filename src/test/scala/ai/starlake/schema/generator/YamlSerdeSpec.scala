@@ -1166,6 +1166,8 @@ object YamlConfigGenerators {
       duckdbMode              <- arbitrary[Boolean]
       testCsvNullString       <- arbitrary[String]
       maxInteractiveRecords   <- arbitrary[Int]
+      duckdbPath              <- Gen.option(arbitrary[String])
+
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1239,7 +1241,8 @@ object YamlConfigGenerators {
       hiveInTest = hiveInTest,
       duckdbMode = duckdbMode,
       testCsvNullString = testCsvNullString,
-      maxInteractiveRecords = maxInteractiveRecords
+      maxInteractiveRecords = maxInteractiveRecords,
+      duckdbPath = duckdbPath
     )
   }
 
