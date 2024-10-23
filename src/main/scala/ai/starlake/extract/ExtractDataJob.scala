@@ -777,7 +777,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
             getBoundariesWith(connection)
           } else {
-            withJDBCConnection(extractConfig.audit.options) { auditConnection =>
+            withJDBCConnection(readOnlyConnection(extractConfig.audit.options)) { auditConnection =>
               getBoundariesWith(auditConnection)
             }
           }
