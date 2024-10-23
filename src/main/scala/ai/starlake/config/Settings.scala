@@ -1043,9 +1043,9 @@ object Settings extends StrictLogging {
         .map { root =>
           def pathFromRoot(path: String): String = {
             val loadedConfigRootLen = loadedConfig.root.length
-            if (loadedConfigRootLen == 0) {
+            if (loadedConfigRootLen == 0 && !path.contains(":/")) {
               root + path
-            } else if (path.startsWith(loadedConfig.root))
+            } else if (loadedConfigRootLen > 0 && path.startsWith(loadedConfig.root))
               root + path.substring(loadedConfigRootLen)
             else
               path
