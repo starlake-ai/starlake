@@ -837,8 +837,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
   private[extract] def initExportAuditTable(
     connectionSettings: Connection
   )(implicit settings: Settings): Columns = {
+    val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
     withJDBCConnection(connectionSettings.options) { connection =>
-      val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
       val existLastExportTable =
         tableExists(connection, connectionSettings.jdbcUrl, s"${auditSchema}.$lastExportTableName")
       if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
@@ -859,7 +859,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
         }
       }
     }
-    val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
     JdbcDbUtils
       .extractJDBCTables(
         JDBCSchema(
