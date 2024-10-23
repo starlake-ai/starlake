@@ -449,7 +449,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
     val tableCount = new AtomicLong()
-    println("HELLOOOOOO" + tableStart)
     val extractionResults: List[Try[Any]] =
       boundaries.map { case (bounds, index) =>
         Try {
@@ -542,7 +541,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
             )
           )
         }.map { insertLastExportParams =>
-          println("========>success")
           // We insert here right after the connection has been closed (duckdb does not support multiple connections)
           insertLastExportParams.foreach { insertLastExportParams =>
             withJDBCConnection(extractConfig.audit.options) { connection =>
