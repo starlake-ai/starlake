@@ -157,7 +157,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
-          extractConfig.data,
+          readOnlyConnection(extractConfig.data),
           skipRemarks = true,
           keepOriginalName = true
         )
@@ -457,7 +457,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           }
           logger.info(s"$boundaryContext bounds = $bounds")
 
-          withJDBCConnection(extractConfig.data.options) { connection =>
+          withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
             Using.resource(
               computePrepareStatement(
                 extractConfig,
@@ -762,7 +762,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       case None =>
         List(Unbounded -> 0) -> NoBound
       case Some(_: PartitionConfig) =>
-        withJDBCConnection(extractConfig.data.options) { connection =>
+        withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
           def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
             auditConnection.setAutoCommit(false)
             LastExportUtils.getBoundaries(
@@ -858,29 +858,31 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           execute(createTableSql, connection)
         }
       }
-      JdbcDbUtils
-        .extractJDBCTables(
-          JDBCSchema(
-            schema = auditSchema,
-            tables = List(
-              JDBCTable(name = lastExportTableName, None, List(), None, None, Map.empty, None, None)
-            ),
-            tableTypes = List("TABLE")
-          ),
-          connectionSettings,
-          skipRemarks = true,
-          keepOriginalName = true
-        )(settings, None)
-        .find { case (tableName, _) =>
-          tableName.equalsIgnoreCase(lastExportTableName)
-        }
-        .map { case (_, tableAttrs) =>
-          tableAttrs.columNames
-        }
-        .getOrElse(
-          throw new RuntimeException(s"$lastExportTableName table not found. Please create it.")
-        )
     }
+    val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
+    JdbcDbUtils
+      .extractJDBCTables(
+        JDBCSchema(
+          schema = auditSchema,
+          tables = List(
+            JDBCTable(name = lastExportTableName, None, List(), None, None, Map.empty, None, None)
+          ),
+          tableTypes = List("TABLE")
+        ),
+        connectionSettings,
+        skipRemarks = true,
+        keepOriginalName = true
+      )(settings, None)
+      .find { case (tableName, _) =>
+        tableName.equalsIgnoreCase(lastExportTableName)
+      }
+      .map { case (_, tableAttrs) =>
+        tableAttrs.columNames
+      }
+      .getOrElse(
+        throw new RuntimeException(s"$lastExportTableName table not found. Please create it.")
+      )
+
   }
 
   private[extract] def getStringPartitionFunc(dbType: String): Option[String] = {
