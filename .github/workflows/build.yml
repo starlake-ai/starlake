@@ -55,7 +55,7 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
       - name: Use gcloud CLI
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.ready_for_review }}
         run: gcloud info
       - name: Run tests(config)  & Coverage Report On Push
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.ready_for_review }}
