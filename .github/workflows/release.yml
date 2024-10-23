@@ -14,7 +14,6 @@ jobs:
           echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
           echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
           echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
-          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >>  $GITHUB_ENV
           echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
           
       - name: Install graphviz
@@ -29,7 +28,7 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
-          credentials_json: '${{ env.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
           cleanup_credentials: false
 #      - name: Use gcloud CLI
 #        run: gcloud info

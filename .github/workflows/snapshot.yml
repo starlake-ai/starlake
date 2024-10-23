@@ -30,7 +30,6 @@ jobs:
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >>  $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >>  $GITHUB_ENV
           echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >>  $GITHUB_ENV
-          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >>  $GITHUB_ENV
           echo "GCP_PROJECT=${{ secrets.GCP_PROJECT }}" >>  $GITHUB_ENV
           echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
       - uses: smartsquaregmbh/delete-old-packages@v0.3.1
@@ -50,7 +49,7 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
-          credentials_json: '${{ env.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
           cleanup_credentials: false
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v1'

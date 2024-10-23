@@ -30,7 +30,6 @@ jobs:
           echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_WAREHOUSE=${{ secrets.SNOWFLAKE_WAREHOUSE }}" >>  $GITHUB_ENV
-          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >>  $GITHUB_ENV
           echo "GCP_PROJECT=${{ secrets.GCP_PROJECT }}" >>  $GITHUB_ENV
           echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
 
@@ -53,7 +52,7 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
-          credentials_json: '${{ env.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
       - name: Use gcloud CLI
         if: ${{ github.event_name != 'pull_request' }}
         run: gcloud info
