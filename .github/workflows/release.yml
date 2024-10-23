@@ -14,6 +14,9 @@ jobs:
           echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
           echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
           echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
+          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >>  $GITHUB_ENV
+          echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
+          
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
       - name: Set up Zulu 11
@@ -26,14 +29,14 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
-          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ env.GCP_SERVICE_ACCOUNT }}'
           cleanup_credentials: false
 #      - name: Use gcloud CLI
 #        run: gcloud info
 #      - name: Run tests & Coverage Report
 #        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=starlake-app SL_REMOTE_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
 
   docker-hub:
     needs: release
@@ -66,6 +69,9 @@ jobs:
           echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}" >> $GITHUB_ENV
           REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
           echo "REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE_LATEST}" >> $GITHUB_ENV
+          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> $GITHUB_ENV
+          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
 
       - name: Prepare
         run: |
@@ -99,8 +105,8 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
       
       - name: Build and export to Docker
         uses: docker/build-push-action@v6
@@ -147,5 +153,5 @@ jobs:
           subject-name: ${{ env.REGISTRY_IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ env.GITHUB_TOKEN }}
               
