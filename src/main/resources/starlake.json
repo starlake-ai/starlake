@@ -2044,6 +2044,10 @@
           "type": "boolean",
           "description": "is duckdb mode active"
         },
+        "duckdbPath": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Where to store duckdb files if not using default"
+        },
         "testCsvNullString": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "null string value in tests"
