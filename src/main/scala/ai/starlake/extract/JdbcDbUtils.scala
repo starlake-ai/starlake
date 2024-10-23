@@ -13,6 +13,7 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types._
+import org.duckdb.DuckDBConnection
 
 import java.sql.{
   Connection => SQLConnection,
@@ -38,6 +39,8 @@ object JdbcDbUtils extends LazyLogging {
   type PrimaryKeys = List[String]
 
   object StarlakeConnectionPool {
+    var requestedConnections = 0
+    var duckdDbConnection: java.sql.Connection = null
     private val hikariPools = scala.collection.concurrent.TrieMap[String, DataSource]()
 
     def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
@@ -53,6 +56,7 @@ object JdbcDbUtils extends LazyLogging {
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
+      requestedConnections = requestedConnections + 1
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
       if (url.startsWith("jdbc:duckdb")) {
@@ -63,8 +67,10 @@ object JdbcDbUtils extends LazyLogging {
           case (k, v) =>
             properties.setProperty(k, v)
         }
-        val sqlConn = DriverManager.getConnection(url, properties)
-        sqlConn
+        if (requestedConnections == 1) {
+          duckdDbConnection = DriverManager.getConnection(url, properties)
+        }
+        duckdDbConnection
       } else {
         hikariPools
           .getOrElseUpdate(
@@ -118,12 +124,27 @@ object JdbcDbUtils extends LazyLogging {
         }
 
         val url = connectionOptions("url")
-        Try(connection.close()) match {
-          case Success(_) =>
-            logger.debug(s"Closed connection $url")
+        val shouldClose =
+          if (url.contains("jdbc:duckdb")) {
+            StarlakeConnectionPool.requestedConnections =
+              StarlakeConnectionPool.requestedConnections - 1
+            if (StarlakeConnectionPool.requestedConnections == 0) {
+              true
+            } else {
+              assert(StarlakeConnectionPool.requestedConnections > 0)
+              false
+            }
+          } else {
+            true
+          }
+        if (shouldClose) {
+          Try(connection.close()) match {
+            case Success(_) =>
+              logger.debug(s"Closed connection $url")
 
-          case Failure(exception) =>
-            logger.warn(s"Could not close connection to $url", exception)
+            case Failure(exception) =>
+              logger.warn(s"Could not close connection to $url", exception)
+          }
         }
         result match {
           case Failure(exception) =>
@@ -411,7 +432,6 @@ object JdbcDbUtils extends LazyLogging {
           .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)
           .toMap
       val uppercaseTableNames = jdbcTableMap.keys.toList
-
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
       def extractTables(
         schemaName: String,
