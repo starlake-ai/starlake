@@ -159,7 +159,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
-          readOnlyConnection(extractConfig.data),
+          extractConfig.data,
           skipRemarks = true,
           keepOriginalName = true
         )
@@ -458,7 +458,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           }
           logger.info(s"$boundaryContext bounds = $bounds")
 
-          withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
+          withJDBCConnection(extractConfig.data.options) { connection =>
             Using.resource(
               computePrepareStatement(
                 extractConfig,
@@ -772,7 +772,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       case None =>
         List(Unbounded -> 0) -> NoBound
       case Some(_: PartitionConfig) =>
-        withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
+        withJDBCConnection(extractConfig.data.options) { connection =>
           def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
             auditConnection.setAutoCommit(false)
             LastExportUtils.getBoundaries(
@@ -787,7 +787,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
             getBoundariesWith(connection)
           } else {
-            withJDBCConnection(readOnlyConnection(extractConfig.audit).options) { auditConnection =>
+            withJDBCConnection(extractConfig.audit.options) { auditConnection =>
               getBoundariesWith(auditConnection)
             }
           }

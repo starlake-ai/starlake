@@ -3,6 +3,7 @@ package ai.starlake.extract
 import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
+import ai.starlake.job.Main
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.StarlakeTestData.DomainName
@@ -39,7 +40,7 @@ object JdbcDbUtils extends LazyLogging {
 
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, DataSource]()
-
+    private val duckDbPool = scala.collection.concurrent.TrieMap[String, SQLConnection]()
     def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
       if (!connectionOptions.contains("driver")) {
         Try(throw new Exception("Driver class not found in JDBC connection options")) match {
@@ -63,8 +64,27 @@ object JdbcDbUtils extends LazyLogging {
           case (k, v) =>
             properties.setProperty(k, v)
         }
-        val sqlConn = DriverManager.getConnection(url, properties)
-        sqlConn
+        val dbKey = url + properties.toString
+        if (!isExtractCommandHack(url)) {
+          val sqlConn = DriverManager.getConnection(url, properties)
+          sqlConn
+        } else {
+          duckDbPool.getOrElse(
+            dbKey, {
+              duckDbPool.find { case (key, value) =>
+                key.startsWith(url)
+              } match {
+                case Some((key, sqlConn)) =>
+                  sqlConn.close()
+                  duckDbPool.remove(key)
+                case None =>
+              }
+              val sqlConn = DriverManager.getConnection(url, properties)
+              duckDbPool.put(dbKey, sqlConn)
+              sqlConn
+            }
+          )
+        }
       } else {
         hikariPools
           .getOrElseUpdate(
@@ -89,6 +109,12 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
   val lastExportTableName = "SL_LAST_EXPORT"
+
+  def isExtractCommandHack(url: String) = {
+    Set("extract-data", "extract-schema").contains(Main.currentCommand) &&
+    !sys.env.contains("SL_API") &&
+    url.startsWith("jdbc:duckdb")
+  }
 
   /** Execute a block of code in the context of a newly created connection. We better use here a
     * Connection pool, but since starlake processes are short lived, we do not really need it.
@@ -118,12 +144,14 @@ object JdbcDbUtils extends LazyLogging {
         }
 
         val url = connectionOptions("url")
-        Try(connection.close()) match {
-          case Success(_) =>
-            logger.debug(s"Closed connection $url")
+        if (!isExtractCommandHack(url)) {
+          Try(connection.close()) match {
+            case Success(_) =>
+              logger.debug(s"Closed connection $url")
 
-          case Failure(exception) =>
-            logger.warn(s"Could not close connection to $url", exception)
+            case Failure(exception) =>
+              logger.warn(s"Could not close connection to $url", exception)
+          }
         }
         result match {
           case Failure(exception) =>
@@ -137,7 +165,6 @@ object JdbcDbUtils extends LazyLogging {
       if (connection.isDuckDb()) {
         connection.options
           .updated("duckdb.read_only", "true")
-          .updated("access_mode", "READ_ONLY")
           .updated("enable_external_access", "false")
 
       } else {
