@@ -132,8 +132,12 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     if (parts.length < 2)
       filename
     else {
+      // pattern extension
       val extension = parts.last
-      val prefix = filename.replace(s".$extension", "")
+
+      // remove extension from filename hello-1234.json => hello-1234
+      val prefix = filename.substring(0, filename.length - (extension.length + 1))
+
       val indexOfNonAlpha = prefix.lastIndexWhere(!_.isLetterOrDigit)
       val prefixWithoutNonAlpha =
         if (
@@ -141,7 +145,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           indexOfNonAlpha < prefix.length &&
           prefix(indexOfNonAlpha + 1).isDigit
         )
-          prefix.substring(0, indexOfNonAlpha)
+          prefix.substring(0, indexOfNonAlpha + 1) // hello-1234 => hello-
         else prefix
       if (prefixWithoutNonAlpha.isEmpty)
         filename
