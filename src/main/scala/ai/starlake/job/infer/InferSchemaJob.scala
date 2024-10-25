@@ -126,33 +126,6 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     * @return
     *   the schema pattern
     */
-  private def getSchemaPattern(path: Path): String = {
-    val filename = path.getName
-    val parts = filename.split("\\.")
-    if (parts.length < 2)
-      filename
-    else {
-      // pattern extension
-      val extension = parts.last
-
-      // remove extension from filename hello-1234.json => hello-1234
-      val prefix = filename.substring(0, filename.length - (extension.length + 1))
-
-      val indexOfNonAlpha = prefix.lastIndexWhere(!_.isLetterOrDigit)
-      val prefixWithoutNonAlpha =
-        if (
-          indexOfNonAlpha != -1 &&
-          indexOfNonAlpha < prefix.length &&
-          prefix(indexOfNonAlpha + 1).isDigit
-        )
-          prefix.substring(0, indexOfNonAlpha + 1) // hello-1234 => hello-
-        else prefix
-      if (prefixWithoutNonAlpha.isEmpty)
-        filename
-      else
-        s"$prefixWithoutNonAlpha.*.$extension"
-    }
-  }
 
   /** Create the dataframe with its associated format
     *
@@ -302,7 +275,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
           InferSchemaHandler.createSchema(
             tableName,
-            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            Pattern.compile(pattern.getOrElse(InferSchemaJob.getSchemaPattern(path.getName))),
             comment,
             attributes,
             Some(metadata),
@@ -387,7 +360,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             }
           InferSchemaHandler.createSchema(
             tableName,
-            Pattern.compile(pattern.getOrElse(getSchemaPattern(path))),
+            Pattern.compile(pattern.getOrElse(InferSchemaJob.getSchemaPattern(path.getName))),
             comment,
             attributes,
             Some(metadata.copy(writeStrategy = Some(strategy))),
@@ -412,6 +385,32 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 }
 
 object InferSchemaJob {
+  def getSchemaPattern(filename: String): String = {
+    val parts = filename.split("\\.")
+    if (parts.length < 2)
+      filename
+    else {
+      // pattern extension
+      val extension = parts.last
+
+      // remove extension from filename hello-1234.json => hello-1234
+      val prefix = filename.substring(0, filename.length - (extension.length + 1))
+
+      val indexOfNonAlpha = prefix.lastIndexWhere(!_.isLetterOrDigit)
+      val prefixWithoutNonAlpha =
+        if (
+          indexOfNonAlpha != -1 &&
+          indexOfNonAlpha < prefix.length &&
+          prefix(indexOfNonAlpha + 1).isDigit
+        )
+          prefix.substring(0, indexOfNonAlpha + 1) // hello-1234 => hello-
+        else prefix
+      if (prefixWithoutNonAlpha.isEmpty)
+        filename
+      else
+        s"$prefixWithoutNonAlpha.*.$extension"
+    }
+  }
   def main(args: Array[String]): Unit = {
     val config = ConfigFactory.load()
     implicit val settings = Settings(config, None, None)

@@ -13,7 +13,7 @@ IF EXIST "%SCRIPT_DIR%versions.cmd" (
 
 
 :: Internal variables
-set "SL_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%"
+set "SL_ARTIFACT_NAME=starlake-core_%SCALA_VERSION%"
 set "SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_MAJOR_VERSION%"
 set "SPARK_TARGET_FOLDER=%SCRIPT_DIR%bin\spark"
 set "DEPS_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin\deps"

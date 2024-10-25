@@ -222,8 +222,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
             "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
     }
-    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
-    private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-spark", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + SPARK_MAJOR_VERSION + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
 
 
     private static final JarDependency[] snowflakeDependencies = {

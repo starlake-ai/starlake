@@ -47,8 +47,8 @@ function get_version_to_install {
         }
     }
 
-    $ALL_SNAPSHOT_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-spark3_2.12/)
-    $ALL_RELEASE_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.12/)
+    $ALL_SNAPSHOT_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-core_2.12/)
+    $ALL_RELEASE_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-core_2.12/)
 
     $SNAPSHOT_VERSION = $ALL_SNAPSHOT_VERSIONS[0]
     $LATEST_RELEASE_VERSIONS = $ALL_RELEASE_VERSIONS[0..4]

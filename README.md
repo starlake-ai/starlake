@@ -1,5 +1,5 @@
 ![Build Status](https://github.com/starlake-ai/starlake/workflows/Build/badge.svg)
-[![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-spark3_2.12)
+[![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 

@@ -2,7 +2,7 @@
 version: 1
 table:
   name: "order"
-  pattern: "order.*.json"
+  pattern: "order_.*.json"
   attributes:
   - name: "customer_id"
     type: "long"
