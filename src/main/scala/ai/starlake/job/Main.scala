@@ -42,6 +42,7 @@ import scala.util.{Failure, Success, Try}
   */
 
 object Main extends StrictLogging {
+  var currentCommand = ""
 
   final val shell: String = "starlake"
 
@@ -136,7 +137,6 @@ class Main extends StrictLogging {
     }
   }
   // scalastyle:on println
-
   def checkPrerequisites(args: List[String]): Unit = {
     args match {
       case Nil | "help" :: Nil =>
@@ -242,6 +242,7 @@ class Main extends StrictLogging {
           printUsage(command)
           Failure(new IllegalArgumentException(s"Unknown command $command"))
         case Some(cmd) =>
+          Main.currentCommand = cmd.command
           if (cmd.command != BootstrapCmd.command && settings.appConfig.validateOnLoad) {
             val checkResult = schemaHandler.checkValidity()
             checkResult match {

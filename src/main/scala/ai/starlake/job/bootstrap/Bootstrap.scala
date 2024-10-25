@@ -87,7 +87,7 @@ object Bootstrap extends StrictLogging {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
-    DatasetArea.folders.foreach(p => File(p.toString).createDirectories())
+    DatasetArea.initMetadata(settings.storageHandler())
     val dagLibDir = File(metadataFolder, "dags", "generated")
     dagLibDir.createDirectories()
     /*

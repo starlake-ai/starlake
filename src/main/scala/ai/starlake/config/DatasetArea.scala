@@ -39,10 +39,16 @@ object DatasetArea extends StrictLogging {
       new Path(
         s"${settings.appConfig.datasets}/$area/$domain"
       )
-    else
+    else {
+      val ds =
+        if (settings.appConfig.datasets.startsWith("/"))
+          settings.appConfig.datasets
+        else "/" + settings.appConfig.datasets
+      val path = s"${settings.appConfig.fileSystem}$ds/$area/$domain"
       new Path(
-        s"${settings.appConfig.fileSystem}/${settings.appConfig.datasets}/$area/$domain"
+        path
       )
+    }
   }
 
   def duckdbPath()(implicit settings: Settings): Path = {

@@ -22,6 +22,8 @@ import scala.annotation.nowarn
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
+case class InsertLastExportParams(deltaRow: DeltaRow, partitionColumnType: PrimitiveType)
+
 class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
   @nowarn
@@ -157,7 +159,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       val selectedTablesAndColumns: Map[TableName, ExtractTableAttributes] =
         JdbcDbUtils.extractJDBCTables(
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
-          readOnlyConnection(extractConfig.data),
+          extractConfig.data,
           skipRemarks = true,
           keepOriginalName = true
         )
@@ -447,7 +449,6 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
     val tableCount = new AtomicLong()
-
     val extractionResults: List[Try[Any]] =
       boundaries.map { case (bounds, index) =>
         Try {
@@ -457,7 +458,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           }
           logger.info(s"$boundaryContext bounds = $bounds")
 
-          withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
+          withJDBCConnection(extractConfig.data.options) { connection =>
             Using.resource(
               computePrepareStatement(
                 extractConfig,
@@ -519,32 +520,39 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
                         message = p.partitionColumn,
                         step = index.toString
                       )
-                      withJDBCConnection(extractConfig.audit.options) { connection =>
-                        LastExportUtils.insertNewLastExport(
-                          connection,
-                          deltaRow,
-                          Some(p.partitionColumnType),
-                          extractConfig.audit,
-                          auditColumns
-                        )
-                      }
+                      Some(InsertLastExportParams(deltaRow, p.partitionColumnType))
                     case None =>
                       throw new RuntimeException(
                         "Should never happen since we are fetching an interval"
                       )
                   }
                 case NoBound =>
+                  None
                 // do nothing
               }
             }
           }
         }.recoverWith { case _: Exception =>
+          println("========>failure")
           Failure(
             new DataExtractionException(
               extractConfig.jdbcSchema.schema,
               tableExtractDataConfig.table
             )
           )
+        }.map { insertLastExportParams =>
+          // We insert here right after the connection has been closed (duckdb does not support multiple connections)
+          insertLastExportParams.foreach { insertLastExportParams =>
+            withJDBCConnection(extractConfig.audit.options) { connection =>
+              LastExportUtils.insertNewLastExport(
+                connection,
+                insertLastExportParams.deltaRow,
+                Some(insertLastExportParams.partitionColumnType),
+                extractConfig.audit,
+                auditColumns
+              )
+            }
+          }
         }
       }
 
@@ -582,6 +590,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
               message = p.partitionColumn,
               step = "ALL"
             )
+            // Audit for partition
             withJDBCConnection(extractConfig.audit.options) { connection =>
               LastExportUtils.insertNewLastExport(
                 connection,
@@ -607,6 +616,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           message = "FULL",
           step = "ALL"
         )
+        // Full audit
         withJDBCConnection(extractConfig.audit.options) { connection =>
           LastExportUtils.insertNewLastExport(
             connection,
@@ -762,7 +772,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
       case None =>
         List(Unbounded -> 0) -> NoBound
       case Some(_: PartitionConfig) =>
-        withJDBCConnection(readOnlyConnection(extractConfig.data).options) { connection =>
+        withJDBCConnection(extractConfig.data.options) { connection =>
           def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
             auditConnection.setAutoCommit(false)
             LastExportUtils.getBoundaries(
@@ -777,7 +787,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
           val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
             getBoundariesWith(connection)
           } else {
-            withJDBCConnection(readOnlyConnection(extractConfig.audit).options) { auditConnection =>
+            withJDBCConnection(extractConfig.audit.options) { auditConnection =>
               getBoundariesWith(auditConnection)
             }
           }

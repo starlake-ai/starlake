@@ -382,6 +382,19 @@ object SQLUtils extends StrictLogging {
     }
   }
 
+  def unquoteAgressive(cols: List[String]): List[String] = {
+    val quotes = List("\"", "'", "`")
+    cols.map { col =>
+      var result = col.trim
+      quotes.foreach { quote =>
+        if (result.startsWith(quote) && result.endsWith(quote)) {
+          result = result.substring(1, result.length - 1)
+        }
+      }
+      result
+    }
+  }
+
   def targetColumnsForSelectSql(targetTableColumns: List[String], quote: String): String =
     quoteCols(unquoteCols(targetTableColumns, quote), quote).mkString(",")
 

@@ -331,7 +331,7 @@ class BigQueryAutoTask(
           res.foreach { _ =>
             if (settings.appConfig.autoExportSchema) {
               SQLUtils.extractTableNames(mainSql).foreach { domainAndTableName =>
-                val components = domainAndTableName.split("\\.")
+                val components = SQLUtils.unquoteAgressive(domainAndTableName.split("\\.").toList)
                 if (components.size == 2) {
                   val domainName = components(0)
                   val tableName = components(1)

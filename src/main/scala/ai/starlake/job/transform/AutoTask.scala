@@ -450,12 +450,18 @@ object AutoTask extends StrictLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[List[Map[String, Any]]] = Try {
+    val quote =
+      settings.appConfig.jdbcEngines
+        .get(connection.getJdbcEngineName().toString)
+        .map(_.quote)
+        .getOrElse("")
+
     val finalSql =
       if (summarizeOnly)
         if (connection.isDuckDb())
-          s"SUMMARIZE $domain.$table"
+          s"SUMMARIZE $quote$domain$quote.$quote$table$quote"
         else
-          s"DESCRIBE $domain.$table"
+          s"DESCRIBE $quote$domain$quote.$quote$table$quote"
       else
         sql
 

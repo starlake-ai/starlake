@@ -18,7 +18,7 @@ Starlake is a configuration only Extract, Load, Transform and Orchestration Decl
 The workflow below is a typical use case:
 * **Extract** your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
 * Define or infer table schemas fom text files (csv, json, xml, fixed-width ...)
-* **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse. 
+* **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse.
 * **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to your selected strategy (Append, Overwrite, Merge ...).
 * **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
 
@@ -26,17 +26,17 @@ You may use Starlake for Extract, Load and Transform steps or any combination of
 
 # How it works
 
-The advent of declarative programming, exemplified by tools like Ansible and Terraform, 
-has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution. 
-This paradigm shift brings forth benefits such as reduced error prone coding tasks, significantly shortened development cycles, 
+The advent of declarative programming, exemplified by tools like Ansible and Terraform,
+has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution.
+This paradigm shift brings forth benefits such as reduced error prone coding tasks, significantly shortened development cycles,
 enhanced code readability, and increased accessibility for developers of all levels.
 
-Starlake is a YAML-based declarative tool designed for expressing Extract, Load, Transform, and Orchestration tasks. 
-Drawing inspiration from the successes of declarative programming in infrastructure, 
+Starlake is a YAML-based declarative tool designed for expressing Extract, Load, Transform, and Orchestration tasks.
+Drawing inspiration from the successes of declarative programming in infrastructure,
 Starlake aims to bring similar advantages to the realm of data engineering.
 
-This paradigm shift  encourages a focus on defining goals for data warehouses, 
-rather than the intricacies of implementation details. 
+This paradigm shift  encourages a focus on defining goals for data warehouses,
+rather than the intricacies of implementation details.
 
 
 The YAML DSL is self-explanatory and easy to understand. This is best explained with an example:
@@ -81,10 +81,10 @@ table:
     encoding: "UTF-8"
     withHeader: yes     # (optional) auto-detected if not specified
     separator: "|"      # (optional) auto-detected if not specified
-    writeStrategy:      
+    writeStrategy:
       type: "UPSERT_BY_KEY_AND_TIMESTAMP"
       timestamp: signup
-      key: [id]         
+      key: [id]
                         # Please replace it by the adequate file pattern eq. customers-.*.psv if required
   attributes:           # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
@@ -110,7 +110,7 @@ Let's say we want to build aggregates from the previously loaded data
 
 transform:
   default:
-    writeStrategy: 
+    writeStrategy:
       type: "OVERWRITE"
   tasks:
     - name: most_profitable_products
@@ -155,4 +155,4 @@ The Load & Transform steps support multiple configurations for inputs and output
 
 
 # Documentation
-Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
+Complete documentation available [here](https://starlake.ai/starlake/docs/intro/)
