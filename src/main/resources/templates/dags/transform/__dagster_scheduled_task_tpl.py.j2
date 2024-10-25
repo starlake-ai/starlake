@@ -30,6 +30,8 @@ all_dependencies: set = set()
 
 _filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
 
+first_level_tasks: set = set()
+
 def load_task_dependencies(task):
     if 'children' in task:
         for subtask in task['children']:
@@ -37,6 +39,7 @@ def load_task_dependencies(task):
             load_task_dependencies(subtask)
 
 for task in task_deps:
+    first_level_tasks.add(task['data']['name'])
     _filtered_assets.add(sanitize_id(task['data']['name']).lower())
     load_task_dependencies(task)
 
@@ -132,7 +135,17 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
     task_type = task['data']['typ']
     task_id = compute_task_id(task)
 
-    if (load_dependencies and 'children' in task):
+    children =
+        if load_dependencies: 
+            task.get('children', [])
+        else:
+            _children = []
+            for child in task.get('children', []):
+                if child['data']['name'] in first_level_tasks:
+                    _children.append(child)
+            _children
+
+    if children.__len__() > 0:
 
         parent_dependencies = dict()
 

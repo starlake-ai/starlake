@@ -19,7 +19,7 @@ _cron = None if cron == "None" else cron
 
 task_deps=json.loads("""{{ context.dependencies }}""")
 
-load_dependencies = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options)
+load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
 schedule = None
 
@@ -31,6 +31,8 @@ _filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_data
 
 from typing import List
 
+first_level_tasks: set = set()
+
 dependencies: set = set()
 
 def load_task_dependencies(task):
@@ -40,6 +42,7 @@ def load_task_dependencies(task):
             load_task_dependencies(subtask)
 
 for task in task_deps:
+    first_level_tasks.add(task['data']['name'])
     _filtered_datasets.add(sanitize_id(task['data']['name']).lower())
     load_task_dependencies(task)
 
@@ -56,7 +59,7 @@ def _load_datasets(task: dict):
                 else :
                   datasets.add(dataset)
 
-if load_dependencies.lower() != 'true' :
+if load_dependencies :
     if not _cron:
         for task in task_deps:
             _load_datasets(task)
@@ -114,9 +117,19 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         else:
             airflow_task_id = airflow_task_group_id + "_table"
 
-        if (load_dependencies.lower() == 'true' and 'children' in task):
+        children =
+            if load_dependencies: 
+                task.get('children', [])
+            else:
+                _children = []
+                for child in task.get('children', []):
+                    if child['data']['name'] in first_level_tasks:
+                        _children.append(child)
+                _children
+
+        if children.__len__() > 0:
             with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
-                for transform_sub_task in task['children']:
+                for transform_sub_task in children:
                     generate_task_group_for_task(transform_sub_task)
                 upstream_tasks = list(airflow_task_group.children.values())
                 airflow_task = create_task(airflow_task_id, task_name, task_type)
