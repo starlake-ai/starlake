@@ -88,7 +88,7 @@ name := {
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
-  s"starlake-spark$sparkNameSuffix"
+  s"starlake-core"
 }
 
 assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"

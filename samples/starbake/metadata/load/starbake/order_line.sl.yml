@@ -2,7 +2,7 @@
 version: 1
 table:
   name: "order_line"
-  pattern: "order_line.*.csv"
+  pattern: "order-line.*.csv"
   attributes:
   - name: "order_id"
     type: "int"

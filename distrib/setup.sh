@@ -64,8 +64,8 @@ get_version_to_install() {
         fi
     done
 
-    ALL_SNAPSHOT_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
-    ALL_RELEASE_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    ALL_SNAPSHOT_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-core_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
+    ALL_RELEASE_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-core_2.12/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
 
     SNAPSHOT_VERSION=$(echo "$ALL_SNAPSHOT_VERSIONS" | head -n 1)
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
