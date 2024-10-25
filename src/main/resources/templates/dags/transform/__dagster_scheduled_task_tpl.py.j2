@@ -28,6 +28,8 @@ cronAssets: dict = dict()
 
 all_dependencies: set = set()
 
+_filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
+
 def load_task_dependencies(task):
     if 'children' in task:
         for subtask in task['children']:
@@ -35,11 +37,11 @@ def load_task_dependencies(task):
             load_task_dependencies(subtask)
 
 for task in task_deps:
+    _filtered_assets.add(sanitize_id(task['data']['name']).lower())
     load_task_dependencies(task)
 
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
 if not load_dependencies:
-    _filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
 
     def load_assets(task: dict):
         if 'children' in task:
