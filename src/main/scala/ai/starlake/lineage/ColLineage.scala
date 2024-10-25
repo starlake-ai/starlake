@@ -82,7 +82,7 @@ class ColLineage(
       extractTables(child)
     }.toList
     val alTables = thisTable :: scopeTable :: childTables
-    alTables.filter(_.table.nonEmpty)
+    alTables.filter(it => it.table != null && it.table.nonEmpty)
   }
   def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
     val allTables = resultSetMetaData.getColumns.asScala
@@ -108,10 +108,15 @@ class ColLineage(
     val colName = Option(columnName).getOrElse(column.columnName)
     val currentColumn = Column(schemaName, tableName, colName)
     val relations =
-      if (column.tableName.nonEmpty && column.columnName.nonEmpty) { // this is a not a function
+      if (
+        Option(column.tableName).isDefined &&
+        column.tableName.nonEmpty &&
+        Option(column.columnName).isDefined &&
+        column.columnName.nonEmpty
+      ) { // this is a not a function
         val parentColumn = Column(column.tableSchema, column.tableName, column.columnName)
         val immediateRelations =
-          if (column.scopeTable.nonEmpty) {
+          if (Option(column.scopeTable).isDefined && column.scopeTable.nonEmpty) {
             val scopeColumn = Column(column.scopeSchema, column.scopeTable, column.columnName)
             if (scopeColumn == parentColumn) {
               List(Relation(parentColumn, currentColumn, expression))
@@ -126,17 +131,31 @@ class ColLineage(
           }
         val relations =
           column.getChildren.asScala.flatMap { child =>
-            extractRelations(
-              column.tableSchema,
-              column.tableName,
-              column.columnName,
-              Option(column.getExpression).map(_.toString),
-              child
-            )
+            if (
+              Option(child.tableName).isEmpty ||
+              child.tableName.isEmpty ||
+              Option(child.columnName).isEmpty ||
+              child.columnName.isEmpty
+            ) {
+              Nil
+            } else {
+              extractRelations(
+                column.tableSchema,
+                column.tableName,
+                column.columnName,
+                Option(column.getExpression).map(_.toString),
+                child
+              )
+            }
           }.toList
 
         immediateRelations ++ relations
-      } else if (column.tableName.isEmpty && column.columnName.nonEmpty) { // this is a function
+      } else if (
+        Option(column.tableName).isDefined &&
+        column.tableName.nonEmpty &&
+        Option(column.columnName).isDefined &&
+        column.columnName.nonEmpty
+      ) { // this is a function
         val relations =
           column.getChildren.asScala.flatMap { child =>
             extractRelations(
@@ -149,7 +168,6 @@ class ColLineage(
           }.toList
         relations
       } else {
-        assert(false)
         Nil
       }
     relations
@@ -181,11 +199,13 @@ class ColLineage(
   def colLineage(colLineageConfig: ColLineageConfig): Option[ColLineage.Lineage] = {
     val taskDesc = schemaHandler.taskOnly(colLineageConfig.task, reload = true)
     taskDesc.toOption.map { task =>
-      val sql = task.sql
+      val sqlSubst = task.sql
         .map { sql =>
           schemaHandler.substituteRefTaskMainSQL(sql, task.getRunConnection()(settings))
         }
         .getOrElse("")
+      val sql = sqlSubst.replaceAll("::[a-zA-Z0-9]+", "")
+      // remove all ::TEXT (type change in columns)
       val tableNames = SQLUtils.extractTableNames(sql)
       val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
       val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)

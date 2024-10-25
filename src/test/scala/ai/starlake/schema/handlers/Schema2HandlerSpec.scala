@@ -540,17 +540,15 @@ class Schema2HandlerSpec extends TestHelper {
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
         val schemaHandler = settings.schemaHandler()
-        val filename = "/sample/metadata/transform/my-jinja-job/my-jinja-job.sl.yml"
+        val filename = "/sample/metadata/transform/my-jinja-job/_config.sl.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobTasksFromFile(jobPath)
 
         job.success.value.tasks.head.sql.get.trim shouldBe
-        """{% set myList = ["col1,", "col2"] %}
-              |select
-              |{%- for x in myList %}
-              |{{x}}
-              |{%- endfor %}
-              |from dream_working.client""".stripMargin // Job renamed to filename and error is logged
+        """select
+          |col1,
+          |col2
+          |from dream_working.client""".stripMargin // Job renamed to filename and error is logged
       }
     }
   }
