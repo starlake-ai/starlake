@@ -123,8 +123,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         else:
             for child in task.get('children', []):
                 if child['data']['name'] in first_level_tasks:
-                        _children.append(child)
-                _children
+                    children.append(child)
 
         if children.__len__() > 0:
             with TaskGroup(group_id=airflow_task_group_id) as airflow_task_group:
