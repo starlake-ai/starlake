@@ -117,13 +117,12 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         else:
             airflow_task_id = airflow_task_group_id + "_table"
 
-        children =
-            if load_dependencies: 
-                task.get('children', [])
-            else:
-                _children = []
-                for child in task.get('children', []):
-                    if child['data']['name'] in first_level_tasks:
+        children = []
+        if load_dependencies and 'children' in task: 
+            children = task['children']
+        else:
+            for child in task.get('children', []):
+                if child['data']['name'] in first_level_tasks:
                         _children.append(child)
                 _children
 
