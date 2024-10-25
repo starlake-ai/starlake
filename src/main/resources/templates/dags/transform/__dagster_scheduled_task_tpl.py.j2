@@ -135,15 +135,13 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
     task_type = task['data']['typ']
     task_id = compute_task_id(task)
 
-    children =
-        if load_dependencies: 
-            task.get('children', [])
-        else:
-            _children = []
-            for child in task.get('children', []):
-                if child['data']['name'] in first_level_tasks:
-                    _children.append(child)
-            _children
+    children = []
+    if load_dependencies and 'children' in task: 
+        children = task['children']
+    else:
+        for child in task.get('children', []):
+            if child['data']['name'] in first_level_tasks:
+                children.append(child)
 
     if children.__len__() > 0:
 
