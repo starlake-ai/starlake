@@ -31,6 +31,18 @@ _filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_data
 
 from typing import List
 
+dependencies: set = set()
+
+def load_task_dependencies(task):
+    if 'children' in task:
+        for subtask in task['children']:
+            dependencies.add(subtask['data']['name'])
+            load_task_dependencies(subtask)
+
+for task in task_deps:
+    _filtered_datasets.add(sanitize_id(task['data']['name']).lower())
+    load_task_dependencies(task)
+
 def _load_datasets(task: dict):
     if 'children' in task:
         for child in task['children']:
@@ -43,7 +55,6 @@ def _load_datasets(task: dict):
                     cronDatasets[cronDataset] = childCron
                 else :
                   datasets.add(dataset)
-#            _load_datasets(child)
 
 if load_dependencies.lower() != 'true' :
     if not _cron:
@@ -52,17 +63,6 @@ if load_dependencies.lower() != 'true' :
     schedule = list(map(lambda dataset: Dataset(dataset), datasets))
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
-
-dependencies: set = set()
-
-def load_task_dependencies(task):
-    if 'children' in task:
-        for subtask in task['children']:
-            dependencies.add(subtask['data']['name'])
-            load_task_dependencies(subtask)
-
-for task in task_deps:
-    load_task_dependencies(task)
 
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
