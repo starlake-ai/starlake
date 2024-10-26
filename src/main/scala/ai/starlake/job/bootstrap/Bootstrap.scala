@@ -129,7 +129,7 @@ object Bootstrap extends StrictLogging {
         val gitIgnoreFilename = List(s"$TEMPLATES_DIR/gitignore")
         val gitIgnoreFile = copyToFolder(gitIgnoreFilename, TEMPLATES_DIR, targetDir).head
         val dotDitIgnoreFile = gitIgnoreFile.parent / ".gitignore"
-        gitIgnoreFile.moveTo(dotDitIgnoreFile)
+        gitIgnoreFile.moveTo(dotDitIgnoreFile)(File.CopyOptions(overwrite = true))
 
         if (template == "initializer") {
           val appFile = metadataFolder / "application.sl.yml"

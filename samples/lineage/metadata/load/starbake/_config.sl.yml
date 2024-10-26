@@ -3,4 +3,4 @@ version: 1
 load:
   name: "starbake"
   metadata:
-    directory: "{{SL_ROOT}}/incoming/starbake"
+    directory: "{{SL_ROOT}}/datasets/incoming/starbake"
