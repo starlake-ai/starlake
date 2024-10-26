@@ -21,6 +21,36 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+    redshift:
+      type: jdbc
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.jdbc42.Driver"
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
+    redshift_spark:
+      type: jdbc
+      sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
+      options:
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        driver: "com.amazon.redshift.Driver"
+        user: "{{REDSHIFT_USER}}"
+        password: "{{REDSHIFT_PASSWORD}}"
+        quoteIdentifiers: false
+        tempdir: "s3a://starlake-app/data"
+        aws_iam_role: "{{REDSHIFT_ROLE}}"
+    snowflake:
+      type: jdbc
+      options:
+        url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
+        driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        user: "{{SNOWFLAKE_USER}}"
+        password: "{{SNOWFLAKE_PASSWORD}}"
+        warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
+        db: "{{SNOWFLAKE_DB}}"
+        keep_column_case: "off"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
   dagRef:
     load: "airflow_load_shell"
     transform: "airflow_transform_shell"
