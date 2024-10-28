@@ -24,7 +24,24 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         Returns:
             BaseOperator: The Airflow task.
         """
-        command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}" + " --options " + ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+        found = False
+
+        for index, arg in enumerate(arguments):
+            if arg == "--options" and arguments.__len__() > index + 1:
+                opts = arguments[index+1]
+                if opts.__len__() > 0:
+                    options = opts + "," + ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                else:
+                    options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                arguments[index+1] = options
+                found = True
+                break
+
+        if not found:
+            arguments.append("--options")
+            arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()]))
+
+        command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return BashOperator(
             task_id=task_id,
