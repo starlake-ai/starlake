@@ -1,4 +1,4 @@
-from ai.starlake.common import sanitize_id, sort_crons_by_frequency
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 from ai.starlake.job import StarlakeSparkConfig
 
 import json
@@ -101,12 +101,25 @@ def compute_task_id(task) -> str:
         task_id = task_id + "_table"
     return task_id
 
+if _cron:
+    cron_expr = _cron
+elif assets.__len__() == cronAssets.__len__() and set(cronAssets.values()).__len__() > 0:
+    sorted_crons = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+    cron_expr = sorted_crons[0][0]
+else:
+    cron_expr = None
+
 def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start": In(Nothing)}):
     spark_config_name=sl_job.get_context_var('spark_config_name', task_name.lower(), options)
     if (task_type == 'task'):
+        if cron_expr:
+            transform_options = sl_cron_start_end_dates(cron_expr) #FIXME using execution date from context
+        else:
+            transform_options = None
         return sl_job.sl_transform(
             task_id=task_id, 
             transform_name=task_name,
+            transform_options=transform_options,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
             cron=_cron
@@ -200,9 +213,9 @@ def generate_job():
         # we exclude the most frequent cron asset
         least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
         for cronAsset, cron in cronAssets.items() :
-        # we republish the least frequent scheduled assets
-        if cron in least_frequent_crons:
-            asset_events.append(AssetKey(cronAsset))
+            # we republish the least frequent scheduled assets
+            if cron in least_frequent_crons:
+                asset_events.append(AssetKey(cronAsset))
     end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
     nodes.append(end)
     dependencies[end._name] = end_dependencies
