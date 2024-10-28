@@ -1,4 +1,4 @@
-from ai.starlake.common import sanitize_id, sort_crons_by_frequency
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 from ai.starlake.job import StarlakeSparkConfig
 from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
@@ -67,12 +67,21 @@ if load_dependencies :
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
+def ts_as_datetime(ts):
+  # Convert ts to a datetime object
+  from datetime import datetime
+  return datetime.fromisoformat(ts)
+
+_user_defined_macros = sys.modules[__name__].__dict__.get('user_defined_macros', dict())
+_user_defined_macros["sl_dates"] = sl_cron_start_end_dates
+_user_defined_macros["ts_as_datetime"] = ts_as_datetime
+
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
          schedule=_cron if _cron else schedule,
          default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
          catchup=False,
-         user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
+         user_defined_macros=_user_defined_macros,
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
          tags=list(set([tag.upper() for tag in tags])),
          description=description) as dag:
@@ -83,14 +92,28 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
 
     post_tasks = sl_job.post_tasks(dag=dag)
 
+    if _cron:
+        cron_expr = _cron
+    elif datasets.__len__() == cronDatasets.__len__() and set(cronDatasets.values()).__len__() > 0:
+        sorted_crons = sort_crons_by_frequency(set(cronDatasets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+        cron_expr = sorted_crons[0][0]
+    else:
+        cron_expr = None
+
+    if cron_expr:
+        transform_options = "{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"
+    else:
+        transform_options = None
+
     def create_task(airflow_task_id: str, task_name: str, task_type: str):
         spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', task_name.lower(), options)
         if (task_type == 'task'):
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 
                 transform_name=task_name,
+                transform_options=transform_options,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                params={'cron':_cron},
+                params={'cron':_cron, 'cron_expr':cron_expr},
                 dag=dag
             )
         else:
@@ -152,9 +175,9 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         # we exclude the most frequent cron dataset
         least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
         for dataset, cron in cronDatasets.items() :
-        # we republish the least frequent scheduled datasets
-        if cron in least_frequent_crons:
-            outlets.append(Dataset(dataset, extra))
+            # we republish the least frequent scheduled datasets
+            if cron in least_frequent_crons:
+                outlets.append(Dataset(dataset, extra))
 
     end = sl_job.dummy_op(task_id="end", outlets=outlets)
 
