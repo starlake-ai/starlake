@@ -126,7 +126,9 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         options = list()
         if transform_options:
             options = transform_options.split(",")
-        options.extend(self.__class__.get_context_var(transform_name, {}, self.options).get("options", "").split(","))
+        additional_options = self.__class__.get_context_var(transform_name, {}, self.options).get("options", "")
+        if additional_options.__len__() > 0:
+            options.extend(additional_options.split(","))
         if options.__len__() > 0:
             arguments.extend(["--options", ",".join(options)])
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)

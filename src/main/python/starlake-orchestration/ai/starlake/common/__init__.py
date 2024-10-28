@@ -90,4 +90,4 @@ def sl_cron_start_end_dates(crone_expr: str, start_time: datetime = cron_start_t
     iter = croniter(crone_expr, start_time)
     sl_end_date = iter.get_prev(datetime)
     sl_start_date = croniter(crone_expr, sl_end_date).get_prev(datetime)
-    return f"sl_start_date={sl_start_date.strftime(format)},sl_end_date={sl_end_date.strftime(format)}"
+    return f"sl_start_date='{sl_start_date.strftime(format)}',sl_end_date='{sl_end_date.strftime(format)}'"
