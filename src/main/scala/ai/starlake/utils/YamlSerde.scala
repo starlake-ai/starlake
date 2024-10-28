@@ -188,7 +188,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
         config.setApplyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
 
         val starlakeSchema = adaptSchemaV7ToStrictV201909(
-          mapper.readTree(getClass.getResourceAsStream("/starlake.schema.json"))
+          mapper.readTree(getClass.getResourceAsStream("/starlake.json"))
         )
         val schema = factory.getSchema(starlakeSchema, config)
         schema.walk(

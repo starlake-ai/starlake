@@ -169,6 +169,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/load/")
     )
 
+    settings.storageHandler().mkdirs(outputDir)
     if (config.clean) {
       logger.info(s"Cleaning output directory $outputDir")
       settings.storageHandler().delete(new Path(outputDir, "load"))
@@ -187,10 +188,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       val dagConfig = dagConfigs(dagConfigName)
       val errors = dagConfig.checkValidity().filter(_.severity == Severity.Error)
       errors.foreach { error =>
-        logger.error(error.toString)
+        logger.error(error.toString())
       }
       if (errors.nonEmpty) {
-        throw new Exception(s"Dag config ${dagConfigName} is invalid")
+        throw new Exception(s"Dag config ${dagConfigName} is invalid: ${errors.mkString(",")}")
       }
       val dagTemplateName = dagConfig.template
       val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
