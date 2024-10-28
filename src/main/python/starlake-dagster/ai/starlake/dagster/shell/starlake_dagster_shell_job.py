@@ -26,7 +26,24 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
         Returns:
             OpDefinition: The Dagster node.
         """
-        command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}" + " --options " + ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+        found = False
+
+        for index, arg in enumerate(arguments):
+            if arg == "--options" and arguments.__len__() > index + 1:
+                opts = arguments[index+1]
+                if opts.__len__() > 0:
+                    options = opts + "," + ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                else:
+                    options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                arguments[index+1] = options
+                found = True
+                break
+
+        if not found:
+            arguments.append("--options")
+            arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()]))
+
+        command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 

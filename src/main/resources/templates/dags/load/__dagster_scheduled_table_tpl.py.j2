@@ -1,6 +1,6 @@
 import os
 
-from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op, DefaultScheduleStatus
 
 from dagster._core.definitions.input import InputDefinition
 
@@ -101,7 +101,7 @@ def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
 def load_domains(schedule: dict, index) -> GraphDefinition:
     cron = schedule['cron']
     if(cron):
-        crons.append(ScheduleDefinition(job_name = job_name(index), cron_schedule = cron))
+        crons.append(ScheduleDefinition(job_name = job_name(index), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
 
     dependencies = dict()
 
