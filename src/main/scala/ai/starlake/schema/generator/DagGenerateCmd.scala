@@ -65,8 +65,8 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
 
   override def run(config: DagGenerateConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] =
-    Try {
+  ): Try[JobResult] = {
+    val result = Try {
       val cmd = new DagGenerateJob(schemaHandler)
       if (config.domains) {
         cmd.generateDomainDags(config)
@@ -78,5 +78,8 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         cmd.generateDomainDags(config)
         cmd.generateTaskDags(config)
       }
-    }.map(_ => JobResult.empty)
+      JobResult.empty
+    }
+    result
+  }
 }

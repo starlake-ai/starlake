@@ -2,12 +2,14 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.lineage.TaskViewDependencyNode
+import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.JsonSerializer
 
 import java.util
 import java.util.Calendar
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 case class DagDesc(version: Int, dag: DagGenerationConfig)
 
@@ -51,6 +53,13 @@ case class DagGenerationConfig(
         Severity.Error,
         "template",
         "Template is required"
+      )
+    }
+    Try(new Yml2DagTemplateLoader().loadTemplate(template)).getOrElse {
+      errors = errors :+ ValidationMessage(
+        Severity.Error,
+        "template",
+        s"DAG Template '$template' not found"
       )
     }
     if (filename.isEmpty) {
