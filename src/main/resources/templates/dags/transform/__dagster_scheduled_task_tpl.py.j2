@@ -7,7 +7,7 @@ import sys
 from typing import Set, List
 
 
-from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition
+from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition, DefaultScheduleStatus
 
 cron = "{{ context.cron }}"
 
@@ -242,7 +242,7 @@ def generate_job():
 crons = []
 
 if _cron:
-    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron))
+    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron, default_status=DefaultScheduleStatus.RUNNING))
 
 defs = Definitions(
    jobs=[generate_job()],
