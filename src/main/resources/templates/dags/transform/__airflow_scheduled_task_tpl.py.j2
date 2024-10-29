@@ -44,7 +44,7 @@ def load_task_dependencies(task):
 for task in task_deps:
     task_id = task['data']['name']
     first_level_tasks.add(task_id)
-    _filtered_assets.add(sanitize_id(task_id).lower())
+    _filtered_datasets.add(sanitize_id(task_id).lower())
     load_task_dependencies(task)
 
 def _load_datasets(task: dict):
@@ -122,7 +122,7 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
         cron_expr = None
 
     if cron_expr:
-        transform_options = "{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"
+        transform_options = "{{"{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"}}"
     else:
         transform_options = None
 
