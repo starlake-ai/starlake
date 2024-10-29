@@ -33,7 +33,7 @@ object Versions {
   val gcpCloudLogging = "3.20.5"
   val gcpDataCatalog = "1.58.0"
   val jinja = "2.7.2" // forces dependency override on guava
-  val snowflakeJDBC = "3.19.0"
+  val snowflakeJDBC = "3.19.1"
   val snowflakeSpark: String = "3.0.0"
   val duckdb = "1.1.2"
   val jSqlParser = "5.1-SNAPSHOT"
