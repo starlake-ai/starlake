@@ -84,7 +84,8 @@ def to_datetime(date_str: str):
   if date_str.__len__() == 10:
       dt = datetime.strptime(date_str, "%Y-%m-%d")
   else:
-      dt = datetime.today()
+      from airflow.utils.dates import days_ago
+      dt = days_ago(1)
   return datetime.fromtimestamp(dt.timestamp())
 
 start_date = to_datetime(sl_job.get_context_var(var_name='start_date', default_value="", options=options))
