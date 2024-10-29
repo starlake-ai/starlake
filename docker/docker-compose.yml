@@ -3,8 +3,8 @@ version: '3.8'
 
 services:
   starlake-db:
-    image: postgres:15.2-alpine
-    restart: always
+    image: ghcr.io/hydradatabase/hydra:latest
+    restart: on-failure
     container_name: starlake-db
     ports:
       - ${SL_DB_PORT:-5432}:5432
@@ -12,8 +12,12 @@ services:
       POSTGRES_USER: ${SL_POSTGRES_USER:-dbuser}
       POSTGRES_PASSWORD: ${SL_POSTGRES_PASSWORD:-dbuser123}
       POSTGRES_DB: ${SL_POSTGRES_DB:-starlake}
+      AIRFLOW_DB: ${AIRFLOW_DB:-airflow}
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./scripts/init-airflow-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
 
   starlake-nas:
     image: starlakeai/starlake-nas:latest
@@ -30,6 +34,7 @@ services:
 
   starlake-init-airflow-db:
     image: starlakeai/starlake-airflow:latest
+    restart: on-failure
     build:
       context: .  # Assuming Dockerfile.airflow is in the current directory
       dockerfile: Dockerfile_airflow
@@ -38,7 +43,7 @@ services:
       - starlake-db
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${SL_POSTGRES_DB:-starlake}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${AIRFLOW_DB:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       INSTALL_MYSQL_CLIENT: 'false'
       INSTALL_MSSQL_CLIENT: 'false'
@@ -61,7 +66,7 @@ services:
       - starlake-init-airflow-db
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${SL_POSTGRES_DB:-starlake}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${AIRFLOW_DB:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       INSTALL_MYSQL_CLIENT: 'false'
       INSTALL_MSSQL_CLIENT: 'false'
