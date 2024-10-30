@@ -151,10 +151,8 @@ class ColLineage(
 
         immediateRelations ++ relations
       } else if (
-        Option(column.tableName).isDefined &&
-        column.tableName.nonEmpty &&
-        Option(column.columnName).isDefined &&
-        column.columnName.nonEmpty
+        (Option(column.tableName).isEmpty || column.tableName.isEmpty) &&
+        (Option(column.columnName).isDefined && column.columnName.nonEmpty)
       ) { // this is a function
         val relations =
           column.getChildren.asScala.flatMap { child =>
