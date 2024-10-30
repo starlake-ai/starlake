@@ -1,8 +1,7 @@
 name: Snapshot
-# Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
 on:
   workflow_dispatch:
-  pull_request:
+  pull_request_target:
     types: [closed]
     branches:
       - master
@@ -44,15 +43,15 @@ jobs:
       - name: Set up Zulu 11
         uses: actions/setup-java@v2
         with:
-          distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '11'
-      - id: 'auth'
-        uses: 'google-github-actions/auth@v1'
+          distribution: "zulu" # See 'Supported distributions' for available options
+          java-version: "11"
+      - id: "auth"
+        uses: "google-github-actions/auth@v1"
         with:
-          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: "${{ secrets.GCP_SERVICE_ACCOUNT }}"
           cleanup_credentials: false
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v1"
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests(schema)
@@ -80,23 +79,22 @@ jobs:
       - name: Run tests(job.kafka)
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.job.kafka.*"
 
-
       - name: Run tests(config)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.config.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.config.*"
       - name: Run tests(extract)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.extract.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.extract.*"
       - name: Run tests(integration.extract)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.extract.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.extract.*"
       - name: Run tests(integration.load)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.load.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.load.*"
       - name: Run tests(integration.starbake)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.starbake.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.starbake.*"
       - name: Run tests(integration.transform)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.transform.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.transform.*"
       - name: Run tests(integration.utils)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.utils.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.integration.utils.*"
       - name: Run tests(privacy)
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.privacy.*" 
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.privacy.*"
       - name: Run tests(serve)
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 "testOnly ai.starlake.serve.*"
       - name: Run tests(sql)
@@ -148,7 +146,7 @@ jobs:
       - name: Prepare
         run: |
           ./scripts/docker-prepare.sh
-      
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -166,20 +164,19 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-#            type=sha
-        
+      #            type=sha
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ env.DOCKERHUB_TOKEN }}
-      
+
       - name: Build and export to Docker
         uses: docker/build-push-action@v6
         with:
@@ -189,9 +186,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-              BUILD_DATE=${{ env.BUILD_DATE }}
-              VCS_REF=${{ steps.vcs.outputs.commit }}
-              SL_VERSION=${{ env.SL_VERSION }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            VCS_REF=${{ steps.vcs.outputs.commit }}
+            SL_VERSION=${{ env.SL_VERSION }}
 
       - name: Inspect image
         run: |
@@ -202,7 +199,7 @@ jobs:
           docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
 
       - name: Push image
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         id: push
         uses: docker/build-push-action@v6
         with:
@@ -214,12 +211,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-              BUILD_DATE=${{ env.BUILD_DATE }}
-              VCS_REF=${{ steps.vcs.outputs.commit }}
-              SL_VERSION=${{ env.SL_VERSION }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            VCS_REF=${{ steps.vcs.outputs.commit }}
+            SL_VERSION=${{ env.SL_VERSION }}
 
       - name: Generate artifact attestation
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY_IMAGE }}
