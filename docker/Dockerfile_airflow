@@ -16,7 +16,7 @@ RUN echo "airflow ALL=(ALL:ALL) NOPASSWD: ALL"  > /etc/sudoers.d/airflow
 
 # Install SL CLI
 RUN mkdir -p /app/starlake
-COPY scripts/starlake-airflow.sh /app/starlake/starlake
+COPY scripts/starlake-orchestration.sh /app/starlake/starlake
 RUN chmod +x /app/starlake/starlake
 RUN ln -s /app/starlake/starlake /usr/local/bin/starlake
 
