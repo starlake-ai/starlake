@@ -13,16 +13,18 @@ services:
       POSTGRES_PASSWORD: ${SL_POSTGRES_PASSWORD:-dbuser123}
       POSTGRES_DB: ${SL_POSTGRES_DB:-starlake}
       AIRFLOW_DB: ${AIRFLOW_DB:-airflow}
+      DAGSTER_DB: ${DAGSTER_DB:-dagster}
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./conf/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./scripts/init-airflow-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
+      - ./scripts/init-dagster-database.sh:/docker-entrypoint-initdb.d/init-dagster-database.sh
 
   starlake-nas:
     image: starlakeai/starlake-nas:latest
     build:
-      context: .  # Assuming Dockerfile.nas is in the current directory
+      context: .  # Assuming Dockerfile_nas is in the current directory
       dockerfile: Dockerfile_nas
     container_name: starlake-nas
     restart: on-failure
@@ -36,7 +38,7 @@ services:
     image: starlakeai/starlake-airflow:latest
     restart: on-failure
     build:
-      context: .  # Assuming Dockerfile.airflow is in the current directory
+      context: .  # Assuming Dockerfile_airflow is in the current directory
       dockerfile: Dockerfile_airflow
     container_name: starlake-init-airflow-db
     depends_on:
@@ -56,7 +58,7 @@ services:
   starlake-airflow:
     image: starlakeai/starlake-airflow:latest
     build:
-      context: .  # Assuming Dockerfile.airflow is in the current directory
+      context: .  # Assuming Dockerfile_airflow is in the current directory
       dockerfile: Dockerfile_airflow
     container_name: starlake-airflow
     restart: on-failure
@@ -84,6 +86,38 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
     ports:
       - ${SL_AIRFLOW_PORT:-8080}:8080  # Airflow Webserver port
+    privileged: true  # Required for mounting NFS
+
+  starlake-dagster:
+    image: starlakeai/starlake-dagster:latest
+    build:
+      context: .  # Assuming Dockerfile_dagster is in the current directory
+      dockerfile: Dockerfile_dagster
+    container_name: starlake-dagster
+    restart: on-failure
+    depends_on:
+      - starlake-db
+      - starlake-nas
+    environment:
+      DAGSTER_PG_USERNAME: ${SL_POSTGRES_USER:-dbuser}
+      DAGSTER_PG_PASSWORD: ${SL_POSTGRES_PASSWORD:-dbuser123}
+      DAGSTER_PG_HOST: starlake-db
+      DAGSTER_PG_DB: ${DAGSTER_DB:-dagster}
+      SL_HOME: /app/starlake
+    entrypoint: >
+      /bin/bash -c "
+      sleep 10 &&
+      pip install --no-cache-dir starlake-orchestration[dagster] --upgrade  --force-reinstall &&
+      mkdir -p /mnt/filestore/projects &&
+      mount -v -o nolock starlake-nas:/projects /mnt/filestore/projects &&
+      mount -v -o nolock starlake-nas:/projects/dags /opt/dagster/app/dags &&
+      python3 dagster_code_locations.py &&
+      service cron --full-restart &
+      exec dagster-webserver -h 0.0.0.0 -p 3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
+    ports:
+      - ${SL_DAGSTER_PORT:-3000}:3000  # Dagster Webserver port
     privileged: true  # Required for mounting NFS
 
   starlake-api:
