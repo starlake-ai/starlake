@@ -8,7 +8,7 @@ on:
   #      - '*/*'       # matches every branch containing a single '/'
   #      - '**'        # matches every branch
   #      - '!master'   # excludes master
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - "**"
@@ -16,6 +16,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: github.event.repository.fork == false
     steps:
       - name: Env
         run: |
@@ -55,86 +56,86 @@ jobs:
         with:
           credentials_json: "${{ secrets.GCP_SERVICE_ACCOUNT }}"
       - name: Use gcloud CLI
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: gcloud info
       - name: Run tests(config)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.config.*" coverageReport
       - name: Run tests(extract)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.extract.*" coverageReport
       - name: Run tests(integration.extract)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.integration.extract.*" coverageReport
       - name: Run tests(integration.load)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.integration.load.*" coverageReport
       - name: Run tests(integration.starbake)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.integration.starbake.*" coverageReport
       - name: Run tests(integration.transform)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.integration.transform.*" coverageReport
       - name: Run tests(integration.utils)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.integration.utils.*" coverageReport
       - name: Run tests(job.boostrap)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.bootstrap.*" coverageReport
       - name: Run tests(job.connections)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.connections.*" coverageReport
       - name: Run tests(job.convert)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.convert.*" coverageReport
       - name: Run tests(job.infer)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.infer.*" coverageReport
       - name: Run tests(job.ingest)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.ingest.*" coverageReport
       - name: Run tests(job.kafka)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.kafka.*" coverageReport
       - name: Run tests(job.load)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.load.*" coverageReport
       - name: Run tests(job.metrics)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.metrics.*" coverageReport
       - name: Run tests(job.sink)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.sink.*" coverageReport
       - name: Run tests(job.strategies)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.strategies.*" coverageReport
       - name: Run tests(job.transform)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.job.transform*" coverageReport
       - name: Run tests(privacy)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.privacy.*" coverageReport
       - name: Run tests(schema)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.schema.*" coverageReport
       - name: Run tests(serve)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target'  || github.event.action == 'ready_for_review'}}
+        if: ${{ github.event_name != 'pull_request'  || github.event.action == 'ready_for_review'}}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.serve.*" coverageReport
       - name: Run tests(sql)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.sql.*" coverageReport
       - name: Run tests(udf)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.udf.*" coverageReport
       - name: Run tests(utils)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.utils.*" coverageReport
       - name: Run tests(workflow)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13.14! coverage "testOnly ai.starlake.workflow.*" coverageReport
 
       - name: Upload coverage to Codecov
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v1
         with:
           file: target/scala-2.13/scoverage-report/scoverage.xml
@@ -161,11 +162,11 @@ jobs:
     steps:
       - name: Checkout
         id: vcs
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         uses: actions/checkout@v4
 
       - name: Env
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: |
           cat .versions >> $GITHUB_ENV
           source .versions
@@ -180,13 +181,13 @@ jobs:
           echo "REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE_LATEST}" >> $GITHUB_ENV
 
       - name: Prepare
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: |
           ./scripts/docker-prepare.sh
 
       - name: Docker meta
         id: meta
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && github.event.repository.fork == false }}
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
@@ -204,15 +205,15 @@ jobs:
             type=semver,pattern={{major}}
       #            type=sha
       - name: Set up QEMU
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         uses: docker/setup-buildx-action@v3
 
       - name: Build and export to Docker
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && github.event.repository.fork == false }}
         uses: docker/build-push-action@v6
         with:
           context: "./distrib/docker"
@@ -226,11 +227,11 @@ jobs:
             SL_VERSION=${{ env.SL_VERSION }}
 
       - name: Inspect image
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && github.event.repository.fork == false }}
         run: |
           docker image inspect --format='{{json .Config.Labels}}' ${{ env.REGISTRY_IMAGE_LATEST }}
 
       - name: Test
-        if: ${{ github.event_name != 'pull_request_target' || github.event.action == 'ready_for_review' }}
+        if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && github.event.repository.fork == false }}
         run: |
           docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
