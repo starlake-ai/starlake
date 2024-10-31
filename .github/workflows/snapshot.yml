@@ -1,8 +1,8 @@
 name: Snapshot
-# Run workflow whenever a pull_request_target has been closed to the `master` and `branch-*` branches
+# Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
 on:
   workflow_dispatch:
-  pull_request_target:
+  pull_request:
     types: [closed]
     branches:
       - master
@@ -200,7 +200,7 @@ jobs:
           docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
 
       - name: Push image
-        if: github.event_name != 'pull_request_target'
+        if: github.event_name != 'pull_request'
         id: push
         uses: docker/build-push-action@v6
         with:
@@ -217,7 +217,7 @@ jobs:
             SL_VERSION=${{ env.SL_VERSION }}
 
       # - name: Generate artifact attestation
-      #   if: github.event_name != 'pull_request_target'
+      #   if: github.event_name != 'pull_request'
       #   uses: actions/attest-build-provenance@v1
       #   with:
       #     subject-name: ${{ env.REGISTRY_IMAGE }}
