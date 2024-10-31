@@ -21,6 +21,14 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
+    postgresql:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://starlake-db:5432/starlake"
+        driver: "org.postgresql.Driver"
+        user: "dbuser"
+        password: "dbuser123"
+        quoteIdentifiers: false
     redshift:
       type: jdbc
       options:
