@@ -1,0 +1,50 @@
+FROM debian:11-slim
+
+# Update package list and install docker client, NFS client utilities and Python 3
+RUN apt-get update \
+    && apt-get install -y \
+    nfs-common \
+    docker.io \
+    python3 \
+    python3-pip \
+    vim \
+    cron \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install \
+    dagster \
+    dagster-webserver \
+    dagster-postgres \
+    dagster_shell \
+    dagster-docker
+
+# Change working directory
+ENV DAGSTER_HOME=/opt/dagster/home
+
+RUN mkdir -p ${DAGSTER_HOME}
+
+WORKDIR ${DAGSTER_HOME}
+
+COPY conf/dagster.yaml .
+
+# Install SL CLI
+RUN mkdir -p /app/starlake
+COPY scripts/starlake-orchestration.sh /app/starlake/starlake
+RUN chmod +x /app/starlake/starlake
+RUN ln -s /app/starlake/starlake /usr/local/bin/starlake
+
+RUN mkdir -p /opt/dagster/app/dags
+
+WORKDIR /opt/dagster/app
+
+COPY files/pyproject.toml .
+COPY files/dagster_code_locations.py .
+RUN chmod +x dagster_code_locations.py
+
+# Add the cron job
+RUN echo "* * * * * root cd /opt/dagster/app && python3 dagster_code_locations.py >> /tmp/dagster_code_locations.log 2>&1" >> /etc/cron.d/dagster_code_locations
+
+EXPOSE 3000
+
+ENTRYPOINT ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
