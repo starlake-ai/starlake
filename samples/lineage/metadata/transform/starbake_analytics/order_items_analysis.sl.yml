@@ -7,4 +7,4 @@ task:
   writeStrategy:
     type: "OVERWRITE"
   schedule: "0 0 * * *"
-  dagRef: "airflow_scheduled_table_bash"
+  dagRef: "airflow_scheduled_table_shell"
