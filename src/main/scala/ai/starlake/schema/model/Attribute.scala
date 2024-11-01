@@ -392,6 +392,14 @@ case class Attribute(
 
   def resolveRequired(): Boolean = required.getOrElse(false)
 
+  def resolveScript(): String = {
+    val result =
+      script.map(_.trim).map { script =>
+        if (script.toUpperCase().startsWith("SQL:")) script.substring("SQL:".length) else script
+      }
+    result.getOrElse("")
+  }
+
   @JsonIgnore
   val transform: Option[String] = privacy.filter(_.sql).map(_.value)
 
