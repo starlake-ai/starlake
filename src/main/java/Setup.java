@@ -8,13 +8,17 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Setup extends ProxySelector implements X509TrustManager {
 
@@ -25,18 +29,22 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     };
 
-    private static class JarDependency {
+    private static class ResourceDependency {
 
-        private final String url;
+        private final String[] urls;
 
         private final String artefactName;
 
-        public JarDependency(String artefactName, String url) {
-            this.url = url;
+        public ResourceDependency(String artefactName, String... url) {
+            this.urls = url;
             this.artefactName = artefactName;
         }
 
-        public String getUrlName() {
+        public List<String> getUrlNames() {
+            return Arrays.stream(urls).map(this::getUrlName).collect(Collectors.toList());
+        }
+
+        public String getUrlName(String url) {
             return url.substring(url.lastIndexOf("/") + 1);
         }
     }
@@ -140,7 +148,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
     // STARLAKE
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.2.0-SNAPSHOT");
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.3.0");
 
     // SPARK
     private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.3");
@@ -158,9 +166,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.51.v20230217");
 
     // HADOOP_LIB ON WINDOWS
-    private static final String[] HADOOP_LIBS = new String[]{
-            "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/winutils.exe",
-            "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/hadoop.dll",
+    private static final ResourceDependency[] HADOOP_LIBS = new ResourceDependency[]{
+            new ResourceDependency("winutils", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/winutils.exe"),
+            new ResourceDependency("hadoop.dll", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/hadoop.dll")
     };
 
     // SNOWFLAKE
@@ -188,74 +196,73 @@ public class Setup extends ProxySelector implements X509TrustManager {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // DUCKDB
-    private static final JarDependency SPARK_JAR = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
-    private static final JarDependency SPARK_JAR_213 = new JarDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
-    private static final JarDependency SPARK_BQ_JAR = new JarDependency("spark-bigquery-with-dependencies",
+    private static final ResourceDependency SPARK_JAR = new ResourceDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
+    private static final ResourceDependency SPARK_JAR_213 = new ResourceDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
+    private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("spark-bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
                     "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
-    private static final JarDependency DELTA_SPARK_JAR = new JarDependency("delta-spark",
+    private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
 
-    private static final JarDependency DELTA_STORAGE_JAR = new JarDependency("delta-storage",
+    private static final ResourceDependency DELTA_STORAGE_JAR = new ResourceDependency("delta-storage",
             "https://repo1.maven.org/maven2/io/delta/delta-storage" + "/" + DELTA_SPARK + "/delta-storage" +"-" + DELTA_SPARK + ".jar");
-    private static final JarDependency HADOOP_AZURE_JAR = new JarDependency("hadoop-azure", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar");
-    private static final JarDependency AZURE_STORAGE_JAR = new JarDependency("azure-storage", "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar");
-    private static final JarDependency JETTY_SERVER_JAR = new JarDependency("jetty-server", "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar");
-    private static final JarDependency SNOWFLAKE_JDBC_JAR = new JarDependency("snowflake-jdbc", "https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/" + SNOWFLAKE_JDBC_VERSION + "/snowflake-jdbc-" + SNOWFLAKE_JDBC_VERSION + ".jar");
-    private static final JarDependency SPARK_SNOWFLAKE_JAR = new JarDependency("spark-snowflake", "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
+    private static final ResourceDependency HADOOP_AZURE_JAR = new ResourceDependency("hadoop-azure", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/" + HADOOP_AZURE_VERSION + "/hadoop-azure-" + HADOOP_AZURE_VERSION + ".jar");
+    private static final ResourceDependency AZURE_STORAGE_JAR = new ResourceDependency("azure-storage", "https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/" + AZURE_STORAGE_VERSION + "/azure-storage-" + AZURE_STORAGE_VERSION + ".jar");
+    private static final ResourceDependency JETTY_SERVER_JAR = new ResourceDependency("jetty-server", "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/" + JETTY_VERSION + "/jetty-server-" + JETTY_VERSION + ".jar");
+    private static final ResourceDependency SNOWFLAKE_JDBC_JAR = new ResourceDependency("snowflake-jdbc", "https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/" + SNOWFLAKE_JDBC_VERSION + "/snowflake-jdbc-" + SNOWFLAKE_JDBC_VERSION + ".jar");
+    private static final ResourceDependency SPARK_SNOWFLAKE_JAR = new ResourceDependency("spark-snowflake", "https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_" + SCALA_VERSION +
             "/" + SPARK_SNOWFLAKE_VERSION + "/spark-snowflake_" + SCALA_VERSION + "-" + SPARK_SNOWFLAKE_VERSION + ".jar");
-    private static final JarDependency POSTGRESQL_JAR = new JarDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
+    private static final ResourceDependency POSTGRESQL_JAR = new ResourceDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
 
-    private static final JarDependency DUCKDB_JAR = new JarDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
-    private static final JarDependency AWS_JAVA_SDK_JAR = new JarDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
-    private static final JarDependency HADOOP_AWS_JAR = new JarDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
-    private static final JarDependency REDSHIFT_JDBC_JAR = new JarDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
-    private static  JarDependency SPARK_REDSHIFT_JAR() {
+    private static final ResourceDependency DUCKDB_JAR = new ResourceDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
+    private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
+    private static final ResourceDependency HADOOP_AWS_JAR = new ResourceDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
+    private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
+    private static ResourceDependency SPARK_REDSHIFT_JAR() {
         if (SCALA_VERSION.equals("2.13")) {
-            return new JarDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
+            return new ResourceDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
                     "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
         else {
-        return new JarDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
+        return new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
             "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
     }
-    private static final JarDependency STARLAKE_SNAPSHOT_JAR = new JarDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
-    private static final JarDependency STARLAKE_RELEASE_JAR = new JarDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark3" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
 
-
-    private static final JarDependency[] snowflakeDependencies = {
+    private static final ResourceDependency[] snowflakeDependencies = {
             SNOWFLAKE_JDBC_JAR,
             SPARK_SNOWFLAKE_JAR
     };
 
-    private static final JarDependency[] redshiftDependencies = {
+    private static final ResourceDependency[] redshiftDependencies = {
             AWS_JAVA_SDK_JAR,
             HADOOP_AWS_JAR,
             REDSHIFT_JDBC_JAR,
             SPARK_REDSHIFT_JAR()
     };
 
-    private static final JarDependency[] azureDependencies = {
+    private static final ResourceDependency[] azureDependencies = {
             HADOOP_AZURE_JAR,
             AZURE_STORAGE_JAR,
             JETTY_SERVER_JAR
     };
 
-    private static final JarDependency[] postgresqlDependencies = {
+    private static final ResourceDependency[] postgresqlDependencies = {
             POSTGRESQL_JAR
     };
 
-    private static final JarDependency[] duckDbDependencies = {
+    private static final ResourceDependency[] duckDbDependencies = {
             DUCKDB_JAR
     };
 
-    private static final JarDependency[] bigqueryDependencies = {
+    private static final ResourceDependency[] bigqueryDependencies = {
             SPARK_BQ_JAR
     };
 
-    private static final JarDependency[] sparkDependencies = {
+    private static final ResourceDependency[] sparkDependencies = {
             DELTA_SPARK_JAR,
             DELTA_STORAGE_JAR
     };
@@ -494,9 +501,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 if (!hadoopBinDir.exists()) {
                     hadoopBinDir.mkdirs();
                 }
-                for (String lib : HADOOP_LIBS) {
-                    final File libFile = new File(hadoopBinDir, lib.substring(lib.lastIndexOf("/") + 1));
-                    downloadAndDisplayProgress(lib, libFile.getAbsolutePath());
+                for (ResourceDependency lib : HADOOP_LIBS) {
+                    downloadAndDisplayProgress(lib, (resource, url) -> new File(hadoopBinDir, resource.getUrlName(url)));
                 }
 
             } else {
@@ -505,11 +511,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             File slDir = new File(binDir, "sl");
             if (SL_VERSION.endsWith("SNAPSHOT")) {
-                deleteFile(new File(slDir, STARLAKE_SNAPSHOT_JAR.getUrlName()));
-                downloadAndDisplayProgress(new JarDependency[]{STARLAKE_SNAPSHOT_JAR}, slDir, false);
+                STARLAKE_SNAPSHOT_JAR.getUrlNames().forEach(urlName -> deleteFile(new File(slDir, urlName)));
+                downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_SNAPSHOT_JAR}, slDir, false);
             } else {
-                deleteFile(new File(slDir, STARLAKE_RELEASE_JAR.getUrlName()));
-                downloadAndDisplayProgress(new JarDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
+                STARLAKE_RELEASE_JAR.getUrlNames().forEach(urlName -> deleteFile(new File(slDir, urlName)));
+                downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
             }
 
             File sparkDir = new File(binDir, "spark");
@@ -552,52 +558,52 @@ public class Setup extends ProxySelector implements X509TrustManager {
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
         } catch (Exception e) {
-            System.out.println("Failed to download dependency" + e.getMessage());
+            System.out.println("Failed to download dependency: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
     }
 
     public static void downloadSpark(File binDir) throws IOException, InterruptedException {
-        JarDependency sparkJar = SPARK_JAR;
+        ResourceDependency sparkJar = SPARK_JAR;
         if (!SCALA_VERSION.equals("2.12")) {
             sparkJar = SPARK_JAR_213;
         }
-        downloadAndDisplayProgress(new JarDependency[]{sparkJar}, binDir, false);
-        String tgzName = sparkJar.getUrlName();
-        final File sparkFile = new File(binDir, tgzName);
-        ProcessBuilder builder = new ProcessBuilder("tar", "-xzf", sparkFile.getAbsolutePath(), "-C", binDir.getAbsolutePath()).inheritIO();
-        Process process = builder.start();
-        try {
-            process.waitFor();
-        } catch (InterruptedException e) {
-            System.out.println("Failed to extract spark tarball");
-            e.printStackTrace();
-        }
-        sparkFile.delete();
-        File sparkDir = new File(binDir, tgzName.substring(0, tgzName.lastIndexOf(".")));
-        sparkDir.renameTo(new File(binDir, "spark"));
-        sparkDir = new File(binDir, "spark");
-        File log4j2File = new File(sparkDir, "conf/log4j2.properties.template");
-        log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
+        downloadAndDisplayProgress(new ResourceDependency[]{sparkJar}, binDir, false);
+        sparkJar.getUrlNames().stream().map(tgzName -> new File(binDir, tgzName)).filter(File::exists).forEach(sparkFile -> {
+            String tgzName = sparkFile.getName();
+            ProcessBuilder builder = new ProcessBuilder("tar", "-xzf", sparkFile.getAbsolutePath(), "-C", binDir.getAbsolutePath()).inheritIO();
+            try {
+                Process process = builder.start();
+                process.waitFor();
+            } catch (InterruptedException | IOException e) {
+                System.out.println("Failed to extract spark tarball");
+                e.printStackTrace();
+            }
+            sparkFile.delete();
+            File sparkDir = new File(binDir, tgzName.substring(0, tgzName.lastIndexOf(".")));
+            sparkDir.renameTo(new File(binDir, "spark"));
+            sparkDir = new File(binDir, "spark");
+            File log4j2File = new File(sparkDir, "conf/log4j2.properties.template");
+            log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
+        });
     }
 
-    private static void downloadAndDisplayProgress(JarDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, InterruptedException {
+    private static void downloadAndDisplayProgress(ResourceDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, InterruptedException {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
         if (replaceJar) {
             deleteDependencies(dependencies, targetDir);
         }
-        for (JarDependency dependency : dependencies) {
-            final File targetFile = new File(targetDir, dependency.getUrlName());
-            downloadAndDisplayProgress(dependency.url, targetFile.getAbsolutePath());
+        for (ResourceDependency dependency : dependencies) {
+            downloadAndDisplayProgress(dependency, (resource, url) -> new File(targetDir, resource.getUrlName(url)));
         }
     }
 
-    private static void deleteDependencies(JarDependency[] dependencies, File targetDir) {
+    private static void deleteDependencies(ResourceDependency[] dependencies, File targetDir) {
         if (targetDir.exists()) {
-            for (JarDependency dependency : dependencies) {
+            for (ResourceDependency dependency : dependencies) {
                 File[] files = targetDir.listFiles(f -> f.getName().startsWith(dependency.artefactName));
                 if (files != null) {
                     for (File file : files) {
@@ -616,58 +622,73 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
 
-    private static void downloadAndDisplayProgress(String urlStr, String file) throws IOException, InterruptedException {
-        final int CHUNK_SIZE = 1024;
-        int filePartIndex = urlStr.lastIndexOf("/") + 1;
-        String name = urlStr.substring(filePartIndex);
-        String urlFolder = urlStr.substring(0, filePartIndex);
-        System.out.println("Downloading to " + file + " from " + urlFolder + " ...");
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(urlStr))
-                .build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-        long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
-        InputStream input = new BufferedInputStream(response.body());
-        OutputStream output = new FileOutputStream(file);
-        byte data[] = new byte[CHUNK_SIZE];
-        long total = 0;
-        int count;
-        int loop = 0;
-        int sbLen = 0;
-        long lastTime = System.currentTimeMillis();
-        while ((count = input.read(data)) != -1) {
-            total += count;
-            output.write(data, 0, count);
-            loop++;
-            if (loop % 1000 == 0) {
-                StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
-                if (lengthOfFile > 0) {
-                    sb.append(" (");
-                    sb.append(total * 100 / lengthOfFile);
-                    sb.append("%)");
+    private static void downloadAndDisplayProgress(ResourceDependency resource, BiFunction<ResourceDependency, String, File> fileProducer) throws IOException, InterruptedException {
+        boolean succesfullyDownloaded = false;
+        List<String> triedUrlList = new ArrayList<>();
+        System.out.println("Downloading " + resource.artefactName + "...");
+        for (String urlStr : resource.urls) {
+            File file = fileProducer.apply(resource, urlStr);
+            final int CHUNK_SIZE = 1024;
+            int filePartIndex = urlStr.lastIndexOf("/") + 1;
+            String name = urlStr.substring(filePartIndex);
+            String urlFolder = urlStr.substring(0, filePartIndex);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(urlStr))
+                    .build();
+            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() == 200) {
+                long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
+                InputStream input = new BufferedInputStream(response.body());
+                OutputStream output = new FileOutputStream(file);
+                byte data[] = new byte[CHUNK_SIZE];
+                long total = 0;
+                int count;
+                int loop = 0;
+                int sbLen = 0;
+                long lastTime = System.currentTimeMillis();
+                while ((count = input.read(data)) != -1) {
+                    total += count;
+                    output.write(data, 0, count);
+                    loop++;
+                    if (loop % 1000 == 0) {
+                        StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
+                        if (lengthOfFile > 0) {
+                            sb.append(" (");
+                            sb.append(total * 100 / lengthOfFile);
+                            sb.append("%)");
+                        }
+                        long currentTime = System.currentTimeMillis();
+                        long timeDiff = currentTime - lastTime;
+                        double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
+                        double bytesPerSec = bytesPerMilliSec * 1000;
+                        double mbPerSec = bytesPerSec / 1024 / 1024;
+                        sb.append(" ");
+                        sb.append(String.format("[%.2f MB/sec]", mbPerSec));
+                        lastTime = currentTime;
+                        sbLen = sb.length();
+                        for (int cnt = 0; cnt < sbLen; cnt++) {
+                            System.out.print("\b");
+                        }
+                        System.out.print(sb);
+                    }
                 }
-                long currentTime = System.currentTimeMillis();
-                long timeDiff = currentTime - lastTime;
-                double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
-                double bytesPerSec = bytesPerMilliSec * 1000;
-                double mbPerSec = bytesPerSec / 1024 / 1024;
-                sb.append(" ");
-                sb.append(String.format("[%.2f MB/sec]", mbPerSec));
-                lastTime = currentTime;
-                sbLen = sb.length();
                 for (int cnt = 0; cnt < sbLen; cnt++) {
                     System.out.print("\b");
                 }
-                System.out.print(sb);
+                System.out.print(file.getAbsolutePath() + " succesfully downloaded from " + urlFolder);
+                System.out.println();
+                output.flush();
+                output.close();
+                input.close();
+                succesfullyDownloaded = true;
+                break;
+            } else {
+                triedUrlList.add(urlStr + " (" + response.statusCode() + ")");
             }
         }
-        for (int cnt = 0; cnt < sbLen; cnt++) {
-            System.out.print("\b");
+        if (!succesfullyDownloaded) {
+            String triedUrls = String.join(" and ", triedUrlList);
+            throw new RuntimeException("Failed to fetch " + resource.artefactName + " from " + triedUrls);
         }
-        System.out.print(name + " downloaded");
-        System.out.println();
-        output.flush();
-        output.close();
-        input.close();
     }
 }
