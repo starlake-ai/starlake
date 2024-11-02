@@ -73,6 +73,7 @@ services:
       INSTALL_MYSQL_CLIENT: 'false'
       INSTALL_MSSQL_CLIENT: 'false'
       SL_HOME: /app/starlake
+      AIRFLOW__WEBSERVER__BASE_URL: http://starlake-airflow:8080/airflow
     entrypoint: >
       /bin/bash -c "
       sleep 10 &&
