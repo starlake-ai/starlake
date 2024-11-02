@@ -1111,7 +1111,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 logger.warn(
                   s"Task name ${taskDesc.name} in ${taskPath.toString} is different from the file name ${taskFilePrefix}"
                 )
-              taskDesc.copy(_filenamePrefix = taskFilePrefix, name = taskName)
+              val finalDomain = if (taskDesc.domain.isEmpty) jobDesc.name else taskDesc.domain
+              val finalTable = if (taskDesc.table.isEmpty) taskFilePrefix else taskDesc.table
+              taskDesc.copy(
+                _filenamePrefix = taskFilePrefix,
+                name = taskName,
+                domain = finalDomain,
+                table = finalTable
+              )
             } match {
               case Failure(e) =>
                 e.printStackTrace()
