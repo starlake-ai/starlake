@@ -31,6 +31,9 @@ jobs:
           echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_WAREHOUSE=${{ secrets.SNOWFLAKE_WAREHOUSE }}" >>  $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >>  $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >>  $GITHUB_ENV
+          echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >>  $GITHUB_ENV
           echo "GCP_PROJECT=${{ secrets.GCP_PROJECT }}" >>  $GITHUB_ENV
           echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
 
