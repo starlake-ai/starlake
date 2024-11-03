@@ -185,7 +185,7 @@ jobs:
       - name: Prepare
         if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: |
-          ./scripts/docker-prepare.sh
+          ./scripts/docker-prepare.sh -b
 
       - name: Docker meta
         id: meta
