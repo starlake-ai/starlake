@@ -86,7 +86,7 @@ if [ "$PUBLISH" == "true" ]; then
     fi
 elif [ "$BUILD" == "true" ]; then
     echo "Building the application"
-#    sbt ++$SCALA_VERSION clean assembly
+    sbt ++$SCALA_VERSION clean assembly
     if [ $? -ne 0 ]; then
         printError "Failed to build the application"
         clean 1
@@ -108,7 +108,7 @@ if [ "${ENVIRONMENT}" != "dev" ]; then
   cd starlake
 
   echo installing starlake ${SL_VERSION}
-#  ./starlake.sh install
+  ./starlake.sh install
 
   cd ..
 fi
