@@ -26,6 +26,7 @@ jobs:
           echo "REDSHIFT_HOST=${{ secrets.REDSHIFT_HOST }}" >>  $GITHUB_ENV
           echo "REDSHIFT_PASSWORD=${{ secrets.REDSHIFT_PASSWORD }}" >>  $GITHUB_ENV
           echo "REDSHIFT_USER=${{ secrets.REDSHIFT_USER }}" >>  $GITHUB_ENV
+          echo "REDSHIFT_ROLE=${{ secrets.REDSHIFT_ROLE }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_DB=${{ secrets.SNOWFLAKE_DB }}" >>  $GITHUB_ENV
           echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >>  $GITHUB_ENV
