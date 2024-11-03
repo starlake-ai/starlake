@@ -86,7 +86,7 @@ if [ "$PUBLISH" == "true" ]; then
     fi
 elif [ "$BUILD" == "true" ]; then
     echo "Building the application"
-    sbt ++$SCALA_VERSION clean assembly
+    SBT_OPTS="-Xss4M -Xms1g -Xmx4g" sbt ++$SCALA_VERSION clean assembly
     if [ $? -ne 0 ]; then
         printError "Failed to build the application"
         clean 1
