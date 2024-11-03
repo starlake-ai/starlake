@@ -38,11 +38,15 @@ fi
 
 ENVIRONMENT="cloud"
 PUBLISH="false"
+BUILD="false"
 
-while getopts "e:p" opt; do
+while getopts "e:p:b" opt; do
     case ${opt} in
     e) 
         ENVIRONMENT=${OPTARG} 
+        ;;
+    b)
+        BUILD="true"
         ;;
     p)
         PUBLISH="true"
@@ -76,6 +80,17 @@ source "./scripts/versions.sh"
 if [ "$PUBLISH" == "true" ]; then
     echo "Publishing the application"
     sbt ++$SCALA_VERSION clean publish
+    if [ $? -ne 0 ]; then
+        printError "Failed to publish the application"
+        clean 1
+    fi
+elif [ "$BUILD" == "true" ]; then
+    echo "Building the application"
+#    sbt ++$SCALA_VERSION clean assembly
+    if [ $? -ne 0 ]; then
+        printError "Failed to build the application"
+        clean 1
+    fi
 else
     echo "Skipping the publication"
 fi
@@ -93,7 +108,7 @@ if [ "${ENVIRONMENT}" != "dev" ]; then
   cd starlake
 
   echo installing starlake ${SL_VERSION}
-  ./starlake.sh install
+#  ./starlake.sh install
 
   cd ..
 fi
@@ -104,3 +119,11 @@ cp Dockerfile distrib/docker
 
 mkdir -p distrib/docker/starlake
 cp -r starlake/* distrib/docker/starlake
+
+if [ "$PUBLISH" == "false" ] &&  [ "$BUILD" == "true" ]; then
+    echo "Updating starlake core jar"
+    rm -f distrib/docker/starlake/bin/sl/*.jar
+    cp target/scala-${SCALA_VERSION}/starlake-core_${SCALA_VERSION}-${SL_VERSION}-assembly.jar distrib/docker/starlake/bin/sl/
+else
+    echo "Skipping updating starlake core jar"
+fi
