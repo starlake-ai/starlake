@@ -32,7 +32,7 @@ object SiteCmd extends Cmd[SiteConfig] {
         .opt[String]("template")
         .action((x, c) => c.copy(templateName = Some(x)))
         .text("Template name or template path to use")
-        .required()
+        .optional()
     )
   }
 

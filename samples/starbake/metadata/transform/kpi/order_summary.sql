@@ -1,4 +1,3 @@
-SELECT
     ps.order_id,
     ps.order_date,
     rs.total_revenue,
