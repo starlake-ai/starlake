@@ -26,11 +26,11 @@ RUN mkdir -p ${DAGSTER_HOME}
 
 WORKDIR ${DAGSTER_HOME}
 
-COPY conf/dagster.yaml .
+COPY conf/dagster/dagster.yaml .
 
 # Install SL CLI
 RUN mkdir -p /app/starlake
-COPY scripts/starlake-orchestration.sh /app/starlake/starlake
+COPY scripts/docker/starlake.sh /app/starlake/starlake
 RUN chmod +x /app/starlake/starlake
 RUN ln -s /app/starlake/starlake /usr/local/bin/starlake
 
@@ -38,8 +38,8 @@ RUN mkdir -p /opt/dagster/app/dags
 
 WORKDIR /opt/dagster/app
 
-COPY files/pyproject.toml .
-COPY files/dagster_code_locations.py .
+COPY conf/dagster/pyproject.toml .
+COPY scripts/dagster/code_locations.py ./dagster_code_locations.py
 RUN chmod +x dagster_code_locations.py
 
 # Add the cron job

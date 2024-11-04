@@ -15,7 +15,7 @@ RUN echo "/projects *(rw,sync,no_subtree_check,no_root_squash,insecure)" > /etc/
     echo "/projects/dags *(rw,sync,no_subtree_check,no_root_squash,insecure)" >> /etc/exports
 
 # Script de démarrage pour les services NFS
-COPY scripts/start-nfs.sh /start-nfs.sh
+COPY scripts/nfs/start.sh /start-nfs.sh
 RUN chmod +x /start-nfs.sh
 
 # Exposer le port NFS

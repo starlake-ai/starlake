@@ -17,9 +17,9 @@ services:
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./conf/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./scripts/init-airflow-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
-      - ./scripts/init-dagster-database.sh:/docker-entrypoint-initdb.d/init-dagster-database.sh
+      - ./conf/hydra/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./scripts/airflow/init-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
+      - ./scripts/dagster/init-database.sh:/docker-entrypoint-initdb.d/init-dagster-database.sh
 
   starlake-nas:
     image: starlakeai/starlake-nas:latest
