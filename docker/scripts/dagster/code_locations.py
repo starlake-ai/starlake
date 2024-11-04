@@ -22,7 +22,12 @@ def load_module_with_defs(file_path) :
     spec = importlib.util.spec_from_file_location(f"{package_name}.{module_name}", file_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[f"{package_name}.{module_name}"] = module
-    spec.loader.exec_module(module)
+
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        print(f"Error loading module {module}: {e}")
+        return None
 
     # Ensure `defs` exists in the module
     defs: Definitions = getattr(module, "defs", None)
