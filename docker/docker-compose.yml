@@ -85,8 +85,6 @@ services:
       exec airflow webserver"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
-    ports:
-      - ${SL_AIRFLOW_PORT:-8080}:8080  # Airflow Webserver port
     privileged: true  # Required for mounting NFS
 
   starlake-dagster:
