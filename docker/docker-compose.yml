@@ -83,6 +83,7 @@ services:
       exec airflow webserver"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
+      - airflow_logs:/opt/airflow/logs
     privileged: true  # Required for mounting NFS
 
   starlake-dagster:
@@ -113,6 +114,7 @@ services:
       exec dagster-webserver -h 0.0.0.0 -p 3000 --path-prefix /dagster"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
+      - dagster_logs:/opt/dagster/app/logs
     ports:
       - ${SL_DAGSTER_PORT:-3000}:3000  # Dagster Webserver port
     privileged: true  # Required for mounting NFS
@@ -171,3 +173,5 @@ services:
 volumes:
   projects_data:
   pgdata:
+  airflow_logs:
+  dagster_logs:
