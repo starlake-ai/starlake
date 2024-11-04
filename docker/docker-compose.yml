@@ -165,13 +165,9 @@ services:
       - FILESTORE_SHARE_NAME=projects  # Environment variable to specify the share name of the NAS
       - FILESTORE_IP_ADDRESS=starlake-nas  # Environment variable to specify the IP address of the NAS
       - FILESTORE_MNT_DIR=/mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
-#    command: >
-#      npm run start:prod
     volumes:
       - .env.docker:/app/.env:ro
 
 volumes:
   projects_data:
-#    driver: local
   pgdata:
-#    driver: local
