@@ -5,8 +5,8 @@ import ai.starlake.job.Main
 
 class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
   if (
-    sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean && sys.env
-      .getOrElse("SL_REMOTE_TEST", "false")
+    sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean && sys.env
+      .getOrElse("SL_REMOTE_TEST", "true")
       .toBoolean
   ) {
 

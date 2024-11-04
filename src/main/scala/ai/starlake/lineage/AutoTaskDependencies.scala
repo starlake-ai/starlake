@@ -58,13 +58,14 @@ class AutoTaskDependencies(
           val taskNames =
             if (taskOrDomainNames.size == 1) {
               val taskOrDomainName = taskOrDomainNames.head
-              if (taskOrDomainName.contains('.'))
+              if (taskOrDomainName.contains('.')) // we have a task
                 taskOrDomainNames
               else {
+                // we have a domain, get all tasks in the domain
                 tasks.filter(_.taskDesc.domain == taskOrDomainName).map(_.taskDesc.name)
               }
             } else {
-              taskOrDomainNames
+              taskOrDomainNames // we have a list of tasks
             }
           taskNames.map(taskName =>
             (

@@ -24,14 +24,6 @@ object TaskViewDependency extends StrictLogging {
   val VIEW_TYPE: String = "view"
   val UNKNOWN_TYPE: String = "unknown"
 
-  def typLabel(typ: String): String = typ match {
-    case TASK_TYPE     => "Transform"
-    case CTE_TYPE      => "CTE"
-    case TASKVIEW_TYPE => "Taskview"
-    case TABLE_TYPE    => "Table"
-    case VIEW_TYPE     => "View"
-    case _             => "Unknown"
-  }
   case class SimpleEntry(name: String, typ: String, parentRefs: List[String])
   def taskDependencies(taskName: String, tasks: List[AutoTask])(implicit
     settings: Settings,
@@ -66,9 +58,11 @@ object TaskViewDependency extends StrictLogging {
   def dependencies(
     tasks: List[AutoTask]
   )(implicit settings: Settings, schemaHandler: SchemaHandler): List[TaskViewDependency] = {
-    val jobs: Map[String, List[AutoTask]] = tasks.groupBy(_.name)
+    val jobs: Map[String, AutoTask] = tasks.groupBy(_.name).map { case (name, tasks) =>
+      (name, tasks.head)
+    }
     val jobDependencies: List[SimpleEntry] =
-      jobs.mapValues(_.flatMap(_.dependencies())).toList.map { case (jobName, dependencies) =>
+      jobs.mapValues(_.dependencies()).toList.map { case (jobName, dependencies) =>
         SimpleEntry(jobName, TASK_TYPE, dependencies)
       }
 
@@ -112,7 +106,7 @@ object TaskViewDependency extends StrictLogging {
       logger.info(
         s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
       )
-      val task = jobs(jobName).head
+      val task = jobs(jobName)
       if (parentRefs.isEmpty)
         List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, "", task.taskDesc.writeStrategy))
       else {
@@ -181,7 +175,7 @@ object TaskViewDependency extends StrictLogging {
                 )
               if (typ == TASK_TYPE) {
                 // TODO We just handle one task per job which is always the case till now.
-                val task = jobs(jobName).head
+                val task = jobs(jobName)
                 val sink = task.taskDesc.domain + "." + task.taskDesc.table
                 result.copy(sink = Some(sink))
               } else result
@@ -269,7 +263,7 @@ object TaskViewDependency extends StrictLogging {
     val jobAndViewDepsWithSink = jobAndViewDeps.map { dep =>
       if (dep.typ == TASK_TYPE) {
         // TODO We just handle one task per job which is always the case till now.
-        val task = jobs(dep.name).head
+        val task = jobs(dep.name)
         val sink = task.taskDesc.domain + "." + task.taskDesc.table
         val schedule = allTasks.find(_.name.toLowerCase == dep.name.toLowerCase).flatMap(_.schedule)
         val cron =
