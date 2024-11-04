@@ -32,6 +32,23 @@ def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
     return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
+def to_datetime(date_str: str):
+  from datetime import datetime
+  if date_str.__len__() == 10:
+      dt = datetime.strptime(date_str, "%Y-%m-%d")
+  else:
+      from airflow.utils.dates import days_ago
+      dt = days_ago(1)
+  return datetime.fromtimestamp(dt.timestamp())
+
+start_date = to_datetime(sl_job.get_context_var(var_name='start_date', default_value="", options=options))
+
+end_date = sl_job.get_context_var(var_name='end_date', default_value="", options=options)
+if end_date.__len__() == 10:
+    end_date = to_datetime(end_date)
+else:
+    end_date = None
+
 # [START instantiate_dag]
 for schedule in schedules:
     tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
@@ -43,7 +60,9 @@ for schedule in schedules:
              default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
              catchup=False,
              tags=list(set([tag.upper() for tag in tags])),
-             description=description) as dag:
+             description=description,
+             start_date=start_date,
+             end_date=end_date) as dag:
         start = sl_job.dummy_op(task_id="start")
 
         post_tasks = sl_job.post_tasks(dag=dag)

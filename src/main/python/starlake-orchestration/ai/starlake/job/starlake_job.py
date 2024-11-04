@@ -123,9 +123,14 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         task_id = f"{transform_name}" if not task_id else task_id
         arguments = ["transform", "--name", transform_name]
-        transform_options = transform_options if transform_options else self.__class__.get_context_var(transform_name, {}, self.options).get("options", "")
+        options = list()
         if transform_options:
-            arguments.extend(["--options", transform_options])
+            options = transform_options.split(",")
+        additional_options = self.__class__.get_context_var(transform_name, {}, self.options).get("options", "")
+        if additional_options.__len__() > 0:
+            options.extend(additional_options.split(","))
+        if options.__len__() > 0:
+            arguments.extend(["--options", ",".join(options)])
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
     def pre_tasks(self, *args, **kwargs) -> Union[T, None]:

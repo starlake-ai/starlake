@@ -1,4 +1,4 @@
-from ai.starlake.common import sanitize_id, sort_crons_by_frequency
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 from ai.starlake.job import StarlakeSparkConfig
 
 import json
@@ -7,7 +7,7 @@ import sys
 from typing import Set, List
 
 
-from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition
+from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition, DefaultScheduleStatus
 
 cron = "{{ context.cron }}"
 
@@ -28,7 +28,7 @@ cronAssets: dict = dict()
 
 all_dependencies: set = set()
 
-_filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
+_filtered_assets: Set[str] = set(sys.modules[__name__].__dict__.get('filtered_assets', []))
 
 first_level_tasks: set = set()
 
@@ -39,8 +39,9 @@ def load_task_dependencies(task):
             load_task_dependencies(subtask)
 
 for task in task_deps:
-    first_level_tasks.add(task['data']['name'])
-    _filtered_assets.add(sanitize_id(task['data']['name']).lower())
+    task_id = task['data']['name']
+    first_level_tasks.add(task_id)
+    _filtered_assets.add(sanitize_id(task_id).lower())
     load_task_dependencies(task)
 
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
@@ -101,12 +102,25 @@ def compute_task_id(task) -> str:
         task_id = task_id + "_table"
     return task_id
 
+if _cron:
+    cron_expr = _cron
+elif assets.__len__() == cronAssets.__len__() and set(cronAssets.values()).__len__() > 0:
+    sorted_crons = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+    cron_expr = sorted_crons[0][0]
+else:
+    cron_expr = None
+
 def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start": In(Nothing)}):
     spark_config_name=sl_job.get_context_var('spark_config_name', task_name.lower(), options)
     if (task_type == 'task'):
+        if cron_expr:
+            transform_options = sl_cron_start_end_dates(cron_expr) #FIXME using execution date from context
+        else:
+            transform_options = None
         return sl_job.sl_transform(
             task_id=task_id, 
             transform_name=task_name,
+            transform_options=transform_options,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
             cron=_cron
@@ -194,21 +208,15 @@ def generate_job():
             end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
 
     asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
-    # we don't want to republish all scheduled assets if there is none unscheduled assets, otherwise the job will be triggered indefinitely
-    if cronAssets :
-        if assets.__len__() != cronAssets.__len__():
-          for cronAsset, _ in cronAssets.items() :
-            # we republish all scheduled assets
-            asset_events.append(AssetKey(cronAsset))
-        elif set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
-          # we sort the cron assets by frequency (most frequent first)
-          sorted_assets = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
-          # we exclude the most frequent cron asset
-          least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
-          for cronAsset, cron in cronAssets.items() :
+    if set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+        # we sort the cron assets by frequency (most frequent first)
+        sorted_assets = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+        # we exclude the most frequent cron asset
+        least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
+        for cronAsset, cron in cronAssets.items() :
             # we republish the least frequent scheduled assets
             if cron in least_frequent_crons:
-              asset_events.append(AssetKey(cronAsset))
+                asset_events.append(AssetKey(cronAsset))
     end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
     nodes.append(end)
     dependencies[end._name] = end_dependencies
@@ -235,7 +243,7 @@ def generate_job():
 crons = []
 
 if _cron:
-    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron))
+    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron, default_status=DefaultScheduleStatus.RUNNING))
 
 defs = Definitions(
    jobs=[generate_job()],

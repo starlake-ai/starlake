@@ -4,6 +4,9 @@
 # - SL_STARLAKE_PATH(starlake): the path to the starlake executable [OPTIONAL]
 # - load_dependencies(False): whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies will not be added) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
+# - catchup(True): whether to catch up the missed runs or not [OPTIONAL]
+# - start_date: the start date of the dag (eg. 2022-01-01) [OPTIONAL]
+# - end_date: the end date of the dag (eg. 2024-12-31) [OPTIONAL]
 #
 {% include 'templates/dags/__starlake_airflow_bash_job.py.j2' %}
 {% include 'templates/dags/transform/__airflow_scheduled_task_tpl.py.j2' %}
