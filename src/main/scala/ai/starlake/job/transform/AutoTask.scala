@@ -127,7 +127,7 @@ abstract class AutoTask(
           schemaHandler.transpileAndSubstitute(
             inputSQL,
             runConnection,
-            commandParameters,
+            allVars,
             this.test
           )
 
@@ -160,7 +160,7 @@ abstract class AutoTask(
         val mainSql = schemaHandler.substituteRefTaskMainSQL(
           inputSQL,
           taskDesc.getRunConnection(),
-          commandParameters
+          allVars
         )
         mainSql
       }
@@ -169,7 +169,7 @@ abstract class AutoTask(
         schemaHandler.transpileAndSubstitute(
           inputSQL,
           runConnection,
-          commandParameters,
+          allVars,
           this.test
         )
       sqlWithParametersTranspiledIfInTest
@@ -196,7 +196,7 @@ abstract class AutoTask(
     val result = Utils
       .parseJinja(
         sqls,
-        schemaHandler.activeEnvVars() ++ commandParameters ++ vars
+        allVars ++ vars
       )
     logger.debug(s"Parse Jinja result: $result")
     result

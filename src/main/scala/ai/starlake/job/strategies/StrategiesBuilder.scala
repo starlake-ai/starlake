@@ -326,7 +326,20 @@ class StrategiesBuilder extends StrictLogging {
     logger.info(
       s"Running Write strategy: ${strategy.`type`} for table ${tableComponents.getFullTableName()} with options: truncate: $truncate, materializedView: $materializedView, targetTableExists: $targetTableExists"
     )
-    if (targetTableExists) {
+    if (materializedView == Materialization.MATERIALIZED_VIEW) {
+      buildSqlWithJ2(
+        strategy,
+        selectStatement,
+        tableComponents,
+        targetTableExists,
+        truncate,
+        materializedView,
+        jdbcEngine,
+        sinkConfig,
+        "VIEW"
+      )
+
+    } else if (targetTableExists) {
       buildSqlWithJ2(
         strategy,
         selectStatement,

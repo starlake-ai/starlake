@@ -1546,12 +1546,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def substituteRefTaskMainSQL(
     sql: String,
     connection: Connection,
-    extraVars: Map[String, String] = Map.empty
+    allVars: Map[String, String] = Map.empty
   ): String = {
     if (sql.trim.isEmpty)
       sql
     else {
-      val selectStatement = Utils.parseJinja(sql, extraVars)
+      val selectStatement = Utils.parseJinja(sql, allVars)
       val select =
         SQLUtils.substituteRefInSQLSelect(
           selectStatement,
@@ -1567,7 +1567,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def transpileAndSubstitute(
     sql: String,
     connection: Connection,
-    extraVars: Map[String, String] = Map.empty,
+    allVars: Map[String, String] = Map.empty,
     test: Boolean
   ): String = {
     val sqlWithParameters =
@@ -1575,11 +1575,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         substituteRefTaskMainSQL(
           sql,
           connection,
-          activeEnvVars() ++ extraVars
+          allVars
         )
       } match {
-        case Success(transpiled) =>
-          transpiled
+        case Success(substitutedSQL) =>
+          substitutedSQL
         case Failure(e) =>
           Utils.logException(logger, e)
           sql
@@ -1587,7 +1587,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val sqlWithParametersTranspiledIfInTest =
       if (test || connection._transpileDialect.isDefined) {
-        val envVars = activeEnvVars() ++ extraVars
+        val envVars = allVars
         val timestamps =
           if (test) {
             List(

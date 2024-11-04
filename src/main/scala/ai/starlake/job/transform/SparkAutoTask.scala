@@ -265,11 +265,15 @@ class SparkAutoTask(
       } else {
         SparkUtils.createSchema(session, taskDesc.domain)
       }
-
-      // we replace any ref in the sql
-      val sqlNoRefs = schemaHandler.substituteRefTaskMainSQL(sql, taskDesc.getRunConnection())
       val jobResult = interactive match {
         case Some(_) =>
+          // we replace any ref in the sql
+          val sqlNoRefs = schemaHandler.substituteRefTaskMainSQL(
+            sql,
+            taskDesc.getRunConnection(),
+            allVars
+          )
+
           // just run the request and return the dataframe
           val df =
             SparkUtils.sql(session, sqlNoRefs).limit(settings.appConfig.maxInteractiveRecords)
@@ -279,14 +283,8 @@ class SparkAutoTask(
           val jobResult =
             (sql, taskDesc.python) match {
               case (_, None) =>
-                val sqlToRun =
-                  if (taskDesc.parseSQL.getOrElse(true)) {
-                    // we need to generate the insert / merge / create table except when exporting to csv & xls
-                    buildAllSQLQueries(Some(sqlNoRefs))
-                  } else {
-                    // we just run the sql since ethe user has provided the sql to run
-                    sqlNoRefs
-                  }
+                // we need to generate the insert / merge / create table except when exporting to csv & xls
+                val sqlToRun = buildAllSQLQueries(Some(sql))
                 val result = runSqls(sqlToRun.splitSql(), "Main")
                 result
 
