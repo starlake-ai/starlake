@@ -29,8 +29,6 @@ services:
     container_name: starlake-nas
     restart: on-failure
     privileged: true  # Required to access /proc/fs/nfsd
-    ports:
-      - ${SL_NFS_PORT:-2049}:2049  # NFS default port
     volumes:
       - projects_data:/projects
 
@@ -129,8 +127,6 @@ services:
       - starlake-nas
       - starlake-airflow
     privileged: true  # Required for mount permissions
-    ports:
-      - ${SL_API_HTTP_PORT:-9000}:9000  # starlake-api default port
     environment:
       - SL_HOME=/app/starlake
       - SL_FS=file://
