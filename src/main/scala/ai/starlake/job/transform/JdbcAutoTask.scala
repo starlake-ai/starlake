@@ -138,11 +138,16 @@ class JdbcAutoTask(
 
     val res = Try {
       val mainSql =
-        if (interactive.isEmpty && df.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+        if (df.isEmpty) {
           buildAllSQLQueries(None)
         } else {
           val sql = taskDesc.getSql()
-          Utils.parseJinja(sql, allVars)
+          val mainSql = schemaHandler.substituteRefTaskMainSQL(
+            sql,
+            taskDesc.getRunConnection(),
+            allVars
+          )
+          mainSql
         }
       val sinkOptions =
         if (sinkConnection.isDuckDb()) {
