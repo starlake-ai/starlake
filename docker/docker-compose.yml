@@ -115,6 +115,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
       - dagster_logs:/opt/dagster/app/logs
+      - dagster_storage:/opt/dagster/home/storage
     ports:
       - ${SL_DAGSTER_PORT:-3000}:3000  # Dagster Webserver port
     privileged: true  # Required for mounting NFS
@@ -175,3 +176,4 @@ volumes:
   pgdata:
   airflow_logs:
   dagster_logs:
+  dagster_storage:
