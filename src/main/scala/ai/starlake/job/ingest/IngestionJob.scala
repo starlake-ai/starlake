@@ -748,12 +748,16 @@ trait IngestionJob extends SparkJob {
     schema.attributes
       .filter(_.script.isDefined)
       .map(attr =>
-        (attr.getFinalName(), attr.sparkType(schemaHandler, enrichStructField), attr.script)
+        (
+          attr.getFinalName(),
+          attr.sparkType(schemaHandler, enrichStructField),
+          attr.resolveScript()
+        )
       )
       .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
         df.withColumn(
           name,
-          expr(script.getOrElse("").richFormat(schemaHandler.activeEnvVars(), options))
+          expr(script.richFormat(schemaHandler.activeEnvVars(), options))
             .cast(sparkType)
         )
       }

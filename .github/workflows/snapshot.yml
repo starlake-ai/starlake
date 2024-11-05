@@ -111,6 +111,16 @@ jobs:
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.12 publish
       - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_NO_CATALOG=true SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 publish
+      - name: Trigger starlake-api workflow
+        if: ${{ success() }} 
+        id: trigger-starlake-api
+        env:
+          GITHUB_TOKEN: ${{ secrets.STARLAKE_API_TOKEN }}
+        run: |
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/starlake-ai/starlake-api/actions/workflows/docker-hub.yml/dispatches \
+          -d '{"ref":"main"}'
 
   docker-hub:
     needs: snapshot

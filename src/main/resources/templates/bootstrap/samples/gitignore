@@ -1,0 +1,8 @@
+*
+!/metadata/
+!/metadata/**
+
+!/datasets/
+!/datasets/**
+
+!.gitignore

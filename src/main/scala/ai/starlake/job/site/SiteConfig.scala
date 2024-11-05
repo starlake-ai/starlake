@@ -14,7 +14,7 @@ import scala.util.Try
   */
 case class SiteConfig(
   outputPath: File = File(".") / "site",
-  templateName: Option[String] = None
+  templateName: Option[String] = Some("docusaurus")
 ) {
 
   private def templateContentFromResource(templateType: String): Try[(String, String)] = Try {
