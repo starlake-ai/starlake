@@ -11,14 +11,14 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ADD airflow/webserver_config.py /opt/airflow/webserver_config.py
+ADD conf/airflow/webserver_config.py /opt/airflow/webserver_config.py
 
 # Required to mount NFS volumes
 RUN echo "airflow ALL=(ALL:ALL) NOPASSWD: ALL"  > /etc/sudoers.d/airflow
 
 # Install SL CLI
 RUN mkdir -p /app/starlake
-COPY scripts/starlake-orchestration.sh /app/starlake/starlake
+COPY scripts/docker/starlake.sh /app/starlake/starlake
 RUN chmod +x /app/starlake/starlake
 RUN ln -s /app/starlake/starlake /usr/local/bin/starlake
 
