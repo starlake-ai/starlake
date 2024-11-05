@@ -79,7 +79,7 @@ source "./scripts/versions.sh"
 
 if [ "$PUBLISH" == "true" ]; then
     echo "Publishing the application"
-    sbt ++$SCALA_VERSION clean publish
+    SBT_OPTS="-Xss4M -Xms1g -Xmx4g" sbt ++$SCALA_VERSION clean publish
     if [ $? -ne 0 ]; then
         printError "Failed to publish the application"
         clean 1
