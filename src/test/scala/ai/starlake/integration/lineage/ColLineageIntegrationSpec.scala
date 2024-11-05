@@ -39,11 +39,18 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
       )
     }
   }
+  "Lineage with multiple input cols" should "succeed" in {
+    withEnvs("SL_ROOT" -> (localDir.parent / "starbake").pathAsString) {
+      new Main().run(
+        Array("col-lineage", "--task", "kpi.order_summary")
+      )
+    }
+  }
 
   "raw lineage" should "succeed" in {
     val sqlStr =
       "SELECT " +
-      "Case when Sum(colBA + colBB)=0 then " +
+      "Case when Sum(colBA + colBB) = 0 then " +
       "c.col1 else a.col2 " +
       "end AS total " +
       "FROM a " +
