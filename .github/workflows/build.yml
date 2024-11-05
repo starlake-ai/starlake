@@ -56,6 +56,7 @@ jobs:
       #      - run: spark-submit --version
       - id: "auth"
         uses: "google-github-actions/auth@v1"
+        if: github.event.pull_request.head.repo.fork == false
         with:
           credentials_json: "${{ secrets.GCP_SERVICE_ACCOUNT }}"
       - name: Use gcloud CLI
