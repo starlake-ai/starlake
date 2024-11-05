@@ -377,6 +377,7 @@ class BigQueryNativeJob(
     } else if (cliConfig.materialization == Materialization.MATERIALIZED_VIEW) {
       runAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
+      assert(cliConfig.materialization == Materialization.VIEW)
       runAndSinkAsView().map(table => BigQueryJobResult(None, 0L, None))
     }
   }
@@ -384,6 +385,12 @@ class BigQueryNativeJob(
   def runAndSinkAsView(thisSql: scala.Option[String] = None): Try[Table] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
+        val deleted = bigquery(accessToken = cliConfig.accessToken).delete(tableId)
+        if (deleted) {
+          logger.info(s"Deleted view $tableId")
+        } else {
+          logger.info(s"View $tableId does not exist yet")
+        }
         val viewDefinitionBuilder =
           ViewDefinition.newBuilder(thisSql.getOrElse(sql))
         val table =

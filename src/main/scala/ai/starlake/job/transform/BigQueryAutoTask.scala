@@ -168,11 +168,16 @@ class BigQueryAutoTask(
       // nothing to do, config is created with write_truncate in that case
     }
     val mainSql =
-      if (interactive.isEmpty && loadedDF.isEmpty && taskDesc.parseSQL.getOrElse(true)) {
+      if (loadedDF.isEmpty) {
         buildAllSQLQueries(None)
       } else {
         val sql = taskDesc.getSql()
-        Utils.parseJinja(sql, allVars)
+        val mainSql = schemaHandler.substituteRefTaskMainSQL(
+          sql,
+          taskDesc.getRunConnection(),
+          allVars
+        )
+        mainSql
       }
 
     val jobResult: Try[JobResult] =
