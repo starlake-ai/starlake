@@ -173,6 +173,30 @@ services:
     volumes:
       - .env.docker:/app/.env:ro
 
+  starlake-projects:
+    image: starlakeai/starlake-projects:latest
+    build:
+      context: .  # Assuming Dockerfile_projects is in the current directory
+      dockerfile: Dockerfile_projects
+    container_name: starlake-projects
+    restart: on-failure
+    depends_on:
+      - starlake-db
+      - starlake-nas
+      - starlake-api
+    privileged: true  # Required for mount permissions
+    environment:
+      POSTGRES_USER: ${SL_POSTGRES_USER:-dbuser}
+      POSTGRES_PASSWORD: ${SL_POSTGRES_PASSWORD:-dbuser123}
+      POSTGRES_DB: ${SL_POSTGRES_DB:-starlake}
+      POSTGRES_HOST: starlake-db
+      FILESTORE_SHARE_NAME: projects  # Environment variable to specify the share name of the NAS
+      FILESTORE_IP_ADDRESS: starlake-nas  # Environment variable to specify the IP address of the NAS
+      FILESTORE_MNT_DIR: /mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    volumes:
+      - ./projects:/projects
+
 volumes:
   projects_data:
   pgdata:
