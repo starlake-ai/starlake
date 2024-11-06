@@ -140,12 +140,12 @@ Simply reference them in your YAML files  and optionally customize them to your 
 
 
 The following dependencies are extracted from your SQL query and used to generate the corresponding DAG:
-![](docs/static/img/quickstart/transform-viz.svg)
+![](docs/static/img/transform-viz.svg)
 
 
 The resulting DAG is shown below:
 
-![](docs/static/img/quickstart/transform-dags.png)
+![](docs/static/img/transform-dags.png)
 
 # Supported platforms
 
