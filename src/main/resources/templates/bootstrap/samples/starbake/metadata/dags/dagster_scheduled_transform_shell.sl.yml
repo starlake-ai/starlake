@@ -1,9 +1,9 @@
 ---
 version: 1
 dag:
-    comment: "dag for transforming all {{domain}} tasks"
+    comment: "dag for transforming domain {{domain}} with schedule {{schedule}}"
     template: "transform/dagster__scheduled_task__shell.py.j2"
-    filename: "dagster_{{domain}}_tasks.py"
+    filename: "dagster_{{domain}}_{{schedule}}_tasks.py"
     options:
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "starlake"
