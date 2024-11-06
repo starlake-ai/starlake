@@ -37,14 +37,18 @@ VALUES($project_id, $project_id, '[{"envName":"__sl_ignore__"}]', CURRENT_TIMEST
 INSERT INTO public.slk_project_member (project, "access", deployer, "member", registered, pat) VALUES ($project_id, 'ADMIN', true, $member_id, true, '');
 EOSQL
                     cp -r $id $FILESTORE_MNT_DIR/$member_id/
+                    rm -rf /projects/$project_uuid
                 else
                     echo "Project $project_id is already present in $FILESTORE_MNT_DIR/$member_id/"
+                    rm -rf /projects/$project_uuid
                 fi
             else
                 echo "Project $project_id should consist of digits only"
+                rm -rf /projects/$project_uuid
             fi
         done
     else
         echo "Unzipped project should be placed in a single directory"
+        rm -rf /projects/$project_uuid
     fi
 done
