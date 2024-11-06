@@ -1,0 +1,14 @@
+FROM alpine:latest
+
+RUN apk add --no-cache --no-progress \
+    nfs-utils \
+    postgresql14-client \
+    unzip \
+    bash
+
+RUN mkdir -p /projects
+
+COPY scripts/projects/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
