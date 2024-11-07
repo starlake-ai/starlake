@@ -1145,7 +1145,7 @@ object Settings extends StrictLogging {
   )
 
   def addDefaultSchedules(settings: Settings): Settings = {
-    val schedules = settings.appConfig.schedulePresets ++ defaultCronPresets
+    val schedules = defaultCronPresets ++ settings.appConfig.schedulePresets
     settings.copy(appConfig = settings.appConfig.copy(schedulePresets = schedules))
   }
 
