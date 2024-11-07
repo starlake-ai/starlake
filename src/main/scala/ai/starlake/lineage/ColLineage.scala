@@ -9,7 +9,6 @@ import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMet
 import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 class ColLineage(
