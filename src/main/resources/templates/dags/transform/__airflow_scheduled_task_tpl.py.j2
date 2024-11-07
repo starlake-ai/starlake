@@ -81,8 +81,11 @@ catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup',
 
 def to_datetime(date_str: str):
   from datetime import datetime
-  if date_str.__len__() == 10:
-      dt = datetime.strptime(date_str, "%Y-%m-%d")
+  import re
+  pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+  if pattern.fullmatch(date_str):
+      from airflow.utils import timezone
+      dt = timezone.make_aware(datetime.strptime(date_str, "%Y-%m-%d"))
   else:
       from airflow.utils.dates import days_ago
       dt = days_ago(1)
