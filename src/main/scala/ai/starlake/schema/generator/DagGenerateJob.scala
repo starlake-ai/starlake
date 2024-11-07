@@ -102,10 +102,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
     if (config.clean) {
       logger.info(s"Cleaning output directory $outputDir")
-      if (config.tasks == config.domains)
-        settings.storageHandler().delete(outputDir)
-      else
-        settings.storageHandler().delete(new Path(outputDir, "transform"))
+      settings.storageHandler().delete(outputDir)
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
@@ -175,10 +172,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     settings.storageHandler().mkdirs(outputDir)
     if (config.clean) {
       logger.info(s"Cleaning output directory $outputDir")
-      if (config.tasks == config.domains)
-        settings.storageHandler().delete(outputDir)
-      else
-        settings.storageHandler().delete(new Path(outputDir, "load"))
+      settings.storageHandler().delete(outputDir)
     }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
