@@ -75,9 +75,10 @@ object GcpUtils {
   def sinkToGcpCloudLogging(log: Map[String, Any], typ: String, logName: String)(implicit
     settings: Settings
   ): Unit = {
+    val connProjectId = settings.appConfig.audit.getSink().getConnection().options.get("projectId")
     val logging = LoggingOptions.getDefaultInstance
       .toBuilder()
-      .setProjectId(BigQueryJobBase.projectId(settings.appConfig.audit.database))
+      .setProjectId(BigQueryJobBase.projectId(connProjectId, settings.appConfig.audit.database))
       .build()
       .getService
     try {
