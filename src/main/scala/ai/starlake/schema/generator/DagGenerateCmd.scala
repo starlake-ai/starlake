@@ -68,6 +68,9 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   ): Try[JobResult] = {
     val result = Try {
       val cmd = new DagGenerateJob(schemaHandler)
+      if (config.clean) {
+        cmd.clean(config.outputDir)
+      }
       if (config.domains) {
         cmd.generateDomainDags(config)
       }
