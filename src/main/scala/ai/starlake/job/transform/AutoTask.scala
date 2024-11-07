@@ -416,7 +416,8 @@ object AutoTask extends StrictLogging {
     sql: String,
     summarizeOnly: Boolean,
     connectionName: String,
-    accessToken: Option[String]
+    accessToken: Option[String],
+    test: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -430,7 +431,16 @@ object AutoTask extends StrictLogging {
       )
     connection match {
       case Success(conn) =>
-        executeQuery(domain, table, sql, summarizeOnly, conn, accessToken, Some(connectionName))
+        executeQuery(
+          domain,
+          table,
+          sql,
+          summarizeOnly,
+          conn,
+          accessToken,
+          Some(connectionName),
+          test
+        )
       case Failure(e) =>
         Failure(e)
     }
@@ -444,7 +454,8 @@ object AutoTask extends StrictLogging {
     summarizeOnly: Boolean,
     connection: Settings.Connection,
     accessToken: Option[String],
-    connectionName: Option[String]
+    connectionName: Option[String],
+    test: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -490,7 +501,7 @@ object AutoTask extends StrictLogging {
       Map.empty,
       Some("json-array"),
       truncate = false,
-      test = true,
+      test = test,
       engine = engine,
       logExecution = false,
       accessToken = accessToken
