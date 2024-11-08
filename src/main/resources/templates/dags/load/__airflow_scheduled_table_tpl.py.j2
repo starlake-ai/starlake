@@ -30,7 +30,7 @@ schedules= [{% for schedule in context.schedules %}
 
 def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
-    return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
+    return (f"{dag_name}_{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
 def to_datetime(date_str: str):
   from datetime import datetime
