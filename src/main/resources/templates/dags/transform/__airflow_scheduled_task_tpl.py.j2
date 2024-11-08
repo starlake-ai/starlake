@@ -77,7 +77,7 @@ _user_defined_macros = sys.modules[__name__].__dict__.get('user_defined_macros',
 _user_defined_macros["sl_dates"] = sl_cron_start_end_dates
 _user_defined_macros["ts_as_datetime"] = ts_as_datetime
 
-catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='True', options=options).lower() == 'true'
+catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='False', options=options).lower() == 'true'
 
 def to_datetime(date_str: str):
   from datetime import datetime
