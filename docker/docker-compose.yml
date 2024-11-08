@@ -72,6 +72,7 @@ services:
       INSTALL_MSSQL_CLIENT: 'false'
       SL_HOME: /app/starlake
       AIRFLOW__WEBSERVER__BASE_URL: http://starlake-airflow:8080/airflow
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
     entrypoint: >
       /bin/bash -c "
       sleep 10 &&
