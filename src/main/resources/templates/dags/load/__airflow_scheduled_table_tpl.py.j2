@@ -60,7 +60,7 @@ for schedule in schedules:
     _cron = schedule['cron']
     with DAG(dag_id=generate_dag_name(schedule),
              schedule=_cron,
-             default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
+             default_args=sys.modules[__name__].__dict__.get('default_dag_args', sl_job.default_dag_args()),
              catchup=False,
              tags=list(set([tag.upper() for tag in tags])),
              description=description,
