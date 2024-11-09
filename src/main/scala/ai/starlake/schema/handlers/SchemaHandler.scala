@@ -381,6 +381,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .mapValues(
           _.richFormat(externalProps, slDateVars)
         )
+        .toMap
     // will replace with sys.env
 
     val activeEnvName =
@@ -412,6 +413,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .mapValues(
             _.richFormat(sys.env, allVars)
           )
+          .toMap
 
       } else
         Map.empty[String, String]
