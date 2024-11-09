@@ -56,7 +56,7 @@ application:
         keep_column_case: "off"
         autopushdown: on
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
-    sparkLocal:
+    spark_local:
       type: "fs"
   accessPolicies: # Required to set RLS and ACLs on tables
     apply: true

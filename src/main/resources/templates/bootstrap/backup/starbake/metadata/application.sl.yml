@@ -20,7 +20,7 @@ application:
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
-    sparkLocal:
+    spark_local:
       type: "fs" # Connection to local file system (delta files)
   dagRef:
     load: "dagster_load_shell"
