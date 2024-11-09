@@ -30,12 +30,15 @@ schedules= [{% for schedule in context.schedules %}
 
 def generate_dag_name(schedule):
     dag_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
-    return (f"{dag_name}-{schedule['schedule']}" if len(schedules) > 1 else dag_name)
+    return (f"{dag_name}_{schedule['schedule']}" if len(schedules) > 1 else dag_name)
 
 def to_datetime(date_str: str):
   from datetime import datetime
-  if date_str.__len__() == 10:
-      dt = datetime.strptime(date_str, "%Y-%m-%d")
+  import re
+  pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+  if pattern.fullmatch(date_str):
+      from airflow.utils import timezone
+      dt = timezone.make_aware(datetime.strptime(date_str, "%Y-%m-%d"))
   else:
       from airflow.utils.dates import days_ago
       dt = days_ago(1)
@@ -57,7 +60,7 @@ for schedule in schedules:
     _cron = schedule['cron']
     with DAG(dag_id=generate_dag_name(schedule),
              schedule=_cron,
-             default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
+             default_args=sys.modules[__name__].__dict__.get('default_dag_args', sl_job.default_dag_args()),
              catchup=False,
              tags=list(set([tag.upper() for tag in tags])),
              description=description,
