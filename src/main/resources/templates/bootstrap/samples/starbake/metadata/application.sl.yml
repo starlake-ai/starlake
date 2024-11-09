@@ -1,3 +1,4 @@
+---
 version: 1
 application:
   connectionRef: "{{connectionRef}}"
@@ -24,15 +25,15 @@ application:
     postgresql:
       type: jdbc
       options:
-        url: "jdbc:postgresql://starlake-db:5432/starlake"
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:5432/{{POSTGRES_DB}}"
         driver: "org.postgresql.Driver"
-        user: "dbuser"
-        password: "dbuser123"
+        user: "{{POSTGRES_USER}}"
+        password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
     redshift:
       type: jdbc
       options:
-        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
@@ -41,7 +42,7 @@ application:
       type: jdbc
       sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
       options:
-        url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
+        url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.Driver"
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
@@ -59,6 +60,22 @@ application:
         db: "{{SNOWFLAKE_DB}}"
         keep_column_case: "off"
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
-  dagRef:
+    snowflake_spark:
+      type: jdbc
+      sparkFormat: snowflake
+      options:
+        sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
+        driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        sfUser: "{{SNOWFLAKE_USER}}"
+        sfPassword: "{{SNOWFLAKE_PASSWORD}}"
+        sfWarehouse: "{{SNOWFLAKE_WAREHOUSE}}"
+        sfDatabase: "{{SNOWFLAKE_DB}}"
+        keep_column_case: "off"
+        autopushdown: on
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+
+    dagRef:
     load: "airflow_load_shell"
     transform: "airflow_transform_shell"
+  schedulePresets:
+    daily: "0 0 * * *"
