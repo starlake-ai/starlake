@@ -17,7 +17,7 @@ application:
         #authType: SERVICE_ACCOUNT_JSON_KEYFILE
         #jsonKeyfile: "/Users/me/.gcloud/keys/starlake-me.json"
 
-    sparkLocal:
+    spark_local:
       type: "fs"
 
   spark:
