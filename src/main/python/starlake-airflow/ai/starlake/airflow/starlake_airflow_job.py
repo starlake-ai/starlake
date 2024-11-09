@@ -314,9 +314,10 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
     def default_dag_args(self) -> dict:
         import json
         from json.decoder import JSONDecodeError
+        dag_args = DEFAULT_DAG_ARGS
         try:
-            dag_args = json.loads(__class__.get_context_var(var_name="default_dag_args", options=self.options))
+            dag_args.update(json.loads(__class__.get_context_var(var_name="default_dag_args", options=self.options)))
         except (MissingEnvironmentVariable, JSONDecodeError):
-            dag_args = DEFAULT_DAG_ARGS
+            pass
         dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay)})
         return dag_args
