@@ -21,8 +21,6 @@ task_deps=json.loads("""{{ context.dependencies }}""")
 
 load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
-schedule = None
-
 datasets: Set[str] = set()
 
 cronDatasets: dict = dict()
@@ -60,11 +58,16 @@ def _load_datasets(task: dict):
                 else :
                   datasets.add(dataset)
 
-if not load_dependencies :
-    if not _cron:
+def _load_schedule():
+    if _cron:
+        schedule = _cron
+    elif not load_dependencies : 
         for task in task_deps:
             _load_datasets(task)
-    schedule = list(map(lambda dataset: Dataset(dataset), datasets))
+        schedule = list(map(lambda dataset: Dataset(dataset), datasets))
+    else: # the DAG will do not depend on any datasets because all the related dependencies will be added as tasks
+        schedule = None
+    return schedule
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
@@ -77,12 +80,15 @@ _user_defined_macros = sys.modules[__name__].__dict__.get('user_defined_macros',
 _user_defined_macros["sl_dates"] = sl_cron_start_end_dates
 _user_defined_macros["ts_as_datetime"] = ts_as_datetime
 
-catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='True', options=options).lower() == 'true'
+catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='False', options=options).lower() == 'true'
 
 def to_datetime(date_str: str):
   from datetime import datetime
-  if date_str.__len__() == 10:
-      dt = datetime.strptime(date_str, "%Y-%m-%d")
+  import re
+  pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+  if pattern.fullmatch(date_str):
+      from airflow.utils import timezone
+      dt = timezone.make_aware(datetime.strptime(date_str, "%Y-%m-%d"))
   else:
       from airflow.utils.dates import days_ago
       dt = days_ago(1)
@@ -98,8 +104,8 @@ else:
 
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
-         schedule=_cron if _cron else schedule,
-         default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
+         schedule=_load_schedule(),
+         default_args=sys.modules[__name__].__dict__.get('default_dag_args', sl_job.default_dag_args()),
          catchup=catchup,
          user_defined_macros=_user_defined_macros,
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),

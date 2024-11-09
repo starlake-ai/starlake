@@ -7,7 +7,7 @@ from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSpark
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule
+from ai.starlake.common import MissingEnvironmentVariable, sanitize_id
 from airflow import DAG
 
 from airflow.datasets import Dataset
@@ -48,6 +48,19 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
+        sd = __class__.get_context_var(var_name='start_date', default_value="2024-11-1", options=self.options)
+        import re
+        pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+        if pattern.fullmatch(sd):
+            from airflow.utils import timezone
+            self.start_date = timezone.make_aware(datetime.strptime(sd, "%Y-%m-%d"))
+        else:
+            from airflow.utils.dates import days_ago
+            self.start_date = days_ago(1)
+        try:
+            self.retry_delay = int(__class__.get_context_var(var_name='retry_delay', options=self.options))
+        except (MissingEnvironmentVariable, ValueError):
+            self.retry_delay = 300
 
     def sl_outlets(self, uri: str, **kwargs) -> List[Dataset]:
         """Returns a list of Airflow datasets from the specified uri.
@@ -297,3 +310,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
     def dummy_op(self, task_id, **kwargs):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return DummyOperator(task_id=task_id, **kwargs)
+
+    def default_dag_args(self) -> dict:
+        import json
+        from json.decoder import JSONDecodeError
+        dag_args = DEFAULT_DAG_ARGS
+        try:
+            dag_args.update(json.loads(__class__.get_context_var(var_name="default_dag_args", options=self.options)))
+        except (MissingEnvironmentVariable, JSONDecodeError):
+            pass
+        dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay)})
+        return dag_args

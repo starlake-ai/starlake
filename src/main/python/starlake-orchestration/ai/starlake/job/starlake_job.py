@@ -75,7 +75,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             T: The scheduler task.
         """
         task_id = f"{domain}_import" if not task_id else task_id
-        arguments = ["import", "--include", domain]
+        arguments = ["import", "--domains", domain]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:

@@ -15,5 +15,7 @@
 # - catchup(True): whether to catch up the missed runs or not [OPTIONAL]
 # - start_date: the start date of the dag (eg. 2022-01-01) [OPTIONAL]
 # - end_date: the end date of the dag (eg. 2024-12-31) [OPTIONAL]
+# - retry_delay(300): the delay between retries in seconds [OPTIONAL]
+# - default_dag_args: the default dag arguments specified as a map in json format [OPTIONAL]
 {% include 'templates/dags/__starlake_airflow_cloud_run_job.py.j2' %}
 {% include 'templates/dags/transform/__airflow_scheduled_task_tpl.py.j2' %}
