@@ -186,9 +186,7 @@ services:
     container_name: starlake-projects
     restart: on-failure
     depends_on:
-      - starlake-db
-      - starlake-nas
-      - starlake-api
+      - starlake-ui
     privileged: true  # Required for mount permissions
     environment:
       POSTGRES_USER: ${SL_POSTGRES_USER:-dbuser}
