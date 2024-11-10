@@ -133,6 +133,22 @@ object JdbcDbUtils extends LazyLogging {
         logger.error(s"Error creating connection", exception)
         throw exception
       case Success(connection) =>
+        // run preActions
+        val preActions = connectionOptions.get("preActions")
+        preActions.foreach { actions =>
+          actions.split(";").foreach { action =>
+            Try {
+              val statement = connection.createStatement()
+              statement.execute(action)
+              statement.close()
+            } match {
+              case Failure(exception) =>
+                logger.error(s"Error running preAction $action", exception)
+                throw exception
+              case Success(value) =>
+            }
+          }
+        }
         val result = Try {
           f(connection)
         } match {
