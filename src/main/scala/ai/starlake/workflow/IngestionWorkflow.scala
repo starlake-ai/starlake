@@ -241,7 +241,7 @@ class IngestionWorkflow(
   def stage(config: StageConfig): Try[Unit] = Try {
     val filteredDomains = config.domains match {
       case Nil => domains(Nil, Nil) // Load all domains & tables
-      case _   => domains(config.domains.toList, Nil)
+      case _   => domains(config.domains.toList, config.tables.toList)
     }
     logger.info(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
