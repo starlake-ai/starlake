@@ -110,7 +110,8 @@ object Main extends StrictLogging {
     ConsoleCmd,
     StarlakeTestCmd,
     MigrateCmd,
-    ColLineageCmd
+    ColLineageCmd,
+    PreLoadCmd
   )
 }
 
@@ -218,14 +219,29 @@ class Main extends StrictLogging {
           if (settings.appConfig.forceHalt) {
             Runtime.getRuntime.halt(1)
           }
+        case Success(result: PreLoadJobResult) =>
+          logger.info(s"Successfully $executedCommand")
+          val status =
+            if (result.empty)
+              1
+            else
+              0
+          if (settings.appConfig.forceHalt) {
+            Runtime.getRuntime.halt(status)
+          }
         case Success(_) =>
           logger.info(s"Successfully $executedCommand")
           if (settings.appConfig.forceHalt) {
             Runtime.getRuntime.halt(0)
           }
       }
-      // FailedJobResult are considered as a soft failure so we remove them from success possibility
-      result.filter(_ != FailedJobResult).isSuccess
+      // FailedJobResult and empty PreLoadJobResult are considered as a soft failure
+      // so we remove them from success possibility
+      result.filter {
+        case r: PreLoadJobResult if r.empty => false
+        case FailedJobResult                => false
+        case _                              => true
+      }.isSuccess
     }
 
   }
