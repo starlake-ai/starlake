@@ -2,11 +2,9 @@
 version: 1
 application:
   connectionRef: "{{connectionRef}}"
-
   audit:
     sink:
       connectionRef: "{{connectionRef}}"
-
   connections:
     spark_local:
       type: "fs" # Connection to local file system (delta files)
@@ -18,7 +16,7 @@ application:
     bigquery:
       type: "bigquery"
       options:
-        location: europe-west1
+        location: "europe-west1"
         authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
@@ -73,9 +71,6 @@ application:
         keep_column_case: "off"
         autopushdown: on
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
-
-    dagRef:
+  dagRef:
     load: "airflow_load_shell"
     transform: "airflow_transform_shell"
-  schedulePresets:
-    daily: "0 0 * * *"
