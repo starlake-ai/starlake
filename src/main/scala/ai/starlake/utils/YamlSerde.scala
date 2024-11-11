@@ -260,11 +260,6 @@ object YamlSerde extends LazyLogging with YamlUtils {
     validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ApplicationConfig))
   }
 
-  def deserializeYamlApplicationConfig(content: String, path: String): ApplicationDesc = {
-    val node = deserializeYamlApplication(content, path)
-    mapper.treeToValue(node, classOf[ApplicationDesc])
-  }
-
   def deserializeYamlTables(content: String, path: String): List[TableDesc] = {
     deserializeYamlTables(mapper.readTree(content), path)
   }
