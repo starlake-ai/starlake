@@ -63,7 +63,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
 
     config.strategy match {
       case Some(PreLoadStrategy.Imported) =>
-
+      // TODO
       case Some(PreLoadStrategy.Pending) =>
         val pendingArea = DatasetArea.stage(config.domain)
         val files = settings.storageHandler().list(pendingArea, recursive = false)
@@ -71,18 +71,18 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
           for (table <- config.tables) yield {
             schemaHandler.getSchema(config.domain, table) match {
               case Some(schema) =>
-                table -> files.exists(file => schema.pattern.matcher(file.path.getName).matches())
+                table -> files.count(file => schema.pattern.matcher(file.path.getName).matches())
               case None =>
-                table -> false
+                table -> 0
             }
           }
 
         return Success(PreLoadJobResult(config.domain, results.toMap))
 
       case Some(PreLoadStrategy.Ack) =>
-
+      // TODO
       case _ =>
-        return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> true).toMap))
+        return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 1).toMap))
     }
     Success(EmptyJobResult)
   }
