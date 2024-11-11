@@ -1,9 +1,10 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Cmd
+import ai.starlake.job.load.LoadStrategy
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{EmptyJobResult, JobResult}
+import ai.starlake.utils.{EmptyJobResult, JobResult, PreLoadJobResult, Utils}
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
 
@@ -51,11 +52,38 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
   }
 
   def parse(args: Seq[String]): Option[PreLoadConfig] =
-    OParser.parse(parser, args, PreLoadConfig(domain = "*", accessToken = None))
+    OParser.parse(parser, args, PreLoadConfig(domain = "", accessToken = None))
 
   override def run(config: PreLoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
+    logger.info(
+      s"Pre loading domain ${config.domain} with strategy ${config.strategy.map(_.value).getOrElse("none")}"
+    )
+
+    config.strategy match {
+      case Some(PreLoadStrategy.Imported) =>
+
+      case Some(PreLoadStrategy.Pending) =>
+        val pendingArea = DatasetArea.stage(config.domain)
+        val files = settings.storageHandler().list(pendingArea, recursive = false)
+        val results =
+          for (table <- config.tables) yield {
+            schemaHandler.getSchema(config.domain, table) match {
+              case Some(schema) =>
+                table -> files.exists(file => schema.pattern.matcher(file.path.getName).matches())
+              case None =>
+                table -> false
+            }
+          }
+
+        return Success(PreLoadJobResult(config.domain, results.toMap))
+
+      case Some(PreLoadStrategy.Ack) =>
+
+      case _ =>
+        return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> true).toMap))
+    }
     Success(EmptyJobResult)
   }
 }
