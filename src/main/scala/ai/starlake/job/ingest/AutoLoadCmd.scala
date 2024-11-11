@@ -86,7 +86,7 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
       if (success) {
         val wf = workflow(schemaHandler)
         logger.info("All schemas inferred successfully")
-        wf.stage(StageConfig(config.domains)).map { jb =>
+        wf.stage(StageConfig(config.domains, config.tables)).map { _ =>
           logger.info("Staged successfully")
           wf.load(
             LoadConfig(
