@@ -122,7 +122,7 @@ if exist %STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME% (
         set SPARK_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%\conf\log4j2.properties"
     )
 
-    if "%SL_DEFAULT_LOADER%" == "native" (
+    if "%SL_RUN_MODE%" == "main" (
         set JAVA_OPTIONS=^
             --add-opens=java.base/java.lang=ALL-UNNAMED ^
             --add-opens=java.base/java.lang.invoke=ALL-UNNAMED ^

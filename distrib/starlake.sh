@@ -107,7 +107,7 @@ launch_starlake() {
       SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties"
     fi
 
-    if [[ "$SL_DEFAULT_LOADER" == "native" ]]
+    if [[ "$SL_RUN_MODE" == "main" ]]
     then
       SL_ROOT=$SL_ROOT java \
                           --add-opens=java.base/java.lang=ALL-UNNAMED \
