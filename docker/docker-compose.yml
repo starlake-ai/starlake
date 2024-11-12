@@ -17,9 +17,9 @@ services:
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./conf/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./scripts/init-airflow-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
-      - ./scripts/init-dagster-database.sh:/docker-entrypoint-initdb.d/init-dagster-database.sh
+      - ./conf/hydra/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./scripts/airflow/init-database.sh:/docker-entrypoint-initdb.d/init-airflow-database.sh
+      - ./scripts/dagster/init-database.sh:/docker-entrypoint-initdb.d/init-dagster-database.sh
 
   starlake-nas:
     image: starlakeai/starlake-nas:latest
@@ -29,8 +29,6 @@ services:
     container_name: starlake-nas
     restart: on-failure
     privileged: true  # Required to access /proc/fs/nfsd
-    ports:
-      - ${SL_NFS_PORT:-2049}:2049  # NFS default port
     volumes:
       - projects_data:/projects
 
@@ -74,6 +72,7 @@ services:
       INSTALL_MSSQL_CLIENT: 'false'
       SL_HOME: /app/starlake
       AIRFLOW__WEBSERVER__BASE_URL: http://starlake-airflow:8080/airflow
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
     entrypoint: >
       /bin/bash -c "
       sleep 10 &&
@@ -85,8 +84,7 @@ services:
       exec airflow webserver"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
-    ports:
-      - ${SL_AIRFLOW_PORT:-8080}:8080  # Airflow Webserver port
+      - airflow_logs:/opt/airflow/logs
     privileged: true  # Required for mounting NFS
 
   starlake-dagster:
@@ -117,6 +115,8 @@ services:
       exec dagster-webserver -h 0.0.0.0 -p 3000 --path-prefix /dagster"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to run Docker commands from the container
+      - dagster_logs:/opt/dagster/app/logs
+      - dagster_storage:/opt/dagster/home/storage
     ports:
       - ${SL_DAGSTER_PORT:-3000}:3000  # Dagster Webserver port
     privileged: true  # Required for mounting NFS
@@ -131,8 +131,6 @@ services:
       - starlake-nas
       - starlake-airflow
     privileged: true  # Required for mount permissions
-    ports:
-      - ${SL_API_HTTP_PORT:-9000}:9000  # starlake-api default port
     environment:
       - SL_HOME=/app/starlake
       - SL_FS=file://
@@ -152,10 +150,16 @@ services:
       - SL_API_JDBC_URL=jdbc:postgresql://starlake-db:5432/${SL_POSTGRES_DB:-starlake}?user=${SL_POSTGRES_USER:-dbuser}&password=${SL_POSTGRES_PASSWORD:-dbuser123} # JDBC URL to connect to the database
       - SL_API_DOMAIN=localhost
       - SL_API_PROJECT_ROOT=/mnt/filestore/projects
+      - SL_API_AIRFLOW_URL=http://localhost:${SL_UI_PORT:-80}/airflow/
+      - SL_API_DAGSTER_URL=http://localhost:${SL_UI_PORT:-80}/dagster/deployment/locations
       - ENVIRONMENT=local # local environment
       - FILESTORE_SHARE_NAME=projects  # Environment variable to specify the share name of the NAS
       - FILESTORE_IP_ADDRESS=starlake-nas  # Environment variable to specify the IP address of the NAS
       - FILESTORE_MNT_DIR=/mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
+      - POSTGRES_HOST=starlake-db
+      - POSTGRES_DB=${SL_POSTGRES_DB:-starlake}
+      - POSTGRES_USER=${SL_POSTGRES_USER:-dbuser}
+      - POSTGRES_PASSWORD=${SL_POSTGRES_PASSWORD:-dbuser123}
 
   starlake-ui:
     image: starlakeai/starlake-1.3-ui:${SL_UI_VERSION:-0.1}
@@ -166,18 +170,39 @@ services:
       - starlake-api
     privileged: true  # Required for mount permissions
     ports:
-      - ${SL_PORT:-80}:80  # starlake-ui default port
+      - ${SL_UI_PORT:-80}:80  # starlake-ui default port
     environment:
       - FILESTORE_SHARE_NAME=projects  # Environment variable to specify the share name of the NAS
       - FILESTORE_IP_ADDRESS=starlake-nas  # Environment variable to specify the IP address of the NAS
       - FILESTORE_MNT_DIR=/mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
-#    command: >
-#      npm run start:prod
     volumes:
       - .env.docker:/app/.env:ro
 
+  starlake-projects:
+    image: starlakeai/starlake-projects:latest
+    build:
+      context: .  # Assuming Dockerfile_projects is in the current directory
+      dockerfile: Dockerfile_projects
+    container_name: starlake-projects
+    restart: on-failure
+    depends_on:
+      - starlake-ui
+    privileged: true  # Required for mount permissions
+    environment:
+      POSTGRES_USER: ${SL_POSTGRES_USER:-dbuser}
+      POSTGRES_PASSWORD: ${SL_POSTGRES_PASSWORD:-dbuser123}
+      POSTGRES_DB: ${SL_POSTGRES_DB:-starlake}
+      POSTGRES_HOST: starlake-db
+      FILESTORE_SHARE_NAME: projects  # Environment variable to specify the share name of the NAS
+      FILESTORE_IP_ADDRESS: starlake-nas  # Environment variable to specify the IP address of the NAS
+      FILESTORE_MNT_DIR: /mnt/filestore/projects  # Environment variable to specify the mount path inside starlake-api container
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    volumes:
+      - ./projects:/projects
+
 volumes:
   projects_data:
-#    driver: local
   pgdata:
-#    driver: local
+  airflow_logs:
+  dagster_logs:
+  dagster_storage:

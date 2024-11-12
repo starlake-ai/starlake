@@ -56,8 +56,8 @@ class ColLineage(
         .getResultSetMetaData(query, JdbcMetaData.copyOf(metaData))
         .asInstanceOf[JdbcResultSetMetaData]
 
-    extractTables(res).foreach(println)
-    extractRelations("mySchema", "myTable", res).foreach(println)
+    extractTables(res).foreach(t => println(t.toString))
+    extractRelations("mySchema", "myTable", res).foreach(r => println(r.toString))
   }
 
   val domains = schemaHandler.domains()
@@ -98,6 +98,23 @@ class ColLineage(
     }
   }
 
+  private def finalColumns(column: JdbcColumn): List[JdbcColumn] = {
+    val children = column.getChildren.asScala.toList
+    if (children.isEmpty) {
+      if (
+        Option(column.columnName).isDefined && column.columnName.nonEmpty &&
+        Option(column.tableName).isDefined && column.tableName.nonEmpty
+      ) {
+        List(column)
+      } else {
+        Nil
+      }
+    } else {
+      val finalCols = children.flatMap(finalColumns)
+      finalCols
+    }
+  }
+
   def extractRelations(
     schemaName: String,
     tableName: String,
@@ -126,6 +143,17 @@ class ColLineage(
                 Relation(scopeColumn, parentColumn, expression)
               )
             }
+          } else if (expression.getOrElse("").contains("(")) {
+            // This is a function, let's get all referenced table names
+            val finalCols = finalColumns(column)
+            val columnList =
+              finalCols
+                .filter(it => it.tableName != null && it.tableName.nonEmpty)
+                .map { it =>
+                  val col = Column(it.tableSchema, it.tableName, it.columnName)
+                  Relation(col, parentColumn, expression)
+                }
+            columnList
           } else {
             List(Relation(parentColumn, currentColumn, expression))
           }
@@ -222,15 +250,12 @@ class ColLineage(
 
       val tables = extractTables(res)
       val relations = extractRelations(task.domain, task.table, res)
-      println("relations")
-      relations.foreach(println)
+      relations.foreach(r => logger.debug(r.toString))
 
-      println("tablesInRelations(relations)")
-      tablesInRelations(relations).foreach(println)
+      tablesInRelations(relations).foreach(t => logger.debug(t.toString))
 
       val allTables = tablesInRelations(relations) ++ tables
-      println("allTables")
-      allTables.foreach(println)
+      allTables.foreach(t => logger.debug(t.toString))
 
       val finalTables = allTables
         .groupBy(t => (t.domain, t.table))
@@ -243,7 +268,7 @@ class ColLineage(
           )
         }
         .toList
-      finalTables.foreach(println)
+      finalTables.foreach(t => logger.debug(t.toString))
 
       val lineage = ColLineage.Lineage(finalTables, relations)
       val diagramAsStr =

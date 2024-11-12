@@ -98,10 +98,10 @@ def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
 
     return domain_graph
 
-def load_domains(schedule: dict, index) -> GraphDefinition:
+def load_domains(schedule: dict) -> GraphDefinition:
     cron = schedule['cron']
     if(cron):
-        crons.append(ScheduleDefinition(job_name = job_name(index), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
+        crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
 
     dependencies = dict()
 
@@ -130,7 +130,7 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
         ins[result] = In(dagster_type=str)
         end_dependencies[result] = DependencyDefinition(node_def._name, 'result')
 
-    end = sl_job.dummy_op(task_id="end", ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(index), cron=cron))])
+    end = sl_job.dummy_op(task_id="end", ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(schedule), cron=cron))])
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
@@ -144,23 +144,23 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
             nodes.append(post_tasks)
 
     return GraphDefinition(
-        name=f'schedule_{index}' if len(schedules) > 1 else 'schedule',
+        name=f"schedule_{schedule.get('schedule')}" if len(schedules) > 1 else 'schedule',
         node_defs=nodes,
         dependencies=dependencies,
     )
 
-def job_name(index) -> str:
+def job_name(schedule: dict) -> str:
     job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
-    return (f"{job_name}_{index}" if len(schedules) > 1 else job_name)
+    return (f"{job_name}_{schedule['schedule']}" if len(schedules) > 1 else job_name)
 
-def generate_job(schedule: dict, index) -> JobDefinition:
+def generate_job(schedule: dict) -> JobDefinition:
     return JobDefinition(
-        name=job_name(index),
+        name=job_name(schedule),
         description=description,
-        graph_def=load_domains(schedule, index),
+        graph_def=load_domains(schedule),
     )
 
 defs = Definitions(
-   jobs=[generate_job(schedule, index) for index, schedule in enumerate(schedules)],
+   jobs=[generate_job(schedule) for schedule in schedules],
    schedules=crons,
 )

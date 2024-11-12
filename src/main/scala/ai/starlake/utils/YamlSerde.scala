@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{ApplicationDesc, Settings}
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.extract.{ExtractDesc, JDBCSchemas}

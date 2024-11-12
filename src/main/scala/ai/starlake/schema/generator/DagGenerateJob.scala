@@ -97,13 +97,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(
-      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/transform/")
+      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/")
     )
-
-    if (config.clean) {
-      logger.info(s"Cleaning output directory $outputDir")
-      settings.storageHandler().delete(new Path(outputDir, "transform"))
-    }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
     val taskConfigs = taskWithDagConfigs(dagConfigs, config.tags.toSet)
@@ -161,19 +156,20 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       }
   }
 
+  def clean(dir: Option[String])(implicit settings: Settings): Unit = {
+    val outputDir = new Path(
+      dir.getOrElse(DatasetArea.dags.toString + "/generated/")
+    )
+    settings.storageHandler().mkdirs(outputDir)
+    logger.info(s"Cleaning output directory $outputDir")
+    settings.storageHandler().delete(outputDir)
+  }
   def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
-
     val outputDir = new Path(
-      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/load/")
+      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/")
     )
-
-    settings.storageHandler().mkdirs(outputDir)
-    if (config.clean) {
-      logger.info(s"Cleaning output directory $outputDir")
-      settings.storageHandler().delete(new Path(outputDir, "load"))
-    }
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
     val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
