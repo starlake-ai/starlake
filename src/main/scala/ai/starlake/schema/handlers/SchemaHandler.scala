@@ -634,14 +634,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (Nil, None)
 
   private var _externals = List.empty[Domain]
-  private var _externalLastUpdate = LocalDateTime.now()
+  private var _externalLastUpdate = LocalDateTime.MIN
 
   def externals(): List[Domain] = {
     if (_externals.isEmpty) loadExternals()
     _externals
   }
 
-  private def loadExternals(): List[Domain] = {
+  def loadExternals(): List[Domain] = {
     _externals = if (storage.exists(DatasetArea.external)) {
       val loadedDomains =
         loadDomains(DatasetArea.external, Nil, Nil, raw = false, _externalLastUpdate) match {
