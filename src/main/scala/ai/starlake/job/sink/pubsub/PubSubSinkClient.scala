@@ -85,13 +85,13 @@ private[pubsub] class PubSubSinkClient(parameters: Map[String, String]) extends 
               if (throwable.isInstanceOf[ApiException]) {
                 val apiException = throwable.asInstanceOf[ApiException]
                 // details on the API exception
-                logger.info(apiException.getStatusCode.getCode.toString)
-                logger.info(apiException.getReason)
-                logger.info(apiException.getMessage)
+                logger.error(apiException.getStatusCode.getCode.toString)
+                logger.error(apiException.getReason)
+                logger.error(apiException.getMessage)
                 logger.info(apiException.isRetryable.toString)
                 logger.info(pubsubMessage.toString)
               }
-              logger.info("Error publishing message : " + message)
+              logger.error("Error publishing message : " + message)
             }
 
             override def onSuccess(messageId: String): Unit = {

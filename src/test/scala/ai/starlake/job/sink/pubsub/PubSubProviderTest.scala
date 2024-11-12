@@ -5,7 +5,13 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.pubsub.v1.Publisher
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
 import com.google.protobuf.ByteString
-import com.google.pubsub.v1.{AcknowledgeRequest, ProjectSubscriptionName, ProjectTopicName, PubsubMessage, PullRequest}
+import com.google.pubsub.v1.{
+  AcknowledgeRequest,
+  ProjectSubscriptionName,
+  ProjectTopicName,
+  PubsubMessage,
+  PullRequest
+}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
@@ -24,7 +30,8 @@ class PubSubProviderTest extends AnyFlatSpec with Matchers with StrictLogging {
   private val projectId = "phenytech-global"
   private val subscriptionId = "ity-prd-sub-mycar"
   private val topicId = "ity-prd-top-mycar"
-  private val message = "{\"myCars\":[{\"color\":\"red\",\"id\":\"1\", \"brand\":\"mercedes\"},{\"color\":\"blue\",\"id\":\"2\", \"brand\":\"bmw\"},{\"color\":\"blue\",\"id\":\"3\", \"brand\":\"porsche\"}]}"
+  private val message =
+    "{\"myCars\":[{\"color\":\"red\",\"id\":\"1\", \"brand\":\"mercedes\"},{\"color\":\"blue\",\"id\":\"2\", \"brand\":\"bmw\"},{\"color\":\"blue\",\"id\":\"3\", \"brand\":\"porsche\"}]}"
 
   s"Save in Pubsub Sink" should "work" in {
     val spark = SparkSession.builder
@@ -88,7 +95,6 @@ class PubSubProviderTest extends AnyFlatSpec with Matchers with StrictLogging {
       subscriber.acknowledgeCallable.call(acknowledgeRequest)
       subscriber
     } finally if (subscriber != null) subscriber.close()
-
 
     logger.info(s"outputStream: $outputStream")
     logger.info(s"message: $message")

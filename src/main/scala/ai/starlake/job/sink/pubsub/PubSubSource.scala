@@ -2,15 +2,10 @@ package ai.starlake.job.sink.pubsub
 
 import ai.starlake.job.sink.DataFrameTransform
 import ai.starlake.utils.Utils
-import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
-import com.sun.net.httpserver.HttpExchange
 import com.google.cloud.pubsub.v1.{AckReplyConsumer, MessageReceiver, Subscriber}
-import com.google.pubsub.v1.{
-  AcknowledgeRequest,
-  ProjectSubscriptionName,
-  PubsubMessage,
-  PullRequest
-}
+import com.google.pubsub.v1.{ProjectSubscriptionName, PubsubMessage}
+import com.sun.net.httpserver.HttpExchange
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.ai.starlake.http.HttpSourceProxy
 import org.apache.spark.sql.catalyst.InternalRow
@@ -18,11 +13,8 @@ import org.apache.spark.sql.execution.streaming.{LongOffset, Offset, SerializedO
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.unsafe.types.UTF8String
-import com.typesafe.scalalogging.StrictLogging
 
-import java.util.concurrent.TimeoutException
-import scala.jdk.CollectionConverters.{IterableHasAsJava, ListHasAsScala}
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.collection.mutable.ListBuffer
 
 case class PubSubPayload(data: String)
@@ -41,8 +33,8 @@ class PubSubSource(sqlContext: SQLContext, parameters: Map[String, String])
     subscriptionId != "not_found_in_parameters",
     "Parameter gcpSubscriptionId is mandatory"
   )
-  private val awaitTimeout = sys.env.get("AWAIT_TIMEOUT").map(_.toInt).getOrElse(600)
-  private val numOfMessages = sys.env.get("NUM_OF_MESSAGES").map(_.toInt).getOrElse(1000)
+  private val awaitTimeout =
+    parameters.getOrElse("pubsubAwaitTimeout", "0").toInt // 0 means no timeout
 
   override def schema: StructType = StructType(List(StructField("value", StringType, true)))
   private var producerOffset: LongOffset = new LongOffset(-1);
@@ -69,45 +61,6 @@ class PubSubSource(sqlContext: SQLContext, parameters: Map[String, String])
     logger.info(s"Calling endpoint with data : ${data}")
   }
 
-  /** this thread move data from HttpTextReceiver to local buffer periodically create server */
-  private def startSubscriberSync(): GrpcSubscriberStub = {
-    val subscriberStubSettings: SubscriberStubSettings = SubscriberStubSettings.newBuilder
-      .setTransportChannelProvider(
-        SubscriberStubSettings.defaultGrpcTransportProviderBuilder
-          .setMaxInboundMessageSize(20 * 1024 * 1024)
-          .build
-      )
-      .build
-    val subscriber = GrpcSubscriberStub.create(subscriberStubSettings)
-    try {
-      val subscriptionName = ProjectSubscriptionName.format(projectId, subscriptionId)
-      val pullRequest =
-        PullRequest.newBuilder.setMaxMessages(numOfMessages).setSubscription(subscriptionName).build
-      val pullResponse = subscriber.pullCallable.call(pullRequest)
-      // Stop the program if the pull response is empty to avoid acknowledging
-      // an empty list of ack IDs.
-      if (pullResponse.getReceivedMessagesList.isEmpty) {
-        logger.info("No message was pulled. Exiting.")
-      }
-
-      logger.info(
-        s"Received messages count : ${pullResponse.getReceivedMessagesList.asScala.length}"
-      )
-      val ackIds = pullResponse.getReceivedMessagesList.asScala.map { message =>
-        processMessages(message.getMessage, null)
-        message.getAckId
-      }
-      // Acknowledge received messages.
-      val acknowledgeRequest = AcknowledgeRequest.newBuilder
-        .setSubscription(subscriptionName)
-        .addAllAckIds(ackIds.asJava)
-        .build
-      // Use acknowledgeCallable().futureCall to asynchronously perform this operation.
-      subscriber.acknowledgeCallable.call(acknowledgeRequest)
-      subscriber
-    } finally if (subscriber != null) subscriber.close()
-  }
-
   private def startSubscriberAsync(): Subscriber = {
     logger.info("ProjectSubscriptionName...")
     val subscriptionName = ProjectSubscriptionName.of(projectId, subscriptionId)
@@ -132,7 +85,10 @@ class PubSubSource(sqlContext: SQLContext, parameters: Map[String, String])
       // .awaitRunning
       logger.info(s"Listening for messages on ${subscriptionName.toString}")
       // Allow the subscriber to run for Xs unless an unrecoverable error occurs.
-      subscriber.awaitTerminated()
+      awaitTimeout match {
+        case 0 => subscriber.awaitTerminated()
+        case _ => subscriber.awaitTerminated(awaitTimeout, TimeUnit.SECONDS)
+      }
     } catch {
       case timeoutException: TimeoutException =>
         // Shut down the subscriber after 30s. Stop receiving messages.
