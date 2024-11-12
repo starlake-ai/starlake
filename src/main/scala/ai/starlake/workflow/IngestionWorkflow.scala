@@ -247,9 +247,16 @@ class IngestionWorkflow(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
     )
     filteredDomains.foreach { domain =>
-      // TODO replace by a more generic way to handle ack files using listStageFiles
       val storageHandler = settings.storageHandler()
-      val inputDir = new Path(domain.resolveDirectory())
+      val filesToLoad = listStageFiles(domain).flatMap { case (_, files) => files }
+      val destFolder = DatasetArea.stage(domain.name)
+      filesToLoad.foreach { file =>
+        logger.info(s"Importing $file")
+        val destFile = new Path(destFolder, file.path.getName)
+        storageHandler.moveFromLocal(file.path, destFile)
+      }
+
+    /*val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
         val domainFolderFilesInfo = storageHandler
@@ -378,7 +385,7 @@ class IngestionWorkflow(
         }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
-      }
+      }*/
     }
   }
 
