@@ -3,12 +3,16 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Cmd
 import ai.starlake.job.load.LoadStrategy
-import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{EmptyJobResult, JobResult, PreLoadJobResult, Utils}
+import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
+import ai.starlake.utils.{EmptyJobResult, JobResult, PreLoadJobResult, Unpacker, Utils}
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import scopt.OParser
 
-import scala.util.{Success, Try}
+import java.nio.file.{FileSystems, ProviderNotFoundException}
+import java.util.Collections
+import scala.util.{Failure, Success, Try}
 
 trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
 
@@ -63,7 +67,141 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
 
     config.strategy match {
       case Some(PreLoadStrategy.Imported) =>
-      // TODO
+        schemaHandler.domains(List(config.domain), config.tables.toList).headOption match {
+          case Some(domain) =>
+            val inputDir = new Path(domain.resolveDirectory())
+            val storageHandler = settings.storageHandler()
+            if (storageHandler.exists(inputDir)) {
+              logger.info(s"Scanning $inputDir")
+
+              val domainFolderFilesInfo = storageHandler
+                .list(inputDir, "", recursive = false)
+                .filterNot(
+                  _.path.getName.startsWith(".")
+                ) // ignore files starting with '.' aka .DS_Store
+
+              val archivedFileExtensions = List(".gz", ".tgz", ".zip")
+
+              def getFileWithoutExt(file: FileInfo): Path = {
+                val fileName = file.path.getName
+                fileName.lastIndexOf('.') match {
+                  case -1 => file.path
+                  case i  => new Path(file.path.getParent, fileName.substring(0, i))
+                }
+              }
+
+              val archivedFiles = domainFolderFilesInfo
+                .filter(fileInfo =>
+                  archivedFileExtensions.contains(
+                    fileInfo.path.getName.split('.').lastOption.getOrElse("")
+                  )
+                )
+                .map(archivedFileInfo => {
+                  val archivedFileWithoutExt = getFileWithoutExt(archivedFileInfo)
+                  val archivedDirectory =
+                    new Path(archivedFileWithoutExt.getParent, archivedFileWithoutExt.getName)
+                  storageHandler.mkdirs(archivedDirectory)
+                  // We use Java nio to handle archive files
+
+                  // Java nio FileSystems are only registered based on the system the JVM is based on
+                  // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
+                  // As long as the user provide this app classpath with the appropriate FileSystem implementations,
+                  // we can virtually handle anything
+                  def asBetterFile(path: Path): File = {
+                    Try {
+                      StorageHandler.localFile(path) // try once
+                    } match {
+                      case Success(file) => file
+                      // There is no FileSystem registered that can handle this URI
+                      case Failure(_: ProviderNotFoundException) =>
+                        FileSystems
+                          .newFileSystem(
+                            path.toUri,
+                            Collections.emptyMap[String, Any](),
+                            getClass.getClassLoader
+                          )
+                        // Try to install one from the classpath
+                        File(path.toUri) // retry
+                      case Failure(exception) => throw exception
+                    }
+                  }
+
+                  // File is a proxy to java.nio.Path / working with Uri
+                  val tmpDir = asBetterFile(archivedDirectory)
+                  val archivedFile = asBetterFile(archivedFileInfo.path)
+                  archivedFile.extension() match {
+                    case Some(".tgz") => Unpacker.unpack(archivedFile, tmpDir)
+                    case Some(".gz")  => archivedFile.unGzipTo(tmpDir / archivedDirectory.getName)
+                    case Some(".zip") => archivedFile.unzipTo(tmpDir)
+                    case _            => logger.error(s"Unsupported archive type for $archivedFile")
+                  }
+                  archivedFileInfo -> archivedDirectory
+                })
+              // for a given table, the files included within each archive that respect the table pattern
+              // should be added to the count if and only if the corresponding table archived ack file exists
+
+              val results = {
+                for (table <- domain.tables) yield {
+                  val tableAck = table.metadata
+                    .flatMap(_.ack)
+                    .orElse(domain.metadata.flatMap(_.ack))
+                    .orElse(settings.appConfig.ack)
+                    .getOrElse("")
+
+                  val tableFiles = domainFolderFilesInfo.filter(file =>
+                    table.pattern.matcher(file.path.getName).matches()
+                  )
+
+                  if (tableAck.nonEmpty) {
+                    // for a given table, the files included within each archive that respect the table pattern
+                    // should be added to the number of table files if and only if the corresponding table archived ack file exists
+                    val countArchivedTableFiles =
+                      archivedFiles
+                        .map(_._2)
+                        .filter(archivedDirectory => {
+                          storageHandler.exists(
+                            new Path(
+                              archivedDirectory.getParent,
+                              s"${archivedDirectory.getName}$tableAck"
+                            )
+                          )
+                        })
+                        .map(archivedDirectory => {
+                          storageHandler
+                            .list(archivedDirectory, "", recursive = false)
+                            .count(fileInfo =>
+                              table.pattern.matcher(fileInfo.path.getName).matches()
+                            )
+                        })
+                        .sum
+                    table.name -> (countArchivedTableFiles + tableFiles.count(fileInfo => {
+                      val fileWithoutExt = getFileWithoutExt(fileInfo)
+                      storageHandler.exists(
+                        new Path(fileWithoutExt.getParent, s"${fileWithoutExt.getName}$tableAck")
+                      )
+                    }))
+                  } else {
+                    table.name -> (archivedFiles
+                      .map(archivedFile => {
+                        val archivedDirectory = archivedFile._2
+                        val tableFiles =
+                          storageHandler.list(archivedDirectory, "", recursive = false)
+                        tableFiles
+                          .count(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
+                      })
+                      .sum + tableFiles.size)
+                  }
+                }
+              }
+              archivedFiles.map(_._2).foreach(storageHandler.delete)
+              return Success(PreLoadJobResult(config.domain, results.toMap))
+            } else {
+              return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 0).toMap))
+            }
+          case None =>
+            return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 0).toMap))
+        }
+
       case Some(PreLoadStrategy.Pending) =>
         val pendingArea = DatasetArea.stage(config.domain)
         val files = settings.storageHandler().list(pendingArea, recursive = false)
@@ -81,6 +219,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
 
       case Some(PreLoadStrategy.Ack) =>
       // TODO
+
       case _ =>
         return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 1).toMap))
     }
