@@ -64,7 +64,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
       case Some(PreLoadStrategy.Imported) =>
         schemaHandler.domains(List(config.domain), config.tables.toList).headOption match {
           case Some(domain) =>
-            return Success(
+            Success(
               PreLoadJobResult(
                 config.domain,
                 workflow(schemaHandler)
@@ -73,7 +73,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
               )
             )
           case None =>
-            return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 0).toMap))
+            Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 0).toMap))
         }
 
       case Some(PreLoadStrategy.Pending) =>
@@ -89,15 +89,15 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
             }
           }
 
-        return Success(PreLoadJobResult(config.domain, results.toMap))
+        Success(PreLoadJobResult(config.domain, results.toMap))
 
       case Some(PreLoadStrategy.Ack) =>
-      // TODO
+        // TODO
+        Success(EmptyJobResult)
 
       case _ =>
-        return Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 1).toMap))
+        Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 1).toMap))
     }
-    Success(EmptyJobResult)
   }
 }
 
