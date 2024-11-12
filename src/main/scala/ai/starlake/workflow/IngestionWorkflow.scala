@@ -69,7 +69,7 @@ import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.sql.{Connection, Types}
 import java.time.Instant
 import java.util.Collections
-import java.util.regex.Pattern
+//import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
@@ -133,8 +133,6 @@ private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
   *   : Minimum set of features required for the underlying filesystem
   * @param schemaHandler
   *   : Schema interface
-  * @param launchHandler
-  *   : Cron Manager interface
   */
 class IngestionWorkflow(
   storageHandler: StorageHandler,
@@ -248,7 +246,7 @@ class IngestionWorkflow(
     )
     filteredDomains.foreach { domain =>
       val storageHandler = settings.storageHandler()
-      val filesToLoad = listStageFiles(domain).flatMap { case (_, files) => files }
+      val filesToLoad = listStageFiles(domain, dryMode = false).flatMap { case (_, files) => files }
       val destFolder = DatasetArea.stage(domain.name)
       filesToLoad.foreach { file =>
         logger.info(s"Importing $file")
@@ -389,14 +387,14 @@ class IngestionWorkflow(
     }
   }
 
-  def listStageFiles(domain: Domain, dryMode: Boolean = false): Map[String, List[FileInfo]] = {
+  def listStageFiles(domain: Domain, dryMode: Boolean): Map[String, List[FileInfo]] = {
     val inputDir = new Path(domain.resolveDirectory())
     val storageHandler = settings.storageHandler()
     if (storageHandler.exists(inputDir)) {
       logger.info(s"Scanning $inputDir")
 
       val domainFolderFilesInfo = storageHandler
-        .list(inputDir, "", recursive = false)
+        .list(inputDir, recursive = false)
         .filterNot(
           _.path.getName.startsWith(".")
         ) // ignore files starting with '.' aka .DS_Store
@@ -478,28 +476,21 @@ class IngestionWorkflow(
             // should be added to the archived table files if and only if the corresponding table archived ack file exists
             val archivedTableFiles =
               archivedFiles
-                .map(_._2)
-                .filter(archivedDirectory => {
-                  val ackPath =
-                    new Path(
-                      archivedDirectory.getParent,
-                      s"${archivedDirectory.getName}$tableAck"
-                    )
+                .filter(archivedFile => {
+                  val ackPath = archivedFile._1.path.suffix(tableAck)
                   val ret = storageHandler.exists(ackPath)
                   if (ret && !dryMode) {
                     storageHandler.delete(ackPath)
                   }
                   ret
                 })
-                .flatMap(archivedDirectory => {
+                .flatMap(archivedFile => {
                   storageHandler
-                    .list(archivedDirectory, "", recursive = false)
+                    .list(archivedFile._2, recursive = false)
                     .filter(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
                 })
             table.name -> (archivedTableFiles ++ tableFiles.filter(fileInfo => {
-              val fileWithoutExt = getFileWithoutExt(fileInfo)
-              val ackPath =
-                new Path(fileWithoutExt.getParent, s"${fileWithoutExt.getName}$tableAck")
+              val ackPath = fileInfo.path.suffix(tableAck)
               val ret = storageHandler.exists(ackPath)
               if (ret && !dryMode) {
                 storageHandler.delete(ackPath)
@@ -511,7 +502,7 @@ class IngestionWorkflow(
               .map(_._2)
               .flatMap(archivedDirectory =>
                 storageHandler
-                  .list(archivedDirectory, "", recursive = false)
+                  .list(archivedDirectory, recursive = false)
                   .filter(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
               )
             table.name -> (tableArchivedFiles ++ tableFiles)
@@ -530,7 +521,7 @@ class IngestionWorkflow(
     }
   }
 
-  private def listExtensionsMatchesInFolder(
+  /*private def listExtensionsMatchesInFolder(
     domainFolderContent: List[FileInfo],
     tablesPattern: List[Pattern]
   ): List[String] = {
@@ -550,7 +541,7 @@ class IngestionWorkflow(
     }.distinct
     logger.info(s"Found extensions : $tableExtensions")
     tableExtensions.map(ext => if (ext.startsWith(".") || ext.isEmpty) ext else s".$ext")
-  }
+  }*/
 
   /** Split files into resolved and unresolved datasets. A file is unresolved if a corresponding
     * schema is not found. Schema matching is based on the dataset filename pattern
@@ -605,7 +596,7 @@ class IngestionWorkflow(
 
               val filteredResolved =
                 if (settings.appConfig.privacyOnly) {
-                  val (withPrivacy, noPrivacy) =
+                  val (withPrivacy, _) =
                     resolved.partition { case (schema, _) =>
                       schema.exists(
                         _.attributes.map(_.resolvePrivacy()).exists(!TransformInput.None.equals(_))
@@ -1193,7 +1184,7 @@ class IngestionWorkflow(
         s"Tests succeeded: ${success.map { t => s"${t.domainName}.${t.taskName}.${t.testName}" }.mkString("\n")}"
       )
     }
-    if (failure.size > 0) {
+    if (failure.nonEmpty) {
       FailedJobResult
     } else {
       EmptyJobResult
@@ -1337,7 +1328,7 @@ class IngestionWorkflow(
             exception.printStackTrace()
             Failure(exception)
         }
-      case custom =>
+      case _ =>
         (action.run(), transformConfig.interactive) match {
           case (Success(jobResult: SparkJobResult), Some(format)) =>
             val result = jobResult.prettyPrint(format)
