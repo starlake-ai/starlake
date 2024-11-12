@@ -3,8 +3,9 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{EmptyJobResult, JobResult, PreLoadJobResult}
+import ai.starlake.utils.{EmptyJobResult, FailedJobResult, JobResult, PreLoadJobResult}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import scopt.OParser
 
 import scala.util.{Success, Try}
@@ -92,8 +93,19 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
         Success(PreLoadJobResult(config.domain, results.toMap))
 
       case Some(PreLoadStrategy.Ack) =>
-        // TODO
-        Success(EmptyJobResult)
+        config.globalAckFilePath match {
+          case Some(globalAckFilePath) =>
+            val storageHandler = settings.storageHandler()
+            val path = new Path(globalAckFilePath)
+            if (storageHandler.exists(path)) {
+              storageHandler.delete(path)
+              Success(EmptyJobResult)
+            } else {
+              Success(FailedJobResult)
+            }
+          case None =>
+            Success(FailedJobResult)
+        }
 
       case _ =>
         Success(PreLoadJobResult(config.domain, config.tables.map(t => t -> 1).toMap))
