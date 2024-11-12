@@ -247,6 +247,7 @@ class IngestionWorkflow(
       s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
     )
     filteredDomains.foreach { domain =>
+      // TODO replace by a more generic way to handle ack files using listStageFiles
       val storageHandler = settings.storageHandler()
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
