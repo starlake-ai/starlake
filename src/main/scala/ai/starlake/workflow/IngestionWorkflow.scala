@@ -381,6 +381,147 @@ class IngestionWorkflow(
     }
   }
 
+  def listStageFiles(domain: Domain, dryMode: Boolean = false): Map[String, List[FileInfo]] = {
+    val inputDir = new Path(domain.resolveDirectory())
+    val storageHandler = settings.storageHandler()
+    if (storageHandler.exists(inputDir)) {
+      logger.info(s"Scanning $inputDir")
+
+      val domainFolderFilesInfo = storageHandler
+        .list(inputDir, "", recursive = false)
+        .filterNot(
+          _.path.getName.startsWith(".")
+        ) // ignore files starting with '.' aka .DS_Store
+
+      val archivedFileExtensions = List(".gz", ".tgz", ".zip")
+
+      def getFileWithoutExt(file: FileInfo): Path = {
+        val fileName = file.path.getName
+        fileName.lastIndexOf('.') match {
+          case -1 => file.path
+          case i  => new Path(file.path.getParent, fileName.substring(0, i))
+        }
+      }
+
+      val archivedFiles = domainFolderFilesInfo
+        .filter(fileInfo =>
+          archivedFileExtensions.contains(
+            fileInfo.path.getName.split('.').lastOption.getOrElse("")
+          )
+        )
+        .map(archivedFileInfo => {
+          val archivedFileWithoutExt = getFileWithoutExt(archivedFileInfo)
+          val archivedDirectory =
+            new Path(archivedFileWithoutExt.getParent, archivedFileWithoutExt.getName)
+          storageHandler.mkdirs(archivedDirectory)
+          // We use Java nio to handle archive files
+
+          // Java nio FileSystems are only registered based on the system the JVM is based on
+          // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
+          // As long as the user provide this app classpath with the appropriate FileSystem implementations,
+          // we can virtually handle anything
+          def asBetterFile(path: Path): File = {
+            Try {
+              StorageHandler.localFile(path) // try once
+            } match {
+              case Success(file) => file
+              // There is no FileSystem registered that can handle this URI
+              case Failure(_: ProviderNotFoundException) =>
+                FileSystems
+                  .newFileSystem(
+                    path.toUri,
+                    Collections.emptyMap[String, Any](),
+                    getClass.getClassLoader
+                  )
+                // Try to install one from the classpath
+                File(path.toUri) // retry
+              case Failure(exception) => throw exception
+            }
+          }
+
+          // File is a proxy to java.nio.Path / working with Uri
+          val tmpDir = asBetterFile(archivedDirectory)
+          val archivedFile = asBetterFile(archivedFileInfo.path)
+          archivedFile.extension() match {
+            case Some(".tgz") => Unpacker.unpack(archivedFile, tmpDir)
+            case Some(".gz")  => archivedFile.unGzipTo(tmpDir / archivedDirectory.getName)
+            case Some(".zip") => archivedFile.unzipTo(tmpDir)
+            case _            => logger.error(s"Unsupported archive type for $archivedFile")
+          }
+          if (!dryMode) {
+            storageHandler.delete(archivedFileInfo.path)
+          }
+          archivedFileInfo -> archivedDirectory
+        })
+
+      val results = {
+        for (table <- domain.tables) yield {
+          val tableAck = table.metadata
+            .flatMap(_.ack)
+            .orElse(domain.metadata.flatMap(_.ack))
+            .orElse(settings.appConfig.ack)
+            .getOrElse("")
+
+          val tableFiles =
+            domainFolderFilesInfo.filter(file => table.pattern.matcher(file.path.getName).matches())
+
+          if (tableAck.nonEmpty) {
+            // for a given table, the files included within each archive that respect the table pattern
+            // should be added to the archived table files if and only if the corresponding table archived ack file exists
+            val archivedTableFiles =
+              archivedFiles
+                .map(_._2)
+                .filter(archivedDirectory => {
+                  val ackPath =
+                    new Path(
+                      archivedDirectory.getParent,
+                      s"${archivedDirectory.getName}$tableAck"
+                    )
+                  val ret = storageHandler.exists(ackPath)
+                  if (!dryMode) {
+                    storageHandler.delete(ackPath)
+                  }
+                  ret
+                })
+                .flatMap(archivedDirectory => {
+                  storageHandler
+                    .list(archivedDirectory, "", recursive = false)
+                    .filter(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
+                })
+            table.name -> (archivedTableFiles ++ tableFiles.filter(fileInfo => {
+              val fileWithoutExt = getFileWithoutExt(fileInfo)
+              val ackPath =
+                new Path(fileWithoutExt.getParent, s"${fileWithoutExt.getName}$tableAck")
+              val ret = storageHandler.exists(ackPath)
+              if (!dryMode) {
+                storageHandler.delete(ackPath)
+              }
+              ret
+            }))
+          } else {
+            val tableArchivedFiles = archivedFiles
+              .map(_._2)
+              .flatMap(archivedDirectory =>
+                storageHandler
+                  .list(archivedDirectory, "", recursive = false)
+                  .filter(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
+              )
+            table.name -> (tableArchivedFiles ++ tableFiles)
+          }
+        }
+      }
+
+      archivedFiles.map(_._2).foreach(storageHandler.delete)
+
+      results.toMap
+    } else {
+      logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
+      (for (table <- domain.tables) yield {
+        table.name -> List.empty
+      }).toMap
+    }
+  }
+
   private def listExtensionsMatchesInFolder(
     domainFolderContent: List[FileInfo],
     tablesPattern: List[Pattern]
