@@ -478,7 +478,7 @@ class IngestionWorkflow(
                       s"${archivedDirectory.getName}$tableAck"
                     )
                   val ret = storageHandler.exists(ackPath)
-                  if (!dryMode) {
+                  if (ret && !dryMode) {
                     storageHandler.delete(ackPath)
                   }
                   ret
@@ -493,7 +493,7 @@ class IngestionWorkflow(
               val ackPath =
                 new Path(fileWithoutExt.getParent, s"${fileWithoutExt.getName}$tableAck")
               val ret = storageHandler.exists(ackPath)
-              if (!dryMode) {
+              if (ret && !dryMode) {
                 storageHandler.delete(ackPath)
               }
               ret
