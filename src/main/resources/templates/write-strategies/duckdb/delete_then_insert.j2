@@ -26,8 +26,7 @@ WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_VIEW_WITH_ROWNUM', st
 
 {% endif %}
 
-INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM SL_INCOMING
-WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%};
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM SL_INCOMING;
 
 DROP VIEW IF EXISTS SL_VIEW_WITH_ROWNUM;
 DROP VIEW IF EXISTS SL_INCOMING;

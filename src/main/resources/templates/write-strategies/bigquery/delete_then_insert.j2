@@ -4,7 +4,6 @@ USING (
   sl_incoming_data AS (
     SELECT {{ tableColumnsCsv }}
     FROM ({{ selectStatement }})
-    WHERE {% for mergeKey in quotedStrategyKey %}{{ mergeKey }} IS NOT NULL{% if not loop.last %} AND {% endif %}{%endfor%}
   ),
   sl_existing_keys AS (
     select distinct {{ strategyKeyCsv }} from {{ tableFullName  }}
