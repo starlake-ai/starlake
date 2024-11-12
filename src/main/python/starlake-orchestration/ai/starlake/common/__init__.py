@@ -75,3 +75,25 @@ def sort_crons_by_frequency(cron_expressions, period='day'):
     # Sort by frequency in descending order
     sorted_expressions = sorted(frequencies, key=lambda x: x[1], reverse=True)
     return sorted_expressions
+
+sl_timestamp_format = '%Y-%m-%d %H:%M:%S%z'
+
+def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_time(), format: str = sl_timestamp_format) -> str:
+    """
+    Returns the start and end dates for a cron expression.
+
+    :param cron_expr: The cron expression.
+    :param start_time: The start time.
+    :param format: The format to return the dates in.
+    """
+    from croniter import croniter
+    iter = croniter(cron_expr, start_time)
+    curr = iter.get_current(datetime)
+    previous = iter.get_prev(datetime)
+    next = croniter(cron_expr, previous).get_next(datetime)
+    if curr == next :
+        sl_end_date = curr
+    else:
+        sl_end_date = previous
+    sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
+    return f"sl_start_date='{sl_start_date.strftime(format)}',sl_end_date='{sl_end_date.strftime(format)}'"

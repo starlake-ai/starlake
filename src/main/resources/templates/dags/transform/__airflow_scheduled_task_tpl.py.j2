@@ -1,4 +1,4 @@
-from ai.starlake.common import sanitize_id, sort_crons_by_frequency
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 from ai.starlake.job import StarlakeSparkConfig
 from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
@@ -27,7 +27,7 @@ datasets: Set[str] = set()
 
 cronDatasets: dict = dict()
 
-_filtered_datasets: Set[str] = sys.modules[__name__].__dict__.get('filtered_datasets', set())
+_filtered_datasets: Set[str] = set(sys.modules[__name__].__dict__.get('filtered_datasets', []))
 
 from typing import List
 
@@ -42,8 +42,9 @@ def load_task_dependencies(task):
             load_task_dependencies(subtask)
 
 for task in task_deps:
-    first_level_tasks.add(task['data']['name'])
-    _filtered_datasets.add(sanitize_id(task['data']['name']).lower())
+    task_id = task['data']['name']
+    first_level_tasks.add(task_id)
+    _filtered_datasets.add(sanitize_id(task_id).lower())
     load_task_dependencies(task)
 
 def _load_datasets(task: dict):
@@ -59,7 +60,7 @@ def _load_datasets(task: dict):
                 else :
                   datasets.add(dataset)
 
-if load_dependencies :
+if not load_dependencies :
     if not _cron:
         for task in task_deps:
             _load_datasets(task)
@@ -67,15 +68,45 @@ if load_dependencies :
 
 tags = sl_job.get_context_var(var_name='tags', default_value="", options=options).split()
 
+def ts_as_datetime(ts):
+  # Convert ts to a datetime object
+  from datetime import datetime
+  return datetime.fromisoformat(ts)
+
+_user_defined_macros = sys.modules[__name__].__dict__.get('user_defined_macros', dict())
+_user_defined_macros["sl_dates"] = sl_cron_start_end_dates
+_user_defined_macros["ts_as_datetime"] = ts_as_datetime
+
+catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='True', options=options).lower() == 'true'
+
+def to_datetime(date_str: str):
+  from datetime import datetime
+  if date_str.__len__() == 10:
+      dt = datetime.strptime(date_str, "%Y-%m-%d")
+  else:
+      from airflow.utils.dates import days_ago
+      dt = days_ago(1)
+  return datetime.fromtimestamp(dt.timestamp())
+
+start_date = to_datetime(sl_job.get_context_var(var_name='start_date', default_value="", options=options))
+
+end_date = sl_job.get_context_var(var_name='end_date', default_value="", options=options)
+if end_date.__len__() == 10:
+    end_date = to_datetime(end_date)
+else:
+    end_date = None
+
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
          schedule=_cron if _cron else schedule,
          default_args=sys.modules[__name__].__dict__.get('default_dag_args', DEFAULT_DAG_ARGS),
-         catchup=False,
-         user_defined_macros=sys.modules[__name__].__dict__.get('user_defined_macros', None),
+         catchup=catchup,
+         user_defined_macros=_user_defined_macros,
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
          tags=list(set([tag.upper() for tag in tags])),
-         description=description) as dag:
+         description=description,
+         start_date=start_date,
+         end_date=end_date) as dag:
 
     start = sl_job.dummy_op(task_id="start")
 
@@ -83,14 +114,28 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
 
     post_tasks = sl_job.post_tasks(dag=dag)
 
+    if _cron:
+        cron_expr = _cron
+    elif datasets.__len__() == cronDatasets.__len__() and set(cronDatasets.values()).__len__() > 0:
+        sorted_crons = sort_crons_by_frequency(set(cronDatasets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+        cron_expr = sorted_crons[0][0]
+    else:
+        cron_expr = None
+
+    if cron_expr:
+        transform_options = "{{"{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"}}"
+    else:
+        transform_options = None
+
     def create_task(airflow_task_id: str, task_name: str, task_type: str):
         spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', task_name.lower(), options)
         if (task_type == 'task'):
             return sl_job.sl_transform(
                 task_id=airflow_task_id, 
                 transform_name=task_name,
+                transform_options=transform_options,
                 spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
-                params={'cron':_cron},
+                params={'cron':_cron, 'cron_expr':cron_expr},
                 dag=dag
             )
         else:
@@ -146,21 +191,15 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
 
     extra: dict = {"source": dag.dag_id}
     outlets: List[Dataset] = [Dataset(sl_job.sl_dataset(dag.dag_id, cron=_cron), extra)]
-    # we don't want to republish all scheduled datasets if there is none unscheduled datasets, otherwise the dag will be triggered indefinitely
-    if cronDatasets :
-        if datasets.__len__() != cronDatasets.__len__():
-          for dataset, _ in cronDatasets.items() :
-            # we republish all scheduled datasets
-            outlets.append(Dataset(dataset, extra))
-        elif set(cronDatasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
-          # we sort the cron datasets by frequency (most frequent first)
-          sorted_crons = sort_crons_by_frequency(set(cronDatasets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
-          # we exclude the most frequent cron dataset
-          least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-          for dataset, cron in cronDatasets.items() :
+    if set(cronDatasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+        # we sort the cron datasets by frequency (most frequent first)
+        sorted_crons = sort_crons_by_frequency(set(cronDatasets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+        # we exclude the most frequent cron dataset
+        least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
+        for dataset, cron in cronDatasets.items() :
             # we republish the least frequent scheduled datasets
             if cron in least_frequent_crons:
-              outlets.append(Dataset(dataset, extra))
+                outlets.append(Dataset(dataset, extra))
 
     end = sl_job.dummy_op(task_id="end", outlets=outlets)
 
