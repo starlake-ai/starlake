@@ -236,7 +236,11 @@ trait IngestionJob extends SparkJob {
 
   private def isNativeCandidate(dbType: String): Boolean = {
     val nativeValidator =
-      mergedMetadata.loader.getOrElse(settings.appConfig.loader).toLowerCase().equals("native")
+      mergedMetadata.loader
+        .orElse(mergedMetadata.getSinkConnection().loader)
+        .getOrElse(settings.appConfig.loader)
+        .toLowerCase()
+        .equals("native")
     if (!nativeValidator) {
       false
     } else {

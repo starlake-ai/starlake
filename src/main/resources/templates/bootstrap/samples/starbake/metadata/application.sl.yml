@@ -1,10 +1,10 @@
 ---
 version: 1
 application:
-  connectionRef: "{{connectionRef}}"
+  connectionRef: "duckdb"
   audit:
     sink:
-      connectionRef: "{{connectionRef}}"
+      connectionRef: "duckdb"
   connections:
     spark_local:
       type: "fs" # Connection to local file system (delta files)
@@ -30,6 +30,7 @@ application:
         quoteIdentifiers: false
     redshift:
       type: jdbc
+      loader: "native"
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
@@ -49,6 +50,7 @@ application:
         aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
       type: jdbc
+      loader: "native"
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
