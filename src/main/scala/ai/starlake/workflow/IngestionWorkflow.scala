@@ -477,7 +477,8 @@ class IngestionWorkflow(
             val archivedTableFiles =
               archivedFiles
                 .filter(archivedFile => {
-                  val ackPath = archivedFile._1.path.suffix(tableAck)
+                  val ackPath = getFileWithoutExt(archivedFile._1).suffix(s".$tableAck")
+                  logger.info(s"Checking ack archived file $ackPath")
                   val ret = storageHandler.exists(ackPath)
                   if (ret && !dryMode) {
                     storageHandler.delete(ackPath)
@@ -490,7 +491,8 @@ class IngestionWorkflow(
                     .filter(fileInfo => table.pattern.matcher(fileInfo.path.getName).matches())
                 })
             table.name -> (archivedTableFiles ++ tableFiles.filter(fileInfo => {
-              val ackPath = fileInfo.path.suffix(tableAck)
+              val ackPath = getFileWithoutExt(fileInfo).suffix(s".$tableAck")
+              logger.info(s"Checking ack raw file $ackPath")
               val ret = storageHandler.exists(ackPath)
               if (ret && !dryMode) {
                 storageHandler.delete(ackPath)
